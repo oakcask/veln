@@ -134,15 +134,16 @@ annotation span and both identities.
 Incompatible older layout headers are rejected rather than decoded with an
 older module-value record shape.
 
-This source surface does not make module values executable. Semantic analysis
-checks the written annotation and finite-data initializer, resolves
-same-module and imported references, enforces package-aware declaration
-identity and visibility, and rejects initializer cycles across package sources.
+This source form remains subject to semantic validation before execution.
+Semantic analysis checks the written annotation and finite-data initializer,
+resolves same-module and imported references, enforces package-aware
+declaration identity and visibility, and rejects initializer cycles across
+package sources.
 `veln fmt` accepts and formats a valid declaration, while `veln check` and
-commands that require checked code still report `module.value_not_executable`.
+commands that require checked code accept it after semantic validation.
 Checked core and typed IR retain declarations, finite initializer trees, and
-selected package-aware reference identities. Runtime materialization and code
-generation are not implemented.
+selected package-aware reference identities. Runtime reads materialize the
+selected finite initializer data without invoking user code.
 
 ### Declaration and expression inventory
 

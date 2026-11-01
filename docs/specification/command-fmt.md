@@ -72,11 +72,12 @@ migrated.
 ## Limits and errors
 
 The parse gate applies to the complete selected set; semantic analysis is not
-a formatting gate. Formatting a module `let` declaration therefore does not
-make it acceptable to `veln check` or `veln run`; those commands report that
-module values are not executable. After the parse gate, files are written
-sequentially. A filesystem write error fails the command but does not roll back
-earlier successful writes.
+a formatting gate. Formatting a module `let` declaration does not validate its
+semantics. The shared
+[command-analysis specification](command-analysis.md)
+owns that boundary. After the parse gate, files are written sequentially. A
+filesystem write error fails the command but does not roll back earlier
+successful writes.
 
 ## References
 

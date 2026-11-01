@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["ok"]
+
+[stderr]
+format = "empty"

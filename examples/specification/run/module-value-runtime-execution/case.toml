@@ -1,0 +1,15 @@
+# This case verifies JVM materialization and package-aware declaration identity
+# through the public run command. Standard-library printing and integer
+# conversion only expose the independently written expected runtime values.
+command = ["run", "main", "main.veln", "local_values.veln", "alpha_wrapper.veln", "beta_wrapper.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "text"
+equals_file = "case-text/stdout.txt"
+
+[stderr]
+format = "empty"

@@ -9,12 +9,6 @@ pub(super) fn check_module_declarations(
     let mut module_value_publication = module_value_analysis.publication_provenance(module);
     let mut diagnostics = module_value_analysis.diagnostics;
 
-    diagnostics.extend(
-        module
-            .module_values
-            .iter()
-            .map(module_value_not_executable_diagnostic),
-    );
     diagnostics.extend(check_invalid_name_casing(module, environment));
     append_name_collisions(module, &mut diagnostics, &mut module_value_publication);
     append_boundary_diagnostics(module, environment, &mut diagnostics);

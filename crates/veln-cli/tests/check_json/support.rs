@@ -69,6 +69,10 @@ impl TestProject {
         self.veln(&["test"], args)
     }
 
+    pub(super) fn test_with_path(&self, args: &[&str], path: &str) -> Output {
+        self.veln_with_path("test", args, path)
+    }
+
     pub(super) fn repair(&self, args: &[&str]) -> Output {
         self.veln(&["repair"], args)
     }
@@ -138,6 +142,12 @@ pub(super) fn assert_contains_all(haystack: &str, needles: &[&str]) {
             "missing substring `{needle}` in {haystack}"
         );
     }
+}
+
+pub(super) fn oversized_module_value_source(entry: &str) -> String {
+    let literal = format!("A{}B{}CZ", "x".repeat(32_767), "y".repeat(32_765));
+    assert_eq!(literal.len(), usize::from(u16::MAX) + 1);
+    format!("let oversized: String = \"{literal}\"\n\n{entry}")
 }
 
 pub(super) fn jdk_is_available() -> bool {

@@ -1,0 +1,5 @@
+use shared as beta_shared from "example/beta"
+
+pub fn selected() -> Int
+	beta_shared::selected
+end

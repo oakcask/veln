@@ -95,9 +95,10 @@ produce typed IR and execute; their cleanup behavior is specified by the
 A module immutable value declaration in the selected analysis first reports
 any finite-data initializer, annotation, public visibility, imported lookup,
 or package-wide dependency diagnostic. Imported lookup retains package-aware
-declaration identity. Every such
-declaration also produces the static diagnostic
-`module.value_not_executable`, and no test worker starts.
+declaration identity. Valid declarations can execute in test workers; an actual
+semantic error blocks the suite before any worker starts. The checked
+[`module-value-runtime-execution`](../../examples/specification/test/module-value-runtime-execution/)
+case exercises a successful worker read through the public test command.
 Variant-refinement errors in the selected analysis are static diagnostics,
 including errors for which recovery retains a type or constructor identity.
 They start no test worker. Human and JSON output derive the diagnostic code,
@@ -118,6 +119,24 @@ A different failure or successful execution fails with
 `reason: "expected_runtime_failure"`. Missing Java is a case error with
 `reason: "runner_error"`.
 
+JVM classfile generation can reject a suite program or an independently
+lowered test that exceeds a classfile representation limit. Before it launches
+any worker, publishes cache state, or launches Java, the command attempts
+generation for the reusable suite program or for every independently lowered
+runnable test. A failure in any of those attempts aborts the command before an
+earlier runnable test can execute. The command writes a
+`veln: JVM backend could not generate ...` message to standard error and exits
+with status 2. It does not produce case records; `--json` does not emit a test
+JSON envelope for this command error.
+An accepted module immutable string or finite initializer is not rejected only
+because its complete representation exceeds one constant-pool string or one
+method, or because its construction constants exceed one generated class
+constant pool. The backend emits bounded pieces before workers start and
+preserves the complete value even when several initializers share declaration
+storage. The
+[execution boundary](execution.md#runtime-readiness-and-host-boundaries)
+defines the supported values and remaining classfile limits.
+
 Workers capture output per case. The coordinator waits for all workers and
 renders human status, JSON cases, diagnostics, events, summaries, failures, and
 exit status in discovered-case order regardless of completion order.
@@ -136,6 +155,9 @@ Runtime expectations cover only contract, ensure, and result failures. They do
 not match arbitrary panics, raw stderr, or process exit status. Output matching
 does not satisfy a runtime expectation, and satisfying an expectation does not
 satisfy an output fence.
+
+Backend representation failures are command errors rather than case failures.
+They do not start workers and cannot be matched by runtime expectations.
 
 Timing stage durations are diagnostic measurements rather than stable
 performance thresholds. Their values depend on the host and selected workload.

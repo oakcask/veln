@@ -12,7 +12,7 @@ use veln_analysis::{
 };
 use veln_ast::{FunctionKind, SurfaceModule};
 use veln_backend_jvm::{
-    JvmProgram, generate_classfiles_with_entry, generate_classfiles_with_test_entries,
+    JvmProgram, try_generate_classfiles_with_entry, try_generate_classfiles_with_test_entries,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope};
 use veln_project::{Project, classify_companion_source, discover_source_paths};
@@ -178,19 +178,23 @@ fn execute_runnable_test_cases(
     timings: &mut TestTimings,
 ) -> Result<(ProjectAnalysis, Vec<TestCase>), String> {
     let generation_start = Instant::now();
-    let reusable_program = analysis.reusable_standard_ir().map(|ir| {
-        generate_classfiles_with_test_entries(
-            ir,
-            &runnable_cases
-                .iter()
-                .map(|case| case.name.clone())
-                .collect::<Vec<_>>(),
-        )
-    });
+    let reusable_program = analysis
+        .reusable_standard_ir()
+        .map(|ir| {
+            try_generate_classfiles_with_test_entries(
+                ir,
+                &runnable_cases
+                    .iter()
+                    .map(|case| case.name.clone())
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .transpose()
+        .map_err(|error| format!("JVM backend could not generate the test program: {error}"))?;
     timings.push("jvm_generation", generation_start.elapsed());
     let execution = Arc::new(TestJvmExecution::new());
     let has_ready_job =
-        preflight_runnable_test_case_jobs(&analysis, reusable_program.as_ref(), &runnable_cases);
+        preflight_runnable_test_case_jobs(&analysis, reusable_program.as_ref(), &runnable_cases)?;
     if has_ready_job {
         execution.get()?;
     }
@@ -205,7 +209,7 @@ fn execute_runnable_test_cases(
             let analysis = analysis_mutex
                 .lock()
                 .map_err(|_| "test analysis state was poisoned".to_string())?;
-            let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case);
+            let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case)?;
             job.set_execution(Arc::clone(&execution));
             Ok::<_, String>(job)
         },
@@ -222,31 +226,31 @@ fn preflight_runnable_test_case_jobs(
     analysis: &ProjectAnalysis,
     reusable_program: Option<&JvmProgram>,
     runnable_cases: &[TestCase],
-) -> bool {
+) -> Result<bool, String> {
     let mut has_ready_job = false;
     for case in runnable_cases {
-        if preflight_test_case_job(analysis, reusable_program, &case.name) {
+        if preflight_test_case_job(analysis, reusable_program, &case.name)? {
             has_ready_job = true;
         }
     }
-    has_ready_job
+    Ok(has_ready_job)
 }
 
 fn preflight_test_case_job(
     analysis: &ProjectAnalysis,
     reusable_program: Option<&JvmProgram>,
     case_name: &str,
-) -> bool {
+) -> Result<bool, String> {
     let Some(reachable) = analysis
         .reusable_standard_ir()
         .is_none()
         .then(|| analysis.lower_reachable_entry(case_name, FunctionKind::Test))
     else {
-        return reusable_program.is_some();
+        return Ok(reusable_program.is_some());
     };
 
     if !reachable.lowered.diagnostics.is_empty() {
-        return false;
+        return Ok(false);
     }
     if retained_user_effect_diagnostic(
         &reachable.module,
@@ -255,13 +259,14 @@ fn preflight_test_case_job(
     )
     .is_some()
     {
-        return false;
+        return Ok(false);
     }
     let Some(ir) = &reachable.lowered.ir else {
-        return false;
+        return Ok(false);
     };
-    let _program = generate_classfiles_with_entry(ir, case_name);
-    true
+    try_generate_classfiles_with_entry(ir, case_name)
+        .map(|_| true)
+        .map_err(|error| format!("JVM backend could not generate test `{case_name}`: {error}"))
 }
 
 pub(crate) fn resolve_test_jobs(

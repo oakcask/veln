@@ -120,7 +120,7 @@ pub(super) fn prepare_test_case_job(
     analysis: &ProjectAnalysis,
     reusable_program: Option<&JvmProgram>,
     mut case: TestCase,
-) -> TestCaseJob {
+) -> Result<TestCaseJob, String> {
     let reachable = analysis
         .reusable_standard_ir()
         .is_none()
@@ -131,7 +131,7 @@ pub(super) fn prepare_test_case_job(
                 case.status = TestCaseStatus::Blocked;
                 case.reason = Some("static_gate".to_string());
                 case.diagnostics = reachable.lowered.diagnostics.clone();
-                return TestCaseJob::Completed(Box::new(case));
+                return Ok(TestCaseJob::Completed(Box::new(case)));
             };
             if let Some(diagnostic) = retained_user_effect_diagnostic(
                 &reachable.module,
@@ -141,13 +141,13 @@ pub(super) fn prepare_test_case_job(
                 case.status = TestCaseStatus::Blocked;
                 case.reason = Some("static_gate".to_string());
                 case.diagnostics = vec![diagnostic];
-                return TestCaseJob::Completed(Box::new(case));
+                return Ok(TestCaseJob::Completed(Box::new(case)));
             }
             let Some(ir) = &reachable.lowered.ir else {
                 case.status = TestCaseStatus::Blocked;
                 case.reason = Some("static_gate".to_string());
                 case.diagnostics = reachable.lowered.diagnostics.clone();
-                return TestCaseJob::Completed(Box::new(case));
+                return Ok(TestCaseJob::Completed(Box::new(case)));
             };
             (&reachable.module, ir)
         }
@@ -162,16 +162,24 @@ pub(super) fn prepare_test_case_job(
     let (program, java_args) = if let Some(program) = reusable_program {
         (program.clone(), vec![case.name.clone()])
     } else {
-        (generate_classfiles_with_entry(ir, &case.name), Vec::new())
+        (
+            try_generate_classfiles_with_entry(ir, &case.name).map_err(|error| {
+                format!(
+                    "JVM backend could not generate test `{}`: {error}",
+                    case.name
+                )
+            })?,
+            Vec::new(),
+        )
     };
 
-    TestCaseJob::Ready(Box::new(ReadyTestCaseJob {
+    Ok(TestCaseJob::Ready(Box::new(ReadyTestCaseJob {
         case,
         module: module.clone(),
         program,
         java_args,
         execution: None,
-    }))
+    })))
 }
 
 pub(super) fn retained_user_effect_diagnostic(

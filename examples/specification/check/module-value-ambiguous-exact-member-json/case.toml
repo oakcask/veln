@@ -15,7 +15,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 21
+equals = 9
 
 [[json_assert]]
 path = "diagnostics.0.details.resolution_status"
@@ -74,55 +74,55 @@ path = "diagnostics.3.related.1.span.start.line"
 equals = 1
 
 [[json_assert]]
-path = "diagnostics.19.message"
+path = "diagnostics.7.message"
 equals = "ambiguous value `shared::answer`"
 
 [[json_assert]]
-path = "diagnostics.19.span.start.line"
+path = "diagnostics.7.span.start.line"
 equals = 9
 
 [[json_assert]]
-path = "diagnostics.19.related"
+path = "diagnostics.7.related"
 length = 2
 
 [[json_assert]]
-path = "diagnostics.19.related.0.package"
+path = "diagnostics.7.related.0.package"
 equals = "one/pkg"
 
 [[json_assert]]
-path = "diagnostics.19.related.0.span.start.line"
+path = "diagnostics.7.related.0.span.start.line"
 equals = 1
 
 [[json_assert]]
-path = "diagnostics.19.related.1.package"
+path = "diagnostics.7.related.1.package"
 equals = "two/pkg"
 
 [[json_assert]]
-path = "diagnostics.19.related.1.span.start.line"
+path = "diagnostics.7.related.1.span.start.line"
 equals = 2
 
 [[json_assert]]
-path = "diagnostics.20.message"
+path = "diagnostics.8.message"
 equals = "ambiguous value `shared::answer`"
 
 [[json_assert]]
-path = "diagnostics.20.related"
+path = "diagnostics.8.related"
 length = 2
 
 [[json_assert]]
-path = "diagnostics.20.related.0.package"
+path = "diagnostics.8.related.0.package"
 equals = "one/pkg"
 
 [[json_assert]]
-path = "diagnostics.20.related.0.span.start.line"
+path = "diagnostics.8.related.0.span.start.line"
 equals = 2
 
 [[json_assert]]
-path = "diagnostics.20.related.1.package"
+path = "diagnostics.8.related.1.package"
 equals = "two/pkg"
 
 [[json_assert]]
-path = "diagnostics.20.related.1.span.start.line"
+path = "diagnostics.8.related.1.span.start.line"
 equals = 1
 
 [[diagnostics]]

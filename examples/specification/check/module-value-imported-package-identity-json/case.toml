@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["expected `Int`, but found `OneValue`", "expected `Int`, but found `TwoValue`", "module.value_not_executable", "type.public_annotation_private", "type.variant_refinement_private", "private_type_declaration", "private_variant_declaration", "public_module_value_boundary", "one/pkg::shared::Secret", "two/pkg::shared::Secret"]
+contains = ["expected `Int`, but found `OneValue`", "expected `Int`, but found `TwoValue`", "type.public_annotation_private", "type.variant_refinement_private", "private_type_declaration", "private_variant_declaration", "public_module_value_boundary", "one/pkg::shared::Secret", "two/pkg::shared::Secret"]
 not_contains = ["expected `OneValue`", "expected `TwoValue`", "name.unresolved", "name.ambiguous", "value.module_initializer_unsupported"]
 
 [stderr]

@@ -7,7 +7,8 @@ specification-coverage: usage=#test-json; behavior=#selection; limits=#usage-and
 
 # Test JSON
 
-This file specifies the implemented JSON output for `veln test --json`.
+This file specifies the implemented JSON output for `veln test --json` when
+the invocation reaches test-report construction.
 
 ## Envelope
 
@@ -114,6 +115,20 @@ JDK setup failures are reported on the affected case with
 `failure.kind: "runtime"`. This includes a missing `java` before compilation
 or class loading.
 
+Before report construction or Java launch, the command attempts JVM classfile
+generation for the reusable suite program or for every independently lowered
+runnable test. A generation failure in any runnable test aborts the command
+before an earlier test can execute or publish cache state. It writes a
+`veln: JVM backend could not generate ...` command error to standard error and
+exits with status 2. The command emits no test JSON envelope or case record for
+this failure.
+An accepted module immutable string that needs more than 65,535 bytes in JVM
+modified UTF-8 is not a generation failure for that reason alone. A selected
+test that reads the complete value produces the normal passed case, summary,
+and output events. The
+[execution boundary](execution.md#runtime-readiness-and-host-boundaries)
+defines the materialization and classfile-limit boundary.
+
 Runtime contract failures inside a selected test case are reported as failed
 cases with `failure.kind: "contract"`. The failure details use
 `kind: "contract"` and `phase: "runtime"` and include:
@@ -167,9 +182,11 @@ record for arbitrary panics, raw stderr matching, or process exit status.
 When selected analysis contains a module immutable value, the run-level
 `diagnostics` array includes its initializer, annotation-visibility, imported
 lookup, and package-wide dependency diagnostics. Imported lookup retains
-package-aware declaration identity. The array also includes
-`module.value_not_executable` for every module-value declaration. Every
-selected case is then reported with `status: "blocked"` and
+package-aware declaration identity. A valid module-value declaration adds no
+diagnostic and can execute in a selected test. The checked
+[`module-value-runtime-execution`](../../examples/specification/test/module-value-runtime-execution/)
+case records the successful worker and its output event. An actual semantic
+error reports each selected case with `status: "blocked"` and
 `reason: "static_gate"`; no worker starts and no case records a runtime event.
 
 Doctest expected-output mismatches are reported as failed cases with
@@ -287,9 +304,9 @@ contract. The
 executable specification case verifies doctest origin mapping through this JSON
 command boundary. The
 [`module-value-imported-static-gate-json`](../../examples/specification/test/module-value-imported-static-gate-json/)
-case verifies package-aware imported value typing, annotation visibility, the
-module-value execution blocker, blocked case records, empty event lists, and
-the absence of Java startup.
+case verifies package-aware imported value typing, annotation-visibility
+failures, blocked case records, empty event lists, and the absence of Java
+startup.
 
 ## Usage and limits
 
@@ -297,7 +314,8 @@ Read `selection` before `cases`: explicit targets may add companions or
 dependency-selected tests. Incomplete graph evidence widens selection with
 `confidence: "unknown"`. Static failures block execution. Runtime expectations
 apply only to doctests. Output matching and runtime expectations are
-independent.
+independent. A backend representation failure is outside this envelope because
+report construction has not completed.
 
 When `VELN_TEST_TIMINGS` is present, timing diagnostics are written to standard
 error after the report. They are not fields in the JSON envelope or case event

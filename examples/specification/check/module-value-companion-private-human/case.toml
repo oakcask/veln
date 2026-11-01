@@ -1,10 +1,9 @@
 command = ["check", "math.test.veln"]
-exit = 1
+exit = 0
 
 [stdout]
 format = "text"
-contains = ["module.value_not_executable"]
-not_contains = ["name.unresolved", "math::secret"]
+contains = ["ok"]
 
 [stderr]
 format = "empty"

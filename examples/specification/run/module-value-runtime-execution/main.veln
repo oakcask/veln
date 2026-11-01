@@ -1,0 +1,72 @@
+use local_values as config
+use alpha_wrapper
+use beta_wrapper
+
+type State
+	Idle
+	Active(count: Int)
+end
+
+let snapshot: { state: State, text: String, flag: Bool } = { state: Active(forward), text: "ready", flag: true }
+let forward: Int = -3
+let nothing: () = ()
+let idle: State = Idle
+let optional: Option<Int> = Some(builtin_payload)
+let absent: Option<Int> = None
+let success: Result<Int, String> = Ok(builtin_payload)
+let failure: Result<Int, String> = Err("failed")
+let items: List<Int> = Cons(builtin_payload, empty)
+let empty: List<Int> = Nil
+let builtin_payload: Int = 7
+
+fn print_state(state: State) -> () effects [stdio]
+	match state
+		Idle => stdio::println("idle")
+		Active(count) => stdio::println(int_to_string(count))
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	if nothing == ()
+		stdio::println("unit")
+	else
+		stdio::println("unexpected unit")
+	end
+	stdio::println(snapshot.text)
+	print_state(snapshot.state)
+	print_state(idle)
+	if snapshot.flag
+		stdio::println("true")
+	else
+		stdio::println("false")
+	end
+	stdio::println(int_to_string(config::selected))
+	stdio::println(int_to_string(alpha_wrapper::selected()))
+	stdio::println(int_to_string(beta_wrapper::selected()))
+	stdio::println(int_to_string(beta_wrapper::selected()))
+	stdio::println(int_to_string(alpha_wrapper::selected()))
+	match optional
+		Some(value) => stdio::println(int_to_string(value))
+		None => stdio::println("unexpected none")
+	end
+	match absent
+		Some(_) => stdio::println("unexpected some")
+		None => stdio::println("none")
+	end
+	match success
+		Ok(value) => stdio::println(int_to_string(value))
+		Err(_) => stdio::println("unexpected error")
+	end
+	match failure
+		Ok(_) => stdio::println("unexpected success")
+		Err(message) => stdio::println(message)
+	end
+	match items
+		Cons(head, _) => stdio::println(int_to_string(head))
+		Nil => stdio::println("unexpected nil")
+	end
+	match empty
+		Cons(_, _) => stdio::println("unexpected cons")
+		Nil => stdio::println("nil")
+	end
+end

@@ -27,8 +27,13 @@ mod runtime;
 pub use api::{
     generate_classfiles_with_entry, generate_classfiles_with_entry_arg_types,
     generate_classfiles_with_entry_arg_types_options, generate_classfiles_with_test_entries,
+    try_generate_classfiles_with_entry, try_generate_classfiles_with_entry_arg_types,
+    try_generate_classfiles_with_entry_arg_types_options,
+    try_generate_classfiles_with_test_entries,
 };
-pub use model::{EntryArgScalar, EntryArgType, JvmBackendOptions, JvmClassFile, JvmProgram};
+pub use model::{
+    EntryArgScalar, EntryArgType, JvmBackendError, JvmBackendOptions, JvmClassFile, JvmProgram,
+};
 
 #[cfg(test)]
 mod tests;

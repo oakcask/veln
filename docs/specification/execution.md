@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#runtime-readiness-and-host-boundaries; behavior=#runtime-readiness-and-host-boundaries; limits=#cleanup-limits
-update-when: The checked-core readiness, typed-IR readiness, runtime execution, module-value documentation/runtime gate boundary, source-visible runtime or binary-schema codec behavior, JVM backend, or execution evidence contract changes.
+update-when: The checked-core readiness, typed-IR readiness, module immutable-value execution, source-visible runtime or binary-schema codec behavior, JVM backend, or execution evidence contract changes.
 ---
 
 # Execution Boundary
@@ -117,8 +117,8 @@ runtime failure, or cancellation is already primary, it remains primary and
 the network-handler cleanup failure is attached as a related cleanup failure
 while unwinding continues.
 
-Semantic diagnostics other than the module-value execution gate must be
-error-free before the compiler produces checked core and typed IR. Command
+Semantic diagnostics must be error-free before the compiler produces checked
+core and typed IR. Command
 analysis checks readiness for the selected entry before applying
 command-specific execution or write policy. Holes, missing expressions,
 constructor or call arity failures, and recognized concurrency blockers
@@ -138,16 +138,55 @@ tests and the typed-IR
 [`successful_lowering`](../../crates/veln-ir/src/lowering/successful_lowering.rs)
 tests.
 
-Shared semantic analysis still emits `module.value_not_executable` for every
-declaration. The diagnostic blocks runtime materialization and code generation.
-It also makes `veln check`, `veln run`, and `veln test` unsuccessful. The
-documentation-only `veln doc` command ignores this runtime gate as specified by
-[the doc command](command-doc.md#gates-and-write-policy). Parsing, formatting,
-semantic checking, documentation generation, and internal representation do
-not create a runtime value or initialization phase.
-The JVM backend requires the typed program's module-value declaration set to
-be empty. It rejects a nonempty set before classfile generation, so retaining a
-declaration in typed IR does not make that declaration executable.
+Functions can read accepted module immutable values. The JVM backend
+materializes strings, integers including negation, booleans, unit, records,
+nullary and payload ADT constructors, including `Option`, `Result`, and `List`,
+and references without invoking user code. A materialized string can contain a
+null scalar or a supplementary Unicode scalar; the generated classfile uses
+JVM modified UTF-8 for that value. Each reference selects the complete package,
+module, and declaration identity, so same-module forward references, imported
+or aliased references, and same-spelled declarations from distinct packages
+produce their selected data independent of source, import, or first-use order.
+Distinct identities also remain distinct when their source names normalize to
+the same generated JVM identifier.
+A valid acyclic
+dependency chain remains executable when its declaration depth exceeds the
+available JVM call-stack depth. A declaration set can span more materialized
+fields and initializers than one JVM class constant pool can represent. The
+backend partitions declarations into storage classes while retaining
+declaration identity and dependency order. One initializer's construction
+constants and helpers can span bounded generated classes. Several initializers
+that share declaration storage do not accumulate their construction constants
+in that storage class. Generated construction pieces are bounded by method and
+class-wide constant-pool resources, and their dispatch is grouped so no owner
+method must directly reference every piece. One admitted string does not need
+to fit one JVM constant-pool string, and one admitted initializer tree does not
+need to fit one JVM method or class constant pool. Materialization preserves
+the complete string and every constructor node across the bounded generated
+pieces. Reading the final value does not recursively evaluate the preceding
+initializers. The
+checked
+[`module-value-runtime-execution`](../../examples/specification/run/module-value-runtime-execution/)
+case exercises the supported values and identity boundaries. The focused
+[`JVM backend test`](../../crates/veln-backend-jvm/src/tests/basic_backend.rs)
+executes 20,000-node and 32,768-node constructor values and a
+4,000-declaration chain with constrained compiler and JVM stacks. It checks
+every constructor marker, terminal data, and final declaration value. The same
+backend suite executes one record with 32,768 distinct extra field names,
+several medium record initializers sharing declaration storage, and 11,000
+distinct integer declarations spanning storage classes. Its deterministic
+identifier-allocation workload compares 2,048 and 4,096 package identities
+that normalize to one JVM name. It requires unique generated names, at most two
+candidate checks per declaration plus the function count, and no more than
+three times the work when the declaration count doubles. The run and test
+command regressions execute a 65,536-byte module string and check its
+independent length and boundary markers.
+
+Module values do not add an effectful startup phase, user-code initializer
+execution, mutable storage, or lazy runtime failure. Physical sharing between
+reads is unspecified. Unsupported initializers, type and visibility failures,
+unresolved dependencies, and initializer cycles remain semantic errors and
+produce no executable typed program.
 
 A named-type visibility failure in a public module value annotation is also a
 checked-core and typed-IR blocker. The same applies to a variant-refinement
@@ -252,6 +291,18 @@ syntax.
 
 The JVM backend emits classfile artifacts and invokes the selected entry. Java
 source generation and Java source compilation are outside the command contract.
+If one generated class cannot represent its constant pool, a constant-pool
+string requires more than 65,535 bytes in JVM modified UTF-8, a method requires
+more than 65,535 bytes of code, or a method requires more than 65,535 operand
+stack slots, classfile generation returns a bounded backend failure before it
+writes an invalid or truncated classfile. Module immutable-value materialization
+splits admitted strings and initializer trees before those per-entry,
+per-method, and class-wide constant-pool limits apply. It also isolates
+construction resources for initializers that share declaration storage.
+Deeply nested finite module-value initializers do not consume native compiler
+or JVM call stack in proportion to their nesting depth. The focused JVM backend
+test generates, executes, observes, and releases recursive ADT initializers on
+bounded compiler and JVM stacks.
 `ByteChunk`, `ByteView`, `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,
 `DecodeError`, `EncodeStep<TState>`, and `EncodeError` are immutable
 source-visible values. Byte and view helpers are pure; invalid values,

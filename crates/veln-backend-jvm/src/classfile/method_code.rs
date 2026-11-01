@@ -16,13 +16,20 @@ pub(super) struct MethodCode {
     pub(super) contract_remainder_emission_work: usize,
     #[cfg(test)]
     pub(super) contract_remainder_scan_work: usize,
-    pub(super) max_stack: u16,
+    pub(super) max_stack: usize,
     pub(super) max_locals: u16,
     pub(super) exceptions: Vec<ExceptionHandler>,
 }
 
 impl MethodCode {
     pub(super) fn new(constant_pool: Rc<RefCell<ConstantPool>>) -> Self {
+        Self::with_max_stack(constant_pool, 64)
+    }
+
+    pub(super) fn with_max_stack(
+        constant_pool: Rc<RefCell<ConstantPool>>,
+        max_stack: usize,
+    ) -> Self {
         Self {
             constant_pool,
             code: Vec::new(),
@@ -39,7 +46,7 @@ impl MethodCode {
             contract_remainder_emission_work: 0,
             #[cfg(test)]
             contract_remainder_scan_work: 0,
-            max_stack: 64,
+            max_stack,
             max_locals: 0,
             exceptions: Vec::new(),
         }
@@ -288,6 +295,15 @@ impl MethodCode {
             .borrow_mut()
             .fieldref(class, name, descriptor);
         self.code.push(0xb2);
+        write_u16(&mut self.code, index);
+    }
+
+    pub(super) fn putstatic(&mut self, class: &str, name: &str, descriptor: &str) {
+        let index = self
+            .constant_pool
+            .borrow_mut()
+            .fieldref(class, name, descriptor);
+        self.code.push(0xb3);
         write_u16(&mut self.code, index);
     }
 

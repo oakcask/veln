@@ -51,9 +51,9 @@ A module immutable value declaration in the selected analysis is semantically
 checked before backend launch. Invalid finite-data initializers, annotation
 mismatches, public visibility failures, imported lookup failures, and
 dependency cycles across package sources report their semantic diagnostics.
-Imported lookup retains package-aware declaration identity. Every
-declaration also produces `module.value_not_executable`, so even a valid
-initializer cannot supply a value to the selected program.
+Imported lookup retains package-aware declaration identity. A valid initializer
+supplies immutable finite data to the selected program without running user
+code during initialization.
 
 Variant-refinement errors inside that existing analysis boundary block backend
 launch, including errors for which recovery retains a type or constructor
@@ -83,6 +83,20 @@ limits are specified by
 The reachable program is lowered to typed IR and JVM classfiles. Ordinary
 execution does not write Java source or invoke a Java source compiler. Missing
 Java before class loading is a JDK setup failure.
+
+JVM classfile generation can reject a program that exceeds a classfile
+representation limit. This failure occurs after typed-IR readiness and before
+cache configuration, artifact publication, or Java launch. The command writes
+`veln: JVM backend could not generate the program: REASON` to standard error
+and exits with status 2. This is a command error, so `--json` does not emit a
+run JSON envelope for it.
+An accepted module immutable string or finite initializer is not rejected only
+because its complete representation exceeds one constant-pool string or one
+method, or because its construction constants exceed one generated class
+constant pool. The backend emits bounded pieces and preserves the complete
+value even when several initializers share declaration storage; the
+[execution boundary](execution.md#runtime-readiness-and-host-boundaries)
+defines the supported values and remaining classfile limits.
 
 ## JVM cache
 
@@ -168,8 +182,9 @@ contract-violation diagnostic.
 The command does not execute unreachable code, acquire dependencies, or fall
 back to another cache root after a configuration failure. Static gates prevent
 artifact generation and Java launch, so no user output is produced before a
-static failure. A call-site-aware entry is such a static failure even when its
-body does not read the built-in value.
+static failure. Backend representation failures also prevent artifact
+publication and Java launch. A call-site-aware entry is a static failure even
+when its body does not read the built-in value.
 
 ## References
 

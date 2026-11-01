@@ -1,0 +1,5 @@
+let answer: Int = 42
+
+test reads_module_value() -> () effects [stdio]
+	stdio::println(int_to_string(answer))
+end

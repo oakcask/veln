@@ -64,9 +64,8 @@ document.
 
 A selected module immutable value declaration is checked using the shared
 finite-data initializer, annotation, imported lookup, package-aware visibility,
-and package-wide dependency rules. The runtime-only
-`module.value_not_executable` diagnostic does not block documentation. Any
-other error for a selected module value blocks the complete document. A valid
+and package-wide dependency rules. Any error for a selected module value
+blocks the complete document. A valid
 public value publishes its name and written annotation without its initializer;
 a valid private value is omitted.
 

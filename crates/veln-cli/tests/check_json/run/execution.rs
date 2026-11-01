@@ -1,5 +1,103 @@
 use super::*;
 
+#[test]
+fn run_executes_oversized_module_strings_for_human_and_json_output() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-oversized-module-string");
+    project.write(
+        "main.veln",
+        &oversized_module_value_source(concat!(
+            "fn marker_at(bytes: ByteChunk, offset: Int) -> Result<String, String>\n",
+            "  byte_chunk_to_visible_ascii_string(byte_take(byte_drop(bytes, byte_count(offset)?)?, byte_count(1)?)?)\n",
+            "end\n\n",
+            "pub fn main() -> Result<(), String> effects [stdio]\n",
+            "  let bytes = byte_chunk_from_visible_ascii_string(oversized)?\n",
+            "  stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(bytes))))\n",
+            "  stdio::println(marker_at(bytes, 0)?)\n",
+            "  stdio::println(marker_at(bytes, 32768)?)\n",
+            "  stdio::println(marker_at(bytes, 65534)?)\n",
+            "  stdio::println(marker_at(bytes, 65535)?)\n",
+            "  Ok(())\n",
+            "end\n",
+        )),
+    );
+
+    let human = project.run(&["main", "main.veln"]);
+    assert_eq!(human.status.code(), Some(0), "{}", stderr(&human));
+    assert_eq!(stdout(&human), "65536\nA\nB\nC\nZ\n");
+    assert_eq!(stderr(&human), "");
+
+    let json = project.run(&["--json", "main", "main.veln"]);
+    assert_eq!(json.status.code(), Some(0), "{}", stderr(&json));
+    assert_eq!(stderr(&json), "");
+    assert_contains_all(
+        stdout(&json),
+        &[
+            "\"status\":\"passed\"",
+            "\"exit_code\":0",
+            "\"stdout\":\"65536\\nA\\nB\\nC\\nZ\\n\"",
+        ],
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn run_generation_failure_precedes_cache_and_java_launch() {
+    use std::os::unix::fs::PermissionsExt;
+
+    for (name, args) in [
+        ("human", vec!["main", "main.veln"]),
+        ("json", vec!["--json", "main", "main.veln"]),
+    ] {
+        let project = TestProject::new(&format!("run-generation-failure-{name}"));
+        let oversized = "x".repeat(usize::from(u16::MAX) + 1);
+        project.write(
+            "main.veln",
+            &format!("pub fn main() -> String\n  \"{oversized}\"\nend\n"),
+        );
+        project.write(
+            "bin/java",
+            concat!(
+                "#!/bin/sh\n",
+                "printf '%s\\n' \"$*\" >> java-launches\n",
+                "exit 0\n",
+            ),
+        );
+        let java = project.root.join("bin/java");
+        let mut permissions = std::fs::metadata(&java)
+            .expect("fake java metadata should be available")
+            .permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&java, permissions).expect("fake java should be executable");
+        let tool_path = project.root.join("bin");
+
+        let output = project.run_with_path(
+            &args,
+            tool_path
+                .to_str()
+                .expect("fake tool path should be valid UTF-8"),
+        );
+
+        assert_eq!(output.status.code(), Some(2));
+        assert_eq!(stdout(&output), "");
+        assert_eq!(
+            stderr(&output),
+            "veln: JVM backend could not generate the program: JVM class constant-pool string exceeds 65535 bytes\n"
+        );
+        assert!(
+            !project.root.join("java-launches").exists(),
+            "generation failure must prevent Java launch"
+        );
+        assert!(
+            !project.root.join(".veln-test-cache").exists(),
+            "generation failure must prevent cache publication"
+        );
+    }
+}
+
 #[cfg(unix)]
 #[test]
 fn run_json_uses_stderr_message_for_trace_free_jvm_failure() {

@@ -4,15 +4,17 @@ use std::rc::Rc;
 
 use veln_ast::{BinaryOp, ContractKind, PredicateRemainder, PrefixOp};
 use veln_ir::{
-    ContractObligationStatus, CoreContractCall, CoreType, IrCallTarget, IrCallbackTarget,
-    IrContract, IrDeferredBlock, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider,
-    IrMatchArm, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
+    ContractObligationStatus, CoreContractCall, CoreModuleValueIdentity, CoreType, IrCallTarget,
+    IrCallbackTarget, IrContract, IrDeferredBlock, IrDictEntry, IrExpr, IrExprKind, IrFunction,
+    IrHandlerProvider, IrMatchArm, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
     IrSchemaDecodeDispatchCase, IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
 };
 use veln_literals::parse_integer_literal;
 
-use crate::java::{sanitize_identifier_text, unique_java_identifier, veln_string_literal_value};
-use crate::model::{EntryArgScalar, EntryArgType, JvmClassFile, JvmProgram, SanitizedOptions};
+use crate::java::{JavaIdentifierAllocator, sanitize_identifier_text, veln_string_literal_value};
+use crate::model::{
+    EntryArgScalar, EntryArgType, JvmBackendError, JvmClassFile, JvmProgram, SanitizedOptions,
+};
 use crate::runtime::{
     binary_method, concurrency_method, prelude_method, standard_library_method, stdio_method,
 };
@@ -46,6 +48,431 @@ use method_code::*;
 const PROGRAM_MAJOR_VERSION: u16 = 49;
 const JAVA_LANG_OBJECT: &str = "java/lang/Object";
 const VELN_ENTRY: &str = "VelnEntry";
+const MODULE_VALUE_DESCRIPTOR: &str = "Ljava/lang/Object;";
+const MODULE_VALUES_PER_CLASS: usize = 1_000;
+const MODULE_VALUE_HELPER_CODE_LIMIT: usize = 60_000;
+const MODULE_VALUE_HELPER_CONSTANT_POOL_LIMIT: usize = 30_000;
+const MODULE_VALUE_DISPATCH_FANOUT: usize = 1_000;
+
+fn collect_module_value_dependencies(
+    expr: &IrExpr,
+    dependencies: &mut BTreeSet<CoreModuleValueIdentity>,
+) {
+    let mut pending = vec![expr];
+    while let Some(expr) = pending.pop() {
+        match &expr.kind {
+            IrExprKind::ModuleValue(identity) => {
+                dependencies.insert(identity.clone());
+            }
+            IrExprKind::Record(fields) => {
+                pending.extend(fields.iter().rev().map(|field| &field.value));
+            }
+            IrExprKind::AdtVariant { payloads, .. } => {
+                pending.extend(payloads.iter().rev());
+            }
+            IrExprKind::OptionSome(value)
+            | IrExprKind::ResultOk(value)
+            | IrExprKind::ResultErr(value)
+            | IrExprKind::Prefix { expr: value, .. } => pending.push(value),
+            IrExprKind::ListCons { head, tail } => {
+                pending.push(tail);
+                pending.push(head);
+            }
+            IrExprKind::BoolLiteral(_)
+            | IrExprKind::StringLiteral(_)
+            | IrExprKind::IntLiteral(_)
+            | IrExprKind::OptionNone
+            | IrExprKind::ListNil
+            | IrExprKind::Unit => {}
+            kind => {
+                unreachable!("unsupported module value initializer reached JVM emission: {kind:?}")
+            }
+        }
+    }
+}
+
+enum ModuleValueEmissionWork<'a> {
+    Expr(&'a IrExpr),
+    PushString(String),
+    FinishString(usize),
+    FinishUnary {
+        method: &'static str,
+    },
+    FinishListCons,
+    PushRecordName(&'a str),
+    FinishRecord(usize),
+    FinishAdt {
+        name: &'a [String],
+        payload_count: usize,
+    },
+}
+
+fn schedule_module_value_unary<'a>(
+    work: &mut Vec<ModuleValueEmissionWork<'a>>,
+    value: &'a IrExpr,
+    method: &'static str,
+) {
+    work.push(ModuleValueEmissionWork::FinishUnary { method });
+    work.push(ModuleValueEmissionWork::Expr(value));
+}
+
+fn schedule_module_value_record<'a>(
+    work: &mut Vec<ModuleValueEmissionWork<'a>>,
+    fields: &'a [IrRecordField],
+) {
+    work.push(ModuleValueEmissionWork::FinishRecord(fields.len()));
+    for field in fields.iter().rev() {
+        work.push(ModuleValueEmissionWork::Expr(&field.value));
+        work.push(ModuleValueEmissionWork::PushRecordName(&field.name));
+    }
+}
+
+fn schedule_module_value_adt<'a>(
+    work: &mut Vec<ModuleValueEmissionWork<'a>>,
+    name: &'a [String],
+    payloads: &'a [IrExpr],
+) {
+    work.push(ModuleValueEmissionWork::FinishAdt {
+        name,
+        payload_count: payloads.len(),
+    });
+    work.extend(payloads.iter().rev().map(ModuleValueEmissionWork::Expr));
+}
+
+fn emit_module_value_builder_call(
+    emitter: &FunctionBytecodeEmitter<'_, '_>,
+    code: &mut MethodCode,
+    method: &str,
+) {
+    code.aload(0);
+    code.invokestatic(
+        &emitter.program.options.runtime_class,
+        method,
+        "(Ljava/util/ArrayList;)V",
+    );
+}
+
+fn finish_module_value_push(emitter: &FunctionBytecodeEmitter<'_, '_>, code: &mut MethodCode) {
+    code.invokestatic(
+        &emitter.program.options.runtime_class,
+        "moduleValuePush",
+        "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
+    );
+}
+
+fn emit_module_value_leaf(
+    emitter: &mut FunctionBytecodeEmitter<'_, '_>,
+    code: &mut MethodCode,
+    kind: &IrExprKind,
+) -> bool {
+    match kind {
+        IrExprKind::ModuleValue(identity) => {
+            code.aload(0);
+            code.getstatic(
+                emitter.program.module_value_owner(identity),
+                emitter.program.module_value_name(identity),
+                MODULE_VALUE_DESCRIPTOR,
+            );
+        }
+        IrExprKind::BoolLiteral(value) => {
+            code.aload(0);
+            emitter.emit_bool_literal(code, *value);
+        }
+        IrExprKind::IntLiteral(value) => {
+            code.aload(0);
+            emitter.emit_int_literal(code, value);
+        }
+        IrExprKind::Unit => {
+            code.aload(0);
+            emitter.emit_unit(code);
+        }
+        IrExprKind::OptionNone => {
+            code.aload(0);
+            emitter.emit_option_none(code);
+        }
+        IrExprKind::ListNil => {
+            code.aload(0);
+            emitter.emit_list_nil(code);
+        }
+        _ => return false,
+    }
+    finish_module_value_push(emitter, code);
+    true
+}
+
+fn schedule_module_value_expr<'a>(
+    emitter: &mut FunctionBytecodeEmitter<'_, '_>,
+    code: &mut MethodCode,
+    work: &mut Vec<ModuleValueEmissionWork<'a>>,
+    expr: &'a IrExpr,
+) {
+    if emit_module_value_leaf(emitter, code, &expr.kind) {
+        return;
+    }
+    match &expr.kind {
+        IrExprKind::StringLiteral(value) => {
+            let decoded = veln_string_literal_value(value);
+            let chunks = modified_utf8_chunks(&decoded);
+            work.push(ModuleValueEmissionWork::FinishString(chunks.len()));
+            work.extend(
+                chunks
+                    .into_iter()
+                    .rev()
+                    .map(str::to_string)
+                    .map(ModuleValueEmissionWork::PushString),
+            );
+        }
+        IrExprKind::Prefix {
+            op: PrefixOp::Negate,
+            expr,
+        } => schedule_module_value_unary(work, expr, "moduleValueNegate"),
+        IrExprKind::ResultOk(value) => schedule_module_value_unary(work, value, "moduleValueOk"),
+        IrExprKind::ResultErr(value) => schedule_module_value_unary(work, value, "moduleValueErr"),
+        IrExprKind::OptionSome(value) => {
+            schedule_module_value_unary(work, value, "moduleValueSome")
+        }
+        IrExprKind::ListCons { head, tail } => {
+            work.push(ModuleValueEmissionWork::FinishListCons);
+            work.push(ModuleValueEmissionWork::Expr(tail));
+            work.push(ModuleValueEmissionWork::Expr(head));
+        }
+        IrExprKind::Record(fields) => schedule_module_value_record(work, fields),
+        IrExprKind::AdtVariant { name, payloads } => {
+            schedule_module_value_adt(work, name, payloads)
+        }
+        kind => {
+            unreachable!("unsupported module value initializer reached JVM emission: {kind:?}")
+        }
+    }
+}
+
+fn emit_module_value_work<'a>(
+    emitter: &mut FunctionBytecodeEmitter<'_, '_>,
+    code: &mut MethodCode,
+    work: &mut Vec<ModuleValueEmissionWork<'a>>,
+    item: ModuleValueEmissionWork<'a>,
+) {
+    match item {
+        ModuleValueEmissionWork::Expr(expr) => {
+            schedule_module_value_expr(emitter, code, work, expr)
+        }
+        ModuleValueEmissionWork::PushString(value) => {
+            code.aload(0);
+            code.ldc_string(&value);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValuePush",
+                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
+            );
+        }
+        ModuleValueEmissionWork::PushRecordName(value) => {
+            code.aload(0);
+            code.ldc_string(value);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValuePush",
+                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
+            );
+        }
+        ModuleValueEmissionWork::FinishString(count) => {
+            code.aload(0);
+            code.push_i32(count as i32);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValueString",
+                "(Ljava/util/ArrayList;I)V",
+            );
+        }
+        ModuleValueEmissionWork::FinishUnary { method } => {
+            emit_module_value_builder_call(emitter, code, method);
+        }
+        ModuleValueEmissionWork::FinishListCons => {
+            emit_module_value_builder_call(emitter, code, "moduleValueListCons");
+        }
+        ModuleValueEmissionWork::FinishRecord(count) => {
+            code.aload(0);
+            code.push_i32(count as i32);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValueRecord",
+                "(Ljava/util/ArrayList;I)V",
+            );
+        }
+        ModuleValueEmissionWork::FinishAdt {
+            name,
+            payload_count,
+        } => {
+            code.aload(0);
+            code.ldc_string(&name.join("::"));
+            code.push_i32(payload_count as i32);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValueAdt",
+                "(Ljava/util/ArrayList;Ljava/lang/String;I)V",
+            );
+        }
+    }
+}
+
+struct ModuleValuePart {
+    class_name: String,
+    class: ClassBuilder,
+    code: MethodCode,
+}
+
+impl ModuleValuePart {
+    fn new(class_name: String) -> Self {
+        let mut class = ClassBuilder::new(&class_name);
+        class.access_flags = 0x0031;
+        let code = MethodCode::new(Rc::clone(&class.constant_pool));
+        Self {
+            class_name,
+            class,
+            code,
+        }
+    }
+
+    fn reached_limit(&self) -> bool {
+        self.code.code.len() >= MODULE_VALUE_HELPER_CODE_LIMIT
+            || self.class.constant_pool.borrow().slot_count()
+                >= MODULE_VALUE_HELPER_CONSTANT_POOL_LIMIT
+    }
+
+    fn is_empty(&self) -> bool {
+        self.code.code.is_empty()
+    }
+
+    fn finish(mut self) -> Result<(String, JvmClassFile), JvmBackendError> {
+        self.code.op(0xb1);
+        self.class.add_method(MethodInfo {
+            access_flags: 0x0009,
+            name: "apply".to_string(),
+            descriptor: "(Ljava/util/ArrayList;)V".to_string(),
+            max_stack: self.code.max_stack,
+            max_locals: self.code.max_locals,
+            code: self.code.code,
+            exceptions: self.code.exceptions,
+        });
+        let class_file = JvmClassFile {
+            path: format!("{}.class", self.class_name),
+            contents: self.class.finish()?,
+        };
+        Ok((self.class_name, class_file))
+    }
+}
+
+fn emit_module_value_parts(
+    class_name: &str,
+    method_stem: &str,
+    emitter: &mut FunctionBytecodeEmitter<'_, '_>,
+    initializer: &IrExpr,
+    helper_classes: &mut Vec<JvmClassFile>,
+) -> Result<Vec<String>, JvmBackendError> {
+    let mut part_index = 0;
+    let mut part = ModuleValuePart::new(format!("{class_name}${method_stem}Part{part_index}"));
+    let mut part_class_names = Vec::new();
+    let mut work = vec![ModuleValueEmissionWork::Expr(initializer)];
+    while let Some(item) = work.pop() {
+        emit_module_value_work(emitter, &mut part.code, &mut work, item);
+        if part.reached_limit() {
+            let (part_class_name, part_class_file) = part.finish()?;
+            part_class_names.push(part_class_name);
+            helper_classes.push(part_class_file);
+            part_index += 1;
+            part = ModuleValuePart::new(format!("{class_name}${method_stem}Part{part_index}"));
+        }
+    }
+    if !part.is_empty() {
+        let (part_class_name, part_class_file) = part.finish()?;
+        part_class_names.push(part_class_name);
+        helper_classes.push(part_class_file);
+    }
+    Ok(part_class_names)
+}
+
+fn emit_module_value_initializer(
+    class: &mut ClassBuilder,
+    class_name: &str,
+    method_stem: &str,
+    emitter: &mut FunctionBytecodeEmitter<'_, '_>,
+    initializer: &IrExpr,
+    helper_classes: &mut Vec<JvmClassFile>,
+) -> Result<MethodCode, JvmBackendError> {
+    let mut initializer_code = MethodCode::new(Rc::clone(&class.constant_pool));
+    initializer_code.invokestatic(
+        &emitter.program.options.runtime_class,
+        "moduleValueBuilder",
+        "()Ljava/util/ArrayList;",
+    );
+    initializer_code.astore(0);
+
+    let part_class_names = emit_module_value_parts(
+        class_name,
+        method_stem,
+        emitter,
+        initializer,
+        helper_classes,
+    )?;
+    let root_class_name =
+        emit_module_value_dispatchers(class_name, method_stem, part_class_names, helper_classes)?;
+    initializer_code.aload(0);
+    initializer_code.invokestatic(&root_class_name, "apply", "(Ljava/util/ArrayList;)V");
+    initializer_code.aload(0);
+    initializer_code.invokestatic(
+        &emitter.program.options.runtime_class,
+        "moduleValueFinish",
+        "(Ljava/util/ArrayList;)Ljava/lang/Object;",
+    );
+    Ok(initializer_code)
+}
+
+fn emit_module_value_dispatchers(
+    class_name: &str,
+    method_stem: &str,
+    mut child_class_names: Vec<String>,
+    helper_classes: &mut Vec<JvmClassFile>,
+) -> Result<String, JvmBackendError> {
+    assert!(
+        !child_class_names.is_empty(),
+        "a module value initializer must emit at least one construction part"
+    );
+    let mut level = 0;
+    while child_class_names.len() > 1 {
+        let mut parent_class_names = Vec::new();
+        for (group_index, children) in child_class_names
+            .chunks(MODULE_VALUE_DISPATCH_FANOUT)
+            .enumerate()
+        {
+            let parent_class_name =
+                format!("{class_name}${method_stem}Dispatch{level}_{group_index}");
+            let mut parent_class = ClassBuilder::new(&parent_class_name);
+            parent_class.access_flags = 0x0031;
+            let mut code = MethodCode::new(Rc::clone(&parent_class.constant_pool));
+            for child_class_name in children {
+                code.aload(0);
+                code.invokestatic(child_class_name, "apply", "(Ljava/util/ArrayList;)V");
+            }
+            code.op(0xb1);
+            parent_class.add_method(MethodInfo {
+                access_flags: 0x0009,
+                name: "apply".to_string(),
+                descriptor: "(Ljava/util/ArrayList;)V".to_string(),
+                max_stack: code.max_stack,
+                max_locals: code.max_locals,
+                code: code.code,
+                exceptions: code.exceptions,
+            });
+            parent_class_names.push(parent_class_name.clone());
+            helper_classes.push(JvmClassFile {
+                path: format!("{parent_class_name}.class"),
+                contents: parent_class.finish()?,
+            });
+        }
+        child_class_names = parent_class_names;
+        level += 1;
+    }
+    Ok(child_class_names.pop().expect("dispatcher root class"))
+}
 
 #[cfg(test)]
 pub(crate) fn local_binding_retention(program: &TypedProgram, function_name: &str) -> usize {
@@ -86,7 +513,7 @@ pub(crate) fn function_code_footprint(program: &TypedProgram, function_name: &st
 }
 
 #[cfg(test)]
-pub(crate) fn function_max_stack(program: &TypedProgram, function_name: &str) -> u16 {
+pub(crate) fn function_max_stack(program: &TypedProgram, function_name: &str) -> usize {
     let options = SanitizedOptions {
         program_class: "VelnProgram".to_string(),
         runtime_class: "VelnRuntime".to_string(),
@@ -164,28 +591,70 @@ pub(crate) fn contract_remainder_scan_work(program: &TypedProgram, function_name
     code.contract_remainder_scan_work
 }
 
+#[cfg(test)]
+pub(crate) fn module_value_identifier_allocation(program: &TypedProgram) -> (Vec<String>, usize) {
+    let options = SanitizedOptions {
+        program_class: "VelnProgram".to_string(),
+        runtime_class: "VelnRuntime".to_string(),
+    };
+    let emitter = ClassfileEmitter::new(program, options);
+    (
+        emitter.module_value_names.values().cloned().collect(),
+        emitter.identifier_allocation_work,
+    )
+}
+
 pub(crate) struct ClassfileEmitter<'a> {
     program: &'a TypedProgram,
     options: SanitizedOptions,
     function_names: BTreeMap<String, String>,
+    module_value_names: BTreeMap<CoreModuleValueIdentity, String>,
+    module_value_owners: BTreeMap<CoreModuleValueIdentity, String>,
+    #[cfg(test)]
+    identifier_allocation_work: usize,
 }
 
 impl<'a> ClassfileEmitter<'a> {
     pub(crate) fn new(program: &'a TypedProgram, options: SanitizedOptions) -> Self {
         let mut function_names = BTreeMap::new();
-        let mut used_names = BTreeSet::new();
+        let mut identifier_allocator = JavaIdentifierAllocator::new();
         for function in &program.functions {
-            let name = unique_java_identifier(
-                &format!("fn_{}", sanitize_identifier_text(&function.name)),
-                &mut used_names,
-            );
+            let name = identifier_allocator
+                .allocate(&format!("fn_{}", sanitize_identifier_text(&function.name)));
             function_names.insert(function.name.clone(), name);
         }
-        Self {
+        let mut module_value_names = BTreeMap::new();
+        for declaration in &program.module_values {
+            let identity = &declaration.identity;
+            let name = identifier_allocator.allocate(&format!(
+                "value_{}_{}_{}",
+                sanitize_identifier_text(identity.package.as_deref().unwrap_or("current")),
+                sanitize_identifier_text(identity.module.as_deref().unwrap_or("module")),
+                sanitize_identifier_text(&identity.name),
+            ));
+            module_value_names.insert(identity.clone(), name);
+        }
+        let mut emitter = Self {
             program,
             options,
             function_names,
+            module_value_names,
+            module_value_owners: BTreeMap::new(),
+            #[cfg(test)]
+            identifier_allocation_work: identifier_allocator.allocation_work(),
+        };
+        for (position, declaration_index) in emitter
+            .module_values_in_dependency_order()
+            .into_iter()
+            .enumerate()
+        {
+            let identity = emitter.program.module_values[declaration_index]
+                .identity
+                .clone();
+            let owner = emitter.module_value_class(position / MODULE_VALUES_PER_CLASS);
+            emitter.module_value_owners.insert(identity, owner);
         }
+        emitter
     }
 
     fn function_callsite(&self, name: &str) -> bool {
@@ -196,28 +665,107 @@ impl<'a> ClassfileEmitter<'a> {
             .is_some_and(|function| function.callsite)
     }
 
+    fn module_value_name(&self, identity: &CoreModuleValueIdentity) -> &str {
+        self.module_value_names
+            .get(identity)
+            .unwrap_or_else(|| panic!("missing module value declaration for {identity:?}"))
+    }
+
+    fn module_value_owner(&self, identity: &CoreModuleValueIdentity) -> &str {
+        self.module_value_owners
+            .get(identity)
+            .unwrap_or_else(|| panic!("missing module value declaration for {identity:?}"))
+    }
+
+    fn module_value_class(&self, class_index: usize) -> String {
+        format!("{}$ModuleValues{class_index}", self.options.program_class)
+    }
+
+    fn module_values_in_dependency_order(&self) -> Vec<usize> {
+        let indexes = self
+            .program
+            .module_values
+            .iter()
+            .enumerate()
+            .map(|(index, declaration)| (declaration.identity.clone(), index))
+            .collect::<BTreeMap<_, _>>();
+        let mut dependencies = Vec::with_capacity(self.program.module_values.len());
+        let mut dependents = vec![Vec::new(); self.program.module_values.len()];
+
+        for (index, declaration) in self.program.module_values.iter().enumerate() {
+            let mut identities = BTreeSet::new();
+            collect_module_value_dependencies(&declaration.initializer, &mut identities);
+            let declaration_dependencies = identities
+                .into_iter()
+                .map(|identity| {
+                    indexes.get(&identity).copied().unwrap_or_else(|| {
+                        panic!("missing module value declaration for {identity:?}")
+                    })
+                })
+                .collect::<BTreeSet<_>>();
+            for dependency in &declaration_dependencies {
+                dependents[*dependency].push(index);
+            }
+            dependencies.push(declaration_dependencies);
+        }
+
+        let mut remaining_dependencies = dependencies.iter().map(BTreeSet::len).collect::<Vec<_>>();
+        let mut ready = remaining_dependencies
+            .iter()
+            .enumerate()
+            .filter_map(|(index, count)| (*count == 0).then_some(index))
+            .collect::<BTreeSet<_>>();
+        let mut ordered = Vec::with_capacity(self.program.module_values.len());
+        while let Some(index) = ready.iter().next().copied() {
+            ready.remove(&index);
+            ordered.push(index);
+            for dependent in &dependents[index] {
+                remaining_dependencies[*dependent] -= 1;
+                if remaining_dependencies[*dependent] == 0 {
+                    ready.insert(*dependent);
+                }
+            }
+        }
+        assert_eq!(
+            ordered.len(),
+            self.program.module_values.len(),
+            "module value initializers must be acyclic before JVM emission"
+        );
+        ordered
+    }
+
     pub(crate) fn emit(
         &self,
         entry_function: &str,
         entry_arg_types: &[EntryArgType],
-    ) -> JvmProgram {
-        self.emit_with_entry_class(self.emit_entry_class(entry_function, entry_arg_types))
+    ) -> Result<JvmProgram, JvmBackendError> {
+        self.emit_with_entry_class(self.emit_entry_class(entry_function, entry_arg_types)?)
     }
 
-    pub(crate) fn emit_test_entries(&self, entry_functions: &[String]) -> JvmProgram {
-        self.emit_with_entry_class(self.emit_test_entry_class(entry_functions))
+    pub(crate) fn emit_test_entries(
+        &self,
+        entry_functions: &[String],
+    ) -> Result<JvmProgram, JvmBackendError> {
+        self.emit_with_entry_class(self.emit_test_entry_class(entry_functions)?)
     }
 
-    fn emit_with_entry_class(&self, entry_class: Vec<u8>) -> JvmProgram {
+    fn emit_with_entry_class(&self, entry_class: Vec<u8>) -> Result<JvmProgram, JvmBackendError> {
         let mut classes = runtime_classes();
         classes.push(JvmClassFile {
             path: format!("{}.class", self.options.program_class),
-            contents: self.emit_program_class(),
+            contents: self.emit_program_class()?,
         });
         classes.push(JvmClassFile {
             path: "VelnEntry.class".to_string(),
             contents: entry_class,
         });
+        let ordered_values = self.module_values_in_dependency_order();
+        for (class_index, declarations) in
+            ordered_values.chunks(MODULE_VALUES_PER_CLASS).enumerate()
+        {
+            let class_name = self.module_value_class(class_index);
+            classes.extend(self.emit_module_value_class(&class_name, declarations)?);
+        }
         for function in &self.program.functions {
             classes.push(JvmClassFile {
                 path: format!(
@@ -225,16 +773,33 @@ impl<'a> ClassfileEmitter<'a> {
                     self.options.program_class,
                     self.function_name(&function.name)
                 ),
-                contents: self.emit_function_adapter(function),
+                contents: self.emit_function_adapter(function)?,
             });
         }
-        JvmProgram { classes }
+        Ok(JvmProgram { classes })
     }
 
-    fn emit_program_class(&self) -> Vec<u8> {
+    fn emit_program_class(&self) -> Result<Vec<u8>, JvmBackendError> {
         let mut class = ClassBuilder::new(&self.options.program_class);
         class.access_flags = 0x0031;
         class.add_default_constructor(0x0002);
+        let ordered_values = self.module_values_in_dependency_order();
+        if !ordered_values.is_empty() {
+            let mut method = MethodCode::new(Rc::clone(&class.constant_pool));
+            for class_index in 0..ordered_values.len().div_ceil(MODULE_VALUES_PER_CLASS) {
+                method.invokestatic(&self.module_value_class(class_index), "initialize", "()V");
+            }
+            method.op(0xb1);
+            class.add_method(MethodInfo {
+                access_flags: 0x0008,
+                name: "<clinit>".to_string(),
+                descriptor: "()V".to_string(),
+                max_stack: method.max_stack,
+                max_locals: 0,
+                code: method.code,
+                exceptions: method.exceptions,
+            });
+        }
         for function in &self.program.functions {
             let mut method = MethodCode::new(Rc::clone(&class.constant_pool));
             let mut emitter = FunctionBytecodeEmitter::new(self, function);
@@ -252,7 +817,86 @@ impl<'a> ClassfileEmitter<'a> {
         class.finish()
     }
 
-    fn emit_function_adapter(&self, function: &IrFunction) -> Vec<u8> {
+    fn emit_module_value_class(
+        &self,
+        class_name: &str,
+        declarations: &[usize],
+    ) -> Result<Vec<JvmClassFile>, JvmBackendError> {
+        let mut class = ClassBuilder::new(class_name);
+        class.access_flags = 0x0031;
+        let mut helper_classes = Vec::new();
+        let function = self
+            .program
+            .functions
+            .first()
+            .expect("JVM program requires an entry or test function");
+
+        for declaration_index in declarations {
+            let declaration = &self.program.module_values[*declaration_index];
+            class.add_field(FieldInfo {
+                access_flags: 0x0008,
+                name: self.module_value_name(&declaration.identity).to_string(),
+                descriptor: MODULE_VALUE_DESCRIPTOR.to_string(),
+            });
+        }
+        for (initializer_index, declaration_index) in declarations.iter().enumerate() {
+            let declaration = &self.program.module_values[*declaration_index];
+            let mut emitter = FunctionBytecodeEmitter::new(self, function);
+            let method_name = format!("init_{}", self.module_value_name(&declaration.identity));
+            let helper_stem = format!("Value{initializer_index}");
+            let mut method = emit_module_value_initializer(
+                &mut class,
+                class_name,
+                &helper_stem,
+                &mut emitter,
+                &declaration.initializer,
+                &mut helper_classes,
+            )?;
+            method.putstatic(
+                class_name,
+                self.module_value_name(&declaration.identity),
+                MODULE_VALUE_DESCRIPTOR,
+            );
+            method.op(0xb1);
+            class.add_method(MethodInfo {
+                access_flags: 0x000a,
+                name: method_name,
+                descriptor: "()V".to_string(),
+                max_stack: method.max_stack,
+                max_locals: method.max_locals,
+                code: method.code,
+                exceptions: method.exceptions,
+            });
+        }
+
+        let mut method = MethodCode::new(Rc::clone(&class.constant_pool));
+        for declaration_index in declarations {
+            let declaration = &self.program.module_values[*declaration_index];
+            method.invokestatic(
+                class_name,
+                &format!("init_{}", self.module_value_name(&declaration.identity)),
+                "()V",
+            );
+        }
+        method.op(0xb1);
+        class.add_method(MethodInfo {
+            access_flags: 0x0008,
+            name: "initialize".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: method.max_stack,
+            max_locals: 0,
+            code: method.code,
+            exceptions: method.exceptions,
+        });
+        let mut classes = vec![JvmClassFile {
+            path: format!("{class_name}.class"),
+            contents: class.finish()?,
+        }];
+        classes.extend(helper_classes);
+        Ok(classes)
+    }
+
+    fn emit_function_adapter(&self, function: &IrFunction) -> Result<Vec<u8>, JvmBackendError> {
         let adapter = format!(
             "{}${}",
             self.options.program_class,
@@ -301,7 +945,11 @@ impl<'a> ClassfileEmitter<'a> {
         class.finish()
     }
 
-    fn emit_entry_class(&self, entry_function: &str, entry_arg_types: &[EntryArgType]) -> Vec<u8> {
+    fn emit_entry_class(
+        &self,
+        entry_function: &str,
+        entry_arg_types: &[EntryArgType],
+    ) -> Result<Vec<u8>, JvmBackendError> {
         let mut class = ClassBuilder::new(VELN_ENTRY);
         class.access_flags = 0x0031;
         class.add_default_constructor(0x0002);
@@ -322,7 +970,10 @@ impl<'a> ClassfileEmitter<'a> {
         self.finish_entry_class(class, code, try_start, try_end)
     }
 
-    fn emit_test_entry_class(&self, entry_functions: &[String]) -> Vec<u8> {
+    fn emit_test_entry_class(
+        &self,
+        entry_functions: &[String],
+    ) -> Result<Vec<u8>, JvmBackendError> {
         let mut class = ClassBuilder::new(VELN_ENTRY);
         class.access_flags = 0x0031;
         class.add_default_constructor(0x0002);
@@ -389,7 +1040,7 @@ impl<'a> ClassfileEmitter<'a> {
         mut code: MethodCode,
         try_start: usize,
         try_end: usize,
-    ) -> Vec<u8> {
+    ) -> Result<Vec<u8>, JvmBackendError> {
         self.emit_entry_contract_failure_handler(&mut code, try_start, try_end);
         self.emit_entry_runtime_failure_handler(&mut code, try_start, try_end);
         self.add_entry_main_method(&mut class, code);

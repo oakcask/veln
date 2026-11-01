@@ -135,16 +135,96 @@
         }
     }
 
+    public static java.util.ArrayList<Object> moduleValueBuilder() {
+        return new java.util.ArrayList<Object>();
+    }
+
+    public static void moduleValuePush(java.util.ArrayList<Object> values, Object value) {
+        values.add(value);
+    }
+
+    private static Object moduleValuePop(java.util.ArrayList<Object> values) {
+        return values.remove(values.size() - 1);
+    }
+
+    public static void moduleValueString(java.util.ArrayList<Object> values, int chunkCount) {
+        String[] chunks = new String[chunkCount];
+        int length = 0;
+        for (int index = chunkCount - 1; index >= 0; index -= 1) {
+            String chunk = (String) moduleValuePop(values);
+            chunks[index] = chunk;
+            length += chunk.length();
+        }
+        StringBuilder complete = new StringBuilder(length);
+        for (int index = 0; index < chunks.length; index += 1) {
+            complete.append(chunks[index]);
+        }
+        values.add(complete.toString());
+    }
+
+    public static void moduleValueNegate(java.util.ArrayList<Object> values) {
+        values.add(negate(moduleValuePop(values)));
+    }
+
+    public static void moduleValueOk(java.util.ArrayList<Object> values) {
+        values.add(new Result(true, moduleValuePop(values)));
+    }
+
+    public static void moduleValueErr(java.util.ArrayList<Object> values) {
+        values.add(new Result(false, moduleValuePop(values)));
+    }
+
+    public static void moduleValueSome(java.util.ArrayList<Object> values) {
+        values.add(new Option(true, moduleValuePop(values)));
+    }
+
+    public static void moduleValueListCons(java.util.ArrayList<Object> values) {
+        Object tail = moduleValuePop(values);
+        Object head = moduleValuePop(values);
+        values.add(new ListValue(true, head, tail));
+    }
+
+    public static void moduleValueRecord(java.util.ArrayList<Object> values, int fieldCount) {
+        java.util.LinkedHashMap<String, Object> fields =
+            new java.util.LinkedHashMap<String, Object>();
+        String[] names = new String[fieldCount];
+        Object[] fieldValues = new Object[fieldCount];
+        for (int index = fieldCount - 1; index >= 0; index -= 1) {
+            fieldValues[index] = moduleValuePop(values);
+            names[index] = (String) moduleValuePop(values);
+        }
+        for (int index = 0; index < fieldCount; index += 1) {
+            fields.put(names[index], fieldValues[index]);
+        }
+        values.add(java.util.Collections.unmodifiableMap(fields));
+    }
+
+    public static void moduleValueAdt(
+        java.util.ArrayList<Object> values,
+        String name,
+        int payloadCount
+    ) {
+        Object[] payloads = new Object[payloadCount];
+        for (int index = payloadCount - 1; index >= 0; index -= 1) {
+            payloads[index] = moduleValuePop(values);
+        }
+        values.add(new Adt(name, payloads));
+    }
+
+    public static Object moduleValueFinish(java.util.ArrayList<Object> values) {
+        if (values.size() != 1) {
+            throw new IllegalStateException("invalid module value materialization stack");
+        }
+        return values.get(0);
+    }
+
     public static final class Adt {
         private final String name;
         private final Object[] payloads;
 
         private Adt(String name, Object[] payloads) {
             this.name = name;
-            this.payloads = new Object[payloads.length];
-            for (int index = 0; index < payloads.length; index += 1) {
-                this.payloads[index] = freezeValue(payloads[index]);
-            }
+            this.payloads = payloads;
         }
 
         @Override
@@ -562,7 +642,11 @@
     }
 
     public static Object adt(String name, Object[] payloads) {
-        return new Adt(name, payloads);
+        Object[] frozen = new Object[payloads.length];
+        for (int index = 0; index < payloads.length; index += 1) {
+            frozen[index] = freezeValue(payloads[index]);
+        }
+        return new Adt(name, frozen);
     }
 
     private static Object http2DiagnosticDetail(String name, Object[] payloads) {

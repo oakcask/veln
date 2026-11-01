@@ -122,12 +122,8 @@ fn validate_doc_sources(
     diagnostics.extend(validate_manifest_exports(project));
     diagnostics.extend(validate_manifest_dependencies(project));
     if diagnostics.is_empty() {
-        diagnostics.extend(
-            analyze_project(project.clone(), DoctestMode::Exclude)
-                .semantic_diagnostics()
-                .into_iter()
-                .filter(|diagnostic| diagnostic.id != "module.value_not_executable"),
-        );
+        diagnostics
+            .extend(analyze_project(project.clone(), DoctestMode::Exclude).semantic_diagnostics());
     }
     if diagnostics.is_empty() {
         let (surface_module, _) = load_surface_module(project);

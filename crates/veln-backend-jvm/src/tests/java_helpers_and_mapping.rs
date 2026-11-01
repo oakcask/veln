@@ -2,15 +2,15 @@ use super::*;
 
 #[test]
 fn java_identifier_helpers_sanitize_keywords_and_collisions() {
-    let mut used_names = std::collections::BTreeSet::new();
+    let mut identifiers = JavaIdentifierAllocator::new();
 
     assert_eq!(sanitize_identifier_text("1-value!"), "_1_value_");
     assert_eq!(java_type_identifier("class"), "VelnGenerated");
     assert_eq!(java_type_identifier("app.Main"), "app_Main");
-    assert_eq!(unique_java_identifier("", &mut used_names), "_value");
-    assert_eq!(unique_java_identifier("return", &mut used_names), "_return");
-    assert_eq!(unique_java_identifier("value", &mut used_names), "value");
-    assert_eq!(unique_java_identifier("value", &mut used_names), "value_1");
+    assert_eq!(identifiers.allocate(""), "_value");
+    assert_eq!(identifiers.allocate("return"), "_return");
+    assert_eq!(identifiers.allocate("value"), "value");
+    assert_eq!(identifiers.allocate("value"), "value_1");
 }
 
 #[test]

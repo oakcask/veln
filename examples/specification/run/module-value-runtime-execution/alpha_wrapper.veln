@@ -1,0 +1,5 @@
+use shared as alpha_shared from "example/alpha"
+
+pub fn selected() -> Int
+	alpha_shared::selected
+end

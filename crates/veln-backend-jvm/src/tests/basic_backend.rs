@@ -1,34 +1,760 @@
 use super::*;
+use veln_ir::{CoreType, IrRecordField};
 
 #[test]
-#[should_panic(expected = "module values must be rejected before JVM backend lowering")]
-fn backend_rejects_module_values_before_classfile_generation() {
-    let source = SourceFile::new(
-        "main.veln",
+fn backend_materializes_complete_finite_module_value_surface() {
+    let ir = lower_to_ir(concat!(
+        "type State\n",
+        "  Idle\n",
+        "  Active(count: Int)\n",
+        "end\n",
+        "let nested: { state: State, text: String, flag: Bool } = { state: Active(number), text: text, flag: truth }\n",
+        "let number: Int = -3\n",
+        "let text: String = \"ready\"\n",
+        "let truth: Bool = true\n",
+        "let nothing: () = ()\n",
+        "let idle: State = Idle\n",
+        "fn print_state(state: State) -> () effects [stdio]\n",
+        "  match state\n",
+        "    Idle => stdio::println(\"idle\")\n",
+        "    Active(count) => stdio::println(int_to_string(count))\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  nothing\n",
+        "  stdio::println(nested.text)\n",
+        "  print_state(nested.state)\n",
+        "  print_state(idle)\n",
+        "  if nested.flag\n",
+        "    stdio::println(\"true\")\n",
+        "  else\n",
+        "    stdio::println(\"false\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("module-value-finite-data", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "ready\n-3\nidle\ntrue\n"
+    );
+}
+
+#[test]
+fn backend_materializes_module_strings_requiring_modified_utf8() {
+    let ir = lower_to_ir(concat!(
+        "let supplementary: String = \"prefix 😀 suffix\"\n",
+        "let containing_nul: String = \"left\0right\"\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(supplementary)\n",
+        "  stdio::println(containing_nul)\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("module-value-modified-utf8", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, "prefix 😀 suffix\nleft\0right\n".as_bytes());
+}
+
+#[test]
+fn backend_materializes_module_strings_larger_than_one_constant_pool_entry() {
+    let literal = format!("A{}B{}CZ", "x".repeat(32_767), "y".repeat(32_765));
+    assert_eq!(literal.len(), usize::from(u16::MAX) + 1);
+    let ir = lower_to_ir(&format!(
         concat!(
-            "let answer: Int = 42\n",
-            "pub fn main() -> Int\n",
-            "  answer\n",
+            "let oversized: String = \"{}\"\n",
+            "pub fn main() -> () effects [stdio]\n",
+            "  stdio::println(oversized)\n",
             "end\n",
         ),
+        literal,
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("module-value-oversized-string", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
     );
+    assert_eq!(output.stdout.len(), 65_537);
+    assert_eq!(output.stdout[0], b'A');
+    assert_eq!(output.stdout[32_768], b'B');
+    assert_eq!(output.stdout[65_534], b'C');
+    assert_eq!(output.stdout[65_535], b'Z');
+    assert_eq!(output.stdout[65_536], b'\n');
+}
+
+#[test]
+fn backend_materializes_nested_module_records_at_and_beyond_the_former_stack_limit() {
+    let mut source = String::new();
+    for (name, depth, leaf) in [("boundary", 21, 2_101), ("beyond", 24, 2_401)] {
+        let record_type = format!("{{ value: {}", "{ value: ".repeat(depth - 1));
+        let initializer = format!("{{ value: {}", "{ value: ".repeat(depth - 1));
+        let closings = " }".repeat(depth);
+        source.push_str(&format!(
+            "let {name}: {record_type}Int{closings} = {initializer}{leaf}{closings}\n"
+        ));
+    }
+    source.push_str(concat!(
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(boundary",
+    ));
+    source.push_str(&".value".repeat(21));
+    source.push_str("))\n  stdio::println(int_to_string(beyond");
+    source.push_str(&".value".repeat(24));
+    source.push_str("))\nend\n");
+
+    let ir = lower_to_ir(&source);
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("module-value-nested-record-stack", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, b"2101\n2401\n");
+}
+
+#[test]
+fn backend_materializes_builtin_adt_module_values_and_nested_dependencies() {
+    let ir = lower_to_ir(concat!(
+        "let optional: Option<Int> = Some(later)\n",
+        "let absent: Option<Int> = None\n",
+        "let success: Result<Int, String> = Ok(later)\n",
+        "let failure: Result<Int, String> = Err(\"failed\")\n",
+        "let items: List<Int> = Cons(later, empty)\n",
+        "let empty: List<Int> = Nil\n",
+        "let later: Int = 7\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  match optional\n",
+        "    Some(value) => stdio::println(int_to_string(value))\n",
+        "    None => stdio::println(\"unexpected none\")\n",
+        "  end\n",
+        "  match absent\n",
+        "    Some(_) => stdio::println(\"unexpected some\")\n",
+        "    None => stdio::println(\"none\")\n",
+        "  end\n",
+        "  match success\n",
+        "    Ok(value) => stdio::println(int_to_string(value))\n",
+        "    Err(_) => stdio::println(\"unexpected error\")\n",
+        "  end\n",
+        "  match failure\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(message) => stdio::println(message)\n",
+        "  end\n",
+        "  match items\n",
+        "    Cons(head, _) => stdio::println(int_to_string(head))\n",
+        "    Nil => stdio::println(\"unexpected nil\")\n",
+        "  end\n",
+        "  match empty\n",
+        "    Cons(_, _) => stdio::println(\"unexpected cons\")\n",
+        "    Nil => stdio::println(\"nil\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("module-value-builtin-adts", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "7\nnone\n7\nfailed\n7\nnil\n"
+    );
+}
+
+#[test]
+fn backend_module_value_identity_is_independent_of_source_import_and_first_use_order() {
+    for reverse_sources in [false, true] {
+        for reverse_imports in [false, true] {
+            for reverse_first_use in [false, true] {
+                assert_module_value_identity_order(
+                    reverse_sources,
+                    reverse_imports,
+                    reverse_first_use,
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn backend_allocates_colliding_package_value_names_with_linear_work() {
+    let mut ir = lower_to_ir("let selected: Int = 0\npub fn main() -> Int\n  selected\nend\n");
+    let template = ir.module_values.pop().expect("module value template");
+    let mut previous_work = None;
+    for declaration_count in [2_048, 4_096] {
+        let mut case = ir.clone();
+        for index in 0..declaration_count {
+            let mut declaration = template.clone();
+            let package_character = char::from_u32(0x4e00 + index as u32)
+                .expect("CJK package character should be valid Unicode");
+            assert!(!package_character.is_whitespace());
+            let package = package_character.to_string();
+            veln_project::PackageIdentity::new(package.clone())
+                .expect("CJK package identity should be portable NFC");
+            assert_eq!(sanitize_identifier_text(&package), "_");
+            declaration.identity.package = Some(package);
+            case.module_values.push(declaration);
+        }
+
+        let (names, allocation_work) = module_value_identifier_allocation(&case);
+        let unique_names = names.iter().collect::<std::collections::BTreeSet<_>>();
+
+        assert_eq!(names.len(), declaration_count);
+        assert_eq!(unique_names.len(), declaration_count);
+        assert!(
+            allocation_work <= declaration_count * 2 + case.functions.len(),
+            "colliding identifier allocation used {allocation_work} candidate checks"
+        );
+        if let Some(smaller_work) = previous_work {
+            assert!(
+                allocation_work <= smaller_work * 3,
+                "doubling declarations increased work from {smaller_work} to {allocation_work}"
+            );
+        }
+        previous_work = Some(allocation_work);
+    }
+}
+
+fn assert_module_value_identity_order(
+    reverse_sources: bool,
+    reverse_imports: bool,
+    reverse_first_use: bool,
+) {
+    let imports = if reverse_imports {
+        concat!(
+            "use shared as second from \"丁\"\n",
+            "use shared as first from \"一\"\n",
+        )
+    } else {
+        concat!(
+            "use shared as first from \"一\"\n",
+            "use shared as second from \"丁\"\n",
+        )
+    };
+    let reads = if reverse_first_use {
+        concat!(
+            "  stdio::println(int_to_string(second::selected))\n",
+            "  stdio::println(int_to_string(first::selected))\n",
+        )
+    } else {
+        concat!(
+            "  stdio::println(int_to_string(first::selected))\n",
+            "  stdio::println(int_to_string(second::selected))\n",
+        )
+    };
+    let mut app = package_module(
+        "app.veln",
+        &format!("{imports}pub fn main() -> () effects [stdio]\n{reads}end\n"),
+        "owner/pkg",
+        "app",
+    );
+    for use_decl in &mut app.uses {
+        use_decl.name = "shared".to_string();
+    }
+    let mut selected = package_module(
+        "selected/shared.veln",
+        "pub let selected: Int = 11\n",
+        "一",
+        "shared",
+    );
+    let mut namesake = package_module(
+        "namesake/shared.veln",
+        "pub let selected: Int = 22\n",
+        "丁",
+        "shared",
+    );
+    set_module_value_declaration_module(&mut selected, "shared");
+    set_module_value_declaration_module(&mut namesake, "shared");
+
+    let sources = [app, selected, namesake];
+    let source_order = if reverse_sources {
+        [2, 1, 0]
+    } else {
+        [0, 1, 2]
+    };
+    let mut merged = sources[source_order[0]].clone();
+    for index in source_order.into_iter().skip(1) {
+        extend_surface_module(&mut merged, sources[index].clone());
+    }
+    let lowered = lower_checked_surface_module(&merged);
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "sources={reverse_sources} imports={reverse_imports} first_use={reverse_first_use}: {:#?}",
+        lowered.diagnostics
+    );
+    let ir = lowered.ir.expect("ordered module values should lower");
+    let entry = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main" || function.name.ends_with("::main"))
+        .map(|function| function.name.as_str())
+        .expect("package-aware main function");
+    let program = generate_classfiles_with_entry(&ir, entry);
+    let Some(output) = run_jvm_program_when_java_is_available(
+        &format!(
+            "module-value-order-s{}-i{}-u{}",
+            u8::from(reverse_sources),
+            u8::from(reverse_imports),
+            u8::from(reverse_first_use),
+        ),
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "sources={reverse_sources} imports={reverse_imports} first_use={reverse_first_use}: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let expected = if reverse_first_use {
+        b"22\n11\n".as_slice()
+    } else {
+        b"11\n22\n".as_slice()
+    };
+    assert_eq!(
+        output.stdout, expected,
+        "sources={reverse_sources} imports={reverse_imports} first_use={reverse_first_use}"
+    );
+}
+
+fn package_module(path: &str, text: &str, package: &str, module: &str) -> veln_ast::SurfaceModule {
+    let source = SourceFile::new(path, text);
     let parsed = parse(&source);
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-    let module = lower_surface_ast_with_module_identity(
+    veln_ast::lower_surface_ast_with_package_module_identity(
         &parsed.tree,
-        "main".to_string(),
+        package.to_string(),
+        module.to_string(),
         source.span(TextRange::at(0)),
-    );
-    let lowered = lower_checked_surface_module(&module);
-    assert!(
-        lowered
-            .diagnostics
-            .iter()
-            .any(|diagnostic| { diagnostic.id == "module.value_not_executable" })
-    );
-    let ir = lowered.ir.expect("execution gate should retain typed IR");
+    )
+}
 
-    generate_classfiles_with_entry(&ir, "main");
+fn extend_surface_module(module: &mut veln_ast::SurfaceModule, other: veln_ast::SurfaceModule) {
+    module.uses.extend(other.uses);
+    module.module_values.extend(other.module_values);
+    module.functions.extend(other.functions);
+    module.effects.extend(other.effects);
+    module.handlers.extend(other.handlers);
+    module.types.extend(other.types);
+    module.schemas.extend(other.schemas);
+    module.aliases.extend(other.aliases);
+}
+
+fn set_module_value_declaration_module(module: &mut veln_ast::SurfaceModule, name: &str) {
+    for value in &mut module.module_values {
+        value.module_name = Some(name.to_string());
+    }
+}
+
+#[test]
+fn bytecode_backend_executes_an_oversized_deep_initializer_on_bounded_stacks() {
+    const CHILD_MARKER: &str = "VELN_TEST_DEEP_MODULE_INITIALIZER_CHILD";
+    const TEST_NAME: &str = concat!(
+        "tests::basic_backend::",
+        "bytecode_backend_executes_an_oversized_deep_initializer_on_bounded_stacks"
+    );
+    if std::env::var_os(CHILD_MARKER).is_some() {
+        run_oversized_deep_initializer_on_a_bounded_stack();
+        println!("deep-module-initializer-complete");
+        return;
+    }
+
+    let output = Command::new(std::env::current_exe().expect("test executable"))
+        .args(["--exact", TEST_NAME, "--nocapture"])
+        .env(CHILD_MARKER, "1")
+        .output()
+        .expect("run deep module initializer child");
+    assert!(
+        output.status.success(),
+        "deep module initializer child failed: status={} stdout={} stderr={}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("deep-module-initializer-complete"),
+        "deep module initializer child did not execute: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+}
+
+fn run_oversized_deep_initializer_on_a_bounded_stack() {
+    const DEPTH: usize = 20_000;
+    std::thread::Builder::new()
+        .name("deep-module-initializer".to_string())
+        .stack_size(256 * 1024)
+        .spawn(|| {
+            let program = generate_oversized_recursive_adt(DEPTH);
+            let Some(output) = run_jvm_program_with_java_args_when_java_is_available(
+                "deep-module-initializer",
+                &program,
+                &["-Xss256k"],
+                &[],
+            ) else {
+                return;
+            };
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(output.stdout, b"20000\n");
+        })
+        .expect("spawn deep module initializer thread")
+        .join()
+        .expect("deep module initializer thread should complete");
+}
+
+fn generate_oversized_recursive_adt(depth: usize) -> JvmProgram {
+    let mut ir = lower_to_ir(&format!(
+        concat!(
+            "type Chain\n",
+            "  End(marker: Int)\n",
+            "  Next(marker: Int, value: Chain)\n",
+            "end\n",
+            "let oversized: Chain = Next(1, End(777))\n",
+            "fn inspect(value: Chain, expected: Int, observed: Int) -> Int\n",
+            "  match value\n",
+            "    End(marker) => if expected == 0 and marker == 777\n",
+            "      observed\n",
+            "    else\n",
+            "      -1\n",
+            "    end\n",
+            "    Next(marker, next) => if marker == expected\n",
+            "      inspect(next, expected - 1, observed + 1)\n",
+            "    else\n",
+            "      -1\n",
+            "    end\n",
+            "  end\n",
+            "end\n",
+            "pub fn main() -> () effects [stdio]\n",
+            "  stdio::println(int_to_string(inspect(oversized, {}, 0)))\n",
+            "end\n",
+        ),
+        depth
+    ));
+    let declaration = ir
+        .module_values
+        .first_mut()
+        .expect("oversized module value declaration");
+    assert_eq!(declaration.annotation, "Chain");
+    assert_eq!(declaration.initializer.ty, declaration.ty);
+    let (variant_name, marker_template, mut initializer) = match &declaration.initializer.kind {
+        IrExprKind::AdtVariant { name, payloads } if payloads.len() == 2 => {
+            (name.clone(), payloads[0].clone(), payloads[1].clone())
+        }
+        kind => panic!("lowered recursive ADT initializer: {kind:?}"),
+    };
+    assert_eq!(initializer.ty, declaration.ty);
+    let node_id = declaration.initializer.node_id;
+    let span = declaration.initializer.span.clone();
+    for marker in 1..=depth {
+        let mut marker_value = marker_template.clone();
+        marker_value.kind = IrExprKind::IntLiteral(marker.to_string());
+        initializer = IrExpr {
+            node_id,
+            ty: declaration.ty.clone(),
+            kind: IrExprKind::AdtVariant {
+                name: variant_name.clone(),
+                payloads: vec![marker_value, initializer],
+            },
+            span: span.clone(),
+        };
+    }
+    declaration.initializer = initializer;
+
+    generate_classfiles_with_entry(&ir, "main")
+}
+
+#[test]
+fn bytecode_backend_executes_an_initializer_above_one_constant_pool_on_bounded_stacks() {
+    const CHILD_MARKER: &str = "VELN_TEST_MODULE_INITIALIZER_POOL_CHILD";
+    const TEST_NAME: &str = concat!(
+        "tests::basic_backend::",
+        "bytecode_backend_executes_an_initializer_above_one_constant_pool_on_bounded_stacks"
+    );
+    if std::env::var_os(CHILD_MARKER).is_some() {
+        std::thread::Builder::new()
+            .name("module-initializer-pool".to_string())
+            .stack_size(256 * 1024)
+            .spawn(|| {
+                let program = generate_oversized_recursive_adt(32_768);
+                let Some(output) = run_jvm_program_with_java_args_when_java_is_available(
+                    "module-initializer-pool",
+                    &program,
+                    &["-Xss256k"],
+                    &[],
+                ) else {
+                    return;
+                };
+                assert!(
+                    output.status.success(),
+                    "{}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+                assert_eq!(output.stdout, b"32768\n");
+            })
+            .expect("spawn module initializer pool thread")
+            .join()
+            .expect("module initializer pool thread should complete");
+        println!("module-initializer-pool-complete");
+        return;
+    }
+
+    let output = Command::new(std::env::current_exe().expect("test executable"))
+        .args(["--exact", TEST_NAME, "--nocapture"])
+        .env(CHILD_MARKER, "1")
+        .output()
+        .expect("run module initializer pool child");
+    assert!(
+        output.status.success(),
+        "module initializer pool child failed: status={} stdout={} stderr={}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("module-initializer-pool-complete"),
+        "module initializer pool child did not execute: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+}
+
+#[test]
+fn bytecode_backend_executes_deep_module_value_dependencies_with_a_bounded_jvm_stack() {
+    const DECLARATION_COUNT: usize = 4_000;
+
+    let mut source = String::from("let value_0: Int = 41\n");
+    for index in 1..DECLARATION_COUNT {
+        source.push_str(&format!("let value_{index}: Int = value_{}\n", index - 1));
+    }
+    source.push_str(&format!(
+        concat!(
+            "pub fn main() -> () effects [stdio]\n",
+            "  stdio::println(int_to_string(value_{}))\n",
+            "end\n",
+        ),
+        DECLARATION_COUNT - 1
+    ));
+
+    let ir = lower_to_ir(&source);
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_with_java_args_when_java_is_available(
+        "module-value-deep-dependencies",
+        &program,
+        &["-Xss256k"],
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "41\n");
+}
+
+#[test]
+fn bytecode_backend_loads_module_values_above_one_class_constant_pool_capacity() {
+    const DECLARATION_COUNT: usize = 11_000;
+
+    let mut source = String::new();
+    for index in 0..DECLARATION_COUNT {
+        source.push_str(&format!("let value_{index}: Int = {index}\n"));
+    }
+    source.push_str(concat!(
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(value_10999))\n",
+        "end\n",
+    ));
+
+    let ir = lower_to_ir(&source);
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "module-value-constant-pool-capacity",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "10999\n");
+}
+
+#[test]
+fn bytecode_backend_executes_distinct_record_fields_above_one_constant_pool() {
+    const EXTRA_FIELD_COUNT: usize = 32_768;
+
+    let mut ir = lower_to_ir(concat!(
+        "let pressure: { first: Int, terminal: Int } = { first: 17, terminal: 29 }\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(pressure.first + pressure.terminal))\n",
+        "end\n",
+    ));
+    let declaration = ir
+        .module_values
+        .first_mut()
+        .expect("generated record module value");
+    let IrExprKind::Record(fields) = &mut declaration.initializer.kind else {
+        panic!("generated module value should retain its record initializer");
+    };
+    let terminal = fields
+        .pop()
+        .expect("generated module record should contain its terminal field");
+    let first = fields
+        .first()
+        .expect("generated module record should contain its first field");
+    let mut unit = first.value.clone();
+    unit.ty = CoreType::unit();
+    unit.kind = IrExprKind::Unit;
+    fields.reserve(EXTRA_FIELD_COUNT + 1);
+    for field_index in 0..EXTRA_FIELD_COUNT {
+        fields.push(IrRecordField {
+            node_id: terminal.node_id,
+            name: format!("pressure_{field_index}"),
+            value: unit.clone(),
+        });
+    }
+    fields.push(terminal);
+
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "module-value-distinct-record-field-pool",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, b"46\n");
+}
+
+#[test]
+fn bytecode_backend_isolates_medium_initializer_constants_in_one_storage_class() {
+    const DECLARATION_COUNT: usize = 6;
+    const EXTRA_FIELDS_PER_DECLARATION: usize = 6_000;
+
+    let mut source = String::new();
+    for index in 0..DECLARATION_COUNT {
+        source.push_str(&format!(
+            "let value_{index}: {{ terminal: Int }} = {{ terminal: {} }}\n",
+            index + 1
+        ));
+    }
+    source.push_str(concat!(
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(\n",
+        "    value_0.terminal + value_1.terminal + value_2.terminal +\n",
+        "    value_3.terminal + value_4.terminal + value_5.terminal\n",
+        "  ))\n",
+        "end\n",
+    ));
+
+    let mut ir = lower_to_ir(&source);
+    for (declaration_index, declaration) in ir.module_values.iter_mut().enumerate() {
+        let IrExprKind::Record(fields) = &mut declaration.initializer.kind else {
+            panic!("generated module value should retain its record initializer");
+        };
+        let terminal = fields
+            .pop()
+            .expect("generated module record should contain its terminal field");
+        let mut unit = terminal.value.clone();
+        unit.ty = CoreType::unit();
+        unit.kind = IrExprKind::Unit;
+        fields.reserve(EXTRA_FIELDS_PER_DECLARATION + 1);
+        for field_index in 0..EXTRA_FIELDS_PER_DECLARATION {
+            fields.push(IrRecordField {
+                node_id: terminal.node_id,
+                name: format!("pressure_{declaration_index}_{field_index}"),
+                value: unit.clone(),
+            });
+        }
+        fields.push(terminal);
+    }
+
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "module-value-medium-initializer-constant-pools",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, b"21\n");
+}
+
+#[test]
+fn bytecode_backend_reports_unrepresentable_constant_pool_strings() {
+    let literal = "x".repeat(usize::from(u16::MAX) + 1);
+    let ir = lower_to_ir(&format!("pub fn main() -> String\n  \"{literal}\"\nend\n"));
+
+    let failure = try_generate_classfiles_with_entry(&ir, "main")
+        .expect_err("oversized constant-pool strings must be rejected");
+
+    assert_eq!(
+        failure.to_string(),
+        "JVM class constant-pool string exceeds 65535 bytes"
+    );
 }
 
 #[test]
@@ -1455,21 +2181,7 @@ fn external_socket_client_uses_an_unregistered_host_listener_when_java_is_availa
     assert_eq!(String::from_utf8_lossy(&output.stdout), "2 end\n");
 }
 
-#[test]
-fn external_socket_listener_accepts_an_unsynthesized_host_client_when_java_is_available() {
-    use std::io::{BufRead, BufReader};
-
-    if Command::new("java").arg("-version").output().is_err() {
-        return;
-    }
-    let Some(reservation) = bind_loopback_listener_when_available() else {
-        return;
-    };
-    drop(reservation);
-
-    // Exercise real host acceptance, byte transfer, and half-close through the JVM.
-    // Publish the OS-assigned endpoint only after listen succeeds, so host startup
-    // does not depend on a retry window or reuse a released port reservation.
+fn external_socket_listener_program() -> JvmProgram {
     let ir = lower_with_standard_modules_to_ir(concat!(
         "use net from \"std\"\n",
         "use stdio\n",
@@ -1514,9 +2226,14 @@ fn external_socket_listener_accepts_an_unsynthesized_host_client_when_java_is_av
         "  handle run_listener() with net::system()\n",
         "end\n",
     ));
-    let program = generate_classfiles_with_entry(&ir, "main");
+    generate_classfiles_with_entry(&ir, "main")
+}
+
+fn spawn_external_socket_listener(
+    program: &JvmProgram,
+) -> (std::path::PathBuf, std::process::Child) {
     let root = temp_dir("external-socket-listener");
-    write_jvm_program(&root, &program);
+    write_jvm_program(&root, program);
     let child = Command::new("java")
         .arg("-cp")
         .arg(&root)
@@ -1526,45 +2243,67 @@ fn external_socket_listener_accepts_an_unsynthesized_host_client_when_java_is_av
         .stderr(Stdio::piped())
         .spawn()
         .expect("java should run");
+    (root, child)
+}
+
+fn exchange_with_external_socket_listener(stdout: std::process::ChildStdout) -> Vec<u8> {
+    use std::io::{BufRead, BufReader};
+
+    let mut stdout = BufReader::new(stdout);
+    let mut address = String::new();
+    stdout
+        .read_line(&mut address)
+        .expect("listener should publish its endpoint");
+    let address = address
+        .trim()
+        .parse::<std::net::SocketAddr>()
+        .expect("listener should publish a socket address");
+    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(5))
+        .expect("host client should connect to the ready external listener");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("host client reads should be bounded");
+    stream
+        .set_write_timeout(Some(Duration::from_secs(5)))
+        .expect("host client writes should be bounded");
+    stream
+        .write_all(&[0x01, 0x02, 0x03])
+        .expect("host client should write in order");
+    stream
+        .shutdown(Shutdown::Write)
+        .expect("host client should half-close its request");
+    let mut response = Vec::new();
+    stream
+        .read_to_end(&mut response)
+        .expect("host client should observe reclaimed stream output");
+    assert_eq!(response, [0x0a, 0x0b]);
+    let mut bytes = Vec::new();
+    stdout
+        .read_to_end(&mut bytes)
+        .expect("listener output should be readable");
+    bytes
+}
+
+#[test]
+fn external_socket_listener_accepts_an_unsynthesized_host_client_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err() {
+        return;
+    }
+    let Some(reservation) = bind_loopback_listener_when_available() else {
+        return;
+    };
+    drop(reservation);
+
+    // Exercise real host acceptance, byte transfer, and half-close through the JVM.
+    // Publish the OS-assigned endpoint only after listen succeeds, so host startup
+    // does not depend on a retry window or reuse a released port reservation.
+    let program = external_socket_listener_program();
+    let (root, child) = spawn_external_socket_listener(&program);
     let output = wait_for_test_child_with_stdout(
         child,
         "external-socket-listener",
         Duration::from_secs(30),
-        |stdout| {
-            let mut stdout = BufReader::new(stdout);
-            let mut address = String::new();
-            stdout
-                .read_line(&mut address)
-                .expect("listener should publish its endpoint");
-            let address = address
-                .trim()
-                .parse::<std::net::SocketAddr>()
-                .expect("listener should publish a socket address");
-            let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(5))
-                .expect("host client should connect to the ready external listener");
-            stream
-                .set_read_timeout(Some(Duration::from_secs(5)))
-                .expect("host client reads should be bounded");
-            stream
-                .set_write_timeout(Some(Duration::from_secs(5)))
-                .expect("host client writes should be bounded");
-            stream
-                .write_all(&[0x01, 0x02, 0x03])
-                .expect("host client should write in order");
-            stream
-                .shutdown(Shutdown::Write)
-                .expect("host client should half-close its request");
-            let mut response = Vec::new();
-            stream
-                .read_to_end(&mut response)
-                .expect("host client should observe reclaimed stream output");
-            assert_eq!(response, [0x0a, 0x0b]);
-            let mut bytes = Vec::new();
-            stdout
-                .read_to_end(&mut bytes)
-                .expect("listener output should be readable");
-            bytes
-        },
+        exchange_with_external_socket_listener,
     );
     let _ = fs::remove_dir_all(root);
     assert!(

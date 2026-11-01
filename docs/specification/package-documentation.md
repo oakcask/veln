@@ -188,9 +188,8 @@ module value rejected by finite-data initializer, annotation, imported-lookup,
 visibility, or package-wide dependency checking fails the package-atomic
 result. No accepted sibling declaration is published in that failure result.
 The `veln doc` command applies the same initializer, annotation, lookup,
-visibility, and dependency rules. Its failure selection is broader: any
-semantic error in the selected production project blocks the complete Markdown
-document, except for the runtime-only `module.value_not_executable` diagnostic.
+visibility, and dependency rules. Any semantic error in the selected
+production project blocks the complete Markdown document.
 
 Published expected-output fences preserve the stream as `stdout` or `stderr`
 and the complete lines for that stream.
@@ -261,9 +260,8 @@ The implemented gates are:
   signature;
 - module value: every public module immutable value in an exported source must
   pass finite-data initializer, written-annotation, imported-lookup,
-  package-aware visibility, and package-wide dependency checking. The
-  runtime-only `module.value_not_executable` diagnostic is not a documentation
-  rejection. An error owned by that declaration or by a required module-value
+  package-aware visibility, and package-wide dependency checking. An error
+  owned by that declaration or by a required module-value
   dependency rejects the complete catalog with `gate: "module_value"` and
   publishes no module value or accepted sibling declaration. The failure keeps
   only diagnostics in the rejected exported value's causal dependency closure.
