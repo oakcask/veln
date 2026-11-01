@@ -381,6 +381,43 @@ fn required_same_path_dependency_failure_keeps_dependency_location() {
 }
 
 #[test]
+fn missing_prepared_dependency_snapshot_replaces_owned_diagnostic() {
+    let dependency = captured_invalid_same_path_dependency("pub let fail: Int = \"x\"\n");
+    let result = generate_with_dependencies_and_snapshots(
+        concat!(
+            "[package]\n",
+            "name = \"a\"\n",
+            "[lib]\n",
+            "exports = [\"main.veln\"]\n",
+            "[dependencies.\"b\"]\n",
+            "path = \"vendor/b\"\n",
+        ),
+        &[(
+            "main.veln",
+            concat!(
+                "use main as dep from \"b\"\n",
+                "pub let exposed: Int = dep::fail\n",
+            ),
+        )],
+        &[dependency],
+        &PackageDocDependencySnapshots::default(),
+    );
+
+    assert!(result.catalog().is_none(), "{:#?}", result.status());
+    assert!(
+        result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "module_value"
+                && diagnostic.code == "package_doc.dependency_snapshot_unavailable"
+                && diagnostic.span.is_none()
+                && diagnostic.message.contains("`type.mismatch`")
+                && diagnostic.message.contains("dependency package `b`")
+        }),
+        "{:#?}",
+        result.status().diagnostics
+    );
+}
+
+#[test]
 fn required_dependency_callable_collision_keeps_dependency_identity() {
     let dependency = captured_invalid_same_path_dependency(concat!(
         "fn shared() -> Int\n",

@@ -136,6 +136,50 @@ pub struct PackageDocResult {
     declaration_locations: BTreeMap<PackageDocLocationKey, String>,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PackageDocDependencySnapshots {
+    snapshot_digests: HashMap<String, String>,
+}
+
+impl PackageDocDependencySnapshots {
+    pub fn new<'a>(
+        snapshots: impl IntoIterator<Item = (&'a PackageIdentity, &'a CapturedPackageSnapshot)>,
+    ) -> Self {
+        Self {
+            snapshot_digests: snapshots
+                .into_iter()
+                .map(|(identity, snapshot)| {
+                    (identity.as_str().to_string(), snapshot.digest().to_string())
+                })
+                .collect(),
+        }
+    }
+
+    fn from_captured_dependencies(dependencies: &[CapturedDependencyProject]) -> Self {
+        Self {
+            snapshot_digests: dependency_snapshot_digests(dependencies),
+        }
+    }
+}
+
+fn dependency_snapshot_digests(
+    dependencies: &[CapturedDependencyProject],
+) -> HashMap<String, String> {
+    dependencies
+        .iter()
+        .filter_map(|dependency| {
+            let project = dependency.project.as_ref()?;
+            let manifest = project.manifest.as_ref()?;
+            let sources = project.files.iter().map(|source| {
+                PackageSnapshotSource::new(source.path().as_str(), source.text().as_bytes())
+            });
+            let snapshot =
+                capture_embedded_package_snapshot(&manifest.source_bytes, sources).ok()?;
+            Some((dependency.package.clone(), snapshot.digest().to_string()))
+        })
+        .collect()
+}
+
 pub const PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE: &str = "text/markdown; charset=utf-8";
 
 impl PackageDocResult {
@@ -145,6 +189,28 @@ impl PackageDocResult {
         manifest: &ProjectManifest,
         project_root: &std::path::Path,
         dependencies: &[CapturedDependencyProject],
+        generator_contract: PackageDocGeneratorContract,
+    ) -> Self {
+        let dependency_snapshots =
+            PackageDocDependencySnapshots::from_captured_dependencies(dependencies);
+        Self::generate_with_dependency_snapshots(
+            identity,
+            snapshot,
+            manifest,
+            project_root,
+            dependencies,
+            &dependency_snapshots,
+            generator_contract,
+        )
+    }
+
+    pub fn generate_with_dependency_snapshots(
+        identity: &PackageIdentity,
+        snapshot: &CapturedPackageSnapshot,
+        manifest: &ProjectManifest,
+        project_root: &std::path::Path,
+        dependencies: &[CapturedDependencyProject],
+        dependency_snapshots: &PackageDocDependencySnapshots,
         generator_contract: PackageDocGeneratorContract,
     ) -> Self {
         let manifest = if manifest.source_bytes == snapshot.manifest_bytes() {
@@ -160,6 +226,7 @@ impl PackageDocResult {
             &manifest,
             project_root,
             dependencies,
+            dependency_snapshots,
             generator_contract,
         )
         .generate()
@@ -489,7 +556,7 @@ struct PackageDocBuilder<'a> {
     manifest: &'a ProjectManifest,
     project_root: &'a std::path::Path,
     dependencies: &'a [CapturedDependencyProject],
-    dependency_snapshot_digests: HashMap<String, String>,
+    dependency_snapshot_digests: &'a HashMap<String, String>,
     generator_contract: PackageDocGeneratorContract,
     diagnostics: Vec<PackageDocDiagnostic>,
     #[cfg(test)]

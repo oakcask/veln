@@ -1,5 +1,6 @@
 use super::*;
 use std::collections::BTreeSet;
+use std::time::Instant;
 use veln_analysis::CapturedDependencyProject;
 use veln_language_service::{
     PackageDocGeneratorContract, PackageDocResult, VirtualSourceCatalog,
@@ -482,6 +483,120 @@ fn dependency_resource_admission_deduplicates_and_preserves_state_on_failures() 
 fn dependency_resource_capacity_is_atomic() {
     single_dependency_over_capacity_is_atomic();
     multiple_dependency_over_capacity_is_atomic();
+}
+
+#[test]
+fn dependency_admission_prepares_snapshots_once_per_dependency() {
+    let mut evidence = Vec::new();
+    for size in [8, 16, 32] {
+        let dependencies = fixed_width_dependency_projects(size);
+        let mut resources = LanguageResources::checked().unwrap();
+        resources.set_test_remaining_package_capacity(size);
+        crate::language_resources::reset_dependency_preparation_work();
+
+        let started = Instant::now();
+        resources.admit_dependencies(&dependencies).unwrap();
+        let elapsed = started.elapsed();
+        let work = crate::language_resources::dependency_preparation_work();
+
+        assert_eq!(work.snapshot_captures, size);
+        assert_eq!(work.package_doc_generations, size);
+        evidence.push((size, work, elapsed));
+    }
+
+    for adjacent in evidence.windows(2) {
+        let [(smaller_size, smaller, _), (larger_size, larger, _)] = adjacent else {
+            unreachable!("adjacent evidence has exactly two entries")
+        };
+        assert_eq!(*larger_size, smaller_size * 2);
+        assert_eq!(larger.snapshot_captures, smaller.snapshot_captures * 2);
+        assert_eq!(larger.captured_bytes, smaller.captured_bytes * 2);
+        assert_eq!(
+            larger.package_doc_generations,
+            smaller.package_doc_generations * 2
+        );
+    }
+    eprintln!("dependency admission preparation evidence: {evidence:?}");
+}
+
+#[test]
+fn over_capacity_dependency_admission_stops_after_linear_preparation() {
+    let dependencies = fixed_width_dependency_projects(32);
+    let mut resources = LanguageResources::checked().unwrap();
+    resources.set_test_remaining_package_capacity(1);
+    resources
+        .admit_dependencies(&[synthetic_dependency_project(
+            "example/seed-0000",
+            "retained seed",
+        )])
+        .unwrap();
+    resources.set_test_remaining_package_capacity(0);
+    let before = resources.list_result();
+    let before_search = resources.package_search_candidates();
+    let retained_uris = before["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|resource| resource["uri"].as_str())
+        .filter(|uri| {
+            uri.starts_with("veln-pkg:///example%2Fseed-0000/")
+                || uri.starts_with("veln-doc:///package/example%2Fseed-0000/")
+        })
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    let mut retained_reads = retained_uris
+        .iter()
+        .map(|uri| (uri.clone(), resources.read_result(uri).unwrap()))
+        .collect::<Vec<_>>();
+    let index_text = retained_reads
+        .iter()
+        .find(|(uri, _)| uri.ends_with("/index"))
+        .unwrap()
+        .1["contents"][0]["text"]
+        .as_str()
+        .unwrap();
+    let module_uri = extract_uris_with_prefix(index_text, "veln-doc:///package/")
+        .into_iter()
+        .find(|uri| uri.contains("/module/"))
+        .unwrap();
+    let module_read = resources.read_result(&module_uri).unwrap();
+    let declaration_uri = extract_uris_with_prefix(
+        module_read["contents"][0]["text"].as_str().unwrap(),
+        "veln-doc:///package/",
+    )
+    .into_iter()
+    .find(|uri| uri.contains("/declaration/"))
+    .unwrap();
+    retained_reads.push((module_uri, module_read));
+    retained_reads.push((
+        declaration_uri.clone(),
+        resources.read_result(&declaration_uri).unwrap(),
+    ));
+    crate::language_resources::reset_dependency_preparation_work();
+
+    let started = Instant::now();
+    let error = resources.admit_dependencies(&dependencies).unwrap_err();
+    let elapsed = started.elapsed();
+    let work = crate::language_resources::dependency_preparation_work();
+
+    assert_eq!(error, crate::language_resources::ResourceCapacityError);
+    assert_eq!(work.snapshot_captures, dependencies.len());
+    assert_eq!(work.package_doc_generations, 0);
+    assert_eq!(resources.list_result(), before);
+    assert_eq!(resources.package_search_candidates(), before_search);
+    for (uri, read) in retained_reads {
+        assert_eq!(resources.read_result(&uri), Some(read), "{uri}");
+    }
+    eprintln!(
+        "over-capacity dependency preparation evidence: count={}, work={work:?}, elapsed={elapsed:?}",
+        dependencies.len()
+    );
+}
+
+fn fixed_width_dependency_projects(size: usize) -> Vec<CapturedDependencyProject> {
+    (0..size)
+        .map(|index| synthetic_dependency_project(&format!("example/dep-{index:04}"), "fixed body"))
+        .collect()
 }
 
 fn single_dependency_over_capacity_is_atomic() {

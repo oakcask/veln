@@ -16,6 +16,36 @@ fn generate_with_dependencies(
     sources: &[(&str, &str)],
     dependencies: &[CapturedDependencyProject],
 ) -> PackageDocResult {
+    let captured_snapshots = dependencies
+        .iter()
+        .filter_map(|dependency| {
+            let identity = PackageIdentity::new(&dependency.package).ok()?;
+            let project = dependency.project.as_ref()?;
+            let manifest = project.manifest.as_ref()?;
+            let snapshot = capture_embedded_package_snapshot(
+                &manifest.source_bytes,
+                project.files.iter().map(|source| {
+                    PackageSnapshotSource::new(source.path().as_str(), source.text().as_bytes())
+                }),
+            )
+            .ok()?;
+            Some((identity, snapshot))
+        })
+        .collect::<Vec<_>>();
+    let dependency_snapshots = PackageDocDependencySnapshots::new(
+        captured_snapshots
+            .iter()
+            .map(|(identity, snapshot)| (identity, snapshot)),
+    );
+    generate_with_dependencies_and_snapshots(manifest, sources, dependencies, &dependency_snapshots)
+}
+
+fn generate_with_dependencies_and_snapshots(
+    manifest: &str,
+    sources: &[(&str, &str)],
+    dependencies: &[CapturedDependencyProject],
+    dependency_snapshots: &PackageDocDependencySnapshots,
+) -> PackageDocResult {
     let snapshot = capture_embedded_package_snapshot(
         manifest.as_bytes(),
         sources
@@ -26,12 +56,13 @@ fn generate_with_dependencies(
     let manifest = parse_manifest_text("veln.toml", manifest);
     let identity =
         PackageIdentity::new(manifest_field(&manifest.package.fields, "name").unwrap()).unwrap();
-    PackageDocResult::generate(
+    PackageDocResult::generate_with_dependency_snapshots(
         &identity,
         &snapshot,
         &manifest,
         Path::new("."),
         dependencies,
+        dependency_snapshots,
         PackageDocGeneratorContract::new("contract-a"),
     )
 }
@@ -101,12 +132,14 @@ fn generate_with_forced_declaration_id(
     let manifest = parse_manifest_text("veln.toml", manifest);
     let identity =
         manifest_field(&manifest.package.fields, "name").unwrap_or_else(|| "demo".to_string());
+    let dependency_snapshots = PackageDocDependencySnapshots::default();
     PackageDocBuilder::new(
         &identity,
         &snapshot,
         &manifest,
         Path::new("."),
         &[],
+        &dependency_snapshots,
         PackageDocGeneratorContract::new("contract-a"),
     )
     .with_forced_declaration_id(id)

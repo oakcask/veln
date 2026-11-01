@@ -10,7 +10,7 @@ use veln_language_service::{DirectDependencySnapshot, EffectiveProjectSnapshot};
 use veln_project::PackageSnapshotSource;
 use veln_repo_language_reference::{RenderedResource, render_checked_language_reference};
 
-use self::dependencies::{captured_dependency_navigation, dependency_resources};
+use self::dependencies::{PreparedDependencyResources, captured_dependency_navigation};
 use self::package_resources::{PackageDocumentation, RetainedPackageKey};
 pub(crate) use self::package_resources::{
     PackageSearchCandidate, PackageSearchScope, PublishedResource,
@@ -35,7 +35,8 @@ thread_local! {
 
 #[cfg(test)]
 pub(crate) use self::dependencies::{
-    dependency_snapshot_captures, reset_dependency_snapshot_captures,
+    dependency_preparation_work, dependency_snapshot_captures, reset_dependency_preparation_work,
+    reset_dependency_snapshot_captures,
 };
 #[cfg(test)]
 pub(crate) use self::standard_library::standard_library_resource_builds;
@@ -266,19 +267,17 @@ impl LanguageResources {
         &mut self,
         dependencies: &[CapturedDependencyProject],
     ) -> Result<AdmittedDependencies, ResourceCapacityError> {
-        let new_snapshots = dependency_resources(dependencies);
-        let keys = new_snapshots
+        let prepared = PreparedDependencyResources::new(dependencies);
+        let keys = prepared.keys().collect::<Vec<_>>();
+        let new_keys = keys
             .iter()
-            .map(|snapshot| snapshot.key.clone())
-            .collect::<Vec<_>>();
-        let new_keys = new_snapshots
-            .iter()
-            .map(|snapshot| snapshot.key.clone())
+            .cloned()
             .filter(|key| !self.retained_package_keys.contains(key))
             .collect::<BTreeSet<_>>();
         if self.retained_package_keys.len() + new_keys.len() > self.retained_package_capacity() {
             return Err(ResourceCapacityError);
         }
+        let new_snapshots = prepared.into_resources();
         let mut navigation_snapshots = Vec::with_capacity(new_snapshots.len());
         for snapshot in new_snapshots {
             navigation_snapshots.push(snapshot.navigation);

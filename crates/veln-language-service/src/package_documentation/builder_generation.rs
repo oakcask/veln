@@ -7,28 +7,16 @@ impl<'a> PackageDocBuilder<'a> {
         manifest: &'a ProjectManifest,
         project_root: &'a std::path::Path,
         dependencies: &'a [CapturedDependencyProject],
+        dependency_snapshots: &'a PackageDocDependencySnapshots,
         generator_contract: PackageDocGeneratorContract,
     ) -> Self {
-        let dependency_snapshot_digests = dependencies
-            .iter()
-            .filter_map(|dependency| {
-                let project = dependency.project.as_ref()?;
-                let manifest = project.manifest.as_ref()?;
-                let sources = project.files.iter().map(|source| {
-                    PackageSnapshotSource::new(source.path().as_str(), source.text().as_bytes())
-                });
-                let snapshot =
-                    capture_embedded_package_snapshot(&manifest.source_bytes, sources).ok()?;
-                Some((dependency.package.clone(), snapshot.digest().to_string()))
-            })
-            .collect();
         Self {
             identity,
             snapshot,
             manifest,
             project_root,
             dependencies,
-            dependency_snapshot_digests,
+            dependency_snapshot_digests: &dependency_snapshots.snapshot_digests,
             generator_contract,
             diagnostics: Vec::new(),
             #[cfg(test)]
