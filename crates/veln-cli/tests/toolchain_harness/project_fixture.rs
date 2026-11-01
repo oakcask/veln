@@ -1,10 +1,6 @@
 use super::*;
 use std::io::{BufRead, BufReader, Read};
 
-// Coverage-instrumented HTTP/2 fixtures can approach thirty seconds while the
-// same fixture remains well below the bound without instrumentation.
-const FIXTURE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(45);
-
 pub(super) fn case_name(case_dir: &Path) -> String {
     case_dir
         .components()
@@ -130,7 +126,7 @@ impl TestProject {
                 .write_all(input.as_bytes())
                 .expect("veln stdin should be written");
         }
-        wait_with_output_timeout(child, "veln fixture", FIXTURE_TIMEOUT)
+        wait_with_output_timeout(child, "veln fixture", std::time::Duration::from_secs(30))
     }
 
     pub(super) fn veln_with_interactive_mcp(
