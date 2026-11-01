@@ -56,6 +56,23 @@ impl TypeEnvironment {
         )
     }
 
+    pub(crate) fn quarantined_import_value_recovery_use(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<UseDecl> {
+        let (use_decl, name) =
+            self.quarantined_import_for_segments(segments, current_module, current_package)?;
+        self.functions_named(name)
+            .any(|function| {
+                function.module_name.as_deref() == Some(use_decl.name.as_str())
+                    && function.package_name == use_decl.resolved_target().package
+                    && function.visibility == Visibility::Public
+            })
+            .then(|| use_decl.clone())
+    }
+
     pub(crate) fn quarantined_import_type_path_lacks_visible_leaf(
         &self,
         segments: &[String],

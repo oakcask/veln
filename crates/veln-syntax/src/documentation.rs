@@ -1,8 +1,8 @@
 use veln_source::{SourceFile, SourceSpan, TextRange};
 
 use crate::{
-    FunctionDecl, TypeDecl, TypeVariantDecl, VariantRefinementType, canonical_type_text,
-    format::canonical_structured_type_text,
+    FunctionDecl, ModuleValueDecl, TypeDecl, TypeVariantDecl, VariantRefinementType,
+    canonical_type_text, format::canonical_structured_type_text,
 };
 
 #[derive(Clone, Debug)]
@@ -135,6 +135,28 @@ fn documentation_type_text(
     source.map_or_else(
         || canonical_type_text(text),
         |source| canonical_type_text(&canonical_structured_type_text(text, refinements, source)),
+    )
+}
+
+pub fn declaration_module_value_signature(value: &ModuleValueDecl) -> String {
+    declaration_module_value_signature_inner(value, None)
+}
+
+pub fn declaration_module_value_signature_from_source(
+    value: &ModuleValueDecl,
+    source: &SourceFile,
+) -> String {
+    declaration_module_value_signature_inner(value, Some(source.text()))
+}
+
+fn declaration_module_value_signature_inner(
+    value: &ModuleValueDecl,
+    source: Option<&str>,
+) -> String {
+    format!(
+        "let {}: {}",
+        value.name.as_deref().unwrap_or("<anonymous>"),
+        documentation_type_text(&value.annotation, &value.annotation_refinements, source)
     )
 }
 

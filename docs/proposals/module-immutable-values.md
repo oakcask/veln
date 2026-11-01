@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Module immutable-value execution, documentation publication, language-service navigation, or their planned verification changes.
+update-when: Module immutable-value execution, language-service navigation, or their planned verification changes.
 ---
 
 # Module Immutable Data Value Completion
@@ -9,8 +9,8 @@ Complete the remaining compiler and tooling support for typed module `let`
 declarations. The current specifications own the implemented syntax,
 formatting, finite-data initializer checking, annotation assignability,
 same-module and imported lookup, package-aware declaration identity,
-same-module and cross-module dependency validation, visibility, and initializer
-diagnostics.
+same-module and cross-module dependency validation, visibility, initializer
+diagnostics, and package-documentation publication.
 
 ## Scope
 
@@ -27,18 +27,21 @@ function/module-value namespace. The current
 defines checked-core and typed-IR preservation and the remaining runtime gate.
 The compiler deliberately retains `module.value_not_executable` after those
 checks.
+The current
+[package documentation specification](../specification/package-documentation.md#published-boundary)
+defines public module-value publication, declaration lookup, and the
+package-atomic rejection boundary.
 
 This proposal now owns only:
 
-- immutable runtime value construction and backend code generation;
-- package-documentation publication of public names and annotations; and
+- immutable runtime value construction and backend code generation; and
 - language-service definition, references, and rename for module values.
 
 Qualified match refinement remains a separate dependent proposal. General
 effectful module initialization and mutable global variables remain outside
 this proposal.
 
-## Remaining Execution, Publication, And Navigation
+## Remaining Execution And Navigation
 
 Every accepted reference must produce the same immutable finite data. Source,
 import, and first-use order must not change the value. There is no effectful
@@ -50,18 +53,14 @@ Backend lowering must materialize admitted literal, record, and ADT constructor
 trees without invoking user code. The existing
 `module.value_not_executable` gate remains until this complete route is present.
 
-Package documentation must publish each eligible public name and written
-annotation without publishing its initializer. A rejected public value follows
-the package-atomic documentation failure boundary. Language-service navigation
-must select the declaration identity rather than an equal initializer or a
-same-spelled function.
+Language-service navigation must select the declaration identity rather than an
+equal initializer or a same-spelled function.
 
 ## Acceptance Model
 
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
 | Execution | Admitted literals, records, constructors, and references produce their declared immutable data without initializer effects. | Checked `veln run` examples with independently written expected values. |
-| Publication | Public names and annotations are documented atomically without initializer text. | Package-documentation success and failure cases. |
 | Navigation | Definition, references, and rename retain declaration identity across valid import spellings. | Language-service and protocol cases. |
 
 Remove this proposal only after every remaining row is implemented and checked.

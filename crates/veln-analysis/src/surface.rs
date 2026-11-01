@@ -1,5 +1,6 @@
 use std::borrow::Cow;
-use std::collections::{BTreeMap, BTreeSet};
+use std::cell::Cell;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Component, Path};
 use std::sync::OnceLock;
 
@@ -81,6 +82,73 @@ pub struct CapturedDependencyProject {
     pub project: Option<Project>,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CapturedDependencyResolutionWork {
+    pub indexed_projects: usize,
+    pub exact_probes: usize,
+    pub local_root_probes: usize,
+}
+
+pub struct CapturedDependencyIndex<'a> {
+    projects: &'a [CapturedDependencyProject],
+    exact: HashMap<String, HashMap<String, usize>>,
+    local_roots: HashMap<String, HashMap<std::path::PathBuf, usize>>,
+    work: Cell<CapturedDependencyResolutionWork>,
+}
+
+impl<'a> CapturedDependencyIndex<'a> {
+    pub fn new(projects: &'a [CapturedDependencyProject]) -> Self {
+        let mut exact = HashMap::<String, HashMap<String, usize>>::new();
+        let mut local_roots = HashMap::<String, HashMap<std::path::PathBuf, usize>>::new();
+        for (index, captured) in projects.iter().enumerate() {
+            exact
+                .entry(captured.package.clone())
+                .or_default()
+                .entry(captured.source.clone())
+                .or_insert(index);
+            if let Some(project) = &captured.project {
+                local_roots
+                    .entry(captured.package.clone())
+                    .or_default()
+                    .entry(veln_project::normalize_lexical_path(&project.root))
+                    .or_insert(index);
+            }
+        }
+        Self {
+            projects,
+            exact,
+            local_roots,
+            work: Cell::new(CapturedDependencyResolutionWork {
+                indexed_projects: projects.len(),
+                ..CapturedDependencyResolutionWork::default()
+            }),
+        }
+    }
+
+    pub fn work(&self) -> CapturedDependencyResolutionWork {
+        self.work.get()
+    }
+
+    fn exact(&self, package: &str, source: &str) -> Option<&'a CapturedDependencyProject> {
+        self.update_work(|work| work.exact_probes += 1);
+        let index = self.exact.get(package)?.get(source)?;
+        self.projects.get(*index)
+    }
+
+    fn local_root(&self, package: &str, root: &Path) -> Option<&'a CapturedDependencyProject> {
+        self.update_work(|work| work.local_root_probes += 1);
+        let normalized = veln_project::normalize_lexical_path(root);
+        let index = self.local_roots.get(package)?.get(&normalized)?;
+        self.projects.get(*index)
+    }
+
+    fn update_work(&self, update: impl FnOnce(&mut CapturedDependencyResolutionWork)) {
+        let mut work = self.work.get();
+        update(&mut work);
+        self.work.set(work);
+    }
+}
+
 pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>) {
     let (modules, diagnostics) = load_surface_modules_with_combined(project, true, None);
     (modules.combined, diagnostics)
@@ -90,9 +158,18 @@ pub(crate) fn load_surface_modules(project: &Project) -> (LoadedSurfaceModules, 
     load_surface_modules_with_combined(project, false, None)
 }
 
+#[cfg(test)]
 pub(crate) fn load_surface_modules_with_captured_dependencies(
     project: &Project,
     dependencies: &[CapturedDependencyProject],
+) -> (LoadedSurfaceModules, Vec<Diagnostic>) {
+    let dependencies = CapturedDependencyIndex::new(dependencies);
+    load_surface_modules_with_captured_dependency_index(project, &dependencies)
+}
+
+pub(crate) fn load_surface_modules_with_captured_dependency_index(
+    project: &Project,
+    dependencies: &CapturedDependencyIndex<'_>,
 ) -> (LoadedSurfaceModules, Vec<Diagnostic>) {
     load_surface_modules_with_combined(project, false, Some(dependencies))
 }
@@ -100,7 +177,7 @@ pub(crate) fn load_surface_modules_with_captured_dependencies(
 fn load_surface_modules_with_combined(
     project: &Project,
     include_combined: bool,
-    captured_dependencies: Option<&[CapturedDependencyProject]>,
+    captured_dependencies: Option<&CapturedDependencyIndex<'_>>,
 ) -> (LoadedSurfaceModules, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
     let mut parts = SurfaceParts::new();

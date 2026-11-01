@@ -17,8 +17,8 @@ pub use navigation::{
 };
 pub use package_documentation::{
     PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE, PackageDocAlias, PackageDocCatalog,
-    PackageDocDeclaration, PackageDocDeclarationLocation, PackageDocDiagnostic,
-    PackageDocDiagnosticSpan, PackageDocDoctest, PackageDocExpectedOutput,
+    PackageDocDeclaration, PackageDocDeclarationLocation, PackageDocDependencySnapshots,
+    PackageDocDiagnostic, PackageDocDiagnosticSpan, PackageDocDoctest, PackageDocExpectedOutput,
     PackageDocFunctionContract, PackageDocGeneration, PackageDocGenerationStatus,
     PackageDocGeneratorContract, PackageDocMetadata, PackageDocModule, PackageDocReference,
     PackageDocResult, PackageDocResultKind, PackageDocSearchCandidate, PackageDocTypeConstructor,

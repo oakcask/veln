@@ -91,7 +91,10 @@ from the embedded distribution source set are not listed.
 The embedded standard-library package-documentation resources come from a
 checked bundle generated from the embedded `std` snapshot. MCP startup rejects
 the bundle when its recorded digest is invalid or its snapshot digest does not
-match the retained `std` snapshot. A successful result lists only the
+match the retained `std` snapshot. The bundle generator contract contributes
+to the package-documentation digest. Changing that contract therefore changes
+the documentation digest and every embedded `std` `veln-doc:` URI even when
+the retained package snapshot is unchanged. A successful result lists only the
 index resource with name `std-documentation-index`, title `Veln
 package documentation: std`, and media type `text/markdown; charset=utf-8`.
 The index Markdown preserves the package-documentation catalog metadata and
@@ -124,19 +127,63 @@ operation. A valid snapshot
 has a manifest package name that equals the dependency table key and a captured
 package distribution snapshot. The server generates the existing
 transport-independent package-documentation result from that retained snapshot
-and the parsed manifest used for admission. If generation succeeds, the
-dependency documentation index is listed, and its linked module and
-declaration resources are available only through exact `resources/read`
-requests. If generation fails, only the dependency documentation status
-resource is listed and readable. Source resources are retained in either
-case. Repeating the same package identity and digest adds no state. A later
-digest for the same identity coexists with the earlier snapshot. The server
-retains at most 256 package snapshots, including the embedded standard-library
-snapshot. If one operation would exceed that limit, the tool returns
-`resource_capacity`, admits none of that operation's new snapshots, publishes
-no source or documentation resources for the rejected snapshots, and preserves
-the previous resource state. Capture failure, validation failure, tool domain
-failure, and invalid tool parameters admit no new dependency resources.
+and the parsed manifest used for admission. Publication analysis receives the
+complete dependency set from the same stable capture. To keep admission work
+linear in the dependency count, one admission captures each valid dependency
+distribution once and reuses those prepared snapshots for resource keys,
+navigation, and every dependency package-documentation result. The admission
+also builds one semantic dependency lookup index for the stable capture and
+shares it across every package-documentation analysis. Lookup first matches
+the exact package and source selector. An eligible local dependency can then
+match the same package at its normalized captured project root. A saved
+dependency that imports another captured dependency therefore publishes the
+same accepted public declarations without rereading either package from the
+host filesystem or recapturing another dependency for each generated result.
+If generation succeeds, the dependency documentation index is listed, and its
+linked module and declaration resources are available only through exact
+`resources/read` requests. If generation fails, only the dependency
+documentation status resource is listed and readable. When the retained cause
+has a corresponding captured snapshot, its diagnostic source span keeps the
+canonical package identity of the package that owns the cause, including
+another dependency in the same stable capture. The
+[package-documentation specification](package-documentation.md#generation-gates)
+defines this diagnostic identity contract and the spanless failure used when
+the cause cannot be matched to a captured dependency snapshot. Source resources
+are retained in either case.
+
+Source retention and documentation retention have separate identities and
+limits. A source snapshot key is the package identity and its own snapshot
+digest. Repeating that key does not consume another source slot. A later digest
+for the same identity coexists with the earlier snapshot. The server retains at
+most 256 source snapshot keys, including the embedded standard-library
+snapshot.
+
+A documentation revision key combines the documented source snapshot key with
+the complete dependency-context identity available before generation. That
+context identity covers the generator contract, stable capture order, and each
+captured dependency's package and source selector, project and manifest
+availability, exact manifest bytes, and ordered source paths and bytes.
+The server retains at most 256 distinct documentation revision keys, including
+the embedded standard-library revision. Each distinct combination consumes one
+revision slot even when its rendered bytes equal another revision. Repeating
+the same combination consumes no additional slot. A changed dependency context
+therefore produces a new documentation revision for an unchanged documented
+source snapshot without consuming another source slot.
+
+The revision key is a retention and capacity identity, not a published resource
+identity. The
+[package-documentation result identity](package-documentation.md#result-identity)
+still derives from canonical result bytes. Distinct revisions therefore share
+the same `veln-doc:` URIs when they produce the same canonical result.
+
+The server checks both capacities from prepared source and revision keys before
+it generates package documentation. If one operation would exceed either
+limit, the tool returns `resource_capacity`, generates no documentation, admits
+none of that operation's new source snapshots or revisions, publishes no new
+resources or search candidates, does not change the current revision selection,
+and preserves the previous public state. Capture failure, validation failure,
+tool domain failure, and invalid tool parameters admit no new dependency
+resources.
 
 Dependency source resources use the canonical `veln-pkg:` URI from the
 admitted dependency snapshot virtual-source catalog. Their `name` is the
@@ -151,7 +198,12 @@ Markdown media type, renderer-provided names, titles, descriptions, and
 allowlisted metadata as the embedded standard-library documentation
 projection. A successful dependency result lists only its index resource. A
 failed dependency result lists only its status resource. Neither result lists
-module or declaration resources eagerly.
+module or declaration resources eagerly. For each retained source snapshot,
+listing selects the revision generated from its most recently admitted stable
+dependency capture. A new revision for that snapshot replaces the older
+revision in discovery without removing the older revision's exact read routes.
+Documentation for source snapshots with different own digests continues to
+coexist in discovery.
 
 `resources/read` accepts one exact `uri` plus optional request metadata. A
 successful read returns one complete text content entry with the requested
@@ -159,8 +211,9 @@ URI, media type, and deterministic text. Language-reference resource text is
 Markdown rendered from the checked catalog artifact. Standard-library
 package-documentation resource text is Markdown rendered from the retained
 embedded `std` package-documentation result. Dependency
-package-documentation resource text is Markdown rendered from the
-documentation result retained with the admitted dependency snapshot.
+package-documentation resource text is Markdown rendered from the retained
+canonical package-documentation result selected by the exact URI. The URI may
+select the same result for more than one retained dependency-context revision.
 Standard-library source resource text is the exact UTF-8 source text captured
 from the embedded package snapshot at server startup. Dependency source
 resource text is the exact UTF-8 source text retained from the admitted
@@ -185,7 +238,8 @@ are not normalized and do not fall back to the filesystem. Missing, nullable,
 non-string, non-object, or unknown-field read parameters fail with invalid
 params.
 
-Admitted dependency resource snapshots remain available until server shutdown.
+Admitted dependency source snapshots and documentation revisions remain
+available for exact reads until server shutdown.
 Workspace refresh, project removal, dependency removal, dependency relocation,
 dependency source edits, and a later digest for the same identity do not remove
 or mutate an existing admitted snapshot. The resource set is independent of
@@ -292,15 +346,18 @@ text.
 The documentation tool candidate set, result URIs, read metadata, and read
 bytes are retained server state. Embedded standard-library candidates exist
 after initialization. Successful saved-project dependency admission publishes
-dependency package search candidates and reads atomically. Repeated admission
-of the same retained package key adds no candidates. A later digest for the
-same identity coexists with older candidates and reads until shutdown.
-Status-only package documentation adds only its exact read route. Capacity
-failures and stable-capture failures add no package candidates or read routes
-and preserve earlier tool results and resources. Workspace refresh and later
-filesystem changes do not remove or mutate retained package search candidates
-or reads. Invalid input and `resource_not_found` failures do not change saved
-workspace state, language-reference resource state, or package resource state.
+dependency package search candidates and reads atomically. Search uses only the
+currently selected successful revision for each source snapshot. Selecting a
+new successful revision replaces that snapshot's candidates; selecting a
+failed revision removes them. Both transitions preserve every earlier exact
+read route. A later source digest for the same identity keeps the older
+snapshot's selected candidates and reads alongside the new snapshot. A
+status-only revision adds only its exact read route. Capacity failures and
+stable-capture failures add no package candidates or read routes and preserve
+earlier tool results and resources. Workspace refresh and later filesystem
+changes do not remove or mutate retained exact reads. Invalid input and
+`resource_not_found` failures do not change saved workspace state,
+language-reference resource state, or package resource state.
 
 ## Workspace Selection
 
@@ -401,9 +458,10 @@ Previously retained dependency source, package-documentation, search, and
 exact-read state remains unchanged. Stable-capture failure preserves the same
 state. Other language diagnostics do not imply this visibility-specific
 admission rule.
-If dependency resource admission exceeds retained package capacity after
-analysis succeeds, `check_project` returns `resource_capacity` and publishes no
-partial diagnostics, summary, or analysis metadata.
+If dependency resource admission exceeds the retained source-snapshot or
+documentation-revision capacity after analysis succeeds, `check_project`
+returns `resource_capacity` and publishes no partial diagnostics, summary, or
+analysis metadata.
 
 ## Saved Workspace Navigation
 
@@ -469,7 +527,11 @@ A definition result is either `{"definition": location|null}` or a failure.
 A location has `uri` and a half-open `range` with one-based line and
 Unicode-scalar column positions. Workspace locations use canonical `file:`
 URIs. Eligible package locations use same-snapshot `veln-pkg:` URIs and may
-include `packageDocumentationUri` for the retained declaration Markdown.
+include `packageDocumentationUri` for the retained declaration Markdown. The
+documentation URI comes from the revision associated with the same stable
+dependency capture that built the navigation snapshot. An older revision for
+the same package source snapshot is never selected merely because its exact
+read remains retained.
 Invalid paths return `invalid_path`; invalid coordinates return
 `invalid_position`; stable-capture exhaustion returns `snapshot_changed`;
 capacity exhaustion returns `resource_capacity`. These failures include
@@ -906,8 +968,9 @@ navigation. Stable capture retries are bounded; exhaustion returns
 `snapshot_changed` without success-only fields. A failed initial references
 capture preserves published resources, the prior navigation selection, and
 all existing cursors; it neither creates nor consumes a cursor. If dependency
-admission would exceed the retained package capacity, definition and references
-return `resource_capacity` without partial locations, scope, or new resources.
+admission would exceed the retained source-snapshot or documentation-revision
+capacity, definition and references return `resource_capacity` without partial
+locations, scope, or new resources.
 
 ## References
 
@@ -918,9 +981,19 @@ and `crates/veln-mcp/src/references.rs`; source presentation is implemented by
 conversion is implemented by
 `crates/veln-mcp/src/rename.rs`; cursor retention is implemented by
 `crates/veln-mcp/src/reference_pagination.rs`. Protocol regression tests are in
-`crates/veln-mcp/src/server/tests/`. Checked rename transcripts cover saved
-workspace results, supported symbol classes, recovery identities, unsupported
-boundaries, and anonymous boundaries under `examples/specification/mcp/rename-*`.
+`crates/veln-mcp/src/server/tests/`. Dependency-resource tests use deterministic
+work counters to check one snapshot capture and one documentation generation
+per admitted dependency. Their capacity cases check that either overflow
+performs no documentation generation and preserves prior lists, search
+candidates, and exact reads. Elapsed time is reported only as supporting
+evidence, not as a threshold. The checked embedded standard-library
+package-documentation bundle and generator contract are maintained by
+`tools/veln-repo-mcp-standard-library-docs/`; bundle validation and MCP resource
+transcripts check that generator-contract changes rotate exact documentation
+URIs without rotating the package snapshot. Checked rename transcripts cover
+saved workspace results, supported symbol classes, recovery identities,
+unsupported boundaries, and anonymous boundaries under
+`examples/specification/mcp/rename-*`.
 The checked
 [`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
 transcript covers discovery and exact reads for the embedded package catalog,

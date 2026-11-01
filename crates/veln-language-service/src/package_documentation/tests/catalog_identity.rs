@@ -294,6 +294,8 @@ fn package_documentation_requires_validated_package_identity() {
         &identity,
         &snapshot,
         &manifest,
+        Path::new("."),
+        &[],
         PackageDocGeneratorContract::new("contract-a"),
     );
 
@@ -320,6 +322,8 @@ fn package_documentation_requires_manifest_package_name() {
         &identity,
         &snapshot,
         &manifest,
+        Path::new("."),
+        &[],
         PackageDocGeneratorContract::new("contract-a"),
     );
 

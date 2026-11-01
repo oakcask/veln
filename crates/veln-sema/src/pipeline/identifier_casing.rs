@@ -56,7 +56,11 @@ fn check_invalid_name_casing_classified(
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
     let mut invalid_names = classified_invalid_names(module, environment);
-    radix_sort_by_span(&mut invalid_names, |invalid| &invalid.span);
+    radix_sort_by_span(
+        &mut invalid_names,
+        |invalid| &invalid.span,
+        crate::pipeline::record_variant_refinement_casing_work,
+    );
     invalid_names.dedup_by(|left, right| {
         left.class == right.class
             && left.occurrence == right.occurrence
@@ -148,7 +152,11 @@ fn classified_qualified_path_segments_with_refinements(
                 classified_invalid_path_segment(invalid, &occurrence_index, module, environment)
             }),
     );
-    radix_sort_by_span(&mut segments, |segment| &segment.span);
+    radix_sort_by_span(
+        &mut segments,
+        |segment| &segment.span,
+        crate::pipeline::record_variant_refinement_casing_work,
+    );
     segments.dedup_by(|left, right| {
         left.role == right.role
             && left.occurrence == right.occurrence
@@ -223,11 +231,15 @@ fn invalid_path_segment_is_already_classified(
         })
 }
 
-fn radix_sort_by_span<T>(items: &mut Vec<T>, span: fn(&T) -> &veln_source::SourceSpan) {
+pub(super) fn radix_sort_by_span<T>(
+    items: &mut Vec<T>,
+    span: fn(&T) -> &veln_source::SourceSpan,
+    record_work: fn(usize),
+) {
     if items.len() < 2 {
         return;
     }
-    crate::pipeline::record_variant_refinement_casing_work(items.len() * 2);
+    record_work(items.len() * 2);
     let mut indices = (0..items.len()).collect::<Vec<_>>();
     let mut scratch = vec![0; items.len()];
     for use_end in [true, false] {
@@ -240,16 +252,16 @@ fn radix_sort_by_span<T>(items: &mut Vec<T>, span: fn(&T) -> &veln_source::Sourc
             }
         };
         for shift in (0..usize::BITS).step_by(8) {
-            radix_sort_offset_byte(items, &indices, &mut scratch, shift, offset);
+            radix_sort_offset_byte(items, &indices, &mut scratch, shift, offset, record_work);
             std::mem::swap(&mut indices, &mut scratch);
         }
     }
-    radix_sort_file_bytes(items, &mut indices, &mut scratch, span);
+    radix_sort_file_bytes(items, &mut indices, &mut scratch, span, record_work);
     let mut original = std::mem::take(items)
         .into_iter()
         .map(Some)
         .collect::<Vec<_>>();
-    crate::pipeline::record_variant_refinement_casing_work(original.len() * 2);
+    record_work(original.len() * 2);
     items.extend(
         indices
             .into_iter()
@@ -262,6 +274,7 @@ fn radix_sort_file_bytes<T>(
     indices: &mut [usize],
     scratch: &mut [usize],
     span: fn(&T) -> &veln_source::SourceSpan,
+    record_work: fn(usize),
 ) {
     let Some(&first) = indices.first() else {
         return;
@@ -279,9 +292,9 @@ fn radix_sort_file_bytes<T>(
             continue;
         }
         let mut sizes = [0usize; 257];
-        crate::pipeline::record_variant_refinement_casing_work(sizes.len());
+        record_work(sizes.len());
         for &index in &indices[start..end] {
-            crate::pipeline::record_variant_refinement_casing_work(1);
+            record_work(1);
             sizes[file_byte_bucket(span(&items[index]), byte_index)] += 1;
         }
         let mut positions = sizes;
@@ -292,7 +305,7 @@ fn radix_sort_file_bytes<T>(
             *position = bucket_start;
         }
         for &index in &indices[start..end] {
-            crate::pipeline::record_variant_refinement_casing_work(1);
+            record_work(1);
             let bucket = file_byte_bucket(span(&items[index]), byte_index);
             scratch[positions[bucket]] = index;
             positions[bucket] += 1;
@@ -323,16 +336,17 @@ fn radix_sort_offset_byte<T>(
     output: &mut [usize],
     shift: u32,
     offset: impl Fn(&T) -> usize,
+    record_work: fn(usize),
 ) {
     let mut counts = [0usize; 256];
-    crate::pipeline::record_variant_refinement_casing_work(counts.len());
+    record_work(counts.len());
     for &index in indices {
-        crate::pipeline::record_variant_refinement_casing_work(1);
+        record_work(1);
         counts[(offset(&items[index]) >> shift) as u8 as usize] += 1;
     }
     let mut next = 0;
     for count in &mut counts {
-        crate::pipeline::record_variant_refinement_casing_work(1);
+        record_work(1);
         let start = next;
         next += *count;
         *count = start;

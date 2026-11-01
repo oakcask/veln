@@ -89,8 +89,8 @@ pub(crate) use module_values::{
     take_module_value_availability_work,
 };
 pub(crate) use module_values::{
-    check_module_values, record_module_value_availability_update,
-    record_module_value_exposure_rebuild,
+    ModuleValuePublicationCause, ModuleValuePublicationProvenance, check_module_values,
+    record_module_value_availability_update, record_module_value_exposure_rebuild,
 };
 #[cfg(test)]
 pub(crate) use variant_refinement_bases::{

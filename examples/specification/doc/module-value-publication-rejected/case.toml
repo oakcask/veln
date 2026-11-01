@@ -1,0 +1,11 @@
+command = ["doc", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[type.mismatch]", "expected `Int`, but found `String`"]
+not_contains = ["##### let accepted: Int", "##### let rejected: Int"]

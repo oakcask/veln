@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use veln_ast::{BodyLine, BodyLineKind, Expr, ExprKind};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
-use super::Dependency;
+use super::{Dependency, DependencyCollector};
 use crate::adt::registry::ConstructorLookup;
 use crate::adt::{descriptors::AdtConstructor, type_operations as adt};
 use crate::diagnostics::span_json;
@@ -215,7 +215,7 @@ pub(super) fn collect_dependencies(
     value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     bindings: &mut Vec<String>,
-    dependencies: &mut Vec<Dependency>,
+    dependencies: &mut DependencyCollector<'_>,
     has_invalid_dependency: &mut bool,
 ) {
     if let ExprKind::NamePath { segments, .. } = &expr.kind
@@ -228,12 +228,15 @@ pub(super) fn collect_dependencies(
             environment,
         )
     {
-        match target {
-            ModuleValueIndex::Unique(target) => dependencies.push(Dependency {
+        match target.1 {
+            ModuleValueIndex::Unique(target) => dependencies.dependencies.push(Dependency {
                 target,
                 span: expr.span.clone(),
             }),
-            ModuleValueIndex::Collision => *has_invalid_dependency = true,
+            ModuleValueIndex::Collision => {
+                dependencies.collision_dependencies.push(target.0);
+                *has_invalid_dependency = true;
+            }
         }
     }
     match &expr.kind {
@@ -296,7 +299,7 @@ fn collect_body_dependencies(
     value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     bindings: &mut Vec<String>,
-    dependencies: &mut Vec<Dependency>,
+    dependencies: &mut DependencyCollector<'_>,
     has_invalid_dependency: &mut bool,
 ) {
     for line in body {
@@ -345,7 +348,7 @@ fn module_value_index(
     current_module: Option<&str>,
     current_package: Option<&str>,
     environment: &TypeEnvironment,
-) -> Option<ModuleValueIndex> {
+) -> Option<(ModuleValueIdentity, ModuleValueIndex)> {
     let (name, _) = segments.split_last()?;
     if environment.same_module_value_path_matches_in_owner(
         segments,
@@ -358,7 +361,7 @@ fn module_value_index(
             name.clone(),
         );
         if let Some(index) = value_indices.get(&identity) {
-            return Some(*index);
+            return Some((identity, *index));
         }
     }
     let identity = environment.module_value_dependency_identity_in_owner(
@@ -366,7 +369,10 @@ fn module_value_index(
         current_module,
         current_package,
     )?;
-    value_indices.get(&identity).copied()
+    value_indices
+        .get(&identity)
+        .copied()
+        .map(|index| (identity, index))
 }
 
 fn known_function(

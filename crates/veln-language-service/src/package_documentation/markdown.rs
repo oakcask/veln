@@ -479,6 +479,8 @@ mod tests {
             &identity,
             &snapshot,
             &manifest,
+            std::path::Path::new("."),
+            &[],
             PackageDocGeneratorContract::new("contract-a"),
         )
     }
@@ -598,6 +600,8 @@ mod tests {
             &PackageIdentity::new("demo").unwrap(),
             &snapshot,
             &manifest,
+            std::path::Path::new("."),
+            &[],
             PackageDocGeneratorContract::new("contract-a"),
         );
 

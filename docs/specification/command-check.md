@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The veln check command gate, source discovery behavior, dependency loading, or output contract changes.
+update-when: The veln check command gate, source discovery behavior, dependency loading, output contract, or its module-value package-documentation boundary changes.
 specification-coverage: usage=#check-command; behavior=#discovery-and-ownership; limits=#limits-and-errors
 ---
 
@@ -72,9 +72,11 @@ This propagation is an availability/recheck relation. It does not add an
 initializer dependency-graph edge.
 Selected cross-module references create dependency-graph edges and can produce
 cross-module cycle diagnostics. This gate still prevents backend
-materialization, command success, and publication, while retaining accepted
-declarations and references in checked core and typed IR. The
-[source-surface specification](source-surface.md#module-immutable-value-declarations)
+materialization and `veln check` success while retaining accepted declarations
+and references in checked core and typed IR. Package-documentation publication
+uses the separate boundary defined by the
+[package-documentation specification](package-documentation.md#published-boundary).
+The [source-surface specification](source-surface.md#module-immutable-value-declarations)
 defines the declaration boundary, and the
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines
 the human and JSON record.

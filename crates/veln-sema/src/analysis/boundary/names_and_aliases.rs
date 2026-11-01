@@ -7,7 +7,7 @@ use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
 use veln_diagnostics::Diagnostic;
 use veln_source::SourceSpan;
 
-use crate::types::TypeEnvironment;
+use crate::types::{ModuleValueIdentity, TypeEnvironment};
 
 use super::module_boundaries::{
     alias_kind_mismatch_diagnostic, duplicate_name_diagnostic, function_target,
@@ -16,6 +16,11 @@ use super::module_boundaries::{
 };
 
 type SeenNames = BTreeMap<(Option<String>, Option<String>, String), (String, SourceSpan)>;
+
+pub(crate) struct CallableNameCollision {
+    pub(crate) identity: ModuleValueIdentity,
+    pub(crate) diagnostic: Diagnostic,
+}
 
 fn record_name(
     seen: &mut SeenNames,
@@ -26,6 +31,19 @@ fn record_name(
     node_id: String,
     span: &SourceSpan,
 ) {
+    if let Some(diagnostic) = duplicate_name(seen, owner, name, kind, node_id, span) {
+        diagnostics.push(diagnostic);
+    }
+}
+
+fn duplicate_name(
+    seen: &mut SeenNames,
+    owner: (Option<&str>, Option<&str>),
+    name: &str,
+    kind: (&'static str, &'static str),
+    node_id: String,
+    span: &SourceSpan,
+) -> Option<Diagnostic> {
     let (namespace, subject) = kind;
     let (package_name, module_name) = owner;
     let key = (
@@ -34,7 +52,7 @@ fn record_name(
         name.to_string(),
     );
     if let Some((first_node_id, first_span)) = seen.get(&key) {
-        diagnostics.push(duplicate_name_diagnostic(
+        Some(duplicate_name_diagnostic(
             name,
             namespace,
             subject,
@@ -42,23 +60,26 @@ fn record_name(
             span.clone(),
             first_node_id.clone(),
             first_span,
-        ));
+        ))
     } else {
         seen.insert(key, (node_id, span.clone()));
+        None
     }
 }
 
-pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
+pub(crate) fn check_duplicate_function_names(
+    module: &SurfaceModule,
+) -> (Vec<Diagnostic>, Vec<CallableNameCollision>) {
+    let mut collisions = Vec::new();
     let mut seen = SeenNames::new();
 
     for function in &module.functions {
         let Some(name) = &function.name else {
             continue;
         };
-        record_name(
+        record_callable_name(
             &mut seen,
-            &mut diagnostics,
+            &mut collisions,
             (
                 function.package_name.as_deref(),
                 function.module_name.as_deref(),
@@ -77,9 +98,9 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
         let Some(name) = &alias.name else {
             continue;
         };
-        record_name(
+        record_callable_name(
             &mut seen,
-            &mut diagnostics,
+            &mut collisions,
             (alias.package_name.as_deref(), alias.module_name.as_deref()),
             name,
             ("function", "function alias"),
@@ -91,9 +112,9 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
         let Some(name) = &value.name else {
             continue;
         };
-        record_name(
+        record_callable_name(
             &mut seen,
-            &mut diagnostics,
+            &mut collisions,
             (value.package_name.as_deref(), value.module_name.as_deref()),
             name,
             ("function", "module value declaration"),
@@ -102,7 +123,32 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
         );
     }
 
-    diagnostics
+    let diagnostics = collisions
+        .iter()
+        .map(|collision| collision.diagnostic.clone())
+        .collect();
+    (diagnostics, collisions)
+}
+
+fn record_callable_name(
+    seen: &mut SeenNames,
+    collisions: &mut Vec<CallableNameCollision>,
+    owner: (Option<&str>, Option<&str>),
+    name: &str,
+    kind: (&'static str, &'static str),
+    node_id: String,
+    span: &SourceSpan,
+) {
+    if let Some(diagnostic) = duplicate_name(seen, owner, name, kind, node_id, span) {
+        collisions.push(CallableNameCollision {
+            identity: (
+                owner.0.map(str::to_owned),
+                owner.1.map(str::to_owned),
+                name.to_owned(),
+            ),
+            diagnostic,
+        });
+    }
 }
 
 pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnostic> {

@@ -342,6 +342,8 @@ fn exported_parse_failure_keeps_virtual_source_catalog_resolvable() {
         &identity,
         &snapshot,
         &manifest,
+        Path::new("."),
+        &[],
         PackageDocGeneratorContract::new("contract-a"),
     );
     let virtual_sources = crate::VirtualSourceCatalog::new([(

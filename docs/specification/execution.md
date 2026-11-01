@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#runtime-readiness-and-host-boundaries; behavior=#runtime-readiness-and-host-boundaries; limits=#cleanup-limits
-update-when: The checked-core readiness, typed-IR readiness, runtime execution, source-visible runtime or binary-schema codec behavior, JVM backend, or execution evidence contract changes.
+update-when: The checked-core readiness, typed-IR readiness, runtime execution, module-value documentation/runtime gate boundary, source-visible runtime or binary-schema codec behavior, JVM backend, or execution evidence contract changes.
 ---
 
 # Execution Boundary
@@ -139,9 +139,12 @@ tests and the typed-IR
 tests.
 
 Shared semantic analysis still emits `module.value_not_executable` for every
-declaration. The diagnostic blocks runtime materialization, code generation,
-and command success. Parsing, formatting, semantic checking, and internal
-representation do not create a runtime value or initialization phase.
+declaration. The diagnostic blocks runtime materialization and code generation.
+It also makes `veln check`, `veln run`, and `veln test` unsuccessful. The
+documentation-only `veln doc` command ignores this runtime gate as specified by
+[the doc command](command-doc.md#gates-and-write-policy). Parsing, formatting,
+semantic checking, documentation generation, and internal representation do
+not create a runtime value or initialization phase.
 The JVM backend requires the typed program's module-value declaration set to
 be empty. It rejects a nonempty set before classfile generation, so retaining a
 declaration in typed IR does not make that declaration executable.

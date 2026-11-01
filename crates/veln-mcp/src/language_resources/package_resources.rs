@@ -15,6 +15,21 @@ pub(crate) struct RetainedPackageKey {
     pub(super) digest: String,
 }
 
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub(crate) struct DocumentationRevisionKey {
+    pub(super) package: RetainedPackageKey,
+    pub(super) context_digest: String,
+}
+
+impl DocumentationRevisionKey {
+    pub(super) fn standalone(package: RetainedPackageKey) -> Self {
+        Self {
+            package,
+            context_digest: "standalone".to_string(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(super) enum PackageDocumentation {
     Ready(PackageDocResult),
@@ -22,6 +37,17 @@ pub(super) enum PackageDocumentation {
 }
 
 impl PackageDocumentation {
+    pub(super) fn listed_uri(&self) -> Option<&str> {
+        match self {
+            Self::Ready(result) => Some(
+                result
+                    .catalog()
+                    .map_or_else(|| result.status_uri(), |catalog| catalog.index_uri.as_str()),
+            ),
+            Self::CheckedStandardLibrary(_) => None,
+        }
+    }
+
     pub(super) fn search_candidates(
         &self,
         key: &RetainedPackageKey,

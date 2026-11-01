@@ -2,27 +2,53 @@
 role: specification
 authority: normative
 specification-coverage: usage=#usage; behavior=#published-boundary; limits=#generation-gates
-update-when: The package documentation catalog API, canonical result bytes, digest, URI, gate, executable evidence, or veln doc command route changes.
+update-when: The package documentation generation or catalog API, canonical result bytes, digest, URI, gate, executable evidence, or veln doc command route changes.
 ---
 
 # Package Documentation Catalogs
 
 `veln-language-service` exposes a transport-independent package documentation
 catalog for one validated package identity, one captured package snapshot, and
-the validated manifest parsed from that same capture. The catalog is not the
-`veln doc` Markdown output. `veln mcp` exposes a Markdown projection for the
-embedded `std` package-documentation result and for admitted direct-dependency
-package snapshots.
+the validated manifest parsed from that same capture. Semantic publication
+uses only the captured dependency projects supplied with that package and does
+not reconstruct dependencies from the host filesystem. The package project
+root is an analysis identity input and is not published in the catalog. The
+catalog is not the `veln doc` Markdown output. `veln mcp` exposes a Markdown
+projection for the embedded `std` package-documentation result and for
+admitted direct-dependency package snapshots.
 
 ## Usage
 
 Call `PackageDocResult::generate` with a validated `PackageIdentity`, a
-`CapturedPackageSnapshot`, its `ProjectManifest`, and a
+`CapturedPackageSnapshot`, its `ProjectManifest`, the captured package project
+root, every captured dependency project from the same analysis, and a
 `PackageDocGeneratorContract`. Inspect `status()` for generation diagnostics
 and `catalog()` for the optional published catalog. `canonical_bytes()` and
-`doc_digest()` expose the stable result identity. Use `declaration_uri_for`
-or `declaration_uri_for_location` to obtain documentation links rather than
-constructing their identifiers.
+`doc_digest()` expose the stable result identity. Use `declaration_uri_for` or
+`declaration_uri_for_location` to obtain documentation links rather than
+constructing their identifiers. Generation derives module-value publication
+roots from the semantic identities of public declarations in exported modules;
+callers do not select publication diagnostics by source span.
+
+A caller that already owns captured dependency snapshots can construct
+`PackageDocDependencySnapshots` from their package identities and snapshots,
+then call `PackageDocResult::generate_with_dependency_snapshots`. The captured
+dependency projects still provide the semantic-analysis inputs. The supplied
+snapshot map provides the exact snapshot digest used when generation projects
+a dependency-owned diagnostic to a canonical `veln-pkg:` source URI. If the
+map has no entry for the dependency that owns a retained cause, generation
+uses the spanless `package_doc.dependency_snapshot_unavailable` diagnostic
+described under [Generation Gates](#generation-gates).
+
+A caller that generates documentation for more than one package from the same
+stable dependency capture can construct one `CapturedDependencyIndex` over
+those captured projects and call
+`PackageDocResult::generate_with_dependency_index_and_snapshots` for each
+package. The index remains tied to that captured project slice. Semantic import
+resolution first selects an exact package and source selector. An eligible
+local dependency can then select the same package at its normalized captured
+project root. Reusing the index changes neither the snapshot map used for
+diagnostic URIs nor the canonical result identity described below.
 
 ## Read First
 
@@ -55,8 +81,14 @@ the documentation digest because the canonical result contains that snapshot
 digest. Catalog-semantic, schema, or generator-contract changes also affect
 the documentation digest.
 
-The implemented gates are parse, manifest, export, semantic visibility,
-documentation-reference, doctest, and identity.
+Captured dependency context is a generation input, but it is not independently
+encoded in the documentation identity. A dependency change that changes the
+catalog or failure status changes the canonical result bytes and the
+`doc-digest`. Two dependency contexts that produce the same canonical result
+bytes produce the same `doc-digest` and `veln-doc:` URIs.
+
+The implemented gates are parse, manifest, export, semantic visibility, module
+value, documentation-reference, doctest, and identity.
 
 ## Result Identity
 
@@ -101,24 +133,32 @@ signatures include effect row binders such as `<effect E>`. Effect declaration
 signatures include the ordered operation names, parameter names and types, and
 result types. Handler declaration signatures include the handler name and
 parameters, the handled effect, and the retained effect row. Handler operation
-clauses and bodies do not contribute to the signature or identity. Declaration
-identity does not use source order or source byte offsets. A duplicate semantic
-identity fails the complete package documentation result. A detected module or
+clauses and bodies do not contribute to the signature or identity. A module
+immutable value signature contains `let`, its public name, and its written type
+annotation. Its initializer is not copied into declaration content and does not
+contribute to the signature or declaration identity. Declaration identity does
+not use source order or source byte offsets. A duplicate semantic identity
+fails the complete package documentation result. A detected module or
 declaration identifier collision also fails the complete package documentation
-result.
+result. Initializer source bytes remain part of the package snapshot, so an
+initializer-only source change rotates the snapshot identity, canonical result
+bytes, and documentation digest.
 
 ## Published Boundary
 
 The successful catalog includes only modules listed by `[lib].exports`. For
 those modules it includes public type declarations, public type constructors,
-public schemas, public effects and their operation signatures, public member
-aliases, public handlers, public functions, attached documentation comments,
-public function contracts, visible doctest fences, expected-output fences, and
-resolved schema documentation references. Each public handler is a distinct
-`handler` declaration with its canonical signature, stable declaration
-identifier, and individually readable declaration resource. Public type
-constructors carry their own attached documentation comments, visible doctest
+public schemas, public effects and their operation signatures, public module
+immutable values, public member aliases, public handlers, public functions,
+attached documentation comments, public function contracts, visible doctest
 fences, expected-output fences, and resolved schema documentation references.
+Each public module value is a `module_value` declaration that publishes its
+name and written type annotation without initializer text. Each public handler
+is a distinct `handler` declaration with its canonical signature, stable
+declaration identifier, and individually readable declaration resource. Public
+type constructors carry their own attached documentation comments, visible
+doctest fences, expected-output fences, and resolved schema documentation
+references.
 An effect is one declaration in the catalog; its operations are represented in
 that declaration's canonical signature rather than as separate declarations.
 Public function and ADT signatures preserve source-written variant-refinement
@@ -138,17 +178,19 @@ are eligible for the package-atomic failure even when their primary spans are
 in non-exported sources.
 
 The catalog excludes non-exported modules, private declarations, handler
-operation clauses and bodies, module immutable value declarations, exact test
-companions, integration-test sources, hidden doctest setup lines, ADR-lite
+operation clauses and bodies, module immutable value initializer text, exact
+test companions, integration-test sources, hidden doctest setup lines, ADR-lite
 records, raw manifests, dependency declarations, dependency selectors, local
 paths, repository and homepage URLs, tool metadata, unknown manifest fields,
-and environment-derived values. A direct successful `PackageDocResult` has no
-declaration or lookup URI for a module immutable value. The `veln doc` command
-runs project analysis before package-documentation generation. It reports any
-finite-data initializer, annotation-visibility, imported-lookup, or package-wide
-dependency diagnostics for selected module immutable values, together with
-`module.value_not_executable` for every such declaration. These diagnostics
-block generation before the command can publish the declaration.
+and environment-derived values. A direct successful `PackageDocResult` has a
+declaration and lookup URI for each accepted public module value. A public
+module value rejected by finite-data initializer, annotation, imported-lookup,
+visibility, or package-wide dependency checking fails the package-atomic
+result. No accepted sibling declaration is published in that failure result.
+The `veln doc` command applies the same initializer, annotation, lookup,
+visibility, and dependency rules. Its failure selection is broader: any
+semantic error in the selected production project blocks the complete Markdown
+document, except for the runtime-only `module.value_not_executable` diagnostic.
 
 Published expected-output fences preserve the stream as `stdout` or `stderr`
 and the complete lines for that stream.
@@ -174,6 +216,22 @@ failure instead of dropping the manifest-listed export from validation.
 Generation is package-atomic. If any gate fails, the result contains only a
 status object and no module or declaration catalog. The source snapshot and
 virtual-source catalog remain usable by their own APIs.
+
+Each retained diagnostic keeps the gate of its causal publication failure.
+For example, one failed result can report a module-value diagnostic with
+`gate: "module_value"` and an independent private-refinement diagnostic with
+`gate: "semantic_visibility"`. The presence or ordering of another diagnostic
+does not reclassify either failure. When a retained dependency-owned cause can
+be matched to a captured dependency snapshot, its span keeps that dependency's
+package identity and snapshot digest in its canonical `veln-pkg:` source URI.
+A source path or byte range that is also present in the package being documented
+does not reassign the cause to that package. If the cause cannot be matched,
+generation replaces it with a spanless
+`package_doc.dependency_snapshot_unavailable` diagnostic under the same gate.
+When separate captured dependencies have identical source paths, ranges, and
+diagnostic text, the result retains only the cause owned by the dependency of
+the rejected exported value. The matching cause from an unrelated dependency
+does not enter the result.
 
 The implemented gates are:
 
@@ -201,6 +259,23 @@ The implemented gates are:
   `gate: "semantic_visibility"`, reports
   `type.variant_refinement_private`, and publishes no declaration identity or
   signature;
+- module value: every public module immutable value in an exported source must
+  pass finite-data initializer, written-annotation, imported-lookup,
+  package-aware visibility, and package-wide dependency checking. The
+  runtime-only `module.value_not_executable` diagnostic is not a documentation
+  rejection. An error owned by that declaration or by a required module-value
+  dependency rejects the complete catalog with `gate: "module_value"` and
+  publishes no module value or accepted sibling declaration. The failure keeps
+  only diagnostics in the rejected exported value's causal dependency closure.
+  The gate selects each exported root by its package-aware semantic identity,
+  not by its source path or byte range. A declaration from another package does
+  not become a root when its source span equals an exported declaration's span.
+  If multiple public declarations have the same semantic module-value identity,
+  the gate evaluates every occurrence and retains the union of their owned
+  causal diagnostics. Source order does not select one occurrence's causes.
+  A public module value whose name does not start with an ASCII lowercase
+  letter reports `name.invalid_case` through this gate. This name check applies
+  to every retained source, including a source that is not exported;
 - documentation reference: `{@schema ...}` references in documentation
   blocks that attach to exported public declarations or exported public type
   constructors must resolve to a public schema in an exported module. Bare
@@ -264,6 +339,17 @@ asking clients to construct resource identifiers or re-resolve by spelling.
 The public API is in
 `crates/veln-language-service/src/package_documentation.rs`; catalog identity,
 publication, and gate tests are in its `package_documentation/tests/` modules.
+The `module_value_publication` tests check public declaration content and
+lookup, initializer-independent declaration identity, snapshot and
+documentation digest rotation, package-atomic failure, and causal diagnostic
+selection for rejected values. They also check every owned cause for duplicate
+public module-value occurrences, recovered-import causes, and
+dependency-owned causes whose paths or spans collide with the documented
+package or another captured dependency. Deterministic work counters compare
+adjacent input sizes for public dependency chains, independent invalid values,
+invalid-casing values, and
+callable/module-value collisions to guard linear semantic classification
+without a wall-time threshold.
 The checked
 [`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
 transcript covers the public `net::system()` handler resource, its canonical

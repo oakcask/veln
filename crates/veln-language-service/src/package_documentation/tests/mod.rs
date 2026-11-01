@@ -8,6 +8,44 @@ use veln_project::{
 use super::*;
 
 fn generate(manifest: &str, sources: &[(&str, &str)]) -> PackageDocResult {
+    generate_with_dependencies(manifest, sources, &[])
+}
+
+fn generate_with_dependencies(
+    manifest: &str,
+    sources: &[(&str, &str)],
+    dependencies: &[CapturedDependencyProject],
+) -> PackageDocResult {
+    let captured_snapshots = dependencies
+        .iter()
+        .filter_map(|dependency| {
+            let identity = PackageIdentity::new(&dependency.package).ok()?;
+            let project = dependency.project.as_ref()?;
+            let manifest = project.manifest.as_ref()?;
+            let snapshot = capture_embedded_package_snapshot(
+                &manifest.source_bytes,
+                project.files.iter().map(|source| {
+                    PackageSnapshotSource::new(source.path().as_str(), source.text().as_bytes())
+                }),
+            )
+            .ok()?;
+            Some((identity, snapshot))
+        })
+        .collect::<Vec<_>>();
+    let dependency_snapshots = PackageDocDependencySnapshots::new(
+        captured_snapshots
+            .iter()
+            .map(|(identity, snapshot)| (identity, snapshot)),
+    );
+    generate_with_dependencies_and_snapshots(manifest, sources, dependencies, &dependency_snapshots)
+}
+
+fn generate_with_dependencies_and_snapshots(
+    manifest: &str,
+    sources: &[(&str, &str)],
+    dependencies: &[CapturedDependencyProject],
+    dependency_snapshots: &PackageDocDependencySnapshots,
+) -> PackageDocResult {
     let snapshot = capture_embedded_package_snapshot(
         manifest.as_bytes(),
         sources
@@ -18,10 +56,13 @@ fn generate(manifest: &str, sources: &[(&str, &str)]) -> PackageDocResult {
     let manifest = parse_manifest_text("veln.toml", manifest);
     let identity =
         PackageIdentity::new(manifest_field(&manifest.package.fields, "name").unwrap()).unwrap();
-    PackageDocResult::generate(
+    PackageDocResult::generate_with_dependency_snapshots(
         &identity,
         &snapshot,
         &manifest,
+        Path::new("."),
+        dependencies,
+        dependency_snapshots,
         PackageDocGeneratorContract::new("contract-a"),
     )
 }
@@ -29,8 +70,23 @@ fn generate(manifest: &str, sources: &[(&str, &str)]) -> PackageDocResult {
 fn generate_fixture(name: &str) -> PackageDocResult {
     let root = example_fixture_root(name);
     let manifest_text = fs::read_to_string(root.join("veln.toml")).unwrap();
-    let mut source_texts = Vec::new();
-    let mut source_paths = fs::read_dir(&root)
+    let source_texts = fixture_sources(&root);
+    let snapshot = fixture_snapshot(&manifest_text, &source_texts);
+    let manifest = parse_manifest_text("veln.toml", &manifest_text);
+    let identity =
+        PackageIdentity::new(manifest_field(&manifest.package.fields, "name").unwrap()).unwrap();
+    PackageDocResult::generate(
+        &identity,
+        &snapshot,
+        &manifest,
+        Path::new("."),
+        &[],
+        PackageDocGeneratorContract::new("contract-a"),
+    )
+}
+
+fn fixture_sources(root: &Path) -> Vec<(String, Vec<u8>)> {
+    let mut source_paths = fs::read_dir(root)
         .unwrap()
         .map(|entry| entry.unwrap().path())
         .filter(|path| {
@@ -39,26 +95,26 @@ fn generate_fixture(name: &str) -> PackageDocResult {
         })
         .collect::<Vec<_>>();
     source_paths.sort();
-    for path in source_paths {
-        let source_name = path.file_name().unwrap().to_string_lossy().to_string();
-        source_texts.push((source_name, fs::read(path).unwrap()));
-    }
-    let snapshot = capture_embedded_package_snapshot(
+    source_paths
+        .into_iter()
+        .map(|path| {
+            let source_name = path.file_name().unwrap().to_string_lossy().to_string();
+            (source_name, fs::read(path).unwrap())
+        })
+        .collect()
+}
+
+fn fixture_snapshot(
+    manifest_text: &str,
+    source_texts: &[(String, Vec<u8>)],
+) -> CapturedPackageSnapshot {
+    capture_embedded_package_snapshot(
         manifest_text.as_bytes(),
         source_texts
             .iter()
             .map(|(path, bytes)| PackageSnapshotSource::new(path, bytes.as_slice())),
     )
-    .unwrap();
-    let manifest = parse_manifest_text("veln.toml", &manifest_text);
-    let identity =
-        PackageIdentity::new(manifest_field(&manifest.package.fields, "name").unwrap()).unwrap();
-    PackageDocResult::generate(
-        &identity,
-        &snapshot,
-        &manifest,
-        PackageDocGeneratorContract::new("contract-a"),
-    )
+    .unwrap()
 }
 
 fn example_fixture_root(name: &str) -> PathBuf {
@@ -89,10 +145,16 @@ fn generate_with_forced_declaration_id(
     let manifest = parse_manifest_text("veln.toml", manifest);
     let identity =
         manifest_field(&manifest.package.fields, "name").unwrap_or_else(|| "demo".to_string());
+    let dependency_snapshots = PackageDocDependencySnapshots::default();
+    let dependencies = Vec::new();
+    let dependency_index = CapturedDependencyIndex::new(&dependencies);
     PackageDocBuilder::new(
         &identity,
         &snapshot,
         &manifest,
+        Path::new("."),
+        &dependency_index,
+        &dependency_snapshots,
         PackageDocGeneratorContract::new("contract-a"),
     )
     .with_forced_declaration_id(id)
@@ -102,5 +164,8 @@ fn generate_with_forced_declaration_id(
 mod catalog_identity;
 mod doctest_gates;
 mod doctest_publication;
+mod module_value_classification_scaling;
+mod module_value_dependency_boundaries;
+mod module_value_publication;
 mod navigation_and_manifest;
 mod variant_refinement_visibility;

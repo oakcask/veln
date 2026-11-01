@@ -1,19 +1,20 @@
 use std::collections::{BTreeSet, HashMap};
 use std::hash::Hash;
 
-use veln_ast::{FunctionKind, SurfaceModule, Visibility};
+use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
 use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
 
 use crate::analysis::{
-    VariantDiagnosticInterner, check_declared_effect_labels, check_duplicate_constructor_names,
-    check_duplicate_effect_names, check_duplicate_function_names, check_duplicate_schema_names,
-    check_duplicate_type_names, check_duplicate_use_aliases, check_function_body,
-    check_handler_declarations, check_module_boundary, check_module_values,
-    check_public_adt_variant_refinement_visibility, check_public_aliases,
-    check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
-    check_schema_type_references, check_test_declaration_boundary, check_variant_refinement_bases,
+    ModuleValuePublicationProvenance, VariantDiagnosticInterner, check_declared_effect_labels,
+    check_duplicate_constructor_names, check_duplicate_effect_names,
+    check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
+    check_duplicate_use_aliases, check_function_body, check_handler_declarations,
+    check_module_boundary, check_module_values, check_public_adt_variant_refinement_visibility,
+    check_public_aliases, check_public_function_boundary, check_reserved_prelude_aliases,
+    check_schema_field_primitives, check_schema_type_references, check_test_declaration_boundary,
+    check_variant_refinement_bases,
 };
 use crate::lowering::{
     lower_executable_surface_module_to_core, lower_project_surface_module_to_core,
@@ -26,10 +27,14 @@ use crate::types::{
     prepare_reusable_standard_environment,
 };
 
+mod declaration_checks;
 mod diagnostic_ordering;
 mod identifier_casing;
+mod module_value_gate;
+mod module_value_publication;
 mod publication;
 
+use declaration_checks::{check_function_declaration_and_body, check_module_declarations};
 use diagnostic_ordering::{
     merge_variant_refinement_base_diagnostics, order_delayed_parse_diagnostics,
     order_variant_refinement_visibility_diagnostics,
@@ -43,6 +48,14 @@ pub use identifier_casing::{
     classified_project_qualified_path_segments_with_context,
     classified_project_qualified_path_segments_with_context_and_work,
 };
+#[cfg(test)]
+pub(crate) use module_value_gate::{
+    ModuleValueGateWork, reset_module_value_gate_work, take_module_value_gate_work,
+};
+use module_value_gate::{
+    enforce_module_value_lowering_gate, module_value_not_executable_diagnostic,
+};
+use module_value_publication::index_module_value_publication;
 use publication::unpublished_public_declarations;
 
 #[derive(Clone, Debug)]
@@ -51,6 +64,58 @@ pub struct LoweredSurfaceModule {
     pub core: Option<CheckedProgram>,
     pub ir: Option<TypedProgram>,
     pub unpublished_declarations: Vec<UnpublishedDeclaration>,
+    module_value_publication: IndexedModuleValuePublicationProvenance,
+}
+
+#[derive(Clone, Debug, Default)]
+struct IndexedModuleValuePublicationProvenance {
+    failures_by_identity: HashMap<ModuleValuePublicationIdentity, Vec<usize>>,
+    values: Vec<IndexedModuleValuePublicationValue>,
+    collision_diagnostic_indices: HashMap<crate::types::ModuleValueIdentity, Vec<usize>>,
+    collision_identity_insertions: usize,
+    collision_diagnostic_lookups: usize,
+    collision_association_iterations: usize,
+    retained_edges: usize,
+    retained_direct_causes: usize,
+}
+
+#[derive(Clone, Debug)]
+struct IndexedModuleValuePublicationValue {
+    identity: Option<crate::types::ModuleValueIdentity>,
+    dependencies: Vec<usize>,
+    collision_dependencies: Vec<crate::types::ModuleValueIdentity>,
+    direct_causes: Vec<IndexedModuleValuePublicationCause>,
+}
+
+#[derive(Clone, Debug)]
+struct IndexedModuleValuePublicationCause {
+    package_name: Option<String>,
+    diagnostic_index: usize,
+}
+
+pub type ModuleValuePublicationIdentity = (Option<String>, Option<String>, String);
+
+#[derive(Clone, Debug)]
+pub struct ModuleValuePublicationDiagnostic {
+    pub package_name: Option<String>,
+    pub diagnostic: Diagnostic,
+}
+
+impl LoweredSurfaceModule {
+    pub fn internal_failure(diagnostics: Vec<Diagnostic>) -> Self {
+        Self {
+            diagnostics,
+            core: None,
+            ir: None,
+            unpublished_declarations: Vec::new(),
+            module_value_publication: IndexedModuleValuePublicationProvenance::default(),
+        }
+    }
+}
+
+struct SurfaceAnalysis {
+    diagnostics: Vec<Diagnostic>,
+    module_value_publication: ModuleValuePublicationProvenance,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -103,6 +168,22 @@ pub(crate) struct PublicationPropagationWork {
     pub propagation_attempts: usize,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ModuleValuePublicationWork {
+    pub retained_values: usize,
+    pub retained_edges: usize,
+    pub retained_direct_causes: usize,
+    pub visited_initializations: usize,
+    pub exported_root_lookups: usize,
+    pub identity_root_expansions: usize,
+    pub traversal_values: usize,
+    pub traversal_edges: usize,
+    pub cause_insertions: usize,
+    pub collision_identity_insertions: usize,
+    pub collision_diagnostic_lookups: usize,
+    pub collision_association_iterations: usize,
+}
+
 #[cfg(test)]
 thread_local! {
     static PUBLICATION_PROPAGATION_WORK: std::cell::Cell<PublicationPropagationWork> =
@@ -138,7 +219,7 @@ pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
             return vec![failure.diagnostic()];
         }
         let environment = TypeEnvironment::from_module(module);
-        analyze_surface_module_with_environment(module, &environment, true)
+        analyze_surface_module_with_environment(module, &environment, true).diagnostics
     })
 }
 
@@ -149,7 +230,7 @@ pub(crate) fn analyze_surface_module_with_base_for_test(
 ) -> Vec<Diagnostic> {
     crate::name_recovery::with_import_classification(module, || {
         let environment = TypeEnvironment::from_module_with_base_for_test(module, base);
-        analyze_surface_module_with_environment(module, &environment, true)
+        analyze_surface_module_with_environment(module, &environment, true).diagnostics
     })
 }
 
@@ -159,7 +240,7 @@ pub(crate) fn analyze_surface_module_with_environment_for_test(
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
     crate::name_recovery::with_import_classification(module, || {
-        analyze_surface_module_with_environment(module, environment, true)
+        analyze_surface_module_with_environment(module, environment, true).diagnostics
     })
 }
 
@@ -254,11 +335,13 @@ fn check_project_surface_module_with_environment(
         return (diagnostics.clone(), lowered_internal_failure(diagnostics));
     }
     let validate_standard_bodies = should_validate_standard_bodies(module);
-    let semantic_diagnostics =
+    let analysis =
         analyze_surface_module_with_environment(module, &environment, validate_standard_bodies);
+    let semantic_diagnostics = analysis.diagnostics;
     let checked = lower_analyzed_surface_module_with_environment(
         module,
         semantic_diagnostics.clone(),
+        analysis.module_value_publication,
         &environment,
         SurfaceLoweringMode::ProjectCheck,
     );
@@ -269,19 +352,20 @@ fn analyze_surface_module_with_environment(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
     validate_standard_bodies: bool,
-) -> Vec<Diagnostic> {
+) -> SurfaceAnalysis {
     if let Err(failure) = validate_source_less_lookup_registries() {
-        return vec![failure.diagnostic()];
+        return SurfaceAnalysis {
+            diagnostics: vec![failure.diagnostic()],
+            module_value_publication: ModuleValuePublicationProvenance::default(),
+        };
     }
     let mut diagnostics = Vec::new();
     let mut variant_diagnostics = VariantDiagnosticInterner::default();
     let mut environment = environment.clone();
 
-    diagnostics.extend(check_module_declarations(
-        module,
-        &mut environment,
-        &mut variant_diagnostics,
-    ));
+    let (module_diagnostics, module_value_publication) =
+        check_module_declarations(module, &mut environment, &mut variant_diagnostics);
+    diagnostics.extend(module_diagnostics);
 
     for function in &module.functions {
         if !validate_standard_bodies
@@ -304,7 +388,10 @@ fn analyze_surface_module_with_environment(
     );
     order_delayed_parse_diagnostics(&mut diagnostics);
 
-    diagnostics
+    SurfaceAnalysis {
+        diagnostics,
+        module_value_publication,
+    }
 }
 
 #[cfg(test)]
@@ -426,238 +513,20 @@ pub(crate) fn take_variant_refinement_base_work() -> VariantRefinementBaseWork {
     VARIANT_REFINEMENT_BASE_WORK.with(|work| work.replace(VariantRefinementBaseWork::new()))
 }
 
-fn check_module_declarations(
-    module: &SurfaceModule,
-    environment: &mut TypeEnvironment,
-    variant_diagnostics: &mut VariantDiagnosticInterner,
-) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-
-    let module_value_analysis = check_module_values(module, environment, variant_diagnostics);
-    diagnostics.extend(module_value_analysis.diagnostics);
-    diagnostics.extend(
-        module
-            .module_values
-            .iter()
-            .map(module_value_not_executable_diagnostic),
-    );
-    diagnostics.extend(check_invalid_name_casing(module, environment));
-    diagnostics.extend(check_duplicate_function_names(module));
-    diagnostics.extend(check_duplicate_type_names(module));
-    diagnostics.extend(check_duplicate_effect_names(module));
-    diagnostics.extend(check_duplicate_schema_names(module));
-    diagnostics.extend(check_duplicate_constructor_names(module));
-    diagnostics.extend(check_module_boundary(module));
-    diagnostics.extend(check_duplicate_use_aliases(module));
-    diagnostics.extend(check_reserved_prelude_aliases(module));
-    diagnostics.extend(check_public_aliases(module, environment));
-    for declaration in &module.types {
-        diagnostics.extend(check_public_adt_variant_refinement_visibility(
-            declaration,
-            environment,
-        ));
-    }
-    diagnostics.extend(check_schema_field_primitives(module, environment));
-    diagnostics.extend(check_schema_type_references(module));
-    diagnostics.extend(check_handler_declarations(module, environment));
-
-    diagnostics
-}
-
-fn module_value_not_executable_diagnostic(value: &veln_ast::ModuleValueDecl) -> Diagnostic {
-    let name = value.name.as_deref().unwrap_or("<missing>");
-    let mut diagnostic = Diagnostic::new(
-        "module.value_not_executable",
-        Severity::Error,
-        DiagnosticKind::Module,
-        format!("module value declaration `{name}` is not executable"),
-        Some(value.span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("module")),
-            ("field", JsonValue::string("module_value")),
-            ("name", JsonValue::string(name)),
-        ]),
-    );
-    diagnostic.related.push(JsonValue::object([(
-        "message",
-        JsonValue::string(
-            "The declaration is preserved in checked core and typed IR, but runtime materialization and code generation do not support module values yet.",
-        ),
-    )]));
-    diagnostic
-}
-
-#[derive(Clone, Copy)]
-struct DiagnosticSpan<'a>(&'a veln_source::SourceSpan);
-
-impl PartialEq for DiagnosticSpan<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl Eq for DiagnosticSpan<'_> {}
-
-impl Hash for DiagnosticSpan<'_> {
-    fn hash<Hasher>(&self, state: &mut Hasher)
-    where
-        Hasher: std::hash::Hasher,
-    {
-        self.0.file.hash(state);
-        self.0.start.line.hash(state);
-        self.0.start.column.hash(state);
-        self.0.start.offset.hash(state);
-        self.0.end.line.hash(state);
-        self.0.end.column.hash(state);
-        self.0.end.offset.hash(state);
-        self.0.original_path().hash(state);
-        self.0
-            .original_start()
-            .map(|position| (position.line, position.column, position.offset))
-            .hash(state);
-        self.0
-            .original_end()
-            .map(|position| (position.line, position.column, position.offset))
-            .hash(state);
-    }
-}
-
-#[cfg(test)]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) struct ModuleValueGateWork {
-    pub(crate) indexed_values: usize,
-    pub(crate) scanned_diagnostics: usize,
-    pub(crate) span_index_lookups: usize,
-    pub(crate) emitted_canonical_diagnostics: usize,
-}
-
-#[cfg(test)]
-impl ModuleValueGateWork {
-    pub(crate) fn total(self) -> usize {
-        self.indexed_values
-            + self.scanned_diagnostics
-            + self.span_index_lookups
-            + self.emitted_canonical_diagnostics
-    }
-}
-
-#[cfg(test)]
-thread_local! {
-    static MODULE_VALUE_GATE_WORK: std::cell::Cell<ModuleValueGateWork> =
-        const { std::cell::Cell::new(ModuleValueGateWork {
-            indexed_values: 0,
-            scanned_diagnostics: 0,
-            span_index_lookups: 0,
-            emitted_canonical_diagnostics: 0,
-        }) };
-}
-
-#[cfg(test)]
-fn record_module_value_gate_work(update: impl FnOnce(&mut ModuleValueGateWork)) {
-    MODULE_VALUE_GATE_WORK.with(|work| {
-        let mut current = work.get();
-        update(&mut current);
-        work.set(current);
-    });
-}
-
-#[cfg(test)]
-pub(crate) fn reset_module_value_gate_work() {
-    MODULE_VALUE_GATE_WORK.set(ModuleValueGateWork::default());
-}
-
-#[cfg(test)]
-pub(crate) fn take_module_value_gate_work() -> ModuleValueGateWork {
-    MODULE_VALUE_GATE_WORK.replace(ModuleValueGateWork::default())
-}
-
-fn enforce_module_value_lowering_gate(
-    module: &SurfaceModule,
-    diagnostics: Vec<Diagnostic>,
-) -> Vec<Diagnostic> {
-    let mut value_by_span = HashMap::with_capacity(module.module_values.len());
-    for (index, value) in module.module_values.iter().enumerate() {
-        value_by_span.insert(DiagnosticSpan(&value.span), index);
-        #[cfg(test)]
-        record_module_value_gate_work(|work| work.indexed_values += 1);
-    }
-
-    let mut emitted = vec![false; module.module_values.len()];
-    let mut repaired = Vec::with_capacity(diagnostics.len() + module.module_values.len());
-    for diagnostic in diagnostics {
-        #[cfg(test)]
-        record_module_value_gate_work(|work| work.scanned_diagnostics += 1);
-        let value_index = if diagnostic.id == "module.value_not_executable" {
-            diagnostic.span.as_ref().and_then(|span| {
-                #[cfg(test)]
-                record_module_value_gate_work(|work| work.span_index_lookups += 1);
-                value_by_span.get(&DiagnosticSpan(span)).copied()
-            })
-        } else {
-            None
-        };
-        let Some(value_index) = value_index else {
-            repaired.push(diagnostic);
-            continue;
-        };
-        if emitted[value_index] {
-            continue;
-        }
-        repaired.push(module_value_not_executable_diagnostic(
-            &module.module_values[value_index],
-        ));
-        emitted[value_index] = true;
-        #[cfg(test)]
-        record_module_value_gate_work(|work| work.emitted_canonical_diagnostics += 1);
-    }
-
-    for (value_index, value) in module.module_values.iter().enumerate() {
-        if emitted[value_index] {
-            continue;
-        }
-        repaired.push(module_value_not_executable_diagnostic(value));
-        #[cfg(test)]
-        record_module_value_gate_work(|work| work.emitted_canonical_diagnostics += 1);
-    }
-    repaired
-}
-
-fn check_function_declaration_and_body(
-    function: &veln_ast::Function,
-    environment: &TypeEnvironment,
-    variant_diagnostics: &mut VariantDiagnosticInterner,
-) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-
-    diagnostics.extend(check_declared_effect_labels(function, environment));
-    let mut visibility_diagnostics = Vec::new();
-    if function.visibility == Visibility::Public {
-        let (visibility, boundary): (Vec<_>, Vec<_>) =
-            check_public_function_boundary(function, environment)
-                .into_iter()
-                .partition(|diagnostic| diagnostic.id == "type.variant_refinement_private");
-        diagnostics.extend(boundary);
-        visibility_diagnostics = visibility;
-    }
-    if function.kind == FunctionKind::Test {
-        diagnostics.extend(check_test_declaration_boundary(function));
-    }
-    diagnostics.extend(check_function_body(
-        function,
-        environment,
-        variant_diagnostics,
-    ));
-    diagnostics.extend(visibility_diagnostics);
-
-    diagnostics
-}
-
 pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceModule {
     crate::name_recovery::with_import_classification(module, || {
         if let Err(failure) = validate_source_less_lookup_registries() {
             return lowered_internal_failure(vec![failure.diagnostic()]);
         }
-        lower_analyzed_surface_module(module, analyze_surface_module(module))
+        let environment = TypeEnvironment::from_module(module);
+        let analysis = analyze_surface_module_with_environment(module, &environment, true);
+        lower_analyzed_surface_module_with_environment(
+            module,
+            analysis.diagnostics,
+            analysis.module_value_publication,
+            &environment,
+            SurfaceLoweringMode::Module,
+        )
     })
 }
 
@@ -716,14 +585,15 @@ fn lower_project_reachable_surface_module_with_environment(
     if let Err(failure) = validate_source_less_lookup_registries() {
         return lowered_internal_failure(vec![failure.diagnostic()]);
     }
-    let diagnostics = analyze_surface_module_with_environment(
+    let analysis = analyze_surface_module_with_environment(
         module,
         &environment,
         should_validate_standard_bodies(module),
     );
     lower_analyzed_surface_module_with_environment(
         module,
-        diagnostics,
+        analysis.diagnostics,
+        analysis.module_value_publication,
         &environment,
         SurfaceLoweringMode::Execution,
     )
@@ -741,9 +611,17 @@ pub fn lower_analyzed_surface_module(
             return lowered_internal_failure(vec![failure.diagnostic()]);
         }
         let environment = TypeEnvironment::from_module(module);
+        let mut module_value_environment = environment.clone();
+        let module_value_analysis = check_module_values(
+            module,
+            &mut module_value_environment,
+            &mut VariantDiagnosticInterner::default(),
+        );
+        let module_value_publication = module_value_analysis.publication_provenance(module);
         lower_analyzed_surface_module_with_environment(
             module,
             diagnostics,
+            module_value_publication,
             &environment,
             SurfaceLoweringMode::Module,
         )
@@ -758,21 +636,19 @@ enum SurfaceLoweringMode {
 }
 
 fn lowered_internal_failure(diagnostics: Vec<Diagnostic>) -> LoweredSurfaceModule {
-    LoweredSurfaceModule {
-        diagnostics,
-        core: None,
-        ir: None,
-        unpublished_declarations: Vec::new(),
-    }
+    LoweredSurfaceModule::internal_failure(diagnostics)
 }
 
 fn lower_analyzed_surface_module_with_environment(
     module: &SurfaceModule,
     diagnostics: Vec<Diagnostic>,
+    module_value_publication: ModuleValuePublicationProvenance,
     environment: &TypeEnvironment,
     mode: SurfaceLoweringMode,
 ) -> LoweredSurfaceModule {
     let mut diagnostics = enforce_module_value_lowering_gate(module, diagnostics);
+    let module_value_publication =
+        index_module_value_publication(module, &diagnostics, module_value_publication);
     let unpublished_declarations =
         unpublished_public_declarations(module, environment, &diagnostics);
     if diagnostics.iter().any(blocks_core_lowering) {
@@ -781,6 +657,7 @@ fn lower_analyzed_surface_module_with_environment(
             core: None,
             ir: None,
             unpublished_declarations,
+            module_value_publication,
         };
     }
 
@@ -810,6 +687,7 @@ fn lower_analyzed_surface_module_with_environment(
         core: Some(lowered_core.program),
         ir,
         unpublished_declarations,
+        module_value_publication,
     }
 }
 

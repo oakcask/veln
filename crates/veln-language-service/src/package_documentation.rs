@@ -1,22 +1,26 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::error::Error;
 use std::fmt;
 
 use sha2::{Digest, Sha256};
 use veln_analysis::{
-    DoctestMode, analyze_project, derive_export_source_module_path, derive_source_module_path,
+    CapturedDependencyIndex, CapturedDependencyProject, DoctestMode, ProjectAnalysis,
+    analyze_project, analyze_project_with_captured_dependency_index,
+    derive_export_source_module_path, derive_source_module_path,
     is_source_path_invalid_case_diagnostic,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, Severity, write_json_string};
 use veln_project::{
-    CapturedPackageSnapshot, PackageIdentity, Project, ProjectManifest, classify_companion_source,
-    parse_manifest_text,
+    CapturedPackageSnapshot, PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
+    capture_embedded_package_snapshot, classify_companion_source, parse_manifest_text,
 };
 use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
     ContractClause, ContractKind, EffectDecl, FunctionDecl, FunctionKind, HandlerDecl,
-    ParseDiagnostic, PublicAliasDecl, PublicAliasKind, SchemaDecl, SyntaxItem, TokenKind, TypeDecl,
-    TypeVariantDecl, Visibility, declaration_type_signature as type_signature,
+    ModuleValueDecl, ParseDiagnostic, PublicAliasDecl, PublicAliasKind, SchemaDecl, SyntaxItem,
+    TokenKind, TypeDecl, TypeVariantDecl, Visibility,
+    declaration_module_value_signature_from_source as module_value_signature,
+    declaration_type_signature as type_signature,
     declaration_variant_signature as variant_signature, documentation_block_before,
     documentation_lines_are_adr_lite, extract_documentation_schema_references, lex, parse,
     render_documentation_lines,
@@ -34,6 +38,76 @@ const DECLARATION_ID_DOMAIN: &[u8] = b"veln-package-doc-declaration-id/v1\0";
 const URI_PREFIX: &str = "veln-doc:///package/";
 const SCHEMA_VERSION: &str = "veln-package-doc-catalog/v1";
 const SNAPSHOT_MANIFEST_PATH: &str = "veln.toml";
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct PackageDocSemanticClassificationWork {
+    exported_module_value_lookups: usize,
+    identity_root_expansions: usize,
+    retained_values: usize,
+    retained_edges: usize,
+    retained_direct_causes: usize,
+    visited_initializations: usize,
+    traversal_values: usize,
+    traversal_edges: usize,
+    cause_processing: usize,
+    cause_index_insertions: usize,
+    collision_identity_insertions: usize,
+    collision_diagnostic_lookups: usize,
+    collision_association_iterations: usize,
+    diagnostic_lookups: usize,
+    casing_range_comparisons: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static PACKAGE_DOC_SEMANTIC_CLASSIFICATION_WORK:
+        std::cell::Cell<PackageDocSemanticClassificationWork> =
+        const { std::cell::Cell::new(PackageDocSemanticClassificationWork {
+            exported_module_value_lookups: 0,
+            identity_root_expansions: 0,
+            retained_values: 0,
+            retained_edges: 0,
+            retained_direct_causes: 0,
+            visited_initializations: 0,
+            traversal_values: 0,
+            traversal_edges: 0,
+            cause_processing: 0,
+            cause_index_insertions: 0,
+            collision_identity_insertions: 0,
+            collision_diagnostic_lookups: 0,
+            collision_association_iterations: 0,
+            diagnostic_lookups: 0,
+            casing_range_comparisons: 0,
+        }) };
+}
+
+#[cfg(test)]
+fn record_package_doc_semantic_classification_work(
+    update: impl FnOnce(&mut PackageDocSemanticClassificationWork),
+) {
+    PACKAGE_DOC_SEMANTIC_CLASSIFICATION_WORK.set({
+        let mut work = PACKAGE_DOC_SEMANTIC_CLASSIFICATION_WORK.get();
+        update(&mut work);
+        work
+    });
+}
+
+#[cfg(not(test))]
+fn record_package_doc_semantic_classification_work(
+    _update: impl FnOnce(&mut PackageDocSemanticClassificationWork),
+) {
+}
+
+#[cfg(test)]
+fn reset_package_doc_semantic_classification_work() {
+    PACKAGE_DOC_SEMANTIC_CLASSIFICATION_WORK.set(PackageDocSemanticClassificationWork::default());
+}
+
+#[cfg(test)]
+fn take_package_doc_semantic_classification_work() -> PackageDocSemanticClassificationWork {
+    PACKAGE_DOC_SEMANTIC_CLASSIFICATION_WORK
+        .replace(PackageDocSemanticClassificationWork::default())
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PackageDocGeneratorContract {
@@ -63,6 +137,50 @@ pub struct PackageDocResult {
     declaration_locations: BTreeMap<PackageDocLocationKey, String>,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PackageDocDependencySnapshots {
+    snapshot_digests: HashMap<String, String>,
+}
+
+impl PackageDocDependencySnapshots {
+    pub fn new<'a>(
+        snapshots: impl IntoIterator<Item = (&'a PackageIdentity, &'a CapturedPackageSnapshot)>,
+    ) -> Self {
+        Self {
+            snapshot_digests: snapshots
+                .into_iter()
+                .map(|(identity, snapshot)| {
+                    (identity.as_str().to_string(), snapshot.digest().to_string())
+                })
+                .collect(),
+        }
+    }
+
+    fn from_captured_dependencies(dependencies: &[CapturedDependencyProject]) -> Self {
+        Self {
+            snapshot_digests: dependency_snapshot_digests(dependencies),
+        }
+    }
+}
+
+fn dependency_snapshot_digests(
+    dependencies: &[CapturedDependencyProject],
+) -> HashMap<String, String> {
+    dependencies
+        .iter()
+        .filter_map(|dependency| {
+            let project = dependency.project.as_ref()?;
+            let manifest = project.manifest.as_ref()?;
+            let sources = project.files.iter().map(|source| {
+                PackageSnapshotSource::new(source.path().as_str(), source.text().as_bytes())
+            });
+            let snapshot =
+                capture_embedded_package_snapshot(&manifest.source_bytes, sources).ok()?;
+            Some((dependency.package.clone(), snapshot.digest().to_string()))
+        })
+        .collect()
+}
+
 pub const PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE: &str = "text/markdown; charset=utf-8";
 
 impl PackageDocResult {
@@ -70,6 +188,51 @@ impl PackageDocResult {
         identity: &PackageIdentity,
         snapshot: &CapturedPackageSnapshot,
         manifest: &ProjectManifest,
+        project_root: &std::path::Path,
+        dependencies: &[CapturedDependencyProject],
+        generator_contract: PackageDocGeneratorContract,
+    ) -> Self {
+        let dependency_snapshots =
+            PackageDocDependencySnapshots::from_captured_dependencies(dependencies);
+        Self::generate_with_dependency_snapshots(
+            identity,
+            snapshot,
+            manifest,
+            project_root,
+            dependencies,
+            &dependency_snapshots,
+            generator_contract,
+        )
+    }
+
+    pub fn generate_with_dependency_snapshots(
+        identity: &PackageIdentity,
+        snapshot: &CapturedPackageSnapshot,
+        manifest: &ProjectManifest,
+        project_root: &std::path::Path,
+        dependencies: &[CapturedDependencyProject],
+        dependency_snapshots: &PackageDocDependencySnapshots,
+        generator_contract: PackageDocGeneratorContract,
+    ) -> Self {
+        let dependency_index = CapturedDependencyIndex::new(dependencies);
+        Self::generate_with_dependency_index_and_snapshots(
+            identity,
+            snapshot,
+            manifest,
+            project_root,
+            &dependency_index,
+            dependency_snapshots,
+            generator_contract,
+        )
+    }
+
+    pub fn generate_with_dependency_index_and_snapshots(
+        identity: &PackageIdentity,
+        snapshot: &CapturedPackageSnapshot,
+        manifest: &ProjectManifest,
+        project_root: &std::path::Path,
+        dependency_index: &CapturedDependencyIndex<'_>,
+        dependency_snapshots: &PackageDocDependencySnapshots,
         generator_contract: PackageDocGeneratorContract,
     ) -> Self {
         let manifest = if manifest.source_bytes == snapshot.manifest_bytes() {
@@ -79,8 +242,16 @@ impl PackageDocResult {
         } else {
             manifest.clone()
         };
-        PackageDocBuilder::new(identity.as_str(), snapshot, &manifest, generator_contract)
-            .generate()
+        PackageDocBuilder::new(
+            identity.as_str(),
+            snapshot,
+            &manifest,
+            project_root,
+            dependency_index,
+            dependency_snapshots,
+            generator_contract,
+        )
+        .generate()
     }
 
     pub fn identity(&self) -> &str {
@@ -405,6 +576,9 @@ struct PackageDocBuilder<'a> {
     identity: &'a str,
     snapshot: &'a CapturedPackageSnapshot,
     manifest: &'a ProjectManifest,
+    project_root: &'a std::path::Path,
+    dependency_index: &'a CapturedDependencyIndex<'a>,
+    dependency_snapshot_digests: &'a HashMap<String, String>,
     generator_contract: PackageDocGeneratorContract,
     diagnostics: Vec<PackageDocDiagnostic>,
     #[cfg(test)]
@@ -454,6 +628,7 @@ struct SchemaDocResolver<'a> {
 mod builder_declarations;
 mod builder_generation;
 mod builder_results;
+mod builder_semantics;
 mod diagnostics_and_doctests;
 mod doctest_metadata;
 mod identity_and_paths;

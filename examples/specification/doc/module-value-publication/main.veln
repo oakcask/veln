@@ -1,0 +1,4 @@
+## Published service name.
+pub let service_name: String = "initializer-secret"
+
+let private_name: String = "private-secret"

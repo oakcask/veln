@@ -5,12 +5,18 @@ impl<'a> PackageDocBuilder<'a> {
         identity: &'a str,
         snapshot: &'a CapturedPackageSnapshot,
         manifest: &'a ProjectManifest,
+        project_root: &'a std::path::Path,
+        dependency_index: &'a CapturedDependencyIndex<'a>,
+        dependency_snapshots: &'a PackageDocDependencySnapshots,
         generator_contract: PackageDocGeneratorContract,
     ) -> Self {
         Self {
             identity,
             snapshot,
             manifest,
+            project_root,
+            dependency_index,
+            dependency_snapshot_digests: &dependency_snapshots.snapshot_digests,
             generator_contract,
             diagnostics: Vec::new(),
             #[cfg(test)]
@@ -29,7 +35,7 @@ impl<'a> PackageDocBuilder<'a> {
         self.validate_manifest_gate();
         let parsed_sources = self.parse_sources();
         self.validate_manifest_exports(&parsed_sources);
-        self.validate_public_variant_refinement_visibility(&parsed_sources);
+        self.validate_public_declaration_semantics(&parsed_sources);
         let metadata = self.metadata(&parsed_sources);
         self.validate_doctests(&parsed_sources);
         let schema_targets = self.public_schema_targets(&parsed_sources);
@@ -190,59 +196,6 @@ impl<'a> PackageDocBuilder<'a> {
         metadata
     }
 
-    pub(super) fn parse_sources(&mut self) -> Vec<ParsedPackageSource> {
-        let exported_paths = self
-            .manifest
-            .lib
-            .exports
-            .iter()
-            .map(|export| SourcePath::new(export.path.clone()).as_str().to_string())
-            .collect::<BTreeSet<_>>();
-        let mut parsed = Vec::new();
-        for source in self.snapshot.sources() {
-            let text = std::str::from_utf8(source.bytes())
-                .expect("captured package source text is valid UTF-8");
-            let source_file = SourceFile::new(source.path(), text);
-            let source_uri = source_uri(self.identity, self.snapshot.digest(), source.path());
-            let output = parse(&source_file);
-            for diagnostic in output.diagnostics {
-                self.diagnostics.push(parse_diagnostic(
-                    "parse",
-                    diagnostic,
-                    self.identity,
-                    self.snapshot.digest(),
-                ));
-            }
-            let exported = exported_paths.contains(source.path());
-            let module_name = match if exported {
-                derive_export_source_module_path(&source_file)
-            } else {
-                derive_source_module_path(&source_file).map_err(|diagnostic| vec![*diagnostic])
-            } {
-                Ok(module_name) => module_name,
-                Err(diagnostics) => {
-                    for diagnostic in diagnostics {
-                        self.diagnostics.push(module_diagnostic(
-                            "manifest",
-                            diagnostic,
-                            self.identity,
-                            self.snapshot.digest(),
-                        ));
-                    }
-                    String::new()
-                }
-            };
-            parsed.push(ParsedPackageSource {
-                source: source_file,
-                tree: output.tree,
-                module_name,
-                exported,
-                source_uri,
-            });
-        }
-        parsed
-    }
-
     pub(super) fn validate_manifest_exports(&mut self, parsed_sources: &[ParsedPackageSource]) {
         let available = parsed_sources
             .iter()
@@ -283,48 +236,6 @@ impl<'a> PackageDocBuilder<'a> {
                     &export.path_span,
                 );
             }
-        }
-    }
-
-    pub(super) fn validate_public_variant_refinement_visibility(
-        &mut self,
-        parsed_sources: &[ParsedPackageSource],
-    ) {
-        let exported_paths = parsed_sources
-            .iter()
-            .filter(|source| source.exported)
-            .map(|source| source.source.path().as_str())
-            .collect::<BTreeSet<_>>();
-        let analysis = analyze_project(
-            Project {
-                root: ".".into(),
-                files: parsed_sources
-                    .iter()
-                    .map(|source| source.source.clone())
-                    .collect(),
-                manifest: None,
-            },
-            DoctestMode::Exclude,
-        );
-        let causal_diagnostics = analysis
-            .unpublished_declarations()
-            .iter()
-            .filter(|declaration| exported_paths.contains(declaration.span.file.as_str()))
-            .flat_map(|declaration| declaration.causal_diagnostics.iter().cloned())
-            .collect::<Vec<_>>();
-        let diagnostics = analysis.checked_diagnostics();
-        for diagnostic in diagnostics.into_iter().filter(|diagnostic| {
-            diagnostic.severity == Severity::Error
-                && diagnostic.id == "type.variant_refinement_private"
-                && diagnostic.span.as_ref().is_some_and(|span| {
-                    exported_paths.contains(span.file.as_str())
-                        || causal_diagnostics.iter().any(|cause| {
-                            cause.diagnostic_id == diagnostic.id && cause.span == *span
-                        })
-                })
-        }) {
-            self.diagnostics
-                .push(self.project_diagnostic("semantic_visibility", diagnostic));
         }
     }
 
@@ -509,25 +420,14 @@ impl<'a> PackageDocBuilder<'a> {
         let mut seen_modules = BTreeSet::new();
         let mut exports = Vec::new();
         for export in &self.manifest.lib.exports {
-            if export.path.contains("::") {
-                continue;
-            }
-            let path = SourcePath::new(export.path.clone());
-            if !is_package_relative_path(path.as_str())
-                || !path.as_str().ends_with(".veln")
-                || is_test_source_path(path.as_str())
-            {
-                continue;
-            }
-            let source = SourceFile::new(path.as_str(), "");
-            let Ok(module_name) = derive_export_source_module_path(&source) else {
+            let Some((path, module_name)) = validated_export_module(&export.path) else {
                 continue;
             };
-            if available.contains(path.as_str())
-                && seen_paths.insert(path.as_str().to_string())
+            if available.contains(&path)
+                && seen_paths.insert(path.clone())
                 && seen_modules.insert(module_name.clone())
             {
-                exports.push((path.as_str().to_string(), module_name));
+                exports.push((path, module_name));
             }
         }
         exports
@@ -616,6 +516,22 @@ impl<'a> PackageDocBuilder<'a> {
             }
         }
     }
+}
+
+fn validated_export_module(export_path: &str) -> Option<(String, String)> {
+    if export_path.contains("::") {
+        return None;
+    }
+    let path = SourcePath::new(export_path);
+    if !is_package_relative_path(path.as_str())
+        || !path.as_str().ends_with(".veln")
+        || is_test_source_path(path.as_str())
+    {
+        return None;
+    }
+    let source = SourceFile::new(path.as_str(), "");
+    let module_name = derive_export_source_module_path(&source).ok()?;
+    Some((path.as_str().to_string(), module_name))
 }
 
 fn manifest_diagnostic(

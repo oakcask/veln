@@ -17,6 +17,7 @@ mod identifier_casing_selection_boundaries;
 mod import_package_identity;
 mod local_inference_callback_expected_types;
 mod lowering_and_pattern_semantics;
+mod module_value_publication;
 mod module_values;
 mod prelude_and_callable_values;
 mod remainder;

@@ -145,6 +145,8 @@ fn package_bytes_and_generator_contract_change_document_identity() {
         &identity,
         &snapshot,
         &manifest,
+        Path::new("."),
+        &[],
         PackageDocGeneratorContract::new("contract-b"),
     );
 
@@ -172,6 +174,8 @@ fn manifest_must_match_captured_snapshot_bytes() {
         &identity,
         &snapshot,
         &manifest,
+        Path::new("."),
+        &[],
         PackageDocGeneratorContract::new("contract-a"),
     );
 
@@ -218,6 +222,8 @@ fn package_documentation_reparses_manifest_from_the_captured_snapshot() {
         &identity,
         &snapshot,
         &manifest,
+        Path::new("."),
+        &[],
         PackageDocGeneratorContract::new("contract-a"),
     );
 
@@ -255,12 +261,16 @@ fn manifest_location_uses_snapshot_canonical_source_uri() {
         &identity,
         &snapshot,
         &first_manifest,
+        Path::new("."),
+        &[],
         PackageDocGeneratorContract::new("contract-a"),
     );
     let relocated = PackageDocResult::generate(
         &identity,
         &snapshot,
         &relocated_manifest,
+        Path::new("."),
+        &[],
         PackageDocGeneratorContract::new("contract-a"),
     );
 
@@ -462,6 +472,8 @@ fn invalid_source_module_export_fails_manifest_gate_without_partial_catalog() {
         &identity,
         &snapshot,
         &manifest,
+        Path::new("."),
+        &[],
         PackageDocGeneratorContract::new("contract-a"),
     );
 

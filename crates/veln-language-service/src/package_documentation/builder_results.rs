@@ -71,6 +71,41 @@ impl<'a> PackageDocBuilder<'a> {
         }
     }
 
+    pub(super) fn project_diagnostic_for_package(
+        &self,
+        gate: &str,
+        package_name: Option<&str>,
+        diagnostic: Diagnostic,
+    ) -> PackageDocDiagnostic {
+        let identity = package_name.unwrap_or(self.identity);
+        let snapshot_digest = if identity == self.identity {
+            self.snapshot.digest()
+        } else if let Some(snapshot_digest) = self.dependency_snapshot_digests.get(identity) {
+            snapshot_digest
+        } else {
+            return PackageDocDiagnostic {
+                gate: gate.to_string(),
+                code: "package_doc.dependency_snapshot_unavailable".to_string(),
+                message: format!(
+                    "cannot project `{}` because captured dependency package `{identity}` is unavailable",
+                    diagnostic.id
+                ),
+                span: None,
+            };
+        };
+        PackageDocDiagnostic {
+            gate: gate.to_string(),
+            code: diagnostic.id,
+            message: diagnostic.message.to_owned_string(),
+            span: diagnostic.span.as_ref().map(|span| {
+                PackageDocDiagnosticSpan::from_span(
+                    &source_uri(identity, snapshot_digest, span.file.as_str()),
+                    span,
+                )
+            }),
+        }
+    }
+
     pub(super) fn failed_result(mut self) -> PackageDocResult {
         self.sort_diagnostics();
         let diagnostics = std::mem::take(&mut self.diagnostics);
