@@ -96,7 +96,9 @@ A module immutable value declaration in the selected analysis first reports
 any finite-data initializer, annotation, public visibility, imported lookup,
 or package-wide dependency diagnostic. Imported lookup retains package-aware
 declaration identity. Valid declarations can execute in test workers; an actual
-semantic error blocks the suite before any worker starts.
+semantic error blocks the suite before any worker starts. The checked
+[`module-value-runtime-execution`](../../examples/specification/test/module-value-runtime-execution/)
+case exercises a successful worker read through the public test command.
 Variant-refinement errors in the selected analysis are static diagnostics,
 including errors for which recovery retains a type or constructor identity.
 They start no test worker. Human and JSON output derive the diagnostic code,
