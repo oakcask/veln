@@ -286,7 +286,11 @@ exact test companion imports its target module and the private declaration is
 available. Companion permission does not expose an invalid declaration or
 publish a dependent value that reads it. Companion access is target-specific,
 package-local, and non-transitive. It applies to value reads in function bodies
-and module-value initializers. The checked cases cover
+and module-value initializers. The checked cases observe the resulting lookup,
+visibility, ambiguity, and call-target outcomes without an execution-only
+module-value diagnostic. Runtime reads are covered separately by the
+[execution specification](execution.md#runtime-readiness-and-host-boundaries).
+The checked cases cover
 [`imported lookup JSON`](../../examples/specification/check/module-value-imported-lookup-json/),
 [`local function precedence`](../../examples/specification/check/module-value-local-function-precedence-human/),
 [`package identity human`](../../examples/specification/check/module-value-imported-package-identity-human/),
