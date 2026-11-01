@@ -88,80 +88,255 @@ fn collect_module_value_dependencies(
     }
 }
 
-fn module_value_initializer_max_stack(expr: &IrExpr) -> usize {
-    enum Work<'a> {
-        Visit(&'a IrExpr),
-        Unary,
-        ListCons,
-        Record(usize),
-        AdtVariant(usize),
-    }
+enum ModuleValueStackWork<'a> {
+    Visit(&'a IrExpr),
+    Unary,
+    ListCons,
+    Record(usize),
+    AdtVariant(usize),
+}
 
-    let mut work = vec![Work::Visit(expr)];
+fn schedule_module_value_stack_expr<'a>(
+    expr: &'a IrExpr,
+    work: &mut Vec<ModuleValueStackWork<'a>>,
+    values: &mut Vec<usize>,
+) {
+    match &expr.kind {
+        IrExprKind::StringLiteral(_)
+        | IrExprKind::BoolLiteral(_)
+        | IrExprKind::Unit
+        | IrExprKind::ModuleValue(_)
+        | IrExprKind::OptionNone
+        | IrExprKind::ListNil => values.push(1),
+        IrExprKind::IntLiteral(_) => values.push(2),
+        IrExprKind::Prefix {
+            op: PrefixOp::Negate,
+            expr,
+        }
+        | IrExprKind::ResultOk(expr)
+        | IrExprKind::ResultErr(expr)
+        | IrExprKind::OptionSome(expr) => {
+            work.push(ModuleValueStackWork::Unary);
+            work.push(ModuleValueStackWork::Visit(expr));
+        }
+        IrExprKind::ListCons { head, tail } => {
+            work.push(ModuleValueStackWork::ListCons);
+            work.push(ModuleValueStackWork::Visit(tail));
+            work.push(ModuleValueStackWork::Visit(head));
+        }
+        IrExprKind::Record(fields) => {
+            work.push(ModuleValueStackWork::Record(fields.len()));
+            work.extend(
+                fields
+                    .iter()
+                    .rev()
+                    .map(|field| ModuleValueStackWork::Visit(&field.value)),
+            );
+        }
+        IrExprKind::AdtVariant { payloads, .. } => {
+            work.push(ModuleValueStackWork::AdtVariant(payloads.len()));
+            work.extend(payloads.iter().rev().map(ModuleValueStackWork::Visit));
+        }
+        kind => {
+            unreachable!("unsupported module value initializer reached JVM emission: {kind:?}")
+        }
+    }
+}
+
+fn reduce_module_value_stack_values(values: &mut Vec<usize>, count: usize, base: usize) {
+    let start = values.len() - count;
+    let maximum = values.drain(start..).fold(base, |maximum, value| {
+        maximum.max(base.saturating_add(2).saturating_add(value))
+    });
+    values.push(maximum);
+}
+
+fn apply_module_value_stack_work<'a>(
+    item: ModuleValueStackWork<'a>,
+    work: &mut Vec<ModuleValueStackWork<'a>>,
+    values: &mut Vec<usize>,
+) {
+    match item {
+        ModuleValueStackWork::Visit(expr) => schedule_module_value_stack_expr(expr, work, values),
+        ModuleValueStackWork::Unary => debug_assert!(!values.is_empty()),
+        ModuleValueStackWork::ListCons => {
+            let tail = values.pop().expect("module value list tail stack");
+            let head = values.pop().expect("module value list head stack");
+            values.push(head.max(1usize.saturating_add(tail)));
+        }
+        ModuleValueStackWork::Record(count) => reduce_module_value_stack_values(values, count, 1),
+        ModuleValueStackWork::AdtVariant(count) => {
+            reduce_module_value_stack_values(values, count, 2)
+        }
+    }
+}
+
+fn module_value_initializer_max_stack(expr: &IrExpr) -> usize {
+    let mut work = vec![ModuleValueStackWork::Visit(expr)];
     let mut values = Vec::new();
     while let Some(item) = work.pop() {
-        match item {
-            Work::Visit(expr) => match &expr.kind {
-                IrExprKind::StringLiteral(_)
-                | IrExprKind::BoolLiteral(_)
-                | IrExprKind::Unit
-                | IrExprKind::ModuleValue(_)
-                | IrExprKind::OptionNone
-                | IrExprKind::ListNil => values.push(1usize),
-                IrExprKind::IntLiteral(_) => values.push(2usize),
-                IrExprKind::Prefix {
-                    op: PrefixOp::Negate,
-                    expr,
-                }
-                | IrExprKind::ResultOk(expr)
-                | IrExprKind::ResultErr(expr)
-                | IrExprKind::OptionSome(expr) => {
-                    work.push(Work::Unary);
-                    work.push(Work::Visit(expr));
-                }
-                IrExprKind::ListCons { head, tail } => {
-                    work.push(Work::ListCons);
-                    work.push(Work::Visit(tail));
-                    work.push(Work::Visit(head));
-                }
-                IrExprKind::Record(fields) => {
-                    work.push(Work::Record(fields.len()));
-                    work.extend(fields.iter().rev().map(|field| Work::Visit(&field.value)));
-                }
-                IrExprKind::AdtVariant { payloads, .. } => {
-                    work.push(Work::AdtVariant(payloads.len()));
-                    work.extend(payloads.iter().rev().map(Work::Visit));
-                }
-                kind => unreachable!(
-                    "unsupported module value initializer reached JVM emission: {kind:?}"
-                ),
-            },
-            Work::Unary => {
-                debug_assert!(!values.is_empty());
-            }
-            Work::ListCons => {
-                let tail = values.pop().expect("module value list tail stack");
-                let head = values.pop().expect("module value list head stack");
-                values.push(head.max(1usize.saturating_add(tail)));
-            }
-            Work::Record(count) => {
-                let start = values.len() - count;
-                let maximum = values.drain(start..).fold(1usize, |maximum, value| {
-                    maximum.max(3usize.saturating_add(value))
-                });
-                values.push(maximum);
-            }
-            Work::AdtVariant(count) => {
-                let start = values.len() - count;
-                let maximum = values.drain(start..).fold(2usize, |maximum, value| {
-                    maximum.max(4usize.saturating_add(value))
-                });
-                values.push(maximum);
-            }
-        }
+        apply_module_value_stack_work(item, &mut work, &mut values);
     }
 
     values.pop().expect("module value initializer stack")
+}
+
+enum ModuleValueEmissionWork<'a> {
+    Expr(&'a IrExpr),
+    PushInt(i32),
+    String(&'a str),
+    AdtName(&'a [String]),
+    NewObjectArray(usize),
+    Dup,
+    ArrayStore,
+    InvokeStatic {
+        method: &'static str,
+        descriptor: &'static str,
+    },
+    InvokeRuntime {
+        method: &'static str,
+        descriptor: &'static str,
+    },
+}
+
+fn schedule_module_value_runtime_call<'a>(
+    work: &mut Vec<ModuleValueEmissionWork<'a>>,
+    value: &'a IrExpr,
+    method: &'static str,
+    descriptor: &'static str,
+) {
+    work.push(ModuleValueEmissionWork::InvokeRuntime { method, descriptor });
+    work.push(ModuleValueEmissionWork::Expr(value));
+}
+
+fn schedule_module_value_record<'a>(
+    work: &mut Vec<ModuleValueEmissionWork<'a>>,
+    fields: &'a [IrRecordField],
+) {
+    work.push(ModuleValueEmissionWork::InvokeStatic {
+        method: "record",
+        descriptor: "([Ljava/lang/Object;)Ljava/util/Map;",
+    });
+    for (index, field) in fields.iter().enumerate().rev() {
+        work.push(ModuleValueEmissionWork::ArrayStore);
+        work.push(ModuleValueEmissionWork::Expr(&field.value));
+        work.push(ModuleValueEmissionWork::PushInt((index * 2 + 1) as i32));
+        work.push(ModuleValueEmissionWork::Dup);
+        work.push(ModuleValueEmissionWork::ArrayStore);
+        work.push(ModuleValueEmissionWork::String(&field.name));
+        work.push(ModuleValueEmissionWork::PushInt((index * 2) as i32));
+        work.push(ModuleValueEmissionWork::Dup);
+    }
+    work.push(ModuleValueEmissionWork::NewObjectArray(fields.len() * 2));
+}
+
+fn schedule_module_value_adt<'a>(
+    work: &mut Vec<ModuleValueEmissionWork<'a>>,
+    name: &'a [String],
+    payloads: &'a [IrExpr],
+) {
+    work.push(ModuleValueEmissionWork::InvokeStatic {
+        method: "adt",
+        descriptor: "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;",
+    });
+    for (index, payload) in payloads.iter().enumerate().rev() {
+        work.push(ModuleValueEmissionWork::ArrayStore);
+        work.push(ModuleValueEmissionWork::Expr(payload));
+        work.push(ModuleValueEmissionWork::PushInt(index as i32));
+        work.push(ModuleValueEmissionWork::Dup);
+    }
+    work.push(ModuleValueEmissionWork::NewObjectArray(payloads.len()));
+    work.push(ModuleValueEmissionWork::AdtName(name));
+}
+
+fn schedule_module_value_expr<'a>(
+    emitter: &mut FunctionBytecodeEmitter<'_, '_>,
+    code: &mut MethodCode,
+    work: &mut Vec<ModuleValueEmissionWork<'a>>,
+    expr: &'a IrExpr,
+) {
+    match &expr.kind {
+        IrExprKind::ModuleValue(identity) => code.getstatic(
+            emitter.program.module_value_owner(identity),
+            emitter.program.module_value_name(identity),
+            MODULE_VALUE_DESCRIPTOR,
+        ),
+        IrExprKind::BoolLiteral(value) => emitter.emit_bool_literal(code, *value),
+        IrExprKind::StringLiteral(value) => emitter.emit_string_literal(code, value),
+        IrExprKind::IntLiteral(value) => emitter.emit_int_literal(code, value),
+        IrExprKind::Unit => emitter.emit_unit(code),
+        IrExprKind::OptionNone => emitter.emit_option_none(code),
+        IrExprKind::ListNil => emitter.emit_list_nil(code),
+        IrExprKind::Prefix {
+            op: PrefixOp::Negate,
+            expr,
+        } => schedule_module_value_runtime_call(
+            work,
+            expr,
+            "negate",
+            "(Ljava/lang/Object;)Ljava/lang/Object;",
+        ),
+        IrExprKind::ResultOk(value) => schedule_module_value_runtime_call(
+            work,
+            value,
+            "ok",
+            "(Ljava/lang/Object;)LVelnRuntime$Result;",
+        ),
+        IrExprKind::ResultErr(value) => schedule_module_value_runtime_call(
+            work,
+            value,
+            "err",
+            "(Ljava/lang/Object;)LVelnRuntime$Result;",
+        ),
+        IrExprKind::OptionSome(value) => schedule_module_value_runtime_call(
+            work,
+            value,
+            "some",
+            "(Ljava/lang/Object;)LVelnRuntime$Option;",
+        ),
+        IrExprKind::ListCons { head, tail } => {
+            work.push(ModuleValueEmissionWork::InvokeStatic {
+                method: "listCons",
+                descriptor: "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            });
+            work.push(ModuleValueEmissionWork::Expr(tail));
+            work.push(ModuleValueEmissionWork::Expr(head));
+        }
+        IrExprKind::Record(fields) => schedule_module_value_record(work, fields),
+        IrExprKind::AdtVariant { name, payloads } => {
+            schedule_module_value_adt(work, name, payloads)
+        }
+        kind => {
+            unreachable!("unsupported module value initializer reached JVM emission: {kind:?}")
+        }
+    }
+}
+
+fn emit_module_value_work<'a>(
+    emitter: &mut FunctionBytecodeEmitter<'_, '_>,
+    code: &mut MethodCode,
+    work: &mut Vec<ModuleValueEmissionWork<'a>>,
+    item: ModuleValueEmissionWork<'a>,
+    runtime_class: &str,
+) {
+    match item {
+        ModuleValueEmissionWork::Expr(expr) => {
+            schedule_module_value_expr(emitter, code, work, expr)
+        }
+        ModuleValueEmissionWork::PushInt(value) => code.push_i32(value),
+        ModuleValueEmissionWork::String(value) => code.ldc_string(value),
+        ModuleValueEmissionWork::AdtName(name) => code.ldc_string(&name.join("::")),
+        ModuleValueEmissionWork::NewObjectArray(len) => {
+            code.push_i32(len as i32);
+            code.anewarray(JAVA_LANG_OBJECT);
+        }
+        ModuleValueEmissionWork::Dup => code.op(0x59),
+        ModuleValueEmissionWork::ArrayStore => code.op(0x53),
+        ModuleValueEmissionWork::InvokeStatic { method, descriptor }
+        | ModuleValueEmissionWork::InvokeRuntime { method, descriptor } => {
+            code.invokestatic(runtime_class, method, descriptor);
+        }
+    }
 }
 
 fn emit_module_value_initializer(
@@ -169,128 +344,10 @@ fn emit_module_value_initializer(
     code: &mut MethodCode,
     initializer: &IrExpr,
 ) -> Result<(), JvmBackendError> {
-    enum Work<'a> {
-        Expr(&'a IrExpr),
-        PushInt(i32),
-        String(&'a str),
-        AdtName(&'a [String]),
-        NewObjectArray(usize),
-        Dup,
-        ArrayStore,
-        InvokeStatic {
-            method: &'static str,
-            descriptor: &'static str,
-        },
-        InvokeRuntime {
-            method: &'static str,
-            descriptor: &'static str,
-        },
-    }
-
     let runtime_class = emitter.program.options.runtime_class.clone();
-    let mut work = vec![Work::Expr(initializer)];
+    let mut work = vec![ModuleValueEmissionWork::Expr(initializer)];
     while let Some(item) = work.pop() {
-        match item {
-            Work::Expr(expr) => match &expr.kind {
-                IrExprKind::ModuleValue(identity) => code.getstatic(
-                    emitter.program.module_value_owner(identity),
-                    emitter.program.module_value_name(identity),
-                    MODULE_VALUE_DESCRIPTOR,
-                ),
-                IrExprKind::BoolLiteral(value) => emitter.emit_bool_literal(code, *value),
-                IrExprKind::StringLiteral(value) => emitter.emit_string_literal(code, value),
-                IrExprKind::IntLiteral(value) => emitter.emit_int_literal(code, value),
-                IrExprKind::Unit => emitter.emit_unit(code),
-                IrExprKind::OptionNone => emitter.emit_option_none(code),
-                IrExprKind::ListNil => emitter.emit_list_nil(code),
-                IrExprKind::Prefix {
-                    op: PrefixOp::Negate,
-                    expr,
-                } => {
-                    work.push(Work::InvokeRuntime {
-                        method: "negate",
-                        descriptor: "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    });
-                    work.push(Work::Expr(expr));
-                }
-                IrExprKind::ResultOk(value) => {
-                    work.push(Work::InvokeRuntime {
-                        method: "ok",
-                        descriptor: "(Ljava/lang/Object;)LVelnRuntime$Result;",
-                    });
-                    work.push(Work::Expr(value));
-                }
-                IrExprKind::ResultErr(value) => {
-                    work.push(Work::InvokeRuntime {
-                        method: "err",
-                        descriptor: "(Ljava/lang/Object;)LVelnRuntime$Result;",
-                    });
-                    work.push(Work::Expr(value));
-                }
-                IrExprKind::OptionSome(value) => {
-                    work.push(Work::InvokeRuntime {
-                        method: "some",
-                        descriptor: "(Ljava/lang/Object;)LVelnRuntime$Option;",
-                    });
-                    work.push(Work::Expr(value));
-                }
-                IrExprKind::ListCons { head, tail } => {
-                    work.push(Work::InvokeStatic {
-                        method: "listCons",
-                        descriptor: "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
-                    });
-                    work.push(Work::Expr(tail));
-                    work.push(Work::Expr(head));
-                }
-                IrExprKind::Record(fields) => {
-                    work.push(Work::InvokeStatic {
-                        method: "record",
-                        descriptor: "([Ljava/lang/Object;)Ljava/util/Map;",
-                    });
-                    for (index, field) in fields.iter().enumerate().rev() {
-                        work.push(Work::ArrayStore);
-                        work.push(Work::Expr(&field.value));
-                        work.push(Work::PushInt((index * 2 + 1) as i32));
-                        work.push(Work::Dup);
-                        work.push(Work::ArrayStore);
-                        work.push(Work::String(&field.name));
-                        work.push(Work::PushInt((index * 2) as i32));
-                        work.push(Work::Dup);
-                    }
-                    work.push(Work::NewObjectArray(fields.len() * 2));
-                }
-                IrExprKind::AdtVariant { name, payloads } => {
-                    work.push(Work::InvokeStatic {
-                        method: "adt",
-                        descriptor: "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;",
-                    });
-                    for (index, payload) in payloads.iter().enumerate().rev() {
-                        work.push(Work::ArrayStore);
-                        work.push(Work::Expr(payload));
-                        work.push(Work::PushInt(index as i32));
-                        work.push(Work::Dup);
-                    }
-                    work.push(Work::NewObjectArray(payloads.len()));
-                    work.push(Work::AdtName(name));
-                }
-                kind => unreachable!(
-                    "unsupported module value initializer reached JVM emission: {kind:?}"
-                ),
-            },
-            Work::PushInt(value) => code.push_i32(value),
-            Work::String(value) => code.ldc_string(value),
-            Work::AdtName(name) => code.ldc_string(&name.join("::")),
-            Work::NewObjectArray(len) => {
-                code.push_i32(len as i32);
-                code.anewarray(JAVA_LANG_OBJECT);
-            }
-            Work::Dup => code.op(0x59),
-            Work::ArrayStore => code.op(0x53),
-            Work::InvokeStatic { method, descriptor }
-            | Work::InvokeRuntime { method, descriptor } => {
-                code.invokestatic(&runtime_class, method, descriptor);
-            }
-        }
+        emit_module_value_work(emitter, code, &mut work, item, &runtime_class);
         if code.code.len() > usize::from(u16::MAX) {
             return Err(JvmBackendError::new("JVM method code exceeds 65535 bytes"));
         }

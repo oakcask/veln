@@ -46,82 +46,149 @@ impl ClassBuilder {
     }
 
     pub(super) fn finish(self) -> Result<Vec<u8>, JvmBackendError> {
-        if self
-            .methods
-            .iter()
-            .any(|method| method.code.len() > usize::from(u16::MAX))
-        {
-            return Err(JvmBackendError::new("JVM method code exceeds 65535 bytes"));
-        }
-        if self
-            .methods
-            .iter()
-            .any(|method| method.max_stack > usize::from(u16::MAX))
-        {
-            return Err(JvmBackendError::new(
-                "JVM method operand stack exceeds 65535 slots",
-            ));
-        }
-        let this_class = self.constant_pool.borrow_mut().class(&self.name);
-        let super_class = self.constant_pool.borrow_mut().class(JAVA_LANG_OBJECT);
-        let code_name = self.constant_pool.borrow_mut().utf8("Code");
-        let mut fields = Vec::new();
-        for field in &self.fields {
-            let name = self.constant_pool.borrow_mut().utf8(&field.name);
-            let descriptor = self.constant_pool.borrow_mut().utf8(&field.descriptor);
-            fields.push(SerializedField {
-                access_flags: field.access_flags,
-                name,
-                descriptor,
-            });
-        }
-        let mut methods = Vec::new();
-        for method in &self.methods {
-            let name = self.constant_pool.borrow_mut().utf8(&method.name);
-            let descriptor = self.constant_pool.borrow_mut().utf8(&method.descriptor);
-            let mut exceptions = Vec::new();
-            for handler in &method.exceptions {
-                exceptions.push(SerializedExceptionHandler {
-                    start_pc: handler.start_pc,
-                    end_pc: handler.end_pc,
-                    handler_pc: handler.handler_pc,
-                    catch_type: self.constant_pool.borrow_mut().class(&handler.catch_type),
-                });
-            }
-            methods.push(SerializedMethod {
-                access_flags: method.access_flags,
-                name,
-                descriptor,
-                code_name,
-                max_stack: method.max_stack as u16,
-                max_locals: method.max_locals,
-                code: method.code.clone(),
-                exceptions,
-            });
-        }
-        let mut interfaces = Vec::new();
-        for interface in &self.interfaces {
-            interfaces.push(self.constant_pool.borrow_mut().class(interface));
-        }
+        validate_method_limits(&self.methods)?;
+        let class = serialize_class(&self);
+        class.write(&self.constant_pool)
+    }
+}
 
+fn validate_method_limits(methods: &[MethodInfo]) -> Result<(), JvmBackendError> {
+    if methods
+        .iter()
+        .any(|method| method.code.len() > usize::from(u16::MAX))
+    {
+        return Err(JvmBackendError::new("JVM method code exceeds 65535 bytes"));
+    }
+    if methods
+        .iter()
+        .any(|method| method.max_stack > usize::from(u16::MAX))
+    {
+        return Err(JvmBackendError::new(
+            "JVM method operand stack exceeds 65535 slots",
+        ));
+    }
+    Ok(())
+}
+
+fn serialize_class(class: &ClassBuilder) -> SerializedClass {
+    let this_class = class.constant_pool.borrow_mut().class(&class.name);
+    let super_class = class.constant_pool.borrow_mut().class(JAVA_LANG_OBJECT);
+    let code_name = class.constant_pool.borrow_mut().utf8("Code");
+    let fields = serialize_fields(&class.constant_pool, &class.fields);
+    let methods = serialize_methods(&class.constant_pool, &class.methods, code_name);
+    let interfaces = class
+        .interfaces
+        .iter()
+        .map(|interface| class.constant_pool.borrow_mut().class(interface))
+        .collect();
+    SerializedClass {
+        access_flags: class.access_flags,
+        this_class,
+        super_class,
+        fields,
+        methods,
+        interfaces,
+    }
+}
+
+fn serialize_fields(
+    constant_pool: &Rc<RefCell<ConstantPool>>,
+    fields: &[FieldInfo],
+) -> Vec<SerializedField> {
+    fields
+        .iter()
+        .map(|field| serialize_field(constant_pool, field))
+        .collect()
+}
+
+fn serialize_field(
+    constant_pool: &Rc<RefCell<ConstantPool>>,
+    field: &FieldInfo,
+) -> SerializedField {
+    let name = constant_pool.borrow_mut().utf8(&field.name);
+    let descriptor = constant_pool.borrow_mut().utf8(&field.descriptor);
+    SerializedField {
+        access_flags: field.access_flags,
+        name,
+        descriptor,
+    }
+}
+
+fn serialize_methods(
+    constant_pool: &Rc<RefCell<ConstantPool>>,
+    methods: &[MethodInfo],
+    code_name: u16,
+) -> Vec<SerializedMethod> {
+    methods
+        .iter()
+        .map(|method| serialize_method(constant_pool, method, code_name))
+        .collect()
+}
+
+fn serialize_method(
+    constant_pool: &Rc<RefCell<ConstantPool>>,
+    method: &MethodInfo,
+    code_name: u16,
+) -> SerializedMethod {
+    let name = constant_pool.borrow_mut().utf8(&method.name);
+    let descriptor = constant_pool.borrow_mut().utf8(&method.descriptor);
+    let exceptions = serialize_exception_handlers(constant_pool, &method.exceptions);
+    SerializedMethod {
+        access_flags: method.access_flags,
+        name,
+        descriptor,
+        code_name,
+        max_stack: method.max_stack as u16,
+        max_locals: method.max_locals,
+        code: method.code.clone(),
+        exceptions,
+    }
+}
+
+fn serialize_exception_handlers(
+    constant_pool: &Rc<RefCell<ConstantPool>>,
+    handlers: &[ExceptionHandler],
+) -> Vec<SerializedExceptionHandler> {
+    handlers
+        .iter()
+        .map(|handler| SerializedExceptionHandler {
+            start_pc: handler.start_pc,
+            end_pc: handler.end_pc,
+            handler_pc: handler.handler_pc,
+            catch_type: constant_pool.borrow_mut().class(&handler.catch_type),
+        })
+        .collect()
+}
+
+struct SerializedClass {
+    access_flags: u16,
+    this_class: u16,
+    super_class: u16,
+    fields: Vec<SerializedField>,
+    methods: Vec<SerializedMethod>,
+    interfaces: Vec<u16>,
+}
+
+impl SerializedClass {
+    fn write(self, constant_pool: &Rc<RefCell<ConstantPool>>) -> Result<Vec<u8>, JvmBackendError> {
         let mut out = Vec::new();
         write_u32(&mut out, 0xcafebabe);
         write_u16(&mut out, 0);
         write_u16(&mut out, PROGRAM_MAJOR_VERSION);
-        self.constant_pool.borrow().write(&mut out)?;
+        constant_pool.borrow().write(&mut out)?;
         write_u16(&mut out, self.access_flags);
-        write_u16(&mut out, this_class);
-        write_u16(&mut out, super_class);
-        write_u16(&mut out, interfaces.len() as u16);
-        for interface in interfaces {
+        write_u16(&mut out, self.this_class);
+        write_u16(&mut out, self.super_class);
+        write_u16(&mut out, self.interfaces.len() as u16);
+        for interface in self.interfaces {
             write_u16(&mut out, interface);
         }
-        write_u16(&mut out, fields.len() as u16);
-        for field in fields {
+        write_u16(&mut out, self.fields.len() as u16);
+        for field in self.fields {
             field.write(&mut out);
         }
-        write_u16(&mut out, methods.len() as u16);
-        for method in methods {
+        write_u16(&mut out, self.methods.len() as u16);
+        for method in self.methods {
             method.write(&mut out);
         }
         write_u16(&mut out, 0);

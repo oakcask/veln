@@ -1914,21 +1914,7 @@ fn external_socket_client_uses_an_unregistered_host_listener_when_java_is_availa
     assert_eq!(String::from_utf8_lossy(&output.stdout), "2 end\n");
 }
 
-#[test]
-fn external_socket_listener_accepts_an_unsynthesized_host_client_when_java_is_available() {
-    use std::io::{BufRead, BufReader};
-
-    if Command::new("java").arg("-version").output().is_err() {
-        return;
-    }
-    let Some(reservation) = bind_loopback_listener_when_available() else {
-        return;
-    };
-    drop(reservation);
-
-    // Exercise real host acceptance, byte transfer, and half-close through the JVM.
-    // Publish the OS-assigned endpoint only after listen succeeds, so host startup
-    // does not depend on a retry window or reuse a released port reservation.
+fn external_socket_listener_program() -> JvmProgram {
     let ir = lower_with_standard_modules_to_ir(concat!(
         "use net from \"std\"\n",
         "use stdio\n",
@@ -1973,9 +1959,14 @@ fn external_socket_listener_accepts_an_unsynthesized_host_client_when_java_is_av
         "  handle run_listener() with net::system()\n",
         "end\n",
     ));
-    let program = generate_classfiles_with_entry(&ir, "main");
+    generate_classfiles_with_entry(&ir, "main")
+}
+
+fn spawn_external_socket_listener(
+    program: &JvmProgram,
+) -> (std::path::PathBuf, std::process::Child) {
     let root = temp_dir("external-socket-listener");
-    write_jvm_program(&root, &program);
+    write_jvm_program(&root, program);
     let child = Command::new("java")
         .arg("-cp")
         .arg(&root)
@@ -1985,45 +1976,67 @@ fn external_socket_listener_accepts_an_unsynthesized_host_client_when_java_is_av
         .stderr(Stdio::piped())
         .spawn()
         .expect("java should run");
+    (root, child)
+}
+
+fn exchange_with_external_socket_listener(stdout: std::process::ChildStdout) -> Vec<u8> {
+    use std::io::{BufRead, BufReader};
+
+    let mut stdout = BufReader::new(stdout);
+    let mut address = String::new();
+    stdout
+        .read_line(&mut address)
+        .expect("listener should publish its endpoint");
+    let address = address
+        .trim()
+        .parse::<std::net::SocketAddr>()
+        .expect("listener should publish a socket address");
+    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(5))
+        .expect("host client should connect to the ready external listener");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("host client reads should be bounded");
+    stream
+        .set_write_timeout(Some(Duration::from_secs(5)))
+        .expect("host client writes should be bounded");
+    stream
+        .write_all(&[0x01, 0x02, 0x03])
+        .expect("host client should write in order");
+    stream
+        .shutdown(Shutdown::Write)
+        .expect("host client should half-close its request");
+    let mut response = Vec::new();
+    stream
+        .read_to_end(&mut response)
+        .expect("host client should observe reclaimed stream output");
+    assert_eq!(response, [0x0a, 0x0b]);
+    let mut bytes = Vec::new();
+    stdout
+        .read_to_end(&mut bytes)
+        .expect("listener output should be readable");
+    bytes
+}
+
+#[test]
+fn external_socket_listener_accepts_an_unsynthesized_host_client_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err() {
+        return;
+    }
+    let Some(reservation) = bind_loopback_listener_when_available() else {
+        return;
+    };
+    drop(reservation);
+
+    // Exercise real host acceptance, byte transfer, and half-close through the JVM.
+    // Publish the OS-assigned endpoint only after listen succeeds, so host startup
+    // does not depend on a retry window or reuse a released port reservation.
+    let program = external_socket_listener_program();
+    let (root, child) = spawn_external_socket_listener(&program);
     let output = wait_for_test_child_with_stdout(
         child,
         "external-socket-listener",
         Duration::from_secs(30),
-        |stdout| {
-            let mut stdout = BufReader::new(stdout);
-            let mut address = String::new();
-            stdout
-                .read_line(&mut address)
-                .expect("listener should publish its endpoint");
-            let address = address
-                .trim()
-                .parse::<std::net::SocketAddr>()
-                .expect("listener should publish a socket address");
-            let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(5))
-                .expect("host client should connect to the ready external listener");
-            stream
-                .set_read_timeout(Some(Duration::from_secs(5)))
-                .expect("host client reads should be bounded");
-            stream
-                .set_write_timeout(Some(Duration::from_secs(5)))
-                .expect("host client writes should be bounded");
-            stream
-                .write_all(&[0x01, 0x02, 0x03])
-                .expect("host client should write in order");
-            stream
-                .shutdown(Shutdown::Write)
-                .expect("host client should half-close its request");
-            let mut response = Vec::new();
-            stream
-                .read_to_end(&mut response)
-                .expect("host client should observe reclaimed stream output");
-            assert_eq!(response, [0x0a, 0x0b]);
-            let mut bytes = Vec::new();
-            stdout
-                .read_to_end(&mut bytes)
-                .expect("listener output should be readable");
-            bytes
-        },
+        exchange_with_external_socket_listener,
     );
     let _ = fs::remove_dir_all(root);
     assert!(

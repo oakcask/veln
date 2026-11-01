@@ -3198,145 +3198,175 @@ fn cross_module_initializer_cycles_quarantine_dependents_in_every_order() {
     }
 }
 
+fn bare_imported_cycle_module(reverse_sources: bool, reverse_imports: bool) -> SurfaceModule {
+    let alpha_imports = if reverse_imports {
+        concat!(
+            "use beta as namesake from \"namesake/pkg\"\n",
+            "use beta from \"cycle/pkg\"\n",
+        )
+    } else {
+        concat!(
+            "use beta from \"cycle/pkg\"\n",
+            "use beta as namesake from \"namesake/pkg\"\n",
+        )
+    };
+    let mut sources = vec![
+        (
+            "cycle/pkg",
+            "alpha",
+            SourceFile::new(
+                "cycle/alpha.veln",
+                format!("{alpha_imports}pub let left: Int = right\n"),
+            ),
+        ),
+        (
+            "cycle/pkg",
+            "beta",
+            SourceFile::new(
+                "cycle/beta.veln",
+                concat!(
+                    "use alpha from \"cycle/pkg\"\n",
+                    "pub let right: Int = left\n",
+                ),
+            ),
+        ),
+        (
+            "cycle/pkg",
+            "consumer",
+            SourceFile::new(
+                "cycle/consumer.veln",
+                concat!(
+                    "use alpha from \"cycle/pkg\"\n",
+                    "pub let blocked: Int = left\n",
+                ),
+            ),
+        ),
+        (
+            "namesake/pkg",
+            "beta",
+            SourceFile::new("namesake/beta.veln", "pub let right: Int = 7\n"),
+        ),
+    ];
+    if reverse_sources {
+        sources.reverse();
+    }
+    let mut modules = sources
+        .into_iter()
+        .map(|(package, module_name, source)| {
+            let parsed = parse(&source);
+            assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+            let mut module = veln_ast::lower_surface_ast_with_package_module_identity(
+                &parsed.tree,
+                package.to_string(),
+                module_name.to_string(),
+                source.span(veln_source::TextRange::new(0, 0)),
+            );
+            for use_decl in &mut module.uses {
+                let target_package = use_decl.package.as_deref().unwrap_or(package);
+                use_decl.name = format!("{target_package}::{}", use_decl.name);
+            }
+            module
+        })
+        .collect::<Vec<_>>();
+    let mut module = modules.remove(0);
+    for source_module in modules {
+        module.uses.extend(source_module.uses);
+        module.module_values.extend(source_module.module_values);
+    }
+    module
+}
+
+fn assert_bare_imported_cycle_identities(
+    invalid: &std::collections::BTreeSet<(Option<String>, Option<String>, String)>,
+    environment: &crate::types::TypeEnvironment,
+    reverse_sources: bool,
+    reverse_imports: bool,
+) {
+    for identity in [
+        (
+            Some("cycle/pkg".to_string()),
+            Some("cycle/pkg::alpha".to_string()),
+            "left".to_string(),
+        ),
+        (
+            Some("cycle/pkg".to_string()),
+            Some("cycle/pkg::beta".to_string()),
+            "right".to_string(),
+        ),
+        (
+            Some("cycle/pkg".to_string()),
+            Some("cycle/pkg::consumer".to_string()),
+            "blocked".to_string(),
+        ),
+    ] {
+        assert!(
+            invalid.contains(&identity),
+            "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {invalid:#?}"
+        );
+    }
+    assert!(!invalid.contains(&(
+        Some("namesake/pkg".to_string()),
+        Some("namesake/pkg::beta".to_string()),
+        "right".to_string(),
+    )));
+    assert!(matches!(
+        environment.module_value_path_in_owner(
+            &["right".to_string()],
+            Some("namesake/pkg::beta"),
+            Some("namesake/pkg"),
+        ),
+        crate::types::ModuleValueLookup::Available(_)
+    ));
+}
+
+fn assert_bare_imported_cycle_span(
+    diagnostics: &[Diagnostic],
+    reverse_sources: bool,
+    reverse_imports: bool,
+) {
+    let cycle_diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "value.module_initializer_cycle")
+        .unwrap_or_else(|| {
+            panic!(
+                "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {diagnostics:#?}"
+            )
+        });
+    let cycle_span = cycle_diagnostic.span.as_ref().expect("cycle primary span");
+    assert_eq!(cycle_span.file.as_str(), "cycle/beta.veln");
+    assert_eq!((cycle_span.start.line, cycle_span.start.column), (2, 22));
+    assert_eq!((cycle_span.end.line, cycle_span.end.column), (2, 26));
+}
+
+fn observe_bare_imported_cycle_variant(
+    reverse_sources: bool,
+    reverse_imports: bool,
+) -> veln_diagnostics::JsonValue {
+    let module = bare_imported_cycle_module(reverse_sources, reverse_imports);
+
+    let mut environment = crate::types::TypeEnvironment::from_module(&module);
+    let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+    let analysis =
+        crate::analysis::check_module_values(&module, &mut environment, &mut variant_diagnostics);
+
+    assert_bare_imported_cycle_identities(
+        &analysis.invalid,
+        &environment,
+        reverse_sources,
+        reverse_imports,
+    );
+    let diagnostics = &analysis.diagnostics;
+    assert_bare_imported_cycle_span(diagnostics, reverse_sources, reverse_imports);
+
+    cross_module_cycle_observation(diagnostics)
+}
+
 #[test]
 fn bare_imported_cycle_edges_preserve_package_identity() {
     let mut expected_cycle = None;
     for reverse_sources in [false, true] {
         for reverse_imports in [false, true] {
-            let alpha_imports = if reverse_imports {
-                concat!(
-                    "use beta as namesake from \"namesake/pkg\"\n",
-                    "use beta from \"cycle/pkg\"\n",
-                )
-            } else {
-                concat!(
-                    "use beta from \"cycle/pkg\"\n",
-                    "use beta as namesake from \"namesake/pkg\"\n",
-                )
-            };
-            let mut sources = vec![
-                (
-                    "cycle/pkg",
-                    "alpha",
-                    SourceFile::new(
-                        "cycle/alpha.veln",
-                        format!("{alpha_imports}pub let left: Int = right\n"),
-                    ),
-                ),
-                (
-                    "cycle/pkg",
-                    "beta",
-                    SourceFile::new(
-                        "cycle/beta.veln",
-                        concat!(
-                            "use alpha from \"cycle/pkg\"\n",
-                            "pub let right: Int = left\n",
-                        ),
-                    ),
-                ),
-                (
-                    "cycle/pkg",
-                    "consumer",
-                    SourceFile::new(
-                        "cycle/consumer.veln",
-                        concat!(
-                            "use alpha from \"cycle/pkg\"\n",
-                            "pub let blocked: Int = left\n",
-                        ),
-                    ),
-                ),
-                (
-                    "namesake/pkg",
-                    "beta",
-                    SourceFile::new("namesake/beta.veln", "pub let right: Int = 7\n"),
-                ),
-            ];
-            if reverse_sources {
-                sources.reverse();
-            }
-            let mut modules = sources
-                .into_iter()
-                .map(|(package, module_name, source)| {
-                    let parsed = parse(&source);
-                    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-                    let mut module = veln_ast::lower_surface_ast_with_package_module_identity(
-                        &parsed.tree,
-                        package.to_string(),
-                        module_name.to_string(),
-                        source.span(veln_source::TextRange::new(0, 0)),
-                    );
-                    for use_decl in &mut module.uses {
-                        let target_package = use_decl.package.as_deref().unwrap_or(package);
-                        use_decl.name = format!("{target_package}::{}", use_decl.name);
-                    }
-                    module
-                })
-                .collect::<Vec<_>>();
-            let mut module = modules.remove(0);
-            for source_module in modules {
-                module.uses.extend(source_module.uses);
-                module.module_values.extend(source_module.module_values);
-            }
-
-            let mut environment = crate::types::TypeEnvironment::from_module(&module);
-            let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
-            let analysis = crate::analysis::check_module_values(
-                &module,
-                &mut environment,
-                &mut variant_diagnostics,
-            );
-
-            for identity in [
-                (
-                    Some("cycle/pkg".to_string()),
-                    Some("cycle/pkg::alpha".to_string()),
-                    "left".to_string(),
-                ),
-                (
-                    Some("cycle/pkg".to_string()),
-                    Some("cycle/pkg::beta".to_string()),
-                    "right".to_string(),
-                ),
-                (
-                    Some("cycle/pkg".to_string()),
-                    Some("cycle/pkg::consumer".to_string()),
-                    "blocked".to_string(),
-                ),
-            ] {
-                assert!(
-                    analysis.invalid.contains(&identity),
-                    "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {:#?}",
-                    analysis.invalid
-                );
-            }
-            assert!(!analysis.invalid.contains(&(
-                Some("namesake/pkg".to_string()),
-                Some("namesake/pkg::beta".to_string()),
-                "right".to_string(),
-            )));
-            assert!(matches!(
-                environment.module_value_path_in_owner(
-                    &["right".to_string()],
-                    Some("namesake/pkg::beta"),
-                    Some("namesake/pkg"),
-                ),
-                crate::types::ModuleValueLookup::Available(_)
-            ));
-            let diagnostics = &analysis.diagnostics;
-            let cycle_diagnostic = diagnostics
-                .iter()
-                .find(|diagnostic| diagnostic.id == "value.module_initializer_cycle")
-                .unwrap_or_else(|| {
-                    panic!(
-                        "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {diagnostics:#?}"
-                    )
-                });
-            let cycle_span = cycle_diagnostic.span.as_ref().expect("cycle primary span");
-            assert_eq!(cycle_span.file.as_str(), "cycle/beta.veln");
-            assert_eq!((cycle_span.start.line, cycle_span.start.column), (2, 22));
-            assert_eq!((cycle_span.end.line, cycle_span.end.column), (2, 26));
-
-            let cycle = cross_module_cycle_observation(diagnostics);
+            let cycle = observe_bare_imported_cycle_variant(reverse_sources, reverse_imports);
             if let Some(expected) = &expected_cycle {
                 assert_eq!(
                     &cycle, expected,
