@@ -70,27 +70,8 @@ fn generate_with_dependencies_and_snapshots(
 fn generate_fixture(name: &str) -> PackageDocResult {
     let root = example_fixture_root(name);
     let manifest_text = fs::read_to_string(root.join("veln.toml")).unwrap();
-    let mut source_texts = Vec::new();
-    let mut source_paths = fs::read_dir(&root)
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .filter(|path| {
-            path.extension()
-                .is_some_and(|extension| extension == "veln")
-        })
-        .collect::<Vec<_>>();
-    source_paths.sort();
-    for path in source_paths {
-        let source_name = path.file_name().unwrap().to_string_lossy().to_string();
-        source_texts.push((source_name, fs::read(path).unwrap()));
-    }
-    let snapshot = capture_embedded_package_snapshot(
-        manifest_text.as_bytes(),
-        source_texts
-            .iter()
-            .map(|(path, bytes)| PackageSnapshotSource::new(path, bytes.as_slice())),
-    )
-    .unwrap();
+    let source_texts = fixture_sources(&root);
+    let snapshot = fixture_snapshot(&manifest_text, &source_texts);
     let manifest = parse_manifest_text("veln.toml", &manifest_text);
     let identity =
         PackageIdentity::new(manifest_field(&manifest.package.fields, "name").unwrap()).unwrap();
@@ -102,6 +83,38 @@ fn generate_fixture(name: &str) -> PackageDocResult {
         &[],
         PackageDocGeneratorContract::new("contract-a"),
     )
+}
+
+fn fixture_sources(root: &Path) -> Vec<(String, Vec<u8>)> {
+    let mut source_paths = fs::read_dir(root)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "veln")
+        })
+        .collect::<Vec<_>>();
+    source_paths.sort();
+    source_paths
+        .into_iter()
+        .map(|path| {
+            let source_name = path.file_name().unwrap().to_string_lossy().to_string();
+            (source_name, fs::read(path).unwrap())
+        })
+        .collect()
+}
+
+fn fixture_snapshot(
+    manifest_text: &str,
+    source_texts: &[(String, Vec<u8>)],
+) -> CapturedPackageSnapshot {
+    capture_embedded_package_snapshot(
+        manifest_text.as_bytes(),
+        source_texts
+            .iter()
+            .map(|(path, bytes)| PackageSnapshotSource::new(path, bytes.as_slice())),
+    )
+    .unwrap()
 }
 
 fn example_fixture_root(name: &str) -> PathBuf {
@@ -151,6 +164,8 @@ fn generate_with_forced_declaration_id(
 mod catalog_identity;
 mod doctest_gates;
 mod doctest_publication;
+mod module_value_classification_scaling;
+mod module_value_dependency_boundaries;
 mod module_value_publication;
 mod navigation_and_manifest;
 mod variant_refinement_visibility;

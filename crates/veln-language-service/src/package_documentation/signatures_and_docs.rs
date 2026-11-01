@@ -225,10 +225,22 @@ pub(super) fn doc_schema_references_before(
         return Vec::new();
     }
 
+    extract_doc_schema_references(source, &lines, &docs)
+}
+
+fn extract_doc_schema_references(
+    source: &SourceFile,
+    lines: &[&str],
+    docs: &[(usize, &str)],
+) -> Vec<veln_syntax::DocumentationSchemaReference> {
+    let doc_line_indexes = docs
+        .iter()
+        .map(|(index, _)| *index)
+        .collect::<BTreeSet<_>>();
     let mut references = Vec::new();
     let mut line_start = 0;
     for (line_index, line) in lines.iter().enumerate() {
-        if docs.iter().any(|(index, _)| *index == line_index) {
+        if doc_line_indexes.contains(&line_index) {
             let trimmed = line.trim_start();
             let indent_len = line.len() - trimmed.len();
             if let Some(content) = trimmed.strip_prefix("##") {

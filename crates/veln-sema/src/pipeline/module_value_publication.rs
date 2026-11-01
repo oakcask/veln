@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::*;
 
 type PublicationSpanKey = (
@@ -201,7 +203,32 @@ fn direct_diagnostic_indices(
     provenance: &ModuleValuePublicationProvenance,
 ) -> Vec<Vec<usize>> {
     let mut indices = vec![Vec::new(); provenance.values.len()];
-    let diagnostics_by_key = diagnostics
+    let diagnostics_by_key = diagnostic_indices_by_key(diagnostics);
+    let diagnostics_by_span = diagnostic_indices_by_span(diagnostics);
+    for (value_indices, value) in indices.iter_mut().zip(&provenance.values) {
+        for cause in &value.direct_causes {
+            if let Some(index) = direct_diagnostic_index(
+                cause,
+                diagnostics,
+                &diagnostics_by_key,
+                &diagnostics_by_span,
+            ) {
+                value_indices.push(index);
+            }
+        }
+        value_indices.sort_unstable();
+        value_indices.dedup();
+    }
+    indices
+}
+
+type DirectDiagnosticKey<'a> = (&'a str, PublicationSpanKey, &'a str);
+type DirectDiagnosticSpanKey<'a> = (&'a str, PublicationSpanKey);
+
+fn diagnostic_indices_by_key(
+    diagnostics: &[Diagnostic],
+) -> HashMap<DirectDiagnosticKey<'_>, usize> {
+    diagnostics
         .iter()
         .enumerate()
         .filter_map(|(index, diagnostic)| {
@@ -215,45 +242,51 @@ fn direct_diagnostic_indices(
                 index,
             ))
         })
-        .collect::<HashMap<_, _>>();
-    let diagnostics_by_span = diagnostics
+        .collect()
+}
+
+fn diagnostic_indices_by_span(
+    diagnostics: &[Diagnostic],
+) -> HashMap<DirectDiagnosticSpanKey<'_>, usize> {
+    diagnostics
         .iter()
         .enumerate()
         .filter_map(|(index, diagnostic)| {
             let span = diagnostic.span.as_ref()?;
             Some(((diagnostic.id.as_str(), publication_span_key(span)), index))
         })
-        .collect::<HashMap<_, _>>();
-    for (value_index, value) in provenance.values.iter().enumerate() {
-        for cause in &value.direct_causes {
-            if let Some(index) = cause.diagnostic_index.filter(|index| {
-                diagnostics
-                    .get(*index)
-                    .is_some_and(|diagnostic| diagnostic_matches_cause(diagnostic, cause))
-            }) {
-                indices[value_index].push(index);
-                continue;
-            }
-            let index = if let Some(message) = cause.diagnostic_message.as_deref() {
-                diagnostics_by_key.get(&(
-                    cause.diagnostic_id.as_str(),
-                    publication_span_key(&cause.span),
-                    message,
-                ))
-            } else {
-                diagnostics_by_span.get(&(
-                    cause.diagnostic_id.as_str(),
-                    publication_span_key(&cause.span),
-                ))
-            };
-            if let Some(index) = index {
-                indices[value_index].push(*index);
-            }
-        }
-        indices[value_index].sort_unstable();
-        indices[value_index].dedup();
+        .collect()
+}
+
+fn direct_diagnostic_index(
+    cause: &crate::analysis::ModuleValuePublicationCause,
+    diagnostics: &[Diagnostic],
+    diagnostics_by_key: &HashMap<DirectDiagnosticKey<'_>, usize>,
+    diagnostics_by_span: &HashMap<DirectDiagnosticSpanKey<'_>, usize>,
+) -> Option<usize> {
+    if let Some(index) = cause.diagnostic_index.filter(|index| {
+        diagnostics
+            .get(*index)
+            .is_some_and(|diagnostic| diagnostic_matches_cause(diagnostic, cause))
+    }) {
+        return Some(index);
     }
-    indices
+    if let Some(message) = cause.diagnostic_message.as_deref() {
+        diagnostics_by_key
+            .get(&(
+                cause.diagnostic_id.as_str(),
+                publication_span_key(&cause.span),
+                message,
+            ))
+            .copied()
+    } else {
+        diagnostics_by_span
+            .get(&(
+                cause.diagnostic_id.as_str(),
+                publication_span_key(&cause.span),
+            ))
+            .copied()
+    }
 }
 
 fn diagnostic_matches_cause(

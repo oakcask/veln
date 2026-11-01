@@ -124,6 +124,19 @@ fn verify_checked_digest() -> Result<(), String> {
 }
 
 pub fn generate_checked_bundle() -> Result<GeneratedBundle, String> {
+    let result = generate_standard_library_documentation()?;
+    let value = generated_bundle_value(&result);
+    let bytes = canonical_json(&value)?;
+    let bundle = parse_bundle(&bytes)?;
+    let digest = bundle_digest(bytes.as_bytes());
+    Ok(GeneratedBundle {
+        bytes,
+        digest,
+        bundle,
+    })
+}
+
+fn generate_standard_library_documentation() -> Result<PackageDocResult, String> {
     let standard_library = veln_stdlib::package_bundle();
     let snapshot = capture_embedded_package_snapshot(
         standard_library.manifest.as_bytes(),
@@ -134,19 +147,22 @@ pub fn generate_checked_bundle() -> Result<GeneratedBundle, String> {
     )
     .map_err(|error| format!("capture the embedded standard-library package snapshot: {error}"))?;
     let manifest = parse_manifest_text(SNAPSHOT_MANIFEST_PATH, standard_library.manifest);
-    let result = PackageDocResult::generate(
+    Ok(PackageDocResult::generate(
         &PackageIdentity::embedded_standard(),
         &snapshot,
         &manifest,
         std::path::Path::new("."),
         &[],
         PackageDocGeneratorContract::new(GENERATOR_CONTRACT),
-    );
-    let mut resources = render_package_documentation(&result);
+    ))
+}
+
+fn generated_bundle_value(result: &PackageDocResult) -> Value {
+    let mut resources = render_package_documentation(result);
     resources.sort_by(|left, right| left.uri.as_bytes().cmp(right.uri.as_bytes()));
     let search_candidates = result.search_candidates();
     let declaration_locations = result.declaration_locations().collect::<Vec<_>>();
-    let value = json!({
+    json!({
         "declaration_locations": declaration_locations.into_iter().map(|location| json!({
             "column": location.column,
             "declaration_uri": location.declaration_uri,
@@ -178,14 +194,6 @@ pub fn generate_checked_bundle() -> Result<GeneratedBundle, String> {
         })).collect::<Vec<_>>(),
         "schema_version": BUNDLE_SCHEMA_VERSION,
         "snapshot_digest": result.snapshot_digest(),
-    });
-    let bytes = canonical_json(&value)?;
-    let bundle = parse_bundle(&bytes)?;
-    let digest = bundle_digest(bytes.as_bytes());
-    Ok(GeneratedBundle {
-        bytes,
-        digest,
-        bundle,
     })
 }
 
@@ -339,11 +347,7 @@ fn validate_indexes(
 ) -> Result<(), String> {
     let status_only = resources.len() == 1 && resources[0].uri.ends_with("/status");
     if status_only {
-        return if search_candidates.is_empty() && declaration_locations.is_empty() {
-            Ok(())
-        } else {
-            Err("a checked status bundle must not contain documentation indexes".to_string())
-        };
+        return validate_status_indexes(search_candidates, declaration_locations);
     }
     if search_candidates.is_empty() || declaration_locations.is_empty() {
         return Err(
@@ -355,29 +359,59 @@ fn validate_indexes(
         .iter()
         .map(|resource| resource.uri.as_str())
         .collect::<BTreeSet<_>>();
-    if let Some(candidate) = search_candidates
-        .iter()
-        .find(|candidate| !resource_uris.contains(candidate.uri.as_str()))
-    {
-        return Err(format!(
-            "checked search candidate URI `{}` must identify a checked resource",
-            candidate.uri
-        ));
-    }
+    validate_search_candidate_uris(search_candidates, &resource_uris)?;
     let source_base = format!(
         "veln-pkg:///{}/snapshot/{}/",
         metadata.package_identity, metadata.snapshot_digest
     );
-    if let Some(location) = declaration_locations.iter().find(|location| {
-        !location.source_uri.starts_with(&source_base)
+    validate_declaration_location_uris(declaration_locations, &resource_uris, &source_base)
+}
+
+fn validate_status_indexes(
+    search_candidates: &[CheckedSearchCandidate],
+    declaration_locations: &[CheckedDeclarationLocation],
+) -> Result<(), String> {
+    if search_candidates.is_empty() && declaration_locations.is_empty() {
+        Ok(())
+    } else {
+        Err("a checked status bundle must not contain documentation indexes".to_string())
+    }
+}
+
+fn validate_search_candidate_uris(
+    search_candidates: &[CheckedSearchCandidate],
+    resource_uris: &BTreeSet<&str>,
+) -> Result<(), String> {
+    let invalid = search_candidates
+        .iter()
+        .find(|candidate| !resource_uris.contains(candidate.uri.as_str()));
+    if let Some(candidate) = invalid {
+        Err(format!(
+            "checked search candidate URI `{}` must identify a checked resource",
+            candidate.uri
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_declaration_location_uris(
+    declaration_locations: &[CheckedDeclarationLocation],
+    resource_uris: &BTreeSet<&str>,
+    source_base: &str,
+) -> Result<(), String> {
+    let invalid = declaration_locations.iter().find(|location| {
+        !location.source_uri.starts_with(source_base)
             || !resource_uris.contains(location.declaration_uri.as_str())
-    }) {
-        return Err(format!(
+    });
+    if let Some(location) = invalid {
+        Err(format!(
             "checked declaration location `{}` must identify the checked package and a checked resource",
             location.source_uri
-        ));
+        ))
+    } else {
+        Ok(())
     }
-    Ok(())
 }
 
 fn parse_search_candidate(value: &Value) -> Result<CheckedSearchCandidate, String> {

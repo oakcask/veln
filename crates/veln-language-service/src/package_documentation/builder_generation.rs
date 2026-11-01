@@ -420,25 +420,14 @@ impl<'a> PackageDocBuilder<'a> {
         let mut seen_modules = BTreeSet::new();
         let mut exports = Vec::new();
         for export in &self.manifest.lib.exports {
-            if export.path.contains("::") {
-                continue;
-            }
-            let path = SourcePath::new(export.path.clone());
-            if !is_package_relative_path(path.as_str())
-                || !path.as_str().ends_with(".veln")
-                || is_test_source_path(path.as_str())
-            {
-                continue;
-            }
-            let source = SourceFile::new(path.as_str(), "");
-            let Ok(module_name) = derive_export_source_module_path(&source) else {
+            let Some((path, module_name)) = validated_export_module(&export.path) else {
                 continue;
             };
-            if available.contains(path.as_str())
-                && seen_paths.insert(path.as_str().to_string())
+            if available.contains(&path)
+                && seen_paths.insert(path.clone())
                 && seen_modules.insert(module_name.clone())
             {
-                exports.push((path.as_str().to_string(), module_name));
+                exports.push((path, module_name));
             }
         }
         exports
@@ -527,6 +516,22 @@ impl<'a> PackageDocBuilder<'a> {
             }
         }
     }
+}
+
+fn validated_export_module(export_path: &str) -> Option<(String, String)> {
+    if export_path.contains("::") {
+        return None;
+    }
+    let path = SourcePath::new(export_path);
+    if !is_package_relative_path(path.as_str())
+        || !path.as_str().ends_with(".veln")
+        || is_test_source_path(path.as_str())
+    {
+        return None;
+    }
+    let source = SourceFile::new(path.as_str(), "");
+    let module_name = derive_export_source_module_path(&source).ok()?;
+    Some((path.as_str().to_string(), module_name))
 }
 
 fn manifest_diagnostic(

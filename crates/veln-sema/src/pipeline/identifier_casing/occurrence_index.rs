@@ -94,90 +94,118 @@ pub(super) fn classified_invalid_path_segment(
         return None;
     }
     match invalid.class {
-        NameClass::Module => {
-            if invalid_segment_is_constructor_type_qualifier(invalid, occurrences, environment) {
-                return Some(classified_path_segment(
-                    invalid,
-                    NameClass::Type,
-                    QualifiedPathSegmentEvidence::Resolved,
-                ));
-            }
-            if invalid_value_segment_lacks_value_role(invalid, occurrences, environment) {
-                None
-            } else {
-                Some(classified_path_segment(
-                    invalid,
-                    NameClass::Module,
-                    QualifiedPathSegmentEvidence::Resolved,
-                ))
-            }
-        }
-        NameClass::Type => {
-            if invalid_type_segment_has_module_role(invalid, occurrences, environment) {
-                return Some(classified_path_segment(
-                    invalid,
-                    NameClass::Module,
-                    QualifiedPathSegmentEvidence::Resolved,
-                ));
-            }
-            if invalid_type_segment_lacks_constructor_role(invalid, occurrences, environment) {
-                None
-            } else {
-                Some(classified_path_segment(
-                    invalid,
-                    NameClass::Type,
-                    QualifiedPathSegmentEvidence::Resolved,
-                ))
-            }
-        }
+        NameClass::Module => classified_invalid_module_segment(invalid, occurrences, environment),
+        NameClass::Type => classified_invalid_type_segment(invalid, occurrences, environment),
         NameClass::Constructor => {
-            if invalid_constructor_segment_has_function_role(invalid, occurrences, environment) {
-                return Some(classified_path_segment(
-                    invalid,
-                    NameClass::Function,
-                    QualifiedPathSegmentEvidence::UniqueRecovery,
-                ));
-            }
-            if invalid_constructor_segment_lacks_constructor_role(invalid, occurrences, environment)
-            {
-                None
-            } else {
-                Some(classified_path_segment(
-                    invalid,
-                    NameClass::Constructor,
-                    QualifiedPathSegmentEvidence::Resolved,
-                ))
-            }
+            classified_invalid_constructor_segment(invalid, occurrences, environment)
         }
         NameClass::Function => {
-            if invalid_function_segment_lacks_function_role(invalid, occurrences, environment)
-                || invalid_constructor_segment_lacks_constructor_role(
-                    invalid,
-                    occurrences,
-                    environment,
-                )
-            {
-                None
-            } else {
-                Some(classified_path_segment(
-                    invalid,
-                    NameClass::Function,
-                    QualifiedPathSegmentEvidence::Resolved,
-                ))
-            }
+            classified_invalid_function_segment(invalid, occurrences, environment)
         }
         NameClass::ValueBinding => {
-            if invalid_value_segment_lacks_value_role(invalid, occurrences, environment) {
-                None
-            } else {
-                Some(classified_path_segment(
-                    invalid,
-                    NameClass::ValueBinding,
-                    QualifiedPathSegmentEvidence::Resolved,
-                ))
-            }
+            classified_invalid_value_segment(invalid, occurrences, environment)
         }
     }
+}
+
+fn classified_invalid_module_segment(
+    invalid: &InvalidName,
+    occurrences: &QualifiedPathOccurrenceIndex,
+    environment: &TypeEnvironment,
+) -> Option<QualifiedPathSegment> {
+    if invalid_segment_is_constructor_type_qualifier(invalid, occurrences, environment) {
+        return Some(classified_path_segment(
+            invalid,
+            NameClass::Type,
+            QualifiedPathSegmentEvidence::Resolved,
+        ));
+    }
+    (!invalid_value_segment_lacks_value_role(invalid, occurrences, environment)).then(|| {
+        classified_path_segment(
+            invalid,
+            NameClass::Module,
+            QualifiedPathSegmentEvidence::Resolved,
+        )
+    })
+}
+
+fn classified_invalid_type_segment(
+    invalid: &InvalidName,
+    occurrences: &QualifiedPathOccurrenceIndex,
+    environment: &TypeEnvironment,
+) -> Option<QualifiedPathSegment> {
+    if invalid_type_segment_has_module_role(invalid, occurrences, environment) {
+        return Some(classified_path_segment(
+            invalid,
+            NameClass::Module,
+            QualifiedPathSegmentEvidence::Resolved,
+        ));
+    }
+    (!invalid_type_segment_lacks_constructor_role(invalid, occurrences, environment)).then(|| {
+        classified_path_segment(
+            invalid,
+            NameClass::Type,
+            QualifiedPathSegmentEvidence::Resolved,
+        )
+    })
+}
+
+fn classified_invalid_constructor_segment(
+    invalid: &InvalidName,
+    occurrences: &QualifiedPathOccurrenceIndex,
+    environment: &TypeEnvironment,
+) -> Option<QualifiedPathSegment> {
+    if invalid_constructor_segment_has_function_role(invalid, occurrences, environment) {
+        return Some(classified_path_segment(
+            invalid,
+            NameClass::Function,
+            QualifiedPathSegmentEvidence::UniqueRecovery,
+        ));
+    }
+    (!invalid_constructor_segment_lacks_constructor_role(invalid, occurrences, environment)).then(
+        || {
+            classified_path_segment(
+                invalid,
+                NameClass::Constructor,
+                QualifiedPathSegmentEvidence::Resolved,
+            )
+        },
+    )
+}
+
+fn classified_invalid_function_segment(
+    invalid: &InvalidName,
+    occurrences: &QualifiedPathOccurrenceIndex,
+    environment: &TypeEnvironment,
+) -> Option<QualifiedPathSegment> {
+    let lacks_role =
+        invalid_function_segment_lacks_function_role(invalid, occurrences, environment)
+            || invalid_constructor_segment_lacks_constructor_role(
+                invalid,
+                occurrences,
+                environment,
+            );
+    (!lacks_role).then(|| {
+        classified_path_segment(
+            invalid,
+            NameClass::Function,
+            QualifiedPathSegmentEvidence::Resolved,
+        )
+    })
+}
+
+fn classified_invalid_value_segment(
+    invalid: &InvalidName,
+    occurrences: &QualifiedPathOccurrenceIndex,
+    environment: &TypeEnvironment,
+) -> Option<QualifiedPathSegment> {
+    (!invalid_value_segment_lacks_value_role(invalid, occurrences, environment)).then(|| {
+        classified_path_segment(
+            invalid,
+            NameClass::ValueBinding,
+            QualifiedPathSegmentEvidence::Resolved,
+        )
+    })
 }
 
 #[derive(Clone)]
