@@ -4,6 +4,7 @@ use super::*;
 pub(super) struct ConstantPool {
     entries: Vec<CpEntry>,
     indexes: BTreeMap<CpKey, u16>,
+    error: Option<JvmBackendError>,
 }
 
 impl ConstantPool {
@@ -87,22 +88,70 @@ impl ConstantPool {
         if let Some(index) = self.indexes.get(&key) {
             return *index;
         }
-        let index = (self.entries.len() + 1) as u16;
+        if self.error.is_some() {
+            return 1;
+        }
+        let entry_slots = if matches!(key, CpKey::Long(_) | CpKey::Double(_)) {
+            2
+        } else {
+            1
+        };
+        let Some(index) = checked_constant_pool_addition(self.entries.len(), entry_slots) else {
+            self.error = Some(JvmBackendError::new(
+                "JVM class constant pool exceeds the classfile limit",
+            ));
+            return 1;
+        };
         let entry = build(&key);
         self.entries.push(entry);
-        if matches!(key, CpKey::Long(_) | CpKey::Double(_)) {
+        if entry_slots == 2 {
             self.entries.push(CpEntry::Padding);
         }
         self.indexes.insert(key, index);
         index
     }
 
-    pub(super) fn write(&self, out: &mut Vec<u8>) {
-        write_u16(out, (self.entries.len() + 1) as u16);
+    pub(super) fn write(&self, out: &mut Vec<u8>) -> Result<(), JvmBackendError> {
+        if let Some(error) = &self.error {
+            return Err(error.clone());
+        }
+        let count = checked_constant_pool_count(self.entries.len()).ok_or_else(|| {
+            JvmBackendError::new("JVM class constant pool exceeds the classfile limit")
+        })?;
+        for entry in &self.entries {
+            if let CpEntry::Utf8(value) = entry {
+                checked_utf8_length(value).ok_or_else(|| {
+                    JvmBackendError::new("JVM class constant-pool string exceeds 65535 bytes")
+                })?;
+            }
+        }
+
+        write_u16(out, count);
         for entry in &self.entries {
             entry.write(out);
         }
+        Ok(())
     }
+}
+
+fn checked_constant_pool_addition(existing_slots: usize, added_slots: usize) -> Option<u16> {
+    existing_slots
+        .checked_add(added_slots)
+        .and_then(|slots| slots.checked_add(1))
+        .and_then(|count| u16::try_from(count).ok())?;
+    existing_slots
+        .checked_add(1)
+        .and_then(|index| u16::try_from(index).ok())
+}
+
+fn checked_constant_pool_count(entry_slots: usize) -> Option<u16> {
+    entry_slots
+        .checked_add(1)
+        .and_then(|count| u16::try_from(count).ok())
+}
+
+fn checked_utf8_length(value: &str) -> Option<u16> {
+    u16::try_from(value.len()).ok()
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -145,7 +194,11 @@ impl CpEntry {
         match self {
             Self::Utf8(value) => {
                 out.push(1);
-                write_u16(out, value.len() as u16);
+                write_u16(
+                    out,
+                    checked_utf8_length(value)
+                        .expect("constant-pool UTF-8 lengths are checked before serialization"),
+                );
                 out.extend_from_slice(value.as_bytes());
             }
             Self::Class(index) => {
@@ -203,4 +256,68 @@ pub(super) fn write_u16(out: &mut Vec<u8>, value: u16) {
 
 pub(super) fn write_u32(out: &mut Vec<u8>, value: u32) {
     out.extend_from_slice(&value.to_be_bytes());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn intern_rejects_an_entry_that_would_overflow_the_constant_pool_count() {
+        let mut pool = ConstantPool::new();
+        pool.entries
+            .resize_with(usize::from(u16::MAX) - 1, || CpEntry::Padding);
+
+        let index = pool.integer(7);
+
+        assert_eq!(index, 1);
+        assert_eq!(
+            pool.error.as_ref().map(ToString::to_string).as_deref(),
+            Some("JVM class constant pool exceeds the classfile limit")
+        );
+        assert_eq!(pool.entries.len(), usize::from(u16::MAX) - 1);
+        assert!(!pool.indexes.contains_key(&CpKey::Integer(7)));
+    }
+
+    #[test]
+    fn intern_accounts_for_two_slot_constants_before_mutating_the_pool() {
+        let mut pool = ConstantPool::new();
+        pool.entries
+            .resize_with(usize::from(u16::MAX) - 2, || CpEntry::Padding);
+
+        let index = pool.long(7);
+
+        assert_eq!(index, 1);
+        assert!(pool.error.is_some());
+        assert_eq!(pool.entries.len(), usize::from(u16::MAX) - 2);
+        assert!(!pool.indexes.contains_key(&CpKey::Long(7)));
+    }
+
+    #[test]
+    fn write_rejects_an_unrepresentable_count_before_writing_bytes() {
+        let mut pool = ConstantPool::new();
+        pool.entries
+            .resize_with(usize::from(u16::MAX), || CpEntry::Padding);
+        let mut out = vec![1, 2, 3];
+
+        let failure = pool.write(&mut out);
+
+        assert!(failure.is_err());
+        assert_eq!(out, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn write_rejects_an_oversized_utf8_entry_before_writing_bytes() {
+        let pool = ConstantPool {
+            entries: vec![CpEntry::Utf8("x".repeat(usize::from(u16::MAX) + 1))],
+            indexes: BTreeMap::new(),
+            error: None,
+        };
+        let mut out = vec![1, 2, 3];
+
+        let failure = pool.write(&mut out);
+
+        assert!(failure.is_err());
+        assert_eq!(out, vec![1, 2, 3]);
+    }
 }

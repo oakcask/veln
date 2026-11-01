@@ -140,19 +140,24 @@ tests.
 
 Functions can read accepted module immutable values. The JVM backend
 materializes strings, integers including negation, booleans, unit, records,
-nullary and payload ADT constructors, and references without invoking user
-code. Each reference selects the complete package, module, and declaration
-identity, so same-module forward references, imported or aliased references,
-and same-spelled declarations from distinct packages produce their selected
-data independent of source, import, or first-use order. A valid acyclic
+nullary and payload ADT constructors, including `Option`, `Result`, and `List`,
+and references without invoking user code. Each reference selects the complete
+package, module, and declaration identity, so same-module forward references,
+imported or aliased references, and same-spelled declarations from distinct
+packages produce their selected data independent of source, import, or
+first-use order. A valid acyclic
 dependency chain remains executable when its declaration depth exceeds the
-available JVM call-stack depth. Reading the final value does not recursively
-evaluate the preceding initializers. The checked
+available JVM call-stack depth. A declaration set remains executable when its
+materialized fields and initializers exceed one JVM class constant pool; the
+backend partitions storage while retaining declaration identity and dependency
+order. Reading the final value does not recursively evaluate the preceding
+initializers. The checked
 [`module-value-runtime-execution`](../../examples/specification/run/module-value-runtime-execution/)
 case exercises the supported values and identity boundaries. The focused
 [`JVM backend test`](../../crates/veln-backend-jvm/src/tests/basic_backend.rs)
 executes a 4,000-declaration chain with a constrained thread stack and checks
-the final value.
+the final value. The same backend suite asks Java to load 11,000 distinct
+integer declarations and read the terminal value.
 
 Module values do not add an effectful startup phase, user-code initializer
 execution, mutable storage, or lazy runtime failure. Physical sharing between
@@ -263,6 +268,9 @@ syntax.
 
 The JVM backend emits classfile artifacts and invokes the selected entry. Java
 source generation and Java source compilation are outside the command contract.
+If one generated class cannot represent its constant pool or a constant-pool
+string exceeds 65,535 bytes, classfile generation returns a bounded backend
+failure before it writes a truncated classfile.
 `ByteChunk`, `ByteView`, `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,
 `DecodeError`, `EncodeStep<TState>`, and `EncodeError` are immutable
 source-visible values. Byte and view helpers are pure; invalid values,

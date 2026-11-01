@@ -50,6 +50,61 @@ fn backend_materializes_complete_finite_module_value_surface() {
 }
 
 #[test]
+fn backend_materializes_builtin_adt_module_values_and_nested_dependencies() {
+    let ir = lower_to_ir(concat!(
+        "let optional: Option<Int> = Some(later)\n",
+        "let absent: Option<Int> = None\n",
+        "let success: Result<Int, String> = Ok(later)\n",
+        "let failure: Result<Int, String> = Err(\"failed\")\n",
+        "let items: List<Int> = Cons(later, empty)\n",
+        "let empty: List<Int> = Nil\n",
+        "let later: Int = 7\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  match optional\n",
+        "    Some(value) => stdio::println(int_to_string(value))\n",
+        "    None => stdio::println(\"unexpected none\")\n",
+        "  end\n",
+        "  match absent\n",
+        "    Some(_) => stdio::println(\"unexpected some\")\n",
+        "    None => stdio::println(\"none\")\n",
+        "  end\n",
+        "  match success\n",
+        "    Ok(value) => stdio::println(int_to_string(value))\n",
+        "    Err(_) => stdio::println(\"unexpected error\")\n",
+        "  end\n",
+        "  match failure\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(message) => stdio::println(message)\n",
+        "  end\n",
+        "  match items\n",
+        "    Cons(head, _) => stdio::println(int_to_string(head))\n",
+        "    Nil => stdio::println(\"unexpected nil\")\n",
+        "  end\n",
+        "  match empty\n",
+        "    Cons(_, _) => stdio::println(\"unexpected cons\")\n",
+        "    Nil => stdio::println(\"nil\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("module-value-builtin-adts", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "7\nnone\n7\nfailed\n7\nnil\n"
+    );
+}
+
+#[test]
 fn backend_module_value_identity_is_independent_of_source_and_import_order() {
     for reverse in [false, true] {
         let main = SourceFile::new(
@@ -152,6 +207,52 @@ fn bytecode_backend_executes_deep_module_value_dependencies_with_a_bounded_jvm_s
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "41\n");
+}
+
+#[test]
+fn bytecode_backend_loads_module_values_above_one_class_constant_pool_capacity() {
+    const DECLARATION_COUNT: usize = 11_000;
+
+    let mut source = String::new();
+    for index in 0..DECLARATION_COUNT {
+        source.push_str(&format!("let value_{index}: Int = {index}\n"));
+    }
+    source.push_str(concat!(
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(value_10999))\n",
+        "end\n",
+    ));
+
+    let ir = lower_to_ir(&source);
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "module-value-constant-pool-capacity",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "10999\n");
+}
+
+#[test]
+fn bytecode_backend_reports_unrepresentable_constant_pool_strings() {
+    let literal = "x".repeat(usize::from(u16::MAX) + 1);
+    let ir = lower_to_ir(&format!("pub fn main() -> String\n  \"{literal}\"\nend\n"));
+
+    let failure = try_generate_classfiles_with_entry(&ir, "main")
+        .expect_err("oversized constant-pool strings must be rejected");
+
+    assert_eq!(
+        failure.to_string(),
+        "JVM class constant-pool string exceeds 65535 bytes"
+    );
 }
 
 #[test]

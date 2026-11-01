@@ -636,7 +636,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrExprKind::Local(name) => self.emit_local(code, name),
             IrExprKind::ModuleValue(identity) => {
                 code.getstatic(
-                    &self.program.options.program_class,
+                    self.program.module_value_owner(identity),
                     self.program.module_value_name(identity),
                     MODULE_VALUE_DESCRIPTOR,
                 );

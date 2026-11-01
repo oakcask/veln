@@ -19,6 +19,25 @@ pub struct JvmClassFile {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct JvmBackendError {
+    message: &'static str,
+}
+
+impl JvmBackendError {
+    pub(crate) const fn new(message: &'static str) -> Self {
+        Self { message }
+    }
+}
+
+impl std::fmt::Display for JvmBackendError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.message)
+    }
+}
+
+impl std::error::Error for JvmBackendError {}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JvmBackendOptions {
     pub program_class: String,
 }

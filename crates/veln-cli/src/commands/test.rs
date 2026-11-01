@@ -12,7 +12,7 @@ use veln_analysis::{
 };
 use veln_ast::{FunctionKind, SurfaceModule};
 use veln_backend_jvm::{
-    JvmProgram, generate_classfiles_with_entry, generate_classfiles_with_test_entries,
+    JvmProgram, try_generate_classfiles_with_entry, try_generate_classfiles_with_test_entries,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope};
 use veln_project::{Project, classify_companion_source, discover_source_paths};
@@ -178,15 +178,19 @@ fn execute_runnable_test_cases(
     timings: &mut TestTimings,
 ) -> Result<(ProjectAnalysis, Vec<TestCase>), String> {
     let generation_start = Instant::now();
-    let reusable_program = analysis.reusable_standard_ir().map(|ir| {
-        generate_classfiles_with_test_entries(
-            ir,
-            &runnable_cases
-                .iter()
-                .map(|case| case.name.clone())
-                .collect::<Vec<_>>(),
-        )
-    });
+    let reusable_program = analysis
+        .reusable_standard_ir()
+        .map(|ir| {
+            try_generate_classfiles_with_test_entries(
+                ir,
+                &runnable_cases
+                    .iter()
+                    .map(|case| case.name.clone())
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .transpose()
+        .map_err(|error| format!("JVM backend could not generate the test program: {error}"))?;
     timings.push("jvm_generation", generation_start.elapsed());
     let execution = Arc::new(TestJvmExecution::new());
     let has_ready_job =
@@ -205,7 +209,7 @@ fn execute_runnable_test_cases(
             let analysis = analysis_mutex
                 .lock()
                 .map_err(|_| "test analysis state was poisoned".to_string())?;
-            let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case);
+            let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case)?;
             job.set_execution(Arc::clone(&execution));
             Ok::<_, String>(job)
         },
@@ -260,8 +264,7 @@ fn preflight_test_case_job(
     let Some(ir) = &reachable.lowered.ir else {
         return false;
     };
-    let _program = generate_classfiles_with_entry(ir, case_name);
-    true
+    try_generate_classfiles_with_entry(ir, case_name).is_ok()
 }
 
 pub(crate) fn resolve_test_jobs(

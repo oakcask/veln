@@ -10,7 +10,9 @@ use veln_analysis::{
     AnalysisTiming, DoctestMode, ProjectAnalysis, analyze_project, analyze_project_with_timings,
 };
 use veln_ast::{FunctionKind, InvalidName, NameClass, NameOccurrence};
-use veln_backend_jvm::{EntryArgType, generate_classfiles_with_entry_arg_types};
+#[cfg(test)]
+use veln_backend_jvm::generate_classfiles_with_entry_arg_types;
+use veln_backend_jvm::{EntryArgType, try_generate_classfiles_with_entry_arg_types};
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
 use veln_project::{Project, explicit_companion_inputs, production_analysis_inputs};
 use veln_test::TestFailure;
@@ -65,11 +67,12 @@ pub(crate) fn run_entry(
     };
 
     let backend_start = timings.is_some().then(Instant::now);
-    let jvm = generate_classfiles_with_entry_arg_types(
+    let jvm = try_generate_classfiles_with_entry_arg_types(
         &prepared.ir,
         &prepared.entry_target,
         &prepared.entry_arg_types,
-    );
+    )
+    .map_err(|error| format!("JVM backend could not generate the program: {error}"))?;
     let execution = match prepare_run_jvm_execution(json, &mut timings, backend_start)? {
         Some(execution) => execution,
         None => return Ok(ExitCode::from(1)),

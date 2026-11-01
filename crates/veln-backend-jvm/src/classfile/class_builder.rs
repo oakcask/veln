@@ -45,7 +45,7 @@ impl ClassBuilder {
         self.fields.push(field);
     }
 
-    pub(super) fn finish(self) -> Vec<u8> {
+    pub(super) fn finish(self) -> Result<Vec<u8>, JvmBackendError> {
         let this_class = self.constant_pool.borrow_mut().class(&self.name);
         let super_class = self.constant_pool.borrow_mut().class(JAVA_LANG_OBJECT);
         let code_name = self.constant_pool.borrow_mut().utf8("Code");
@@ -92,7 +92,7 @@ impl ClassBuilder {
         write_u32(&mut out, 0xcafebabe);
         write_u16(&mut out, 0);
         write_u16(&mut out, PROGRAM_MAJOR_VERSION);
-        self.constant_pool.borrow().write(&mut out);
+        self.constant_pool.borrow().write(&mut out)?;
         write_u16(&mut out, self.access_flags);
         write_u16(&mut out, this_class);
         write_u16(&mut out, super_class);
@@ -109,7 +109,7 @@ impl ClassBuilder {
             method.write(&mut out);
         }
         write_u16(&mut out, 0);
-        out
+        Ok(out)
     }
 }
 
