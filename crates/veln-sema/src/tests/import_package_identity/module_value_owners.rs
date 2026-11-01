@@ -4,14 +4,7 @@ use super::*;
 fn module_value_constructor_lowering_keeps_package_distinct_owner_imports() {
     let module = package_distinct_constructor_module();
     let lowered = lower_checked_surface_module(&module);
-    assert!(
-        lowered.diagnostics.iter().all(|diagnostic| {
-            diagnostic.id == "module.value_not_executable"
-                || diagnostic.severity != veln_diagnostics::Severity::Error
-        }),
-        "{:#?}",
-        lowered.diagnostics
-    );
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered
         .core
         .expect("constructors should reach checked core");

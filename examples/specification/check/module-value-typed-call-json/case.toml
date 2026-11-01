@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["type.not_callable", "module_value_declaration", "module.value_not_executable"]
+contains = ["type.not_callable", "module_value_declaration"]
 not_contains = ["unresolved call_target `answer`"]
 
 [stderr]
@@ -15,37 +15,37 @@ severity = "error"
 kind = "type"
 
 [[json_assert]]
-path = "diagnostics.1.details.actual"
+path = "diagnostics.0.details.actual"
 equals = "module_value"
 
 [[json_assert]]
-path = "diagnostics.1.span.start.line"
+path = "diagnostics.0.span.start.line"
 equals = 4
 
 [[json_assert]]
-path = "diagnostics.1.span.start.column"
+path = "diagnostics.0.span.start.column"
 equals = 2
 
 [[json_assert]]
-path = "diagnostics.1.span.end.line"
+path = "diagnostics.0.span.end.line"
 equals = 4
 
 [[json_assert]]
-path = "diagnostics.1.span.end.column"
+path = "diagnostics.0.span.end.column"
 equals = 16
 
 [[json_assert]]
-path = "diagnostics.1.related.0.kind"
+path = "diagnostics.0.related.0.kind"
 equals = "module_value_declaration"
 
 [[json_assert]]
-path = "diagnostics.1.related.0.message"
+path = "diagnostics.0.related.0.message"
 equals = "Module value `answer` is declared here."
 
 [[json_assert]]
-path = "diagnostics.1.related.0.span.start.line"
+path = "diagnostics.0.related.0.span.start.line"
 equals = 1
 
 [[json_assert]]
-path = "diagnostics.1.related.0.span.start.column"
+path = "diagnostics.0.related.0.span.start.column"
 equals = 1

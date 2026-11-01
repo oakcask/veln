@@ -39,10 +39,9 @@ collisions. Imported bare selection considers only functions and aliases that
 remain publicly available, so a signature-visibility failure cannot hide a
 valid module value. The same boundary applies when analysis reuses a prepared
 standard-library environment.
-Initializer or package-wide dependency failures are reported together with
-`module.value_not_executable` for each declaration. The latter error keeps the
-selection from becoming execution-ready or producing backend output. Accepted
-declarations and references remain represented in checked core and typed IR.
+Initializer or package-wide dependency failures keep the selection from
+becoming execution-ready or producing backend output. Accepted declarations
+and references remain represented in checked core and typed IR.
 Parsing and formatting remain available as specified by the
 [source-surface boundary](source-surface.md#module-immutable-value-declarations).
 
@@ -74,10 +73,9 @@ defined by the
 spans, and related context are defined by the
 [diagnostic specification](diagnostics-json.md#diagnostic-families).
 
-`doc` consumes the same project semantic diagnostics for its selected production
-sources, but discards `module.value_not_executable` because documentation does
-not require runtime materialization. Every other diagnostic in a selected
-module value's causal dependency closure remains a package-documentation error.
+`doc` consumes the same project semantic diagnostics for its selected
+production sources. Every diagnostic in a selected module value's causal
+dependency closure remains a package-documentation error.
 The command also retains its own source exclusion, parse recovery,
 schema-reference, and write boundaries. A refinement diagnostic remains an
 error when recovery retains an identity; recovery does not turn the invalid

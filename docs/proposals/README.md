@@ -16,11 +16,12 @@ also states it.
 
 ## Ready
 
-- With typed module `let` syntax, package-wide dependency validation, imported
-  lookup, package-aware stable identity, visibility, and checked-core/typed-IR
-  preservation and documentation publication implemented, add runtime
-  materialization and execution and language-service navigation:
+- Add language-service definition, references, and rename for typed module
+  `let` declarations while retaining package-aware declaration identity:
   [module-immutable-values.md](module-immutable-values.md).
+- Extend stable-value match refinement to qualified module immutable-value
+  references now that their runtime execution prerequisite is implemented:
+  [qualified-value-match-refinement.md](qualified-value-match-refinement.md).
 - Generic named-type variance, bounded inference, variance metadata, and
   nested incompatibility diagnostics:
   [generic-and-function-variance.md](generic-and-function-variance.md).
@@ -28,13 +29,6 @@ also states it.
   interruption, and late host-call completion beyond the implemented normal
   direct lifecycle:
   [observability.md](observability.md).
-
-## Blocked
-
-- Qualified immutable-value match refinement depends on module-value execution
-  semantics beyond the implemented finite-data analysis, imported lookup,
-  package-aware declaration identity, and visibility:
-  [qualified-value-match-refinement.md](qualified-value-match-refinement.md).
 
 ## Design In Progress
 

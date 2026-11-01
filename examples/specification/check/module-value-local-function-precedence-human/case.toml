@@ -1,6 +1,5 @@
 command = ["check", "app.veln"]
 exit = 0
-source_errors = "expected"
 
 [stdout]
 format = "text"

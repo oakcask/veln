@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["name.unresolved", "math::secret", "other.test.veln", "module.value_not_executable", "wrong_target"]
+contains = ["name.unresolved", "math::secret", "other.test.veln"]
 
 [stderr]
 format = "empty"

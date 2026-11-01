@@ -1,34 +1,52 @@
 use super::*;
 
 #[test]
-#[should_panic(expected = "module values must be rejected before JVM backend lowering")]
-fn backend_rejects_module_values_before_classfile_generation() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "let answer: Int = 42\n",
-            "pub fn main() -> Int\n",
-            "  answer\n",
-            "end\n",
-        ),
-    );
-    let parsed = parse(&source);
-    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-    let module = lower_surface_ast_with_module_identity(
-        &parsed.tree,
-        "main".to_string(),
-        source.span(TextRange::at(0)),
-    );
-    let lowered = lower_checked_surface_module(&module);
-    assert!(
-        lowered
-            .diagnostics
-            .iter()
-            .any(|diagnostic| { diagnostic.id == "module.value_not_executable" })
-    );
-    let ir = lowered.ir.expect("execution gate should retain typed IR");
+fn backend_materializes_complete_finite_module_value_surface() {
+    let ir = lower_to_ir(concat!(
+        "type State\n",
+        "  Idle\n",
+        "  Active(count: Int)\n",
+        "end\n",
+        "let nested: { state: State, text: String, flag: Bool } = { state: Active(number), text: text, flag: truth }\n",
+        "let number: Int = -3\n",
+        "let text: String = \"ready\"\n",
+        "let truth: Bool = true\n",
+        "let nothing: () = ()\n",
+        "let idle: State = Idle\n",
+        "fn print_state(state: State) -> () effects [stdio]\n",
+        "  match state\n",
+        "    Idle => stdio::println(\"idle\")\n",
+        "    Active(count) => stdio::println(int_to_string(count))\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  nothing\n",
+        "  stdio::println(nested.text)\n",
+        "  print_state(nested.state)\n",
+        "  print_state(idle)\n",
+        "  if nested.flag\n",
+        "    stdio::println(\"true\")\n",
+        "  else\n",
+        "    stdio::println(\"false\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("module-value-finite-data", &program, &[])
+    else {
+        return;
+    };
 
-    generate_classfiles_with_entry(&ir, "main");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "ready\n-3\nidle\ntrue\n"
+    );
 }
 
 #[test]

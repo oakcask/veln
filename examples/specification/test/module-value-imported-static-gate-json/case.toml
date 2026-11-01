@@ -1,7 +1,7 @@
 # The selected tests use imported module values only as semantic inputs and
 # stdio::println only as an execution sentinel. Distinct package/module/name
-# declarations, annotation visibility, and the module-value execution gate must
-# block every case before user code or the JVM backend starts.
+# declarations and annotation visibility must block every case before user code
+# or the JVM backend starts.
 command = ["test", "--json"]
 source_errors = "expected"
 exit = 1
@@ -14,7 +14,7 @@ JAVA_MARKER = "java-started"
 
 [stdout]
 format = "json"
-contains = ["expected `Int`, but found `OneValue`", "expected `Int`, but found `TwoValue`", "type.public_annotation_private", "one/pkg::shared::Secret", "module.value_not_executable"]
+contains = ["expected `Int`, but found `OneValue`", "expected `Int`, but found `TwoValue`", "type.public_annotation_private", "one/pkg::shared::Secret"]
 not_contains = ["forbidden", "name.unresolved", "name.ambiguous"]
 
 [stderr]
@@ -79,11 +79,6 @@ id = "type.public_annotation_private"
 severity = "error"
 kind = "type"
 message = "public module value annotation exposes private type `one/pkg::shared::Secret`"
-
-[[diagnostics]]
-id = "module.value_not_executable"
-severity = "error"
-message = "module value declaration `named` is not executable"
 
 [[file_assert]]
 path = ".veln-harness-cache/jvm"

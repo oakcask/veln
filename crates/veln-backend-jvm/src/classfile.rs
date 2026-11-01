@@ -4,9 +4,9 @@ use std::rc::Rc;
 
 use veln_ast::{BinaryOp, ContractKind, PredicateRemainder, PrefixOp};
 use veln_ir::{
-    ContractObligationStatus, CoreContractCall, CoreType, IrCallTarget, IrCallbackTarget,
-    IrContract, IrDeferredBlock, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider,
-    IrMatchArm, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
+    ContractObligationStatus, CoreContractCall, CoreModuleValueIdentity, CoreType, IrCallTarget,
+    IrCallbackTarget, IrContract, IrDeferredBlock, IrDictEntry, IrExpr, IrExprKind, IrFunction,
+    IrHandlerProvider, IrMatchArm, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
     IrSchemaDecodeDispatchCase, IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
 };
 use veln_literals::parse_integer_literal;
@@ -168,6 +168,7 @@ pub(crate) struct ClassfileEmitter<'a> {
     program: &'a TypedProgram,
     options: SanitizedOptions,
     function_names: BTreeMap<String, String>,
+    module_value_names: BTreeMap<CoreModuleValueIdentity, String>,
 }
 
 impl<'a> ClassfileEmitter<'a> {
@@ -181,10 +182,25 @@ impl<'a> ClassfileEmitter<'a> {
             );
             function_names.insert(function.name.clone(), name);
         }
+        let mut module_value_names = BTreeMap::new();
+        for declaration in &program.module_values {
+            let identity = &declaration.identity;
+            let name = unique_java_identifier(
+                &format!(
+                    "value_{}_{}_{}",
+                    sanitize_identifier_text(identity.package.as_deref().unwrap_or("current")),
+                    sanitize_identifier_text(identity.module.as_deref().unwrap_or("module")),
+                    sanitize_identifier_text(&identity.name),
+                ),
+                &mut used_names,
+            );
+            module_value_names.insert(identity.clone(), name);
+        }
         Self {
             program,
             options,
             function_names,
+            module_value_names,
         }
     }
 
@@ -194,6 +210,12 @@ impl<'a> ClassfileEmitter<'a> {
             .iter()
             .find(|function| function.name == name)
             .is_some_and(|function| function.callsite)
+    }
+
+    fn module_value_name(&self, identity: &CoreModuleValueIdentity) -> &str {
+        self.module_value_names
+            .get(identity)
+            .unwrap_or_else(|| panic!("missing module value declaration for {identity:?}"))
     }
 
     pub(crate) fn emit(
@@ -235,6 +257,26 @@ impl<'a> ClassfileEmitter<'a> {
         let mut class = ClassBuilder::new(&self.options.program_class);
         class.access_flags = 0x0031;
         class.add_default_constructor(0x0002);
+        let function = self
+            .program
+            .functions
+            .first()
+            .expect("JVM program requires an entry or test function");
+        for declaration in &self.program.module_values {
+            let mut method = MethodCode::new(Rc::clone(&class.constant_pool));
+            let mut emitter = FunctionBytecodeEmitter::new(self, function);
+            emitter.emit_expr(&mut method, &declaration.initializer);
+            method.op(0xb0);
+            class.add_method(MethodInfo {
+                access_flags: 0x000a,
+                name: self.module_value_name(&declaration.identity).to_string(),
+                descriptor: "()Ljava/lang/Object;".to_string(),
+                max_stack: method.max_stack,
+                max_locals: 0,
+                code: method.code,
+                exceptions: method.exceptions,
+            });
+        }
         for function in &self.program.functions {
             let mut method = MethodCode::new(Rc::clone(&class.constant_pool));
             let mut emitter = FunctionBytecodeEmitter::new(self, function);

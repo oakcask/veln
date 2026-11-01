@@ -235,15 +235,12 @@ and
 [`JSON`](../../examples/specification/check/module-value-function-alias-kind-json/)
 cases cover bare same-module and qualified written-import targets.
 
-Every parse-clean module immutable value declaration also reports
-`module.value_not_executable` at the complete declaration. The diagnostic has
-kind `module` and severity `error`. Its `details` object contains
-`phase: "module"`, `field: "module_value"`, and the declaration's `name`.
-One related note says that checked core and typed IR preserve the declaration
-while runtime materialization and code generation remain unavailable. This
-diagnostic prevents `veln check` success; the
+An accepted parse-clean module immutable value declaration does not produce a
+diagnostic. Unsupported initializers, annotation mismatches, visibility
+failures, unresolved references, and dependency cycles retain their focused
+diagnostic families and block checked output. The
 [source-surface specification](source-surface.md#module-immutable-value-declarations)
-defines the accepted declaration syntax and current implementation boundary.
+defines the accepted declaration syntax and execution boundary.
 
 An unresolved call target that uses one of the
 [removed compiler-known network spellings](name-resolution.md#removed-network-call-spellings)

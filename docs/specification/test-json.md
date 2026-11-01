@@ -167,10 +167,10 @@ record for arbitrary panics, raw stderr matching, or process exit status.
 When selected analysis contains a module immutable value, the run-level
 `diagnostics` array includes its initializer, annotation-visibility, imported
 lookup, and package-wide dependency diagnostics. Imported lookup retains
-package-aware declaration identity. The array also includes
-`module.value_not_executable` for every module-value declaration. Every
-selected case is then reported with `status: "blocked"` and
-`reason: "static_gate"`; no worker starts and no case records a runtime event.
+package-aware declaration identity. A valid module-value declaration adds no
+diagnostic and can execute in a selected test. An actual semantic error reports
+each selected case with `status: "blocked"` and `reason: "static_gate"`; no
+worker starts and no case records a runtime event.
 
 Doctest expected-output mismatches are reported as failed cases with
 `reason: "expected_output"` and `failure.kind: "output"`. The failure details

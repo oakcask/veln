@@ -1,5 +1,4 @@
 command = ["doc", "main.veln"]
-source_errors = "expected"
 exit = 0
 
 [stdout]

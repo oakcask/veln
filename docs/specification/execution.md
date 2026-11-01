@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#runtime-readiness-and-host-boundaries; behavior=#runtime-readiness-and-host-boundaries; limits=#cleanup-limits
-update-when: The checked-core readiness, typed-IR readiness, runtime execution, module-value documentation/runtime gate boundary, source-visible runtime or binary-schema codec behavior, JVM backend, or execution evidence contract changes.
+update-when: The checked-core readiness, typed-IR readiness, module immutable-value execution, source-visible runtime or binary-schema codec behavior, JVM backend, or execution evidence contract changes.
 ---
 
 # Execution Boundary
@@ -117,8 +117,8 @@ runtime failure, or cancellation is already primary, it remains primary and
 the network-handler cleanup failure is attached as a related cleanup failure
 while unwinding continues.
 
-Semantic diagnostics other than the module-value execution gate must be
-error-free before the compiler produces checked core and typed IR. Command
+Semantic diagnostics must be error-free before the compiler produces checked
+core and typed IR. Command
 analysis checks readiness for the selected entry before applying
 command-specific execution or write policy. Holes, missing expressions,
 constructor or call arity failures, and recognized concurrency blockers
@@ -138,16 +138,21 @@ tests and the typed-IR
 [`successful_lowering`](../../crates/veln-ir/src/lowering/successful_lowering.rs)
 tests.
 
-Shared semantic analysis still emits `module.value_not_executable` for every
-declaration. The diagnostic blocks runtime materialization and code generation.
-It also makes `veln check`, `veln run`, and `veln test` unsuccessful. The
-documentation-only `veln doc` command ignores this runtime gate as specified by
-[the doc command](command-doc.md#gates-and-write-policy). Parsing, formatting,
-semantic checking, documentation generation, and internal representation do
-not create a runtime value or initialization phase.
-The JVM backend requires the typed program's module-value declaration set to
-be empty. It rejects a nonempty set before classfile generation, so retaining a
-declaration in typed IR does not make that declaration executable.
+Functions can read accepted module immutable values. The JVM backend
+materializes strings, integers including negation, booleans, unit, records,
+nullary and payload ADT constructors, and references without invoking user
+code. Each reference selects the complete package, module, and declaration
+identity, so same-module forward references, imported or aliased references,
+and same-spelled declarations from distinct packages produce their selected
+data independent of source, import, or first-use order. The checked
+[`module-value-runtime-execution`](../../examples/specification/run/module-value-runtime-execution/)
+case exercises these values and identity boundaries.
+
+Module values do not add an effectful startup phase, user-code initializer
+execution, mutable storage, or lazy runtime failure. Physical sharing between
+reads is unspecified. Unsupported initializers, type and visibility failures,
+unresolved dependencies, and initializer cycles remain semantic errors and
+produce no executable typed program.
 
 A named-type visibility failure in a public module value annotation is also a
 checked-core and typed-IR blocker. The same applies to a variant-refinement

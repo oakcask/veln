@@ -239,10 +239,8 @@ Workspace project analysis and document-scoped analysis both check parse-clean
 module immutable value declarations using the finite-data initializer,
 annotation-visibility, imported-lookup, package-identity, and selected
 same-module or imported dependency rules across package sources. They publish
-any resulting semantic diagnostics and also
-publish `module.value_not_executable` for every declaration. The latter
-diagnostic prevents backend execution readiness. Checked core and typed IR
-retain accepted declarations and references, but neither language-service path
+any resulting semantic diagnostics. Checked core and typed IR retain accepted
+declarations and references, but neither language-service path
 exposes module values through definition, references, rename, completion, or
 signature help.
 

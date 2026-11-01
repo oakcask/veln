@@ -45,10 +45,8 @@ boundary.
 
 ## Analysis gates
 
-A parse-clean module immutable value declaration produces
-`module.value_not_executable`, so `check` does not report success for a source
-that contains one. Before applying this command execution gate, analysis validates
-every initializer against its written annotation, resolves acyclic same-module
+A parse-clean module immutable value declaration passes `check` when analysis
+validates its initializer against the written annotation, resolves acyclic same-module
 references including forward references, resolves eligible imported references
 with package-aware identity and visibility, and reports unsupported initializer
 forms and cyclic components across package sources. Public annotations cannot

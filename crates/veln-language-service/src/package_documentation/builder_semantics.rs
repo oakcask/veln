@@ -297,7 +297,6 @@ impl PackageDocBuilder<'_> {
                 work.diagnostic_lookups += 1;
             });
             if diagnostic.severity == Severity::Error
-                && diagnostic.id != "module.value_not_executable"
                 && let Some(gate) = gates[index]
             {
                 self.diagnostics

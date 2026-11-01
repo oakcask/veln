@@ -3,7 +3,7 @@ use std::hash::Hash;
 
 use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
 use veln_core::CheckedProgram;
-use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
+use veln_diagnostics::{Diagnostic, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
 
 use crate::analysis::{
@@ -30,7 +30,6 @@ use crate::types::{
 mod declaration_checks;
 mod diagnostic_ordering;
 mod identifier_casing;
-mod module_value_gate;
 mod module_value_publication;
 mod publication;
 
@@ -47,13 +46,6 @@ pub use identifier_casing::{
     classified_project_qualified_path_segments,
     classified_project_qualified_path_segments_with_context,
     classified_project_qualified_path_segments_with_context_and_work,
-};
-#[cfg(test)]
-pub(crate) use module_value_gate::{
-    ModuleValueGateWork, reset_module_value_gate_work, take_module_value_gate_work,
-};
-use module_value_gate::{
-    enforce_module_value_lowering_gate, module_value_not_executable_diagnostic,
 };
 use module_value_publication::index_module_value_publication;
 use publication::unpublished_public_declarations;
@@ -646,7 +638,7 @@ fn lower_analyzed_surface_module_with_environment(
     environment: &TypeEnvironment,
     mode: SurfaceLoweringMode,
 ) -> LoweredSurfaceModule {
-    let mut diagnostics = enforce_module_value_lowering_gate(module, diagnostics);
+    let mut diagnostics = diagnostics;
     let module_value_publication =
         index_module_value_publication(module, &diagnostics, module_value_publication);
     let unpublished_declarations =
@@ -692,5 +684,5 @@ fn lower_analyzed_surface_module_with_environment(
 }
 
 fn blocks_core_lowering(diagnostic: &Diagnostic) -> bool {
-    diagnostic.severity == Severity::Error && diagnostic.id != "module.value_not_executable"
+    diagnostic.severity == Severity::Error
 }

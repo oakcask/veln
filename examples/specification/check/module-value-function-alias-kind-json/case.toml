@@ -10,25 +10,25 @@ not_contains = ["unresolved function alias target"]
 format = "empty"
 
 [[json_assert]]
-path = "diagnostics.2.details.expected_kind"
+path = "diagnostics.0.details.expected_kind"
 equals = "function"
 
 [[json_assert]]
-path = "diagnostics.2.details.actual_kind"
+path = "diagnostics.0.details.actual_kind"
 equals = "module_value"
 
 [[json_assert]]
-path = "diagnostics.2.details.target"
+path = "diagnostics.0.details.target"
 equals = "local"
 
 [[json_assert]]
-path = "diagnostics.3.details.expected_kind"
+path = "diagnostics.1.details.expected_kind"
 equals = "function"
 
 [[json_assert]]
-path = "diagnostics.3.details.actual_kind"
+path = "diagnostics.1.details.actual_kind"
 equals = "module_value"
 
 [[json_assert]]
-path = "diagnostics.3.details.target"
+path = "diagnostics.1.details.target"
 equals = "values::shared"

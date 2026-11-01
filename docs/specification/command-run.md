@@ -51,9 +51,9 @@ A module immutable value declaration in the selected analysis is semantically
 checked before backend launch. Invalid finite-data initializers, annotation
 mismatches, public visibility failures, imported lookup failures, and
 dependency cycles across package sources report their semantic diagnostics.
-Imported lookup retains package-aware declaration identity. Every
-declaration also produces `module.value_not_executable`, so even a valid
-initializer cannot supply a value to the selected program.
+Imported lookup retains package-aware declaration identity. A valid initializer
+supplies immutable finite data to the selected program without running user
+code during initialization.
 
 Variant-refinement errors inside that existing analysis boundary block backend
 launch, including errors for which recovery retains a type or constructor

@@ -51,9 +51,8 @@ The following behavior is fixed for the implemented slice:
   package-aware same-module and imported semantic-analysis surface for finite
   immutable data. `veln fmt` accepts a valid declaration. After initializer
   and package-wide dependency checking, `veln check`, `veln run`, and `veln
-  test` report `module.value_not_executable` before runtime or backend use.
-  Package documentation publishes accepted public declarations without that
-  runtime-only diagnostic; see
+  test` accept valid declarations and runtime reads materialize their finite
+  data. Package documentation publishes accepted public declarations; see
   [package-documentation.md](package-documentation.md#published-boundary).
   Checked core and typed IR retain each accepted declaration, finite
   initializer, and selected package-aware reference. See

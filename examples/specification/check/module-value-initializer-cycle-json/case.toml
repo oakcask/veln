@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["value.module_initializer_cycle", "module value reference `alpha` closes an initializer cycle", "cycle_declaration", "module.value_not_executable"]
+contains = ["value.module_initializer_cycle", "module value reference `alpha` closes an initializer cycle", "cycle_declaration"]
 
 [stderr]
 format = "empty"

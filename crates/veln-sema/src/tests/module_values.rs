@@ -567,22 +567,6 @@ fn qualified_module_value_colliding_imports_report_adjacent_size_timings() {
 }
 
 #[test]
-#[ignore = "supporting wall-clock evidence; deterministic scaling is asserted separately"]
-fn module_value_gate_reports_adjacent_size_timings() {
-    for count in [2_000, 4_000, 8_000] {
-        let module = module_with_values(count);
-        let diagnostics = analyze_surface_module(&module);
-        let started = std::time::Instant::now();
-        let lowered = lower_analyzed_surface_module(&module, diagnostics);
-        let elapsed = started.elapsed();
-
-        assert_eq!(lowered.core.as_ref().unwrap().module_values.len(), count);
-        assert_eq!(lowered.ir.as_ref().unwrap().module_values.len(), count);
-        eprintln!("module value gate: {count} declarations in {elapsed:?}");
-    }
-}
-
-#[test]
 #[ignore = "supporting wall-clock evidence; deterministic semantics are asserted separately"]
 fn module_value_analysis_reports_adjacent_size_timings() {
     for count in [2_000, 4_000, 8_000] {
@@ -591,7 +575,7 @@ fn module_value_analysis_reports_adjacent_size_timings() {
         let diagnostics = analyze_surface_module(&module);
         let elapsed = started.elapsed();
 
-        assert_eq!(diagnostics.len(), count, "{diagnostics:#?}");
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
         eprintln!("module value analysis: {count} declarations in {elapsed:?}");
     }
 }
@@ -619,7 +603,7 @@ fn module_value_dependency_analysis_reports_adjacent_size_timings() {
         let diagnostics = analyze_surface_module(&module);
         let elapsed = started.elapsed();
 
-        assert_eq!(diagnostics.len(), count, "{diagnostics:#?}");
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
         eprintln!("module value dependencies: {count} declarations in {elapsed:?}");
     }
 }
@@ -813,32 +797,6 @@ fn imported_invalidation_rechecks_only_dependent_declarations() {
 }
 
 #[test]
-fn module_value_gate_work_grows_linearly_with_declarations() {
-    fn work_for(count: usize) -> crate::pipeline::ModuleValueGateWork {
-        let module = module_with_values(count);
-        let diagnostics = analyze_surface_module(&module);
-        assert_eq!(diagnostics.len(), count, "{diagnostics:#?}");
-
-        reset_module_value_gate_work();
-        let lowered = lower_analyzed_surface_module(&module, diagnostics);
-        let work = take_module_value_gate_work();
-
-        assert_eq!(lowered.core.as_ref().unwrap().module_values.len(), count);
-        assert_eq!(lowered.ir.as_ref().unwrap().module_values.len(), count);
-        assert_eq!(work.indexed_values, count, "{work:#?}");
-        assert_eq!(work.scanned_diagnostics, count, "{work:#?}");
-        assert_eq!(work.span_index_lookups, count, "{work:#?}");
-        assert_eq!(work.emitted_canonical_diagnostics, count, "{work:#?}");
-        work
-    }
-
-    const N: usize = 64;
-    let work_n = work_for(N);
-    let work_2n = work_for(2 * N);
-    assert_eq!(work_2n.total(), 2 * work_n.total());
-}
-
-#[test]
 fn module_value_lowering_import_preparation_is_additive_in_values_and_imports() {
     fn work_for(
         value_count: usize,
@@ -848,19 +806,10 @@ fn module_value_lowering_import_preparation_is_additive_in_values_and_imports() 
         assert_eq!(module.module_values.len(), value_count);
         assert_eq!(module.uses.len(), import_count);
         let diagnostics = analyze_surface_module(&module);
-        assert_eq!(
+        assert!(
             diagnostics
                 .iter()
-                .filter(|diagnostic| diagnostic.id == "module.value_not_executable")
-                .count(),
-            value_count,
-            "{diagnostics:#?}"
-        );
-        assert!(
-            diagnostics.iter().all(|diagnostic| {
-                diagnostic.id == "module.value_not_executable"
-                    || diagnostic.severity != veln_diagnostics::Severity::Error
-            }),
+                .all(|diagnostic| diagnostic.severity != veln_diagnostics::Severity::Error),
             "{diagnostics:#?}"
         );
 
@@ -931,7 +880,7 @@ fn module_value_annotation_dedup_work_grows_linearly_with_failures() {
 }
 
 #[test]
-fn module_values_retain_checked_core_and_typed_ir_behind_the_execution_gate() {
+fn module_values_retain_checked_core_and_typed_ir_without_diagnostics() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -950,7 +899,13 @@ fn module_values_retain_checked_core_and_typed_ir_behind_the_execution_gate() {
     assert_eq!(module.functions.len(), 1);
 
     let lowered = lower_checked_surface_module(&module);
-    assert_module_value_gate_diagnostics(&lowered);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core");
+    let ir = lowered.ir.as_ref().expect("typed IR");
+    assert_eq!(core.module_values.len(), 3);
+    assert_eq!(ir.module_values.len(), 3);
+    assert_eq!(core.module_values[0].identity.name, "answer");
+    assert_eq!(ir.module_values[0].identity, core.module_values[0].identity);
 
     let unrelated = Diagnostic::new(
         "caller.unrelated",
@@ -960,139 +915,11 @@ fn module_values_retain_checked_core_and_typed_ir_behind_the_execution_gate() {
         None,
         veln_diagnostics::JsonValue::Null,
     );
-    let lowered_with_incomplete_diagnostics =
-        lower_analyzed_surface_module(&module, vec![unrelated.clone()]);
-    assert_incomplete_diagnostics_are_completed(&lowered_with_incomplete_diagnostics);
-    assert_colliding_gate_diagnostics_are_replaced(&module, unrelated);
-}
-
-fn assert_module_value_gate_diagnostics(lowered: &LoweredSurfaceModule) {
-    let diagnostics = lowered
-        .diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.id == "module.value_not_executable")
-        .collect::<Vec<_>>();
-    assert_eq!(diagnostics.len(), 3, "{:#?}", lowered.diagnostics);
+    let lowered_with_warning = lower_analyzed_surface_module(&module, vec![unrelated.clone()]);
+    assert_eq!(lowered_with_warning.diagnostics.len(), 1);
+    assert_eq!(lowered_with_warning.diagnostics[0].id, unrelated.id);
     assert_eq!(
-        diagnostics
-            .iter()
-            .map(|diagnostic| diagnostic.message.as_str())
-            .collect::<Vec<_>>(),
-        vec![
-            "module value declaration `answer` is not executable",
-            "module value declaration `backup` is not executable",
-            "module value declaration `final_value` is not executable",
-        ]
-    );
-    let diagnostic = diagnostics[0];
-    assert_eq!(
-        diagnostic.message,
-        "module value declaration `answer` is not executable"
-    );
-    assert_eq!(diagnostic.kind, DiagnosticKind::Module);
-    assert_eq!(diagnostic.severity, veln_diagnostics::Severity::Error);
-    assert_eq!(
-        diagnostic.details,
-        veln_diagnostics::JsonValue::object([
-            ("phase", veln_diagnostics::JsonValue::string("module")),
-            ("field", veln_diagnostics::JsonValue::string("module_value"),),
-            ("name", veln_diagnostics::JsonValue::string("answer")),
-        ])
-    );
-    assert_eq!(
-        diagnostic.related,
-        vec![veln_diagnostics::JsonValue::object([(
-            "message",
-            veln_diagnostics::JsonValue::string(
-                "The declaration is preserved in checked core and typed IR, but runtime materialization and code generation do not support module values yet.",
-            ),
-        )])]
-    );
-    assert_diagnostic_span(diagnostic, 1, 1, 2, 1);
-    assert_diagnostic_span(diagnostics[1], 2, 1, 3, 1);
-    assert_diagnostic_span(diagnostics[2], 3, 1, 4, 1);
-    let core = lowered
-        .core
-        .as_ref()
-        .expect("gate should retain checked core");
-    let ir = lowered.ir.as_ref().expect("gate should retain typed IR");
-    assert_eq!(core.module_values.len(), 3);
-    assert_eq!(ir.module_values.len(), 3);
-    assert_eq!(core.module_values[0].identity.name, "answer");
-    assert_eq!(ir.module_values[0].identity, core.module_values[0].identity);
-}
-
-fn assert_incomplete_diagnostics_are_completed(lowered: &LoweredSurfaceModule) {
-    assert_eq!(
-        lowered
-            .diagnostics
-            .iter()
-            .filter(|diagnostic| diagnostic.id == "module.value_not_executable")
-            .count(),
-        3
-    );
-    assert_eq!(lowered.diagnostics[0].id, "caller.unrelated");
-    assert_eq!(lowered.core.as_ref().unwrap().module_values.len(), 3);
-    assert_eq!(lowered.ir.as_ref().unwrap().module_values.len(), 3);
-}
-
-fn assert_colliding_gate_diagnostics_are_replaced(module: &SurfaceModule, unrelated: Diagnostic) {
-    let colliding_warning = |index: usize| {
-        Diagnostic::new(
-            "module.value_not_executable",
-            veln_diagnostics::Severity::Warning,
-            DiagnosticKind::Module,
-            "caller-owned warning",
-            Some(module.module_values[index].span.clone()),
-            veln_diagnostics::JsonValue::Null,
-        )
-    };
-    let lowered_with_colliding_warning = lower_analyzed_surface_module(
-        module,
-        vec![
-            unrelated,
-            colliding_warning(1),
-            colliding_warning(1),
-            colliding_warning(0),
-        ],
-    );
-    let blockers = lowered_with_colliding_warning
-        .diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.id == "module.value_not_executable")
-        .collect::<Vec<_>>();
-    assert_eq!(
-        blockers.len(),
-        3,
-        "{:#?}",
-        lowered_with_colliding_warning.diagnostics
-    );
-    assert_eq!(
-        blockers
-            .iter()
-            .map(|diagnostic| diagnostic.message.as_str())
-            .collect::<Vec<_>>(),
-        vec![
-            "module value declaration `backup` is not executable",
-            "module value declaration `answer` is not executable",
-            "module value declaration `final_value` is not executable",
-        ]
-    );
-    assert!(
-        blockers
-            .iter()
-            .all(|diagnostic| diagnostic.severity == veln_diagnostics::Severity::Error)
-    );
-    assert_eq!(
-        lowered_with_colliding_warning
-            .diagnostics
-            .iter()
-            .filter(|diagnostic| diagnostic.id == "caller.unrelated")
-            .count(),
-        1
-    );
-    assert_eq!(
-        lowered_with_colliding_warning
+        lowered_with_warning
             .core
             .as_ref()
             .unwrap()
@@ -1101,7 +928,7 @@ fn assert_colliding_gate_diagnostics_are_replaced(module: &SurfaceModule, unrela
         3
     );
     assert_eq!(
-        lowered_with_colliding_warning
+        lowered_with_warning
             .ir
             .as_ref()
             .unwrap()
@@ -1133,19 +960,10 @@ fn module_value_initializers_accept_finite_data_and_forward_references() {
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(
+    assert!(
         diagnostics
             .iter()
-            .filter(|diagnostic| diagnostic.id == "module.value_not_executable")
-            .count(),
-        2,
-        "{diagnostics:#?}"
-    );
-    assert!(
-        diagnostics.iter().all(|diagnostic| {
-            diagnostic.id == "module.value_not_executable"
-                || diagnostic.severity != veln_diagnostics::Severity::Error
-        }),
+            .all(|diagnostic| diagnostic.severity != veln_diagnostics::Severity::Error),
         "{diagnostics:#?}"
     );
 
@@ -1252,13 +1070,7 @@ fn module_value_initializers_accept_the_complete_finite_data_surface() {
         .filter(|diagnostic| diagnostic.severity == veln_diagnostics::Severity::Error)
         .collect::<Vec<_>>();
 
-    assert_eq!(errors.len(), module.module_values.len(), "{diagnostics:#?}");
-    assert!(
-        errors
-            .iter()
-            .all(|diagnostic| diagnostic.id == "module.value_not_executable"),
-        "{diagnostics:#?}"
-    );
+    assert!(errors.is_empty(), "{diagnostics:#?}");
 
     let lowered = lower_checked_surface_module(&module);
     let core = lowered.core.expect("finite initializers should reach core");
@@ -1460,10 +1272,10 @@ fn qualified_same_module_values_resolve_across_declaring_sources() {
         let lowered = lower_checked_surface_module(&module);
 
         assert!(
-            lowered.diagnostics.iter().all(|diagnostic| {
-                diagnostic.id == "module.value_not_executable"
-                    || diagnostic.severity != veln_diagnostics::Severity::Error
-            }),
+            lowered
+                .diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.severity != veln_diagnostics::Severity::Error),
             "reverse_sources={reverse_sources}: {:#?}",
             lowered.diagnostics
         );
@@ -1779,10 +1591,10 @@ fn imported_module_value_spellings_retain_the_selected_identity_in_core_and_ir()
 
     let lowered = lower_checked_surface_module(&module);
     assert!(
-        lowered.diagnostics.iter().all(|diagnostic| {
-            diagnostic.id == "module.value_not_executable"
-                || diagnostic.severity != veln_diagnostics::Severity::Error
-        }),
+        lowered
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.severity != veln_diagnostics::Severity::Error),
         "{:#?}",
         lowered.diagnostics
     );
@@ -2965,8 +2777,7 @@ fn private_imported_module_value_does_not_collide_with_public_function() {
 
         let diagnostics = analyze_surface_module(&module);
 
-        assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-        assert_eq!(diagnostics[0].id, "module.value_not_executable");
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     }
 }
 
