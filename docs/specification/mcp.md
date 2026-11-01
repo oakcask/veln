@@ -517,6 +517,11 @@ empty reference result for those selections.
 The checked
 [`module-value-navigation`](../../examples/specification/mcp/module-value-navigation/)
 and
+[`module-value-rename`](../../examples/specification/mcp/module-value-rename/),
+[`module-value-references`](../../examples/specification/mcp/module-value-references/),
+[`module-value-workspace-state`](../../examples/specification/mcp/module-value-workspace-state/),
+[`module-value-resource-state`](../../examples/specification/mcp/module-value-resource-state/),
+and
 [`module-value-dependency-navigation`](../../examples/specification/mcp/module-value-dependency-navigation/)
 and
 [`module-value-dependency-rename`](../../examples/specification/mcp/module-value-dependency-rename/)

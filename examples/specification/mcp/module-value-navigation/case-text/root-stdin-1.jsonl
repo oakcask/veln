@@ -1,10 +1,2 @@
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}}
 {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":4,"column":31}}}
-{"jsonrpc":"2.0","id":4,"method":"resources/list","params":{}}
-{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"workspace_projects","arguments":{}}}
-{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"rename","arguments":{"source":"alias.veln","line":3,"column":29,"new_name":"result"}}}
-{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":4,"column":31,"include_declaration":false}}}
-{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":4,"column":31,"include_declaration":true}}}
-{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"workspace_projects","arguments":{}}}
-{"jsonrpc":"2.0","id":13,"method":"resources/list","params":{}}
-{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":4,"column":31}}}
