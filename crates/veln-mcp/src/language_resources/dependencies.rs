@@ -1,14 +1,17 @@
+use sha2::{Digest, Sha256};
 use veln_analysis::CapturedDependencyProject;
 use veln_language_service::{
     DirectDependencySnapshot, PackageDocDependencySnapshots, PackageDocGeneratorContract,
     PackageDocResult, VirtualSourceCatalog, render_package_documentation,
 };
 use veln_project::{
-    CapturedPackageSnapshot, PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
-    capture_embedded_package_snapshot,
+    CapturedPackageSnapshot, LowerHexBytes, PackageIdentity, PackageSnapshotSource, Project,
+    ProjectManifest, capture_embedded_package_snapshot,
 };
 
-use super::package_resources::{PublishedResource, RetainedPackageKey, VELN_SOURCE_MEDIA_TYPE};
+use super::package_resources::{
+    DocumentationRevisionKey, PublishedResource, RetainedPackageKey, VELN_SOURCE_MEDIA_TYPE,
+};
 
 #[cfg(test)]
 thread_local! {
@@ -50,6 +53,7 @@ pub(crate) fn dependency_snapshot_captures() -> usize {
 
 pub(super) struct DependencyResources {
     pub(super) key: RetainedPackageKey,
+    pub(super) revision_key: DocumentationRevisionKey,
     pub(super) resources: Vec<PublishedResource>,
     pub(super) navigation: DirectDependencySnapshot,
     pub(super) package_doc_result: PackageDocResult,
@@ -67,6 +71,7 @@ pub(super) struct PreparedDependencyResources<'a> {
     dependencies: &'a [CapturedDependencyProject],
     prepared: Vec<PreparedDependency<'a>>,
     package_doc_dependencies: PackageDocDependencySnapshots,
+    context_digest: String,
 }
 
 impl<'a> PreparedDependencyResources<'a> {
@@ -80,10 +85,12 @@ impl<'a> PreparedDependencyResources<'a> {
                 .iter()
                 .map(|dependency| (&dependency.identity, &dependency.snapshot)),
         );
+        let context_digest = dependency_context_digest(dependencies);
         Self {
             dependencies,
             prepared,
             package_doc_dependencies,
+            context_digest,
         }
     }
 
@@ -91,6 +98,13 @@ impl<'a> PreparedDependencyResources<'a> {
         self.prepared.iter().map(|dependency| RetainedPackageKey {
             identity: dependency.identity.as_str().to_string(),
             digest: dependency.snapshot.digest().to_string(),
+        })
+    }
+
+    pub(super) fn revision_keys(&self) -> impl Iterator<Item = DocumentationRevisionKey> + '_ {
+        self.keys().map(|package| DocumentationRevisionKey {
+            package,
+            context_digest: self.context_digest.clone(),
         })
     }
 
@@ -102,6 +116,7 @@ impl<'a> PreparedDependencyResources<'a> {
                     dependency,
                     self.dependencies,
                     &self.package_doc_dependencies,
+                    &self.context_digest,
                 )
             })
             .collect()
@@ -132,6 +147,7 @@ fn dependency_resource(
     dependency: PreparedDependency<'_>,
     dependencies: &[CapturedDependencyProject],
     package_doc_dependencies: &PackageDocDependencySnapshots,
+    context_digest: &str,
 ) -> Option<DependencyResources> {
     let PreparedDependency {
         identity,
@@ -167,10 +183,64 @@ fn dependency_resource(
             identity: identity.as_str().to_string(),
             digest: snapshot.digest().to_string(),
         },
+        revision_key: DocumentationRevisionKey {
+            package: RetainedPackageKey {
+                identity: identity.as_str().to_string(),
+                digest: snapshot.digest().to_string(),
+            },
+            context_digest: context_digest.to_string(),
+        },
         resources,
         navigation,
         package_doc_result,
     })
+}
+
+fn dependency_context_digest(dependencies: &[CapturedDependencyProject]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"veln-mcp-package-documentation-context/v1\0");
+    hash_context_field(
+        &mut hasher,
+        veln_repo_mcp_standard_library_docs::GENERATOR_CONTRACT.as_bytes(),
+    );
+    hash_context_count(&mut hasher, dependencies.len());
+    for dependency in dependencies {
+        hash_context_field(&mut hasher, dependency.package.as_bytes());
+        hash_context_field(&mut hasher, dependency.source.as_bytes());
+        match &dependency.project {
+            None => hasher.update([0]),
+            Some(project) => {
+                hasher.update([1]);
+                match &project.manifest {
+                    None => hasher.update([0]),
+                    Some(manifest) => {
+                        hasher.update([1]);
+                        hash_context_field(&mut hasher, &manifest.source_bytes);
+                    }
+                }
+                hash_context_count(&mut hasher, project.files.len());
+                for source in &project.files {
+                    hash_context_field(&mut hasher, source.path().as_str().as_bytes());
+                    hash_context_field(&mut hasher, source.text().as_bytes());
+                }
+            }
+        }
+    }
+    let digest = hasher.finalize();
+    format!("{:x}", LowerHexBytes(&digest))
+}
+
+fn hash_context_field(hasher: &mut Sha256, bytes: &[u8]) {
+    hash_context_count(hasher, bytes.len());
+    hasher.update(bytes);
+}
+
+fn hash_context_count(hasher: &mut Sha256, count: usize) {
+    hasher.update(
+        u64::try_from(count)
+            .expect("captured dependency context length fits u64")
+            .to_be_bytes(),
+    );
 }
 
 pub(super) fn captured_dependency_navigation(

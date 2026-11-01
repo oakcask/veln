@@ -16,6 +16,7 @@ contains = [
   "\"title\":\"Veln package documentation: example/dep\"",
   "\"name\":\"example-dep-documentation-index\"",
   "\"code\":\"resource_not_found\"",
+  "\"packageDocumentationUri\":\"veln-doc:///package/example%2Fdep/snapshot/",
 ]
 
 [stderr]
@@ -150,3 +151,10 @@ equals = true
 id = 17
 path = "/result/structuredContent/code"
 equals = "resource_not_found"
+
+# Definition navigation must select the documentation revision generated from
+# the same stable dependency capture as the package source location.
+[[mcp_assert]]
+id = 18
+path = "/result/structuredContent/definition/packageDocumentationUri"
+equals = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/f18ecbf6581d0b152d37bd1e318957aeaf5c57b4a6eb2dbef52fc48b2d26b64a/declaration/fb1a8a064dd32af6cfa68eeb45a34065ccdc049850e97bdc07ccaf9ae2aeccf3"

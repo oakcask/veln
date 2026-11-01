@@ -11,7 +11,7 @@ use veln_project::PackageSnapshotSource;
 use veln_repo_language_reference::{RenderedResource, render_checked_language_reference};
 
 use self::dependencies::{PreparedDependencyResources, captured_dependency_navigation};
-use self::package_resources::{PackageDocumentation, RetainedPackageKey};
+use self::package_resources::{DocumentationRevisionKey, PackageDocumentation, RetainedPackageKey};
 pub(crate) use self::package_resources::{
     PackageSearchCandidate, PackageSearchScope, PublishedResource,
 };
@@ -26,6 +26,31 @@ mod standard_library;
 mod topics;
 
 const RETAINED_PACKAGE_CAPACITY: usize = 256;
+const RETAINED_DOCUMENTATION_REVISION_CAPACITY: usize = 256;
+
+struct InitialPackageDocumentation {
+    revisions: Vec<(DocumentationRevisionKey, PackageDocumentation)>,
+    current: Vec<(RetainedPackageKey, DocumentationRevisionKey)>,
+}
+
+impl InitialPackageDocumentation {
+    fn new(
+        revisions: impl IntoIterator<Item = (DocumentationRevisionKey, PackageDocumentation)>,
+        current: impl IntoIterator<Item = (RetainedPackageKey, DocumentationRevisionKey)>,
+    ) -> Self {
+        Self {
+            revisions: revisions.into_iter().collect(),
+            current: current.into_iter().collect(),
+        }
+    }
+}
+
+#[derive(Clone)]
+struct WorkspaceNavigation {
+    workspace_key: Value,
+    documentation_revisions: Vec<DocumentationRevisionKey>,
+    snapshot: Arc<EffectiveProjectSnapshot>,
+}
 
 #[cfg(test)]
 thread_local! {
@@ -70,16 +95,16 @@ pub(crate) struct LanguageResources {
     retained_package_keys: BTreeSet<RetainedPackageKey>,
     #[cfg(test)]
     retained_package_capacity: usize,
-    package_docs: BTreeMap<RetainedPackageKey, PackageDocumentation>,
+    package_docs: BTreeMap<DocumentationRevisionKey, PackageDocumentation>,
+    current_package_docs: BTreeMap<RetainedPackageKey, DocumentationRevisionKey>,
+    current_listed_documentation_uris: BTreeSet<String>,
+    #[cfg(test)]
+    retained_documentation_revision_capacity: usize,
     #[cfg(test)]
     standard_library_snapshot: Option<DirectDependencySnapshot>,
     standard_library_navigation: EffectiveProjectSnapshot,
     dependency_navigation: Option<(Vec<RetainedPackageKey>, EffectiveProjectSnapshot)>,
-    workspace_navigation: Option<(
-        Value,
-        Vec<RetainedPackageKey>,
-        Arc<EffectiveProjectSnapshot>,
-    )>,
+    workspace_navigation: Option<WorkspaceNavigation>,
     read_only_workspace_navigation: Option<(Value, Arc<EffectiveProjectSnapshot>)>,
     reference_pagination: ReferencePagination,
 }
@@ -100,13 +125,21 @@ impl LanguageResources {
         let topics = language_topics(&rendered.resources)?;
         let standard_library = StandardLibraryResources::checked()?;
         let standard_library_key = standard_library.key.clone();
+        let standard_library_revision =
+            DocumentationRevisionKey::standalone(standard_library.key.clone());
         let navigation_snapshot = standard_library.snapshot.clone();
         Self::from_parts(
             rendered.resources,
             topics,
             standard_library.resources,
             [standard_library_key],
-            [(standard_library.key, standard_library.package_documentation)],
+            InitialPackageDocumentation::new(
+                [(
+                    standard_library_revision.clone(),
+                    standard_library.package_documentation,
+                )],
+                [(standard_library.key, standard_library_revision)],
+            ),
             Some(standard_library.snapshot),
             EffectiveProjectSnapshot::new(Vec::new()).with_standard_library(navigation_snapshot),
         )
@@ -119,7 +152,7 @@ impl LanguageResources {
             topics,
             Vec::new(),
             [],
-            [],
+            InitialPackageDocumentation::new([], []),
             None,
             EffectiveProjectSnapshot::new(Vec::new()),
         )
@@ -141,9 +174,14 @@ impl LanguageResources {
                 .cloned()
                 .collect(),
             self.retained_package_keys.clone(),
-            self.package_docs
-                .iter()
-                .map(|(key, result)| (key.clone(), result.clone())),
+            InitialPackageDocumentation::new(
+                self.package_docs
+                    .iter()
+                    .map(|(key, result)| (key.clone(), result.clone())),
+                self.current_package_docs
+                    .iter()
+                    .map(|(key, revision)| (key.clone(), revision.clone())),
+            ),
             self.standard_library_snapshot.clone(),
             self.standard_library_navigation.clone(),
         )
@@ -169,19 +207,28 @@ impl LanguageResources {
         let mut package_docs = self
             .package_docs
             .iter()
-            .filter(|(key, _)| key.identity != "std")
+            .filter(|(key, _)| key.package.identity != "std")
             .map(|(key, result)| (key.clone(), result.clone()))
             .collect::<Vec<_>>();
+        let mut current_package_docs = self
+            .current_package_docs
+            .iter()
+            .filter(|(key, _)| key.identity != "std")
+            .map(|(key, revision)| (key.clone(), revision.clone()))
+            .collect::<Vec<_>>();
+        let standard_library_revision =
+            DocumentationRevisionKey::standalone(standard_library.key.clone());
         package_docs.push((
-            standard_library.key.clone(),
+            standard_library_revision.clone(),
             standard_library.package_documentation.clone(),
         ));
+        current_package_docs.push((standard_library.key.clone(), standard_library_revision));
         let replacement = Self::from_parts(
             self.by_uri.values().cloned().collect(),
             self.topics.clone(),
             standard_library.resources,
             retained_package_keys,
-            package_docs,
+            InitialPackageDocumentation::new(package_docs, current_package_docs),
             Some(standard_library.snapshot.clone()),
             EffectiveProjectSnapshot::new(Vec::new())
                 .with_standard_library(standard_library.snapshot),
@@ -195,7 +242,7 @@ impl LanguageResources {
         topics: Vec<LanguageTopic>,
         standard_resources: Vec<PublishedResource>,
         retained_package_keys: impl IntoIterator<Item = RetainedPackageKey>,
-        package_docs: impl IntoIterator<Item = (RetainedPackageKey, PackageDocumentation)>,
+        package_documentation: InitialPackageDocumentation,
         standard_library_snapshot: Option<DirectDependencySnapshot>,
         standard_library_navigation: EffectiveProjectSnapshot,
     ) -> Result<Self, String> {
@@ -221,6 +268,11 @@ impl LanguageResources {
         }
         #[cfg(not(test))]
         let _ = standard_library_snapshot;
+        let current_listed_documentation_uris = combined_resources
+            .iter()
+            .filter(|resource| resource.listed && resource.uri.starts_with("veln-doc:///package/"))
+            .map(|resource| resource.uri.clone())
+            .collect();
         Ok(Self {
             by_uri,
             topics,
@@ -229,7 +281,11 @@ impl LanguageResources {
             retained_package_keys: retained_package_keys.into_iter().collect(),
             #[cfg(test)]
             retained_package_capacity: RETAINED_PACKAGE_CAPACITY,
-            package_docs: package_docs.into_iter().collect(),
+            package_docs: package_documentation.revisions.into_iter().collect(),
+            current_package_docs: package_documentation.current.into_iter().collect(),
+            current_listed_documentation_uris,
+            #[cfg(test)]
+            retained_documentation_revision_capacity: RETAINED_DOCUMENTATION_REVISION_CAPACITY,
             #[cfg(test)]
             standard_library_snapshot,
             standard_library_navigation,
@@ -254,8 +310,27 @@ impl LanguageResources {
     }
 
     #[cfg(test)]
+    pub(crate) fn set_test_remaining_documentation_revision_capacity(&mut self, remaining: usize) {
+        self.retained_documentation_revision_capacity = self
+            .package_docs
+            .len()
+            .checked_add(remaining)
+            .expect("test documentation revision capacity should fit usize");
+    }
+
+    #[cfg(test)]
     fn retained_package_capacity(&self) -> usize {
         self.retained_package_capacity
+    }
+
+    #[cfg(test)]
+    fn retained_documentation_revision_capacity(&self) -> usize {
+        self.retained_documentation_revision_capacity
+    }
+
+    #[cfg(not(test))]
+    fn retained_documentation_revision_capacity(&self) -> usize {
+        RETAINED_DOCUMENTATION_REVISION_CAPACITY
     }
 
     #[cfg(not(test))]
@@ -269,6 +344,7 @@ impl LanguageResources {
     ) -> Result<AdmittedDependencies, ResourceCapacityError> {
         let prepared = PreparedDependencyResources::new(dependencies);
         let keys = prepared.keys().collect::<Vec<_>>();
+        let revision_keys = prepared.revision_keys().collect::<Vec<_>>();
         let new_keys = keys
             .iter()
             .filter(|key| !self.retained_package_keys.contains(key))
@@ -277,15 +353,25 @@ impl LanguageResources {
         if self.retained_package_keys.len() + new_keys.len() > self.retained_package_capacity() {
             return Err(ResourceCapacityError);
         }
+        let new_revision_keys = revision_keys
+            .iter()
+            .filter(|key| !self.package_docs.contains_key(key))
+            .collect::<BTreeSet<_>>();
+        if self.package_docs.len() + new_revision_keys.len()
+            > self.retained_documentation_revision_capacity()
+        {
+            return Err(ResourceCapacityError);
+        }
         let new_snapshots = prepared.into_resources();
         let mut navigation_snapshots = Vec::with_capacity(new_snapshots.len());
         for snapshot in new_snapshots {
             navigation_snapshots.push(snapshot.navigation);
             let key = snapshot.key.clone();
-            if !self.retained_package_keys.insert(key.clone()) {
-                continue;
-            }
+            let is_new_package = self.retained_package_keys.insert(key.clone());
             for resource in snapshot.resources {
+                if !is_new_package && resource.uri.starts_with("veln-pkg:") {
+                    continue;
+                }
                 if self.combined_by_uri.contains_key(&resource.uri) {
                     continue;
                 }
@@ -293,22 +379,39 @@ impl LanguageResources {
                     .insert(resource.uri.clone(), resource.clone());
                 self.combined_resources.push(resource);
             }
-            self.package_docs.insert(
-                key,
-                PackageDocumentation::Ready(snapshot.package_doc_result),
-            );
+            if let Some(previous_revision) = self
+                .current_package_docs
+                .insert(key, snapshot.revision_key.clone())
+                && let Some(uri) = self
+                    .package_docs
+                    .get(&previous_revision)
+                    .and_then(PackageDocumentation::listed_uri)
+            {
+                self.current_listed_documentation_uris.remove(uri);
+            }
+            let documentation = PackageDocumentation::Ready(snapshot.package_doc_result);
+            if let Some(uri) = documentation.listed_uri() {
+                self.current_listed_documentation_uris
+                    .insert(uri.to_string());
+            }
+            self.package_docs
+                .insert(snapshot.revision_key, documentation);
         }
         self.combined_resources
             .sort_by(|left, right| left.uri.as_bytes().cmp(right.uri.as_bytes()));
         Ok(AdmittedDependencies {
             keys,
+            revision_keys,
             snapshots: navigation_snapshots,
         })
     }
 
     pub(crate) fn list_result(&self) -> Value {
         json!({
-            "resources": self.combined_resources.iter().filter(|resource| resource.listed).map(PublishedResource::metadata).collect::<Vec<_>>()
+            "resources": self.combined_resources.iter().filter(|resource| {
+                resource.listed && (!resource.uri.starts_with("veln-doc:///package/")
+                    || self.current_listed_documentation_uris.contains(&resource.uri))
+            }).map(PublishedResource::metadata).collect::<Vec<_>>()
         })
     }
 
@@ -371,9 +474,14 @@ impl LanguageResources {
     }
 
     pub(crate) fn package_search_candidates(&self) -> Vec<PackageSearchCandidate> {
-        self.package_docs
+        self.current_package_docs
             .iter()
-            .flat_map(|(key, documentation)| documentation.search_candidates(key))
+            .filter_map(|(key, revision)| {
+                self.package_docs
+                    .get(revision)
+                    .map(|documentation| documentation.search_candidates(key))
+            })
+            .flatten()
             .collect()
     }
 
@@ -398,14 +506,15 @@ impl LanguageResources {
     ) -> Result<Arc<EffectiveProjectSnapshot>, ResourceCapacityError> {
         // The stable capture key includes both workspace files and dependency
         // contents, so a match also proves that their resources were admitted.
-        if let Some((cached_workspace_key, _, snapshot)) = &self.workspace_navigation
-            && cached_workspace_key == &workspace_key
+        if let Some(cached) = &self.workspace_navigation
+            && cached.workspace_key == workspace_key
         {
-            return Ok(Arc::clone(snapshot));
+            return Ok(Arc::clone(&cached.snapshot));
         }
 
         let dependencies = self.admit_dependencies(captured_dependencies)?;
         let dependency_keys = dependencies.keys;
+        let documentation_revisions = dependencies.revision_keys;
         let snapshot = if dependencies.snapshots.is_empty() {
             self.with_standard_library_navigation(files)
         } else {
@@ -430,7 +539,11 @@ impl LanguageResources {
         #[cfg(test)]
         WORKSPACE_NAVIGATION_BUILDS.set(WORKSPACE_NAVIGATION_BUILDS.get() + 1);
         let snapshot = Arc::new(snapshot);
-        self.workspace_navigation = Some((workspace_key, dependency_keys, Arc::clone(&snapshot)));
+        self.workspace_navigation = Some(WorkspaceNavigation {
+            workspace_key,
+            documentation_revisions,
+            snapshot: Arc::clone(&snapshot),
+        });
         Ok(snapshot)
     }
 
@@ -468,8 +581,20 @@ impl LanguageResources {
         &self,
         location: &veln_language_service::NavigationLocation,
     ) -> Option<&str> {
-        self.package_docs
-            .values()
+        let workspace_revisions = self
+            .workspace_navigation
+            .as_ref()
+            .map(|navigation| navigation.documentation_revisions.as_slice())
+            .unwrap_or_default();
+        workspace_revisions
+            .iter()
+            .filter_map(|revision| self.package_docs.get(revision))
+            .chain(
+                self.current_package_docs
+                    .iter()
+                    .filter(|(key, _)| key.identity == "std")
+                    .filter_map(|(_, revision)| self.package_docs.get(revision)),
+            )
             .find_map(|documentation| documentation.declaration_uri_for_location(location))
     }
 }
@@ -480,6 +605,7 @@ pub(crate) struct ResourceCapacityError;
 #[derive(Debug)]
 pub(crate) struct AdmittedDependencies {
     keys: Vec<RetainedPackageKey>,
+    revision_keys: Vec<DocumentationRevisionKey>,
     snapshots: Vec<DirectDependencySnapshot>,
 }
 

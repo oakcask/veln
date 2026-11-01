@@ -256,6 +256,172 @@ fn saved_dependency_documentation_uses_other_captured_dependencies() {
 }
 
 #[test]
+fn dependency_context_revision_replaces_failure_with_current_success() {
+    let workspace = TempWorkspace::new("dependency-doc-context-failure-success");
+    write_context_revision_workspace(&workspace, "pub let answer: Int = \"wrong\"\n");
+    let mut server = initialized_server(&workspace);
+
+    let first = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(first["isError"], false, "{first:#}");
+    let source_uris = listed_dependency_source_uris(&mut server, "a");
+    let status_uri = listed_dependency_documentation_uri(&mut server, "a");
+    assert!(status_uri.ends_with("/status"), "{status_uri}");
+    let status_read = read_resource(&mut server, 112, &status_uri);
+    assert!(package_search(&mut server, "exposed").is_empty());
+
+    server
+        .language_resources
+        .set_test_remaining_package_capacity(1);
+    server
+        .language_resources
+        .set_test_remaining_documentation_revision_capacity(2);
+    workspace.write("vendor/b/shared.veln", "pub let answer: Int = 1\n");
+    refresh_workspace(&mut server);
+    let second = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(second["isError"], false, "{second:#}");
+
+    assert_eq!(listed_dependency_source_uris(&mut server, "a"), source_uris);
+    let index_uri = listed_dependency_documentation_uri(&mut server, "a");
+    assert!(index_uri.ends_with("/index"), "{index_uri}");
+    assert_ne!(index_uri, status_uri);
+    let search = package_search(&mut server, "exposed");
+    assert_eq!(search.len(), 1, "{search:#?}");
+    let definition = server.definition_tool(&json!({"source":"main.veln","line":3,"column":8}));
+    assert_eq!(definition["isError"], false, "{definition:#}");
+    let documentation_uri =
+        definition["structuredContent"]["definition"]["packageDocumentationUri"]
+            .as_str()
+            .expect("accepted sibling definition has a documentation URI");
+    assert!(documentation_uri.contains("/declaration/"));
+    assert!(
+        read_resource(&mut server, 113, documentation_uri)["result"]["contents"][0]["text"]
+            .as_str()
+            .unwrap()
+            .starts_with("# Function anchor\n"),
+        "{documentation_uri}"
+    );
+    assert_eq!(
+        read_resource(&mut server, 114, &status_uri)["result"],
+        status_read["result"]
+    );
+    assert_eq!(
+        dependency_documentation_uris(&mut server, "a"),
+        vec![index_uri]
+    );
+}
+
+#[test]
+fn dependency_context_revision_replaces_success_with_current_failure() {
+    let workspace = TempWorkspace::new("dependency-doc-context-success-failure");
+    write_context_revision_workspace(&workspace, "pub let answer: Int = 1\n");
+    let mut server = initialized_server(&workspace);
+
+    let first = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(first["isError"], false, "{first:#}");
+    let source_uris = listed_dependency_source_uris(&mut server, "a");
+    let index_uri = listed_dependency_documentation_uri(&mut server, "a");
+    let index_read = read_resource(&mut server, 115, &index_uri);
+    let module_uri = linked_dependency_module_uri(&mut server, &index_uri);
+    let module_read = read_resource(&mut server, 116, &module_uri);
+    let declaration_uri = package_search(&mut server, "exposed")
+        .into_iter()
+        .next()
+        .expect("accepted module value is searchable");
+    let declaration_read = read_resource(&mut server, 117, &declaration_uri);
+
+    server
+        .language_resources
+        .set_test_remaining_package_capacity(1);
+    server
+        .language_resources
+        .set_test_remaining_documentation_revision_capacity(2);
+    workspace.write("vendor/b/shared.veln", "pub let answer: Int = \"wrong\"\n");
+    refresh_workspace(&mut server);
+    let second = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(second["isError"], false, "{second:#}");
+
+    assert_eq!(listed_dependency_source_uris(&mut server, "a"), source_uris);
+    let status_uri = listed_dependency_documentation_uri(&mut server, "a");
+    assert!(status_uri.ends_with("/status"), "{status_uri}");
+    assert!(package_search(&mut server, "exposed").is_empty());
+    assert!(package_search(&mut server, "anchor").is_empty());
+    let definition = server.definition_tool(&json!({"source":"main.veln","line":3,"column":8}));
+    assert_eq!(definition["isError"], false, "{definition:#}");
+    let location = &definition["structuredContent"]["definition"];
+    assert!(
+        location.get("packageDocumentationUri").is_none(),
+        "{location:#}"
+    );
+    let status_text = read_resource(&mut server, 118, &status_uri)["result"]["contents"][0]["text"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(!status_text.contains("anchor"), "{status_text}");
+    assert_eq!(
+        read_resource(&mut server, 119, &index_uri)["result"],
+        index_read["result"]
+    );
+    assert_eq!(
+        read_resource(&mut server, 120, &module_uri)["result"],
+        module_read["result"]
+    );
+    assert_eq!(
+        read_resource(&mut server, 121, &declaration_uri)["result"],
+        declaration_read["result"]
+    );
+    assert_eq!(
+        dependency_documentation_uris(&mut server, "a"),
+        vec![status_uri]
+    );
+}
+
+#[test]
+fn dependency_documentation_revision_capacity_is_atomic_before_generation() {
+    let workspace = TempWorkspace::new("dependency-doc-revision-capacity");
+    write_context_revision_workspace(&workspace, "pub let answer: Int = 1\n");
+    let mut server = initialized_server(&workspace);
+    let first = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(first["isError"], false, "{first:#}");
+    let index_uri = listed_dependency_documentation_uri(&mut server, "a");
+    let exact_read = read_resource(&mut server, 122, &index_uri);
+    let before_list = all_resource_state(&mut server);
+    let before_search = package_search(&mut server, "exposed");
+    let before_definition =
+        server.definition_tool(&json!({"source":"main.veln","line":3,"column":8}));
+
+    server
+        .language_resources
+        .set_test_remaining_package_capacity(1);
+    server
+        .language_resources
+        .set_test_remaining_documentation_revision_capacity(1);
+    workspace.write("vendor/b/shared.veln", "pub let answer: Int = 2\n");
+    refresh_workspace(&mut server);
+    crate::language_resources::reset_dependency_preparation_work();
+    let rejected = server.check_project_tool(&json!({"project":"."}));
+    let work = crate::language_resources::dependency_preparation_work();
+
+    assert_eq!(rejected["isError"], true, "{rejected:#}");
+    assert_eq!(rejected["structuredContent"]["code"], "resource_capacity");
+    assert_eq!(work.snapshot_captures, 2);
+    assert_eq!(work.package_doc_generations, 0);
+    assert_eq!(all_resource_state(&mut server), before_list);
+    assert_eq!(package_search(&mut server, "exposed"), before_search);
+    assert_eq!(
+        read_resource(&mut server, 123, &index_uri)["result"],
+        exact_read["result"]
+    );
+    let definition_uri =
+        before_definition["structuredContent"]["definition"]["packageDocumentationUri"]
+            .as_str()
+            .unwrap();
+    assert_eq!(
+        read_resource(&mut server, 124, definition_uri)["result"]["contents"][0]["uri"],
+        definition_uri
+    );
+}
+
+#[test]
 fn dependency_failure_status_links_to_the_retained_causal_source() {
     let workspace = TempWorkspace::new("dependency-doc-causal-source");
     workspace.write(
@@ -1203,6 +1369,36 @@ fn listed_resources(server: &mut Server) -> Vec<Value> {
         .clone()
 }
 
+fn listed_dependency_source_uris(server: &mut Server, identity: &str) -> Vec<String> {
+    let prefix = format!("veln-pkg:///{}/snapshot/", identity.replace('/', "%2F"));
+    listed_resources(server)
+        .into_iter()
+        .filter_map(|resource| {
+            let uri = resource["uri"].as_str().unwrap();
+            uri.starts_with(&prefix).then(|| uri.to_string())
+        })
+        .collect()
+}
+
+fn package_search(server: &mut Server, query: &str) -> Vec<String> {
+    server
+        .handle_request(json!({
+            "jsonrpc":"2.0",
+            "id":"dependency-package-search",
+            "method":"tools/call",
+            "params":{
+                "name":"search_docs",
+                "arguments":{"query":query,"scope":"package","limit":50}
+            }
+        }))
+        .unwrap()["result"]["structuredContent"]["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|result| result["uri"].as_str().unwrap().to_string())
+        .collect()
+}
+
 fn listed_dependency_documentation_uri(server: &mut Server, identity: &str) -> String {
     dependency_documentation_uris(server, identity)
         .into_iter()
@@ -1237,18 +1433,69 @@ fn documentation_uri_digests_for<'a>(
 }
 
 fn linked_dependency_declaration_uri(server: &mut Server, index_uri: &str) -> String {
-    let index = read_resource(server, 107, index_uri);
-    let index_text = index["result"]["contents"][0]["text"].as_str().unwrap();
-    let module_uri = extract_uris_with_prefix(index_text, "veln-doc:///package/")
-        .into_iter()
-        .find(|uri| uri.contains("/module/"))
-        .unwrap();
+    let module_uri = linked_dependency_module_uri(server, index_uri);
     let module = read_resource(server, 108, &module_uri);
     let module_text = module["result"]["contents"][0]["text"].as_str().unwrap();
     extract_uris_with_prefix(module_text, "veln-doc:///package/")
         .into_iter()
         .find(|uri| uri.contains("/declaration/"))
         .unwrap()
+}
+
+fn linked_dependency_module_uri(server: &mut Server, index_uri: &str) -> String {
+    let index = read_resource(server, 107, index_uri);
+    let index_text = index["result"]["contents"][0]["text"].as_str().unwrap();
+    extract_uris_with_prefix(index_text, "veln-doc:///package/")
+        .into_iter()
+        .find(|uri| uri.contains("/module/"))
+        .unwrap()
+}
+
+fn write_context_revision_workspace(workspace: &TempWorkspace, dependency_value: &str) {
+    workspace.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"a\"]\n",
+            "path = \"vendor/a\"\n",
+            "[dependencies.\"b\"]\n",
+            "path = \"vendor/b\"\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        "use api from \"a\"\nfn main() -> Int\n  api::anchor()\nend\n",
+    );
+    workspace.write(
+        "vendor/a/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"a\"\n",
+            "[lib]\n",
+            "exports = [\"api.veln\"]\n",
+            "[dependencies.\"b\"]\n",
+            "path = \"../b\"\n",
+        ),
+    );
+    workspace.write(
+        "vendor/a/api.veln",
+        concat!(
+            "use shared from \"b\"\n",
+            "pub let exposed: Int = shared::answer\n",
+            "pub fn anchor() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/b/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"b\"\n",
+            "[lib]\n",
+            "exports = [\"shared.veln\"]\n",
+        ),
+    );
+    workspace.write("vendor/b/shared.veln", dependency_value);
 }
 
 fn extract_uris_with_prefix(text: &str, prefix: &str) -> BTreeSet<String> {
