@@ -1,5 +1,118 @@
 use super::*;
 
+#[derive(Clone, Copy)]
+enum SchemaOperation {
+    Decode,
+    Encode,
+    Validate,
+}
+
+struct SchemaOperationMetadata {
+    name: &'static str,
+    detail: &'static str,
+    unresolved_eligibility: &'static str,
+}
+
+impl SchemaOperation {
+    fn metadata(self) -> SchemaOperationMetadata {
+        match self {
+            Self::Decode => SchemaOperationMetadata {
+                name: "decode",
+                detail: "decode_step",
+                unresolved_eligibility: "eligible binary schema",
+            },
+            Self::Encode => SchemaOperationMetadata {
+                name: "encode",
+                detail: "encode",
+                unresolved_eligibility: "eligible schema encode helper",
+            },
+            Self::Validate => SchemaOperationMetadata {
+                name: "validate",
+                detail: "runtime_validate",
+                unresolved_eligibility: "eligible format-neutral schema",
+            },
+        }
+    }
+}
+
+fn schema_operation_failure(
+    operation: SchemaOperation,
+    symbol: &str,
+    kind: SchemaReferenceErrorKind,
+    resolved_kind: Option<&str>,
+) -> (&'static str, String) {
+    let reason = match kind {
+        SchemaReferenceErrorKind::Unresolved => "unresolved_schema",
+        SchemaReferenceErrorKind::Private => "private_schema",
+        SchemaReferenceErrorKind::WrongKind => "wrong_kind",
+        SchemaReferenceErrorKind::Ambiguous => "ambiguous_target",
+    };
+    let metadata = operation.metadata();
+    let operation_name = metadata.name;
+    let message = match (kind, resolved_kind) {
+        (SchemaReferenceErrorKind::Private, _) => {
+            format!("schema {operation_name} expression schema `{symbol}` is private")
+        }
+        (SchemaReferenceErrorKind::WrongKind, Some(kind)) => {
+            format!(
+                "schema {operation_name} expression target `{symbol}` is a {kind}, not a schema"
+            )
+        }
+        (SchemaReferenceErrorKind::Ambiguous, Some(kind)) => format!(
+            "schema {operation_name} expression target `{symbol}` is ambiguous between a schema and a {kind}"
+        ),
+        (SchemaReferenceErrorKind::Ambiguous, None) => format!(
+            "schema {operation_name} expression target `{symbol}` is ambiguous in the schema namespace"
+        ),
+        _ => format!(
+            "schema {operation_name} expression cannot resolve `{symbol}` as an {}",
+            metadata.unresolved_eligibility,
+        ),
+    };
+    (reason, message)
+}
+
+fn schema_operation_details(
+    expr: &Expr,
+    operation: SchemaOperation,
+    symbol: &str,
+    reason: &str,
+    resolved_kind: Option<&str>,
+    current_module: Option<&str>,
+    companion_target_module: Option<&str>,
+) -> JsonValue {
+    let mut details = vec![
+        ("phase", JsonValue::string("body_analysis")),
+        ("node_id", JsonValue::string(expr.node_id.display("expr"))),
+        ("schema_path", JsonValue::string(symbol)),
+        ("operation", JsonValue::string(operation.metadata().detail)),
+        ("reason", JsonValue::string(reason)),
+    ];
+    if let Some(kind) = resolved_kind {
+        details.push(("resolved_kind", JsonValue::string(kind)));
+    }
+    if let Some(target_module) = companion_target_module {
+        if let Some(current_module) = current_module {
+            details.push(("companion_module", JsonValue::string(current_module)));
+        }
+        details.push(("companion_target_module", JsonValue::string(target_module)));
+    }
+    JsonValue::object(details)
+}
+
+fn companion_schema_target_related(target_module: &str) -> JsonValue {
+    JsonValue::object([
+        ("kind", JsonValue::string("companion_target")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "This test companion may access private schemas only from target module `{target_module}`."
+            )),
+        ),
+        ("target_module", JsonValue::string(target_module)),
+    ])
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(in crate::analysis) fn infer_expr(
         &mut self,
@@ -366,8 +479,7 @@ impl<'a> FunctionChecker<'a> {
         self.push_schema_operation_expression_diagnostic(
             expr,
             schema,
-            "decode",
-            "decode_step",
+            SchemaOperation::Decode,
             None,
         );
     }
@@ -431,7 +543,12 @@ impl<'a> FunctionChecker<'a> {
                     &unsupported.field,
                 ));
         }
-        self.push_schema_operation_expression_diagnostic(expr, schema, "encode", "encode", None);
+        self.push_schema_operation_expression_diagnostic(
+            expr,
+            schema,
+            SchemaOperation::Encode,
+            None,
+        );
     }
 
     pub(super) fn infer_schema_validate(
@@ -494,8 +611,7 @@ impl<'a> FunctionChecker<'a> {
             self.push_schema_operation_expression_diagnostic(
                 expr,
                 schema,
-                "validate",
-                "runtime_validate",
+                SchemaOperation::Validate,
                 schema_span.as_ref(),
             );
             return Type::Unknown;
@@ -503,12 +619,11 @@ impl<'a> FunctionChecker<'a> {
         signature.return_type
     }
 
-    pub(super) fn push_schema_operation_expression_diagnostic(
+    fn push_schema_operation_expression_diagnostic(
         &mut self,
         expr: &Expr,
         schema: &[String],
-        operation: &str,
-        operation_detail: &str,
+        operation: SchemaOperation,
         primary_span: Option<&SourceSpan>,
     ) {
         let symbol = if schema.is_empty() {
@@ -522,79 +637,34 @@ impl<'a> FunctionChecker<'a> {
             current_module,
             self.function.package_name.as_deref(),
         );
-        let reason = match error.kind {
-            SchemaReferenceErrorKind::Unresolved => "unresolved_schema",
-            SchemaReferenceErrorKind::Private => "private_schema",
-            SchemaReferenceErrorKind::WrongKind => "wrong_kind",
-            SchemaReferenceErrorKind::Ambiguous => "ambiguous_target",
-        };
-        let message = match (error.kind, error.resolved_kind) {
-            (SchemaReferenceErrorKind::Private, _) => {
-                format!("schema {operation} expression schema `{symbol}` is private")
-            }
-            (SchemaReferenceErrorKind::WrongKind, Some(kind)) => {
-                format!("schema {operation} expression target `{symbol}` is a {kind}, not a schema")
-            }
-            (SchemaReferenceErrorKind::Ambiguous, Some(kind)) => format!(
-                "schema {operation} expression target `{symbol}` is ambiguous between a schema and a {kind}"
-            ),
-            (SchemaReferenceErrorKind::Ambiguous, None) => format!(
-                "schema {operation} expression target `{symbol}` is ambiguous in the schema namespace"
-            ),
-            _ => {
-                let eligibility = match operation {
-                    "encode" => "eligible schema encode helper",
-                    "validate" => "eligible format-neutral schema",
-                    _ => "eligible binary schema",
-                };
-                format!(
-                    "schema {operation} expression cannot resolve `{symbol}` as an {eligibility}"
-                )
-            }
-        };
-        let mut details = vec![
-            ("phase", JsonValue::string("body_analysis")),
-            ("node_id", JsonValue::string(expr.node_id.display("expr"))),
-            ("schema_path", JsonValue::string(symbol)),
-            ("operation", JsonValue::string(operation_detail)),
-            ("reason", JsonValue::string(reason)),
-        ];
-        if let Some(kind) = error.resolved_kind {
-            details.push(("resolved_kind", JsonValue::string(kind)));
-        }
-        if error.kind == SchemaReferenceErrorKind::Private
-            && let Some(target_module) = self
-                .environment
+        let (reason, message) =
+            schema_operation_failure(operation, &symbol, error.kind, error.resolved_kind);
+        let companion_target_module = if error.kind == SchemaReferenceErrorKind::Private {
+            self.environment
                 .companion_schema_access_target(current_module)
-        {
-            if let Some(current_module) = current_module {
-                details.push(("companion_module", JsonValue::string(current_module)));
-            }
-            details.push(("companion_target_module", JsonValue::string(target_module)));
-        }
+        } else {
+            None
+        };
         let mut diagnostic = Diagnostic::new(
-            format!("schema.{operation}_expression"),
+            format!("schema.{}_expression", operation.metadata().name),
             Severity::Error,
             DiagnosticKind::Type,
             message,
             Some(primary_span.unwrap_or(&expr.span).clone()),
-            JsonValue::object(details),
+            schema_operation_details(
+                expr,
+                operation,
+                &symbol,
+                reason,
+                error.resolved_kind,
+                current_module,
+                companion_target_module,
+            ),
         );
-        if error.kind == SchemaReferenceErrorKind::Private
-            && let Some(target_module) = self
-                .environment
-                .companion_schema_access_target(current_module)
-        {
-            diagnostic.related.push(JsonValue::object([
-                ("kind", JsonValue::string("companion_target")),
-                (
-                    "message",
-                    JsonValue::string(format!(
-                        "This test companion may access private schemas only from target module `{target_module}`."
-                    )),
-                ),
-                ("target_module", JsonValue::string(target_module)),
-            ]));
+        if let Some(target_module) = companion_target_module {
+            diagnostic
+                .related
+                .push(companion_schema_target_related(target_module));
         }
         self.diagnostics.push(diagnostic);
     }
