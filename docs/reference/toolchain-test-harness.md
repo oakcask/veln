@@ -466,11 +466,11 @@ The `adt-variant-refinement-navigation` MCP specification case uses decoded
 assertions for shared constructor and alias definitions, declaration-inclusive
 references, constructor and alias-base rename edits, one-based ranges, and
 empty results for an invalid mixed-base union.
-The `module-value-navigation` MCP specification case uses decoded assertions
-for workspace and direct-dependency definitions, exact workspace rename edits,
-an empty package rename, unsupported reference results with either declaration
-policy, one-based ranges, and unchanged workspace, resource, and definition
-results after those requests.
+The `module-value-navigation` and `module-value-dependency-navigation` MCP
+specification cases use decoded assertions for workspace and direct-dependency
+definitions, exact workspace rename edits, an empty package rename, unsupported
+reference results with either declaration policy, one-based ranges, and
+unchanged workspace, resource, and definition results after those requests.
 The `references-workspace-effect` MCP specification case uses decoded
 assertions for exact effect and effect-operation reference locations,
 declaration inclusion, Unicode-scalar coordinates, deterministic ordering, and

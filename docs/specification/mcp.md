@@ -516,7 +516,9 @@ Standard-library module values are outside this navigation row. The MCP
 empty reference result for those selections.
 The checked
 [`module-value-navigation`](../../examples/specification/mcp/module-value-navigation/)
-transcript covers workspace and package definitions, exact workspace rename
+and
+[`module-value-dependency-navigation`](../../examples/specification/mcp/module-value-dependency-navigation/)
+transcripts cover workspace and package definitions, exact workspace rename
 edits, edit-free package rename, empty reference results, one-based ranges,
 and state preservation across those requests.
 
