@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#usage; behavior=#published-boundary; limits=#generation-gates
-update-when: The package documentation catalog API, canonical result bytes, digest, URI, gate, executable evidence, or veln doc command route changes.
+update-when: The package documentation generation or catalog API, canonical result bytes, digest, URI, gate, executable evidence, or veln doc command route changes.
 ---
 
 # Package Documentation Catalogs
@@ -29,6 +29,16 @@ and `catalog()` for the optional published catalog. `canonical_bytes()` and
 constructing their identifiers. Generation derives module-value publication
 roots from the semantic identities of public declarations in exported modules;
 callers do not select publication diagnostics by source span.
+
+A caller that already owns captured dependency snapshots can construct
+`PackageDocDependencySnapshots` from their package identities and snapshots,
+then call `PackageDocResult::generate_with_dependency_snapshots`. The captured
+dependency projects still provide the semantic-analysis inputs. The supplied
+snapshot map provides the exact snapshot digest used when generation projects
+a dependency-owned diagnostic to a canonical `veln-pkg:` source URI. If the
+map has no entry for the dependency that owns a retained cause, generation
+uses the spanless `package_doc.dependency_snapshot_unavailable` diagnostic
+described under [Generation Gates](#generation-gates).
 
 ## Read First
 

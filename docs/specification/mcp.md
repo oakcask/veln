@@ -128,9 +128,13 @@ has a manifest package name that equals the dependency table key and a captured
 package distribution snapshot. The server generates the existing
 transport-independent package-documentation result from that retained snapshot
 and the parsed manifest used for admission. Publication analysis receives the
-complete dependency set from the same stable capture. A saved dependency that
-imports another captured dependency therefore publishes the same accepted
-public declarations without rereading either package from the host filesystem.
+complete dependency set from the same stable capture. To keep admission work
+linear in the dependency count, one admission captures each valid dependency
+distribution once and reuses those prepared snapshots for resource keys,
+navigation, and every dependency package-documentation result. A saved
+dependency that imports another captured dependency therefore publishes the
+same accepted public declarations without rereading either package from the
+host filesystem or recapturing another dependency for each generated result.
 If generation succeeds, the dependency documentation index is listed, and its
 linked module and declaration resources are available only through exact
 `resources/read` requests. If generation fails, only the dependency
@@ -148,8 +152,10 @@ retains at most 256 package snapshots, including the embedded standard-library
 snapshot. If one operation would exceed that limit, the tool returns
 `resource_capacity`, admits none of that operation's new snapshots, publishes
 no source or documentation resources for the rejected snapshots, and preserves
-the previous resource state. Capture failure, validation failure, tool domain
-failure, and invalid tool parameters admit no new dependency resources.
+the previous resource state. The server decides this capacity failure from the
+prepared resource keys before it generates any package-documentation result
+for that operation. Capture failure, validation failure, tool domain failure,
+and invalid tool parameters admit no new dependency resources.
 
 Dependency source resources use the canonical `veln-pkg:` URI from the
 admitted dependency snapshot virtual-source catalog. Their `name` is the
@@ -931,7 +937,12 @@ and `crates/veln-mcp/src/references.rs`; source presentation is implemented by
 conversion is implemented by
 `crates/veln-mcp/src/rename.rs`; cursor retention is implemented by
 `crates/veln-mcp/src/reference_pagination.rs`. Protocol regression tests are in
-`crates/veln-mcp/src/server/tests/`. The checked embedded standard-library
+`crates/veln-mcp/src/server/tests/`. Dependency-resource tests use deterministic
+work counters to check one snapshot capture and one documentation generation
+per admitted dependency. Their capacity case checks that overflow performs no
+documentation generation and preserves prior lists, search candidates, and
+exact reads. Elapsed time is reported only as supporting evidence, not as a
+threshold. The checked embedded standard-library
 package-documentation bundle and generator contract are maintained by
 `tools/veln-repo-mcp-standard-library-docs/`; bundle validation and MCP resource
 transcripts check that generator-contract changes rotate exact documentation
