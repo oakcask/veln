@@ -144,9 +144,15 @@ nullary and payload ADT constructors, and references without invoking user
 code. Each reference selects the complete package, module, and declaration
 identity, so same-module forward references, imported or aliased references,
 and same-spelled declarations from distinct packages produce their selected
-data independent of source, import, or first-use order. The checked
+data independent of source, import, or first-use order. A valid acyclic
+dependency chain remains executable when its declaration depth exceeds the
+available JVM call-stack depth. Reading the final value does not recursively
+evaluate the preceding initializers. The checked
 [`module-value-runtime-execution`](../../examples/specification/run/module-value-runtime-execution/)
-case exercises these values and identity boundaries.
+case exercises the supported values and identity boundaries. The focused
+[`JVM backend test`](../../crates/veln-backend-jvm/src/tests/basic_backend.rs)
+executes a 4,000-declaration chain with a constrained thread stack and checks
+the final value.
 
 Module values do not add an effectful startup phase, user-code initializer
 execution, mutable storage, or lazy runtime failure. Physical sharing between
