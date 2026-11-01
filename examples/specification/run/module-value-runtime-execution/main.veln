@@ -27,7 +27,11 @@ fn print_state(state: State) -> () effects [stdio]
 end
 
 pub fn main() -> () effects [stdio]
-	nothing
+	if nothing == ()
+		stdio::println("unit")
+	else
+		stdio::println("unexpected unit")
+	end
 	stdio::println(snapshot.text)
 	print_state(snapshot.state)
 	print_state(idle)
