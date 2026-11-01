@@ -1,4 +1,5 @@
 use super::*;
+use veln_ir::{CoreType, IrRecordField};
 
 #[test]
 fn backend_materializes_complete_finite_module_value_surface() {
@@ -407,29 +408,32 @@ fn run_oversized_deep_initializer_on_a_bounded_stack() {
 }
 
 fn generate_oversized_recursive_adt(depth: usize) -> JvmProgram {
-    let mut ir = lower_to_ir(concat!(
-        "type Chain\n",
-        "  End(marker: Int)\n",
-        "  Next(marker: Int, value: Chain)\n",
-        "end\n",
-        "let oversized: Chain = Next(1, End(777))\n",
-        "fn inspect(value: Chain, expected: Int, observed: Int) -> Int\n",
-        "  match value\n",
-        "    End(marker) => if expected == 0 and marker == 777\n",
-        "      observed\n",
-        "    else\n",
-        "      -1\n",
-        "    end\n",
-        "    Next(marker, next) => if marker == expected\n",
-        "      inspect(next, expected - 1, observed + 1)\n",
-        "    else\n",
-        "      -1\n",
-        "    end\n",
-        "  end\n",
-        "end\n",
-        "pub fn main() -> () effects [stdio]\n",
-        "  stdio::println(int_to_string(inspect(oversized, 20000, 0)))\n",
-        "end\n",
+    let mut ir = lower_to_ir(&format!(
+        concat!(
+            "type Chain\n",
+            "  End(marker: Int)\n",
+            "  Next(marker: Int, value: Chain)\n",
+            "end\n",
+            "let oversized: Chain = Next(1, End(777))\n",
+            "fn inspect(value: Chain, expected: Int, observed: Int) -> Int\n",
+            "  match value\n",
+            "    End(marker) => if expected == 0 and marker == 777\n",
+            "      observed\n",
+            "    else\n",
+            "      -1\n",
+            "    end\n",
+            "    Next(marker, next) => if marker == expected\n",
+            "      inspect(next, expected - 1, observed + 1)\n",
+            "    else\n",
+            "      -1\n",
+            "    end\n",
+            "  end\n",
+            "end\n",
+            "pub fn main() -> () effects [stdio]\n",
+            "  stdio::println(int_to_string(inspect(oversized, {}, 0)))\n",
+            "end\n",
+        ),
+        depth
     ));
     let declaration = ir
         .module_values
@@ -462,6 +466,61 @@ fn generate_oversized_recursive_adt(depth: usize) -> JvmProgram {
     declaration.initializer = initializer;
 
     generate_classfiles_with_entry(&ir, "main")
+}
+
+#[test]
+fn bytecode_backend_executes_an_initializer_above_one_constant_pool_on_bounded_stacks() {
+    const CHILD_MARKER: &str = "VELN_TEST_MODULE_INITIALIZER_POOL_CHILD";
+    const TEST_NAME: &str = concat!(
+        "tests::basic_backend::",
+        "bytecode_backend_executes_an_initializer_above_one_constant_pool_on_bounded_stacks"
+    );
+    if std::env::var_os(CHILD_MARKER).is_some() {
+        std::thread::Builder::new()
+            .name("module-initializer-pool".to_string())
+            .stack_size(256 * 1024)
+            .spawn(|| {
+                let program = generate_oversized_recursive_adt(32_768);
+                let Some(output) = run_jvm_program_with_java_args_when_java_is_available(
+                    "module-initializer-pool",
+                    &program,
+                    &["-Xss256k"],
+                    &[],
+                ) else {
+                    return;
+                };
+                assert!(
+                    output.status.success(),
+                    "{}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+                assert_eq!(output.stdout, b"32768\n");
+            })
+            .expect("spawn module initializer pool thread")
+            .join()
+            .expect("module initializer pool thread should complete");
+        println!("module-initializer-pool-complete");
+        return;
+    }
+
+    let output = Command::new(std::env::current_exe().expect("test executable"))
+        .args(["--exact", TEST_NAME, "--nocapture"])
+        .env(CHILD_MARKER, "1")
+        .output()
+        .expect("run module initializer pool child");
+    assert!(
+        output.status.success(),
+        "module initializer pool child failed: status={} stdout={} stderr={}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("module-initializer-pool-complete"),
+        "module initializer pool child did not execute: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
 }
 
 #[test]
@@ -530,6 +589,119 @@ fn bytecode_backend_loads_module_values_above_one_class_constant_pool_capacity()
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "10999\n");
+}
+
+#[test]
+fn bytecode_backend_executes_distinct_record_fields_above_one_constant_pool() {
+    const EXTRA_FIELD_COUNT: usize = 32_768;
+
+    let mut ir = lower_to_ir(concat!(
+        "let pressure: { first: Int, terminal: Int } = { first: 17, terminal: 29 }\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(pressure.first + pressure.terminal))\n",
+        "end\n",
+    ));
+    let declaration = ir
+        .module_values
+        .first_mut()
+        .expect("generated record module value");
+    let IrExprKind::Record(fields) = &mut declaration.initializer.kind else {
+        panic!("generated module value should retain its record initializer");
+    };
+    let terminal = fields
+        .pop()
+        .expect("generated module record should contain its terminal field");
+    let first = fields
+        .first()
+        .expect("generated module record should contain its first field");
+    let mut unit = first.value.clone();
+    unit.ty = CoreType::unit();
+    unit.kind = IrExprKind::Unit;
+    fields.reserve(EXTRA_FIELD_COUNT + 1);
+    for field_index in 0..EXTRA_FIELD_COUNT {
+        fields.push(IrRecordField {
+            node_id: terminal.node_id,
+            name: format!("pressure_{field_index}"),
+            value: unit.clone(),
+        });
+    }
+    fields.push(terminal);
+
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "module-value-distinct-record-field-pool",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, b"46\n");
+}
+
+#[test]
+fn bytecode_backend_isolates_medium_initializer_constants_in_one_storage_class() {
+    const DECLARATION_COUNT: usize = 6;
+    const EXTRA_FIELDS_PER_DECLARATION: usize = 6_000;
+
+    let mut source = String::new();
+    for index in 0..DECLARATION_COUNT {
+        source.push_str(&format!(
+            "let value_{index}: {{ terminal: Int }} = {{ terminal: {} }}\n",
+            index + 1
+        ));
+    }
+    source.push_str(concat!(
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(\n",
+        "    value_0.terminal + value_1.terminal + value_2.terminal +\n",
+        "    value_3.terminal + value_4.terminal + value_5.terminal\n",
+        "  ))\n",
+        "end\n",
+    ));
+
+    let mut ir = lower_to_ir(&source);
+    for (declaration_index, declaration) in ir.module_values.iter_mut().enumerate() {
+        let IrExprKind::Record(fields) = &mut declaration.initializer.kind else {
+            panic!("generated module value should retain its record initializer");
+        };
+        let terminal = fields
+            .pop()
+            .expect("generated module record should contain its terminal field");
+        let mut unit = terminal.value.clone();
+        unit.ty = CoreType::unit();
+        unit.kind = IrExprKind::Unit;
+        fields.reserve(EXTRA_FIELDS_PER_DECLARATION + 1);
+        for field_index in 0..EXTRA_FIELDS_PER_DECLARATION {
+            fields.push(IrRecordField {
+                node_id: terminal.node_id,
+                name: format!("pressure_{declaration_index}_{field_index}"),
+                value: unit.clone(),
+            });
+        }
+        fields.push(terminal);
+    }
+
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "module-value-medium-initializer-constant-pools",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, b"21\n");
 }
 
 #[test]

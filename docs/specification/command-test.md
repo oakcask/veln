@@ -130,8 +130,10 @@ with status 2. It does not produce case records; `--json` does not emit a test
 JSON envelope for this command error.
 An accepted module immutable string or finite initializer is not rejected only
 because its complete representation exceeds one constant-pool string or one
-method. The backend emits bounded pieces before workers start and preserves the
-complete value. The
+method, or because its construction constants exceed one generated class
+constant pool. The backend emits bounded pieces before workers start and
+preserves the complete value even when several initializers share declaration
+storage. The
 [execution boundary](execution.md#runtime-readiness-and-host-boundaries)
 defines the supported values and remaining classfile limits.
 

@@ -12,6 +12,10 @@ impl ConstantPool {
         Self::default()
     }
 
+    pub(super) fn slot_count(&self) -> usize {
+        self.entries.len()
+    }
+
     pub(super) fn utf8(&mut self, value: &str) -> u16 {
         let Some(encoded) = encode_modified_utf8(value) else {
             if self.error.is_none() {

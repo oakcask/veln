@@ -92,7 +92,9 @@ and exits with status 2. This is a command error, so `--json` does not emit a
 run JSON envelope for it.
 An accepted module immutable string or finite initializer is not rejected only
 because its complete representation exceeds one constant-pool string or one
-method. The backend emits bounded pieces and preserves the complete value; the
+method, or because its construction constants exceed one generated class
+constant pool. The backend emits bounded pieces and preserves the complete
+value even when several initializers share declaration storage; the
 [execution boundary](execution.md#runtime-readiness-and-host-boundaries)
 defines the supported values and remaining classfile limits.
 

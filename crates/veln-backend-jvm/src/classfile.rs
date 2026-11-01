@@ -51,6 +51,8 @@ const VELN_ENTRY: &str = "VelnEntry";
 const MODULE_VALUE_DESCRIPTOR: &str = "Ljava/lang/Object;";
 const MODULE_VALUES_PER_CLASS: usize = 1_000;
 const MODULE_VALUE_HELPER_CODE_LIMIT: usize = 60_000;
+const MODULE_VALUE_HELPER_CONSTANT_POOL_LIMIT: usize = 30_000;
+const MODULE_VALUE_DISPATCH_FANOUT: usize = 1_000;
 
 fn collect_module_value_dependencies(
     expr: &IrExpr,
@@ -318,7 +320,8 @@ fn emit_module_value_initializer(
     method_stem: &str,
     emitter: &mut FunctionBytecodeEmitter<'_, '_>,
     initializer: &IrExpr,
-) -> MethodCode {
+    helper_classes: &mut Vec<JvmClassFile>,
+) -> Result<MethodCode, JvmBackendError> {
     let mut initializer_code = MethodCode::new(Rc::clone(&class.constant_pool));
     initializer_code.invokestatic(
         &emitter.program.options.runtime_class,
@@ -328,50 +331,116 @@ fn emit_module_value_initializer(
     initializer_code.astore(0);
 
     let mut part_index = 0;
-    let mut part = MethodCode::new(Rc::clone(&class.constant_pool));
+    let mut part_class_name = format!("{class_name}${method_stem}Part{part_index}");
+    let mut part_class = ClassBuilder::new(&part_class_name);
+    part_class.access_flags = 0x0031;
+    let mut part = MethodCode::new(Rc::clone(&part_class.constant_pool));
+    let mut part_class_names = Vec::new();
     let mut work = vec![ModuleValueEmissionWork::Expr(initializer)];
     while let Some(item) = work.pop() {
         emit_module_value_work(emitter, &mut part, &mut work, item);
-        if part.code.len() >= MODULE_VALUE_HELPER_CODE_LIMIT {
-            let part_name = format!("{method_stem}_part_{part_index}");
+        if part.code.len() >= MODULE_VALUE_HELPER_CODE_LIMIT
+            || part_class.constant_pool.borrow().slot_count()
+                >= MODULE_VALUE_HELPER_CONSTANT_POOL_LIMIT
+        {
             part.op(0xb1);
-            class.add_method(MethodInfo {
-                access_flags: 0x000a,
-                name: part_name.clone(),
+            part_class.add_method(MethodInfo {
+                access_flags: 0x0009,
+                name: "apply".to_string(),
                 descriptor: "(Ljava/util/ArrayList;)V".to_string(),
                 max_stack: part.max_stack,
                 max_locals: part.max_locals,
                 code: part.code,
                 exceptions: part.exceptions,
             });
-            initializer_code.aload(0);
-            initializer_code.invokestatic(class_name, &part_name, "(Ljava/util/ArrayList;)V");
+            part_class_names.push(part_class_name.clone());
+            helper_classes.push(JvmClassFile {
+                path: format!("{part_class_name}.class"),
+                contents: part_class.finish()?,
+            });
             part_index += 1;
-            part = MethodCode::new(Rc::clone(&class.constant_pool));
+            part_class_name = format!("{class_name}${method_stem}Part{part_index}");
+            part_class = ClassBuilder::new(&part_class_name);
+            part_class.access_flags = 0x0031;
+            part = MethodCode::new(Rc::clone(&part_class.constant_pool));
         }
     }
     if !part.code.is_empty() {
-        let part_name = format!("{method_stem}_part_{part_index}");
         part.op(0xb1);
-        class.add_method(MethodInfo {
-            access_flags: 0x000a,
-            name: part_name.clone(),
+        part_class.add_method(MethodInfo {
+            access_flags: 0x0009,
+            name: "apply".to_string(),
             descriptor: "(Ljava/util/ArrayList;)V".to_string(),
             max_stack: part.max_stack,
             max_locals: part.max_locals,
             code: part.code,
             exceptions: part.exceptions,
         });
-        initializer_code.aload(0);
-        initializer_code.invokestatic(class_name, &part_name, "(Ljava/util/ArrayList;)V");
+        part_class_names.push(part_class_name.clone());
+        helper_classes.push(JvmClassFile {
+            path: format!("{part_class_name}.class"),
+            contents: part_class.finish()?,
+        });
     }
+    let root_class_name =
+        emit_module_value_dispatchers(class_name, method_stem, part_class_names, helper_classes)?;
+    initializer_code.aload(0);
+    initializer_code.invokestatic(&root_class_name, "apply", "(Ljava/util/ArrayList;)V");
     initializer_code.aload(0);
     initializer_code.invokestatic(
         &emitter.program.options.runtime_class,
         "moduleValueFinish",
         "(Ljava/util/ArrayList;)Ljava/lang/Object;",
     );
-    initializer_code
+    Ok(initializer_code)
+}
+
+fn emit_module_value_dispatchers(
+    class_name: &str,
+    method_stem: &str,
+    mut child_class_names: Vec<String>,
+    helper_classes: &mut Vec<JvmClassFile>,
+) -> Result<String, JvmBackendError> {
+    assert!(
+        !child_class_names.is_empty(),
+        "a module value initializer must emit at least one construction part"
+    );
+    let mut level = 0;
+    while child_class_names.len() > 1 {
+        let mut parent_class_names = Vec::new();
+        for (group_index, children) in child_class_names
+            .chunks(MODULE_VALUE_DISPATCH_FANOUT)
+            .enumerate()
+        {
+            let parent_class_name =
+                format!("{class_name}${method_stem}Dispatch{level}_{group_index}");
+            let mut parent_class = ClassBuilder::new(&parent_class_name);
+            parent_class.access_flags = 0x0031;
+            let mut code = MethodCode::new(Rc::clone(&parent_class.constant_pool));
+            for child_class_name in children {
+                code.aload(0);
+                code.invokestatic(child_class_name, "apply", "(Ljava/util/ArrayList;)V");
+            }
+            code.op(0xb1);
+            parent_class.add_method(MethodInfo {
+                access_flags: 0x0009,
+                name: "apply".to_string(),
+                descriptor: "(Ljava/util/ArrayList;)V".to_string(),
+                max_stack: code.max_stack,
+                max_locals: code.max_locals,
+                code: code.code,
+                exceptions: code.exceptions,
+            });
+            parent_class_names.push(parent_class_name.clone());
+            helper_classes.push(JvmClassFile {
+                path: format!("{parent_class_name}.class"),
+                contents: parent_class.finish()?,
+            });
+        }
+        child_class_names = parent_class_names;
+        level += 1;
+    }
+    Ok(child_class_names.pop().expect("dispatcher root class"))
 }
 
 #[cfg(test)]
@@ -652,10 +721,7 @@ impl<'a> ClassfileEmitter<'a> {
             ordered_values.chunks(MODULE_VALUES_PER_CLASS).enumerate()
         {
             let class_name = self.module_value_class(class_index);
-            classes.push(JvmClassFile {
-                path: format!("{class_name}.class"),
-                contents: self.emit_module_value_class(&class_name, declarations)?,
-            });
+            classes.extend(self.emit_module_value_class(&class_name, declarations)?);
         }
         for function in &self.program.functions {
             classes.push(JvmClassFile {
@@ -712,9 +778,10 @@ impl<'a> ClassfileEmitter<'a> {
         &self,
         class_name: &str,
         declarations: &[usize],
-    ) -> Result<Vec<u8>, JvmBackendError> {
+    ) -> Result<Vec<JvmClassFile>, JvmBackendError> {
         let mut class = ClassBuilder::new(class_name);
         class.access_flags = 0x0031;
+        let mut helper_classes = Vec::new();
         let function = self
             .program
             .functions
@@ -729,17 +796,19 @@ impl<'a> ClassfileEmitter<'a> {
                 descriptor: MODULE_VALUE_DESCRIPTOR.to_string(),
             });
         }
-        for declaration_index in declarations {
+        for (initializer_index, declaration_index) in declarations.iter().enumerate() {
             let declaration = &self.program.module_values[*declaration_index];
             let mut emitter = FunctionBytecodeEmitter::new(self, function);
             let method_name = format!("init_{}", self.module_value_name(&declaration.identity));
+            let helper_stem = format!("Value{initializer_index}");
             let mut method = emit_module_value_initializer(
                 &mut class,
                 class_name,
-                &method_name,
+                &helper_stem,
                 &mut emitter,
                 &declaration.initializer,
-            );
+                &mut helper_classes,
+            )?;
             method.putstatic(
                 class_name,
                 self.module_value_name(&declaration.identity),
@@ -776,7 +845,12 @@ impl<'a> ClassfileEmitter<'a> {
             code: method.code,
             exceptions: method.exceptions,
         });
-        class.finish()
+        let mut classes = vec![JvmClassFile {
+            path: format!("{class_name}.class"),
+            contents: class.finish()?,
+        }];
+        classes.extend(helper_classes);
+        Ok(classes)
     }
 
     fn emit_function_adapter(&self, function: &IrFunction) -> Result<Vec<u8>, JvmBackendError> {
