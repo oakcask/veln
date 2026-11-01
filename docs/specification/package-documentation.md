@@ -26,7 +26,9 @@ root, every captured dependency project from the same analysis, and a
 and `catalog()` for the optional published catalog. `canonical_bytes()` and
 `doc_digest()` expose the stable result identity. Use `declaration_uri_for` or
 `declaration_uri_for_location` to obtain documentation links rather than
-constructing their identifiers.
+constructing their identifiers. Generation derives module-value publication
+roots from the semantic identities of public declarations in exported modules;
+callers do not select publication diagnostics by source span.
 
 ## Read First
 
@@ -239,6 +241,9 @@ The implemented gates are:
   dependency rejects the complete catalog with `gate: "module_value"` and
   publishes no module value or accepted sibling declaration. The failure keeps
   only diagnostics in the rejected exported value's causal dependency closure.
+  The gate selects each exported root by its package-aware semantic identity,
+  not by its source path or byte range. A declaration from another package does
+  not become a root when its source span equals an exported declaration's span.
   If multiple public declarations have the same semantic module-value identity,
   the gate evaluates every occurrence and retains the union of their owned
   causal diagnostics. Source order does not select one occurrence's causes.
