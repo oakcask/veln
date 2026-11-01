@@ -161,9 +161,7 @@ impl SymbolIndex {
                         && candidate.name == requested_name
                         && workspace_module_is_barely_imported(file, &candidate.module)
                 });
-                let Some(candidate) = imported_function else {
-                    return None;
-                };
+                let candidate = imported_function?;
                 if affected_bare_reference {
                     return Some(module_rename_conflict(
                         candidate.declaration.clone(),

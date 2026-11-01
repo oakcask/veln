@@ -211,7 +211,7 @@ mod navigation_module_value_tests {
                 RenameNameClass::ValueBinding,
                 "target",
                 "main.veln",
-                if consumer_declaration.starts_with("let") { 2 } else { 2 },
+                2,
                 if consumer_declaration.starts_with("let") { 5 } else { 4 },
             );
         }
