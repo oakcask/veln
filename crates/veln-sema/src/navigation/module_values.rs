@@ -24,6 +24,9 @@ pub struct ResolvedModuleValueNavigation {
 pub fn resolved_module_value_navigation(
     module: &SurfaceModule,
 ) -> Vec<ResolvedModuleValueNavigation> {
+    if module.module_values.is_empty() {
+        return Vec::new();
+    }
     let mut environment = TypeEnvironment::from_module(module);
     let analysis = check_module_values(
         module,
@@ -68,6 +71,9 @@ pub fn resolved_module_value_navigation(
             ))
         })
         .collect::<BTreeMap<_, _>>();
+    if resolved.is_empty() {
+        return Vec::new();
+    }
     for value in &module.module_values {
         collect_expr_references(
             &value.initializer,
