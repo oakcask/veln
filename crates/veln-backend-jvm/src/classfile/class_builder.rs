@@ -46,6 +46,13 @@ impl ClassBuilder {
     }
 
     pub(super) fn finish(self) -> Result<Vec<u8>, JvmBackendError> {
+        if self
+            .methods
+            .iter()
+            .any(|method| method.code.len() > usize::from(u16::MAX))
+        {
+            return Err(JvmBackendError::new("JVM method code exceeds 65535 bytes"));
+        }
         let this_class = self.constant_pool.borrow_mut().class(&self.name);
         let super_class = self.constant_pool.borrow_mut().class(JAVA_LANG_OBJECT);
         let code_name = self.constant_pool.borrow_mut().utf8("Code");
@@ -110,6 +117,29 @@ impl ClassBuilder {
         }
         write_u16(&mut out, 0);
         Ok(out)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finish_rejects_method_code_above_the_classfile_limit() {
+        let mut class = ClassBuilder::new("OversizedMethod");
+        class.add_method(MethodInfo {
+            access_flags: 0x0008,
+            name: "oversized".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: 0,
+            max_locals: 0,
+            code: vec![0; usize::from(u16::MAX) + 1],
+            exceptions: Vec::new(),
+        });
+
+        let error = class.finish().expect_err("oversized code should fail");
+
+        assert_eq!(error.to_string(), "JVM method code exceeds 65535 bytes");
     }
 }
 

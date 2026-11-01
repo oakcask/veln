@@ -58,8 +58,8 @@ also states it.
 
 Before implementing a proposal, compare it with the matching specification
 page and executable cases. Select only a complete proposal page listed under
-Ready. If Ready contains no suitable implementation target, report
-that there is no target instead of selecting work from Blocked.
+Ready. If Ready contains no suitable implementation target, report that there
+is no target instead of selecting work from another section.
 
 Do not select work that is already covered by the current specification or
 only extends a numbered, width-based, arity-based, route-count, or diagnostic-id

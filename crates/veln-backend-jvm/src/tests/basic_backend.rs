@@ -105,71 +105,76 @@ fn backend_materializes_builtin_adt_module_values_and_nested_dependencies() {
 }
 
 #[test]
-fn backend_module_value_identity_is_independent_of_source_and_import_order() {
+fn backend_module_value_identity_is_independent_of_source_import_and_first_use_order() {
     for reverse in [false, true] {
-        let main = SourceFile::new(
-            "main.veln",
-            if reverse {
+        for reverse_first_use in [false, true] {
+            let imports = if reverse {
+                "use right\nuse left\n"
+            } else {
+                "use left\nuse right\n"
+            };
+            let reads = if reverse_first_use {
                 concat!(
-                    "use right\n",
-                    "use left\n",
-                    "pub fn main() -> () effects [stdio]\n",
-                    "  stdio::println(int_to_string(left::selected))\n",
                     "  stdio::println(int_to_string(right::selected))\n",
-                    "end\n",
+                    "  stdio::println(int_to_string(left::selected))\n",
                 )
             } else {
                 concat!(
-                    "use left\n",
-                    "use right\n",
-                    "pub fn main() -> () effects [stdio]\n",
                     "  stdio::println(int_to_string(left::selected))\n",
                     "  stdio::println(int_to_string(right::selected))\n",
-                    "end\n",
                 )
-            },
-        );
-        let left = SourceFile::new("left.veln", "pub let selected: Int = 11\n");
-        let right = SourceFile::new("right.veln", "pub let selected: Int = 22\n");
-        let files = if reverse {
-            vec![right, left, main]
-        } else {
-            vec![main, left, right]
-        };
-        let analysis = analyze_project(
-            Project {
-                root: std::path::PathBuf::new(),
-                files,
-                manifest: None,
-            },
-            DoctestMode::Exclude,
-        );
-        let diagnostics = analysis.checked_diagnostics();
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-        let lowered = analysis
-            .lower_reachable_entry("main", FunctionKind::Function)
-            .lowered;
-        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-        let ir = lowered.ir.expect("ordered module values should lower");
-        let program = generate_classfiles_with_entry(&ir, "main");
-        let Some(output) = run_jvm_program_when_java_is_available(
-            if reverse {
-                "module-value-order-reverse"
+            };
+            let main = SourceFile::new(
+                "main.veln",
+                format!("{imports}pub fn main() -> () effects [stdio]\n{reads}end\n"),
+            );
+            let left = SourceFile::new("left.veln", "pub let selected: Int = 11\n");
+            let right = SourceFile::new("right.veln", "pub let selected: Int = 22\n");
+            let files = if reverse {
+                vec![right, left, main]
             } else {
-                "module-value-order-forward"
-            },
-            &program,
-            &[],
-        ) else {
-            return;
-        };
+                vec![main, left, right]
+            };
+            let analysis = analyze_project(
+                Project {
+                    root: std::path::PathBuf::new(),
+                    files,
+                    manifest: None,
+                },
+                DoctestMode::Exclude,
+            );
+            let diagnostics = analysis.checked_diagnostics();
+            assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+            let lowered = analysis
+                .lower_reachable_entry("main", FunctionKind::Function)
+                .lowered;
+            assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+            let ir = lowered.ir.expect("ordered module values should lower");
+            let program = generate_classfiles_with_entry(&ir, "main");
+            let Some(output) = run_jvm_program_when_java_is_available(
+                if reverse {
+                    "module-value-order-reverse"
+                } else {
+                    "module-value-order-forward"
+                },
+                &program,
+                &[],
+            ) else {
+                return;
+            };
 
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        assert_eq!(String::from_utf8_lossy(&output.stdout), "11\n22\n");
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let expected = if reverse_first_use {
+                "22\n11\n"
+            } else {
+                "11\n22\n"
+            };
+            assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
+        }
     }
 }
 

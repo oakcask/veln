@@ -147,11 +147,13 @@ imported or aliased references, and same-spelled declarations from distinct
 packages produce their selected data independent of source, import, or
 first-use order. A valid acyclic
 dependency chain remains executable when its declaration depth exceeds the
-available JVM call-stack depth. A declaration set remains executable when its
-materialized fields and initializers exceed one JVM class constant pool; the
-backend partitions storage while retaining declaration identity and dependency
-order. Reading the final value does not recursively evaluate the preceding
-initializers. The checked
+available JVM call-stack depth. A declaration set can span more materialized
+fields and initializers than one JVM class constant pool can represent. The
+backend partitions declarations into storage classes while retaining
+declaration identity and dependency order. Each generated class and initializer
+method must still fit the JVM classfile representation limits. Reading the
+final value does not recursively evaluate the preceding initializers. The
+checked
 [`module-value-runtime-execution`](../../examples/specification/run/module-value-runtime-execution/)
 case exercises the supported values and identity boundaries. The focused
 [`JVM backend test`](../../crates/veln-backend-jvm/src/tests/basic_backend.rs)
@@ -268,9 +270,10 @@ syntax.
 
 The JVM backend emits classfile artifacts and invokes the selected entry. Java
 source generation and Java source compilation are outside the command contract.
-If one generated class cannot represent its constant pool or a constant-pool
-string exceeds 65,535 bytes, classfile generation returns a bounded backend
-failure before it writes a truncated classfile.
+If one generated class cannot represent its constant pool, a constant-pool
+string exceeds 65,535 bytes, or a method exceeds 65,535 bytes of code,
+classfile generation returns a bounded backend failure before it writes an
+invalid or truncated classfile.
 `ByteChunk`, `ByteView`, `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,
 `DecodeError`, `EncodeStep<TState>`, and `EncodeError` are immutable
 source-visible values. Byte and view helpers are pure; invalid values,

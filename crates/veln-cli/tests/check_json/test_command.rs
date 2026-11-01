@@ -1,5 +1,25 @@
 use super::support::*;
 
+#[test]
+fn test_reports_backend_generation_failures_before_human_or_json_reports() {
+    let project = TestProject::new("test-backend-generation-failure");
+    project.write(
+        "main_test.veln",
+        &oversized_module_value_source("test oversized_case() -> ()\n  oversized\n  ()\nend\n"),
+    );
+
+    for args in [vec![], vec!["--json"]] {
+        let output = project.test(&args);
+
+        assert_eq!(output.status.code(), Some(2));
+        assert_eq!(stdout(&output), "");
+        assert_eq!(
+            stderr(&output),
+            "veln: JVM backend could not generate test `oversized_case`: JVM class constant-pool string exceeds 65535 bytes\n"
+        );
+    }
+}
+
 #[cfg(unix)]
 #[test]
 fn test_json_reports_rejected_discovered_doctest_origins_without_panicking() {

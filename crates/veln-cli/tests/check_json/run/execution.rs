@@ -1,5 +1,28 @@
 use super::*;
 
+#[test]
+fn run_reports_backend_generation_failures_before_human_or_json_execution() {
+    let project = TestProject::new("run-backend-generation-failure");
+    project.write(
+        "main.veln",
+        &oversized_module_value_source("pub fn main() -> String\n  oversized\nend\n"),
+    );
+
+    for args in [
+        vec!["main", "main.veln"],
+        vec!["--json", "main", "main.veln"],
+    ] {
+        let output = project.run(&args);
+
+        assert_eq!(output.status.code(), Some(2));
+        assert_eq!(stdout(&output), "");
+        assert_eq!(
+            stderr(&output),
+            "veln: JVM backend could not generate the program: JVM class constant-pool string exceeds 65535 bytes\n"
+        );
+    }
+}
+
 #[cfg(unix)]
 #[test]
 fn run_json_uses_stderr_message_for_trace_free_jvm_failure() {

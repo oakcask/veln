@@ -140,6 +140,11 @@ pub(super) fn assert_contains_all(haystack: &str, needles: &[&str]) {
     }
 }
 
+pub(super) fn oversized_module_value_source(entry: &str) -> String {
+    let literal = "x".repeat(usize::from(u16::MAX) + 1);
+    format!("let oversized: String = \"{literal}\"\n\n{entry}")
+}
+
 pub(super) fn jdk_is_available() -> bool {
     Command::new("java").arg("-version").output().is_ok()
         && Command::new("java")
