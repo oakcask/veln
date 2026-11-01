@@ -183,7 +183,20 @@ fn module_value_symbols(
     files: &[IndexedFile],
     module: &veln_ast::SurfaceModule,
 ) -> Vec<ModuleValueSymbol> {
-    let files_by_identity = files
+    let files_by_identity = module_value_files_by_identity(files);
+    let workspace_navigation_paths = module_value_workspace_paths(files);
+    veln_sema::resolved_module_value_navigation(module)
+        .into_iter()
+        .filter_map(|resolved| {
+            module_value_symbol(resolved, &files_by_identity, &workspace_navigation_paths)
+        })
+        .collect()
+}
+
+fn module_value_files_by_identity(
+    files: &[IndexedFile],
+) -> HashMap<(&str, Option<&str>), &IndexedFile> {
+    files
         .iter()
         .map(|file| {
             record_module_value_file_index_entry();
@@ -193,52 +206,55 @@ fn module_value_symbols(
             };
             ((file.source.path().as_str(), package), file)
         })
-        .collect::<HashMap<_, _>>();
-    let workspace_navigation_paths = files
+        .collect()
+}
+
+fn module_value_workspace_paths(files: &[IndexedFile]) -> HashSet<&str> {
+    files
         .iter()
         .filter(|file| workspace_navigation_file(file))
         .map(|file| {
             record_module_value_workspace_path_entry();
             file.source.path().as_str()
         })
-        .collect::<HashSet<_>>();
-    veln_sema::resolved_module_value_navigation(module)
-        .into_iter()
-        .filter_map(|resolved| {
-            record_module_value_declaration_lookup();
-            let file = files_by_identity.get(&(
-                resolved.declaration.file.as_str(),
-                resolved.identity.package.as_deref(),
-            ))?;
-            if file.navigation_isolated
-                || is_invalid_declaration_name(file, &resolved.declaration)
-            {
-                return None;
-            }
-            let public = resolved.visibility == veln_ast::Visibility::Public;
-            let origin = declaration_origin(file, resolved.declaration.clone(), public)?;
-            let references = resolved
-                .references
-                .into_iter()
-                .filter(|reference| {
-                    record_module_value_reference_lookup();
-                    workspace_navigation_paths.contains(reference.file.as_str())
-                })
-                .collect();
-            Some(ModuleValueSymbol {
-                module: resolved
-                    .identity
-                    .module
-                    .unwrap_or_else(|| file.module.clone()),
-                name: resolved.identity.name,
-                declaration: origin.declaration,
-                package: resolved.identity.package,
-                package_origin: origin.package_origin,
-                public,
-                references,
-            })
-        })
         .collect()
+}
+
+fn module_value_symbol(
+    resolved: veln_sema::ResolvedModuleValueNavigation,
+    files_by_identity: &HashMap<(&str, Option<&str>), &IndexedFile>,
+    workspace_navigation_paths: &HashSet<&str>,
+) -> Option<ModuleValueSymbol> {
+    record_module_value_declaration_lookup();
+    let file = files_by_identity.get(&(
+        resolved.declaration.file.as_str(),
+        resolved.identity.package.as_deref(),
+    ))?;
+    if file.navigation_isolated || is_invalid_declaration_name(file, &resolved.declaration) {
+        return None;
+    }
+    let public = resolved.visibility == veln_ast::Visibility::Public;
+    let origin = declaration_origin(file, resolved.declaration.clone(), public)?;
+    let references = resolved
+        .references
+        .into_iter()
+        .filter(|reference| {
+            record_module_value_reference_lookup();
+            workspace_navigation_paths.contains(reference.file.as_str())
+        })
+        .collect();
+    Some(ModuleValueSymbol {
+        module: resolved
+            .identity
+            .module
+            .unwrap_or_else(|| file.module.clone()),
+        name: resolved.identity.name,
+        declaration: origin.declaration,
+        package: resolved.identity.package,
+        package_origin: origin.package_origin,
+        public,
+        references,
+    })
 }
 
 fn constructor_indices_by_identity(
