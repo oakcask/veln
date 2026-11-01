@@ -115,10 +115,13 @@ JDK setup failures are reported on the affected case with
 `failure.kind: "runtime"`. This includes a missing `java` before compilation
 or class loading.
 
-A JVM classfile generation failure occurs before report construction. It
-writes a `veln: JVM backend could not generate ...` command error to standard
-error and exits with status 2. The command emits no test JSON envelope or case
-record for this failure.
+Before report construction or Java launch, the command attempts JVM classfile
+generation for the reusable suite program or for every independently lowered
+runnable test. A generation failure in any runnable test aborts the command
+before an earlier test can execute or publish cache state. It writes a
+`veln: JVM backend could not generate ...` command error to standard error and
+exits with status 2. The command emits no test JSON envelope or case record for
+this failure.
 
 Runtime contract failures inside a selected test case are reported as failed
 cases with `failure.kind: "contract"`. The failure details use

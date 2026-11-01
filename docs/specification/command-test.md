@@ -120,11 +120,14 @@ A different failure or successful execution fails with
 `reason: "runner_error"`.
 
 JVM classfile generation can reject a suite program or an independently
-lowered test that exceeds a classfile representation limit. This failure
-occurs after typed-IR readiness and before worker launch, cache publication, or
-Java launch. The command writes a `veln: JVM backend could not generate ...`
-message to standard error and exits with status 2. It does not produce case
-records; `--json` does not emit a test JSON envelope for this command error.
+lowered test that exceeds a classfile representation limit. Before it launches
+any worker, publishes cache state, or launches Java, the command attempts
+generation for the reusable suite program or for every independently lowered
+runnable test. A failure in any of those attempts aborts the command before an
+earlier runnable test can execute. The command writes a
+`veln: JVM backend could not generate ...` message to standard error and exits
+with status 2. It does not produce case records; `--json` does not emit a test
+JSON envelope for this command error.
 
 Workers capture output per case. The coordinator waits for all workers and
 renders human status, JSON cases, diagnostics, events, summaries, failures, and
