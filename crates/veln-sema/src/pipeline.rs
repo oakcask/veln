@@ -60,7 +60,6 @@ pub struct LoweredSurfaceModule {
 #[derive(Clone, Debug, Default)]
 struct IndexedModuleValuePublicationProvenance {
     failures_by_identity: HashMap<ModuleValuePublicationIdentity, Vec<usize>>,
-    failures_by_file_and_range: HashMap<String, HashMap<(usize, usize), usize>>,
     values: Vec<IndexedModuleValuePublicationValue>,
     collision_diagnostic_indices: HashMap<crate::types::ModuleValueIdentity, Vec<usize>>,
     collision_identity_insertions: usize,
@@ -173,47 +172,6 @@ pub struct ModuleValuePublicationWork {
     pub collision_identity_insertions: usize,
     pub collision_diagnostic_lookups: usize,
     pub collision_association_iterations: usize,
-}
-
-#[cfg(test)]
-thread_local! {
-    static MODULE_VALUE_PUBLICATION_WORK: std::cell::Cell<ModuleValuePublicationWork> =
-        const { std::cell::Cell::new(ModuleValuePublicationWork {
-            retained_values: 0,
-            retained_edges: 0,
-            retained_direct_causes: 0,
-            visited_initializations: 0,
-            exported_root_lookups: 0,
-            identity_root_expansions: 0,
-            traversal_values: 0,
-            traversal_edges: 0,
-            cause_insertions: 0,
-            collision_identity_insertions: 0,
-            collision_diagnostic_lookups: 0,
-            collision_association_iterations: 0,
-        }) };
-}
-
-#[cfg(test)]
-fn record_module_value_publication_work(update: impl FnOnce(&mut ModuleValuePublicationWork)) {
-    MODULE_VALUE_PUBLICATION_WORK.set({
-        let mut work = MODULE_VALUE_PUBLICATION_WORK.get();
-        update(&mut work);
-        work
-    });
-}
-
-#[cfg(not(test))]
-fn record_module_value_publication_work(_update: impl FnOnce(&mut ModuleValuePublicationWork)) {}
-
-#[cfg(test)]
-pub(crate) fn reset_module_value_publication_work() {
-    MODULE_VALUE_PUBLICATION_WORK.set(ModuleValuePublicationWork::default());
-}
-
-#[cfg(test)]
-pub(crate) fn take_module_value_publication_work() -> ModuleValuePublicationWork {
-    MODULE_VALUE_PUBLICATION_WORK.replace(ModuleValuePublicationWork::default())
 }
 
 #[cfg(test)]

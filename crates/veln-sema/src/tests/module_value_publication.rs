@@ -20,15 +20,13 @@ fn module_value_publication_chain_work(
     let parsed = parse(&source);
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
-    let root_span = module.module_values[count - 1].span.clone();
-
-    reset_module_value_publication_work();
     let lowered = lower_checked_surface_module(&module);
-    let indices = lowered
-        .module_value_publication_diagnostic_indices(&root_span)
-        .expect("invalid public root publication provenance");
+    let identities = vec![(None, None, format!("value_{}", count - 1))];
+    let (matched_roots, indices, work) =
+        lowered.module_value_publication_diagnostic_indices_for_identities(&identities);
+    assert_eq!(matched_roots, 1);
     assert_eq!(indices.len(), count, "{:#?}", lowered.diagnostics);
-    take_module_value_publication_work()
+    work
 }
 
 #[test]

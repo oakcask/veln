@@ -390,44 +390,6 @@ impl ProjectAnalysis {
         &self.checked.unpublished_declarations
     }
 
-    pub fn module_value_publication_diagnostic_indices(
-        &self,
-        span: &veln_source::SourceSpan,
-    ) -> Option<Vec<usize>> {
-        self.checked
-            .module_value_publication_diagnostic_indices(span)
-    }
-
-    pub fn module_value_publication_diagnostics(
-        &self,
-        span: &veln_source::SourceSpan,
-    ) -> Option<Vec<Diagnostic>> {
-        self.checked
-            .module_value_publication_diagnostic_indices(span)
-            .map(|indices| {
-                indices
-                    .into_iter()
-                    .map(|index| self.checked.diagnostics[index].clone())
-                    .collect()
-            })
-    }
-
-    pub fn module_value_publication_diagnostics_for_spans(
-        &self,
-        spans: &[veln_source::SourceSpan],
-    ) -> (Vec<Diagnostic>, ModuleValuePublicationWork) {
-        let (_, indices, work) = self
-            .checked
-            .module_value_publication_diagnostic_indices_for_spans(spans);
-        (
-            indices
-                .into_iter()
-                .map(|index| self.checked.diagnostics[index].clone())
-                .collect(),
-            work,
-        )
-    }
-
     pub fn module_value_publication_diagnostics_for_identities(
         &self,
         identities: &[veln_sema::ModuleValuePublicationIdentity],

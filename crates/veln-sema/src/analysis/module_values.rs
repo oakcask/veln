@@ -52,7 +52,6 @@ pub(crate) struct ModuleValuePublicationProvenance {
 
 #[derive(Clone, Debug)]
 pub(crate) struct ModuleValuePublicationValue {
-    pub(crate) span: veln_source::SourceSpan,
     pub(crate) identity: Option<ModuleValueIdentity>,
     pub(crate) invalid: bool,
     pub(crate) dependencies: Vec<usize>,
@@ -555,7 +554,6 @@ impl ModuleValueAnalysis {
                 .iter()
                 .enumerate()
                 .map(|(index, value)| ModuleValuePublicationValue {
-                    span: value.span.clone(),
                     identity: value.name.as_ref().map(|name| {
                         (
                             value.package_name.clone(),
