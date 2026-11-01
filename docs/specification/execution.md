@@ -279,7 +279,9 @@ stack slots, classfile generation returns a bounded backend failure before it
 writes an invalid or truncated classfile. Deeply nested finite module-value
 initializers do not consume native compiler stack in proportion to their
 nesting depth. If their generated initializer method exceeds the code limit,
-generation returns the same bounded method-code failure.
+generation returns the same bounded method-code failure. Returning that failure
+through an owning caller also destroys the typed program without consuming
+native compiler stack in proportion to initializer nesting depth.
 `ByteChunk`, `ByteView`, `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,
 `DecodeError`, `EncodeStep<TState>`, and `EncodeError` are immutable
 source-visible values. Byte and view helpers are pure; invalid values,

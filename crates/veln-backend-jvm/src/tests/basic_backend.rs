@@ -352,40 +352,60 @@ fn run_oversized_deep_initializer_on_a_bounded_stack() {
         .name("deep-module-initializer".to_string())
         .stack_size(256 * 1024)
         .spawn(|| {
-            let mut ir = lower_to_ir("let oversized: Int = 1\npub fn main() -> ()\nend\n");
-            let declaration = ir
-                .module_values
-                .first_mut()
-                .expect("oversized module value declaration");
-            let mut initializer = declaration.initializer.clone();
-            for _ in 0..DEPTH {
-                let node_id = initializer.node_id;
-                let span = initializer.span.clone();
-                initializer = IrExpr {
-                    node_id,
-                    ty: veln_ir::CoreType::Unknown,
-                    kind: IrExprKind::Record(vec![veln_ir::IrRecordField {
-                        node_id,
-                        name: "value".to_string(),
-                        value: initializer,
-                    }]),
-                    span,
-                };
-            }
-            declaration.initializer = initializer;
-
-            let failure = try_generate_classfiles_with_entry(&ir, "main");
-            std::mem::forget(ir);
+            let failure = generate_oversized_recursive_adt(DEPTH);
             assert_eq!(
                 failure
                     .expect_err("oversized initializer must be rejected")
-                    .to_string(),
+                    .as_str(),
                 "JVM method code exceeds 65535 bytes"
             );
         })
         .expect("spawn deep module initializer thread")
         .join()
         .expect("deep module initializer thread should complete");
+}
+
+fn generate_oversized_recursive_adt(depth: usize) -> Result<(), String> {
+    let mut ir = lower_to_ir(concat!(
+        "type Chain\n",
+        "  End\n",
+        "  Next(value: Chain)\n",
+        "end\n",
+        "let oversized: Chain = Next(End)\n",
+        "pub fn main() -> ()\n",
+        "end\n",
+    ));
+    let declaration = ir
+        .module_values
+        .first_mut()
+        .expect("oversized module value declaration");
+    assert_eq!(declaration.annotation, "Chain");
+    assert_eq!(declaration.initializer.ty, declaration.ty);
+    let (variant_name, mut initializer) = match &declaration.initializer.kind {
+        IrExprKind::AdtVariant { name, payloads } if payloads.len() == 1 => {
+            (name.clone(), payloads[0].clone())
+        }
+        kind => panic!("lowered recursive ADT initializer: {kind:?}"),
+    };
+    assert_eq!(initializer.ty, declaration.ty);
+    let node_id = declaration.initializer.node_id;
+    let span = declaration.initializer.span.clone();
+    for _ in 0..depth {
+        initializer = IrExpr {
+            node_id,
+            ty: declaration.ty.clone(),
+            kind: IrExprKind::AdtVariant {
+                name: variant_name.clone(),
+                payloads: vec![initializer],
+            },
+            span: span.clone(),
+        };
+    }
+    declaration.initializer = initializer;
+
+    try_generate_classfiles_with_entry(&ir, "main")
+        .map(|_| ())
+        .map_err(|error| error.to_string())
 }
 
 #[test]

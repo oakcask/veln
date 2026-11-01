@@ -38,6 +38,49 @@ pub struct IrModuleValueDecl {
     pub span: SourceSpan,
 }
 
+impl Drop for IrModuleValueDecl {
+    fn drop(&mut self) {
+        drop_ir_expr_tree(&mut self.initializer);
+    }
+}
+
+fn drop_ir_expr_tree(root: &mut IrExpr) {
+    let mut expressions = Vec::new();
+    collect_owned_module_value_children(
+        std::mem::replace(&mut root.kind, IrExprKind::Unit),
+        &mut expressions,
+    );
+
+    while let Some(expression) = expressions.pop() {
+        collect_owned_module_value_children(expression.kind, &mut expressions);
+    }
+}
+
+fn collect_owned_module_value_children(kind: IrExprKind, expressions: &mut Vec<IrExpr>) {
+    match kind {
+        IrExprKind::ResultOk(value)
+        | IrExprKind::ResultErr(value)
+        | IrExprKind::OptionSome(value)
+        | IrExprKind::Prefix { expr: value, .. } => expressions.push(*value),
+        IrExprKind::ListCons { head, tail } => {
+            expressions.push(*head);
+            expressions.push(*tail);
+        }
+        IrExprKind::AdtVariant { payloads, .. } => expressions.extend(payloads),
+        IrExprKind::Record(fields) => {
+            expressions.extend(fields.into_iter().map(|field| field.value));
+        }
+        IrExprKind::ModuleValue(_)
+        | IrExprKind::BoolLiteral(_)
+        | IrExprKind::StringLiteral(_)
+        | IrExprKind::IntLiteral(_)
+        | IrExprKind::Unit
+        | IrExprKind::OptionNone
+        | IrExprKind::ListNil => {}
+        unsupported => drop(unsupported),
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IrSchemaDecodeSpec {
     pub schema_name: String,
