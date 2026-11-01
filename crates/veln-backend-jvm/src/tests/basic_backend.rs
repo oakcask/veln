@@ -167,76 +167,225 @@ fn backend_materializes_builtin_adt_module_values_and_nested_dependencies() {
 
 #[test]
 fn backend_module_value_identity_is_independent_of_source_import_and_first_use_order() {
-    for reverse in [false, true] {
-        for reverse_first_use in [false, true] {
-            let imports = if reverse {
-                "use right\nuse left\n"
-            } else {
-                "use left\nuse right\n"
-            };
-            let reads = if reverse_first_use {
-                concat!(
-                    "  stdio::println(int_to_string(right::selected))\n",
-                    "  stdio::println(int_to_string(left::selected))\n",
-                )
-            } else {
-                concat!(
-                    "  stdio::println(int_to_string(left::selected))\n",
-                    "  stdio::println(int_to_string(right::selected))\n",
-                )
-            };
-            let main = SourceFile::new(
-                "main.veln",
-                format!("{imports}pub fn main() -> () effects [stdio]\n{reads}end\n"),
-            );
-            let left = SourceFile::new("left.veln", "pub let selected: Int = 11\n");
-            let right = SourceFile::new("right.veln", "pub let selected: Int = 22\n");
-            let files = if reverse {
-                vec![right, left, main]
-            } else {
-                vec![main, left, right]
-            };
-            let analysis = analyze_project(
-                Project {
-                    root: std::path::PathBuf::new(),
-                    files,
-                    manifest: None,
-                },
-                DoctestMode::Exclude,
-            );
-            let diagnostics = analysis.checked_diagnostics();
-            assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-            let lowered = analysis
-                .lower_reachable_entry("main", FunctionKind::Function)
-                .lowered;
-            assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-            let ir = lowered.ir.expect("ordered module values should lower");
-            let program = generate_classfiles_with_entry(&ir, "main");
-            let Some(output) = run_jvm_program_when_java_is_available(
-                if reverse {
-                    "module-value-order-reverse"
-                } else {
-                    "module-value-order-forward"
-                },
-                &program,
-                &[],
-            ) else {
-                return;
-            };
-
-            assert!(
-                output.status.success(),
-                "{}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-            let expected = if reverse_first_use {
-                "22\n11\n"
-            } else {
-                "11\n22\n"
-            };
-            assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
+    for reverse_sources in [false, true] {
+        for reverse_imports in [false, true] {
+            for reverse_first_use in [false, true] {
+                assert_module_value_identity_order(
+                    reverse_sources,
+                    reverse_imports,
+                    reverse_first_use,
+                );
+            }
         }
     }
+}
+
+fn assert_module_value_identity_order(
+    reverse_sources: bool,
+    reverse_imports: bool,
+    reverse_first_use: bool,
+) {
+    let imports = if reverse_imports {
+        concat!(
+            "use shared as second from \"namesake/pkg\"\n",
+            "use shared as first from \"selected/pkg\"\n",
+        )
+    } else {
+        concat!(
+            "use shared as first from \"selected/pkg\"\n",
+            "use shared as second from \"namesake/pkg\"\n",
+        )
+    };
+    let reads = if reverse_first_use {
+        concat!(
+            "  stdio::println(int_to_string(second::selected))\n",
+            "  stdio::println(int_to_string(first::selected))\n",
+        )
+    } else {
+        concat!(
+            "  stdio::println(int_to_string(first::selected))\n",
+            "  stdio::println(int_to_string(second::selected))\n",
+        )
+    };
+    let mut app = package_module(
+        "app.veln",
+        &format!("{imports}pub fn main() -> () effects [stdio]\n{reads}end\n"),
+        "owner/pkg",
+        "app",
+    );
+    for use_decl in &mut app.uses {
+        use_decl.name = "shared".to_string();
+    }
+    let mut selected = package_module(
+        "selected/shared.veln",
+        "pub let selected: Int = 11\n",
+        "selected/pkg",
+        "shared",
+    );
+    let mut namesake = package_module(
+        "namesake/shared.veln",
+        "pub let selected: Int = 22\n",
+        "namesake/pkg",
+        "shared",
+    );
+    set_module_value_declaration_module(&mut selected, "shared");
+    set_module_value_declaration_module(&mut namesake, "shared");
+
+    let sources = [app, selected, namesake];
+    let source_order = if reverse_sources {
+        [2, 1, 0]
+    } else {
+        [0, 1, 2]
+    };
+    let mut merged = sources[source_order[0]].clone();
+    for index in source_order.into_iter().skip(1) {
+        extend_surface_module(&mut merged, sources[index].clone());
+    }
+    let lowered = lower_checked_surface_module(&merged);
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "sources={reverse_sources} imports={reverse_imports} first_use={reverse_first_use}: {:#?}",
+        lowered.diagnostics
+    );
+    let ir = lowered.ir.expect("ordered module values should lower");
+    let entry = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main" || function.name.ends_with("::main"))
+        .map(|function| function.name.as_str())
+        .expect("package-aware main function");
+    let program = generate_classfiles_with_entry(&ir, entry);
+    let Some(output) = run_jvm_program_when_java_is_available(
+        &format!(
+            "module-value-order-s{}-i{}-u{}",
+            u8::from(reverse_sources),
+            u8::from(reverse_imports),
+            u8::from(reverse_first_use),
+        ),
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "sources={reverse_sources} imports={reverse_imports} first_use={reverse_first_use}: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let expected = if reverse_first_use {
+        b"22\n11\n".as_slice()
+    } else {
+        b"11\n22\n".as_slice()
+    };
+    assert_eq!(
+        output.stdout, expected,
+        "sources={reverse_sources} imports={reverse_imports} first_use={reverse_first_use}"
+    );
+}
+
+fn package_module(path: &str, text: &str, package: &str, module: &str) -> veln_ast::SurfaceModule {
+    let source = SourceFile::new(path, text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    veln_ast::lower_surface_ast_with_package_module_identity(
+        &parsed.tree,
+        package.to_string(),
+        module.to_string(),
+        source.span(TextRange::at(0)),
+    )
+}
+
+fn extend_surface_module(module: &mut veln_ast::SurfaceModule, other: veln_ast::SurfaceModule) {
+    module.uses.extend(other.uses);
+    module.module_values.extend(other.module_values);
+    module.functions.extend(other.functions);
+    module.effects.extend(other.effects);
+    module.handlers.extend(other.handlers);
+    module.types.extend(other.types);
+    module.schemas.extend(other.schemas);
+    module.aliases.extend(other.aliases);
+}
+
+fn set_module_value_declaration_module(module: &mut veln_ast::SurfaceModule, name: &str) {
+    for value in &mut module.module_values {
+        value.module_name = Some(name.to_string());
+    }
+}
+
+#[test]
+fn bytecode_backend_rejects_an_oversized_deep_initializer_on_a_bounded_stack() {
+    const CHILD_MARKER: &str = "VELN_TEST_DEEP_MODULE_INITIALIZER_CHILD";
+    const TEST_NAME: &str = concat!(
+        "tests::basic_backend::",
+        "bytecode_backend_rejects_an_oversized_deep_initializer_on_a_bounded_stack"
+    );
+    if std::env::var_os(CHILD_MARKER).is_some() {
+        run_oversized_deep_initializer_on_a_bounded_stack();
+        println!("deep-module-initializer-complete");
+        return;
+    }
+
+    let output = Command::new(std::env::current_exe().expect("test executable"))
+        .args(["--exact", TEST_NAME, "--nocapture"])
+        .env(CHILD_MARKER, "1")
+        .output()
+        .expect("run deep module initializer child");
+    assert!(
+        output.status.success(),
+        "deep module initializer child failed: status={} stdout={} stderr={}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("deep-module-initializer-complete"),
+        "deep module initializer child did not execute: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+}
+
+fn run_oversized_deep_initializer_on_a_bounded_stack() {
+    const DEPTH: usize = 20_000;
+    std::thread::Builder::new()
+        .name("deep-module-initializer".to_string())
+        .stack_size(256 * 1024)
+        .spawn(|| {
+            let mut ir = lower_to_ir("let oversized: Int = 1\npub fn main() -> ()\nend\n");
+            let declaration = ir
+                .module_values
+                .first_mut()
+                .expect("oversized module value declaration");
+            let mut initializer = declaration.initializer.clone();
+            for _ in 0..DEPTH {
+                let node_id = initializer.node_id;
+                let span = initializer.span.clone();
+                initializer = IrExpr {
+                    node_id,
+                    ty: veln_ir::CoreType::Unknown,
+                    kind: IrExprKind::Record(vec![veln_ir::IrRecordField {
+                        node_id,
+                        name: "value".to_string(),
+                        value: initializer,
+                    }]),
+                    span,
+                };
+            }
+            declaration.initializer = initializer;
+
+            let failure = try_generate_classfiles_with_entry(&ir, "main");
+            std::mem::forget(ir);
+            assert_eq!(
+                failure
+                    .expect_err("oversized initializer must be rejected")
+                    .to_string(),
+                "JVM method code exceeds 65535 bytes"
+            );
+        })
+        .expect("spawn deep module initializer thread")
+        .join()
+        .expect("deep module initializer thread should complete");
 }
 
 #[test]
