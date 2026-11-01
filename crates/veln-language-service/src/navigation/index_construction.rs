@@ -128,6 +128,10 @@ impl SymbolIndex {
         );
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());
+        let mut complete_module = workspace_module.clone();
+        append_surface_module(&mut complete_module, direct_dependencies.module.clone());
+        append_surface_module(&mut complete_module, standard_library.module.clone());
+        let module_values = module_value_symbols(&files, &complete_module);
         let file_indices_by_identity = file_indices_by_identity(&files);
         Self {
             import_aliases,
@@ -139,6 +143,7 @@ impl SymbolIndex {
             handlers: declarations.handlers,
             operations: declarations.operations,
             functions: declarations.functions,
+            module_values,
             function_indices_by_identity,
             file_indices_by_identity,
             package_function_targets: declarations.package_function_targets,
@@ -165,6 +170,50 @@ impl SymbolIndex {
             function_rename_index: OnceLock::new(),
         }
     }
+}
+
+fn module_value_symbols(
+    files: &[IndexedFile],
+    module: &veln_ast::SurfaceModule,
+) -> Vec<ModuleValueSymbol> {
+    veln_sema::resolved_module_value_navigation(module)
+        .into_iter()
+        .filter_map(|resolved| {
+            let file = files.iter().find(|file| {
+                file.source.path().as_str() == resolved.declaration.file.as_str()
+                    && match (&file.origin, resolved.identity.package.as_deref()) {
+                        (IndexedOrigin::Workspace, None) => true,
+                        (IndexedOrigin::Package { identity, .. }, Some(package)) => {
+                            identity == package
+                        }
+                        _ => false,
+                    }
+            })?;
+            if file.navigation_isolated
+                || is_invalid_declaration_name(file, &resolved.declaration)
+            {
+                return None;
+            }
+            let public = resolved.visibility == veln_ast::Visibility::Public;
+            let origin = declaration_origin(file, resolved.declaration, public)?;
+            let references = resolved
+                .references
+                .into_iter()
+                .filter(|reference| {
+                    files.iter().any(|file| {
+                        workspace_navigation_file(file)
+                            && file.source.path().as_str() == reference.file.as_str()
+                    })
+                })
+                .collect();
+            Some(ModuleValueSymbol {
+                name: resolved.identity.name,
+                declaration: origin.declaration,
+                package_origin: origin.package_origin,
+                references,
+            })
+        })
+        .collect()
 }
 
 fn constructor_indices_by_identity(

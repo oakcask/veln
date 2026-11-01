@@ -152,6 +152,21 @@ impl SymbolIndex {
             .cloned()
     }
 
+    fn module_value_for_selection(
+        &self,
+        name: &str,
+        selection: &SourceSpan,
+    ) -> Option<ModuleValueSymbol> {
+        self.module_values
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && (same_span(&symbol.declaration.span, selection)
+                        || symbol.references.iter().any(|span| same_span(span, selection)))
+            })
+            .cloned()
+    }
+
     fn selected_local(&self, result: &NavigationResult) -> Option<LocalSymbol> {
         let NavigationSource::Workspace = result.selected_symbol.declaration.source else {
             return None;

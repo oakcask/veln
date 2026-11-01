@@ -1,0 +1,68 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result/uri"
+workspace_file_uri = "values.veln"
+
+[[lsp_assert]]
+id = 2
+path = "/result/range"
+equals = {"start":{"line":0,"character":8},"end":{"line":0,"character":14}}
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+length = 4
+
+[[lsp_assert]]
+id = 3
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":8},"end":{"line":0,"character":14}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/1/uri"
+workspace_file_uri = "alias.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/2/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/3/uri"
+workspace_file_uri = "values.veln"
+
+[[lsp_assert]]
+id = 4
+path = "/result"
+equals = {"start":{"line":2,"character":27},"end":{"line":2,"character":33}}
+
+[[lsp_assert]]
+id = 5
+path = "/result/changes/$workspace_file_uri:alias.veln"
+equals = [
+  {"range":{"start":{"line":2,"character":27},"end":{"line":2,"character":33}},"newText":"result"}
+]
+
+[[lsp_assert]]
+id = 5
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals = [
+  {"range":{"start":{"line":2,"character":29},"end":{"line":2,"character":35}},"newText":"result"}
+]
+
+[[lsp_assert]]
+id = 5
+path = "/result/changes/$workspace_file_uri:values.veln"
+equals = [
+  {"range":{"start":{"line":0,"character":8},"end":{"line":0,"character":14}},"newText":"result"},
+  {"range":{"start":{"line":1,"character":18},"end":{"line":1,"character":24}},"newText":"result"}
+]

@@ -3,6 +3,7 @@ include!("tests/workspace.rs");
 include!("tests/effect_references.rs");
 include!("tests/handler_references.rs");
 include!("tests/rename.rs");
+include!("tests/module_values.rs");
 include!("tests/rename_recovery.rs");
 include!("tests/handler_bindings.rs");
 include!("tests/handler_rename.rs");

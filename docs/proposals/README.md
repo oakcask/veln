@@ -16,9 +16,6 @@ also states it.
 
 ## Ready
 
-- Add language-service definition, references, and rename for typed module
-  `let` declarations while retaining package-aware declaration identity:
-  [module-immutable-values.md](module-immutable-values.md).
 - Extend stable-value match refinement to qualified module immutable-value
   references now that their runtime execution prerequisite is implemented:
   [qualified-value-match-refinement.md](qualified-value-match-refinement.md).

@@ -18,6 +18,7 @@ use crate::schema::primitives::{
 use crate::types::schema_types::schema_field_uses_existing_grammar;
 
 mod import_paths;
+mod module_values;
 mod schema_alias_chains;
 
 pub use import_paths::{
@@ -25,6 +26,9 @@ pub use import_paths::{
     ResolvedImportPathPrefix, ResolvedImportPathPrefixSelection, ResolvedNavigationImport,
     ResolvedNavigationImportIdentity, import_namespace_participants,
     resolved_explicit_import_aliases, resolved_navigation_imports,
+};
+pub use module_values::{
+    ModuleValueNavigationIdentity, ResolvedModuleValueNavigation, resolved_module_value_navigation,
 };
 
 pub use schema_alias_chains::resolved_schema_alias_chains;

@@ -239,10 +239,10 @@ Workspace project analysis and document-scoped analysis both check parse-clean
 module immutable value declarations using the finite-data initializer,
 annotation-visibility, imported-lookup, package-identity, and selected
 same-module or imported dependency rules across package sources. They publish
-any resulting semantic diagnostics. Checked core and typed IR retain accepted
-declarations and references, but neither language-service path
-exposes module values through definition, references, rename, completion, or
-signature help.
+any resulting semantic diagnostics. Workspace language-service navigation
+exposes accepted declarations and references through definition, references,
+prepare-rename, and rename as specified below. Completion and signature help do
+not expose module values.
 
 When a workspace source has an invalid source-path-derived module identity,
 the language service does not expose that source or its declarations as normal
@@ -400,6 +400,35 @@ another import and with the selected alias's own target path, stable conflict
 details, and edit-free rejection. Shared-language-service tests cover the
 ambiguous function, type, and constructor member boundary and complete rename
 edit sets in the original and reversed combined-source order.
+
+### Module immutable-value navigation
+
+A typed module `let` declaration has one package-aware value identity. Direct
+references in its declaring module, qualified references through an imported
+module, and references through an explicit import alias select that same
+identity. Definition returns the declaration name. References return only
+workspace occurrences resolved to that identity. Equal initializer data and a
+same-spelled function or module value do not join the reference set.
+
+For a workspace declaration, prepare-rename returns the selected declaration
+or reference range. Rename edits the declaration and every workspace reference
+in that identity's reference set. The replacement must start with an ASCII
+lowercase letter. The qualifier portion of an alias-qualified reference keeps
+the separate import-alias identity described above.
+
+Public module values from retained direct dependencies participate in
+definition and workspace references by their package and module owner. Values
+with the same module and declaration name in different packages remain
+distinct. Their definitions use immutable `veln-pkg:` locations, so
+prepare-rename returns no range and rename returns no edits for a dependency
+selection.
+
+The checked
+[`module-value-navigation`](../../examples/specification/lsp/module-value-navigation/)
+case covers definition, declaration-inclusive references, prepare-rename, and
+rename across direct, qualified, and aliased workspace references. Focused
+language-service and LSP tests cover equal initializer data, same-spelled
+functions, and package-distinct dependency identities.
 
 ### Shared variant-refinement navigation
 

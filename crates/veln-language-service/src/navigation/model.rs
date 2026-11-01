@@ -15,6 +15,7 @@ pub enum SymbolKind {
     EffectOperation,
     Type,
     Function,
+    ModuleValue,
     Constructor,
     ValueBinding,
     HandlerContextParameter,
@@ -38,6 +39,7 @@ impl SymbolKind {
             Self::Type => RenameNameClass::Type,
             Self::Constructor => RenameNameClass::Constructor,
             Self::Function => RenameNameClass::Function,
+            Self::ModuleValue => RenameNameClass::ValueBinding,
             Self::ValueBinding
             | Self::HandlerContextParameter
             | Self::HandlerOperationClauseParameter => {
@@ -482,6 +484,7 @@ impl Symbol {
             Self::Type(symbol) => symbol.declaration.clone(),
             Self::TypeAlias(symbol) => symbol.declaration.clone(),
             Self::Function(symbol) => symbol.declaration.clone(),
+            Self::ModuleValue(symbol) => symbol.declaration.clone(),
             Self::Constructor(symbol) => symbol.declaration.clone(),
             Self::Local(symbol) => workspace_location(symbol.declaration.clone()),
             Self::Recovery(symbol) => workspace_location(symbol.declaration.clone()),
@@ -507,6 +510,7 @@ impl Symbol {
             Self::EffectOperation(_) => SymbolKind::EffectOperation,
             Self::Type(_) | Self::TypeAlias(_) => SymbolKind::Type,
             Self::Function(_) => SymbolKind::Function,
+            Self::ModuleValue(_) => SymbolKind::ModuleValue,
             Self::Constructor(_) => SymbolKind::Constructor,
             Self::Local(symbol) => symbol.kind.symbol_kind(),
             Self::Recovery(symbol) => symbol.kind,
@@ -523,6 +527,7 @@ impl Symbol {
             Self::Type(symbol) => &symbol.name,
             Self::TypeAlias(symbol) => &symbol.name,
             Self::Function(symbol) => &symbol.name,
+            Self::ModuleValue(symbol) => &symbol.name,
             Self::Constructor(symbol) => &symbol.name,
             Self::Local(symbol) => &symbol.name,
             Self::Recovery(symbol) => &symbol.name,
@@ -540,6 +545,7 @@ impl Symbol {
             Self::Type(symbol) => index.type_references(symbol),
             Self::TypeAlias(symbol) => index.type_alias_references(symbol),
             Self::Function(symbol) => index.function_references(symbol),
+            Self::ModuleValue(symbol) => symbol.references.clone(),
             Self::Constructor(symbol) => index.constructor_references(symbol),
             Self::Local(symbol) => index.local_references(symbol, false),
             Self::Recovery(symbol) => index.recovery_references(symbol),
@@ -565,6 +571,7 @@ impl Symbol {
             Self::ImportAlias(_) => None,
             Self::Schema(symbol) | Self::SchemaAlias(symbol) => symbol.package_origin,
             Self::Function(symbol) => symbol.package_origin,
+            Self::ModuleValue(symbol) => symbol.package_origin,
             Self::Type(symbol) => symbol.package_origin,
             Self::TypeAlias(symbol) => symbol.package_origin,
             Self::Constructor(symbol) => symbol.package_origin,
@@ -611,6 +618,14 @@ struct FunctionSymbol {
     standard_prelude: bool,
     declaration_kind: SymbolDeclarationKind,
     invalid_declaration_name: bool,
+}
+
+#[derive(Clone, Debug)]
+struct ModuleValueSymbol {
+    name: String,
+    declaration: NavigationLocation,
+    package_origin: Option<PackageOrigin>,
+    references: Vec<SourceSpan>,
 }
 
 #[derive(Clone, Debug)]
@@ -717,6 +732,7 @@ fn self_role_for_symbol(symbol: Option<&Symbol>) -> Option<NameClass> {
         }
         Symbol::Type(_) | Symbol::TypeAlias(_) => Some(NameClass::Type),
         Symbol::Function(_) => Some(NameClass::Function),
+        Symbol::ModuleValue(_) => Some(NameClass::ValueBinding),
         Symbol::Constructor(_) => Some(NameClass::Constructor),
         Symbol::Recovery(symbol) => symbol.name_class(),
         Symbol::Local(_) => None,
@@ -788,6 +804,7 @@ enum Symbol {
     Type(TypeSymbol),
     TypeAlias(TypeAliasSymbol),
     Function(FunctionSymbol),
+    ModuleValue(ModuleValueSymbol),
     Constructor(ConstructorSymbol),
     Local(LocalSymbol),
     Recovery(RecoverySymbol),
@@ -867,6 +884,7 @@ impl RecoverySymbol {
             | SymbolKind::EffectOperation => None,
             SymbolKind::Type => Some(NameClass::Type),
             SymbolKind::Function => Some(NameClass::Function),
+            SymbolKind::ModuleValue => Some(NameClass::ValueBinding),
             SymbolKind::Constructor => Some(NameClass::Constructor),
             SymbolKind::ValueBinding
             | SymbolKind::HandlerContextParameter
@@ -1187,6 +1205,7 @@ pub(crate) struct SymbolIndex {
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
+    module_values: Vec<ModuleValueSymbol>,
     function_indices_by_identity: HashMap<FunctionIdentity, Vec<usize>>,
     file_indices_by_identity: HashMap<IndexedFileIdentity, Vec<usize>>,
     package_function_targets: Vec<PackageFunctionTarget>,

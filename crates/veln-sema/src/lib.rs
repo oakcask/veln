@@ -39,12 +39,13 @@ pub(crate) use analysis::{
 };
 pub use name_recovery::normal_imported_module_for_path;
 pub use navigation::{
-    ImportNamespaceParticipant, ResolvedExplicitImportAlias, ResolvedImportPathIndex,
-    ResolvedImportPathPrefix, ResolvedImportPathPrefixSelection, ResolvedNavigationImport,
-    ResolvedNavigationImportIdentity, ResolvedSchemaAlias, ResolvedSchemaCompositionReference,
-    import_namespace_participants, resolved_explicit_import_aliases, resolved_navigation_imports,
-    resolved_schema_alias_chains, resolved_schema_aliases, resolved_schema_composition_references,
-    schema_repeat_count_expression_is_valid,
+    ImportNamespaceParticipant, ModuleValueNavigationIdentity, ResolvedExplicitImportAlias,
+    ResolvedImportPathIndex, ResolvedImportPathPrefix, ResolvedImportPathPrefixSelection,
+    ResolvedModuleValueNavigation, ResolvedNavigationImport, ResolvedNavigationImportIdentity,
+    ResolvedSchemaAlias, ResolvedSchemaCompositionReference, import_namespace_participants,
+    resolved_explicit_import_aliases, resolved_module_value_navigation,
+    resolved_navigation_imports, resolved_schema_alias_chains, resolved_schema_aliases,
+    resolved_schema_composition_references, schema_repeat_count_expression_is_valid,
 };
 #[cfg(test)]
 pub(crate) use navigation::{

@@ -240,6 +240,7 @@ fn completion_kind_for_symbol(symbol: &Symbol) -> Option<CompletionCandidateKind
         | Symbol::Effect(_)
         | Symbol::Handler(_)
         | Symbol::EffectOperation(_)
+        | Symbol::ModuleValue(_)
         | Symbol::Local(_)
         | Symbol::Recovery(_) => None,
     }
