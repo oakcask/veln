@@ -287,9 +287,9 @@ contract. The
 executable specification case verifies doctest origin mapping through this JSON
 command boundary. The
 [`module-value-imported-static-gate-json`](../../examples/specification/test/module-value-imported-static-gate-json/)
-case verifies package-aware imported value typing, annotation visibility, the
-module-value execution blocker, blocked case records, empty event lists, and
-the absence of Java startup.
+case verifies package-aware imported value typing, annotation-visibility
+failures, blocked case records, empty event lists, and the absence of Java
+startup.
 
 ## Usage and limits
 

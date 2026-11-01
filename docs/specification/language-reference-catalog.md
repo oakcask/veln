@@ -51,9 +51,10 @@ The `declarations-aliases` topic projects `TypeDecl` with zero or more
 with no constructors. It also projects typed module `let` declarations and
 states their finite-data initializer checking, same-module and imported lookup,
 package-aware visibility, dependency-cycle validation across package sources,
-checked-core and typed-IR identity preservation, and non-executable runtime
-boundary. The selected formatter example demonstrates the accepted private and
-public forms without presenting them as runtime values.
+checked-core and typed-IR identity preservation, and runtime materialization of
+finite data without invoking user code. The selected formatter example
+demonstrates the accepted private and public source forms. The execution
+specification and its checked run case own runtime observations.
 The `types-inference-constructors` topic includes the executable productions
 for variant-refinement type text. Every alternative requires an uppercase
 final segment. A non-generic alternative also requires an uppercase base leaf.
@@ -69,7 +70,9 @@ and pattern boundaries, recursive visibility at public-signature, public
 module-value-annotation, and public-ADT-payload boundaries, including private
 named types in public module value annotations, transitive publication
 quarantine, focused mixed-union base failure, invalid-signature quarantine,
-and the qualified-value limit.
+and the qualified-value limit. The qualified-value limit is independent of
+execution readiness: module values execute, but they are not yet stable match
+paths for refinement.
 The selected examples demonstrate refined call typing, complete structural
 assignment, control-flow result joins, alias-qualified identity and
 presentation, generic alias boundaries, structural visibility, and publication

@@ -30,3 +30,17 @@ proposal.
 | Navigation | Definition, references, and rename retain declaration identity across valid import spellings. | Language-service and protocol cases. |
 
 Remove this proposal after the navigation row is implemented and checked.
+
+## Related Work And Design Choice
+
+The Language Server Protocol defines separate
+[`textDocument/definition`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition),
+[`textDocument/references`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references),
+and
+[`textDocument/rename`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_rename)
+requests around a source position. Those request and response shapes do not
+define Veln declaration identity or import semantics. Veln therefore applies
+one compiler-owned module-value identity across the three operations and
+projects the resulting locations and edits through the existing protocol
+shapes. Equal initializer data and equal source spelling are not alternative
+identity rules because either would join distinct declarations.
