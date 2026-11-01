@@ -50,6 +50,67 @@ fn backend_materializes_complete_finite_module_value_surface() {
 }
 
 #[test]
+fn backend_materializes_module_strings_requiring_modified_utf8() {
+    let ir = lower_to_ir(concat!(
+        "let supplementary: String = \"prefix 😀 suffix\"\n",
+        "let containing_nul: String = \"left\0right\"\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(supplementary)\n",
+        "  stdio::println(containing_nul)\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("module-value-modified-utf8", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, "prefix 😀 suffix\nleft\0right\n".as_bytes());
+}
+
+#[test]
+fn backend_materializes_nested_module_records_at_and_beyond_the_former_stack_limit() {
+    let mut source = String::new();
+    for (name, depth, leaf) in [("boundary", 21, 2_101), ("beyond", 24, 2_401)] {
+        let record_type = format!("{{ value: {}", "{ value: ".repeat(depth - 1));
+        let initializer = format!("{{ value: {}", "{ value: ".repeat(depth - 1));
+        let closings = " }".repeat(depth);
+        source.push_str(&format!(
+            "let {name}: {record_type}Int{closings} = {initializer}{leaf}{closings}\n"
+        ));
+    }
+    source.push_str(concat!(
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(boundary",
+    ));
+    source.push_str(&".value".repeat(21));
+    source.push_str("))\n  stdio::println(int_to_string(beyond");
+    source.push_str(&".value".repeat(24));
+    source.push_str("))\nend\n");
+
+    let ir = lower_to_ir(&source);
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("module-value-nested-record-stack", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, b"2101\n2401\n");
+}
+
+#[test]
 fn backend_materializes_builtin_adt_module_values_and_nested_dependencies() {
     let ir = lower_to_ir(concat!(
         "let optional: Option<Int> = Some(later)\n",

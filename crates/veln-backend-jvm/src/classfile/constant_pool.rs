@@ -13,8 +13,16 @@ impl ConstantPool {
     }
 
     pub(super) fn utf8(&mut self, value: &str) -> u16 {
+        let Some(encoded) = encode_modified_utf8(value) else {
+            if self.error.is_none() {
+                self.error = Some(JvmBackendError::new(
+                    "JVM class constant-pool string exceeds 65535 bytes",
+                ));
+            }
+            return 1;
+        };
         self.intern(CpKey::Utf8(value.to_string()), |key| match key {
-            CpKey::Utf8(value) => CpEntry::Utf8(value.clone()),
+            CpKey::Utf8(_) => CpEntry::Utf8(encoded),
             _ => unreachable!(),
         })
     }
@@ -119,8 +127,8 @@ impl ConstantPool {
             JvmBackendError::new("JVM class constant pool exceeds the classfile limit")
         })?;
         for entry in &self.entries {
-            if let CpEntry::Utf8(value) = entry {
-                checked_utf8_length(value).ok_or_else(|| {
+            if let CpEntry::Utf8(bytes) = entry {
+                checked_utf8_length(bytes).ok_or_else(|| {
                     JvmBackendError::new("JVM class constant-pool string exceeds 65535 bytes")
                 })?;
             }
@@ -150,8 +158,53 @@ fn checked_constant_pool_count(entry_slots: usize) -> Option<u16> {
         .and_then(|count| u16::try_from(count).ok())
 }
 
-fn checked_utf8_length(value: &str) -> Option<u16> {
-    u16::try_from(value.len()).ok()
+fn encode_modified_utf8(value: &str) -> Option<Vec<u8>> {
+    let mut encoded = Vec::with_capacity(value.len());
+    for scalar in value.chars() {
+        let scalar = u32::from(scalar);
+        if scalar == 0 {
+            extend_modified_utf8(&mut encoded, &[0xc0, 0x80])?;
+        } else if scalar <= 0x7f {
+            extend_modified_utf8(&mut encoded, &[scalar as u8])?;
+        } else if scalar <= 0x7ff {
+            extend_modified_utf8(
+                &mut encoded,
+                &[(0xc0 | (scalar >> 6)) as u8, (0x80 | (scalar & 0x3f)) as u8],
+            )?;
+        } else if scalar <= 0xffff {
+            encode_modified_utf8_code_unit(&mut encoded, scalar as u16)?;
+        } else {
+            let supplementary = scalar - 0x1_0000;
+            let high_surrogate = 0xd800 | (supplementary >> 10) as u16;
+            let low_surrogate = 0xdc00 | (supplementary & 0x3ff) as u16;
+            encode_modified_utf8_code_unit(&mut encoded, high_surrogate)?;
+            encode_modified_utf8_code_unit(&mut encoded, low_surrogate)?;
+        }
+    }
+    Some(encoded)
+}
+
+fn encode_modified_utf8_code_unit(encoded: &mut Vec<u8>, code_unit: u16) -> Option<()> {
+    extend_modified_utf8(
+        encoded,
+        &[
+            (0xe0 | (code_unit >> 12)) as u8,
+            (0x80 | ((code_unit >> 6) & 0x3f)) as u8,
+            (0x80 | (code_unit & 0x3f)) as u8,
+        ],
+    )
+}
+
+fn extend_modified_utf8(encoded: &mut Vec<u8>, bytes: &[u8]) -> Option<()> {
+    if encoded.len().checked_add(bytes.len())? > usize::from(u16::MAX) {
+        return None;
+    }
+    encoded.extend_from_slice(bytes);
+    Some(())
+}
+
+fn checked_utf8_length(bytes: &[u8]) -> Option<u16> {
+    u16::try_from(bytes.len()).ok()
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -168,7 +221,7 @@ pub(super) enum CpKey {
 }
 
 pub(super) enum CpEntry {
-    Utf8(String),
+    Utf8(Vec<u8>),
     Class(u16),
     String(u16),
     Fieldref {
@@ -192,14 +245,14 @@ pub(super) enum CpEntry {
 impl CpEntry {
     fn write(&self, out: &mut Vec<u8>) {
         match self {
-            Self::Utf8(value) => {
+            Self::Utf8(bytes) => {
                 out.push(1);
                 write_u16(
                     out,
-                    checked_utf8_length(value)
+                    checked_utf8_length(bytes)
                         .expect("constant-pool UTF-8 lengths are checked before serialization"),
                 );
-                out.extend_from_slice(value.as_bytes());
+                out.extend_from_slice(bytes);
             }
             Self::Class(index) => {
                 out.push(7);
@@ -309,7 +362,7 @@ mod tests {
     #[test]
     fn write_rejects_an_oversized_utf8_entry_before_writing_bytes() {
         let pool = ConstantPool {
-            entries: vec![CpEntry::Utf8("x".repeat(usize::from(u16::MAX) + 1))],
+            entries: vec![CpEntry::Utf8(vec![b'x'; usize::from(u16::MAX) + 1])],
             indexes: BTreeMap::new(),
             error: None,
         };
@@ -319,5 +372,90 @@ mod tests {
 
         assert!(failure.is_err());
         assert_eq!(out, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn modified_utf8_encodes_null_and_supplementary_scalars() {
+        assert_eq!(encode_modified_utf8("\0"), Some(vec![0xc0, 0x80]));
+        assert_eq!(
+            encode_modified_utf8("😀"),
+            Some(vec![0xed, 0xa0, 0xbd, 0xed, 0xb8, 0x80])
+        );
+    }
+
+    #[test]
+    fn modified_utf8_encodes_each_scalar_width() {
+        assert_eq!(
+            encode_modified_utf8("A\u{80}\u{800}"),
+            Some(vec![0x41, 0xc2, 0x80, 0xe0, 0xa0, 0x80])
+        );
+    }
+
+    #[test]
+    fn modified_utf8_accepts_exactly_65535_encoded_bytes() {
+        let value = format!("{}a", "\0".repeat(32_767));
+
+        let encoded = encode_modified_utf8(&value).expect("boundary value should be accepted");
+
+        assert_eq!(value.len(), 32_768);
+        assert_eq!(encoded.len(), usize::from(u16::MAX));
+    }
+
+    #[test]
+    fn modified_utf8_rejects_65536_encoded_bytes() {
+        let value = "\0".repeat(32_768);
+
+        assert!(encode_modified_utf8(&value).is_none());
+        assert_eq!(value.len(), 32_768);
+    }
+
+    #[test]
+    fn constant_pool_serializes_the_validated_modified_utf8_bytes() {
+        let mut pool = ConstantPool::new();
+        pool.utf8("a\0😀");
+        let mut out = Vec::new();
+
+        pool.write(&mut out)
+            .expect("constant pool should serialize");
+
+        assert_eq!(
+            out,
+            vec![
+                0, 2, 1, 0, 9, b'a', 0xc0, 0x80, 0xed, 0xa0, 0xbd, 0xed, 0xb8, 0x80,
+            ]
+        );
+    }
+
+    #[test]
+    fn constant_pool_preserves_the_bounded_error_for_oversized_modified_utf8() {
+        let mut pool = ConstantPool::new();
+        let index = pool.utf8(&"\0".repeat(32_768));
+        let mut out = vec![1, 2, 3];
+
+        let failure = pool.write(&mut out);
+
+        assert_eq!(index, 1);
+        assert_eq!(
+            failure
+                .expect_err("oversized value should fail")
+                .to_string(),
+            "JVM class constant-pool string exceeds 65535 bytes"
+        );
+        assert_eq!(out, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn oversized_modified_utf8_does_not_replace_an_earlier_pool_error() {
+        let mut pool = ConstantPool::new();
+        pool.entries
+            .resize_with(usize::from(u16::MAX) - 1, || CpEntry::Padding);
+        pool.integer(7);
+
+        pool.utf8(&"\0".repeat(32_768));
+
+        assert_eq!(
+            pool.error.as_ref().map(ToString::to_string).as_deref(),
+            Some("JVM class constant pool exceeds the classfile limit")
+        );
     }
 }

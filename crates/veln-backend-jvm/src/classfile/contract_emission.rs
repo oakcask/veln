@@ -484,8 +484,5 @@ fn remainder_operator_count_before(predicate: &str, operator_offset: usize) -> u
 }
 
 fn record_contract_stack(code: &mut MethodCode, operand_depth: usize) {
-    code.max_stack = code.max_stack.max(
-        u16::try_from(operand_depth)
-            .expect("contract expression JVM operand stack requirement exceeds classfile limit"),
-    );
+    code.max_stack = code.max_stack.max(operand_depth);
 }

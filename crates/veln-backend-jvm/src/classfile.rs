@@ -91,6 +91,44 @@ fn collect_module_value_dependencies(
     }
 }
 
+fn module_value_initializer_max_stack(expr: &IrExpr) -> usize {
+    match &expr.kind {
+        IrExprKind::StringLiteral(_)
+        | IrExprKind::BoolLiteral(_)
+        | IrExprKind::Unit
+        | IrExprKind::ModuleValue(_)
+        | IrExprKind::OptionNone
+        | IrExprKind::ListNil => 1,
+        IrExprKind::IntLiteral(_) => 2,
+        IrExprKind::Prefix {
+            op: PrefixOp::Negate,
+            expr,
+        } => module_value_initializer_max_stack(expr),
+        IrExprKind::Record(fields) => fields.iter().fold(1, |maximum, field| {
+            maximum.max(3usize.saturating_add(module_value_initializer_max_stack(&field.value)))
+        }),
+        IrExprKind::ResultOk(value)
+        | IrExprKind::ResultErr(value)
+        | IrExprKind::OptionSome(value) => module_value_initializer_max_stack(value),
+        IrExprKind::ListCons { head, tail } => module_value_initializer_max_stack(head)
+            .max(1usize.saturating_add(module_value_initializer_max_stack(tail))),
+        IrExprKind::AdtVariant { payloads, .. } => payloads.iter().fold(2, |maximum, payload| {
+            maximum.max(4usize.saturating_add(module_value_initializer_max_stack(payload)))
+        }),
+        kind => unreachable!("unsupported module value initializer reached JVM emission: {kind:?}"),
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn named_module_value_max_stack(program: &TypedProgram, name: &str) -> usize {
+    let declaration = program
+        .module_values
+        .iter()
+        .find(|declaration| declaration.identity.name == name)
+        .expect("module value for maximum JVM stack");
+    module_value_initializer_max_stack(&declaration.initializer)
+}
+
 #[cfg(test)]
 pub(crate) fn local_binding_retention(program: &TypedProgram, function_name: &str) -> usize {
     let options = SanitizedOptions {
@@ -130,7 +168,7 @@ pub(crate) fn function_code_footprint(program: &TypedProgram, function_name: &st
 }
 
 #[cfg(test)]
-pub(crate) fn function_max_stack(program: &TypedProgram, function_name: &str) -> u16 {
+pub(crate) fn function_max_stack(program: &TypedProgram, function_name: &str) -> usize {
     let options = SanitizedOptions {
         program_class: "VelnProgram".to_string(),
         runtime_class: "VelnRuntime".to_string(),
@@ -448,7 +486,10 @@ impl<'a> ClassfileEmitter<'a> {
         }
         for declaration_index in declarations {
             let declaration = &self.program.module_values[*declaration_index];
-            let mut method = MethodCode::new(Rc::clone(&class.constant_pool));
+            let mut method = MethodCode::with_max_stack(
+                Rc::clone(&class.constant_pool),
+                module_value_initializer_max_stack(&declaration.initializer),
+            );
             let mut emitter = FunctionBytecodeEmitter::new(self, function);
             emitter.emit_expr(&mut method, &declaration.initializer);
             method.putstatic(

@@ -53,6 +53,15 @@ impl ClassBuilder {
         {
             return Err(JvmBackendError::new("JVM method code exceeds 65535 bytes"));
         }
+        if self
+            .methods
+            .iter()
+            .any(|method| method.max_stack > usize::from(u16::MAX))
+        {
+            return Err(JvmBackendError::new(
+                "JVM method operand stack exceeds 65535 slots",
+            ));
+        }
         let this_class = self.constant_pool.borrow_mut().class(&self.name);
         let super_class = self.constant_pool.borrow_mut().class(JAVA_LANG_OBJECT);
         let code_name = self.constant_pool.borrow_mut().utf8("Code");
@@ -84,7 +93,7 @@ impl ClassBuilder {
                 name,
                 descriptor,
                 code_name,
-                max_stack: method.max_stack,
+                max_stack: method.max_stack as u16,
                 max_locals: method.max_locals,
                 code: method.code.clone(),
                 exceptions,
@@ -141,6 +150,29 @@ mod tests {
 
         assert_eq!(error.to_string(), "JVM method code exceeds 65535 bytes");
     }
+
+    #[test]
+    fn finish_rejects_operand_stack_above_the_classfile_limit() {
+        let mut class = ClassBuilder::new("OversizedOperandStack");
+        class.add_method(MethodInfo {
+            access_flags: 0x0008,
+            name: "oversized".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: usize::from(u16::MAX) + 1,
+            max_locals: 0,
+            code: vec![0xb1],
+            exceptions: Vec::new(),
+        });
+
+        let error = class
+            .finish()
+            .expect_err("unrepresentable operand stack should fail");
+
+        assert_eq!(
+            error.to_string(),
+            "JVM method operand stack exceeds 65535 slots"
+        );
+    }
 }
 
 pub(super) struct FieldInfo {
@@ -168,7 +200,7 @@ pub(super) struct MethodInfo {
     pub(super) access_flags: u16,
     pub(super) name: String,
     pub(super) descriptor: String,
-    pub(super) max_stack: u16,
+    pub(super) max_stack: usize,
     pub(super) max_locals: u16,
     pub(super) code: Vec<u8>,
     pub(super) exceptions: Vec<ExceptionHandler>,
