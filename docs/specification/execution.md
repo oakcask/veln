@@ -147,6 +147,8 @@ JVM modified UTF-8 for that value. Each reference selects the complete package,
 module, and declaration identity, so same-module forward references, imported
 or aliased references, and same-spelled declarations from distinct packages
 produce their selected data independent of source, import, or first-use order.
+Distinct identities also remain distinct when their source names normalize to
+the same generated JVM identifier.
 A valid acyclic
 dependency chain remains executable when its declaration depth exceeds the
 available JVM call-stack depth. A declaration set can span more materialized
@@ -172,7 +174,11 @@ executes 20,000-node and 32,768-node constructor values and a
 every constructor marker, terminal data, and final declaration value. The same
 backend suite executes one record with 32,768 distinct extra field names,
 several medium record initializers sharing declaration storage, and 11,000
-distinct integer declarations spanning storage classes. The run and test
+distinct integer declarations spanning storage classes. Its deterministic
+identifier-allocation workload compares 2,048 and 4,096 package identities
+that normalize to one JVM name. It requires unique generated names, at most two
+candidate checks per declaration plus the function count, and no more than
+three times the work when the declaration count doubles. The run and test
 command regressions execute a 65,536-byte module string and check its
 independent length and boundary markers.
 
