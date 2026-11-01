@@ -435,7 +435,9 @@ rename boundary and UTF-16 ranges.
 The `module-value-navigation` LSP specification case uses decoded assertions
 for definition, declaration-inclusive references, prepare-rename, and rename
 across direct, qualified, and explicit-import-alias references to one module
-immutable-value identity.
+immutable-value identity. It also checks edit-free rename conflicts when a
+consumer module would capture an edited bare reference or an existing bare
+reference would become ambiguous.
 The paired `explicit-import-alias-navigation` LSP and MCP specification cases
 use decoded assertions for definition, references, and rename on the local
 alias qualifier and on a member reached through that qualifier. They check
