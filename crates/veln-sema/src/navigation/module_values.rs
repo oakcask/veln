@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use veln_ast::{BodyLine, BodyLineKind, Expr, ExprKind, SurfaceModule, Visibility};
 use veln_source::SourceSpan;
 
+use crate::analysis::{VariantDiagnosticInterner, check_module_values};
 use crate::types::TypeEnvironment;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -23,11 +24,24 @@ pub struct ResolvedModuleValueNavigation {
 pub fn resolved_module_value_navigation(
     module: &SurfaceModule,
 ) -> Vec<ResolvedModuleValueNavigation> {
+    let mut environment = TypeEnvironment::from_module(module);
+    let analysis = check_module_values(
+        module,
+        &mut environment,
+        &mut VariantDiagnosticInterner::default(),
+    );
     let mut declarations = BTreeMap::<ModuleValueNavigationIdentity, Vec<_>>::new();
     for value in &module.module_values {
         let (Some(name), Some(declaration)) = (&value.name, &value.name_span) else {
             continue;
         };
+        if analysis.invalid.contains(&(
+            value.package_name.clone(),
+            value.module_name.clone(),
+            name.clone(),
+        )) {
+            continue;
+        }
         declarations
             .entry(ModuleValueNavigationIdentity {
                 package: value.package_name.clone(),
@@ -54,8 +68,6 @@ pub fn resolved_module_value_navigation(
             ))
         })
         .collect::<BTreeMap<_, _>>();
-    let environment = TypeEnvironment::from_module(module);
-
     for value in &module.module_values {
         collect_expr_references(
             &value.initializer,

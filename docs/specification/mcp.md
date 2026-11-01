@@ -508,11 +508,12 @@ immutable-value identity specified by
 [Editor Support](editor-support.md#module-immutable-value-navigation). A
 workspace declaration or a direct, qualified, or explicit-import-alias
 reference returns the workspace declaration from `definition`. An eligible
-public reference to a retained direct dependency or the standard library
-returns its immutable `veln-pkg:` declaration. Rename edits a workspace
-declaration and its linked workspace references, while a package-backed
-selection returns no edits. The MCP `references` tool does not yet admit module
-immutable values and returns an empty reference result for those selections.
+public reference to a retained direct dependency returns its immutable
+`veln-pkg:` declaration. Rename edits a workspace declaration and its linked
+workspace references, while a package-backed selection returns no edits.
+Standard-library module values are outside this navigation row. The MCP
+`references` tool does not yet admit module immutable values and returns an
+empty reference result for those selections.
 
 For an eligible public workspace effect, `definition` and `references` accept
 selection at the declaration, a bare same-module occurrence, or the
@@ -577,11 +578,11 @@ The supported definition set includes valid workspace explicit import aliases,
 workspace functions, module immutable values, types,
 constructors, handler context and operation-clause parameters, exact
 test-companion private-function access, and unique class-compatible invalid
-source recovery records. Eligible package selections include public functions,
-module immutable values, types, constructors, schemas, and public function
-aliases in exported direct dependencies and embedded `std`; exported
-direct-dependency public type aliases are eligible when their target resolves
-to a type in that retained dependency.
+source recovery records. Eligible direct-dependency selections include public
+functions, module immutable values, types, constructors, schemas, and public
+function aliases. Embedded `std` supports the same package selections except
+module immutable values. Exported direct-dependency public type aliases are
+eligible when their target resolves to a type in that retained dependency.
 Invalid-cased package records, private or non-exported package declarations,
 mismatched imports, unsupported symbols, and package module segments return an
 empty definition. A public constructor selected through a visible type alias

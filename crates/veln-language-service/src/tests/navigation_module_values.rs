@@ -104,4 +104,19 @@ mod navigation_module_value_tests {
         assert_eq!(locations(&first.references), [("main.veln", 4, 24)]);
         assert_eq!(locations(&second.references), [("main.veln", 5, 26)]);
     }
+
+    #[test]
+    fn invalid_module_values_do_not_enter_navigation() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("invalid.veln", "pub let answer: String = 42\n"),
+            source(
+                "main.veln",
+                "use invalid\n\nlet selected: String = invalid::answer\n",
+            ),
+        ]);
+
+        assert!(query_snapshot(&snapshot, "invalid.veln", 1, 10).is_none());
+        assert!(query_snapshot(&snapshot, "main.veln", 3, 31).is_none());
+    }
+
 }

@@ -8,7 +8,19 @@ fn module_value_protocol_navigation_and_rename_share_identity() {
     );
     project.write(
         "main.veln",
-        "use values\n\nlet qualified: Int = values::answer\n",
+        concat!(
+            "use values\n",
+            "use other as equal\n",
+            "use functions as callable\n\n",
+            "let qualified: Int = values::answer\n",
+            "let equal_data: Int = equal::answer\n",
+            "let same_spelling: Int = callable::answer()\n",
+        ),
+    );
+    project.write("other.veln", "pub let answer: Int = 42\n");
+    project.write(
+        "functions.veln",
+        "pub fn answer() -> Int\n  42\nend\n",
     );
     project.write(
         "alias.veln",
@@ -18,41 +30,69 @@ fn module_value_protocol_navigation_and_rename_share_identity() {
     let values_uri = path_to_uri(&project.root.join("values.veln"));
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     let alias_uri = path_to_uri(&project.root.join("alias.veln"));
+    let other_uri = path_to_uri(&project.root.join("other.veln"));
+    let functions_uri = path_to_uri(&project.root.join("functions.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    let definition = server.handle_message(&definition_request(&main_uri, 2, 30));
-    assert_eq!(definition.len(), 1);
-    assert!(definition[0].contains(&values_uri), "{}", definition[0]);
-    assert!(
-        definition[0].contains(
-            r#""range":{"start":{"line":0,"character":8},"end":{"line":0,"character":14}}"#
-        ),
-        "{}",
-        definition[0]
-    );
+    for (uri, line, character, start) in [
+        (&values_uri, 0, 10, 8),
+        (&values_uri, 1, 19, 18),
+        (&main_uri, 4, 30, 29),
+        (&alias_uri, 2, 29, 27),
+    ] {
+        let definition = server.handle_message(&definition_request(uri, line, character));
+        assert_eq!(definition.len(), 1);
+        assert!(definition[0].contains(&values_uri), "{}", definition[0]);
+        assert!(
+            definition[0].contains(
+                r#""range":{"start":{"line":0,"character":8},"end":{"line":0,"character":14}}"#
+            ),
+            "{}",
+            definition[0]
+        );
 
-    let references = server.handle_message(&references_request_with_declaration(
-        &alias_uri, 2, 29, true,
+        let references = server.handle_message(&references_request_with_declaration(
+            uri, line, character, true,
+        ));
+        assert_eq!(references.len(), 1);
+        assert_eq!(references[0].matches(r#""uri":"#).count(), 4, "{}", references[0]);
+        for expected_uri in [&values_uri, &main_uri, &alias_uri] {
+            assert!(references[0].contains(expected_uri), "{}", references[0]);
+        }
+
+        let prepared = server.handle_message(&prepare_rename_request(uri, line, character));
+        assert!(
+            prepared[0].contains(&format!(
+                r#""result":{{"start":{{"line":{line},"character":{start}}},"end":{{"line":{line},"character":{}}}}}"#,
+                start + 6
+            )),
+            "{}",
+            prepared[0]
+        );
+
+        let renamed = server.handle_message(&rename_request(uri, line, character, "result"));
+        for expected_uri in [&values_uri, &main_uri, &alias_uri] {
+            assert!(renamed[0].contains(expected_uri), "{}", renamed[0]);
+        }
+        assert_eq!(renamed[0].matches(r#""newText":"result""#).count(), 4);
+    }
+
+    let equal_definition = server.handle_message(&definition_request(&main_uri, 5, 31));
+    assert!(equal_definition[0].contains(&other_uri), "{}", equal_definition[0]);
+    assert!(!equal_definition[0].contains(&values_uri), "{}", equal_definition[0]);
+    let equal_references = server.handle_message(&references_request_with_declaration(
+        &main_uri, 5, 31, true,
     ));
-    assert_eq!(references.len(), 1);
-    for uri in [&values_uri, &main_uri, &alias_uri] {
-        assert!(references[0].contains(uri), "{}", references[0]);
-    }
+    assert_eq!(equal_references[0].matches(r#""uri":"#).count(), 2);
+    assert!(!equal_references[0].contains(&values_uri));
 
-    let prepared = server.handle_message(&prepare_rename_request(&alias_uri, 2, 29));
+    let function_definition = server.handle_message(&definition_request(&main_uri, 6, 39));
     assert!(
-        prepared[0].contains(
-            r#""result":{"start":{"line":2,"character":27},"end":{"line":2,"character":33}}"#
-        ),
+        function_definition[0].contains(&functions_uri),
         "{}",
-        prepared[0]
+        function_definition[0]
     );
-
-    let renamed = server.handle_message(&rename_request(&alias_uri, 2, 29, "result"));
-    for uri in [&values_uri, &main_uri, &alias_uri] {
-        assert!(renamed[0].contains(uri), "{}", renamed[0]);
-    }
-    assert_eq!(renamed[0].matches(r#""newText":"result""#).count(), 4);
+    assert!(!function_definition[0].contains(&values_uri));
 }
 
 #[test]
@@ -99,8 +139,16 @@ fn package_distinct_module_value_protocol_navigation_keeps_identity() {
     let first_references = server.handle_message(&references_request_with_declaration(
         &main_uri, 3, 25, true,
     ));
+    assert_eq!(
+        first_references[0].matches(r#""uri":"#).count(),
+        1,
+        "{}",
+        first_references[0]
+    );
+    assert!(first_references[0].contains(&main_uri));
     assert!(first_references[0].contains(r#""line":3"#));
     assert!(!first_references[0].contains(r#""line":4"#));
+    assert!(!first_references[0].contains("veln-pkg:///two%2Fpkg/"));
 
     let prepared = server.handle_message(&prepare_rename_request(&main_uri, 3, 25));
     assert_null_result(&prepared[0]);
