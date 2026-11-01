@@ -443,7 +443,11 @@ definition and workspace references by their package and module owner. Values
 with the same module and declaration name in different packages remain
 distinct. Their definitions use immutable `veln-pkg:` locations, so
 prepare-rename returns no range and rename returns no edits for a package
-selection. Standard-library module values are outside this navigation row.
+selection. A package-owned declaration or reference cannot select a workspace
+occurrence merely because its source path and range are equal. An unresolved
+workspace occurrence at that colliding path and range therefore returns no
+definition, references, prepare-rename range, or rename edits. Standard-library
+module values are outside this navigation row.
 
 The checked
 [`module-value-navigation`](../../examples/specification/lsp/module-value-navigation/)
@@ -454,6 +458,10 @@ data, same-spelled functions, package-distinct dependency identities,
 shared-namespace rename conflicts, lexical capture rejection, and edit-free
 conflict responses. The executable LSP case also checks consumer-module
 capture and ambiguity caused by an unedited reference to the requested name.
+The checked
+[`module-value-package-occurrence-provenance`](../../examples/specification/lsp/module-value-package-occurrence-provenance/)
+case covers the colliding workspace path-and-range boundary while retaining
+definition and reference results for the valid package selection.
 
 ### Shared variant-refinement navigation
 

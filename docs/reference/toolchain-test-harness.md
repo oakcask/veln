@@ -363,6 +363,7 @@ The `publish-diagnostics`, `semantic-tokens`,
 `adt-variant-refinement-alias-navigation`,
 `explicit-import-alias-navigation`,
 `module-value-navigation`,
+`module-value-package-occurrence-provenance`,
 `saved-navigation-cross-adapter`,
 `identifier-casing-snapshot-boundary`,
 `identifier-casing-overlay-boundary`, and
@@ -438,6 +439,10 @@ across direct, qualified, and explicit-import-alias references to one module
 immutable-value identity. It also checks edit-free rename conflicts when a
 consumer module would capture an edited bare reference or an existing bare
 reference would become ambiguous.
+The adjacent `module-value-package-occurrence-provenance` case checks that an
+unresolved workspace occurrence cannot select a package-owned module value at
+an equal source path and range, while the valid package reference retains its
+package definition and workspace reference result.
 The paired `explicit-import-alias-navigation` LSP and MCP specification cases
 use decoded assertions for definition, references, and rename on the local
 alias qualifier and on a member reached through that qualifier. They check
