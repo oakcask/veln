@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Module immutable-value language-service definition, references, rename, or their planned verification changes.
+update-when: Module immutable-value declaration identity, import selection, language-service definition, references, rename, protocol projection, or their planned verification changes.
 ---
 
 # Module Immutable-Value Navigation
