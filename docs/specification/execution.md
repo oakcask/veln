@@ -167,7 +167,10 @@ pieces. Reading the final value does not recursively evaluate the preceding
 initializers. The
 checked
 [`module-value-runtime-execution`](../../examples/specification/run/module-value-runtime-execution/)
-case exercises the supported values and identity boundaries. The focused
+case exercises the supported values and identity boundaries. It also matches a
+qualified module immutable value, reads the selected declaration through a
+second qualified spelling under the arm-local refinement, and prints the
+refined branch result. The focused
 [`JVM backend test`](../../crates/veln-backend-jvm/src/tests/basic_backend.rs)
 executes 20,000-node and 32,768-node constructor values and a
 4,000-declaration chain with constrained compiler and JVM stacks. It checks
