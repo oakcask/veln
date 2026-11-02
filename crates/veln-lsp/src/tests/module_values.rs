@@ -229,65 +229,23 @@ fn alias_qualified_module_value_hover_is_unsupported() {
 
 #[test]
 fn qualified_module_value_protocol_selection_precedes_lexical_bindings() {
-    let mut server = server_with_empty_standard_library();
-    let project = TempProject::new("qualified-module-value-lexical-shadowing");
-    project.write("values.veln", "pub let answer: Int = 42\n");
-    project.write(
-        "main.veln",
-        concat!(
-            "use values\n\n",
-            "fn from_parameter(answer: Int) -> Int\n",
-            "  values::answer + answer\n",
-            "end\n\n",
-            "fn from_local() -> Int\n",
-            "  let answer = 1\n",
-            "  values::answer + answer\n",
-            "end\n",
-        ),
-    );
-    let root_uri = path_to_uri(&project.root);
-    let values_uri = path_to_uri(&project.root.join("values.veln"));
-    let main_uri = path_to_uri(&project.root.join("main.veln"));
-    server.handle_message(&initialize_request(&root_uri));
+    let (mut server, _project, values_uri, main_uri) =
+        qualified_module_value_lexical_shadowing_server("answer");
 
     for (line, character) in [(3, 11), (8, 11)] {
-        assert_module_value_definition(&mut server, &main_uri, line, character, &values_uri);
-        let references = server.handle_message(&references_request_with_declaration(
-            &main_uri, line, character, true,
-        ));
-        assert_eq!(references[0].matches(r#""uri":"#).count(), 3, "{}", references[0]);
-        let prepared = server.handle_message(&prepare_rename_request(&main_uri, line, character));
-        assert!(prepared[0].contains(r#""start":{"line":"#), "{}", prepared[0]);
-        let renamed = server.handle_message(&rename_request(
+        assert_qualified_module_value_navigation(
+            &mut server,
             &main_uri,
+            &values_uri,
             line,
             character,
-            "renamed",
-        ));
-        assert_eq!(renamed[0].matches(r#""newText":"renamed""#).count(), 3);
+        );
     }
 
-    let mut renamed_server = server_with_empty_standard_library();
-    let renamed_project = TempProject::new("qualified-module-value-after-rename");
-    renamed_project.write("values.veln", "pub let renamed: Int = 42\n");
-    renamed_project.write(
-        "main.veln",
-        concat!(
-            "use values\n\n",
-            "fn from_parameter(answer: Int) -> Int\n",
-            "  values::renamed + answer\n",
-            "end\n\n",
-            "fn from_local() -> Int\n",
-            "  let answer = 1\n",
-            "  values::renamed + answer\n",
-            "end\n",
-        ),
-    );
-    let renamed_root = path_to_uri(&renamed_project.root);
-    let renamed_values = path_to_uri(&renamed_project.root.join("values.veln"));
-    let renamed_main = path_to_uri(&renamed_project.root.join("main.veln"));
-    renamed_server.handle_message(&initialize_request(&renamed_root));
-    let definition = renamed_server.handle_message(&definition_request(&renamed_main, 3, 11));
+    let (mut renamed_server, _renamed_project, renamed_values, renamed_main) =
+        qualified_module_value_lexical_shadowing_server("renamed");
+    let definition =
+        renamed_server.handle_message(&definition_request(&renamed_main, 3, 11));
     assert!(definition[0].contains(&renamed_values), "{}", definition[0]);
     assert!(
         definition[0].contains(
@@ -295,6 +253,61 @@ fn qualified_module_value_protocol_selection_precedes_lexical_bindings() {
         ),
         "{}",
         definition[0]
+    );
+}
+
+fn qualified_module_value_lexical_shadowing_server(
+    value_name: &str,
+) -> (Server, TempProject, String, String) {
+    let mut server = server_with_empty_standard_library();
+    let project = TempProject::new("qualified-module-value-lexical-shadowing");
+    project.write(
+        "values.veln",
+        &format!("pub let {value_name}: Int = 42\n"),
+    );
+    project.write(
+        "main.veln",
+        &format!(
+            "use values\n\n\
+             fn from_parameter(answer: Int) -> Int\n\
+               values::{value_name} + answer\n\
+             end\n\n\
+             fn from_local() -> Int\n\
+               let answer = 1\n\
+               values::{value_name} + answer\n\
+             end\n"
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let values_uri = path_to_uri(&project.root.join("values.veln"));
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+    (server, project, values_uri, main_uri)
+}
+
+fn assert_qualified_module_value_navigation(
+    server: &mut Server,
+    main_uri: &str,
+    values_uri: &str,
+    line: usize,
+    character: usize,
+) {
+    assert_module_value_definition(server, main_uri, line, character, values_uri);
+    let references = server.handle_message(&references_request_with_declaration(
+        main_uri, line, character, true,
+    ));
+    assert_eq!(references[0].matches(r#""uri":"#).count(), 3, "{}", references[0]);
+    let prepared = server.handle_message(&prepare_rename_request(main_uri, line, character));
+    assert!(prepared[0].contains(r#""start":{"line":"#), "{}", prepared[0]);
+    let renamed = server.handle_message(&rename_request(
+        main_uri,
+        line,
+        character,
+        "renamed",
+    ));
+    assert_eq!(
+        renamed[0].matches(r#""newText":"renamed""#).count(),
+        3
     );
 }
 
@@ -308,6 +321,25 @@ fn package_distinct_module_value_protocol_navigation_keeps_identity() {
 
 #[test]
 fn package_module_value_protocol_ignores_colliding_workspace_spans() {
+    let (mut server, _project, values_uri, shared_uri, main_uri) =
+        package_module_value_occurrence_provenance_server();
+
+    for (uri, line, character) in [(&values_uri, 0, 9), (&shared_uri, 2, 29)] {
+        assert_unresolved_module_value_protocols(&mut server, uri, line, character);
+    }
+
+    let definition = server.handle_message(&definition_request(&main_uri, 2, 29));
+    assert!(definition[0].contains("veln-pkg:///example%2Fpkg/"));
+    let references = server.handle_message(&references_request_with_declaration(
+        &main_uri, 2, 29, true,
+    ));
+    assert_eq!(references[0].matches(r#""uri":"#).count(), 1);
+    assert!(references[0].contains(&main_uri));
+    assert!(!references[0].contains(&shared_uri));
+}
+
+fn package_module_value_occurrence_provenance_server(
+) -> (Server, TempProject, String, String, String) {
     let mut server = server_with_empty_standard_library();
     let project = TempProject::new("package-module-value-occurrence-provenance");
     project.write(
@@ -350,31 +382,28 @@ fn package_module_value_protocol_ignores_colliding_workspace_spans() {
     let shared_uri = path_to_uri(&project.root.join("shared.veln"));
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
+    (server, project, values_uri, shared_uri, main_uri)
+}
 
-    for (uri, line, character) in [(&values_uri, 0, 9), (&shared_uri, 2, 29)] {
-        assert_null_result(&server.handle_message(&definition_request(uri, line, character))[0]);
-        assert_empty_result_array(
-            &server.handle_message(&references_request_with_declaration(
-                uri, line, character, true,
-            ))[0],
-        );
-        assert_null_result(
-            &server.handle_message(&prepare_rename_request(uri, line, character))[0],
-        );
-        assert_contains_json(
-            &server.handle_message(&rename_request(uri, line, character, "renamed"))[0],
-            r#""changes":{}"#,
-        );
-    }
-
-    let definition = server.handle_message(&definition_request(&main_uri, 2, 29));
-    assert!(definition[0].contains("veln-pkg:///example%2Fpkg/"));
-    let references = server.handle_message(&references_request_with_declaration(
-        &main_uri, 2, 29, true,
-    ));
-    assert_eq!(references[0].matches(r#""uri":"#).count(), 1);
-    assert!(references[0].contains(&main_uri));
-    assert!(!references[0].contains(&shared_uri));
+fn assert_unresolved_module_value_protocols(
+    server: &mut Server,
+    uri: &str,
+    line: usize,
+    character: usize,
+) {
+    assert_null_result(&server.handle_message(&definition_request(uri, line, character))[0]);
+    assert_empty_result_array(
+        &server.handle_message(&references_request_with_declaration(
+            uri, line, character, true,
+        ))[0],
+    );
+    assert_null_result(
+        &server.handle_message(&prepare_rename_request(uri, line, character))[0],
+    );
+    assert_contains_json(
+        &server.handle_message(&rename_request(uri, line, character, "renamed"))[0],
+        r#""changes":{}"#,
+    );
 }
 
 fn package_module_value_navigation_server() -> (Server, TempProject, String) {
