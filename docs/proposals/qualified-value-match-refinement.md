@@ -1,66 +1,49 @@
 ---
 role: proposal
-update-when: Module immutable-value declaration identity, imported lookup, visibility, execution, qualified stable-value match refinement, or their planned evidence changes.
+update-when: Module-value-rooted field-path match refinement, qualified module-value transparent aliases, or their planned evidence changes.
 ---
 
-# Qualified Immutable-Value Match Refinement
+# Module-Value Field And Alias Match Refinement
 
-Extend stable-value match refinement to qualified references to module immutable
-data. Imported lookup, visibility, runtime execution, and checked-core and typed
-IR declaration identity are implemented prerequisites.
+Extend the implemented qualified module immutable-value stable root through
+record fields and local transparent aliases. Qualified direct paths and import
+aliases already refine by package-aware declaration identity.
 
 ## Contract
 
 The current [type specification](../specification/types.md#inference-rules)
-owns refinement of immutable local bindings, transparent aliases, and record
-paths. This proposal adds the same behavior for references whose resolved
-declaration is a module immutable data value.
+owns immutable local field paths, local transparent aliases, and qualified
+module-value roots. This proposal adds only the compositions between those
+implemented behaviors.
 
 | Expression or condition | Proposed observation |
 | --- | --- |
-| Qualified module data value matched against an admitted constructor | References to the same declaration in that arm have the intersected finite variant domain. |
-| Two import paths or aliases resolve to the same value declaration | Both references share the arm's feasible domain; package and declaration identity determine equality. |
-| Distinct unambiguous aliases or paths select same-spelled values in different packages | Refinement of one does not narrow the other. An ambiguous exact path supplies no declaration identity to refine. |
 | Record-field path rooted in a module data value | Apply the current immutable-root field-path rules to that declaration identity. |
-| Local binding shadows the module value's bare name | Narrow only the resolved declaration; a qualified module reference continues to identify its module value. |
-| Qualified constructor, function reference, call, indexing, or other computation | Repeated spelling does not establish stable-value identity. Existing constructor and function typing still applies independently. |
-| Refined finite match domain, residual catch-all, impossible or redundant arm | Use the existing stable-value domain and diagnostic rules. |
-| Control leaves an arm or the match expression | Do not publish an arm-local assumption into an unrelated control-flow path. |
+| Local binding initialized only from a qualified module data value | Treat the local and the selected declaration as one transparent alias group, so matching either member narrows both for the current arm. |
+| Nested local aliases or immutable record fields composed from that root | Preserve the existing transitive alias, field-path, widening, finite-domain, and restoration rules. |
+| Qualified constructor, function reference, call, indexing, or other computation | Do not create a module-value alias or field root. |
 
-Import aliases preserve declaration identity and visibility. They do not create
-new data values. This extension neither consumes values nor proves protocol
-liveness, reachability, or payload predicates.
+Import aliases continue to preserve declaration identity and visibility rather
+than creating data values. The extension neither consumes values nor proves
+protocol liveness, reachability, or payload predicates.
 
 ## Acceptance And Planned Verification
 
 | Concern | Required evidence |
 | --- | --- |
-| Actual module data | Checked source and runtime state-machine examples use the prerequisite declaration form and recover a refined value through a match. |
-| Identity and visibility | Semantic and command cases cover direct imports, public aliases, distinct package identities, private values, and local shadowing. Explicit import aliases use the implemented source and name-resolution contracts and must preserve the selected declaration identity. |
-| Stable field paths | Nested immutable record fields, transparent local aliases, widening, finite domains, and residual arms retain the existing rules. |
-| Excluded expressions | Qualified constructors and function references/calls remain negative boundary evidence, rather than substitutes for module data. |
-| Diagnostics and state | Human and JSON cases check impossible and redundant arms, deterministic ordering, and preservation of unrelated declaration types after failure. |
+| Stable field paths | Semantic and command cases match nested immutable record fields rooted in direct and aliased module-value paths, including residual arms and arm restoration. |
+| Transparent aliases | Matching either a qualified module value or a local initialized only from it narrows the other; transitive locals retain the same declaration identity. |
+| Identity and boundaries | Distinct package declarations remain independent. Qualified constructors, functions, calls, and computed initializers do not become aliases or field roots. |
+| Diagnostics and state | Human and JSON cases check impossible and redundant arms and preservation of unrelated declaration and local types after failure. |
 
-These cases are planned. At implementation, update the smallest matching type
-and name-resolution specifications and checked examples before removing this
-page and its catalog entry.
+These cases are planned. At implementation, update the type specification and
+checked examples before removing this page and its catalog entry.
 
 ## Related Work And Design Choice
 
-The current [type specification](../specification/types.md#module-immutable-value-initializers)
-defines finite-data initializer typing, and the current
-[name-resolution specification](../specification/name-resolution.md#namespaces-and-use-roles)
-defines same-module and imported lookup, package-aware declaration identity,
-and visibility. The current
-[execution specification](../specification/execution.md#runtime-readiness-and-host-boundaries)
-defines checked-core, typed-IR, and runtime identity preservation. Backend
-materialization can split one initializer across bounded generated classes
-without changing that declaration identity. The proposed refinement therefore
-depends on the selected module-value declaration, not on the generated storage
-or construction class. A qualified constructor remains insufficient evidence
-for this extension because it does not resolve to a module-value declaration.
-
-The existing [stable-value rules](../specification/types.md#inference-rules)
-provide the semantic model to extend. This proposal chooses declaration
-identity rather than source-text equality so import spelling cannot make a
-computed expression stable or join unrelated package values.
+The current [type specification](../specification/types.md#inference-rules)
+defines all three prerequisite relations: qualified module-value declaration
+identity, immutable local field paths, and transparent local alias groups. The
+remaining design composes those relations instead of introducing source-text
+equality. This keeps import spelling from joining unrelated package values and
+keeps computed expressions outside stable-value refinement.

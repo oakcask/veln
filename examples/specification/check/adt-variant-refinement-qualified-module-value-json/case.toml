@@ -1,0 +1,36 @@
+# Compiler integration contract: JSON diagnostics preserve qualified module
+# value identity refinement, arm-local restoration, finite coverage, and the
+# qualified-call boundary.
+command = ["check", "--json", "app.veln", "a/b.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["unresolved value", "type.match_non_exhaustive"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "type.match_impossible_variant"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "type.match_redundant_arm"
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "type.variant_mismatch"

@@ -1,0 +1,39 @@
+use a::b as wire
+
+fn identity_and_scope() -> ()
+	let current: Int = 0
+	match wire::current
+		a::b::State::Ready => begin
+			let direct: a::b::State::Ready = a::b::current
+			let aliased: wire::State::Ready = wire::current
+			()
+		end
+		a::b::State::Closed => ()
+		a::b::State::Failed => ()
+	end
+	let restored: wire::State::Ready = a::b::current
+end
+
+fn coverage() -> ()
+	match wire::limited
+		a::b::State::Failed => ()
+		a::b::State::Ready => ()
+		a::b::State::Ready => ()
+		remaining => begin
+			let closed: wire::State::Closed = wire::limited
+			let bound: wire::State::Closed = remaining
+			()
+		end
+	end
+end
+
+fn computed_call() -> ()
+	match wire::read()
+		a::b::State::Ready => begin
+			let repeated: wire::State::Ready = wire::read()
+			()
+		end
+		a::b::State::Closed => ()
+		a::b::State::Failed => ()
+	end
+end

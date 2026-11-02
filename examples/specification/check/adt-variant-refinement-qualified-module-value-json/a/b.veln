@@ -1,0 +1,12 @@
+pub type State
+	pub Ready
+	pub Closed
+	pub Failed
+end
+
+pub let current: State = Ready
+pub let limited: State::Ready | State::Closed = Ready
+
+pub fn read() -> State
+	Ready
+end

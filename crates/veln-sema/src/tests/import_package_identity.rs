@@ -250,6 +250,246 @@ fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
 }
 
 #[test]
+fn qualified_module_value_match_refinement_uses_declaration_identity_and_restores_scope() {
+    let mut app = source_module(
+        "app.veln",
+        concat!(
+            "use a::b as wire\n",
+            "fn inspect() -> ()\n",
+            "  let current: Int = 0\n",
+            "  match wire::current\n",
+            "    a::b::State::Ready => begin\n",
+            "      let direct: a::b::State::Ready = a::b::current\n",
+            "      let aliased: wire::State::Ready = wire::current\n",
+            "      ()\n",
+            "    end\n",
+            "    a::b::State::Closed => begin\n",
+            "      let direct: a::b::State::Closed = a::b::current\n",
+            "      let aliased: wire::State::Closed = wire::current\n",
+            "      ()\n",
+            "    end\n",
+            "  end\n",
+            "  let restored: a::b::State::Ready = wire::current\n",
+            "end\n",
+        ),
+        None,
+        "app",
+    );
+    let values = source_module(
+        "a/b.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready\n",
+            "  pub Closed\n",
+            "end\n",
+            "pub let current: State = Ready\n",
+        ),
+        None,
+        "a::b",
+    );
+    extend(&mut app, values);
+
+    let diagnostics = analyze_surface_module(&app);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.variant_mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "value of type `State` is not assignable to variant type `State::Ready`"
+    );
+}
+
+#[test]
+fn qualified_module_value_match_refinement_keeps_package_identities_distinct() {
+    let mut app = source_module(
+        "app.veln",
+        concat!(
+            "use shared as first from \"first/pkg\"\n",
+            "use shared as second from \"second/pkg\"\n",
+            "fn inspect() -> ()\n",
+            "  match first::current\n",
+            "    Some(_) => begin\n",
+            "      let selected: Option<Int>::Some = first::current\n",
+            "      let unrelated: Option<Int>::Some = second::current\n",
+            "      ()\n",
+            "    end\n",
+            "    None => ()\n",
+            "  end\n",
+            "end\n",
+        ),
+        Some("owner/pkg"),
+        "app",
+    );
+    for use_decl in &mut app.uses {
+        use_decl.name = "shared".to_string();
+    }
+    let declarations = "pub let current: Option<Int> = Some(1)\n";
+    let mut first = source_module(
+        "first/shared.veln",
+        declarations,
+        Some("first/pkg"),
+        "shared",
+    );
+    let mut second = source_module(
+        "second/shared.veln",
+        declarations,
+        Some("second/pkg"),
+        "shared",
+    );
+    set_declaration_module_name(&mut first, "shared");
+    set_declaration_module_name(&mut second, "shared");
+    extend(&mut app, first);
+    extend(&mut app, second);
+
+    let diagnostics = analyze_surface_module(&app);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.variant_mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "value of type `Option<Int>` is not assignable to variant type `Option<Int>::Some`"
+    );
+}
+
+#[test]
+fn qualified_calls_do_not_acquire_module_value_match_identity() {
+    let mut app = source_module(
+        "app.veln",
+        concat!(
+            "use states\n",
+            "fn inspect() -> ()\n",
+            "  match states::read()\n",
+            "    states::State::Ready => begin\n",
+            "      let repeated: states::State::Ready = states::read()\n",
+            "      ()\n",
+            "    end\n",
+            "    states::State::Closed => ()\n",
+            "  end\n",
+            "end\n",
+        ),
+        None,
+        "app",
+    );
+    let states = source_module(
+        "states.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready\n",
+            "  pub Closed\n",
+            "end\n",
+            "pub fn read() -> State\n",
+            "  Ready\n",
+            "end\n",
+        ),
+        None,
+        "states",
+    );
+    extend(&mut app, states);
+
+    let diagnostics = analyze_surface_module(&app);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.variant_mismatch");
+}
+
+#[test]
+fn non_module_value_qualified_paths_do_not_create_stable_roots() {
+    let stable_roots = |module: &SurfaceModule| {
+        crate::analysis::reset_stable_place_work();
+        let _ = analyze_surface_module(module);
+        crate::analysis::take_stable_place_work().roots_created
+    };
+
+    let mut app = source_module(
+        "app.veln",
+        concat!(
+            "use states\n",
+            "fn inspect() -> ()\n",
+            "  match states::State::Ready\n",
+            "    states::State::Ready => ()\n",
+            "  end\n",
+            "  match states::read\n",
+            "    _ => ()\n",
+            "  end\n",
+            "  match states::read()\n",
+            "    states::State::Ready => ()\n",
+            "    states::State::Closed => ()\n",
+            "  end\n",
+            "  match missing::current\n",
+            "    _ => ()\n",
+            "  end\n",
+            "end\n",
+        ),
+        None,
+        "app",
+    );
+    let states = source_module(
+        "states.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready\n",
+            "  pub Closed\n",
+            "end\n",
+            "pub fn read() -> State\n",
+            "  Ready\n",
+            "end\n",
+        ),
+        None,
+        "states",
+    );
+    extend(&mut app, states);
+    assert_eq!(stable_roots(&app), 0);
+
+    let mut ambiguous = source_module(
+        "ambiguous.veln",
+        concat!(
+            "use alpha as shared\n",
+            "use beta as shared\n",
+            "fn inspect() -> ()\n",
+            "  match shared::current\n",
+            "    _ => ()\n",
+            "  end\n",
+            "end\n",
+        ),
+        None,
+        "ambiguous",
+    );
+    for (name, value) in [("alpha", "1"), ("beta", "2")] {
+        extend(
+            &mut ambiguous,
+            source_module(
+                &format!("{name}.veln"),
+                &format!("pub let current: Int = {value}\n"),
+                None,
+                name,
+            ),
+        );
+    }
+    assert_eq!(stable_roots(&ambiguous), 0);
+
+    let mut unavailable = source_module(
+        "consumer.veln",
+        concat!(
+            "use values\n",
+            "fn inspect() -> ()\n",
+            "  match values::current\n",
+            "    _ => ()\n",
+            "  end\n",
+            "end\n",
+        ),
+        None,
+        "consumer",
+    );
+    extend(
+        &mut unavailable,
+        source_module(
+            "values.veln",
+            "pub let current: Int = missing\n",
+            None,
+            "values",
+        ),
+    );
+    assert_eq!(stable_roots(&unavailable), 0);
+}
+
+#[test]
 fn dependency_owned_module_value_annotations_use_imported_sibling_types() {
     let states = concat!(
         "type Secret\n",

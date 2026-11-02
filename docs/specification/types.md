@@ -549,23 +549,37 @@ an alias during diagnostic recovery. Matching any member refines every member,
 including a binding catch-all for the complete matched value, for the current
 arm only.
 
-Qualified values and function values do not establish a transparent alias in
-this behavior. A field path is stable only when its base ultimately resolves
-to an immutable parameter or local binding. Separate construction, equality,
-contract predicates, Boolean helpers, calls, indexing, operators, and other
-computed expressions do not establish a stable field path, even when repeated
-source text is identical. A computed result can be refined after it is stored
-in its own local, but matching that local does not refine the inputs used to
-compute it. The checked
+Qualified, multi-segment references to an available module immutable value are
+stable match roots. A direct module path and an explicit import alias select
+the same root when name resolution selects the same package-aware declaration.
+Matching that root narrows every qualified reference to the declaration for the
+current arm, even when a local binding shadows the declaration's leaf name.
+The original declaration type is restored after the arm. Same-spelled values
+with different declaration identities remain independent. An ambiguous,
+unavailable, private, or missing path supplies no stable root.
+
+A qualified module value does not establish a transparent alias through a
+local initializer, and a field path rooted in a module value is not stable.
+A local field path is stable only when its base ultimately resolves to an
+immutable parameter or local binding. Qualified constructors, function values,
+calls, separate construction, equality, contract predicates, Boolean helpers,
+indexing, operators, and other computed expressions do not establish a stable
+root, even when repeated source text is identical. A computed result can be
+refined after it is stored in its own local, but matching that local does not
+refine the inputs used to compute it. The checked
 [`adt-variant-refinement-match-alias-boundaries`](../../examples/specification/check/adt-variant-refinement-match-alias-boundaries/)
 case verifies the available computed-expression, invalid-annotation, and
 restoration boundaries. The checked
 [`adt-variant-refinement-match-computed-field-boundary`](../../examples/specification/check/adt-variant-refinement-match-computed-field-boundary/)
 case verifies that call and record-constructor bases remain outside field-path
-refinement. Veln currently has no indexing expression. A module value reference
-does not establish a transparent alias for match refinement. Function-value
-expressions do not produce ADT values that can exercise alias match refinement
-independently.
+refinement. The qualified module-value
+[`human`](../../examples/specification/check/adt-variant-refinement-qualified-module-value-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-qualified-module-value-json/)
+cases verify identity sharing, local shadowing, arm restoration, finite-domain
+coverage, and the qualified-call boundary. Veln currently has no indexing
+expression. Function-value expressions do not produce ADT values that can
+exercise alias match refinement independently.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved

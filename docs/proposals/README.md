@@ -16,8 +16,8 @@ also states it.
 
 ## Ready
 
-- Extend stable-value match refinement to qualified module immutable-value
-  references now that their runtime execution prerequisite is implemented:
+- Extend qualified module immutable-value refinement through module-rooted
+  record fields and local transparent aliases:
   [qualified-value-match-refinement.md](qualified-value-match-refinement.md).
 - Generic named-type variance, bounded inference, variance metadata, and
   nested incompatibility diagnostics:

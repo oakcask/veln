@@ -1423,19 +1423,61 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn stable_match_place(&mut self, scrutinee: &Expr) -> Option<StableMatchPlace> {
-        if let ExprKind::NamePath { segments, .. } = &scrutinee.kind
-            && let [name] = segments.as_slice()
-        {
-            let index = self.visible_binding_index(name)?;
-            if let Some(place) = self.bindings[index].stable_place {
-                return Some(StableMatchPlace::StablePlace(place));
+        if let ExprKind::NamePath { segments, .. } = &scrutinee.kind {
+            if let [name] = segments.as_slice() {
+                let index = self.visible_binding_index(name)?;
+                if let Some(place) = self.bindings[index].stable_place {
+                    return Some(StableMatchPlace::StablePlace(place));
+                }
+                return self.bindings[index]
+                    .transparent_alias_group
+                    .map(StableMatchPlace::AliasGroup);
             }
-            return self.bindings[index]
-                .transparent_alias_group
-                .map(StableMatchPlace::AliasGroup);
+            return self
+                .qualified_module_value_stable_place(segments)
+                .map(StableMatchPlace::StablePlace);
         }
         self.stable_field_place(scrutinee)
             .map(StableMatchPlace::StablePlace)
+    }
+
+    pub(super) fn qualified_module_value_stable_place(
+        &mut self,
+        segments: &[String],
+    ) -> Option<usize> {
+        let identity = self.qualified_module_value_identity(segments)?;
+        Some(self.intern_stable_place(StablePlaceKey::ModuleValue(identity)))
+    }
+
+    pub(super) fn qualified_module_value_stable_refinement(
+        &self,
+        segments: &[String],
+    ) -> Option<&Type> {
+        let identity = self.qualified_module_value_identity(segments)?;
+        record_stable_place_key_lookup();
+        let place = self
+            .stable_place_keys
+            .get(&StablePlaceKey::ModuleValue(identity))?;
+        self.stable_place_refinement(*place)
+    }
+
+    fn qualified_module_value_identity(
+        &self,
+        segments: &[String],
+    ) -> Option<crate::types::ModuleValueIdentity> {
+        if segments.len() < 2 {
+            return None;
+        }
+        match self.environment.module_value_path_in_owner(
+            segments,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
+            crate::types::ModuleValueLookup::Available(value) => Some(value.identity()),
+            crate::types::ModuleValueLookup::Unavailable
+            | crate::types::ModuleValueLookup::Ambiguous
+            | crate::types::ModuleValueLookup::Missing => None,
+        }
     }
 
     pub(super) fn stable_field_place(&mut self, expr: &Expr) -> Option<usize> {
