@@ -27,6 +27,47 @@ fn coverage() -> ()
 	end
 end
 
+fn alias_composition() -> ()
+	let local = ((wire::limited))
+	let transitive = local
+	let widened: wire::State = transitive
+	match wire::limited
+		a::b::State::Ready => begin
+			let local_ready: wire::State::Ready = local
+			let transitive_ready: wire::State::Ready = transitive
+			let widened_ready: wire::State::Ready = widened
+			()
+		end
+		remaining => begin
+			let local_closed: wire::State::Closed = local
+			let bound_closed: wire::State::Closed = remaining
+			()
+		end
+	end
+	match widened
+		a::b::State::Failed => ()
+		a::b::State::Ready => begin
+			let direct: wire::State::Ready = a::b::limited
+			let aliased: wire::State::Ready = wire::limited
+			()
+		end
+		a::b::State::Ready => ()
+		remaining => begin
+			let direct: wire::State::Closed = wire::limited
+			match transitive
+				a::b::State::Closed => begin
+					let nested: wire::State::Closed = widened
+					()
+				end
+			end
+			let restored_outer: wire::State::Closed = local
+			let bound_closed: wire::State::Closed = remaining
+			()
+		end
+	end
+	let restored: wire::State::Ready = transitive
+end
+
 fn computed_call() -> ()
 	match wire::read()
 		a::b::State::Ready => begin

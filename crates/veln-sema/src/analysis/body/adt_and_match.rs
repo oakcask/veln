@@ -745,12 +745,18 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
     ) -> Type {
         let inferred_scrutinee_type = self.infer_match_scrutinee(expr, scrutinee, arms);
-        let scrutinee_type = self
+        let inferred_scrutinee_type = self
             .stable_match_alias_group(scrutinee)
             .map_or(inferred_scrutinee_type, |group| {
                 self.alias_group_match_type(group)
             });
         let stable_place = self.stable_match_place(scrutinee);
+        let scrutinee_type = match stable_place {
+            Some(StableMatchPlace::StablePlace(place)) => {
+                self.stable_place_match_type(place, inferred_scrutinee_type)
+            }
+            _ => inferred_scrutinee_type,
+        };
         let mut refined_coverage = stable_place
             .is_some()
             .then(|| self.refined_match_coverage(scrutinee, &scrutinee_type))
@@ -1445,8 +1451,24 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         segments: &[String],
     ) -> Option<usize> {
-        let identity = self.qualified_module_value_identity(segments)?;
-        Some(self.intern_stable_place(StablePlaceKey::ModuleValue(identity)))
+        if segments.len() < 2 {
+            return None;
+        }
+        let value = match self.environment.module_value_path_in_owner(
+            segments,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
+            crate::types::ModuleValueLookup::Available(value) => value,
+            crate::types::ModuleValueLookup::Unavailable
+            | crate::types::ModuleValueLookup::Ambiguous
+            | crate::types::ModuleValueLookup::Missing => return None,
+        };
+        let place = self.intern_stable_place(StablePlaceKey::ModuleValue(value.identity()));
+        self.stable_place_feasible_types
+            .entry(place)
+            .or_insert_with(|| value.ty.clone());
+        Some(place)
     }
 
     pub(super) fn qualified_module_value_stable_refinement(
@@ -1549,6 +1571,16 @@ impl<'a> FunctionChecker<'a> {
         self.stable_place_refinements
             .get(&place)
             .and_then(|refinements| refinements.last())
+    }
+
+    fn stable_place_match_type(&self, place: usize, inferred: Type) -> Type {
+        if self.stable_place_refinement(place).is_some() {
+            return inferred;
+        }
+        self.stable_place_feasible_types
+            .get(&place)
+            .cloned()
+            .unwrap_or(inferred)
     }
 
     fn unplanned_match_binding_refinement(

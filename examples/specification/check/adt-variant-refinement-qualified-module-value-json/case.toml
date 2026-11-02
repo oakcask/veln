@@ -1,7 +1,7 @@
 # Compiler integration contract: JSON diagnostics preserve qualified module
-# value identity refinement, companion-private availability, arm-local
-# restoration, finite coverage, and the inaccessible and qualified-call
-# boundaries.
+# value identity refinement, transitive local aliases, companion-private
+# availability, arm-local restoration, finite coverage, and the inaccessible
+# and qualified-call boundaries.
 command = ["check", "--json", "app.veln", "a/b.veln", "a/b.test.veln", "broken.test.veln"]
 exit = 1
 
@@ -18,7 +18,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 7
+equals = 10
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -38,24 +38,48 @@ equals = "type.match_redundant_arm"
 
 [[json_assert]]
 path = "diagnostics.4.id"
-equals = "type.variant_mismatch"
+equals = "type.match_impossible_variant"
 
 [[json_assert]]
 path = "diagnostics.5.id"
-equals = "name.unresolved"
+equals = "type.match_redundant_arm"
 
 [[json_assert]]
-path = "diagnostics.5.message"
-equals = "unresolved value `wire::private_current`"
+path = "diagnostics.4.details.scrutinee_type"
+equals = "State::Ready | State::Closed"
 
 [[json_assert]]
-path = "diagnostics.5.span.file"
-equals = "app.veln"
+path = "diagnostics.5.details.reason"
+equals = "duplicate_variant"
 
 [[json_assert]]
 path = "diagnostics.6.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.6.details.actual_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.7.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.8.id"
 equals = "name.unresolved"
 
 [[json_assert]]
-path = "diagnostics.6.message"
+path = "diagnostics.8.message"
+equals = "unresolved value `wire::private_current`"
+
+[[json_assert]]
+path = "diagnostics.8.span.file"
+equals = "app.veln"
+
+[[json_assert]]
+path = "diagnostics.9.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.9.message"
 equals = "unresolved value `broken::private_current`"

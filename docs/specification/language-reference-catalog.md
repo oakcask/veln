@@ -73,11 +73,14 @@ quarantine, focused mixed-union base failure, invalid-signature quarantine,
 and the qualified-value boundary. Qualified, multi-segment references to
 available module immutable values are stable match roots. Direct and
 explicit-import-alias paths share refinement when they select the same
-package-aware declaration. Availability follows ordinary lookup, including
-private target values read by their exact test companion; inaccessible,
-unavailable, ambiguous, and missing paths do not become roots.
-Module-value-rooted fields and transparent local aliases remain outside this
-behavior.
+package-aware declaration. A local initialized only from that value shares the
+declaration identity, and transitive locals preserve the same finite feasible
+domain. Matching the declaration or any rooted local refines every member for
+the current arm.
+Availability follows ordinary lookup, including private target values read by
+their exact test companion; inaccessible, unavailable, ambiguous, and missing
+paths do not become roots.
+Module-value-rooted fields remain outside this behavior.
 The selected examples demonstrate refined call typing, complete structural
 assignment, control-flow result joins, alias-qualified identity and
 presentation, generic alias boundaries, structural visibility, publication
