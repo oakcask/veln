@@ -70,15 +70,17 @@ and pattern boundaries, recursive visibility at public-signature, public
 module-value-annotation, and public-ADT-payload boundaries, including private
 named types in public module value annotations, transitive publication
 quarantine, focused mixed-union base failure, invalid-signature quarantine,
-and the qualified-value limit. The qualified-value limit is independent of
-execution readiness: module values execute, but they are not yet stable match
-paths for refinement.
+and the qualified-value boundary. Qualified, multi-segment references to
+available module immutable values are stable match roots. Direct and
+explicit-import-alias paths share refinement when they select the same
+package-aware declaration. Module-value-rooted fields and transparent local
+aliases remain outside this behavior.
 The selected examples demonstrate refined call typing, complete structural
 assignment, control-flow result joins, alias-qualified identity and
-presentation, generic alias boundaries, structural visibility, and publication
-quarantine. The current type and source specifications remain authoritative
-for those behaviors and the accepted source forms, including malformed-form
-boundaries.
+presentation, generic alias boundaries, structural visibility, publication
+quarantine, and qualified module-value match refinement. The current type and
+source specifications remain authoritative for those behaviors and the
+accepted source forms, including malformed-form boundaries.
 The `contracts` topic selects the function-contract, schema-validation, and
 schema-field predicate entry productions. The complete grammar distinguishes
 function contracts and hole `satisfy` predicates, which admit integer `%`,
