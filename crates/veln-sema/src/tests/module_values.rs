@@ -493,6 +493,68 @@ fn ambiguous_exact_module_value_import_is_not_selected_by_member_presence() {
 }
 
 #[test]
+fn ambiguous_qualified_module_value_reports_each_import_target() {
+    let owner_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "use shared from \"one/pkg\"\n",
+            "use shared from \"two/pkg\"\n",
+            "fn read() -> Int\n",
+            "  shared::answer\n",
+            "end\n",
+        ),
+    );
+    let mut merged = veln_ast::lower_surface_ast_with_package_module_identity(
+        &parse(&owner_source).tree,
+        "app/pkg".to_string(),
+        "app".to_string(),
+        owner_source.span(veln_source::TextRange::new(0, 0)),
+    );
+    for use_decl in &mut merged.uses {
+        use_decl.name = "shared".to_string();
+    }
+    for package in ["one/pkg", "two/pkg"] {
+        let source = SourceFile::new(
+            format!("{package}/shared.veln"),
+            "pub let answer: Int = 1\n",
+        );
+        let module = veln_ast::lower_surface_ast_with_package_module_identity(
+            &parse(&source).tree,
+            package.to_string(),
+            "shared".to_string(),
+            source.span(veln_source::TextRange::new(0, 0)),
+        );
+        merged.module_values.extend(module.module_values);
+    }
+
+    let diagnostics = analyze_surface_module(&merged);
+    let ambiguity = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "name.ambiguous")
+        .unwrap_or_else(|| panic!("missing ambiguity diagnostic: {diagnostics:#?}"));
+    let candidates = ambiguity
+        .related
+        .iter()
+        .map(|related| {
+            let entries = related.as_object().expect("related object");
+            let field = |name: &str| {
+                entries
+                    .iter()
+                    .find(|(field, _)| field == name)
+                    .and_then(|(_, value)| value.as_text())
+                    .expect("related field")
+            };
+            (field("candidate_kind"), field("package"))
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        candidates,
+        vec![("import_target", "one/pkg"), ("import_target", "two/pkg")]
+    );
+}
+
+#[test]
 #[ignore = "supporting wall-clock evidence; deterministic lookup work is asserted separately"]
 fn bare_imported_module_value_lookup_reports_adjacent_size_timings() {
     for count in [150, 300, 600, 1_200] {
