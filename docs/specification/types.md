@@ -1549,9 +1549,8 @@ generic-expanding recursion, makes the validation operation a static failure.
 Every reachable composed schema must be format-neutral. Field `where` clauses
 and schema `validate` clauses remain in the runtime-validation boundary,
 including on composed branches without refinements. A binary schema anywhere
-in that graph makes the operation a static failure, as do
-qualified-value control-flow refinement and the provider-dependent
-unavailable-descriptor diagnostic.
+in that graph makes the operation a static failure, as does the
+provider-dependent unavailable-descriptor diagnostic.
 This behavior does not add variance for named generic constructors or generic
 inference.
 
