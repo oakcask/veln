@@ -546,66 +546,76 @@ impl TypeEnvironment {
             return Vec::new();
         };
         if segments.len() > 1 {
-            let owner = ResolvedImportOwner {
-                package: current_package.map(str::to_owned),
-                module: current_module.map(str::to_owned),
-            };
             let module_path = segments[..segments.len() - 1].join("::");
-            let Some(QualifiedModuleValueImportSelection::Ambiguous(imports)) = self
-                .qualified_module_value_imports
-                .get(&(owner, module_path))
-            else {
-                return Vec::new();
-            };
-            return imports
-                .iter()
-                .map(|use_decl| {
-                    let target = use_decl.resolved_target();
-                    ModuleValueAmbiguityCandidate {
-                        kind: ModuleValueAmbiguityCandidateKind::ImportTarget,
-                        package_name: target.package,
-                        module_name: target.module,
-                        alias: if use_decl.alias.is_empty() {
-                            use_decl.written_name.clone()
-                        } else {
-                            use_decl.alias.clone()
-                        },
-                        span: use_decl.span.clone(),
-                    }
-                })
-                .collect();
+            return self.qualified_module_value_ambiguity_candidates(
+                ResolvedImportOwner {
+                    package: current_package.map(str::to_owned),
+                    module: current_module.map(str::to_owned),
+                },
+                module_path,
+            );
         }
 
         let owner = (
             current_package.map(str::to_owned),
             current_module.map(str::to_owned),
         );
-        let key = (owner.0.clone(), owner.1.clone(), name.clone());
+        self.bare_module_value_ambiguity_candidates(name, owner)
+    }
+
+    fn qualified_module_value_ambiguity_candidates(
+        &self,
+        owner: ResolvedImportOwner,
+        module_path: String,
+    ) -> Vec<ModuleValueAmbiguityCandidate> {
+        let Some(QualifiedModuleValueImportSelection::Ambiguous(imports)) = self
+            .qualified_module_value_imports
+            .get(&(owner, module_path))
+        else {
+            return Vec::new();
+        };
+        imports
+            .iter()
+            .map(|use_decl| {
+                let target = use_decl.resolved_target();
+                ModuleValueAmbiguityCandidate {
+                    kind: ModuleValueAmbiguityCandidateKind::ImportTarget,
+                    package_name: target.package,
+                    module_name: target.module,
+                    alias: if use_decl.alias.is_empty() {
+                        use_decl.written_name.clone()
+                    } else {
+                        use_decl.alias.clone()
+                    },
+                    span: use_decl.span.clone(),
+                }
+            })
+            .collect()
+    }
+
+    fn bare_module_value_ambiguity_candidates(
+        &self,
+        name: &str,
+        owner: ModuleValueOwner,
+    ) -> Vec<ModuleValueAmbiguityCandidate> {
+        let key = (owner.0.clone(), owner.1.clone(), name.to_owned());
         let Some(exposure) = self.materialize_bare_module_value_exposure(&key) else {
             return Vec::new();
         };
         let mut candidates = Vec::new();
-        for identity in exposure.active {
-            let target = (identity.0, identity.1);
-            if let Some(use_decl) = self.ambiguity_import_for_target(&owner, &target) {
-                candidates.push(ModuleValueAmbiguityCandidate {
-                    kind: ModuleValueAmbiguityCandidateKind::ModuleValue,
-                    package_name: target.0,
-                    module_name: target.1.unwrap_or_default(),
-                    alias: use_decl.alias.clone(),
-                    span: use_decl.span.clone(),
-                });
-            }
-        }
-        for target in exposure.function_candidates {
-            if let Some(use_decl) = self.ambiguity_import_for_target(&owner, &target) {
-                candidates.push(ModuleValueAmbiguityCandidate {
-                    kind: ModuleValueAmbiguityCandidateKind::Function,
-                    package_name: target.0,
-                    module_name: target.1.unwrap_or_default(),
-                    alias: use_decl.alias.clone(),
-                    span: use_decl.span.clone(),
-                });
+        let module_values = exposure.active.into_iter().map(|identity| {
+            (
+                (identity.0, identity.1),
+                ModuleValueAmbiguityCandidateKind::ModuleValue,
+            )
+        });
+        let functions = exposure
+            .function_candidates
+            .into_iter()
+            .map(|target| (target, ModuleValueAmbiguityCandidateKind::Function));
+        for (target, kind) in module_values.chain(functions) {
+            if let Some(candidate) = self.bare_ambiguity_candidate(&owner, target, kind) {
+                candidates.push(candidate);
             }
         }
         candidates.sort_by(|left, right| {
@@ -625,6 +635,22 @@ impl TypeEnvironment {
                 ))
         });
         candidates
+    }
+
+    fn bare_ambiguity_candidate(
+        &self,
+        owner: &ModuleValueOwner,
+        target: ModuleValueTarget,
+        kind: ModuleValueAmbiguityCandidateKind,
+    ) -> Option<ModuleValueAmbiguityCandidate> {
+        let use_decl = self.ambiguity_import_for_target(owner, &target)?;
+        Some(ModuleValueAmbiguityCandidate {
+            kind,
+            package_name: target.0,
+            module_name: target.1.unwrap_or_default(),
+            alias: use_decl.alias.clone(),
+            span: use_decl.span.clone(),
+        })
     }
 
     fn ambiguity_import_for_target(
