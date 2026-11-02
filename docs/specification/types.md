@@ -544,33 +544,38 @@ type while the arm expression is checked. The checked
 demonstrates parameter, local, generic, nested-arm, and literal-payload use.
 
 A local binding is a transparent alias when its initializer is only a bare or
-redundantly parenthesized immutable parameter or local binding. This relation
-is transitive. An initializer with an incompatible annotation does not establish
-an alias during diagnostic recovery. Matching any member refines every member,
-including a binding catch-all for the complete matched value, for the current
-arm only.
+redundantly parenthesized immutable parameter, local binding, or qualified
+module immutable value. A qualified initializer retains the selected
+package-aware declaration identity. This relation is transitive. An initializer
+with an incompatible annotation does not establish an alias during diagnostic
+recovery. Matching any member refines every member and each qualified spelling
+of the selected module declaration, including a binding catch-all for the
+complete matched value, for the current arm only.
 
 Qualified, multi-segment references to an available module immutable value are
 stable match roots. A direct module path and an explicit import alias select
 the same root when name resolution selects the same package-aware declaration.
 Matching that root narrows every qualified reference to the declaration for the
 current arm, even when a local binding shadows the declaration's leaf name.
-The original declaration type is restored after the arm. Same-spelled values
-with different declaration identities remain independent. An ambiguous,
-unavailable, inaccessible, or missing path supplies no stable root. A private
-module value is available to its exact test companion under the ordinary
-companion visibility rule, so that qualified path does supply the declaration
-identity and refines like any other available module value.
+Matching a local rooted at that declaration has the same effect. A compatible
+wider annotation changes only that local's presentation; matches still use the
+declaration's finite feasible domain. Nested matches compose with an enclosing
+arm refinement. The original declaration and local types are restored after
+the arm. Same-spelled values with different declaration identities remain
+independent. An ambiguous, unavailable, inaccessible, or missing path supplies
+no stable root. A private module value is available to its exact test companion
+under the ordinary companion visibility rule, so that qualified path does
+supply the declaration identity and refines like any other available module
+value.
 
-A qualified module value does not establish a transparent alias through a
-local initializer, and a field path rooted in a module value is not stable.
-A local field path is stable only when its base ultimately resolves to an
-immutable parameter or local binding. Qualified constructors, function values,
-calls, separate construction, equality, contract predicates, Boolean helpers,
-indexing, operators, and other computed expressions do not establish a stable
-root, even when repeated source text is identical. A computed result can be
-refined after it is stored in its own local, but matching that local does not
-refine the inputs used to compute it. The checked
+A field path rooted in a module value is not stable. A local field path is
+stable only when its base ultimately resolves to an immutable parameter or
+local binding. Qualified constructors, function values, calls, separate
+construction, equality, contract predicates, Boolean helpers, indexing,
+operators, and other computed expressions do not establish a module-value
+alias or stable root, even when repeated source text is identical. A computed
+result can be refined after it is stored in its own local, but matching that
+local does not refine the inputs used to compute it. The checked
 [`adt-variant-refinement-match-alias-boundaries`](../../examples/specification/check/adt-variant-refinement-match-alias-boundaries/)
 case verifies the available computed-expression, invalid-annotation, and
 restoration boundaries. The checked
@@ -581,8 +586,9 @@ refinement. The qualified module-value
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-qualified-module-value-json/)
 cases verify identity sharing, local shadowing, arm restoration, finite-domain
-coverage, exact-companion private access, inaccessible and unavailable path
-boundaries, and the qualified-call boundary. The checked
+coverage, bidirectional and transitive local aliases, widening, nested matches,
+exact-companion private access, inaccessible and unavailable path boundaries,
+and the qualified-call boundary. The checked
 [`module-value runtime execution`](../../examples/specification/run/module-value-runtime-execution/)
 case verifies that the JVM recovers actual qualified module data through a
 match and reads the same declaration through another qualified spelling under
@@ -675,9 +681,10 @@ frame per nesting level. Every stable-place root, key, refinement, and frame is
 released after successful or failed analysis.
 
 For one qualified module-value root, workloads with 32, 64, and 128 repeated
-references retain one root, create no field-path keys, and perform one lookup
-per reference plus the initial match lookup. Each adjacent workload therefore
-has at most twice the preceding lookup work.
+alias-forming references retain one root and create no field-path keys. Each
+initializer performs one lookup to read the arm-local type and one lookup to
+retain the declaration identity, in addition to the initial match lookup. Each
+adjacent workload therefore has at most twice the preceding lookup work.
 
 Reconciling two equally shaped nested named types that use a different alias
 spelling at every named node performs one conflict lookup and at most one

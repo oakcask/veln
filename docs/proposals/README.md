@@ -17,7 +17,7 @@ also states it.
 ## Ready
 
 - Extend qualified module immutable-value refinement through module-rooted
-  record fields and local transparent aliases:
+  record fields:
   [qualified-value-match-refinement.md](qualified-value-match-refinement.md).
 - Generic named-type variance, bounded inference, variance metadata, and
   nested incompatibility diagnostics:

@@ -950,7 +950,9 @@ record-field path whose base ultimately resolves to an immutable parameter or
 local binding. A qualified, multi-segment reference to an available module
 immutable value is also stable. Direct and explicit-import-alias paths share
 one place when they select the same package-aware declaration. A binding and
-its transparent local aliases share one place. A field path also shares its
+its transparent local aliases share one place. A local initialized only from a
+qualified module immutable value shares that declaration's place, and the
+relation remains transitive. A field path also shares its
 place with repeated access through transparent aliases of the same resolved
 root. A different declaration, root, or field sequence does not share that
 refinement.
@@ -963,9 +965,9 @@ residual set. A binding catch-all identifies the complete matched value, so a
 nested match through that binding refines the original place and its aliases.
 Passing any participating binding or field path to a parameter that requires
 its arm refinement emits no `type.variant_mismatch`. A repeated qualified
-reference to the selected module-value declaration has the same arm
-refinement. Leaving an arm restores the prior type of the binding, field path,
-or module-value declaration.
+reference or rooted local for the selected module-value declaration has the
+same arm refinement. Matching either form refines both. Leaving an arm restores
+the prior type of the binding, field path, or module-value declaration.
 
 A valid same-ADT constructor excluded by the original refined domain reports
 `type.match_impossible_variant` at the constructor's final name segment. Its
@@ -981,8 +983,9 @@ The qualified module-value
 [`human`](../../examples/specification/check/adt-variant-refinement-qualified-module-value-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-qualified-module-value-json/)
-cases cover direct and import-alias identity sharing, restoration, impossible
-and redundant arm classification, and the computed-call boundary.
+cases cover direct and import-alias identity sharing, bidirectional transitive
+local aliases, widening, nested restoration, impossible and redundant arm
+classification, and the computed-call boundary.
 
 A valid constructor or catch-all with no residual variant reports
 `type.match_redundant_arm` at the complete arm pattern. Its closed details are

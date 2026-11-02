@@ -299,6 +299,138 @@ fn qualified_module_value_match_refinement_uses_declaration_identity_and_restore
 }
 
 #[test]
+fn qualified_module_value_aliases_share_transitive_refinement_and_finite_domains() {
+    let mut app = source_module(
+        "app.veln",
+        concat!(
+            "use a::b as wire\n",
+            "fn inspect() -> ()\n",
+            "  let local = ((wire::limited))\n",
+            "  let transitive = local\n",
+            "  let widened: wire::State = transitive\n",
+            "  match wire::limited\n",
+            "    a::b::State::Ready => begin\n",
+            "      let local_ready: wire::State::Ready = local\n",
+            "      let transitive_ready: wire::State::Ready = transitive\n",
+            "      let widened_ready: wire::State::Ready = widened\n",
+            "      ()\n",
+            "    end\n",
+            "    remaining => begin\n",
+            "      let local_closed: wire::State::Closed = local\n",
+            "      let remaining_closed: wire::State::Closed = remaining\n",
+            "      ()\n",
+            "    end\n",
+            "  end\n",
+            "  match widened\n",
+            "    a::b::State::Ready => begin\n",
+            "      let direct_ready: wire::State::Ready = a::b::limited\n",
+            "      ()\n",
+            "    end\n",
+            "    remaining => begin\n",
+            "      let direct_closed: wire::State::Closed = wire::limited\n",
+            "      match transitive\n",
+            "        a::b::State::Closed => begin\n",
+            "          let nested_closed: wire::State::Closed = widened\n",
+            "          ()\n",
+            "        end\n",
+            "      end\n",
+            "      let restored_outer: wire::State::Closed = local\n",
+            "      let remaining_closed: wire::State::Closed = remaining\n",
+            "      ()\n",
+            "    end\n",
+            "    a::b::State::Failed => ()\n",
+            "  end\n",
+            "  let restored: wire::State::Ready = transitive\n",
+            "end\n",
+        ),
+        None,
+        "app",
+    );
+    let values = source_module(
+        "a/b.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready\n",
+            "  pub Closed\n",
+            "  pub Failed\n",
+            "end\n",
+            "pub let limited: State::Ready | State::Closed = Ready\n",
+        ),
+        None,
+        "a::b",
+    );
+    extend(&mut app, values);
+
+    let diagnostics = analyze_surface_module(&app);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.match_impossible_variant");
+    assert_eq!(diagnostics[1].id, "type.variant_mismatch");
+}
+
+#[test]
+fn failed_and_computed_initializers_do_not_join_module_value_refinement() {
+    let mut app = source_module(
+        "app.veln",
+        concat!(
+            "use states as wire\n",
+            "fn inspect() -> ()\n",
+            "  let invalid: Option<Int> = wire::current\n",
+            "  let constructed = wire::State::Ready\n",
+            "  let called = wire::read()\n",
+            "  let callback = wire::read\n",
+            "  match wire::current\n",
+            "    wire::State::Ready => begin\n",
+            "      let unchanged: Option<Int> = invalid\n",
+            "      let callable = callback\n",
+            "      ()\n",
+            "    end\n",
+            "    wire::State::Closed => ()\n",
+            "  end\n",
+            "  match constructed\n",
+            "    wire::State::Ready => begin\n",
+            "      let unrelated: wire::State::Ready = wire::current\n",
+            "      ()\n",
+            "    end\n",
+            "    wire::State::Closed => ()\n",
+            "  end\n",
+            "  match called\n",
+            "    wire::State::Ready => begin\n",
+            "      let unrelated: wire::State::Ready = wire::current\n",
+            "      ()\n",
+            "    end\n",
+            "    wire::State::Closed => ()\n",
+            "  end\n",
+            "end\n",
+        ),
+        None,
+        "app",
+    );
+    let values = source_module(
+        "states.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready\n",
+            "  pub Closed\n",
+            "end\n",
+            "pub let current: State = Ready\n",
+            "pub fn read() -> State\n",
+            "  Ready\n",
+            "end\n",
+        ),
+        None,
+        "states",
+    );
+    extend(&mut app, values);
+
+    let diagnostics = analyze_surface_module(&app);
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(diagnostics[1].id, "type.variant_mismatch");
+    assert_eq!(diagnostics[2].id, "type.match_impossible_variant");
+    assert_eq!(diagnostics[3].id, "type.variant_mismatch");
+}
+
+#[test]
 fn exact_companion_refines_an_available_private_module_value_by_declaration_identity() {
     let module = merged_modules_with_identities(vec![
         (
@@ -402,10 +534,13 @@ fn qualified_module_value_match_refinement_keeps_package_identities_distinct() {
             "use shared as first from \"first/pkg\"\n",
             "use shared as second from \"second/pkg\"\n",
             "fn inspect() -> ()\n",
-            "  match first::current\n",
+            "  let selected = first::current\n",
+            "  let namesake = second::current\n",
+            "  match selected\n",
             "    Some(_) => begin\n",
-            "      let selected: Option<Int>::Some = first::current\n",
+            "      let direct: Option<Int>::Some = first::current\n",
             "      let unrelated: Option<Int>::Some = second::current\n",
+            "      let unrelated_local: Option<Int>::Some = namesake\n",
             "      ()\n",
             "    end\n",
             "    None => ()\n",
@@ -437,11 +572,11 @@ fn qualified_module_value_match_refinement_keeps_package_identities_distinct() {
     extend(&mut app, second);
 
     let diagnostics = analyze_surface_module(&app);
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    assert_eq!(diagnostics[0].id, "type.variant_mismatch");
-    assert_eq!(
-        diagnostics[0].message,
-        "value of type `Option<Int>` is not assignable to variant type `Option<Int>::Some`"
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.variant_mismatch")
     );
 }
 

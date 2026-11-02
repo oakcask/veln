@@ -404,7 +404,7 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn inherited_let_binding_metadata(
-        &self,
+        &mut self,
         pattern: &Pattern,
         expr: &Expr,
     ) -> (Option<usize>, Option<usize>, Option<usize>) {
@@ -414,18 +414,23 @@ impl<'a> FunctionChecker<'a> {
         let ExprKind::NamePath { segments, .. } = &expr.kind else {
             return (None, None, None);
         };
-        let [name] = segments.as_slice() else {
-            return (None, None, None);
-        };
-        self.visible_binding_index(name)
-            .map_or((None, None, None), |index| {
-                let binding = &self.bindings[index];
-                (
-                    binding.transparent_alias_group,
-                    binding.stable_record_root,
-                    binding.stable_place,
-                )
-            })
+        match segments.as_slice() {
+            [name] => self
+                .visible_binding_index(name)
+                .map_or((None, None, None), |index| {
+                    let binding = &self.bindings[index];
+                    (
+                        binding.transparent_alias_group,
+                        binding.stable_record_root,
+                        binding.stable_place,
+                    )
+                }),
+            _ => (
+                None,
+                None,
+                self.qualified_module_value_stable_place(segments),
+            ),
+        }
     }
 
     pub(super) fn check_expr_line(&mut self, index: usize, line: &BodyLine, expr: &Expr) {

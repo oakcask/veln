@@ -874,7 +874,7 @@ fn qualified_module_value_root_work_scales_with_references() {
         assert_eq!(measured[index].roots_created, 1, "{measured:?}");
         assert_eq!(measured[index].peak_retained_roots, 1, "{measured:?}");
         assert_eq!(measured[index].keys_created, 0, "{measured:?}");
-        assert_eq!(measured[index].key_lookups, count + 1, "{measured:?}");
+        assert_eq!(measured[index].key_lookups, count * 2 + 1, "{measured:?}");
     }
     for adjacent in measured.windows(2) {
         assert!(adjacent[1].key_lookups <= adjacent[0].key_lookups * 2);
