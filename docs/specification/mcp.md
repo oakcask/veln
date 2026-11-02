@@ -518,8 +518,8 @@ by Editor Support therefore have the same outcome through these tools. A
 shared conflict becomes the `rename.conflict` result specified below, including
 the package-backed conflicting declaration when one caused the failure.
 Standard-library module values are outside this navigation row. The MCP
-`references` tool does not yet admit module immutable values and returns an
-empty reference result for those selections.
+`references` tool does not support module immutable values and returns an empty
+reference result for those selections.
 The checked
 [`module-value-navigation`](../../examples/specification/mcp/module-value-navigation/)
 and
