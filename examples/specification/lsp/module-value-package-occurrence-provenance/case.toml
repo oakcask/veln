@@ -1,0 +1,41 @@
+command = ["lsp"]
+source_errors = "expected"
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 5
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 7
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 9
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 11
+path = "/result"
+length = 1
+
+[[lsp_assert]]
+id = 11
+path = "/result/0/uri"
+workspace_file_uri = "main.veln"
+
+[stdout]
+contains = ["\"id\":2,\"result\":null", "\"id\":4,\"result\":null", "\"id\":6,\"result\":null", "\"id\":8,\"result\":null", "\"id\":10,\"result\":{\"uri\":\"veln-pkg:///example%2Fpkg/snapshot/", "/values.veln\""]
+not_contains = ["\"id\":2,\"result\":{\"uri\":\"veln-pkg:", "\"id\":6,\"result\":{\"uri\":\"veln-pkg:"]

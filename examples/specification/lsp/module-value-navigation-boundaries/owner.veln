@@ -1,0 +1,6 @@
+use imported
+
+pub let local: Int = 42
+fn read() -> Int
+  local
+end

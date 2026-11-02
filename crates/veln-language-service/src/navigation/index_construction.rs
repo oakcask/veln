@@ -128,7 +128,19 @@ impl SymbolIndex {
         );
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());
+        let mut complete_module = workspace_module.clone();
+        append_surface_module(&mut complete_module, direct_dependencies.module.clone());
+        append_surface_module(&mut complete_module, standard_library.module.clone());
+        let module_values = module_value_symbols(&files, &complete_module);
+        let module_value_indices_by_identity =
+            module_value_indices_by_identity(&module_values);
         let file_indices_by_identity = file_indices_by_identity(&files);
+        let workspace_file_indices_by_path = files
+            .iter()
+            .enumerate()
+            .filter(|(_, file)| matches!(file.origin, IndexedOrigin::Workspace))
+            .map(|(index, file)| (file.source.path().as_str().to_string(), index))
+            .collect();
         Self {
             import_aliases,
             import_namespace_bindings,
@@ -139,6 +151,9 @@ impl SymbolIndex {
             handlers: declarations.handlers,
             operations: declarations.operations,
             functions: declarations.functions,
+            module_values,
+            module_value_indices_by_identity,
+            workspace_file_indices_by_path,
             function_indices_by_identity,
             file_indices_by_identity,
             package_function_targets: declarations.package_function_targets,
@@ -165,6 +180,107 @@ impl SymbolIndex {
             function_rename_index: OnceLock::new(),
         }
     }
+}
+
+fn module_value_indices_by_identity(
+    module_values: &[ModuleValueSymbol],
+) -> HashMap<ModuleValueIdentity, Vec<usize>> {
+    let mut by_identity = HashMap::<_, Vec<usize>>::new();
+    for (index, module_value) in module_values.iter().enumerate() {
+        by_identity
+            .entry((
+                module_value.package.clone(),
+                module_value.package_origin,
+                module_value.module.clone(),
+                module_value.name.clone(),
+            ))
+            .or_default()
+            .push(index);
+    }
+    by_identity
+}
+
+fn module_value_symbols(
+    files: &[IndexedFile],
+    module: &veln_ast::SurfaceModule,
+) -> Vec<ModuleValueSymbol> {
+    let files_by_identity = module_value_files_by_identity(files);
+    let workspace_navigation_paths = module_value_workspace_paths(files);
+    veln_sema::resolved_module_value_navigation(module)
+        .into_iter()
+        .filter_map(|resolved| {
+            module_value_symbol(resolved, &files_by_identity, &workspace_navigation_paths)
+        })
+        .collect()
+}
+
+fn module_value_files_by_identity(
+    files: &[IndexedFile],
+) -> HashMap<(&str, Option<&str>), &IndexedFile> {
+    files
+        .iter()
+        .map(|file| {
+            record_module_value_file_index_entry();
+            let package = match &file.origin {
+                IndexedOrigin::Workspace => None,
+                IndexedOrigin::Package { identity, .. } => Some(identity.as_str()),
+            };
+            ((file.source.path().as_str(), package), file)
+        })
+        .collect()
+}
+
+fn module_value_workspace_paths(files: &[IndexedFile]) -> HashSet<&str> {
+    files
+        .iter()
+        .filter(|file| workspace_navigation_file(file))
+        .map(|file| {
+            record_module_value_workspace_path_entry();
+            file.source.path().as_str()
+        })
+        .collect()
+}
+
+fn module_value_symbol(
+    resolved: veln_sema::ResolvedModuleValueNavigation,
+    files_by_identity: &HashMap<(&str, Option<&str>), &IndexedFile>,
+    workspace_navigation_paths: &HashSet<&str>,
+) -> Option<ModuleValueSymbol> {
+    record_module_value_declaration_lookup();
+    let file = files_by_identity.get(&(
+        resolved.declaration.span.file.as_str(),
+        resolved.declaration.owner_package.as_deref(),
+    ))?;
+    if file.navigation_isolated || is_invalid_declaration_name(file, &resolved.declaration.span) {
+        return None;
+    }
+    let public = resolved.visibility == veln_ast::Visibility::Public;
+    let origin = declaration_origin(file, resolved.declaration.span.clone(), public)?;
+    if origin.package_origin == Some(PackageOrigin::StandardLibrary) {
+        return None;
+    }
+    let references = resolved
+        .references
+        .into_iter()
+        .filter(|reference| {
+            record_module_value_reference_lookup();
+            reference.owner_package.is_none()
+                && workspace_navigation_paths.contains(reference.span.file.as_str())
+        })
+        .map(|reference| reference.span)
+        .collect();
+    Some(ModuleValueSymbol {
+        module: resolved
+            .identity
+            .module
+            .unwrap_or_else(|| file.module.clone()),
+        name: resolved.identity.name,
+        declaration: origin.declaration,
+        package: resolved.identity.package,
+        package_origin: origin.package_origin,
+        public,
+        references,
+    })
 }
 
 fn constructor_indices_by_identity(

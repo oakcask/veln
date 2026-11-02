@@ -1,0 +1,4 @@
+pub let dependency_value: Int = 1
+pub fn dependency_function() -> Int
+  1
+end

@@ -503,6 +503,42 @@ the LSP projection.
 Shared-language-service tests check the source-reordering invariant before
 either adapter projects the result.
 
+Saved definition and rename also project the package-aware module
+immutable-value identity specified by
+[Editor Support](editor-support.md#module-immutable-value-navigation). A
+workspace declaration or a direct, qualified, or explicit-import-alias
+reference returns the workspace declaration from `definition`. An eligible
+public reference to a retained direct dependency returns its immutable
+`veln-pkg:` declaration. Rename edits a workspace declaration and its linked
+workspace references, while a package-backed selection returns no edits.
+Definition and rename consume the shared selection and conflict result before
+MCP projects it. The qualified-leaf selection, retained-dependency bare-export
+conflicts, package-owner isolation, and declaring-module precedence specified
+by Editor Support therefore have the same outcome through these tools. A
+shared conflict becomes the `rename.conflict` result specified below, including
+the package-backed conflicting declaration when one caused the failure.
+Standard-library module values are outside this navigation row. The MCP
+`references` tool does not support module immutable values and returns an empty
+reference result for those selections.
+The checked
+[`module-value-navigation`](../../examples/specification/mcp/module-value-navigation/)
+and
+[`module-value-rename`](../../examples/specification/mcp/module-value-rename/),
+[`module-value-references`](../../examples/specification/mcp/module-value-references/),
+[`module-value-workspace-state`](../../examples/specification/mcp/module-value-workspace-state/),
+[`module-value-resource-state`](../../examples/specification/mcp/module-value-resource-state/),
+and
+[`module-value-dependency-navigation`](../../examples/specification/mcp/module-value-dependency-navigation/)
+and
+[`module-value-dependency-rename`](../../examples/specification/mcp/module-value-dependency-rename/)
+and
+[`module-value-dependency-reference-state`](../../examples/specification/mcp/module-value-dependency-reference-state/)
+and
+[`module-value-dependency-resource-state`](../../examples/specification/mcp/module-value-dependency-resource-state/)
+transcripts cover workspace and package definitions, exact workspace rename
+edits, edit-free package rename, empty reference results, one-based ranges,
+and workspace and resource state preservation across those requests.
+
 For an eligible public workspace effect, `definition` and `references` accept
 selection at the declaration, a bare same-module occurrence, or the
 effect-name leaf of a qualified occurrence reached through one parse-clean,
@@ -563,13 +599,14 @@ inherits this recovery boundary from the shared language-service snapshot, as
 does the LSP adapter.
 
 The supported definition set includes valid workspace explicit import aliases,
-workspace functions, types,
+workspace functions, module immutable values, types,
 constructors, handler context and operation-clause parameters, exact
 test-companion private-function access, and unique class-compatible invalid
-source recovery records. Eligible package selections include public functions,
-types, constructors, schemas, and public function aliases in exported direct
-dependencies and embedded `std`; exported direct-dependency public type aliases
-are eligible when their target resolves to a type in that retained dependency.
+source recovery records. Eligible direct-dependency selections include public
+functions, module immutable values, types, constructors, schemas, and public
+function aliases. Embedded `std` supports the same package selections except
+module immutable values. Exported direct-dependency public type aliases are
+eligible when their target resolves to a type in that retained dependency.
 Invalid-cased package records, private or non-exported package declarations,
 mismatched imports, unsupported symbols, and package module segments return an
 empty definition. A public constructor selected through a visible type alias
@@ -694,7 +731,7 @@ returns `rename.invalid_name` with exactly `details: {requested_name}`. An
 empty name is rejected by the input schema.
 
 The supported symbol set contains valid explicit import aliases, workspace
-types, type aliases,
+types, type aliases, module immutable values,
 constructors, functions, function aliases, test declarations, exact-companion
 private functions, value bindings, handler context parameters, and handler
 operation-clause parameters. It also contains the unambiguous recovery
@@ -793,7 +830,8 @@ Supported reference identities are valid workspace explicit import aliases,
 workspace effects, effect operations, handlers, schemas, eligible workspace,
 direct-dependency, and standard-library schema aliases, functions, types,
 constructors, value bindings, handler context parameters, and handler
-operation-clause parameters.
+operation-clause parameters. Module immutable values are not supported
+reference identities and return the ordinary successful empty result.
 
 ### Recovery References
 

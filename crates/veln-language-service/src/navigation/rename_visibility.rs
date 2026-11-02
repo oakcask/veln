@@ -15,3 +15,15 @@ fn function_visible_after_rename(file: &IndexedFile, selected: &FunctionSymbol) 
                         .as_ref()
                         .is_some_and(|target| target == &selected.module))))
 }
+
+fn module_value_visible_after_rename(file: &IndexedFile, selected: &ModuleValueSymbol) -> bool {
+    matches!(file.origin, IndexedOrigin::Workspace)
+        && selected.package.is_none()
+        && (file.module == selected.module
+            || (selected.public
+                && (file.bare_workspace_uses.contains(&selected.module)
+                    || file
+                        .companion_target_module
+                        .as_ref()
+                        .is_some_and(|target| target == &selected.module))))
+}

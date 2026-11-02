@@ -1,0 +1,50 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stdout]
+contains = ["\"id\":6,\"error\":{\"code\":-32602", "\"id\":7,\"error\":{\"code\":-32602", "veln-pkg:///example%2Fpkg/snapshot/"]
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result/uri"
+workspace_file_uri = "values.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+length = 4
+
+[[lsp_assert]]
+id = 4
+path = "/result"
+equals = {"start":{"line":3,"character":10},"end":{"line":3,"character":16}}
+
+[[lsp_assert]]
+id = 5
+path = "/result/changes/$workspace_file_uri:shadow.veln"
+equals = [
+  {"range":{"start":{"line":3,"character":10},"end":{"line":3,"character":16}},"newText":"renamed"},
+  {"range":{"start":{"line":8,"character":10},"end":{"line":8,"character":16}},"newText":"renamed"}
+]
+
+[[lsp_assert]]
+id = 6
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 7
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 8
+path = "/result/changes/$workspace_file_uri:owner.veln"
+equals = [
+  {"range":{"start":{"line":2,"character":8},"end":{"line":2,"character":13}},"newText":"target"},
+  {"range":{"start":{"line":4,"character":2},"end":{"line":4,"character":7}},"newText":"target"}
+]

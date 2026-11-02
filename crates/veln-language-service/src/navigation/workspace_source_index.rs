@@ -150,6 +150,18 @@ fn indexed_workspace_file(
     imports: WorkspaceImports,
     syntax: WorkspaceSyntaxIndex,
 ) -> IndexedFile {
+    let bare_workspace_uses = imports
+        .workspace_imports
+        .iter()
+        .filter(|import| import.syntax_valid && import.bare_exports)
+        .map(|import| import.module.clone())
+        .collect();
+    let bare_external_uses = imports
+        .schema_alias_external_imports
+        .iter()
+        .filter(|import| import.syntax_valid && import.bare_exports)
+        .map(|import| (import.module.clone(), import.package.clone()))
+        .collect();
     IndexedFile {
         source,
         tokens: syntax.tokens,
@@ -157,6 +169,8 @@ fn indexed_workspace_file(
         companion_target_module: identity.companion_target_module,
         uses: Arc::new(imports.modules.local_modules),
         external_uses: Arc::new(imports.modules.external_modules),
+        bare_workspace_uses: Arc::new(bare_workspace_uses),
+        bare_external_uses: Arc::new(bare_external_uses),
         import_aliases: Arc::new(imports.modules.local_aliases),
         external_import_aliases: Arc::new(imports.modules.external_aliases),
         explicit_import_alias_occurrences: BTreeMap::new(),

@@ -1,0 +1,21 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/references"
+length = 0
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/next_cursor"
+missing = true
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references"
+length = 0

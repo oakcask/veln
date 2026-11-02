@@ -1,0 +1,3 @@
+use values as config
+
+let aliased: Int = config::answer

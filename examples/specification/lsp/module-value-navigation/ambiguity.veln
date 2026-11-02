@@ -1,0 +1,6 @@
+use left
+use right
+
+fn read() -> Int
+  target
+end

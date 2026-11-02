@@ -1,0 +1,4 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}}
+{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"workspace_projects","arguments":{}}}
+{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":3,"column":31,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"workspace_projects","arguments":{}}}

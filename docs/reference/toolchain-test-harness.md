@@ -362,6 +362,9 @@ The `publish-diagnostics`, `semantic-tokens`,
 `adt-variant-refinement-navigation`,
 `adt-variant-refinement-alias-navigation`,
 `explicit-import-alias-navigation`,
+`module-value-navigation`,
+`module-value-navigation-boundaries`,
+`module-value-package-occurrence-provenance`,
 `saved-navigation-cross-adapter`,
 `identifier-casing-snapshot-boundary`,
 `identifier-casing-overlay-boundary`, and
@@ -403,6 +406,9 @@ The `saved-navigation-cross-adapter` LSP specification case uses decoded
 assertions for direct `params.position` validation, invalid-coordinate errors,
 empty rename edits for invalid names, and successful navigation repeated after
 failed requests.
+The `module-value-navigation-boundaries` LSP specification case uses decoded
+assertions for qualified lexical-shadowing selection, retained-dependency
+bare-export conflicts, and declaring-module import precedence.
 The `cleanup-region-navigation` LSP specification case uses decoded assertions
 for definition, reference, and rename locations across `begin` and `defer`
 scopes, including the boundary before a multiline `let` initializer completes,
@@ -431,6 +437,16 @@ refinements, and empty results for invalid mixed-base or generic-argument
 unions. The adjacent `-alias-navigation` case covers generic,
 transitive, and imported workspace aliases while preserving the written alias
 rename boundary and UTF-16 ranges.
+The `module-value-navigation` LSP specification case uses decoded assertions
+for definition, declaration-inclusive references, prepare-rename, and rename
+across direct, qualified, and explicit-import-alias references to one module
+immutable-value identity. It also checks edit-free rename conflicts when a
+consumer module would capture an edited bare reference or an existing bare
+reference would become ambiguous.
+The adjacent `module-value-package-occurrence-provenance` case checks that an
+unresolved workspace occurrence cannot select a package-owned module value at
+an equal source path and range, while the valid package reference retains its
+package definition and workspace reference result.
 The paired `explicit-import-alias-navigation` LSP and MCP specification cases
 use decoded assertions for definition, references, and rename on the local
 alias qualifier and on a member reached through that qualifier. They check
@@ -461,6 +477,16 @@ The `adt-variant-refinement-navigation` MCP specification case uses decoded
 assertions for shared constructor and alias definitions, declaration-inclusive
 references, constructor and alias-base rename edits, one-based ranges, and
 empty results for an invalid mixed-base union.
+The `module-value-navigation`, `module-value-rename`,
+`module-value-references`, `module-value-workspace-state`,
+`module-value-resource-state`, `module-value-dependency-navigation`,
+`module-value-dependency-rename`,
+`module-value-dependency-reference-state`, and
+`module-value-dependency-resource-state` MCP specification cases use decoded
+assertions for workspace and direct-dependency definitions, exact workspace
+rename edits, an empty package rename, unsupported reference results with
+either declaration policy, one-based ranges, and unchanged workspace,
+and resource results after those requests.
 The `references-workspace-effect` MCP specification case uses decoded
 assertions for exact effect and effect-operation reference locations,
 declaration inclusion, Unicode-scalar coordinates, deterministic ordering, and

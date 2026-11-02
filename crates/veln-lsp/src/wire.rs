@@ -522,16 +522,23 @@ pub(crate) fn references_json(
     {
         return "[]".to_string();
     }
-    let package_schema_operations = result.selected_symbol.kind == SymbolKind::Schema
-        && matches!(
+    let package_reference_supported = matches!(
+        (
+            result.selected_symbol.kind,
             result.selected_symbol.package_origin,
-            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+        ),
+        (
+            SymbolKind::Schema,
+            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary),
+        ) | (
+            SymbolKind::ModuleValue,
+            Some(PackageOrigin::DirectDependency),
         )
-        && matches!(
-            result.selected_symbol.declaration_kind,
-            SymbolDeclarationKind::Declaration | SymbolDeclarationKind::PublicAlias
-        );
-    if !is_workspace_location(&result.definition) && !package_schema_operations {
+    ) && matches!(
+        result.selected_symbol.declaration_kind,
+        SymbolDeclarationKind::Declaration | SymbolDeclarationKind::PublicAlias
+    );
+    if !is_workspace_location(&result.definition) && !package_reference_supported {
         return "[]".to_string();
     }
     let mut locations = Vec::new();

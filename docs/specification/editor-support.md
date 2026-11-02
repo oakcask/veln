@@ -149,9 +149,10 @@ non-BMP scalar precedes a token on the same line.
 ## LSP Hover, Completion, And Signature Help
 
 `textDocument/hover` returns source presentation for a valid explicit import
-alias declaration, an alias qualifier, or a member selected through that
-qualifier. The plaintext content preserves the written local qualifier and
-reports its package provenance and target module. Workspace provenance is
+alias declaration, an alias qualifier, or a function, type, type alias, or
+constructor selected through that qualifier. The plaintext content preserves
+the written local qualifier and reports its package provenance and target
+module. Workspace provenance is
 reported as `workspace`; a direct dependency uses its package identity. An
 alias hover labels the import alias. A member hover labels the existing member
 kind and its alias-qualified spelling. Other valid positions return `null`.
@@ -239,10 +240,10 @@ Workspace project analysis and document-scoped analysis both check parse-clean
 module immutable value declarations using the finite-data initializer,
 annotation-visibility, imported-lookup, package-identity, and selected
 same-module or imported dependency rules across package sources. They publish
-any resulting semantic diagnostics. Checked core and typed IR retain accepted
-declarations and references, but neither language-service path
-exposes module values through definition, references, rename, completion, or
-signature help.
+any resulting semantic diagnostics. Workspace language-service navigation
+exposes accepted declarations and references through definition, references,
+prepare-rename, and rename as specified below. Completion and signature help do
+not expose module values.
 
 When a workspace source has an invalid source-path-derived module identity,
 the language service does not expose that source or its declarations as normal
@@ -351,13 +352,14 @@ the exact-path member. Reversing those occurrences in a source does not change
 either selection.
 
 Selection at an alias-qualified member leaf keeps the member's existing
-function, type, or constructor identity. Member references and rename include
-alias-qualified member leaves, but exclude the alias declaration, qualifier
-tokens, and written import target. This behavior does not add navigation for a
-new member declaration class.
+function, type, type alias, constructor, or module-value identity. Member
+references and rename include alias-qualified member leaves, but exclude the
+alias declaration, qualifier tokens, and written import target. This behavior
+does not add navigation for a new member declaration class.
 
-Hover and qualified completion use the same valid alias identity and target
-provenance as navigation. A same-spelled alias in another importing module
+Hover for functions, types, type aliases, and constructors and qualified
+completion use the same valid alias identity and target provenance as
+navigation. A same-spelled alias in another importing module
 therefore retains its own target. Invalid-cased, colliding, and
 syntax-recovered aliases produce neither alias-qualified hover nor qualified
 completion. Completion exposes only existing public declaration kinds that
@@ -400,6 +402,85 @@ another import and with the selected alias's own target path, stable conflict
 details, and edit-free rejection. Shared-language-service tests cover the
 ambiguous function, type, and constructor member boundary and complete rename
 edit sets in the original and reversed combined-source order.
+
+### Module immutable-value navigation
+
+A typed module `let` declaration has one package-aware value identity. Direct
+references in its declaring module, qualified references through an imported
+module, and references through an explicit import alias select that same
+identity. Definition returns the declaration name. References return only
+workspace occurrences resolved to that identity. Equal initializer data and a
+same-spelled function or module value do not join the reference set.
+
+For a workspace declaration, prepare-rename returns the selected declaration
+or reference range. Rename edits the declaration and every workspace reference
+in that identity's reference set. The replacement must start with an ASCII
+lowercase letter. The qualifier portion of an alias-qualified reference keeps
+the separate import-alias identity described above.
+
+Module values and functions share one module rename namespace. A replacement
+that duplicates either declaration kind in the selected module returns
+`rename.conflict` with no edits. The inverse function-to-module-value collision
+has the same outcome. A module-value rename also returns that failure when an
+edited bare reference would bind to a function-local or handler-clause binding
+with the replacement name. Qualified references cannot be captured by those
+lexical bindings. When a qualified module-value leaf has the same spelling as
+a parameter or local binding, definition, references, and rename select the
+module value. A bare occurrence keeps the lexical binding identity.
+
+For a public module value, rename conflict prediction checks every workspace
+module that receives its bare exports. An edited bare reference cannot be
+captured by a top-level function or module value in the consumer module. A
+second imported public function or module value with the replacement name
+cannot make an edited reference or an existing unedited reference ambiguous.
+This check includes public bare exports from retained direct dependencies. A
+dependency candidate must match the package and module owner resolved for the
+import; a same-named module in another package does not conflict.
+Either outcome returns `rename.conflict` with the consumer module as the
+affected scope and no edits. An explicit import alias grants qualified access
+only and does not make the selected value visible for this bare-name check.
+In the selected declaration's own module, the renamed local declaration takes
+precedence over a same-named bare import. The import does not cause a consumer
+ambiguity failure there, but another local module value or function still
+causes a shared-namespace conflict.
+
+An explicit function result binding shadows a same-named module value only in
+the function's `ensure` clauses. A same-named occurrence in the function body
+continues to select the module value, so definition, references, and rename use
+the module-value identity for that occurrence.
+
+Public module values from retained direct dependencies participate in
+definition and workspace references by their package and module owner. Values
+with the same module and declaration name in different packages remain
+distinct. Their definitions use immutable `veln-pkg:` locations, so
+prepare-rename returns no range and rename returns no edits for a package
+selection. A package-owned declaration or reference cannot select a workspace
+occurrence merely because its source path and range are equal. An unresolved
+workspace occurrence at that colliding path and range therefore returns no
+definition, references, prepare-rename range, or rename edits. Standard-library
+module values are outside this navigation row. Hover, completion, and signature
+help do not expose module values, including an alias-qualified module-value
+leaf.
+
+The checked
+[`module-value-navigation`](../../examples/specification/lsp/module-value-navigation/)
+case covers definition, declaration-inclusive references, prepare-rename, and
+rename across direct, qualified, and aliased workspace references, and checks
+that alias-qualified module-value hover returns `null`. Focused
+semantic-navigation, language-service, and LSP tests cover equal initializer
+data, same-spelled functions, package-distinct dependency identities,
+standard-library navigation exclusion, shared-namespace rename conflicts,
+lexical capture rejection, and edit-free conflict responses. The executable
+LSP case also checks consumer-module capture and ambiguity caused by an
+unedited reference to the requested name.
+The checked
+[`module-value-navigation-boundaries`](../../examples/specification/lsp/module-value-navigation-boundaries/)
+case covers qualified leaves beside same-named lexical bindings, package-owned
+bare-export conflicts, edit-free rejection, and owner-module import
+precedence. The checked
+[`module-value-package-occurrence-provenance`](../../examples/specification/lsp/module-value-package-occurrence-provenance/)
+case covers the colliding workspace path-and-range boundary while retaining
+definition and reference results for the valid package selection.
 
 ### Shared variant-refinement navigation
 

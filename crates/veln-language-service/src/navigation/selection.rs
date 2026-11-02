@@ -65,6 +65,13 @@ impl SymbolIndex {
         self.declaration_symbol_for_selection(file, tokens, token_index, name, selection)
             .or_else(|| self.bare_nullary_constructor_pattern_symbol(file, tokens, token_index, name))
             .or_else(|| {
+                qualifier_for_token(tokens, token_index).and_then(|_| {
+                    self.module_value_for_selection(name, selection)
+                        .map(Symbol::ModuleValue)
+                        .map(SelectedNavigationSymbol::bare)
+                })
+            })
+            .or_else(|| {
                 self.local_or_recovery_declaration_symbol(
                     file,
                     tokens,
@@ -116,13 +123,16 @@ impl SymbolIndex {
     }
 
     fn declared_item_symbol(&self, name: &str, selection: &SourceSpan) -> Option<Symbol> {
-        self.function_declared_at(name, selection)
+        self.module_value_for_selection(name, selection)
+            .filter(|symbol| same_span(&symbol.declaration.span, selection))
+            .map(Symbol::ModuleValue)
+            .or_else(|| self.function_declared_at(name, selection)
             .map(Symbol::Function)
             .or_else(|| self.type_declared_at(name, selection).map(Symbol::Type))
             .or_else(|| {
                 self.constructor_declared_at(name, selection)
                     .map(Symbol::Constructor)
-            })
+            }))
     }
 
     fn local_or_recovery_declaration_symbol(
@@ -287,6 +297,9 @@ impl SymbolIndex {
             .any(|token| token.kind == TokenKind::Use)
         {
             return None;
+        }
+        if let Some(symbol) = self.module_value_for_selection(name, selection) {
+            return Some(SelectedNavigationSymbol::bare(Symbol::ModuleValue(symbol)));
         }
         if file
             .variant_refinement_final_ranges

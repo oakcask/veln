@@ -1,0 +1,2 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"rename","arguments":{"source":"alias.veln","line":3,"column":29,"new_name":"result"}}}

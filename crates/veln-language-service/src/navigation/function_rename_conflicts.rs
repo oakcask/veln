@@ -31,6 +31,18 @@ impl SymbolIndex {
                     },
                 )
             })
+            .or_else(|| {
+                self.module_values
+                    .iter()
+                    .find(|candidate| {
+                        candidate.package.is_none()
+                            && candidate.module == selected.module
+                            && candidate.name == requested_name
+                    })
+                    .map(|candidate| {
+                        module_rename_conflict(candidate.declaration.clone(), &selected.module)
+                    })
+            })
     }
 
     fn function_reference_conflict(
@@ -70,7 +82,7 @@ impl SymbolIndex {
             token_index,
             requested_name,
         ) {
-            return self.local_conflict_in_file(file, requested_name, span);
+            return self.local_conflict_in_file(file, requested_name, token_index);
         }
         if handler_files.contains(file_path)
             && let Some(conflict) = handler_binding_conflict_for_function_reference(

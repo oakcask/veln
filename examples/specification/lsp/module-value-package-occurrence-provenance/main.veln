@@ -1,0 +1,3 @@
+use values from "example/pkg"
+
+let selected: Int = values::answer

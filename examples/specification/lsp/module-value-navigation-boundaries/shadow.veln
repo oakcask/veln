@@ -1,0 +1,10 @@
+use values
+
+fn from_parameter(answer: Int) -> Int
+  values::answer + answer
+end
+
+fn from_local() -> Int
+  let answer = 1
+  values::answer + answer
+end

@@ -320,6 +320,7 @@ fn schema_alias_external_imports(
                 package: package.name.clone(),
                 alias,
                 syntax_valid,
+                bare_exports: explicit_alias.is_none(),
             })
         })
         .collect()
@@ -354,6 +355,7 @@ fn workspace_imports(
                 module: use_decl.name.clone(),
                 alias,
                 syntax_valid,
+                bare_exports: explicit_alias.is_none(),
             }
         })
         .collect()

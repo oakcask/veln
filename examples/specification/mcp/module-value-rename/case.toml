@@ -1,0 +1,56 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/edits"
+length = 4
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/edits/0/range"
+equals = {"start":{"line":3,"column":28},"end":{"line":3,"column":34}}
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/edits/0/uri"
+workspace_file_uri = "alias.veln"
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/edits/0/new_text"
+equals = "result"
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/edits/1/range"
+equals = {"start":{"line":3,"column":30},"end":{"line":3,"column":36}}
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/edits/1/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/edits/2/range"
+equals = {"start":{"line":1,"column":9},"end":{"line":1,"column":15}}
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/edits/2/uri"
+workspace_file_uri = "values.veln"
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/edits/3/range"
+equals = {"start":{"line":2,"column":19},"end":{"line":2,"column":25}}
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/edits/3/uri"
+workspace_file_uri = "values.veln"
