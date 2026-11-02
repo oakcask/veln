@@ -47,25 +47,18 @@ impl SymbolIndex {
         selected: &ModuleValueSymbol,
         requested_name: &str,
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
-        self.module_values
-            .iter()
+        self.module_value_candidates(None, None, &selected.module, requested_name)
+            .into_iter()
             .find(|candidate| {
-                candidate.package.is_none()
-                    && candidate.module == selected.module
-                    && candidate.name == requested_name
-                    && candidate.declaration != selected.declaration
+                candidate.declaration != selected.declaration
             })
             .map(|candidate| {
                 module_rename_conflict(candidate.declaration.clone(), &selected.module)
             })
             .or_else(|| {
-                self.functions
-                    .iter()
-                    .find(|candidate| {
-                        candidate.package.is_none()
-                            && candidate.module == selected.module
-                            && candidate.name == requested_name
-                    })
+                self.function_candidates(None, None, &selected.module, requested_name)
+                    .into_iter()
+                    .next()
                     .map(|candidate| {
                         module_rename_conflict(candidate.declaration.clone(), &selected.module)
                     })
@@ -117,6 +110,7 @@ impl SymbolIndex {
         self.files
             .iter()
             .filter(|file| module_value_visible_after_rename(file, selected))
+            .filter(|file| file.module != selected.module)
             .find_map(|file| {
                 let affected_bare_reference =
                     affected_bare_files.contains(file.source.path().as_str());
@@ -188,23 +182,16 @@ impl SymbolIndex {
         affected_bare_reference: bool,
     ) -> Option<NavigationLocation> {
         affected_bare_reference.then_some(())?;
-        self.module_values
-            .iter()
+        self.module_value_candidates(None, None, &file.module, requested_name)
+            .into_iter()
             .find(|candidate| {
-                candidate.package.is_none()
-                    && candidate.module == file.module
-                    && candidate.name == requested_name
-                    && candidate.declaration != selected.declaration
+                candidate.declaration != selected.declaration
             })
             .map(|candidate| candidate.declaration.clone())
             .or_else(|| {
-                self.functions
-                    .iter()
-                    .find(|candidate| {
-                        candidate.package.is_none()
-                            && candidate.module == file.module
-                            && candidate.name == requested_name
-                    })
+                self.function_candidates(None, None, &file.module, requested_name)
+                    .into_iter()
+                    .next()
                     .map(|candidate| candidate.declaration.clone())
             })
     }
@@ -216,13 +203,11 @@ impl SymbolIndex {
         requested_name: &str,
         affected_bare_reference: bool,
     ) -> Option<NavigationLocation> {
-        self.module_values
-            .iter()
+        self.imported_module_value_candidates(file, requested_name)
+            .into_iter()
             .find(|candidate| {
-                candidate.name == requested_name
-                    && candidate.declaration != selected.declaration
-                    && candidate.module != file.module
-                    && workspace_module_value_visible_in_file(file, candidate)
+                candidate.declaration != selected.declaration
+                    && candidate.public
                     && (affected_bare_reference
                         || candidate.references.iter().any(|span| {
                             span.file.as_str() == file.source.path().as_str()
@@ -243,13 +228,10 @@ impl SymbolIndex {
         affected_bare_reference: bool,
         scopes: &[FunctionScope],
     ) -> Option<NavigationLocation> {
-        let candidate = self.functions.iter().find(|candidate| {
-            candidate.package.is_none()
-                && candidate.public
-                && candidate.module != file.module
-                && candidate.name == requested_name
-                && workspace_module_is_barely_imported(file, &candidate.module)
-        })?;
+        let candidate = self
+            .imported_function_candidates(file, requested_name)
+            .into_iter()
+            .find(|candidate| candidate.public)?;
         if affected_bare_reference
             || file.tokens.iter().enumerate().any(|(token_index, token)| {
                 token.text == requested_name
@@ -264,6 +246,96 @@ impl SymbolIndex {
             return Some(candidate.declaration.clone());
         }
         None
+    }
+
+    fn module_value_candidates(
+        &self,
+        package: Option<&str>,
+        package_origin: Option<PackageOrigin>,
+        module: &str,
+        name: &str,
+    ) -> Vec<&ModuleValueSymbol> {
+        record_module_value_rename_candidate_lookup();
+        self.module_value_indices_by_identity
+            .get(&(
+                package.map(str::to_string),
+                package_origin,
+                module.to_string(),
+                name.to_string(),
+            ))
+            .into_iter()
+            .flatten()
+            .map(|index| &self.module_values[*index])
+            .collect()
+    }
+
+    fn function_candidates(
+        &self,
+        package: Option<&str>,
+        package_origin: Option<PackageOrigin>,
+        module: &str,
+        name: &str,
+    ) -> Vec<&FunctionSymbol> {
+        record_module_value_rename_candidate_lookup();
+        self.function_indices_by_identity
+            .get(&(
+                package.map(str::to_string),
+                package_origin,
+                module.to_string(),
+                name.to_string(),
+            ))
+            .into_iter()
+            .flatten()
+            .map(|index| &self.functions[*index])
+            .collect()
+    }
+
+    fn imported_module_value_candidates(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Vec<&ModuleValueSymbol> {
+        file
+            .bare_workspace_uses
+            .iter()
+            .flat_map(|module| self.module_value_candidates(None, None, module, name))
+            .chain(
+                file.bare_external_uses
+                    .iter()
+                    .flat_map(|(module, package)| {
+                        self.module_value_candidates(
+                            Some(package),
+                            Some(PackageOrigin::DirectDependency),
+                            module,
+                            name,
+                        )
+                    }),
+            )
+            .collect()
+    }
+
+    fn imported_function_candidates(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Vec<&FunctionSymbol> {
+        file
+            .bare_workspace_uses
+            .iter()
+            .flat_map(|module| self.function_candidates(None, None, module, name))
+            .chain(
+                file.bare_external_uses
+                    .iter()
+                    .flat_map(|(module, package)| {
+                        self.function_candidates(
+                            Some(package),
+                            Some(PackageOrigin::DirectDependency),
+                            module,
+                            name,
+                        )
+                    }),
+            )
+            .collect()
     }
 
     fn import_alias_rename_conflict(

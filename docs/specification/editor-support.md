@@ -422,16 +422,25 @@ that duplicates either declaration kind in the selected module returns
 has the same outcome. A module-value rename also returns that failure when an
 edited bare reference would bind to a function-local or handler-clause binding
 with the replacement name. Qualified references cannot be captured by those
-lexical bindings.
+lexical bindings. When a qualified module-value leaf has the same spelling as
+a parameter or local binding, definition, references, and rename select the
+module value. A bare occurrence keeps the lexical binding identity.
 
 For a public module value, rename conflict prediction checks every workspace
 module that receives its bare exports. An edited bare reference cannot be
 captured by a top-level function or module value in the consumer module. A
 second imported public function or module value with the replacement name
 cannot make an edited reference or an existing unedited reference ambiguous.
+This check includes public bare exports from retained direct dependencies. A
+dependency candidate must match the package and module owner resolved for the
+import; a same-named module in another package does not conflict.
 Either outcome returns `rename.conflict` with the consumer module as the
 affected scope and no edits. An explicit import alias grants qualified access
 only and does not make the selected value visible for this bare-name check.
+In the selected declaration's own module, the renamed local declaration takes
+precedence over a same-named bare import. The import does not cause a consumer
+ambiguity failure there, but another local module value or function still
+causes a shared-namespace conflict.
 
 An explicit function result binding shadows a same-named module value only in
 the function's `ensure` clauses. A same-named occurrence in the function body
@@ -459,6 +468,10 @@ shared-namespace rename conflicts, lexical capture rejection, and edit-free
 conflict responses. The executable LSP case also checks consumer-module
 capture and ambiguity caused by an unedited reference to the requested name.
 The checked
+[`module-value-navigation-boundaries`](../../examples/specification/lsp/module-value-navigation-boundaries/)
+case covers qualified leaves beside same-named lexical bindings, package-owned
+bare-export conflicts, edit-free rejection, and owner-module import
+precedence. The checked
 [`module-value-package-occurrence-provenance`](../../examples/specification/lsp/module-value-package-occurrence-provenance/)
 case covers the colliding workspace path-and-range boundary while retaining
 definition and reference results for the valid package selection.

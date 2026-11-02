@@ -132,6 +132,8 @@ impl SymbolIndex {
         append_surface_module(&mut complete_module, direct_dependencies.module.clone());
         append_surface_module(&mut complete_module, standard_library.module.clone());
         let module_values = module_value_symbols(&files, &complete_module);
+        let module_value_indices_by_identity =
+            module_value_indices_by_identity(&module_values);
         let file_indices_by_identity = file_indices_by_identity(&files);
         let workspace_file_indices_by_path = files
             .iter()
@@ -150,6 +152,7 @@ impl SymbolIndex {
             operations: declarations.operations,
             functions: declarations.functions,
             module_values,
+            module_value_indices_by_identity,
             workspace_file_indices_by_path,
             function_indices_by_identity,
             file_indices_by_identity,
@@ -177,6 +180,24 @@ impl SymbolIndex {
             function_rename_index: OnceLock::new(),
         }
     }
+}
+
+fn module_value_indices_by_identity(
+    module_values: &[ModuleValueSymbol],
+) -> HashMap<ModuleValueIdentity, Vec<usize>> {
+    let mut by_identity = HashMap::<_, Vec<usize>>::new();
+    for (index, module_value) in module_values.iter().enumerate() {
+        by_identity
+            .entry((
+                module_value.package.clone(),
+                module_value.package_origin,
+                module_value.module.clone(),
+                module_value.name.clone(),
+            ))
+            .or_default()
+            .push(index);
+    }
+    by_identity
 }
 
 fn module_value_symbols(

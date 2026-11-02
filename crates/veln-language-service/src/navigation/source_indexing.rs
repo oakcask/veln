@@ -259,6 +259,8 @@ fn indexed_dependency_source(
         companion_target_module: None,
         uses: import_indexes.uses,
         external_uses: import_indexes.external_uses,
+        bare_workspace_uses: Arc::new(BTreeSet::new()),
+        bare_external_uses: Arc::new(BTreeSet::new()),
         import_aliases: import_indexes.import_aliases,
         external_import_aliases: import_indexes.external_import_aliases,
         explicit_import_alias_occurrences: import_indexes.explicit_alias_occurrences,

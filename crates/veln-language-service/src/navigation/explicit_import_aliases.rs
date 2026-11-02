@@ -34,6 +34,8 @@ fn index_explicit_import_aliases(
 struct ModuleImports {
     local_modules: BTreeSet<String>,
     external_modules: BTreeSet<(String, String)>,
+    bare_local_modules: BTreeSet<String>,
+    bare_external_modules: BTreeSet<(String, String)>,
     local_aliases: BTreeMap<String, String>,
     external_aliases: BTreeMap<String, (String, String)>,
 }
@@ -75,6 +77,12 @@ fn collect_shared_file_imports(
             .external_modules
             .extend(file.external_uses.iter().cloned());
         imports
+            .bare_local_modules
+            .extend(file.bare_workspace_uses.iter().cloned());
+        imports
+            .bare_external_modules
+            .extend(file.bare_external_uses.iter().cloned());
+        imports
             .local_aliases
             .extend(file.import_aliases.iter().map(|(name, target)| {
                 (name.clone(), target.clone())
@@ -105,11 +113,17 @@ fn merge_resolved_imports(
         }
         record_explicit_import_alias_construction_work(1);
         let imports = by_module.entry(import.declaring_module).or_default();
+        let bare_exports = !import.explicit_alias;
         match import.target_package {
             Some(package) => {
                 imports
                     .external_modules
                     .insert((import.target_module.clone(), package.clone()));
+                if bare_exports {
+                    imports
+                        .bare_external_modules
+                        .insert((import.target_module.clone(), package.clone()));
+                }
                 if !import.qualifier.is_empty() {
                     imports
                         .external_aliases
@@ -118,6 +132,11 @@ fn merge_resolved_imports(
             }
             None => {
                 imports.local_modules.insert(import.target_module.clone());
+                if bare_exports {
+                    imports
+                        .bare_local_modules
+                        .insert(import.target_module.clone());
+                }
                 if !import.qualifier.is_empty() {
                     imports
                         .local_aliases
@@ -129,6 +148,8 @@ fn merge_resolved_imports(
 }
 
 type SharedModuleImports = (
+    Arc<BTreeSet<String>>,
+    Arc<BTreeSet<(String, String)>>,
     Arc<BTreeSet<String>>,
     Arc<BTreeSet<(String, String)>>,
     Arc<BTreeMap<String, String>>,
@@ -152,6 +173,8 @@ fn freeze_shared_imports(
                 (
                     Arc::new(imports.local_modules),
                     Arc::new(imports.external_modules),
+                    Arc::new(imports.bare_local_modules),
+                    Arc::new(imports.bare_external_modules),
                     Arc::new(imports.local_aliases),
                     Arc::new(imports.external_aliases),
                 ),
@@ -166,9 +189,19 @@ fn assign_shared_imports(
 ) {
     for file in files {
         record_explicit_import_alias_construction_work(1);
-        if let Some((uses, external_uses, aliases, external_aliases)) = shared.get(&file.module) {
+        if let Some((
+            uses,
+            external_uses,
+            bare_workspace_uses,
+            bare_external_uses,
+            aliases,
+            external_aliases,
+        )) = shared.get(&file.module)
+        {
             file.uses = Arc::clone(uses);
             file.external_uses = Arc::clone(external_uses);
+            file.bare_workspace_uses = Arc::clone(bare_workspace_uses);
+            file.bare_external_uses = Arc::clone(bare_external_uses);
             file.import_aliases = Arc::clone(aliases);
             file.external_import_aliases = Arc::clone(external_aliases);
         }

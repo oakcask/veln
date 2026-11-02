@@ -165,6 +165,77 @@ fn module_value_protocol_navigation_and_rename_share_identity() {
 }
 
 #[test]
+fn qualified_module_value_protocol_selection_precedes_lexical_bindings() {
+    let mut server = server_with_empty_standard_library();
+    let project = TempProject::new("qualified-module-value-lexical-shadowing");
+    project.write("values.veln", "pub let answer: Int = 42\n");
+    project.write(
+        "main.veln",
+        concat!(
+            "use values\n\n",
+            "fn from_parameter(answer: Int) -> Int\n",
+            "  values::answer + answer\n",
+            "end\n\n",
+            "fn from_local() -> Int\n",
+            "  let answer = 1\n",
+            "  values::answer + answer\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let values_uri = path_to_uri(&project.root.join("values.veln"));
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    for (line, character) in [(3, 11), (8, 11)] {
+        assert_module_value_definition(&mut server, &main_uri, line, character, &values_uri);
+        let references = server.handle_message(&references_request_with_declaration(
+            &main_uri, line, character, true,
+        ));
+        assert_eq!(references[0].matches(r#""uri":"#).count(), 3, "{}", references[0]);
+        let prepared = server.handle_message(&prepare_rename_request(&main_uri, line, character));
+        assert!(prepared[0].contains(r#""start":{"line":"#), "{}", prepared[0]);
+        let renamed = server.handle_message(&rename_request(
+            &main_uri,
+            line,
+            character,
+            "renamed",
+        ));
+        assert_eq!(renamed[0].matches(r#""newText":"renamed""#).count(), 3);
+    }
+
+    let mut renamed_server = server_with_empty_standard_library();
+    let renamed_project = TempProject::new("qualified-module-value-after-rename");
+    renamed_project.write("values.veln", "pub let renamed: Int = 42\n");
+    renamed_project.write(
+        "main.veln",
+        concat!(
+            "use values\n\n",
+            "fn from_parameter(answer: Int) -> Int\n",
+            "  values::renamed + answer\n",
+            "end\n\n",
+            "fn from_local() -> Int\n",
+            "  let answer = 1\n",
+            "  values::renamed + answer\n",
+            "end\n",
+        ),
+    );
+    let renamed_root = path_to_uri(&renamed_project.root);
+    let renamed_values = path_to_uri(&renamed_project.root.join("values.veln"));
+    let renamed_main = path_to_uri(&renamed_project.root.join("main.veln"));
+    renamed_server.handle_message(&initialize_request(&renamed_root));
+    let definition = renamed_server.handle_message(&definition_request(&renamed_main, 3, 11));
+    assert!(definition[0].contains(&renamed_values), "{}", definition[0]);
+    assert!(
+        definition[0].contains(
+            r#""range":{"start":{"line":0,"character":8},"end":{"line":0,"character":15}}"#
+        ),
+        "{}",
+        definition[0]
+    );
+}
+
+#[test]
 fn package_distinct_module_value_protocol_navigation_keeps_identity() {
     let (mut server, _project, main_uri) = package_module_value_navigation_server();
     assert_package_module_value_definitions_are_distinct(&mut server, &main_uri);
@@ -430,4 +501,101 @@ fn module_value_protocol_rename_rejects_cross_module_complete_edit_conflicts() {
         );
         assert!(!response[0].contains(r#""changes""#), "{}", response[0]);
     }
+}
+
+#[test]
+fn module_value_protocol_rename_rejects_bare_dependency_export_conflicts() {
+    for (suffix, dependency_source) in [
+        ("value", "pub let target: Int = 1\n"),
+        ("function", "pub fn target() -> Int\n  1\nend\n"),
+    ] {
+        let mut server = server_with_empty_standard_library();
+        let project = TempProject::new(&format!("module-value-dependency-conflict-{suffix}"));
+        project.write(
+            "veln.toml",
+            concat!(
+                "[package]\nname = \"app\"\n\n",
+                "[dependencies.\"example/pkg\"]\npath = \"vendor/dependency\"\n",
+            ),
+        );
+        project.write("values.veln", "pub let answer: Int = 42\n");
+        project.write(
+            "main.veln",
+            concat!(
+                "use dependency from \"example/pkg\"\n",
+                "use values\n\n",
+                "fn read() -> Int\n",
+                "  answer + target\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "vendor/dependency/veln.toml",
+            concat!(
+                "[package]\nname = \"example/pkg\"\n\n",
+                "[lib]\nexports = [\"dependency.veln\"]\n",
+            ),
+        );
+        project.write("vendor/dependency/dependency.veln", dependency_source);
+        let root_uri = path_to_uri(&project.root);
+        let values_uri = path_to_uri(&project.root.join("values.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let prepared = server.handle_message(&prepare_rename_request(&values_uri, 0, 10));
+        assert!(!prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+        let response = server.handle_message(&rename_request(&values_uri, 0, 10, "target"));
+        assert!(response[0].contains(r#""code":"rename.conflict""#), "{}", response[0]);
+        assert!(response[0].contains("veln-pkg:///example%2Fpkg/"), "{}", response[0]);
+        assert!(!response[0].contains(r#""changes""#), "{}", response[0]);
+    }
+}
+
+#[test]
+fn module_value_protocol_rename_respects_owner_module_precedence() {
+    let mut server = server_with_empty_standard_library();
+    let project = TempProject::new("module-value-owner-precedence");
+    project.write("imported.veln", "pub let target: Int = 1\n");
+    project.write(
+        "values.veln",
+        concat!(
+            "use imported\n\n",
+            "pub let answer: Int = 42\n",
+            "fn read() -> Int\n",
+            "  answer\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let values_uri = path_to_uri(&project.root.join("values.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+    let response = server.handle_message(&rename_request(&values_uri, 2, 10, "target"));
+    assert_eq!(response[0].matches(r#""newText":"target""#).count(), 2, "{}", response[0]);
+    assert!(!response[0].contains(r#""code":"rename.conflict""#));
+
+    let mut renamed_server = server_with_empty_standard_library();
+    let renamed_project = TempProject::new("module-value-owner-precedence-after-rename");
+    renamed_project.write("imported.veln", "pub let target: Int = 1\n");
+    renamed_project.write(
+        "values.veln",
+        concat!(
+            "use imported\n\n",
+            "pub let target: Int = 42\n",
+            "fn read() -> Int\n",
+            "  target\n",
+            "end\n",
+        ),
+    );
+    let renamed_root = path_to_uri(&renamed_project.root);
+    let renamed_values = path_to_uri(&renamed_project.root.join("values.veln"));
+    renamed_server.handle_message(&initialize_request(&renamed_root));
+    let definition =
+        renamed_server.handle_message(&definition_request(&renamed_values, 4, 3));
+    assert!(definition[0].contains(&renamed_values), "{}", definition[0]);
+    assert!(
+        definition[0].contains(
+            r#""range":{"start":{"line":2,"character":8},"end":{"line":2,"character":14}}"#
+        ),
+        "{}",
+        definition[0]
+    );
 }

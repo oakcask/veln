@@ -182,6 +182,60 @@ mod navigation_module_value_tests {
     }
 
     #[test]
+    fn qualified_module_value_selection_precedes_same_named_lexical_bindings() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("values.veln", "pub let answer: Int = 42\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use values\n\n",
+                    "fn from_parameter(answer: Int) -> Int\n",
+                    "  values::answer + answer\n",
+                    "end\n\n",
+                    "fn from_local() -> Int\n",
+                    "  let answer = 1\n",
+                    "  values::answer + answer\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+
+        for (line, qualified_column, bare_column) in [(4, 12, 21), (9, 12, 21)] {
+            let result = query_snapshot(&snapshot, "main.veln", line, qualified_column).unwrap();
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ModuleValue);
+            assert_location(&result.definition, "values.veln", 1, 9);
+            assert_eq!(
+                locations(&result.references),
+                [("main.veln", 4, 11), ("main.veln", 9, 11)]
+            );
+            assert!(validate_rename_in_snapshot(&snapshot, &result, "renamed").is_ok());
+
+            let lexical = query_snapshot(&snapshot, "main.veln", line, bare_column).unwrap();
+            assert_eq!(lexical.selected_symbol.kind, SymbolKind::ValueBinding);
+        }
+
+        let renamed = EffectiveProjectSnapshot::new(vec![
+            source("values.veln", "pub let renamed: Int = 42\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use values\n\n",
+                    "fn from_parameter(answer: Int) -> Int\n",
+                    "  values::renamed + answer\n",
+                    "end\n\n",
+                    "fn from_local() -> Int\n",
+                    "  let answer = 1\n",
+                    "  values::renamed + answer\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&renamed, "main.veln", 4, 12).unwrap();
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ModuleValue);
+        assert_location(&result.definition, "values.veln", 1, 9);
+    }
+
+    #[test]
     fn module_value_rename_rejects_shared_namespace_and_local_capture_conflicts() {
         for (source_text, requested_name, conflict_line, conflict_column) in [
             (
@@ -308,6 +362,162 @@ mod navigation_module_value_tests {
     }
 
     #[test]
+    fn module_value_rename_treats_bare_dependency_exports_as_consumer_conflicts() {
+        for dependency_source in [
+            "pub let target: Int = 1\n",
+            "pub fn target() -> Int\n  1\nend\n",
+        ] {
+            let dependency = dependency_snapshot(
+                "example/pkg",
+                &[("dependency.veln", dependency_source)],
+                ["dependency.veln"],
+            );
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![
+                    source("values.veln", "pub let answer: Int = 42\n"),
+                    source(
+                        "main.veln",
+                        concat!(
+                            "use dependency from \"example/pkg\"\n",
+                            "use values\n\n",
+                            "fn read() -> Int\n",
+                            "  answer + target\n",
+                            "end\n",
+                        ),
+                    ),
+                ],
+                vec![dependency],
+            );
+            let selected = query_snapshot(&snapshot, "values.veln", 1, 10).unwrap();
+            let failure =
+                validate_rename_in_snapshot(&snapshot, &selected, "target").unwrap_err();
+            assert_eq!(failure.code, "rename.conflict");
+            let RenameFailureKind::Conflict {
+                conflicting_declaration,
+                ..
+            } = failure.kind
+            else {
+                panic!("rename failure was not a conflict");
+            };
+            assert!(matches!(
+                conflicting_declaration.source,
+                NavigationSource::Package { .. }
+            ));
+            assert_eq!(conflicting_declaration.span.file.as_str(), "dependency.veln");
+        }
+
+        let first = dependency_snapshot(
+            "one/pkg",
+            &[("shared.veln", "pub let target: Int = 1\n")],
+            ["shared.veln"],
+        );
+        let second = dependency_snapshot(
+            "two/pkg",
+            &[("shared.veln", "pub let target: Int = 2\n")],
+            ["shared.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source("values.veln", "pub let answer: Int = 42\n"),
+                source(
+                    "main.veln",
+                    concat!(
+                        "use shared from \"one/pkg\"\n",
+                        "use values\n\n",
+                        "fn read() -> Int\n",
+                        "  answer + target\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![first, second],
+        );
+        let selected = query_snapshot(&snapshot, "values.veln", 1, 10).unwrap();
+        let failure = validate_rename_in_snapshot(&snapshot, &selected, "target").unwrap_err();
+        let RenameFailureKind::Conflict {
+            conflicting_declaration,
+            ..
+        } = failure.kind
+        else {
+            panic!("rename failure was not a conflict");
+        };
+        let NavigationSource::Package { uri } = &conflicting_declaration.source else {
+            panic!("dependency conflict did not retain package provenance");
+        };
+        assert!(uri.contains("one%2Fpkg"), "{uri}");
+        assert!(!uri.contains("two%2Fpkg"), "{uri}");
+
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[("dependency.veln", "pub let target: Int = 1\n")],
+            ["dependency.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source("values.veln", "pub let answer: Int = 42\n"),
+                source(
+                    "consumer_imports.veln",
+                    concat!(
+                        "mod consumer\n",
+                        "use dependency from \"example/pkg\"\n",
+                    ),
+                ),
+                source(
+                    "consumer_read.veln",
+                    concat!(
+                        "mod consumer\n",
+                        "use values\n\n",
+                        "fn read() -> Int\n",
+                        "  answer + target\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+        let selected = query_snapshot(&snapshot, "values.veln", 1, 10).unwrap();
+        let failure = validate_rename_in_snapshot(&snapshot, &selected, "target").unwrap_err();
+        assert_eq!(failure.code, "rename.conflict");
+    }
+
+    #[test]
+    fn module_value_owner_precedence_allows_an_imported_replacement_name() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("imported.veln", "pub let target: Int = 1\n"),
+            source(
+                "values.veln",
+                concat!(
+                    "use imported\n\n",
+                    "pub let answer: Int = 42\n",
+                    "fn read() -> Int\n",
+                    "  answer\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let selected = query_snapshot(&snapshot, "values.veln", 3, 10).unwrap();
+        assert!(validate_rename_in_snapshot(&snapshot, &selected, "target").is_ok());
+
+        let renamed = EffectiveProjectSnapshot::new(vec![
+            source("imported.veln", "pub let target: Int = 1\n"),
+            source(
+                "values.veln",
+                concat!(
+                    "use imported\n\n",
+                    "pub let target: Int = 42\n",
+                    "fn read() -> Int\n",
+                    "  target\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&renamed, "values.veln", 5, 4).unwrap();
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ModuleValue);
+        assert_location(&result.definition, "values.veln", 3, 9);
+        assert_eq!(locations(&result.references), [("values.veln", 5, 3)]);
+    }
+
+    #[test]
     fn function_rename_rejects_module_value_namespace_conflict() {
         let snapshot = EffectiveProjectSnapshot::new(vec![source(
             "values.veln",
@@ -412,6 +622,45 @@ mod navigation_module_value_tests {
             larger.scope_lookup_comparisons <= smaller.scope_lookup_comparisons * 3,
             "{smaller:#?} {larger:#?}"
         );
+    }
+
+    fn measured_module_value_consumer_candidate_work(
+        count: usize,
+    ) -> crate::navigation::ModuleValueRenameValidationWork {
+        let mut sources = vec![source("values.veln", "pub let answer: Int = 42\n")];
+        for index in 0..count {
+            sources.push(source(
+                &format!("unrelated_{index}.veln"),
+                &format!("pub let value_{index}: Int = {index}\n"),
+            ));
+            sources.push(source(
+                &format!("consumer_{index}.veln"),
+                &format!(
+                    "use values\nuse unrelated_{index}\n\nfn read() -> Int\n  answer\nend\n"
+                ),
+            ));
+        }
+        let snapshot = EffectiveProjectSnapshot::new(sources);
+        let selected = query_snapshot(&snapshot, "values.veln", 1, 10).unwrap();
+        assert_eq!(selected.references.len(), count);
+
+        reset_module_value_rename_validation_work();
+        let started = std::time::Instant::now();
+        assert!(validate_rename_in_snapshot(&snapshot, &selected, "renamed").is_ok());
+        eprintln!(
+            "module value consumer candidate validation: {count} consumers in {:?}",
+            started.elapsed()
+        );
+        module_value_rename_validation_work()
+    }
+
+    #[test]
+    fn module_value_consumer_candidate_lookup_work_is_adjacent_linear() {
+        let smaller = measured_module_value_consumer_candidate_work(800);
+        let larger = measured_module_value_consumer_candidate_work(1600);
+
+        assert_eq!(smaller.candidate_lookups, 4802, "{smaller:#?}");
+        assert_eq!(larger.candidate_lookups, 9602, "{larger:#?}");
     }
 
 }

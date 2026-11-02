@@ -28,6 +28,7 @@ thread_local! {
     static MODULE_VALUE_REFERENCE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static MODULE_VALUE_RENAME_FILE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static MODULE_VALUE_RENAME_TOKEN_COMPARISONS: Cell<usize> = const { Cell::new(0) };
+    static MODULE_VALUE_RENAME_CANDIDATE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -46,6 +47,7 @@ pub(crate) struct ModuleValueRenameValidationWork {
     pub(crate) token_comparisons: usize,
     pub(crate) scope_collections: usize,
     pub(crate) scope_lookup_comparisons: usize,
+    pub(crate) candidate_lookups: usize,
 }
 
 #[cfg(test)]
@@ -54,6 +56,7 @@ pub(crate) fn reset_module_value_rename_validation_work() {
     MODULE_VALUE_RENAME_TOKEN_COMPARISONS.set(0);
     FUNCTION_SCOPE_COLLECTIONS.set(0);
     FUNCTION_SCOPE_LOOKUP_COMPARISONS.set(0);
+    MODULE_VALUE_RENAME_CANDIDATE_LOOKUPS.set(0);
 }
 
 #[cfg(test)]
@@ -63,6 +66,7 @@ pub(crate) fn module_value_rename_validation_work() -> ModuleValueRenameValidati
         token_comparisons: MODULE_VALUE_RENAME_TOKEN_COMPARISONS.get(),
         scope_collections: FUNCTION_SCOPE_COLLECTIONS.get(),
         scope_lookup_comparisons: FUNCTION_SCOPE_LOOKUP_COMPARISONS.get(),
+        candidate_lookups: MODULE_VALUE_RENAME_CANDIDATE_LOOKUPS.get(),
     }
 }
 
@@ -81,6 +85,14 @@ fn record_module_value_rename_token_comparison() {
 
 #[cfg(not(test))]
 fn record_module_value_rename_token_comparison() {}
+
+#[cfg(test)]
+fn record_module_value_rename_candidate_lookup() {
+    MODULE_VALUE_RENAME_CANDIDATE_LOOKUPS.set(MODULE_VALUE_RENAME_CANDIDATE_LOOKUPS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_module_value_rename_candidate_lookup() {}
 
 #[cfg(test)]
 pub(crate) fn reset_module_value_projection_work() {

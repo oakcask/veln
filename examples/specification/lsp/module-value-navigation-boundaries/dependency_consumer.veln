@@ -1,0 +1,6 @@
+use dependency from "example/pkg"
+use values
+
+fn read() -> Int
+  answer + dependency_value + dependency_function()
+end

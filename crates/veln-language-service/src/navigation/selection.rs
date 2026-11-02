@@ -65,6 +65,13 @@ impl SymbolIndex {
         self.declaration_symbol_for_selection(file, tokens, token_index, name, selection)
             .or_else(|| self.bare_nullary_constructor_pattern_symbol(file, tokens, token_index, name))
             .or_else(|| {
+                qualifier_for_token(tokens, token_index).and_then(|_| {
+                    self.module_value_for_selection(name, selection)
+                        .map(Symbol::ModuleValue)
+                        .map(SelectedNavigationSymbol::bare)
+                })
+            })
+            .or_else(|| {
                 self.local_or_recovery_declaration_symbol(
                     file,
                     tokens,

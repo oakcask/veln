@@ -957,6 +957,8 @@ struct IndexedFile {
     companion_target_module: Option<String>,
     uses: Arc<BTreeSet<String>>,
     external_uses: Arc<BTreeSet<(String, String)>>,
+    bare_workspace_uses: Arc<BTreeSet<String>>,
+    bare_external_uses: Arc<BTreeSet<(String, String)>>,
     import_aliases: Arc<BTreeMap<String, String>>,
     external_import_aliases: Arc<BTreeMap<String, (String, String)>>,
     explicit_import_alias_occurrences: BTreeMap<(usize, usize), SourceSpan>,
@@ -1085,6 +1087,7 @@ struct ExternalImport {
     package: String,
     alias: String,
     syntax_valid: bool,
+    bare_exports: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1212,6 +1215,7 @@ pub(crate) struct SymbolIndex {
     functions: Vec<FunctionSymbol>,
     module_values: Vec<ModuleValueSymbol>,
     function_indices_by_identity: HashMap<FunctionIdentity, Vec<usize>>,
+    module_value_indices_by_identity: HashMap<ModuleValueIdentity, Vec<usize>>,
     file_indices_by_identity: HashMap<IndexedFileIdentity, Vec<usize>>,
     package_function_targets: Vec<PackageFunctionTarget>,
     package_type_targets: Vec<PackageTypeTarget>,
@@ -1237,6 +1241,7 @@ pub(crate) struct SymbolIndex {
 }
 
 type FunctionIdentity = (Option<String>, Option<PackageOrigin>, String, String);
+type ModuleValueIdentity = (Option<String>, Option<PackageOrigin>, String, String);
 type ConstructorIdentity = (
     Option<String>,
     Option<PackageOrigin>,
