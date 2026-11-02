@@ -947,10 +947,13 @@ A valid constructor arm for a stable match scrutinee refines the matched place
 to the constructor singleton while checking the arm. A stable scrutinee is an
 immutable binding written as a bare name or with redundant parentheses, or a
 record-field path whose base ultimately resolves to an immutable parameter or
-local binding. A binding and its transparent local aliases share one place. A
-field path also shares its place with repeated access through transparent
-aliases of the same resolved root. A different root or field sequence does not
-share that refinement.
+local binding. A qualified, multi-segment reference to an available module
+immutable value is also stable. Direct and explicit-import-alias paths share
+one place when they select the same package-aware declaration. A binding and
+its transparent local aliases share one place. A field path also shares its
+place with repeated access through transparent aliases of the same resolved
+root. A different declaration, root, or field sequence does not share that
+refinement.
 
 A transparent-alias group uses the feasible domain established by all valid
 facts for its one immutable value. A wider annotation on one member does not
@@ -959,19 +962,27 @@ Binding and `_` catch-alls give every participating reference the complete
 residual set. A binding catch-all identifies the complete matched value, so a
 nested match through that binding refines the original place and its aliases.
 Passing any participating binding or field path to a parameter that requires
-its arm refinement emits no `type.variant_mismatch`. Leaving an arm restores
-the prior type of the binding or field path.
+its arm refinement emits no `type.variant_mismatch`. A repeated qualified
+reference to the selected module-value declaration has the same arm
+refinement. Leaving an arm restores the prior type of the binding, field path,
+or module-value declaration.
 
 A valid same-ADT constructor excluded by the original refined domain reports
 `type.match_impossible_variant` at the constructor's final name segment. Its
 closed details contain only `scrutinee_type` and `arm_variant`.
-`scrutinee_type` renders the alias group's effective feasible domain, including
-an enclosing arm refinement, rather than a selected member's wider declared
-type. Related entries identify the scrutinee occurrence and selected ADT
-declaration. The checked widened-alias classifications are
+`scrutinee_type` renders the stable place's effective feasible domain,
+including an enclosing arm refinement, rather than a selected member's wider
+declared type. Related entries identify the scrutinee occurrence and selected
+ADT declaration. The checked widened-alias classifications are
 [`adt-variant-refinement-match-alias-domain-diagnostics-human`](../../examples/specification/check/adt-variant-refinement-match-alias-domain-diagnostics-human/)
 and
 [`adt-variant-refinement-match-alias-domain-diagnostics-json`](../../examples/specification/check/adt-variant-refinement-match-alias-domain-diagnostics-json/).
+The qualified module-value
+[`human`](../../examples/specification/check/adt-variant-refinement-qualified-module-value-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-qualified-module-value-json/)
+cases cover direct and import-alias identity sharing, restoration, impossible
+and redundant arm classification, and the computed-call boundary.
 
 A valid constructor or catch-all with no residual variant reports
 `type.match_redundant_arm` at the complete arm pattern. Its closed details are
@@ -990,16 +1001,17 @@ checked human and JSON cases are
 and
 [`adt-variant-refinement-match-diagnostics-json`](../../examples/specification/check/adt-variant-refinement-match-diagnostics-json/).
 
-For stable bindings or record-field paths with a refined match domain, arm
-validation precedes both classifications. An invalid-cased, unresolved,
-inaccessible, wrong-ADT, wrong-generic-payload, wrong-arity, or malformed arm
-retains its intrinsic diagnostic, contributes no coverage, and emits neither
-derived classification. A pattern incompatible with a substituted generic
-payload reports the ordinary `type.mismatch` at that payload pattern. An
-unresolved constructor path reports `name.unresolved` at its final name segment
-with `namespace: "constructor"`; the diagnostic symbol retains the complete
-written path. If the rejected arm was the only arm for a remaining variant,
-the match also reports the ordinary `type.match_non_exhaustive` diagnostic.
+For stable bindings, record-field paths, or qualified module values with a
+refined match domain, arm validation precedes both classifications. An
+invalid-cased, unresolved, inaccessible, wrong-ADT, wrong-generic-payload,
+wrong-arity, or malformed arm retains its intrinsic diagnostic, contributes no
+coverage, and emits neither derived classification. A pattern incompatible
+with a substituted generic payload reports the ordinary `type.mismatch` at
+that payload pattern. An unresolved constructor path reports `name.unresolved`
+at its final name segment with `namespace: "constructor"`; the diagnostic
+symbol retains the complete written path. If the rejected arm was the only arm
+for a remaining variant, the match also reports the ordinary
+`type.match_non_exhaustive` diagnostic.
 The invalid-casing recovery used by the ordinary exhaustiveness path when the
 stable-place refined-coverage path is inactive can suppress its sole
 derivative missing-case diagnostic; it does not validate the rejected arm.
@@ -1020,8 +1032,9 @@ that payload pattern. Its details use
 `actual_type_source: "literal_pattern"`, and
 `constraint: "constructor_payload_pattern"`. The invalid pattern also cannot
 refine the scrutinee unless every payload binding is admitted to the arm scope.
-When a stable binding or record-field path has a base-ADT domain, constructor
-and catch-all arms still refine the same place and its aliases, but arm
+When a stable binding, record-field path, or qualified module value has a
+base-ADT domain, constructor and catch-all arms still refine the same stable
+place. Bindings and field paths also refine their existing aliases. Arm
 validation and diagnostics retain the ordinary constructor path, payload-arity,
 duplicate-arm, and exhaustiveness behavior. Such a match does not gain
 `type.match_impossible_variant`,

@@ -19,7 +19,17 @@ impl<'a> FunctionChecker<'a> {
             self.function.module_name.as_deref(),
             self.function.package_name.as_deref(),
         ) {
-            ModuleValueLookup::Available(value) => return value.ty.clone(),
+            ModuleValueLookup::Available(value) => {
+                let ty = value.ty.clone();
+                if segments.len() > 1
+                    && self.active_stable_place_refinements()
+                    && let Some(refinement) =
+                        self.qualified_module_value_stable_refinement(segments)
+                {
+                    return transparent_alias_presented_type(&ty, refinement);
+                }
+                return ty;
+            }
             ModuleValueLookup::Unavailable => return Type::Unknown,
             ModuleValueLookup::Ambiguous => {
                 return self.ambiguous_module_value(segments, expr);

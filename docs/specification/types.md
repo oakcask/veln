@@ -501,10 +501,11 @@ type, nested generic arguments whose unknown positions become concrete, direct
 widening, and complete-value pattern aliases. Nested matches distinguish the
 residual from either singleton narrowing or an alias's wider presentation.
 
-For stable bindings or record-field paths with a refined domain, arm
-classification first validates the constructor name, visibility, owning
-ADT, substituted generic payload types, payload arity, nested patterns, and
-admitted payload bindings. An invalid arm keeps its intrinsic diagnostic,
+For a stable binding, record-field path, or qualified module immutable-value
+reference with a refined domain, arm classification first validates the
+constructor name, visibility, owning ADT, substituted generic payload types,
+payload arity, nested patterns, and admitted payload bindings. An invalid arm
+keeps its intrinsic diagnostic,
 consumes no coverage, and produces no derived impossible or redundant
 diagnostic. An unresolved constructor path reports `name.unresolved` for the
 complete written path at its final segment. A payload pattern incompatible
@@ -549,21 +550,43 @@ an alias during diagnostic recovery. Matching any member refines every member,
 including a binding catch-all for the complete matched value, for the current
 arm only.
 
-Qualified values and function values do not establish a transparent alias in
-this behavior. A field path is stable only when its base ultimately resolves
-to an immutable parameter or local binding. Separate construction, equality,
-contract predicates, Boolean helpers, calls, indexing, operators, and other
-computed expressions do not establish a stable field path, even when repeated
-source text is identical. A computed result can be refined after it is stored
-in its own local, but matching that local does not refine the inputs used to
-compute it. The checked
+Qualified, multi-segment references to an available module immutable value are
+stable match roots. A direct module path and an explicit import alias select
+the same root when name resolution selects the same package-aware declaration.
+Matching that root narrows every qualified reference to the declaration for the
+current arm, even when a local binding shadows the declaration's leaf name.
+The original declaration type is restored after the arm. Same-spelled values
+with different declaration identities remain independent. An ambiguous,
+unavailable, inaccessible, or missing path supplies no stable root. A private
+module value is available to its exact test companion under the ordinary
+companion visibility rule, so that qualified path does supply the declaration
+identity and refines like any other available module value.
+
+A qualified module value does not establish a transparent alias through a
+local initializer, and a field path rooted in a module value is not stable.
+A local field path is stable only when its base ultimately resolves to an
+immutable parameter or local binding. Qualified constructors, function values,
+calls, separate construction, equality, contract predicates, Boolean helpers,
+indexing, operators, and other computed expressions do not establish a stable
+root, even when repeated source text is identical. A computed result can be
+refined after it is stored in its own local, but matching that local does not
+refine the inputs used to compute it. The checked
 [`adt-variant-refinement-match-alias-boundaries`](../../examples/specification/check/adt-variant-refinement-match-alias-boundaries/)
 case verifies the available computed-expression, invalid-annotation, and
 restoration boundaries. The checked
 [`adt-variant-refinement-match-computed-field-boundary`](../../examples/specification/check/adt-variant-refinement-match-computed-field-boundary/)
 case verifies that call and record-constructor bases remain outside field-path
-refinement. Veln currently has no indexing expression. A module value reference
-does not establish a transparent alias for match refinement. Function-value
+refinement. The qualified module-value
+[`human`](../../examples/specification/check/adt-variant-refinement-qualified-module-value-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-qualified-module-value-json/)
+cases verify identity sharing, local shadowing, arm restoration, finite-domain
+coverage, exact-companion private access, inaccessible and unavailable path
+boundaries, and the qualified-call boundary. The checked
+[`module-value runtime execution`](../../examples/specification/run/module-value-runtime-execution/)
+case verifies that the JVM recovers actual qualified module data through a
+match and reads the same declaration through another qualified spelling under
+the arm refinement. Veln currently has no indexing expression. Function-value
 expressions do not produce ADT values that can exercise alias match refinement
 independently.
 
@@ -606,10 +629,11 @@ importing module, private source-declared constructors still require coverage,
 so arms for every public constructor are not exhaustive by themselves. Use `_`
 or a binding catch-all arm because the private constructors cannot be named
 there. `_` and binding patterns are catch-all arms. A
-stable binding or record-field path whose current type is a singleton or
-finite refinement union instead requires only that restricted original domain.
-A valid out-of-domain constructor is impossible and does not satisfy or expand
-the domain. A non-exhaustive finite-domain match reports
+stable binding, record-field path, or qualified module immutable-value
+reference whose current type is a singleton or finite refinement union instead
+requires only that restricted original domain. A valid out-of-domain
+constructor is impossible and does not satisfy or expand the domain. A
+non-exhaustive finite-domain match reports
 `type.match_non_exhaustive` at the `match` expression. The missing case is the
 unqualified coverage label: source-declared ADTs use the constructor leaf name,
 with `_` for payload variants. Related notes identify the scrutinee type and
@@ -649,6 +673,11 @@ that root and its path keys. Distinct active record roots add independent roots
 and keys. Nested matches on one stable place add one active refinement and
 frame per nesting level. Every stable-place root, key, refinement, and frame is
 released after successful or failed analysis.
+
+For one qualified module-value root, workloads with 32, 64, and 128 repeated
+references retain one root, create no field-path keys, and perform one lookup
+per reference plus the initial match lookup. Each adjacent workload therefore
+has at most twice the preceding lookup work.
 
 Reconciling two equally shaped nested named types that use a different alias
 spelling at every named node performs one conflict lookup and at most one

@@ -41,6 +41,13 @@ pub fn main() -> () effects [stdio]
 		stdio::println("false")
 	end
 	stdio::println(int_to_string(config::selected))
+	match config::phase
+		local_values::Phase::Ready => begin
+			let selected: config::Phase::Ready = local_values::phase
+			stdio::println("qualified-ready")
+		end
+		local_values::Phase::Closed => stdio::println("unexpected closed")
+	end
 	stdio::println(int_to_string(alpha_wrapper::selected()))
 	stdio::println(int_to_string(beta_wrapper::selected()))
 	stdio::println(int_to_string(beta_wrapper::selected()))

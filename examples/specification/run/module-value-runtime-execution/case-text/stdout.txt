@@ -4,6 +4,7 @@ ready
 idle
 true
 11
+qualified-ready
 23
 47
 47

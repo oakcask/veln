@@ -12,6 +12,19 @@ pub(crate) struct ModuleValueSignature {
 
 pub(crate) type ModuleValueIdentity = (Option<String>, Option<String>, String);
 
+impl ModuleValueSignature {
+    pub(crate) fn identity(&self) -> ModuleValueIdentity {
+        (
+            self.declaration.package_name.clone(),
+            self.declaration.module_name.clone(),
+            self.declaration
+                .name
+                .clone()
+                .expect("published module value name"),
+        )
+    }
+}
+
 pub(crate) type BareModuleValueExposureIdentity = (Option<String>, Option<String>, String);
 
 pub(crate) enum ModuleValueDependency {

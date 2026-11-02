@@ -718,6 +718,27 @@ fn nested_stable_place_frames_source(depth: usize) -> String {
     source
 }
 
+fn qualified_module_value_scaling_source(repeated_expressions: usize) -> String {
+    let mut source = String::from(concat!(
+        "mod values\n",
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n",
+        "let current: State = Ready\n",
+        "fn inspect() -> ()\n",
+        "  match values::current\n",
+        "    Ready => begin\n",
+    ));
+    for index in 0..repeated_expressions {
+        source.push_str(&format!(
+            "      let narrowed{index}: State::Ready = values::current\n"
+        ));
+    }
+    source.push_str("      ()\n    end\n    Closed => ()\n  end\nend\n");
+    source
+}
+
 fn measure_stable_place_work(
     source: String,
     expect_diagnostics: bool,
@@ -842,6 +863,22 @@ fn stable_record_roots_aliases_and_frames_have_bounded_ownership() {
     let failing = stable_field_path_scaling_source(32, 1, true)
         .replace("      accept_ready(root", "      missing(root");
     measure_stable_place_work(failing, true);
+}
+
+#[test]
+fn qualified_module_value_root_work_scales_with_references() {
+    let measured = [32, 64, 128].map(|count| {
+        measure_stable_place_work(qualified_module_value_scaling_source(count), false)
+    });
+    for (index, count) in [32, 64, 128].into_iter().enumerate() {
+        assert_eq!(measured[index].roots_created, 1, "{measured:?}");
+        assert_eq!(measured[index].peak_retained_roots, 1, "{measured:?}");
+        assert_eq!(measured[index].keys_created, 0, "{measured:?}");
+        assert_eq!(measured[index].key_lookups, count + 1, "{measured:?}");
+    }
+    for adjacent in measured.windows(2) {
+        assert!(adjacent[1].key_lookups <= adjacent[0].key_lookups * 2);
+    }
 }
 
 #[test]

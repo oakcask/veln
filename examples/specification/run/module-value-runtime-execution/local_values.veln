@@ -1,2 +1,9 @@
 pub let selected: Int = later
 let later: Int = 11
+
+pub type Phase
+	pub Ready
+	pub Closed
+end
+
+pub let phase: Phase = Ready

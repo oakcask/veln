@@ -17,8 +17,8 @@ use crate::effects::prelude_effect_origin;
 use crate::schema::primitives::lowercase_schema_primitive;
 use crate::source_less_lookup::qualified_symbol;
 use crate::types::signatures::{
-    FunctionSignature, SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX, SchemaReferenceErrorKind,
-    UserEffectPathResolution,
+    FunctionSignature, ModuleValueIdentity, SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX,
+    SchemaReferenceErrorKind, UserEffectPathResolution,
 };
 
 type LocalNameDeclaration = (String, SourceSpan);
@@ -265,6 +265,7 @@ struct TransparentAliasGroup {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum StablePlaceKey {
     Root(usize),
+    ModuleValue(ModuleValueIdentity),
     Field { base: usize, field: String },
 }
 
@@ -798,7 +799,10 @@ impl<'a> FunctionChecker<'a> {
         if let Some(place) = self.stable_place_keys.get(&key) {
             return *place;
         }
-        let is_root = matches!(key, StablePlaceKey::Root(_));
+        let is_root = matches!(
+            key,
+            StablePlaceKey::Root(_) | StablePlaceKey::ModuleValue(_)
+        );
         let place = self.stable_place_keys.len();
         self.stable_place_keys.insert(key, place);
         if is_root {
@@ -1027,7 +1031,12 @@ mod stable_place_work {
     pub(super) fn release_keys(keys: &HashMap<StablePlaceKey, usize>) {
         let roots = keys
             .keys()
-            .filter(|key| matches!(key, StablePlaceKey::Root(_)))
+            .filter(|key| {
+                matches!(
+                    key,
+                    StablePlaceKey::Root(_) | StablePlaceKey::ModuleValue(_)
+                )
+            })
             .count();
         let fields = keys.len() - roots;
         update(|work| {

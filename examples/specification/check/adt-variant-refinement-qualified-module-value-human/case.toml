@@ -1,0 +1,14 @@
+# Compiler integration contract: human diagnostics preserve qualified module
+# value identity refinement, companion-private availability, arm-local
+# restoration, finite coverage, and the inaccessible and qualified-call
+# boundaries.
+command = ["check", "app.veln", "a/b.veln", "a/b.test.veln", "broken.test.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["type.match_impossible_variant", "type.match_redundant_arm", "value of type `State` is not assignable to variant type `State::Ready`", "expected `Option<Int>`, but found `Int`", "unresolved value `wire::private_current`", "unresolved value `broken::private_current`"]
+not_contains = ["b.test.veln", "a::b::current`", "wire::current`", "type.match_non_exhaustive"]
+
+[stderr]
+format = "empty"
