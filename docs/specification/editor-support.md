@@ -465,12 +465,14 @@ leaf.
 The checked
 [`module-value-navigation`](../../examples/specification/lsp/module-value-navigation/)
 case covers definition, declaration-inclusive references, prepare-rename, and
-rename across direct, qualified, and aliased workspace references. Focused
+rename across direct, qualified, and aliased workspace references, and checks
+that alias-qualified module-value hover returns `null`. Focused
 semantic-navigation, language-service, and LSP tests cover equal initializer
 data, same-spelled functions, package-distinct dependency identities,
-shared-namespace rename conflicts, lexical capture rejection, and edit-free
-conflict responses. The executable LSP case also checks consumer-module
-capture and ambiguity caused by an unedited reference to the requested name.
+standard-library navigation exclusion, shared-namespace rename conflicts,
+lexical capture rejection, and edit-free conflict responses. The executable
+LSP case also checks consumer-module capture and ambiguity caused by an
+unedited reference to the requested name.
 The checked
 [`module-value-navigation-boundaries`](../../examples/specification/lsp/module-value-navigation-boundaries/)
 case covers qualified leaves beside same-named lexical bindings, package-owned

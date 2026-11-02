@@ -363,6 +363,7 @@ The `publish-diagnostics`, `semantic-tokens`,
 `adt-variant-refinement-alias-navigation`,
 `explicit-import-alias-navigation`,
 `module-value-navigation`,
+`module-value-navigation-boundaries`,
 `module-value-package-occurrence-provenance`,
 `saved-navigation-cross-adapter`,
 `identifier-casing-snapshot-boundary`,
@@ -405,6 +406,9 @@ The `saved-navigation-cross-adapter` LSP specification case uses decoded
 assertions for direct `params.position` validation, invalid-coordinate errors,
 empty rename edits for invalid names, and successful navigation repeated after
 failed requests.
+The `module-value-navigation-boundaries` LSP specification case uses decoded
+assertions for qualified lexical-shadowing selection, retained-dependency
+bare-export conflicts, and declaring-module import precedence.
 The `cleanup-region-navigation` LSP specification case uses decoded assertions
 for definition, reference, and rename locations across `begin` and `defer`
 scopes, including the boundary before a multiline `let` initializer completes,
