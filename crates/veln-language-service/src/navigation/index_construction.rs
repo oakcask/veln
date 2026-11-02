@@ -109,7 +109,17 @@ impl SymbolIndex {
         let type_indices_by_name = symbol_indices_by_name(&declarations.types);
         let constructor_indices_by_identity =
             constructor_indices_by_identity(&declarations.constructors);
-        let function_indices_by_identity = function_indices_by_identity(&declarations.functions);
+        let function_indices_by_identity = module_member_indices_by_identity(
+            &declarations.functions,
+            |function| {
+                (
+                    function.package.clone(),
+                    function.package_origin,
+                    function.module.clone(),
+                    function.name.clone(),
+                )
+            },
+        );
         let type_alias_indices_by_name = symbol_indices_by_name(&declarations.type_aliases);
         let package_type_alias_indices_by_name =
             package_symbol_indices_by_name(&declarations.type_aliases);
@@ -133,7 +143,14 @@ impl SymbolIndex {
         append_surface_module(&mut complete_module, standard_library.module.clone());
         let module_values = module_value_symbols(&files, &complete_module);
         let module_value_indices_by_identity =
-            module_value_indices_by_identity(&module_values);
+            module_member_indices_by_identity(&module_values, |module_value| {
+                (
+                    module_value.package.clone(),
+                    module_value.package_origin,
+                    module_value.module.clone(),
+                    module_value.name.clone(),
+                )
+            });
         let file_indices_by_identity = file_indices_by_identity(&files);
         let workspace_file_indices_by_path = files
             .iter()
@@ -182,20 +199,13 @@ impl SymbolIndex {
     }
 }
 
-fn module_value_indices_by_identity(
-    module_values: &[ModuleValueSymbol],
-) -> HashMap<ModuleValueIdentity, Vec<usize>> {
+fn module_member_indices_by_identity<T>(
+    symbols: &[T],
+    identity: impl Fn(&T) -> ModuleMemberIdentity,
+) -> HashMap<ModuleMemberIdentity, Vec<usize>> {
     let mut by_identity = HashMap::<_, Vec<usize>>::new();
-    for (index, module_value) in module_values.iter().enumerate() {
-        by_identity
-            .entry((
-                module_value.package.clone(),
-                module_value.package_origin,
-                module_value.module.clone(),
-                module_value.name.clone(),
-            ))
-            .or_default()
-            .push(index);
+    for (index, symbol) in symbols.iter().enumerate() {
+        by_identity.entry(identity(symbol)).or_default().push(index);
     }
     by_identity
 }
@@ -535,24 +545,6 @@ fn symbol_indices_by_name<T: NamedTypeSymbol>(symbols: &[T]) -> BTreeMap<String,
             .push(index);
     }
     by_name
-}
-
-fn function_indices_by_identity(
-    functions: &[FunctionSymbol],
-) -> HashMap<FunctionIdentity, Vec<usize>> {
-    let mut by_identity = HashMap::<_, Vec<usize>>::new();
-    for (index, function) in functions.iter().enumerate() {
-        by_identity
-            .entry((
-                function.package.clone(),
-                function.package_origin,
-                function.module.clone(),
-                function.name.clone(),
-            ))
-            .or_default()
-            .push(index);
-    }
-    by_identity
 }
 
 fn package_symbol_indices_by_name<T: NamedTypeSymbol>(

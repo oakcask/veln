@@ -1214,8 +1214,8 @@ pub(crate) struct SymbolIndex {
     operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
     module_values: Vec<ModuleValueSymbol>,
-    function_indices_by_identity: HashMap<FunctionIdentity, Vec<usize>>,
-    module_value_indices_by_identity: HashMap<ModuleValueIdentity, Vec<usize>>,
+    function_indices_by_identity: HashMap<ModuleMemberIdentity, Vec<usize>>,
+    module_value_indices_by_identity: HashMap<ModuleMemberIdentity, Vec<usize>>,
     file_indices_by_identity: HashMap<IndexedFileIdentity, Vec<usize>>,
     package_function_targets: Vec<PackageFunctionTarget>,
     package_type_targets: Vec<PackageTypeTarget>,
@@ -1240,8 +1240,7 @@ pub(crate) struct SymbolIndex {
     function_rename_index: OnceLock<FunctionRenameIndex>,
 }
 
-type FunctionIdentity = (Option<String>, Option<PackageOrigin>, String, String);
-type ModuleValueIdentity = (Option<String>, Option<PackageOrigin>, String, String);
+type ModuleMemberIdentity = (Option<String>, Option<PackageOrigin>, String, String);
 type ConstructorIdentity = (
     Option<String>,
     Option<PackageOrigin>,

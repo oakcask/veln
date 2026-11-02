@@ -400,6 +400,36 @@ mod navigation_module_value_tests {
     }
 
     #[test]
+    fn module_value_rename_keeps_imported_function_and_value_candidates_distinct() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("data.veln", "pub let target: Int = 1\n"),
+            source("callable.veln", "pub fn target() -> Int\n  2\nend\n"),
+            source("values.veln", "pub let answer: Int = 42\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use data\n",
+                    "use callable\n",
+                    "use values\n\n",
+                    "fn read() -> Int\n",
+                    "  answer + target()\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let selected = query_snapshot(&snapshot, "values.veln", 1, 10).unwrap();
+
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &selected, "target").unwrap_err(),
+            RenameNameClass::ValueBinding,
+            "target",
+            "data.veln",
+            1,
+            9,
+        );
+    }
+
+    #[test]
     fn module_value_rename_treats_bare_dependency_exports_as_consumer_conflicts() {
         for dependency_source in [
             "pub let target: Int = 1\n",
