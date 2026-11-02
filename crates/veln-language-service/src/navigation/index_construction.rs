@@ -256,6 +256,9 @@ fn module_value_symbol(
     }
     let public = resolved.visibility == veln_ast::Visibility::Public;
     let origin = declaration_origin(file, resolved.declaration.span.clone(), public)?;
+    if origin.package_origin == Some(PackageOrigin::StandardLibrary) {
+        return None;
+    }
     let references = resolved
         .references
         .into_iter()

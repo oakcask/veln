@@ -149,9 +149,10 @@ non-BMP scalar precedes a token on the same line.
 ## LSP Hover, Completion, And Signature Help
 
 `textDocument/hover` returns source presentation for a valid explicit import
-alias declaration, an alias qualifier, or a member selected through that
-qualifier. The plaintext content preserves the written local qualifier and
-reports its package provenance and target module. Workspace provenance is
+alias declaration, an alias qualifier, or a function, type, type alias, or
+constructor selected through that qualifier. The plaintext content preserves
+the written local qualifier and reports its package provenance and target
+module. Workspace provenance is
 reported as `workspace`; a direct dependency uses its package identity. An
 alias hover labels the import alias. A member hover labels the existing member
 kind and its alias-qualified spelling. Other valid positions return `null`.
@@ -351,13 +352,14 @@ the exact-path member. Reversing those occurrences in a source does not change
 either selection.
 
 Selection at an alias-qualified member leaf keeps the member's existing
-function, type, or constructor identity. Member references and rename include
-alias-qualified member leaves, but exclude the alias declaration, qualifier
-tokens, and written import target. This behavior does not add navigation for a
-new member declaration class.
+function, type, type alias, constructor, or module-value identity. Member
+references and rename include alias-qualified member leaves, but exclude the
+alias declaration, qualifier tokens, and written import target. This behavior
+does not add navigation for a new member declaration class.
 
-Hover and qualified completion use the same valid alias identity and target
-provenance as navigation. A same-spelled alias in another importing module
+Hover for functions, types, type aliases, and constructors and qualified
+completion use the same valid alias identity and target provenance as
+navigation. A same-spelled alias in another importing module
 therefore retains its own target. Invalid-cased, colliding, and
 syntax-recovered aliases produce neither alias-qualified hover nor qualified
 completion. Completion exposes only existing public declaration kinds that
@@ -456,7 +458,9 @@ selection. A package-owned declaration or reference cannot select a workspace
 occurrence merely because its source path and range are equal. An unresolved
 workspace occurrence at that colliding path and range therefore returns no
 definition, references, prepare-rename range, or rename edits. Standard-library
-module values are outside this navigation row.
+module values are outside this navigation row. Hover, completion, and signature
+help do not expose module values, including an alias-qualified module-value
+leaf.
 
 The checked
 [`module-value-navigation`](../../examples/specification/lsp/module-value-navigation/)

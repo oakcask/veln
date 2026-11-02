@@ -165,6 +165,69 @@ fn module_value_protocol_navigation_and_rename_share_identity() {
 }
 
 #[test]
+fn standard_library_module_values_are_unsupported_by_navigation_protocols() {
+    let manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"values.veln\"]\n";
+    let standard_library = DirectDependencySnapshot::from_validated_standard_library(
+        capture_embedded_package_snapshot(
+            manifest.as_bytes(),
+            [PackageSnapshotSource::new(
+                "values.veln",
+                b"pub let answer: Int = 42\n",
+            )],
+        )
+        .unwrap(),
+        parse_manifest_text("veln.toml", manifest),
+    )
+    .unwrap();
+    let mut server = Server::default().with_standard_library(standard_library);
+    let project = TempProject::new("standard-library-module-value-navigation-boundary");
+    project.write(
+        "main.veln",
+        concat!(
+            "use values from \"std\"\n\n",
+            "let direct: Int = answer\n",
+            "let qualified: Int = values::answer\n",
+        ),
+    );
+    project.write(
+        "alias.veln",
+        concat!(
+            "use values as config from \"std\"\n\n",
+            "let aliased: Int = config::answer\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let alias_uri = path_to_uri(&project.root.join("alias.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    for (uri, line, character) in [
+        (&main_uri, 2, 18),
+        (&main_uri, 3, 29),
+        (&alias_uri, 2, 28),
+    ] {
+        assert_null_result(
+            &server.handle_message(&definition_request(uri, line, character))[0],
+        );
+        assert_empty_result_array(
+            &server.handle_message(&references_request_with_declaration(
+                uri, line, character, true,
+            ))[0],
+        );
+    }
+}
+
+#[test]
+fn alias_qualified_module_value_hover_is_unsupported() {
+    let (mut server, _project, uris) = module_value_navigation_server();
+    let hover = server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","id":91,"method":"textDocument/hover","params":{{"textDocument":{{"uri":"{}"}},"position":{{"line":2,"character":29}}}}}}"#,
+        uris.alias
+    ));
+    assert_null_result(&hover[0]);
+}
+
+#[test]
 fn qualified_module_value_protocol_selection_precedes_lexical_bindings() {
     let mut server = server_with_empty_standard_library();
     let project = TempProject::new("qualified-module-value-lexical-shadowing");

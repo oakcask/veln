@@ -106,6 +106,44 @@ mod navigation_module_value_tests {
     }
 
     #[test]
+    fn standard_library_module_values_do_not_enter_navigation() {
+        let standard_library = standard_library_snapshot(
+            &[("values.veln", "pub let answer: Int = 42\n")],
+            ["values.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use values from \"std\"\n\n",
+                    "let direct: Int = answer\n",
+                    "let qualified: Int = values::answer\n",
+                ),
+            ),
+            source(
+                "alias.veln",
+                concat!(
+                    "use values as config from \"std\"\n\n",
+                    "let aliased: Int = config::answer\n",
+                ),
+            ),
+        ])
+        .with_standard_library(standard_library);
+
+        for (path, line, column) in [
+            ("values.veln", 1, 10),
+            ("main.veln", 3, 19),
+            ("main.veln", 4, 30),
+            ("alias.veln", 3, 29),
+        ] {
+            assert!(
+                query_snapshot(&snapshot, path, line, column).is_none(),
+                "standard-library module value navigated at {path}:{line}:{column}"
+            );
+        }
+    }
+
+    #[test]
     fn package_occurrences_do_not_match_colliding_workspace_spans() {
         let dependency = dependency_snapshot(
             "example/pkg",

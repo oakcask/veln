@@ -6,6 +6,7 @@
   {"jsonrpc":"2.0","id":5,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"alias.veln"}},"position":{"line":2,"character":29},"newName":"result"}},
   {"jsonrpc":"2.0","id":6,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"values.veln"}},"position":{"line":0,"character":10},"newName":"target"}},
   {"jsonrpc":"2.0","id":7,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"right.veln"}},"position":{"line":0,"character":10},"newName":"target"}},
-  {"jsonrpc":"2.0","id":8,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":8,"method":"textDocument/hover","params":{"textDocument":{"uri":{"$workspace_file_uri":"alias.veln"}},"position":{"line":2,"character":29}}},
+  {"jsonrpc":"2.0","id":9,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

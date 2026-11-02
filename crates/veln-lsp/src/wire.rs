@@ -523,11 +523,17 @@ pub(crate) fn references_json(
         return "[]".to_string();
     }
     let package_reference_supported = matches!(
-        result.selected_symbol.kind,
-        SymbolKind::Schema | SymbolKind::ModuleValue
-    ) && matches!(
-        result.selected_symbol.package_origin,
-        Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+        (
+            result.selected_symbol.kind,
+            result.selected_symbol.package_origin,
+        ),
+        (
+            SymbolKind::Schema,
+            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary),
+        ) | (
+            SymbolKind::ModuleValue,
+            Some(PackageOrigin::DirectDependency),
+        )
     ) && matches!(
         result.selected_symbol.declaration_kind,
         SymbolDeclarationKind::Declaration | SymbolDeclarationKind::PublicAlias
