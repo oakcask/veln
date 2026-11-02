@@ -10,7 +10,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::classfile::{
     TailRecursionEligibility, classify_tail_recursion, contract_call_metadata_work,
     contract_remainder_emission_work, contract_remainder_scan_work, function_max_stack,
-    module_value_identifier_allocation, split_contract_binary,
+    module_value_dependency_order_builds, module_value_identifier_allocation,
+    split_contract_binary,
 };
 use crate::java::{
     JavaIdentifierAllocator, java_type_identifier, sanitize_identifier_text,

@@ -253,6 +253,20 @@ fn backend_allocates_colliding_package_value_names_with_linear_work() {
     }
 }
 
+#[test]
+fn backend_builds_module_value_dependency_order_once_per_emitter() {
+    let ir = lower_to_ir(concat!(
+        "let first: Int = second\n",
+        "let second: Int = third\n",
+        "let third: Int = 3\n",
+        "pub fn main() -> Int\n",
+        "  first\n",
+        "end\n",
+    ));
+
+    assert_eq!(module_value_dependency_order_builds(&ir, "main"), 1);
+}
+
 fn assert_module_value_identity_order(
     reverse_sources: bool,
     reverse_imports: bool,

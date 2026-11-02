@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 use veln_ast::{BinaryOp, ContractKind, PredicateRemainder, PrefixOp};
@@ -28,6 +28,7 @@ mod contracts_and_tail_recursion;
 mod function_flow;
 mod local_bindings;
 mod method_code;
+mod module_value_order;
 mod pattern_and_value_emission;
 mod schema_invocation;
 mod schema_metadata;
@@ -44,6 +45,7 @@ use contracts_and_tail_recursion::{ValueRef, object_method_descriptor, runtime_c
 pub(crate) use function_flow::TailRecursionEligibility;
 use function_flow::{ContractCheckPosition, FunctionBytecodeEmitter};
 use method_code::*;
+use module_value_order::module_values_in_dependency_order;
 
 const PROGRAM_MAJOR_VERSION: u16 = 49;
 const JAVA_LANG_OBJECT: &str = "java/lang/Object";
@@ -53,43 +55,6 @@ const MODULE_VALUES_PER_CLASS: usize = 1_000;
 const MODULE_VALUE_HELPER_CODE_LIMIT: usize = 60_000;
 const MODULE_VALUE_HELPER_CONSTANT_POOL_LIMIT: usize = 30_000;
 const MODULE_VALUE_DISPATCH_FANOUT: usize = 1_000;
-
-fn collect_module_value_dependencies(
-    expr: &IrExpr,
-    dependencies: &mut BTreeSet<CoreModuleValueIdentity>,
-) {
-    let mut pending = vec![expr];
-    while let Some(expr) = pending.pop() {
-        match &expr.kind {
-            IrExprKind::ModuleValue(identity) => {
-                dependencies.insert(identity.clone());
-            }
-            IrExprKind::Record(fields) => {
-                pending.extend(fields.iter().rev().map(|field| &field.value));
-            }
-            IrExprKind::AdtVariant { payloads, .. } => {
-                pending.extend(payloads.iter().rev());
-            }
-            IrExprKind::OptionSome(value)
-            | IrExprKind::ResultOk(value)
-            | IrExprKind::ResultErr(value)
-            | IrExprKind::Prefix { expr: value, .. } => pending.push(value),
-            IrExprKind::ListCons { head, tail } => {
-                pending.push(tail);
-                pending.push(head);
-            }
-            IrExprKind::BoolLiteral(_)
-            | IrExprKind::StringLiteral(_)
-            | IrExprKind::IntLiteral(_)
-            | IrExprKind::OptionNone
-            | IrExprKind::ListNil
-            | IrExprKind::Unit => {}
-            kind => {
-                unreachable!("unsupported module value initializer reached JVM emission: {kind:?}")
-            }
-        }
-    }
-}
 
 enum ModuleValueEmissionWork<'a> {
     Expr(&'a IrExpr),
@@ -604,14 +569,33 @@ pub(crate) fn module_value_identifier_allocation(program: &TypedProgram) -> (Vec
     )
 }
 
+#[cfg(test)]
+pub(crate) fn module_value_dependency_order_builds(
+    program: &TypedProgram,
+    entry_function: &str,
+) -> usize {
+    let options = SanitizedOptions {
+        program_class: "VelnProgram".to_string(),
+        runtime_class: "VelnRuntime".to_string(),
+    };
+    let emitter = ClassfileEmitter::new(program, options);
+    emitter
+        .emit(entry_function, &[])
+        .expect("module value dependency order test emission");
+    emitter.module_value_dependency_order_builds
+}
+
 pub(crate) struct ClassfileEmitter<'a> {
     program: &'a TypedProgram,
     options: SanitizedOptions,
     function_names: BTreeMap<String, String>,
     module_value_names: BTreeMap<CoreModuleValueIdentity, String>,
     module_value_owners: BTreeMap<CoreModuleValueIdentity, String>,
+    module_value_dependency_order: Vec<usize>,
     #[cfg(test)]
     identifier_allocation_work: usize,
+    #[cfg(test)]
+    module_value_dependency_order_builds: usize,
 }
 
 impl<'a> ClassfileEmitter<'a> {
@@ -634,18 +618,23 @@ impl<'a> ClassfileEmitter<'a> {
             ));
             module_value_names.insert(identity.clone(), name);
         }
+        let module_value_dependency_order = module_values_in_dependency_order(program);
         let mut emitter = Self {
             program,
             options,
             function_names,
             module_value_names,
             module_value_owners: BTreeMap::new(),
+            module_value_dependency_order,
             #[cfg(test)]
             identifier_allocation_work: identifier_allocator.allocation_work(),
+            #[cfg(test)]
+            module_value_dependency_order_builds: 1,
         };
         for (position, declaration_index) in emitter
-            .module_values_in_dependency_order()
-            .into_iter()
+            .module_value_dependency_order
+            .iter()
+            .copied()
             .enumerate()
         {
             let identity = emitter.program.module_values[declaration_index]
@@ -681,59 +670,6 @@ impl<'a> ClassfileEmitter<'a> {
         format!("{}$ModuleValues{class_index}", self.options.program_class)
     }
 
-    fn module_values_in_dependency_order(&self) -> Vec<usize> {
-        let indexes = self
-            .program
-            .module_values
-            .iter()
-            .enumerate()
-            .map(|(index, declaration)| (declaration.identity.clone(), index))
-            .collect::<BTreeMap<_, _>>();
-        let mut dependencies = Vec::with_capacity(self.program.module_values.len());
-        let mut dependents = vec![Vec::new(); self.program.module_values.len()];
-
-        for (index, declaration) in self.program.module_values.iter().enumerate() {
-            let mut identities = BTreeSet::new();
-            collect_module_value_dependencies(&declaration.initializer, &mut identities);
-            let declaration_dependencies = identities
-                .into_iter()
-                .map(|identity| {
-                    indexes.get(&identity).copied().unwrap_or_else(|| {
-                        panic!("missing module value declaration for {identity:?}")
-                    })
-                })
-                .collect::<BTreeSet<_>>();
-            for dependency in &declaration_dependencies {
-                dependents[*dependency].push(index);
-            }
-            dependencies.push(declaration_dependencies);
-        }
-
-        let mut remaining_dependencies = dependencies.iter().map(BTreeSet::len).collect::<Vec<_>>();
-        let mut ready = remaining_dependencies
-            .iter()
-            .enumerate()
-            .filter_map(|(index, count)| (*count == 0).then_some(index))
-            .collect::<BTreeSet<_>>();
-        let mut ordered = Vec::with_capacity(self.program.module_values.len());
-        while let Some(index) = ready.iter().next().copied() {
-            ready.remove(&index);
-            ordered.push(index);
-            for dependent in &dependents[index] {
-                remaining_dependencies[*dependent] -= 1;
-                if remaining_dependencies[*dependent] == 0 {
-                    ready.insert(*dependent);
-                }
-            }
-        }
-        assert_eq!(
-            ordered.len(),
-            self.program.module_values.len(),
-            "module value initializers must be acyclic before JVM emission"
-        );
-        ordered
-    }
-
     pub(crate) fn emit(
         &self,
         entry_function: &str,
@@ -759,9 +695,10 @@ impl<'a> ClassfileEmitter<'a> {
             path: "VelnEntry.class".to_string(),
             contents: entry_class,
         });
-        let ordered_values = self.module_values_in_dependency_order();
-        for (class_index, declarations) in
-            ordered_values.chunks(MODULE_VALUES_PER_CLASS).enumerate()
+        for (class_index, declarations) in self
+            .module_value_dependency_order
+            .chunks(MODULE_VALUES_PER_CLASS)
+            .enumerate()
         {
             let class_name = self.module_value_class(class_index);
             classes.extend(self.emit_module_value_class(&class_name, declarations)?);
@@ -783,10 +720,13 @@ impl<'a> ClassfileEmitter<'a> {
         let mut class = ClassBuilder::new(&self.options.program_class);
         class.access_flags = 0x0031;
         class.add_default_constructor(0x0002);
-        let ordered_values = self.module_values_in_dependency_order();
-        if !ordered_values.is_empty() {
+        if !self.module_value_dependency_order.is_empty() {
             let mut method = MethodCode::new(Rc::clone(&class.constant_pool));
-            for class_index in 0..ordered_values.len().div_ceil(MODULE_VALUES_PER_CLASS) {
+            for class_index in 0..self
+                .module_value_dependency_order
+                .len()
+                .div_ceil(MODULE_VALUES_PER_CLASS)
+            {
                 method.invokestatic(&self.module_value_class(class_index), "initialize", "()V");
             }
             method.op(0xb1);
