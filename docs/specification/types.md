@@ -501,10 +501,11 @@ type, nested generic arguments whose unknown positions become concrete, direct
 widening, and complete-value pattern aliases. Nested matches distinguish the
 residual from either singleton narrowing or an alias's wider presentation.
 
-For stable bindings or record-field paths with a refined domain, arm
-classification first validates the constructor name, visibility, owning
-ADT, substituted generic payload types, payload arity, nested patterns, and
-admitted payload bindings. An invalid arm keeps its intrinsic diagnostic,
+For a stable binding, record-field path, or qualified module immutable-value
+reference with a refined domain, arm classification first validates the
+constructor name, visibility, owning ADT, substituted generic payload types,
+payload arity, nested patterns, and admitted payload bindings. An invalid arm
+keeps its intrinsic diagnostic,
 consumes no coverage, and produces no derived impossible or redundant
 diagnostic. An unresolved constructor path reports `name.unresolved` for the
 complete written path at its final segment. A payload pattern incompatible
@@ -628,10 +629,11 @@ importing module, private source-declared constructors still require coverage,
 so arms for every public constructor are not exhaustive by themselves. Use `_`
 or a binding catch-all arm because the private constructors cannot be named
 there. `_` and binding patterns are catch-all arms. A
-stable binding or record-field path whose current type is a singleton or
-finite refinement union instead requires only that restricted original domain.
-A valid out-of-domain constructor is impossible and does not satisfy or expand
-the domain. A non-exhaustive finite-domain match reports
+stable binding, record-field path, or qualified module immutable-value
+reference whose current type is a singleton or finite refinement union instead
+requires only that restricted original domain. A valid out-of-domain
+constructor is impossible and does not satisfy or expand the domain. A
+non-exhaustive finite-domain match reports
 `type.match_non_exhaustive` at the `match` expression. The missing case is the
 unqualified coverage label: source-declared ADTs use the constructor leaf name,
 with `_` for payload variants. Related notes identify the scrutinee type and
