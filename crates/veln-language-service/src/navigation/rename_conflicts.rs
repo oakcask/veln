@@ -255,18 +255,14 @@ impl SymbolIndex {
         module: &str,
         name: &str,
     ) -> Vec<&ModuleValueSymbol> {
-        record_module_value_rename_candidate_lookup();
-        self.module_value_indices_by_identity
-            .get(&(
-                package.map(str::to_string),
-                package_origin,
-                module.to_string(),
-                name.to_string(),
-            ))
-            .into_iter()
-            .flatten()
-            .map(|index| &self.module_values[*index])
-            .collect()
+        module_member_candidates(
+            &self.module_value_indices_by_identity,
+            &self.module_values,
+            package,
+            package_origin,
+            module,
+            name,
+        )
     }
 
     fn function_candidates(
@@ -276,18 +272,14 @@ impl SymbolIndex {
         module: &str,
         name: &str,
     ) -> Vec<&FunctionSymbol> {
-        record_module_value_rename_candidate_lookup();
-        self.function_indices_by_identity
-            .get(&(
-                package.map(str::to_string),
-                package_origin,
-                module.to_string(),
-                name.to_string(),
-            ))
-            .into_iter()
-            .flatten()
-            .map(|index| &self.functions[*index])
-            .collect()
+        module_member_candidates(
+            &self.function_indices_by_identity,
+            &self.functions,
+            package,
+            package_origin,
+            module,
+            name,
+        )
     }
 
     fn imported_module_value_candidates(
@@ -295,23 +287,9 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Vec<&ModuleValueSymbol> {
-        file
-            .bare_workspace_uses
-            .iter()
-            .flat_map(|module| self.module_value_candidates(None, None, module, name))
-            .chain(
-                file.bare_external_uses
-                    .iter()
-                    .flat_map(|(module, package)| {
-                        self.module_value_candidates(
-                            Some(package),
-                            Some(PackageOrigin::DirectDependency),
-                            module,
-                            name,
-                        )
-                    }),
-            )
-            .collect()
+        imported_module_member_candidates(file, name, |package, package_origin, module, name| {
+            self.module_value_candidates(package, package_origin, module, name)
+        })
     }
 
     fn imported_function_candidates(
@@ -319,23 +297,9 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Vec<&FunctionSymbol> {
-        file
-            .bare_workspace_uses
-            .iter()
-            .flat_map(|module| self.function_candidates(None, None, module, name))
-            .chain(
-                file.bare_external_uses
-                    .iter()
-                    .flat_map(|(module, package)| {
-                        self.function_candidates(
-                            Some(package),
-                            Some(PackageOrigin::DirectDependency),
-                            module,
-                            name,
-                        )
-                    }),
-            )
-            .collect()
+        imported_module_member_candidates(file, name, |package, package_origin, module, name| {
+            self.function_candidates(package, package_origin, module, name)
+        })
     }
 
     fn import_alias_rename_conflict(
@@ -703,6 +667,48 @@ impl SymbolIndex {
                 )
             })
     }
+}
+
+fn module_member_candidates<'a, T>(
+    indices_by_identity: &HashMap<ModuleMemberIdentity, Vec<usize>>,
+    symbols: &'a [T],
+    package: Option<&str>,
+    package_origin: Option<PackageOrigin>,
+    module: &str,
+    name: &str,
+) -> Vec<&'a T> {
+    record_module_value_rename_candidate_lookup();
+    indices_by_identity
+        .get(&(
+            package.map(str::to_string),
+            package_origin,
+            module.to_string(),
+            name.to_string(),
+        ))
+        .into_iter()
+        .flatten()
+        .map(|index| &symbols[*index])
+        .collect()
+}
+
+fn imported_module_member_candidates<'a, T>(
+    file: &IndexedFile,
+    name: &str,
+    mut candidates: impl FnMut(Option<&str>, Option<PackageOrigin>, &str, &str) -> Vec<&'a T>,
+) -> Vec<&'a T> {
+    let mut imported = Vec::new();
+    for module in file.bare_workspace_uses.iter() {
+        imported.extend(candidates(None, None, module, name));
+    }
+    for (module, package) in file.bare_external_uses.iter() {
+        imported.extend(candidates(
+            Some(package),
+            Some(PackageOrigin::DirectDependency),
+            module,
+            name,
+        ));
+    }
+    imported
 }
 
 fn clause_binding_conflicts_after_rename(
