@@ -664,6 +664,11 @@ and keys. Nested matches on one stable place add one active refinement and
 frame per nesting level. Every stable-place root, key, refinement, and frame is
 released after successful or failed analysis.
 
+For one qualified module-value root, workloads with 32, 64, and 128 repeated
+references retain one root, create no field-path keys, and perform one lookup
+per reference plus the initial match lookup. Each adjacent workload therefore
+has at most twice the preceding lookup work.
+
 Reconciling two equally shaped nested named types that use a different alias
 spelling at every named node performs one conflict lookup and at most one
 conflict insertion per node. Descending through the type arguments performs
