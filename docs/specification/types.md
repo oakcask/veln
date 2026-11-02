@@ -556,7 +556,10 @@ Matching that root narrows every qualified reference to the declaration for the
 current arm, even when a local binding shadows the declaration's leaf name.
 The original declaration type is restored after the arm. Same-spelled values
 with different declaration identities remain independent. An ambiguous,
-unavailable, private, or missing path supplies no stable root.
+unavailable, inaccessible, or missing path supplies no stable root. A private
+module value is available to its exact test companion under the ordinary
+companion visibility rule, so that qualified path does supply the declaration
+identity and refines like any other available module value.
 
 A qualified module value does not establish a transparent alias through a
 local initializer, and a field path rooted in a module value is not stable.
@@ -577,9 +580,14 @@ refinement. The qualified module-value
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-qualified-module-value-json/)
 cases verify identity sharing, local shadowing, arm restoration, finite-domain
-coverage, and the qualified-call boundary. Veln currently has no indexing
-expression. Function-value expressions do not produce ADT values that can
-exercise alias match refinement independently.
+coverage, exact-companion private access, inaccessible and unavailable path
+boundaries, and the qualified-call boundary. The checked
+[`module-value runtime execution`](../../examples/specification/run/module-value-runtime-execution/)
+case verifies that the JVM recovers actual qualified module data through a
+match and reads the same declaration through another qualified spelling under
+the arm refinement. Veln currently has no indexing expression. Function-value
+expressions do not produce ADT values that can exercise alias match refinement
+independently.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved

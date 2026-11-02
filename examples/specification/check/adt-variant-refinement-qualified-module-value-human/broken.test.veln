@@ -1,0 +1,7 @@
+use broken
+
+fn unavailable_private_value_has_no_root() -> ()
+	match broken::private_current
+		_ => ()
+	end
+end

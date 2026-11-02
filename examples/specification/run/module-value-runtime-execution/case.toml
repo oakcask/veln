@@ -1,5 +1,6 @@
 # This case verifies JVM materialization and package-aware declaration identity
-# through the public run command. Standard-library printing and integer
+# through the public run command, including recovery of a qualified module data
+# value under arm-local refinement. Standard-library printing and integer
 # conversion only expose the independently written expected runtime values.
 command = ["run", "main", "main.veln", "local_values.veln", "alpha_wrapper.veln", "beta_wrapper.veln"]
 exit = 0

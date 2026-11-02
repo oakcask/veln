@@ -37,3 +37,9 @@ fn computed_call() -> ()
 		a::b::State::Failed => ()
 	end
 end
+
+fn inaccessible_private_path() -> ()
+	match wire::private_current
+		_ => ()
+	end
+end

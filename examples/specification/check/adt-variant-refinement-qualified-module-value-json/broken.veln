@@ -1,0 +1,1 @@
+let private_current: Option<Int> = 0

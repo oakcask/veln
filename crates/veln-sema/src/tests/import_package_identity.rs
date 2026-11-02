@@ -299,6 +299,102 @@ fn qualified_module_value_match_refinement_uses_declaration_identity_and_restore
 }
 
 #[test]
+fn exact_companion_refines_an_available_private_module_value_by_declaration_identity() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "math",
+            SourceFile::new(
+                "math.veln",
+                "pub type State\n  pub Ready\n  pub Closed\nend\nlet current: State = Ready\n",
+            ),
+        ),
+        (
+            "math.test",
+            SourceFile::new(
+                "math.test.veln",
+                concat!(
+                    "use math\n",
+                    "fn inspect() -> ()\n",
+                    "  match math::current\n",
+                    "    math::State::Ready => begin\n",
+                    "      let selected: math::State::Ready = math::current\n",
+                    "      ()\n",
+                    "    end\n",
+                    "    math::State::Closed => ()\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    crate::analysis::reset_stable_place_work();
+    let diagnostics = analyze_surface_module(&module);
+    let work = crate::analysis::take_stable_place_work();
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(work.roots_created, 1, "{work:#?}");
+}
+
+#[test]
+fn inaccessible_and_unavailable_private_module_values_do_not_create_stable_roots() {
+    let stable_roots = |sources| {
+        let module = merged_modules_with_identities(sources);
+        crate::analysis::reset_stable_place_work();
+        let diagnostics = analyze_surface_module(&module);
+        let work = crate::analysis::take_stable_place_work();
+        (diagnostics, work.roots_created)
+    };
+
+    let (ordinary_diagnostics, ordinary_roots) = stable_roots(vec![
+        (
+            "math",
+            SourceFile::new(
+                "math.veln",
+                "pub type State\n  pub Ready\n  pub Closed\nend\nlet current: State = Ready\n",
+            ),
+        ),
+        (
+            "consumer",
+            SourceFile::new(
+                "consumer.veln",
+                "use math\nfn inspect() -> ()\n  match math::current\n    _ => ()\n  end\nend\n",
+            ),
+        ),
+    ]);
+    assert_eq!(ordinary_roots, 0);
+    assert!(
+        ordinary_diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved value `math::current`"
+        }),
+        "{ordinary_diagnostics:#?}"
+    );
+
+    let (unavailable_diagnostics, unavailable_roots) = stable_roots(vec![
+        (
+            "math",
+            SourceFile::new("math.veln", "let current: Option<Int> = 0\n"),
+        ),
+        (
+            "math.test",
+            SourceFile::new(
+                "math.test.veln",
+                "use math\nfn inspect() -> ()\n  match math::current\n    _ => ()\n  end\nend\n",
+            ),
+        ),
+    ]);
+    assert_eq!(unavailable_roots, 0);
+    assert!(
+        unavailable_diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved value `math::current`"
+        }),
+        "{unavailable_diagnostics:#?}"
+    );
+}
+
+#[test]
 fn qualified_module_value_match_refinement_keeps_package_identities_distinct() {
     let mut app = source_module(
         "app.veln",

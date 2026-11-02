@@ -1,0 +1,13 @@
+use a::b as wire
+
+fn companion_private_refinement() -> ()
+	match wire::private_current
+		a::b::State::Ready => begin
+			let direct: a::b::State::Ready = a::b::private_current
+			let aliased: wire::State::Ready = wire::private_current
+			()
+		end
+		a::b::State::Closed => ()
+		a::b::State::Failed => ()
+	end
+end

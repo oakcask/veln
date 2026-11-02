@@ -6,6 +6,7 @@ end
 
 pub let current: State = Ready
 pub let limited: State::Ready | State::Closed = Ready
+let private_current: State = Ready
 
 pub fn read() -> State
 	Ready
