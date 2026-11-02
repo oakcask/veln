@@ -511,6 +511,12 @@ reference returns the workspace declaration from `definition`. An eligible
 public reference to a retained direct dependency returns its immutable
 `veln-pkg:` declaration. Rename edits a workspace declaration and its linked
 workspace references, while a package-backed selection returns no edits.
+Definition and rename consume the shared selection and conflict result before
+MCP projects it. The qualified-leaf selection, retained-dependency bare-export
+conflicts, package-owner isolation, and declaring-module precedence specified
+by Editor Support therefore have the same outcome through these tools. A
+shared conflict becomes the `rename.conflict` result specified below, including
+the package-backed conflicting declaration when one caused the failure.
 Standard-library module values are outside this navigation row. The MCP
 `references` tool does not yet admit module immutable values and returns an
 empty reference result for those selections.
