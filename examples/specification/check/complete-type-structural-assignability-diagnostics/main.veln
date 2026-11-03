@@ -1,3 +1,5 @@
+use source_vec
+
 type State
 	Ready
 	Closed
@@ -35,7 +37,7 @@ fn accepts_pure_callback(callback: fn() -> ()) -> ()
 	()
 end
 
-fn main(value: State, record: {state: State}, state_values: Vec<State>) -> ()
+fn main(value: State, record: {state: State}, state_values: Vec<State>, source_values: source_vec::Vec<State>) -> ()
 	let narrowed: State::Ready = value
 	let narrowed_record: {state: State::Ready, label: String} = record
 	let reversed: fn(State) -> State::Ready = ready_to_state
@@ -49,4 +51,5 @@ fn main(value: State, record: {state: State}, state_values: Vec<State>) -> ()
 	let ready_values = [Ready]
 	let widened_values: Vec<State> = ready_values
 	let narrowed_values: Vec<State::Ready> = state_values
+	let distinct_constructor: Vec<State> = source_values
 end
