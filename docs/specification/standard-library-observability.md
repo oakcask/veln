@@ -536,13 +536,15 @@ Normal `shutdown_buffered` closes admission. After it returns, later submissions
 return `Closed`. Shutdown waits until every accepted record has one completed
 destination attempt. With an enabled diagnostic destination that accepts the
 write, it then attempts one final exporter-health summary and reports
-`SummaryAccepted`. The summary attempt follows every record attempt, including
-when the record and diagnostic destinations identify the same output. The
-admission result at the concurrent shutdown transition remains planned work.
+`SummaryAccepted`. With `NoDiagnosticDestination`, shutdown performs no summary
+write and reports `SummaryDisabled`. An enabled summary attempt follows every
+record attempt, including when the record and diagnostic destinations identify
+the same output. The admission result at the concurrent shutdown transition
+remains planned work.
 
-For that enabled accepted destination, normal shutdown freezes and returns
-`BufferedShutdownReport(Completed, health, SummaryAccepted)`. Later shutdown
-calls return the same report without another record or summary attempt.
+Normal shutdown freezes and returns `BufferedShutdownReport(Completed, health,
+summary)`, where `summary` is the accepted or disabled outcome above. Later
+shutdown calls return the same report without another record or summary attempt.
 `buffered_exporter_health` is non-consuming and returns that frozen health after
 completion. The worker retains the scoped observation-destination provider
 active at construction, even if submission and shutdown occur after that scope
@@ -571,13 +573,15 @@ are outside the admission order. These include cardinality rejection and a
 buffered finish request that does not contain an exporter span.
 
 `buffered_start_export_span` allocates and returns a span even when its start
-record is invalid or the queue is full. Its `BufferedSpanStart` result reports
-that start admission. Finishing the returned handle makes a new admission
-attempt and can succeed after the start was rejected. Start validation includes
-the request's link contexts, while the finish record contains only the returned
-span's own identity and source. An invalid link can therefore reject the start
-without invalidating that span's context or its later finish. The buffered
-handler uses these operations while retaining the `Observe` operation results.
+record is invalid, the queue is full, or the exporter is closed. Its
+`BufferedSpanStart` result reports that start admission. Finishing the returned
+handle makes a new admission attempt. It can succeed after an invalid or full
+start. It returns `Closed` without changing the frozen exporter state after a
+closed start. Start validation includes the request's link contexts, while the
+finish record contains only the returned span's own identity and source. An
+invalid link can therefore reject the start without invalidating that span's
+context or its later finish. The buffered handler uses these operations while
+retaining the `Observe` operation results.
 `buffered_finish_export_span` immediately returns `InvalidRecord` when its
 `SpanFinish` contains a no-op or recording span. This result performs no
 destination attempt, allocates no sequence, and leaves exporter health

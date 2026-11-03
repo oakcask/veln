@@ -16,10 +16,11 @@ evidence for current behavior.
 
 The implemented API admits handler and direct observation and span records,
 reports health, drains on normal shutdown, writes the final diagnostic summary
-when an enabled destination accepts it, and freezes its completed report. No
-buffered default capacity, unbounded mode, or public manual-summary operation is
-planned. The remaining work changes destination-failure and shutdown behavior
-without adding another public admission API.
+when an enabled destination accepts it, reports a disabled summary without
+output when no diagnostic destination is configured, and freezes its completed
+report. No buffered default capacity, unbounded mode, or public manual-summary
+operation is planned. The remaining work changes destination-failure and
+shutdown behavior without adding another public admission API.
 
 ## Admission and Record Ordering
 
@@ -115,7 +116,7 @@ schemas supply expected outcomes independently of their implementation.
 | --- | --- | --- | --- |
 | O18 | Record write or flush rejection, exception, and counter saturation | One attempt and one failed increment per record; later records proceed; maximum counter does not overflow; application result unchanged. | Companion failure schedules and saturation cases. |
 | O19 | Concurrent shutdown and emission races closure | One drain and at most one summary; concurrent callers share the report; losing submission is `Closed` without state changes. | Companion barrier-controlled transitions. |
-| O20 | Enabled, disabled, rejected, and exceptional diagnostic destinations | Use the implemented enabled-accepted ordering as the control; report disabled without output; contain rejection or exception as one rejected summary outcome; do not change export health or the application's ordinary result. | Companion destination schedules and schema checks. |
+| O20 | Rejected and exceptional enabled diagnostic destinations | Use the implemented enabled-accepted and disabled outcomes as controls; contain rejection or exception as one rejected summary outcome; do not change export health or the application's ordinary result. | Companion destination schedules and schema checks. |
 | O21 | Interruption with queued work and an unresolved host call | Prompt interrupted report after call-start revocation; unsettled records counted once; no new record/summary calls. | Companion cancellation schedule. |
 | O22 | In-flight record or summary completes after interrupted return | Late bytes are permitted; frozen report, counters, and call count remain unchanged. | Companion late-completion schedule. |
 | O23 | Interruption before summary, during summary, and after closed | `NotAttempted`, unconfirmed `Rejected`, and unchanged completed report respectively. | Companion state-boundary schedules. |
