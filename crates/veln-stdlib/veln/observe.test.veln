@@ -403,6 +403,22 @@ fn new_buffered_matrix_for_test(idle: Sender<()>, resume: Receiver<()>) -> Buffe
 	)
 end
 
+fn new_buffered_transformations_for_test(idle: Sender<()>, resume: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+	observe::new_buffered_json_lines_with_idle_hook_for_test(
+		observe::Resource("transformations", list_nil()),
+		observe::InstrumentationScope("scope", "1"),
+		10,
+		observe::ExporterLimits(2, 4, 1, list_cons("secret", list_nil())),
+		observe::StandardError,
+		observe::NoDiagnosticDestination,
+		"transformations",
+		1,
+		observe_test_support_test::signal_buffered_idle,
+		idle,
+		resume,
+	)
+end
+
 fn buffered_log(message: String) -> Observation callsite
 	observe::Log(observe::LogRecord("log", observe::Info, message, list_nil(), None, callsite))
 end
@@ -754,7 +770,7 @@ test buffered_handler_orders_cardinality_validation_capacity_and_sequence_gaps()
 			if first_result == 11 and invalid_result == 12 and full_result == 13 and rejected_result == 14 and last_result == 15 and buffered_sequence_gap(first_line, last_line)
 				match before_release
 					observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(2, 2, 1)) => match report
-						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(2, 2, 1)), observe::SummaryDisabled) => Ok(())
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(2, 2, 1)), _) => Ok(())
 						_ => Err("buffered matrix shutdown changed retained admission facts")
 					end
 					_ => Err("buffered handler changed validation, capacity, transformation, or cardinality ordering")
@@ -804,7 +820,7 @@ test buffered_rejected_span_start_returns_handle_and_finish_retries_admission() 
 							observe::Accepted => match finish
 								observe::Accepted => if buffered_span_retry_lines(first_line, finish_line)
 									match report
-										observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, _), observe::SummaryDisabled) => Ok(())
+										observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, _), _) => Ok(())
 										_ => Err("rejected span start changed finish or shutdown health")
 									end
 								else
@@ -851,11 +867,11 @@ test buffered_closed_span_start_returns_allocated_handle_and_finish_remains_clos
 						let finish_destination: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
 						let repeated_report = observe::shutdown_buffered(exporter)
 						match report
-							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => match finish
+							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), _) => match finish
 								observe::Closed => match after_start
 									observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match after_finish
 										observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match repeated_report
-											observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => match start_destination
+											observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), _) => match start_destination
 												None => match finish_destination
 													None => Ok(())
 													Some(_) => Err("closed span finish reached the destination")
@@ -903,7 +919,7 @@ test buffered_invalid_span_start_returns_allocated_handle_and_finish_is_admitted
 									observe::Accepted => match finish_line
 										Some(line) => if buffered_contains(line, "\"sequence\":2,") and buffered_contains(line, "\"kind\":\"span_finish\"") and buffered_contains(line, "\"trace_id\":\"fixed-trace-1\"") and buffered_contains(line, "\"span_id\":\"fixed-span-1\"")
 											match report
-												observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => Ok(())
+												observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), _) => Ok(())
 												_ => Err("invalid span start changed completed exporter health")
 											end
 										else
@@ -948,7 +964,7 @@ test buffered_non_exporter_span_finish_is_immediate_and_preserves_state() -> Res
 								observe::Accepted => match admitted_line
 									Some(line) => if buffered_contains(line, "\"sequence\":1,") and buffered_contains(line, "\"message\":\"after non-exporter finish\"")
 										match report
-											observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => Ok(())
+											observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), _) => Ok(())
 											_ => Err("non-exporter span finish changed the completed report")
 										end
 									else
@@ -1003,7 +1019,7 @@ test buffered_handler_consumes_rejected_start_and_independently_admits_finish() 
 			match first
 				observe::Accepted => if allocated and buffered_span_retry_lines(first_line, finish_line)
 					match report
-						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, _), observe::SummaryDisabled) => Ok(())
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, _), _) => Ok(())
 						_ => Err("buffered handler rejection changed finish or shutdown health")
 					end
 				else
@@ -1065,7 +1081,7 @@ fn buffered_allocator_remains_usable_after_aborted_identity(kind: String, fail: 
 			match started
 				Some(_) => if aborted and buffered_retried_identity_matches(retried, kind)
 					match report
-						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, _), observe::SummaryDisabled) => Ok(())
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, _), _) => Ok(())
 						_ => Err("retry after aborted buffered span allocation changed shutdown health")
 					end
 				else
@@ -1128,17 +1144,29 @@ test buffered_handler_is_shared_with_children_restored_after_nesting_and_state_i
 				end with observe::buffered_json_lines(outer) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(outer_lines.tx, true)
 				let outer_report = observe::shutdown_buffered(outer)
 				let inner_report = observe::shutdown_buffered(inner)
+				let outer_records = buffered_receive_lines(outer_lines.rx, 7)
+				let inner_records = buffered_receive_lines(inner_lines.rx, 3)
+				let outer_extra: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(outer_lines.rx, list_nil()), 0)
+				let inner_extra: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(inner_lines.rx, list_nil()), 0)
 				match outcomes.joined
-					Ok(child_result) => if outcomes.parent == 29 and child_result == 23 and outcomes.nested == 31 and outcomes.restored == 37 and buffered_lines_have_sequences(outer_lines.rx, 1, 7) and buffered_lines_have_sequences(inner_lines.rx, 1, 3)
+					Ok(child_result) => if outcomes.parent != 29 or child_result != 23 or outcomes.nested != 31 or outcomes.restored != 37
+						Err("buffered handler scope changed an ordinary result")
+					else if not buffered_outer_handler_lines_match(outer_records)
+						Err("outer buffered handler capture did not preserve span ownership, admission order, or restoration")
+					else if not buffered_inner_handler_lines_match(inner_records)
+						Err("inner buffered handler capture did not preserve independent sequence or identity state")
+					else if not buffered_no_selected_line(outer_extra)
+						Err("outer buffered handler capture contained an unexpected extra record")
+					else if not buffered_no_selected_line(inner_extra)
+						Err("inner buffered handler capture contained an unexpected extra record")
+					else
 						match outer_report
-							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => match inner_report
-								observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => Ok(())
+							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), _) => match inner_report
+								observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), _) => Ok(())
 								_ => Err("independent nested buffered exporter changed its own health")
 							end
 							_ => Err("child-shared outer buffered exporter changed its health")
 						end
-					else
-						Err("buffered handler scope did not preserve results, child sharing, restoration, or independent sequence state")
 					end
 					Err(_) => Err("child using the inherited buffered handler did not complete")
 				end
@@ -1230,30 +1258,66 @@ end
 
 fn buffered_independent_reports_match(outer: BufferedShutdownReport, inner: BufferedShutdownReport) -> Bool
 	match outer
-		observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(1, 1, 0)), observe::SummaryDisabled) => match inner
-			observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(1, 1, 0)), observe::SummaryDisabled) => true
+		observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(1, 1, 0)), _) => match inner
+			observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(1, 1, 0)), _) => true
 			_ => false
 		end
 		_ => false
 	end
 end
 
-fn buffered_lines_have_sequences(lines: Receiver<String>, expected: Int, last: Int) -> Bool effects [concurrency]
-	if expected > last
-		true
+fn buffered_receive_lines(lines: Receiver<String>, remaining: Int) -> Option<List<String>> effects [concurrency]
+	if remaining == 0
+		Some(list_nil())
 	else
 		match channel::recv(lines)
-			Some(line) => if buffered_contains(line, string::concat(string::concat("\"sequence\":", int_to_string(expected)), ",")) and if expected == 1
-				buffered_contains(line, "\"span_id\":\"fixed-span-1\"")
-			else
-				true
+			Some(line) => match buffered_receive_lines(lines, remaining - 1)
+				Some(rest) => Some(list_cons(line, rest))
+				None => None
 			end
-				buffered_lines_have_sequences(lines, expected + 1, last)
-			else
-				false
-			end
-			None => false
+			None => None
 		end
+	end
+end
+
+fn buffered_outer_handler_lines_match(records: Option<List<String>>) -> Bool
+	match records
+		Some(lines) => buffered_lines_have_contiguous_sequences(lines, 1, 7) and buffered_has_line(lines, "\"sequence\":7,", "\"kind\":\"log\"", "\"message\":\"restored\"") and if buffered_span_records_match(lines, "parent", "fixed-trace-1", "fixed-span-1")
+			buffered_span_records_match(lines, "child", "fixed-trace-2", "fixed-span-2")
+		else
+			buffered_span_records_match(lines, "parent", "fixed-trace-2", "fixed-span-2") and buffered_span_records_match(lines, "child", "fixed-trace-1", "fixed-span-1")
+		end
+		None => false
+	end
+end
+
+fn buffered_inner_handler_lines_match(records: Option<List<String>>) -> Bool
+	match records
+		Some(lines) => buffered_lines_have_contiguous_sequences(lines, 1, 3) and buffered_span_records_match(lines, "inner", "fixed-trace-1", "fixed-span-1")
+		None => false
+	end
+end
+
+fn buffered_lines_have_contiguous_sequences(lines: List<String>, expected: Int, last: Int) -> Bool
+	match lines
+		Cons(line, rest) => expected <= last and buffered_contains(line, string::concat(string::concat("\"sequence\":", int_to_string(expected)), ",")) and buffered_lines_have_contiguous_sequences(rest, expected + 1, last)
+		Nil => expected == last + 1
+	end
+end
+
+fn buffered_span_records_match(lines: List<String>, name: String, trace_id: String, span_id: String) -> Bool
+	let identity = string::concat(string::concat(string::concat(string::concat("\"trace_id\":\"", trace_id), "\",\"span_id\":\""), span_id), "\"")
+	buffered_has_line(lines, "\"kind\":\"span_start\"", string::concat(string::concat("\"name\":\"", name), "\""), identity) and buffered_has_line(lines, "\"kind\":\"log\"", string::concat(string::concat("\"message\":\"", name), "\""), identity) and buffered_has_line(lines, "\"kind\":\"span_finish\"", string::concat(string::concat("\"name\":\"", name), "\""), identity)
+end
+
+fn buffered_has_line(lines: List<String>, first: String, second: String, third: String) -> Bool
+	match lines
+		Cons(line, rest) => if buffered_contains(line, first) and buffered_contains(line, second) and buffered_contains(line, third)
+			true
+		else
+			buffered_has_line(rest, first, second, third)
+		end
+		Nil => false
 	end
 end
 
@@ -1273,54 +1337,127 @@ fn queued_buffered_record_admission(context: { exporter : BufferedJsonLinesExpor
 	handle observe::buffered_export_observation_with_entry_hook_for_test(context.exporter, context.record, observe_test_support_test::decision_barrier, context.entered, context.release) with observe_test_support_test::clock(0)
 end
 
+fn buffered_transforming_log(context: Option<TraceContext>) -> Observation callsite
+	let attributes = list_cons(
+		observe::Attribute("secret", observe::StringValue("value")),
+		list_cons(
+			observe::Attribute("long", observe::StringValue("abcdef")),
+			list_cons(observe::Attribute("drop", observe::IntValue(3)), list_nil()),
+		),
+	)
+	observe::Log(observe::LogRecord("log", observe::Info, "transform", attributes, context, callsite))
+end
+
 test buffered_concurrent_invalid_and_full_submissions_do_not_commit_transformations() -> Result<(), String> effects [time, concurrency]
-	let lines = observe_test_support_test::export_lines(2)
-	let destination_release = channel::bounded<()>(1)
+	let lines = observe_test_support_test::export_lines(4)
+	let destination_release = channel::bounded<()>(3)
 	let idle = channel::bounded<()>(1)
 	let resume = channel::bounded<()>(1)
 	let invalid_entered = channel::bounded<()>(1)
 	let invalid_release = channel::bounded<()>(1)
 	let full_entered = channel::bounded<()>(1)
 	let full_release = channel::bounded<()>(1)
-	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::NoDiagnosticDestination, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, destination_release.rx)
+	let constructed = handle new_buffered_transformations_for_test(idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, destination_release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
+			let control = handle observe::buffered_export_observation(exporter, buffered_transforming_log(None)) with observe_test_support_test::clock(0)
+			let control_line = channel::recv(lines.rx)
+			let control_health = observe::buffered_exporter_health(exporter)
+			let _ = channel::send(destination_release.tx, ())
+			let _ = channel::recv(idle.rx)
 			let occupying = handle observe::buffered_export_observation(exporter, buffered_log("occupy")) with observe_test_support_test::clock(0)
-			let _ = channel::recv(lines.rx)
-			let transforming = list_cons(observe::Attribute("secret", observe::StringValue("long-value")), list_nil())
-			let invalid_record = observe::CounterIncrement(observe::CounterIncrementRecord("invalid", 1, transforming, Some(observe::TraceContext("", "span", true)), callsite_location()))
-			let full_record = observe::HistogramSample(observe::HistogramSampleRecord("full", 2, transforming, None, callsite_location()))
+			let _ = channel::send(resume.tx, ())
+			let occupying_line = channel::recv(lines.rx)
+			let invalid_record = buffered_transforming_log(Some(observe::TraceContext("", "span", true)))
+			let full_record = buffered_transforming_log(None)
 			let invalid = task::spawn_with(stalled_buffered_record_admission, { exporter: exporter, record: invalid_record, entered: invalid_entered.tx, release: invalid_release.rx })
 			let _ = channel::recv(invalid_entered.rx)
 			let full = task::spawn_with(queued_buffered_record_admission, { exporter: exporter, record: full_record, entered: full_entered.tx, release: full_release.rx })
 			let _ = channel::recv(full_entered.rx)
 			let _ = channel::send(invalid_release.tx, ())
 			let invalid_result = task::join(invalid)
+			let invalid_health = observe::buffered_exporter_health(exporter)
+			let invalid_destination_attempt: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
 			let _ = channel::send(full_release.tx, ())
 			let full_result = task::join(full)
-			let health = observe::buffered_exporter_health(exporter)
+			let full_health = observe::buffered_exporter_health(exporter)
+			let full_destination_attempt: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+			let _ = channel::send(destination_release.tx, ())
+			let _ = channel::recv(idle.rx)
+			let last = handle observe::buffered_export_observation(exporter, buffered_log("last")) with observe_test_support_test::clock(0)
+			let _ = channel::send(resume.tx, ())
+			let last_line = channel::recv(lines.rx)
 			let _ = channel::send(destination_release.tx, ())
 			let _ = channel::recv(idle.rx)
 			let _ = channel::send(resume.tx, ())
 			let report = observe::shutdown_buffered(exporter)
-			match occupying
-				observe::Accepted => match invalid_result
-					Ok(observe::InvalidRecord) => match full_result
-						Ok(observe::Full) => match health
-							observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match report
-								observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => Ok(())
-								_ => Err("concurrent invalid and full admissions changed shutdown health")
+			if not buffered_transformation_control_matches(control, control_line, control_health)
+				Err("admitted transformation control did not establish every counter")
+			else if not buffered_admission_is_accepted(occupying)
+				Err("buffered transformation rejection setup did not occupy capacity")
+			else if not buffered_line_has_sequence_and_message(occupying_line, 2, "occupy")
+				match occupying_line
+					Some(_) => Err("buffered transformation rejection setup wrote the wrong sequence or message")
+					None => Err("buffered transformation rejection setup did not write sequence two")
+				end
+			else if not buffered_no_selected_line(invalid_destination_attempt) or not buffered_no_selected_line(full_destination_attempt)
+				Err("a rejected transformation candidate reached the destination")
+			else if not buffered_admission_is_accepted(last) or not buffered_line_has_sequence_and_message(last_line, 5, "last")
+				Err("rejected transformation candidates did not consume sequence positions")
+			else
+				match invalid_result
+					Ok(observe::InvalidRecord) => match invalid_health
+						observe::ExporterHealth(1, 1, 2, 1, observe::ProductionHealth(0, 0, 0)) => match full_result
+							Ok(observe::Full) => match full_health
+								observe::ExporterHealth(2, 1, 2, 1, observe::ProductionHealth(0, 0, 0)) => match report
+									observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(2, 1, 2, 1, observe::ProductionHealth(0, 0, 0)), _) => Ok(())
+									_ => Err("concurrent rejection shutdown did not retain admitted transformation facts")
+								end
+								_ => Err("full admission committed rejected transformation facts")
 							end
-							_ => Err("concurrent invalid and full admissions committed transformation facts")
+							_ => Err("queued concurrent admission was not rejected at capacity")
 						end
-						_ => Err("queued concurrent admission was not rejected at capacity")
+						_ => Err("invalid admission committed rejected transformation facts")
 					end
 					_ => Err("stalled concurrent invalid admission changed outcome")
 				end
-				_ => Err("occupying record was not admitted")
 			end
 		end
 		_ => Err("concurrent rejection exporter construction failed")
+	end
+end
+
+fn buffered_transformation_control_matches(outcome: BufferedAdmissionOutcome, line: Option<String>, health: ExporterHealth) -> Bool
+	match outcome
+		observe::Accepted => match line
+			Some(value) => buffered_contains(value, "\"sequence\":1,") and buffered_contains(value, "\"attribute_facts\":{\"dropped\":1,\"truncated\":2,\"redacted\":1}") and match health
+				observe::ExporterHealth(0, 1, 2, 1, observe::ProductionHealth(0, 0, 0)) => true
+				_ => false
+			end
+			None => false
+		end
+		_ => false
+	end
+end
+
+fn buffered_admission_is_accepted(outcome: BufferedAdmissionOutcome) -> Bool
+	match outcome
+		observe::Accepted => true
+		_ => false
+	end
+end
+
+fn buffered_no_selected_line(value: Option<{ index : Int, value : String }>) -> Bool
+	match value
+		None => true
+		Some(_) => false
+	end
+end
+
+fn buffered_line_has_sequence_and_message(line: Option<String>, sequence: Int, message: String) -> Bool
+	match line
+		Some(value) => buffered_contains(value, string::concat(string::concat("\"sequence\":", int_to_string(sequence)), ",")) and buffered_contains(value, string::concat(string::concat("\"message\":\"", message), "\""))
+		None => false
 	end
 end
 
@@ -1348,7 +1485,7 @@ test buffered_concurrent_accepted_submissions_reach_destination_in_admission_ord
 				Ok(observe::Accepted) => match second_result
 					Ok(observe::Accepted) => if buffered_concurrent_fifo(first_line, second_line)
 						match report
-							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, _), observe::SummaryDisabled) => Ok(())
+							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, _), _) => Ok(())
 							_ => Err("concurrent accepted buffered submissions changed shutdown health")
 						end
 					else
