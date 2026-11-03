@@ -69,6 +69,10 @@ path = "diagnostics.8.id"
 equals = "type.match_impossible_variant"
 
 [[json_assert]]
+path = "diagnostics.8.span.start.line"
+equals = 87
+
+[[json_assert]]
 path = "diagnostics.8.details.scrutinee_type"
 equals = "State::Ready | State::Closed"
 
@@ -79,6 +83,10 @@ equals = "Failed"
 [[json_assert]]
 path = "diagnostics.9.id"
 equals = "type.match_redundant_arm"
+
+[[json_assert]]
+path = "diagnostics.9.span.start.line"
+equals = 99
 
 [[json_assert]]
 path = "diagnostics.9.details.reason"

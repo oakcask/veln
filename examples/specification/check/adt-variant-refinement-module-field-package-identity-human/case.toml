@@ -5,7 +5,7 @@ exit = 1
 
 [stdout]
 format = "text"
-contains = ["app.veln:9:42: error[type.variant_mismatch]", "app.veln:10:48: error[type.variant_mismatch]", "app.veln:15:38: error[type.variant_mismatch]"]
+contains = ["app.veln:9:39: error[type.variant_mismatch]: value of type `Option<Int>` is not assignable to variant type `Option<Int>::Some`", "app.veln:10:45: error[type.variant_mismatch]: value of type `Option<Int>` is not assignable to variant type `Option<Int>::Some`", "app.veln:15:36: error[type.variant_mismatch]: value of type `Option<Int>` is not assignable to variant type `Option<Int>::Some`"]
 not_contains = ["type.match_non_exhaustive", "first::snapshot.state`"]
 
 [stderr]

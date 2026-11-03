@@ -1,6 +1,1 @@
-pub type State
-	pub Ready
-	pub Closed
-end
-
-pub let snapshot: {state: State} = {state: Ready}
+pub let snapshot: {state: Option<Int>} = {state: Some(1)}

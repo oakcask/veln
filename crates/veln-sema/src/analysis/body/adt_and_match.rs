@@ -1467,7 +1467,9 @@ impl<'a> FunctionChecker<'a> {
         let place = self.intern_stable_place(StablePlaceKey::ModuleValue(value.identity()));
         self.stable_place_feasible_types
             .entry(place)
-            .or_insert_with(|| value.ty.clone());
+            .or_insert_with(|| {
+                StablePlaceFeasibleType::Root(clone_stable_place_feasible_type(&value.ty))
+            });
         Some(place)
     }
 
@@ -1571,21 +1573,29 @@ impl<'a> FunctionChecker<'a> {
 
     fn intern_stable_field_place(&mut self, base: usize, field: &str) -> usize {
         record_stable_place_segment_discovered();
-        let feasible_type = self
-            .stable_place_feasible_types
-            .get(&base)
-            .and_then(|base_type| base_type.record_field(field))
-            .cloned();
+        let has_feasible_base = self.stable_place_feasible_types.contains_key(&base);
         let place = self.intern_stable_place(StablePlaceKey::Field {
             base,
             field: field.to_string(),
         });
-        if let Some(feasible_type) = feasible_type {
+        if has_feasible_base {
             self.stable_place_feasible_types
                 .entry(place)
-                .or_insert(feasible_type);
+                .or_insert_with(|| StablePlaceFeasibleType::Field {
+                    base,
+                    field: field.to_string(),
+                });
         }
         place
+    }
+
+    fn stable_place_feasible_type(&self, place: usize) -> Option<&Type> {
+        match self.stable_place_feasible_types.get(&place)? {
+            StablePlaceFeasibleType::Root(ty) => Some(ty),
+            StablePlaceFeasibleType::Field { base, field } => self
+                .stable_place_feasible_type(*base)
+                .and_then(|base_type| base_type.record_field(field)),
+        }
     }
 
     pub(super) fn stable_place_refinement(&self, place: usize) -> Option<&Type> {
@@ -1598,8 +1608,7 @@ impl<'a> FunctionChecker<'a> {
         if self.stable_place_refinement(place).is_some() {
             return inferred;
         }
-        self.stable_place_feasible_types
-            .get(&place)
+        self.stable_place_feasible_type(place)
             .cloned()
             .unwrap_or(inferred)
     }

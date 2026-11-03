@@ -926,6 +926,11 @@ fn qualified_module_value_field_work_scales_linearly_by_depth_and_repetition() {
         assert_eq!(by_depth[index].keys_created, depth, "{by_depth:?}");
         assert_eq!(by_depth[index].peak_retained_keys, depth, "{by_depth:?}");
         assert_eq!(
+            by_depth[index].feasible_type_clone_nodes,
+            depth + 1,
+            "{by_depth:?}"
+        );
+        assert_eq!(
             by_depth[index].segments_discovered,
             depth * 17,
             "{by_depth:?}"
@@ -934,6 +939,10 @@ fn qualified_module_value_field_work_scales_linearly_by_depth_and_repetition() {
     for adjacent in by_depth.windows(2) {
         assert!(adjacent[1].key_lookups <= adjacent[0].key_lookups * 2 + 2);
         assert!(adjacent[1].segments_discovered <= adjacent[0].segments_discovered * 2 + 2);
+        assert!(
+            adjacent[1].feasible_type_clone_nodes <= adjacent[0].feasible_type_clone_nodes * 2,
+            "feasible place-state type cloning must grow linearly: {by_depth:?}"
+        );
     }
 
     let by_repetition = [8, 16, 32].map(|count| {

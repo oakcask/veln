@@ -132,6 +132,18 @@ fn record_stable_place_segment_discovered() {
 fn record_stable_place_segment_discovered() {}
 
 #[cfg(test)]
+fn clone_stable_place_feasible_type(ty: &Type) -> Type {
+    let (cloned, nodes) = crate::semantic_model::measure_type_clone_nodes(|| ty.clone());
+    stable_place_work::feasible_type_nodes_cloned(nodes);
+    cloned
+}
+
+#[cfg(not(test))]
+fn clone_stable_place_feasible_type(ty: &Type) -> Type {
+    ty.clone()
+}
+
+#[cfg(test)]
 fn record_stable_place_refinement_retained() {
     stable_place_work::refinement_retained();
 }
@@ -237,7 +249,7 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     transparent_alias_groups: Vec<TransparentAliasGroup>,
     transparent_alias_refinement_frames: Vec<usize>,
     stable_place_keys: HashMap<StablePlaceKey, usize>,
-    stable_place_feasible_types: HashMap<usize, Type>,
+    stable_place_feasible_types: HashMap<usize, StablePlaceFeasibleType>,
     stable_place_refinements: HashMap<usize, Vec<Type>>,
     stable_place_refinement_frames: Vec<usize>,
     last_inferred_stable_place: Option<(NodeId, usize)>,
@@ -267,6 +279,11 @@ struct TransparentAliasGroup {
 enum StablePlaceKey {
     Root(usize),
     ModuleValue(ModuleValueIdentity),
+    Field { base: usize, field: String },
+}
+
+enum StablePlaceFeasibleType {
+    Root(Type),
     Field { base: usize, field: String },
 }
 
@@ -874,6 +891,7 @@ pub(crate) struct StablePlaceWork {
     pub(crate) segments_discovered: usize,
     pub(crate) roots_created: usize,
     pub(crate) keys_created: usize,
+    pub(crate) feasible_type_clone_nodes: usize,
     pub(crate) peak_retained_roots: usize,
     pub(crate) peak_retained_keys: usize,
     pub(crate) peak_active_refinements: usize,
@@ -1011,6 +1029,10 @@ mod stable_place_work {
 
     pub(super) fn segment_discovered() {
         update(|work| work.segments_discovered += 1);
+    }
+
+    pub(super) fn feasible_type_nodes_cloned(nodes: usize) {
+        update(|work| work.feasible_type_clone_nodes += nodes);
     }
 
     pub(super) fn refinement_retained() {

@@ -7,7 +7,7 @@ exit = 1
 
 [stdout]
 format = "text"
-contains = ["type.match_impossible_variant", "type.match_redundant_arm", "value of type `State::Ready | State::Closed` is not assignable to variant type `State::Ready`", "value of type `State` is not assignable to variant type `State::Ready`", "expected `Option<Int>`, but found `Int`", "unresolved value `wire::private_current`", "unresolved value `broken::private_current`"]
+contains = ["type.match_impossible_variant", "type.match_redundant_arm", "app.veln:87:16: error[type.match_impossible_variant]", "app.veln:99:3: error[type.match_redundant_arm]", "value of type `State::Ready | State::Closed` is not assignable to variant type `State::Ready`", "value of type `State` is not assignable to variant type `State::Ready`", "expected `Option<Int>`, but found `Int`", "unresolved value `wire::private_current`", "unresolved value `broken::private_current`"]
 not_contains = ["b.test.veln", "a::b::current`", "wire::current`", "value of type `State::Ready | State::Closed` is not assignable to variant type `State::Closed`", "type.match_non_exhaustive"]
 
 [stderr]
