@@ -182,6 +182,8 @@ impl TypeCanonicalizer<'_> {
         let args = self.canonicalize_args(args);
         if let Some(descriptor) = descriptor {
             Type::resolved_named(canonical_name, descriptor.identity(), args)
+        } else if let ("Vec", [item]) = (canonical_name.as_str(), args.as_slice()) {
+            Type::vec(item.clone())
         } else {
             Type::named(canonical_name, args)
         }

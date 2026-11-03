@@ -262,13 +262,31 @@ fn named_types_are_assignable(
     actual_identity: &str,
     actual_args: &[Type],
 ) -> bool {
-    same_type_identity(
+    if !same_type_identity(
         expected_name,
         expected_identity,
         actual_name,
         actual_identity,
-    ) && expected_args.len() == actual_args.len()
-        && invariant_args_match(expected_args, actual_args)
+    ) || expected_args.len() != actual_args.len()
+    {
+        return false;
+    }
+
+    match (
+        Type::is_compiler_vec_identity(expected_identity),
+        Type::is_compiler_vec_identity(actual_identity),
+    ) {
+        (true, true) => match (expected_args, actual_args) {
+            ([expected_element], [actual_element]) => {
+                return is_assignable(expected_element, actual_element);
+            }
+            _ => return false,
+        },
+        (true, false) | (false, true) => return false,
+        (false, false) => {}
+    }
+
+    invariant_args_match(expected_args, actual_args)
 }
 
 fn parameters_are_assignable(expected: &[Type], actual: &[Type]) -> bool {
@@ -293,6 +311,12 @@ pub(crate) fn same_type_identity(
     actual_name: &str,
     actual_identity: &str,
 ) -> bool {
+    if Type::is_compiler_vec_identity(expected_identity)
+        != Type::is_compiler_vec_identity(actual_identity)
+    {
+        return false;
+    }
+
     expected_identity == actual_identity
         || (expected_name == actual_name
             && (expected_identity == expected_name || actual_identity == actual_name))

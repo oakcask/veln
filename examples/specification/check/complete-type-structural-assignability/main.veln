@@ -35,7 +35,11 @@ fn accepts_stdio_callback(callback: fn() -> () effects [stdio]) -> ()
 	()
 end
 
-fn main(value: State::Ready, record: {state: State::Ready, label: String}) -> ()
+fn state_vectors_to_ready(values: Vec<State>) -> Vec<State::Ready>
+	[Ready]
+end
+
+fn main(value: State::Ready, record: {state: State::Ready, label: String}, vector_record: {items: Vec<State::Ready>, label: String}) -> ()
 	let direct: State = value
 	let widened_record: {state: State} = record
 	let fixed: fn(State::Ready) -> State = state_to_ready
@@ -46,4 +50,8 @@ fn main(value: State::Ready, record: {state: State::Ready, label: String}) -> ()
 	let record_width_callback: fn({id: Int, label: String}) -> () = accepts_identity_record
 	let wider_effect: fn() -> () effects [stdio] = pure_callback
 	let nested_effect: fn(fn() -> ()) -> () = accepts_stdio_callback
+	let ready_values = [value]
+	let widened_values: Vec<State> = ready_values
+	let widened_vector_record: {items: Vec<State>} = vector_record
+	let vector_polarity: fn(Vec<State::Ready>) -> Vec<State> = state_vectors_to_ready
 end

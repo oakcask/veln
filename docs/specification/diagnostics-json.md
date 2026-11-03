@@ -821,11 +821,11 @@ explicit alias spelling is preserved only on the side that supplied it, and an
 expected alias never relabels an inferred actual type. Conflicting alias
 provenance uses the target ADT's canonical display name, including when the
 conflicting singleton or union refinements cover the complete ADT domain and
-render as its base type. The same rule applies when direct and invariant nested
+render as its base type. The same rule applies when direct and exact nested
 constructor payload contributions infer one type argument. The checked
 [`alias diagnostic case`](../../examples/specification/check/adt-variant-refinement-alias-presentation-diagnostics-json/)
 and
-[`invariant payload diagnostic case`](../../examples/specification/check/adt-variant-refinement-invariant-alias-presentation-diagnostics-human/)
+[`exact payload diagnostic case`](../../examples/specification/check/adt-variant-refinement-invariant-alias-presentation-diagnostics-human/)
 cover these presentation boundaries. Details contain `phase`, `node_id`, `actual_type`, `expected_type`,
 declaration-ordered `expected_variants`, `excluded_variants`, and `constraint`.
 `excluded_variants` is an object with `form` and `variants`. The `listed` form
@@ -843,13 +843,14 @@ differences do not create such an
 invariance failure: when invariant arguments have the same resolved type, an
 outer finite-set or base-to-refinement exclusion remains
 `type.variant_mismatch`, with independent alias spellings in `actual_type` and
-`expected_type`. A genuinely different resolved nested refinement reports
+`expected_type`. A nested refinement that fails ordinary assignment reports
 `type.mismatch`; its actual type preserves the inferred nested refinement. This
-includes assigning an inferred named aggregate with a refined type argument to
-the corresponding type that uses the base ADT. Record fields instead use
-ordinary structural covariance, so an inferred singleton-refined field is
-assignable to the corresponding base-typed field. The reverse record
-assignment fails with `type.mismatch`. During aggregate inference, an
+includes assigning an inferred named aggregate with an invariant refined type
+argument to the corresponding type that uses the base ADT. Record fields and
+compiler-owned `Vec<T>` elements use covariance, so widening an inferred
+singleton-refined field or vector element to its base type produces no
+diagnostic. The reverse record or vector assignment fails with
+`type.mismatch`. During aggregate inference, an
 incompatible later contribution reports the aggregate position's accumulated
 type as expected and preserves the later contribution's constructor refinement
 as actual. The accumulated expected type contains only successfully typed
@@ -859,8 +860,10 @@ change the expected type reported for a later contribution. A rejected call or
 constructor expression follows this rule even when recovery can determine its
 refined result type from the resolved declaration. The same rule applies when
 one constructor payload uses a type parameter directly and another uses it
-inside an invariant named type: the diagnostic reports the exact constraint
-established by the other payload rather than widening the nested type. When one
+inside a named type: the diagnostic reports the exact inference constraint
+established by the other payload rather than applying that named type's
+assignment variance. Thus `Vec<A>` establishes an exact constraint here even
+though compiler-owned `Vec<T>` is covariant for assignment. When one
 payload contributes the same type parameter more than once, a conflict reports
 the earlier occurrence's type as expected and the conflicting occurrence's
 type as actual. None of that payload's occurrences update the accumulated type,

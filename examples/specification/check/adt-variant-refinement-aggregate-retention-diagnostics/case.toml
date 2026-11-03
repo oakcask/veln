@@ -5,7 +5,6 @@ exit = 1
 format = "json"
 contains = [
   "expected `Int`, but found `String`",
-  "expected `Vec<State>`, but found `Vec<State::Ready>`",
   "expected `Dict<String, State>`, but found `Dict<String, State::Ready>`",
   "expected `Dict<State, Int>`, but found `Dict<State::Ready, Int>`",
   "expected `Pair<State>`, but found `Pair<State::Ready>::Paired`",
@@ -23,7 +22,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 13
+equals = 12
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -79,17 +78,6 @@ message = "expected `Int`, but found `String`"
 file = "main.veln"
 line = 80
 column = 49
-
-[[diagnostics]]
-id = "type.mismatch"
-severity = "error"
-kind = "type"
-message = "expected `Vec<State>`, but found `Vec<State::Ready>`"
-
-[diagnostics.span]
-file = "main.veln"
-line = 101
-column = 28
 
 [[diagnostics]]
 id = "type.mismatch"

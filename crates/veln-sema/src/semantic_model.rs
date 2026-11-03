@@ -304,6 +304,7 @@ pub(crate) fn measure_type_clone_nodes<T>(operation: impl FnOnce() -> T) -> (T, 
 
 impl Type {
     const RECOVERY_SLOT_IDENTITY_PREFIX: &'static str = "internal:recovery-slot:";
+    const COMPILER_VEC_IDENTITY: &'static str = "internal:compiler:Vec";
 
     pub(crate) fn recovery_slot(index: usize) -> Self {
         Self::resolved_named(
@@ -448,7 +449,7 @@ impl Type {
     }
 
     pub(crate) fn vec(item: Type) -> Self {
-        Self::named("Vec", vec![item])
+        Self::resolved_named("Vec", Self::COMPILER_VEC_IDENTITY, vec![item])
     }
 
     pub(crate) fn dict(key: Type, value: Type) -> Self {
@@ -501,9 +502,17 @@ impl Type {
 
     pub(crate) fn vec_part(&self) -> Option<&Type> {
         match self {
-            Self::Named { name, args, .. } if name == "Vec" && args.len() == 1 => Some(&args[0]),
+            Self::Named { identity, args, .. }
+                if Self::is_compiler_vec_identity(identity) && args.len() == 1 =>
+            {
+                Some(&args[0])
+            }
             _ => None,
         }
+    }
+
+    pub(crate) fn is_compiler_vec_identity(identity: &str) -> bool {
+        identity == Self::COMPILER_VEC_IDENTITY
     }
 
     pub(crate) fn dict_parts(&self) -> Option<(&Type, &Type)> {

@@ -1389,12 +1389,14 @@ also applies when a call argument or constructor payload fails but recovery can
 still identify the call or constructor's refined result type.
 
 The join applies when repeated constructor payloads use a type parameter
-directly. If the same parameter also occurs inside an invariant named payload,
-that nested occurrence instead establishes an exact constraint. Every direct
-or nested contribution must then match that constraint; the checker does not
-widen across the nested named type. For example, given `Built(A, Vec<A>)`,
+directly. If the same parameter also occurs inside a named payload, that nested
+occurrence establishes an exact inference constraint independently of the
+named constructor's assignment variance. Every direct or nested contribution
+must match that constraint; assignment covariance does not widen constructor
+type-argument inference. For example, given `Built(A, Vec<A>)`,
 `Built(Ready, [Ready])` infers `Container<State::Ready>::Built`, while
-`Built(Ready, [Closed])` reports `type.mismatch`. Reversing the two payload
+`Built(Ready, [Closed])` reports `type.mismatch`, even though compiler-owned
+`Vec<T>` is covariant at an assignment boundary. Reversing the two payload
 positions does not change either result.
 
 All occurrences contributed by one payload are accepted or rejected together.
@@ -1402,9 +1404,10 @@ If one occurrence conflicts, no occurrence from that payload constrains the
 constructor type argument. A later valid payload therefore continues from the
 last successfully inferred type instead of from a partial result of the failed
 payload. This rule also applies when the rejected payload contains repeated
-occurrences inside one invariant named type.
+occurrences inside one named type that contributes an exact inference
+constraint.
 
-Successful direct and invariant nested contributions also reconcile alias
+Successful direct and exact nested contributions also reconcile alias
 presentation for the inferred type argument. Different alias preferences make
 the target ADT's canonical name permanent for that inference, even when a later
 contribution repeats one alias. The result is independent of payload order and
@@ -1428,9 +1431,11 @@ boundary, so `[Ready]` can construct an explicitly expected `Vec<State>` and
 The same rule lets `Boxed(Ready)` construct an explicitly expected
 `Box<State>`. Without that context, the values retain `Vec<State::Ready>`,
 `Dict<State::Ready, Int>`, and `Box<State::Ready>::Boxed`. A later assignment
-from any inferred value to the corresponding base-argument aggregate is
-rejected. Named type arguments remain invariant; aggregate inference does not
-add nested covariance.
+widens the inferred vector to `Vec<State>` because the compiler-owned `Vec<T>`
+element is covariant. The corresponding assignments from the inferred
+dictionary and source ADT remain rejected because their named type arguments
+are invariant. Aggregate inference does not add covariance to those invariant
+constructors.
 
 At a direct assignment, argument, or result boundary, variant assignability is
 defined as follows:
@@ -1456,7 +1461,8 @@ condition. An earlier error that leaves an expression untyped does not add a
 derivative refinement mismatch.
 
 Complete record and function types use the same assignment relation
-recursively. Named generic arguments remain invariant.
+recursively. Named generic arguments remain invariant except for the
+compiler-owned immutable `Vec<T>` constructor.
 
 | Type form | Assignment condition |
 | --- | --- |
@@ -1465,7 +1471,7 @@ recursively. Named generic arguments remain invariant.
 | Variadic function inputs | Both functions are variadic, their fixed counts match, and the expected variadic element type is assignable to the actual variadic element type. A fixed function and a variadic function are incompatible. |
 | Function result | The actual result type is assignable to the expected result type. |
 | Function effects | Every actual effect occurs in the expected effect set. The check applies independently at every nested function node. |
-| Same named type | The resolved constructor identity and all generic arguments match invariantly. `unknown` retains its recovery behavior inside an argument. |
+| Same named type | The resolved constructor identity and all generic arguments match invariantly. For the compiler-owned `Vec<T>` constructor, the actual element type must instead be assignable to the expected element type. `unknown` retains its recovery behavior inside an argument. |
 
 Function inputs are contravariant as complete types. Function results and
 record fields are covariant. Two nested function-input positions reverse the
@@ -1576,15 +1582,19 @@ and schema `validate` clauses remain in the runtime-validation boundary,
 including on composed branches without refinements. A binary schema anywhere
 in that graph makes the operation a static failure, as does the
 provider-dependent unavailable-descriptor diagnostic.
-This behavior does not add variance for named generic constructors or generic
-inference.
+This behavior does not add variance for named generic constructors other than
+the compiler-owned `Vec<T>` exception, and it does not add generic inference.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual
 record and be assignable. Named types with the same constructor require
-invariant generic arguments. Recovery still lets `unknown` match a complete
-argument, so `Vec<unknown>` accepts `Vec<Int>`, but `Vec<State::Ready>` does
-not satisfy `Vec<State>`. `Path` and `String` are distinct named types at
+invariant generic arguments except for compiler-owned `Vec<T>`. Its element is
+covariant, so `Vec<State::Ready>` satisfies `Vec<State>` but the reverse
+assignment fails. The exception requires the same resolved `Vec` constructor;
+compiler provenance is part of that identity, so a source declaration named
+`Vec` cannot acquire the exception. It does not relate distinct nominal
+constructors. Recovery still lets
+`unknown` match a complete argument. `Path` and `String` are distinct named types at
 assignment boundaries; the runtime path representation is not source-visible.
 Function assignment checks fixed parameter count, parameter types, variadic
 shape, return type, and effects. Variadic and fixed-arity function types are

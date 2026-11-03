@@ -145,23 +145,6 @@ fn aggregate_refinement_inference_covers_joins_context_and_projection() {
 fn retained_aggregate_refinement_rejections_are_table_driven() {
     for (name, source, rejected_expression, expected, actual, constraint) in [
         (
-            "later nested widening",
-            concat!(
-                "type State\n",
-                "  Ready\n",
-                "  Closed\n",
-                "end\n",
-                "fn main() -> ()\n",
-                "  let inferred = [Ready]\n",
-                "  let widened: Vec<State> = inferred\n",
-                "end\n",
-            ),
-            "inferred",
-            "Vec<State>",
-            "Vec<State::Ready>",
-            "assignable",
-        ),
-        (
             "later dictionary value widening",
             concat!(
                 "type State\n",

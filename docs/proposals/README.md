@@ -16,8 +16,9 @@ also states it.
 
 ## Ready
 
-- Generic named-type variance, bounded inference, variance metadata, and
-  nested incompatibility diagnostics:
+- Remaining named-type variance for `Option`, `Result`, `List`, `Dict`, and
+  source ADTs, plus bounded inference, variance metadata, and nested
+  incompatibility diagnostics:
   [generic-and-function-variance.md](generic-and-function-variance.md).
 - Buffered observation concurrent shutdown, interruption, and late host-call
   completion beyond the implemented handler, span, destination-failure, and
