@@ -676,8 +676,8 @@ cumulative residual and refinement materialization, refinements retained while
 an arm body is checked, cached dynamically rendered diagnostic text, alias
 group and member lookups, retained alias entries, and active group-refinement
 frames. Stable-place counters cover record-root and path-key creation and
-retention, path-key lookups, discovered field segments, and active refinements
-and frames.
+retention, path-key lookups, discovered field segments, feasible place-state
+type-clone nodes, and active refinements and frames.
 
 Increasing alias count, constructor-arm count, nesting depth, or unrelated
 local count is checked independently. Unrelated non-ADT locals add no alias-
@@ -692,6 +692,11 @@ that root and its path keys. Distinct active record roots add independent roots
 and keys. Nested matches on one stable place add one active refinement and
 frame per nesting level. Every stable-place root, key, refinement, and frame is
 released after successful or failed analysis.
+
+For a qualified module-value field path of depth `D`, the scaling workload
+records `D + 1` feasible place-state type-clone nodes. Doubling the path depth
+therefore adds only linear clone-node work. Repeated access to the same path
+reuses that feasible state instead of cloning the root type again.
 
 For one qualified module-value root, workloads with 32, 64, and 128 repeated
 alias-forming references retain one root and create no field-path keys. Each
