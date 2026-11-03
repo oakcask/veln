@@ -573,8 +573,11 @@ buffered finish request that does not contain an exporter span.
 `buffered_start_export_span` allocates and returns a span even when its start
 record is invalid or the queue is full. Its `BufferedSpanStart` result reports
 that start admission. Finishing the returned handle makes a new admission
-attempt and can succeed after the start was rejected. The buffered handler
-uses these operations while retaining the `Observe` operation results.
+attempt and can succeed after the start was rejected. Start validation includes
+the request's link contexts, while the finish record contains only the returned
+span's own identity and source. An invalid link can therefore reject the start
+without invalidating that span's context or its later finish. The buffered
+handler uses these operations while retaining the `Observe` operation results.
 `buffered_finish_export_span` immediately returns `InvalidRecord` when its
 `SpanFinish` contains a no-op or recording span. This result performs no
 destination attempt, allocates no sequence, and leaves exporter health
