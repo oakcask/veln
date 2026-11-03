@@ -14,7 +14,7 @@ contains = [
   "expected `fn({id: Int}) -> ()`, but found `fn({id: Int, label: String}) -> ()`",
   "expected `fn() -> ()`, but found `fn() -> () effects [stdio]`",
   "expected `fn(fn() -> () effects [stdio]) -> ()`, but found `fn(fn() -> ()) -> ()`",
-  "expected `Vec<State>`, but found `Vec<State::Ready>`",
+  "expected `Vec<State::Ready>`, but found `Vec<State>`",
 ]
 
 [stderr]

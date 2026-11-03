@@ -262,13 +262,28 @@ fn named_types_are_assignable(
     actual_identity: &str,
     actual_args: &[Type],
 ) -> bool {
-    same_type_identity(
+    if !same_type_identity(
         expected_name,
         expected_identity,
         actual_name,
         actual_identity,
-    ) && expected_args.len() == actual_args.len()
-        && invariant_args_match(expected_args, actual_args)
+    ) || expected_args.len() != actual_args.len()
+    {
+        return false;
+    }
+
+    match (expected_identity == "Vec", actual_identity == "Vec") {
+        (true, true) => match (expected_args, actual_args) {
+            ([expected_element], [actual_element]) => {
+                return is_assignable(expected_element, actual_element);
+            }
+            _ => return false,
+        },
+        (true, false) | (false, true) => return false,
+        (false, false) => {}
+    }
+
+    invariant_args_match(expected_args, actual_args)
 }
 
 fn parameters_are_assignable(expected: &[Type], actual: &[Type]) -> bool {

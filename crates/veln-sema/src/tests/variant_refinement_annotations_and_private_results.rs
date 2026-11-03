@@ -68,6 +68,40 @@ fn records_are_covariant_while_named_arguments_remain_invariant() {
 }
 
 #[test]
+fn vec_arguments_are_covariant_at_complete_assignment_boundaries() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "type Box<A>\n",
+            "  Boxed(A)\n",
+            "end\n",
+            "fn state_vectors(value: Vec<State>) -> Vec<State::Ready>\n",
+            "  [Ready]\n",
+            "end\n",
+            "fn ready_vectors(value: Vec<State::Ready>) -> Vec<State>\n",
+            "  value\n",
+            "end\n",
+            "fn boundaries(ready: Vec<State::Ready>, states: Vec<State>, boxed: Box<State::Ready>, record: {items: Vec<State::Ready>}) -> ()\n",
+            "  let widened: Vec<State> = ready\n",
+            "  let widened_record: {items: Vec<State>} = record\n",
+            "  let composed: fn(Vec<State::Ready>) -> Vec<State> = state_vectors\n",
+            "  let narrowed: Vec<State::Ready> = states\n",
+            "  let boxed_widening: Box<State> = boxed\n",
+            "  let reversed: fn(Vec<State>) -> Vec<State::Ready> = ready_vectors\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn base_with_different_generic_arguments_uses_an_ordinary_mismatch() {
     let diagnostics = diagnostics_for(concat!(
         "fn needs_some(value: Option<Int>::Some) -> ()\n",

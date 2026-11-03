@@ -35,7 +35,7 @@ fn accepts_pure_callback(callback: fn() -> ()) -> ()
 	()
 end
 
-fn main(value: State, record: {state: State}) -> ()
+fn main(value: State, record: {state: State}, state_values: Vec<State>) -> ()
 	let narrowed: State::Ready = value
 	let narrowed_record: {state: State::Ready, label: String} = record
 	let reversed: fn(State) -> State::Ready = ready_to_state
@@ -47,5 +47,6 @@ fn main(value: State, record: {state: State}) -> ()
 	let narrowed_effect: fn() -> () = stdio_callback
 	let reversed_nested_effect: fn(fn() -> () effects [stdio]) -> () = accepts_pure_callback
 	let ready_values = [Ready]
-	let invariant_named: Vec<State> = ready_values
+	let widened_values: Vec<State> = ready_values
+	let narrowed_values: Vec<State::Ready> = state_values
 end

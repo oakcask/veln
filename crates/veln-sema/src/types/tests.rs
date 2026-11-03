@@ -454,7 +454,7 @@ fn complete_record_and_function_assignability_matches_the_variance_table() {
             true,
         ),
         (
-            "named generic arguments remain invariant",
+            "source named generic arguments remain invariant",
             Type::named("Box", vec![narrow.clone()]),
             Type::named("Box", vec![wide.clone()]),
             false,
@@ -470,6 +470,37 @@ fn complete_record_and_function_assignability_matches_the_variance_table() {
             expected.render()
         );
     }
+}
+
+#[test]
+fn compiler_vec_argument_is_covariant_through_structural_polarity() {
+    let narrow = Type::variant_refinement("State", Vec::new(), vec!["Ready".to_string()]);
+    let wide = Type::named("State", Vec::new());
+    let narrow_vec = Type::vec(narrow.clone());
+    let wide_vec = Type::vec(wide.clone());
+
+    assert!(is_assignable(&wide_vec, &narrow_vec));
+    assert!(!is_assignable(&narrow_vec, &wide_vec));
+    assert!(is_assignable(
+        &Type::Record(vec![("items".to_string(), wide_vec.clone())]),
+        &Type::Record(vec![("items".to_string(), narrow_vec.clone())]),
+    ));
+    assert!(is_assignable(
+        &Type::function(vec![narrow_vec.clone()], wide_vec.clone(), Vec::new()),
+        &Type::function(vec![wide_vec.clone()], narrow_vec.clone(), Vec::new()),
+    ));
+    assert!(!is_assignable(
+        &Type::function(vec![wide_vec.clone()], narrow_vec.clone(), Vec::new()),
+        &Type::function(vec![narrow_vec.clone()], wide_vec.clone(), Vec::new()),
+    ));
+    assert!(!is_assignable(
+        &wide_vec,
+        &Type::resolved_named("Vec", "other::Vec", vec![wide.clone()]),
+    ));
+    assert!(!is_assignable(
+        &Type::named("Box", vec![wide_vec]),
+        &Type::named("Box", vec![narrow_vec]),
+    ));
 }
 
 #[test]

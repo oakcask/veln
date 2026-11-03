@@ -1456,7 +1456,8 @@ condition. An earlier error that leaves an expression untyped does not add a
 derivative refinement mismatch.
 
 Complete record and function types use the same assignment relation
-recursively. Named generic arguments remain invariant.
+recursively. Named generic arguments remain invariant except for the
+compiler-owned immutable `Vec<T>` constructor.
 
 | Type form | Assignment condition |
 | --- | --- |
@@ -1465,7 +1466,7 @@ recursively. Named generic arguments remain invariant.
 | Variadic function inputs | Both functions are variadic, their fixed counts match, and the expected variadic element type is assignable to the actual variadic element type. A fixed function and a variadic function are incompatible. |
 | Function result | The actual result type is assignable to the expected result type. |
 | Function effects | Every actual effect occurs in the expected effect set. The check applies independently at every nested function node. |
-| Same named type | The resolved constructor identity and all generic arguments match invariantly. `unknown` retains its recovery behavior inside an argument. |
+| Same named type | The resolved constructor identity and all generic arguments match invariantly. For the compiler-owned `Vec<T>` constructor, the actual element type must instead be assignable to the expected element type. `unknown` retains its recovery behavior inside an argument. |
 
 Function inputs are contravariant as complete types. Function results and
 record fields are covariant. Two nested function-input positions reverse the
@@ -1576,15 +1577,17 @@ and schema `validate` clauses remain in the runtime-validation boundary,
 including on composed branches without refinements. A binary schema anywhere
 in that graph makes the operation a static failure, as does the
 provider-dependent unavailable-descriptor diagnostic.
-This behavior does not add variance for named generic constructors or generic
-inference.
+This behavior does not add variance for named generic constructors other than
+the compiler-owned `Vec<T>` exception, and it does not add generic inference.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual
 record and be assignable. Named types with the same constructor require
-invariant generic arguments. Recovery still lets `unknown` match a complete
-argument, so `Vec<unknown>` accepts `Vec<Int>`, but `Vec<State::Ready>` does
-not satisfy `Vec<State>`. `Path` and `String` are distinct named types at
+invariant generic arguments except for compiler-owned `Vec<T>`. Its element is
+covariant, so `Vec<State::Ready>` satisfies `Vec<State>` but the reverse
+assignment fails. The exception requires the same resolved `Vec` constructor;
+it does not relate distinct nominal constructors. Recovery still lets
+`unknown` match a complete argument. `Path` and `String` are distinct named types at
 assignment boundaries; the runtime path representation is not source-visible.
 Function assignment checks fixed parameter count, parameter types, variadic
 shape, return type, and effects. Variadic and fixed-arity function types are

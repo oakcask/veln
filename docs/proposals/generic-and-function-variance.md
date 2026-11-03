@@ -9,17 +9,18 @@ update-when: Generic named-type assignability, aggregate covariance, bounded gen
 
 This proposal contains the remaining work for named generic variance. The
 compiler will infer source-ADT parameter variance from payload declarations.
-Compiler-owned immutable containers will be covariant, and Veln will add no
-declaration-site variance modifiers. The remaining work also includes bounded
-generic inference, dependency metadata, and detailed nested incompatibility
-context.
+The remaining compiler-owned immutable `Option`, `Result`, `List`, and `Dict`
+constructors will be covariant, and Veln will add no declaration-site variance
+modifiers. The remaining work also includes bounded generic inference,
+dependency metadata, and detailed nested incompatibility context.
 
 Recursive assignment through records and functions is current behavior under
 the [type specification](../specification/types.md#compatibility-and-limits).
 That implemented kernel makes record fields and function results covariant,
 function inputs contravariant, and concrete function effect sets covariant.
-Named generic arguments remain invariant until the work in this proposal
-lands.
+Named generic arguments remain invariant except for the compiler-owned
+`Vec<T>` covariance described by the current
+[type specification](../specification/types.md#compatibility-and-limits).
 
 ## Assignment Relation And Identity
 
@@ -69,7 +70,6 @@ These symbols are explanatory notation, not Veln source syntax.
 | `Option<T>` | `T: +` | A present payload produces a `T`. |
 | `Result<T, E>` | `T: +`, `E: +` | Both payload alternatives produce their parameter. |
 | `List<T>` | `T: +` | Immutable heads and recursive tails produce elements. |
-| `Vec<T>` | `T: +` | Immutable elements are produced; updates return another vector. |
 | `Dict<K, V>` | `K: +`, `V: +` | Stored entries produce keys and values; updates return another dictionary. |
 | Source ADT, including source-backed standard types | Infer each parameter from every payload in the declaration. | Visibility and call sites do not change the classification. |
 | Opaque or imported generic type with no checked variance metadata | Every parameter `=`. | Representation safety cannot be inferred from a name or helper signature. |
@@ -229,7 +229,7 @@ the expected results for the change.
 
 | Contract | Planned evidence and required observation |
 | --- | --- |
-| Constructor and polarity tables | Table-driven semantic tests cover every named-parameter classification and composition cell, both assignment directions, same-spelled distinct ADTs, and refinement sets with varying arguments. |
+| Remaining constructor and polarity tables | Table-driven semantic tests cover every remaining named-parameter classification and composition cell, both assignment directions, same-spelled distinct ADTs, and refinement sets with varying arguments. |
 | Recursive inference | Source-ADT fixtures cover positive, negative, mixed, irrelevant, opaque, and mutually recursive cases; declaration permutations must yield the same classifications. |
 | Bounded inference | Permuted branch, collection, and payload cases cover successful joins, annotation-required meets, irrelevant slots, exact constraints, and transactional exclusion of failed contributions. |
 | Immutable dictionary safety | Companion tests in `crates/veln-stdlib/veln/` widen refined keys and values, query existing and absent keys, insert/remove on the widened value, and prove that the original keys, values, and iteration order remain unchanged. |
@@ -262,7 +262,7 @@ runtime representation changes solely for variance.
 
 The inspected local implementation anchors are
 `crates/veln-sema/src/type_relations.rs` for current structural polarity and the
-future application of named-parameter classifications;
+future application of the remaining named-parameter classifications;
 `crates/veln-sema/src/aggregate_type_join.rs` for current refinement joins; and
 `crates/veln-backend-jvm/src/runtime/collections.java.inc` for persistent
 map operations. These identify the affected implementation boundaries; the
