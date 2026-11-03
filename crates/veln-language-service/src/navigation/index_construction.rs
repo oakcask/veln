@@ -109,17 +109,8 @@ impl SymbolIndex {
         let type_indices_by_name = symbol_indices_by_name(&declarations.types);
         let constructor_indices_by_identity =
             constructor_indices_by_identity(&declarations.constructors);
-        let function_indices_by_identity = module_member_indices_by_identity(
-            &declarations.functions,
-            |function| {
-                (
-                    function.package.clone(),
-                    function.package_origin,
-                    function.module.clone(),
-                    function.name.clone(),
-                )
-            },
-        );
+        let function_indices_by_identity =
+            module_member_indices_by_identity(&declarations.functions);
         let type_alias_indices_by_name = symbol_indices_by_name(&declarations.type_aliases);
         let package_type_alias_indices_by_name =
             package_symbol_indices_by_name(&declarations.type_aliases);
@@ -142,15 +133,7 @@ impl SymbolIndex {
         append_surface_module(&mut complete_module, direct_dependencies.module.clone());
         append_surface_module(&mut complete_module, standard_library.module.clone());
         let module_values = module_value_symbols(&files, &complete_module);
-        let module_value_indices_by_identity =
-            module_member_indices_by_identity(&module_values, |module_value| {
-                (
-                    module_value.package.clone(),
-                    module_value.package_origin,
-                    module_value.module.clone(),
-                    module_value.name.clone(),
-                )
-            });
+        let module_value_indices_by_identity = module_member_indices_by_identity(&module_values);
         let file_indices_by_identity = file_indices_by_identity(&files);
         let workspace_file_indices_by_path = files
             .iter()
@@ -199,13 +182,48 @@ impl SymbolIndex {
     }
 }
 
-fn module_member_indices_by_identity<T>(
+trait ModuleMemberSymbol {
+    fn identity_parts(&self) -> (&Option<String>, Option<PackageOrigin>, &str, &str);
+
+    fn identity(&self) -> ModuleMemberIdentity {
+        let (package, package_origin, module, name) = self.identity_parts();
+        (
+            package.clone(),
+            package_origin,
+            module.to_string(),
+            name.to_string(),
+        )
+    }
+}
+
+impl ModuleMemberSymbol for FunctionSymbol {
+    fn identity_parts(&self) -> (&Option<String>, Option<PackageOrigin>, &str, &str) {
+        (
+            &self.package,
+            self.package_origin,
+            &self.module,
+            &self.name,
+        )
+    }
+}
+
+impl ModuleMemberSymbol for ModuleValueSymbol {
+    fn identity_parts(&self) -> (&Option<String>, Option<PackageOrigin>, &str, &str) {
+        (
+            &self.package,
+            self.package_origin,
+            &self.module,
+            &self.name,
+        )
+    }
+}
+
+fn module_member_indices_by_identity<T: ModuleMemberSymbol>(
     symbols: &[T],
-    identity: impl Fn(&T) -> ModuleMemberIdentity,
 ) -> HashMap<ModuleMemberIdentity, Vec<usize>> {
     let mut by_identity = HashMap::<_, Vec<usize>>::new();
     for (index, symbol) in symbols.iter().enumerate() {
-        by_identity.entry(identity(symbol)).or_default().push(index);
+        by_identity.entry(symbol.identity()).or_default().push(index);
     }
     by_identity
 }
