@@ -1038,8 +1038,10 @@ including the public `net::system()`, `observe::noop()`, and
 `observe::recording(Recording)` handler declaration resources, the production
 policy and health types, the production constructor and health snapshot
 functions, the `observe::production(Production)` handler declaration resource,
-the public `trace` module and `trace::in_span` function resource, and the
-exclusion of private host adapters and private `Span` constructors.
+the buffered handler, buffered span admission, and buffered shutdown
+declarations in the public `observe` module index, the public `trace` module
+and `trace::in_span` function resource, and the exclusion of private host
+adapters and private `Span` constructors.
 The checked
 [`callsite-presentation`](../../examples/specification/mcp/callsite-presentation/)
 transcript covers modifier and empty-body built-in completion, an ordinary-body

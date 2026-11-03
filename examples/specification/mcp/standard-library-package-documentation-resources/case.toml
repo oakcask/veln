@@ -305,7 +305,9 @@ path = "/result/contents/0/text"
 contains = "Write the complete byte chunk through the active IO handler."
 
 # Integration contract: package documentation publishes the public observation
-# handlers and scoped trace helper while keeping opaque Span constructors private.
+# handlers, buffered span and shutdown functions, and scoped trace helper while
+# keeping opaque Span constructors private. The module-index assertions detect
+# omission of the new buffered declarations independently of their API behavior.
 [[mcp_assert]]
 id = 19
 path = "/result/contents/0/text"
@@ -315,6 +317,21 @@ contains = "# Module observe"
 id = 19
 path = "/result/contents/0/text"
 contains = "handler noop() for Observe"
+
+[[mcp_assert]]
+id = 19
+path = "/result/contents/0/text"
+contains = "handler buffered_json_lines(exporter: BufferedJsonLinesExporter) for Observe effects [time, concurrency]"
+
+[[mcp_assert]]
+id = 19
+path = "/result/contents/0/text"
+contains = "fn buffered_start_export_span(exporter: BufferedJsonLinesExporter, request: SpanRequest) -> BufferedSpanStart effects [time, concurrency]"
+
+[[mcp_assert]]
+id = 19
+path = "/result/contents/0/text"
+contains = "fn shutdown_buffered(exporter: BufferedJsonLinesExporter) -> BufferedShutdownReport effects [concurrency]"
 
 [[mcp_assert]]
 id = 20
