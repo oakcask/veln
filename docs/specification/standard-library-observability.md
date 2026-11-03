@@ -195,9 +195,9 @@ Install `observe::buffered_json_lines(exporter)` to route `Observe` operations
 through the same bounded queue. The handler preserves the handled program's
 ordinary results and consumes admission outcomes. Direct span users call
 `observe::buffered_start_export_span`, match
-`BufferedSpanStart(span, admission)`, and later pass the returned span to
-`observe::buffered_finish_export_span`. Start and finish report separate
-admission outcomes.
+`BufferedSpanStart(span, admission)`, and later call
+`observe::buffered_finish_export_span(exporter, observe::finish(span))`.
+Start and finish report separate admission outcomes.
 
 Use `traced::spawn(context, body)` to start a child task whose callback needs
 an explicit `observe::TraceContext`. The callback accepts that context as its
