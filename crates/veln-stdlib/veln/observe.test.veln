@@ -446,6 +446,16 @@ fn shutdown_buffered_and_send(context: { exporter : BufferedJsonLinesExporter, r
 	()
 end
 
+fn shutdown_buffered_and_send_observed(context: { exporter : BufferedJsonLinesExporter, reports : Sender<BufferedShutdownReport>, waiting : Sender<()> }) -> () effects [concurrency]
+	let report = handle observe::shutdown_buffered(context.exporter) with observe_test_support_test::observe_join_wait(context.waiting)
+	let _ = channel::send(context.reports, report)
+	()
+end
+
+fn shutdown_buffered_task_observed(context: { exporter : BufferedJsonLinesExporter, waiting : Sender<()> }) -> BufferedShutdownReport effects [concurrency]
+	handle observe::shutdown_buffered(context.exporter) with observe_test_support_test::observe_join_wait(context.waiting)
+end
+
 test buffered_constructor_rejects_non_positive_capacity_without_destination_effects() -> Result<(), String> effects [concurrency]
 	let lines = observe_test_support_test::export_lines(1)
 	let zero = handle new_buffered_for_test(0, observe::DiagnosticStandardError) with observe_test_support_test::exporter(lines.tx, true)
@@ -1625,7 +1635,7 @@ test buffered_record_contract_failure_stops_without_counting_or_later_writes() -
 			match first
 				observe::Accepted => match second
 					observe::Accepted => match report
-						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => if buffered_line_contains(attempted, "\"message\":\"contract\"")
+						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => if buffered_line_contains(attempted, "\"message\":\"contract\"")
 							match no_more
 								None => Ok(())
 								Some(_) => Err("contract-failing record continued to later buffered work")
@@ -1633,7 +1643,7 @@ test buffered_record_contract_failure_stops_without_counting_or_later_writes() -
 						else
 							Err("contract-failing record did not make its single destination attempt")
 						end
-						_ => Err("contract-failing record was counted or reported as completed shutdown")
+						_ => Err("contract-failing record did not account for every unsettled admission")
 					end
 					_ => Err("later record was not admitted before the worker contract failure")
 				end
@@ -1743,7 +1753,7 @@ test buffered_summary_rejection_and_exception_are_contained_once() -> Result<(),
 	check_buffered_summary_failure(observe_test_support_test::FailWrite)
 end
 
-test buffered_summary_contract_failure_restores_closing_state_without_retry() -> Result<(), String> effects [concurrency]
+test buffered_summary_contract_failure_freezes_rejected_interruption_without_retry() -> Result<(), String> effects [concurrency]
 	let lines = observe_test_support_test::export_lines(2)
 	let outcomes = channel::bounded<ExportWriteOutcome>(1)
 	let reports = channel::bounded<BufferedShutdownReport>(1)
@@ -1768,9 +1778,9 @@ test buffered_summary_contract_failure_restores_closing_state_without_retry() ->
 			let health = observe::buffered_exporter_health(exporter)
 			let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
 			match report
-				observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match joined
+				observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryRejected) => match joined
 					Ok(()) => match repeated
-						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match health
+						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryRejected) => match health
 							observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => if buffered_line_contains(attempted, "diagnostic:stderr:{\"schema_version\":1,\"kind\":\"exporter_health\",\"failed_exports\":5")
 								match no_more
 									None => Ok(())
@@ -1781,7 +1791,7 @@ test buffered_summary_contract_failure_restores_closing_state_without_retry() ->
 							end
 							_ => Err("contract-failing buffered summary changed exporter health")
 						end
-						_ => Err("contract-failing buffered summary froze a completed report")
+						_ => Err("contract-failing buffered summary did not freeze its rejected interruption")
 					end
 					Err(_) => Err("contract-failing buffered summary prevented shutdown task completion")
 				end
@@ -1789,5 +1799,255 @@ test buffered_summary_contract_failure_restores_closing_state_without_retry() ->
 			end
 		end
 		_ => Err("buffered summary contract failure exporter construction failed")
+	end
+end
+
+test concurrent_buffered_shutdown_callers_share_one_drain_summary_and_frozen_report() -> Result<(), String> effects [time, concurrency]
+	let events = channel::bounded<String>(4)
+	let release = channel::bounded<()>(2)
+	let reports = channel::bounded<BufferedShutdownReport>(2)
+	let first_wait = channel::bounded<()>(1)
+	let second_wait = channel::bounded<()>(1)
+	let constructed = handle new_buffered_failure_for_test(0, observe::DiagnosticStandardError) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let admitted = handle observe::buffered_export_observation(exporter, buffered_log("shared")) with observe_test_support_test::clock(0)
+			let started: Option<String> = channel::recv(events.rx)
+			let first = task::spawn_with(shutdown_buffered_and_send_observed, { exporter: exporter, reports: reports.tx, waiting: first_wait.tx })
+			let second = task::spawn_with(shutdown_buffered_and_send_observed, { exporter: exporter, reports: reports.tx, waiting: second_wait.tx })
+			let first_waiting: Option<()> = channel::recv(first_wait.rx)
+			let second_waiting: Option<()> = channel::recv(second_wait.rx)
+			let closed = handle observe::buffered_export_observation(exporter, buffered_log("lost-close-race")) with observe_test_support_test::clock(0)
+			let before_release = observe::buffered_exporter_health(exporter)
+			let _ = channel::send(release.tx, ())
+			let completed_record: Option<String> = channel::recv(events.rx)
+			let summary_started: Option<String> = channel::recv(events.rx)
+			let _ = channel::send(release.tx, ())
+			let completed_summary: Option<String> = channel::recv(events.rx)
+			let first_report = channel::recv(reports.rx)
+			let second_report = channel::recv(reports.rx)
+			let first_joined = match task::join(first)
+				Ok(()) => true
+				Err(_) => false
+			end
+			let second_joined = match task::join(second)
+				Ok(()) => true
+				Err(_) => false
+			end
+			task::cancel(first)
+			let repeated = observe::shutdown_buffered(exporter)
+			let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(events.rx, list_nil()), 0)
+			match admitted
+				observe::Accepted => match closed
+					observe::Closed => match before_release
+						observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match first_report
+							Some(observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted)) => match second_report
+								Some(observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted)) => if not buffered_event_is(started, "record-started")
+									Err(buffered_unexpected_event("concurrent shutdown record start", started))
+								else if completed_record == None or not buffered_event_is(summary_started, "summary-started") or completed_summary == None
+									Err("concurrent shutdown did not complete one record and one summary")
+								else if not buffered_unit_received(first_waiting) or not buffered_unit_received(second_waiting)
+									Err("concurrent shutdown caller did not join the shared transition")
+								else if not first_joined or not second_joined
+									Err("concurrent shutdown caller did not complete normally")
+								else if not buffered_report_is_completed(repeated)
+									Err("interruption after closed changed the completed report")
+								else if not buffered_no_selected_line(no_more)
+									Err("concurrent shutdown started an extra destination call")
+								else
+									Ok(())
+								end
+								_ => Err("second concurrent shutdown caller observed a different report")
+							end
+							_ => Err("first concurrent shutdown caller observed an unexpected report")
+						end
+						_ => Err("admission that lost the close race changed exporter health")
+					end
+					_ => Err("admission that lost the close race was not closed")
+				end
+				_ => Err("record was not admitted before concurrent shutdown")
+			end
+		end
+		_ => Err("concurrent shutdown exporter construction failed")
+	end
+end
+
+test interrupted_unsettled_accounting_saturates_failed_exports() -> Result<(), String> effects [time, concurrency]
+	let maximum = 9223372036854775807
+	let lines = observe_test_support_test::export_lines(1)
+	let outcomes = channel::bounded<ExportWriteOutcome>(1)
+	let _ = channel::send(outcomes.tx, observe_test_support_test::ContractFailWrite)
+	let constructed = handle new_buffered_failure_for_test(maximum, observe::NoDiagnosticDestination) with observe_test_support_test::scheduled_exporter(lines.tx, outcomes.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let admission = handle observe::buffered_export_observation(exporter, buffered_log("saturating interruption")) with observe_test_support_test::clock(0)
+			let report = observe::shutdown_buffered(exporter)
+			match admission
+				observe::Accepted => match report
+					observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(9223372036854775807, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => Ok(())
+					_ => Err("interrupted unsettled accounting overflowed failed exports")
+				end
+				_ => Err("saturating interruption record was not admitted")
+			end
+		end
+		_ => Err("saturating interruption exporter construction failed")
+	end
+end
+
+test cancelled_shutdown_waiter_interrupts_shared_drain_and_late_record_completion_is_inert() -> Result<(), String> effects [time, concurrency]
+	let events = channel::bounded<String>(4)
+	let release = channel::bounded<()>(1)
+	let reports = channel::bounded<BufferedShutdownReport>(1)
+	let cancelled_wait = channel::bounded<()>(1)
+	let survivor_wait = channel::bounded<()>(1)
+	let constructed = handle new_buffered_failure_for_test(0, observe::DiagnosticStandardError) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let first_admission = handle observe::buffered_export_observation(exporter, buffered_log("in-flight")) with observe_test_support_test::clock(0)
+			let second_admission = handle observe::buffered_export_observation(exporter, buffered_log("queued")) with observe_test_support_test::clock(0)
+			let started: Option<String> = channel::recv(events.rx)
+			let cancelled = task::spawn_with(shutdown_buffered_task_observed, { exporter: exporter, waiting: cancelled_wait.tx })
+			let survivor = task::spawn_with(shutdown_buffered_and_send_observed, { exporter: exporter, reports: reports.tx, waiting: survivor_wait.tx })
+			let cancelled_waiting: Option<()> = channel::recv(cancelled_wait.rx)
+			let survivor_waiting: Option<()> = channel::recv(survivor_wait.rx)
+			task::cancel(cancelled)
+			let cancelled_join = task::join(cancelled)
+			let prompt: Option<{ index : Int, value : BufferedShutdownReport }> = channel::select_many_timeout(list_cons(reports.rx, list_nil()), 250)
+			let survivor_join = match task::join(survivor)
+				Ok(()) => true
+				Err(_) => false
+			end
+			let closed = handle observe::buffered_export_observation(exporter, buffered_log("after-interruption")) with observe_test_support_test::clock(0)
+			let frozen_before = observe::buffered_exporter_health(exporter)
+			let _ = channel::send(release.tx, ())
+			let late: Option<String> = channel::recv(events.rx)
+			let repeated = observe::shutdown_buffered(exporter)
+			let frozen_after = observe::buffered_exporter_health(exporter)
+			let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(events.rx, list_nil()), 0)
+			match cancelled_join
+				Err(error) => if task::join_error_is_cancelled(error)
+					match prompt
+						Some({ index: 0, value: observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) }) => match repeated
+							observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match frozen_before
+								observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match frozen_after
+									observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => if not buffered_admission_is_accepted(first_admission) or not buffered_admission_is_accepted(second_admission)
+										Err("interrupted drain setup did not admit two records")
+									else if not buffered_event_is(started, "record-started")
+										Err(buffered_unexpected_event("interrupted drain record start", started))
+									else if not buffered_unit_received(cancelled_waiting) or not buffered_unit_received(survivor_waiting) or not survivor_join
+										Err("interrupted drain did not wake the surviving waiter normally")
+									else if not buffered_admission_is_closed(closed)
+										Err("interrupted drain admitted a record after revocation")
+									else if late == None
+										Err("interrupted in-flight record did not complete late")
+									else if not buffered_no_selected_line(no_more)
+										Err("late record completion released another destination call")
+									else
+										Ok(())
+									end
+									_ => Err("late record completion changed frozen health")
+								end
+								_ => Err("interrupted record drain did not freeze exact unsettled accounting")
+							end
+							_ => Err("repeated shutdown did not return the interrupted frozen report")
+						end
+						_ => Err("surviving shutdown waiter did not receive a prompt interrupted report")
+					end
+				else
+					Err("cancelled shutdown waiter lost abrupt cancellation")
+				end
+				Ok(_) => Err("cancelled shutdown waiter completed normally")
+			end
+		end
+		_ => Err("interrupted record exporter construction failed")
+	end
+end
+
+test summary_interruption_rejects_unconfirmed_call_and_late_completion_is_inert() -> Result<(), String> effects [concurrency]
+	let events = channel::bounded<String>(2)
+	let release = channel::bounded<()>(1)
+	let waiting = channel::bounded<()>(1)
+	let constructed = handle new_buffered_failure_for_test(5, observe::DiagnosticStandardError) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let shutdown = task::spawn_with(shutdown_buffered_task_observed, { exporter: exporter, waiting: waiting.tx })
+			let shutdown_waiting: Option<()> = channel::recv(waiting.rx)
+			let started: Option<String> = channel::recv(events.rx)
+			task::cancel(shutdown)
+			let joined = task::join(shutdown)
+			let report = observe::shutdown_buffered(exporter)
+			let before = observe::buffered_exporter_health(exporter)
+			let _ = channel::send(release.tx, ())
+			let late: Option<String> = channel::recv(events.rx)
+			let repeated = observe::shutdown_buffered(exporter)
+			let after = observe::buffered_exporter_health(exporter)
+			match joined
+				Err(error) => if task::join_error_is_cancelled(error)
+					match report
+						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryRejected) => match repeated
+							observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryRejected) => if not buffered_unit_received(shutdown_waiting)
+								Err("summary interruption caller did not join the transition")
+							else if not buffered_event_is(started, "summary-started")
+								Err(buffered_unexpected_event("summary interruption start", started))
+							else if late == None
+								Err("interrupted summary did not complete late")
+							else if not buffered_health_is_five(before) or not buffered_health_is_five(after)
+								Err("late summary completion changed frozen health")
+							else
+								Ok(())
+							end
+							_ => Err("repeated shutdown changed the summary interruption report")
+						end
+						_ => Err("unconfirmed summary interruption was not rejected")
+					end
+				else
+					Err("summary waiter cancellation was not preserved")
+				end
+				Ok(_) => Err("cancelled summary waiter completed normally")
+			end
+		end
+		_ => Err("summary interruption exporter construction failed")
+	end
+end
+
+fn buffered_event_is(event: Option<String>, expected: String) -> Bool
+	match event
+		Some(value) => value == expected
+		None => false
+	end
+end
+
+fn buffered_unit_received(value: Option<()>) -> Bool
+	match value
+		Some(()) => true
+		None => false
+	end
+end
+
+fn buffered_admission_is_closed(outcome: BufferedAdmissionOutcome) -> Bool
+	match outcome
+		observe::Closed => true
+		_ => false
+	end
+end
+
+fn buffered_report_is_completed(report: BufferedShutdownReport) -> Bool
+	match report
+		observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => true
+		_ => false
+	end
+end
+
+fn buffered_health_is_five(health: ExporterHealth) -> Bool
+	match health
+		observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => true
+		_ => false
+	end
+end
+
+fn buffered_unexpected_event(context: String, event: Option<String>) -> String
+	match event
+		Some(value) => string::concat(string::concat(context, ": "), value)
+		None => string::concat(context, ": closed")
 	end
 end

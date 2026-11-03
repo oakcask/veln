@@ -109,6 +109,28 @@ pub handler stalling_exporter(entered: Sender<()>, release: Receiver<()>) for ho
 	identity(kind, sequence) => string::concat(string::concat(string::concat("stalled-", kind), "-"), int_to_string(sequence))
 end
 
+pub handler late_completion_exporter(events: Sender<String>, release: Receiver<()>) for host_effects::ObservationExporter effects [concurrency]
+	write(destination, line, diagnostic) => begin
+		let kind = if diagnostic
+			"summary"
+		else
+			"record"
+		end
+		let _ = channel::send(events, string::concat(kind, "-started"))
+		let _ = channel::recv(release)
+		let _ = channel::send(events, string::concat(string::concat(kind, "-completed:"), line))
+		true
+	end
+	identity(kind, sequence) => string::concat(string::concat(string::concat("late-", kind), "-"), int_to_string(sequence))
+end
+
+pub handler observe_join_wait(waiting: Sender<()>) for host_effects::TaskJoin effects [concurrency]
+	waiting() => begin
+		let _ = channel::send(waiting, ())
+		()
+	end
+end
+
 pub handler controlled_record_exporter(lines: Sender<String>, release: Receiver<()>) for host_effects::ObservationExporter effects [concurrency]
 	write(destination, line, diagnostic) => begin
 		let _ = channel::send(lines, string::concat(string::concat(if diagnostic

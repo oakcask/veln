@@ -20,10 +20,6 @@ also states it.
   source ADTs, plus bounded inference, variance metadata, and nested
   incompatibility diagnostics:
   [generic-and-function-variance.md](generic-and-function-variance.md).
-- Buffered observation concurrent shutdown, interruption, and late host-call
-  completion beyond the implemented handler, span, destination-failure, and
-  normal lifecycle:
-  [observability.md](observability.md).
 
 ## Design In Progress
 

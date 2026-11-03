@@ -109,6 +109,7 @@ end
 type BufferedLifecycle
 	BufferedOpen
 	BufferedClosing
+	BufferedSummarizing(health: ExporterHealth)
 	BufferedClosed(report: BufferedShutdownReport)
 end
 
@@ -926,13 +927,28 @@ end
 
 pub fn shutdown_buffered(exporter: BufferedJsonLinesExporter) -> BufferedShutdownReport effects [concurrency]
 	match exporter
-		BufferedJsonLinesExporter(_, _, _, _, production, _, state, ready, worker) => match begin_buffered_shutdown(state, ready)
-			Some(report) => report
-			None => begin
-				let _ = task::join(worker)
-				read_buffered_shutdown_report(state, production)
+		BufferedJsonLinesExporter(_, _, _, _, production, _, state, ready, worker) => begin
+			let completed = channel::bounded<()>(1)
+			defer
+				interrupt_buffered_shutdown_waiter(worker, completed.rx)
 			end
+			let report = match begin_buffered_shutdown(state, ready)
+				Some(frozen) => frozen
+				None => begin
+					let _ = task::join(worker)
+					read_buffered_shutdown_report(state, production)
+				end
+			end
+			let _ = channel::send(completed.tx, ())
+			report
 		end
+	end
+end
+
+fn interrupt_buffered_shutdown_waiter(worker: Task<()>, completed: Receiver<()>) -> () effects [concurrency]
+	match channel::select_many_timeout(list_cons(completed, list_nil()), 0)
+		Some(_) => ()
+		None => task::cancel(worker)
 	end
 end
 
@@ -964,6 +980,10 @@ fn begin_buffered_shutdown(state: { tx : Sender<BufferedExporterState>, rx : Rec
 					commit_buffered_state(state.tx, current, committed.tx)
 					None
 				end
+				BufferedExporterState(_, _, _, _, _, _, _, _, BufferedSummarizing(_)) => begin
+					commit_buffered_state(state.tx, current, committed.tx)
+					None
+				end
 			end
 		end
 		None => None
@@ -989,11 +1009,48 @@ fn read_buffered_shutdown_report(state: { tx : Sender<BufferedExporterState>, rx
 end
 
 fn run_buffered_export_worker(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook }) -> () effects [concurrency]
+	let completed = channel::bounded<()>(1)
+	defer
+		interrupt_unfinished_buffered_transition(context.state, context.production, completed.rx)
+	end
 	match channel::recv(context.ready)
 		Some(_) => if drain_buffered_exports(context)
 			run_buffered_export_worker(context)
 		else
 			()
+		end
+		None => ()
+	end
+	let _ = channel::send(completed.tx, ())
+	()
+end
+
+fn interrupt_unfinished_buffered_transition(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, production: Production, completed: Receiver<()>) -> () effects [concurrency]
+	match channel::select_many_timeout(list_cons(completed, list_nil()), 0)
+		Some(_) => ()
+		None => interrupt_buffered_transition(state, production)
+	end
+end
+
+fn interrupt_buffered_transition(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, production: Production) -> () effects [concurrency]
+	match channel::recv(state.rx)
+		Some(current) => match current
+			BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, _, BufferedClosing) => begin
+				let interrupted_failed = bounded_add(failed, outstanding)
+				let health = ExporterHealth(interrupted_failed, dropped, truncated, redacted, production_health(production))
+				let report = BufferedShutdownReport(Interrupted, health, SummaryNotAttempted)
+				let _ = channel::send(state.tx, BufferedExporterState(sequence, interrupted_failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report)))
+				()
+			end
+			BufferedExporterState(sequence, failed, dropped, truncated, redacted, _, _, _, BufferedSummarizing(health)) => begin
+				let report = BufferedShutdownReport(Interrupted, health, SummaryRejected)
+				let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report)))
+				()
+			end
+			_ => begin
+				let _ = channel::send(state.tx, current)
+				()
+			end
 		end
 		None => ()
 	end
@@ -1020,6 +1077,10 @@ fn drain_buffered_exports(context: { state : { tx : Sender<BufferedExporterState
 						complete_buffered_export(context.state, context.diagnostic_destination, context.production)
 						false
 					end
+					BufferedSummarizing(_) => begin
+						let _ = channel::send(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, true, lifecycle))
+						false
+					end
 					BufferedClosed(_) => begin
 						let _ = channel::send(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, false, lifecycle))
 						false
@@ -1034,12 +1095,21 @@ end
 fn export_buffered_batch(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook }, work: List<BufferedExportWork>) -> () effects [concurrency]
 	match work
 		Cons(BufferedExportWork(line, _, _, _), tail) => begin
-			let written = prelude_builtin::observation_export_write(context.destination, line, false)
-			settle_buffered_export(context.state, written)
-			export_buffered_batch(context, tail)
+			let call = task::spawn_with(buffered_record_host_call, { destination: context.destination, line: line })
+			match task::join(call)
+				Ok(written) => begin
+					settle_buffered_export(context.state, written)
+					export_buffered_batch(context, tail)
+				end
+				Err(_) => interrupt_buffered_transition(context.state, context.production)
+			end
 		end
 		Nil => ()
 	end
+end
+
+fn buffered_record_host_call(context: { destination : ExportDestination, line : String }) -> Bool effects [concurrency]
+	prelude_builtin::observation_export_write(context.destination, context.line, false)
 end
 
 fn settle_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, written: Bool) -> () effects [concurrency]
@@ -1072,6 +1142,10 @@ fn complete_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Re
 					let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, lifecycle))
 					()
 				end
+				BufferedSummarizing(_) => begin
+					let _ = channel::send(state.tx, current)
+					()
+				end
 				_ => match diagnostic_destination
 					NoDiagnosticDestination => begin
 						let health = ExporterHealth(failed, dropped, truncated, redacted, production_health(production))
@@ -1080,14 +1154,13 @@ fn complete_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Re
 						()
 					end
 					_ => begin
-						let committed = channel::bounded<()>(1)
-						defer
-							restore_uncommitted_buffered_state(state.tx, current, committed.rx)
-						end
 						let health = ExporterHealth(failed, dropped, truncated, redacted, production_health(production))
-						let summary = buffered_summary_outcome(diagnostic_destination, health)
-						let report = BufferedShutdownReport(Completed, health, summary)
-						commit_buffered_state(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedClosed(report)), committed.tx)
+						let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, true, BufferedSummarizing(health)))
+						let call = task::spawn_with(buffered_summary_host_call, { destination: diagnostic_destination, line: exporter_health_line(health) })
+						match task::join(call)
+							Ok(written) => finish_buffered_summary(state, health, written)
+							Err(_) => interrupt_buffered_transition(state, production)
+						end
 					end
 				end
 			end
@@ -1096,14 +1169,29 @@ fn complete_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Re
 	end
 end
 
-fn buffered_summary_outcome(destination: DiagnosticDestination, health: ExporterHealth) -> BufferedSummaryOutcome effects [concurrency]
-	match destination
-		NoDiagnosticDestination => SummaryDisabled
-		_ => if prelude_builtin::observation_export_write(destination, exporter_health_line(health), true)
-			SummaryAccepted
-		else
-			SummaryRejected
+fn buffered_summary_host_call(context: { destination : DiagnosticDestination, line : String }) -> Bool effects [concurrency]
+	prelude_builtin::observation_export_write(context.destination, context.line, true)
+end
+
+fn finish_buffered_summary(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, health: ExporterHealth, written: Bool) -> () effects [concurrency]
+	match channel::recv(state.rx)
+		Some(current) => match current
+			BufferedExporterState(sequence, failed, dropped, truncated, redacted, _, queued, _, BufferedSummarizing(_)) => begin
+				let summary = if written
+					SummaryAccepted
+				else
+					SummaryRejected
+				end
+				let report = BufferedShutdownReport(Completed, health, summary)
+				let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedClosed(report)))
+				()
+			end
+			_ => begin
+				let _ = channel::send(state.tx, current)
+				()
+			end
 		end
+		None => ()
 	end
 end
 
