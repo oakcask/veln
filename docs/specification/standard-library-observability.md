@@ -409,7 +409,7 @@ one object followed by one `\n`. The object has no fields beyond this table:
 | --- | --- |
 | `schema_version` | The integer `1`. |
 | `kind` | The string `exporter_health`. |
-| `failed_exports` | The cumulative rejected or failed observation-export attempts. |
+| `failed_exports` | The cumulative invalid or capacity-rejected export admissions, failed record-destination attempts, and accepted buffered records left unsettled by interrupted shutdown. |
 | `dropped_attributes` | The cumulative attributes omitted by count limits. |
 | `truncated_attributes` | The cumulative names and values shortened by size limits. |
 | `redacted_attributes` | The cumulative values replaced by the redaction policy. |
