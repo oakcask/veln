@@ -61,7 +61,6 @@ mod handlers;
 mod module_values;
 mod repair_reasoning;
 mod variant_refinement_bases;
-mod variant_refinement_rendering;
 mod variant_refinement_visibility;
 
 pub(in crate::analysis) use body::FunctionChecker;

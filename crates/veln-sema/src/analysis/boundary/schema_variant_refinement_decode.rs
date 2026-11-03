@@ -1,5 +1,5 @@
 use super::*;
-use crate::analysis::variant_refinement_rendering::{render_refinement, written_refinement_base};
+use crate::variant_refinement_rendering::{render_refinement, written_refinement_base};
 
 struct UnsupportedRefinement {
     depth: usize,

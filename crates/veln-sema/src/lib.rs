@@ -31,6 +31,7 @@ mod type_lowering;
 mod type_relations;
 mod type_syntax;
 mod types;
+mod variant_refinement_rendering;
 
 #[cfg(test)]
 pub(crate) use analysis::{
