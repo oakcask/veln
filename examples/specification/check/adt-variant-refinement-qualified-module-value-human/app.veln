@@ -80,10 +80,10 @@ fn computed_call() -> ()
 end
 
 fn module_field_composition() -> ()
-	let local = wire::snapshot
+	let local: {session: {state: wire::State}} = wire::snapshot
 	let transitive = local
 	let unrelated = wire::other_snapshot
-	match a::b::snapshot.session.state
+	match local.session.state
 		a::b::State::Failed => begin
 			let preserved: wire::State::Closed = unrelated.session.state
 			()

@@ -1,7 +1,7 @@
 # Compiler integration contract: human diagnostics preserve qualified module
-# value identity refinement, transitive local aliases, companion-private
-# availability, arm-local restoration, finite coverage, and the inaccessible
-# and qualified-call boundaries.
+# value identity refinement, compatible annotated and transitive local aliases,
+# companion-private availability, arm-local restoration, finite coverage, and
+# the inaccessible and qualified-call boundaries.
 command = ["check", "app.veln", "a/b.veln", "a/b.test.veln", "broken.test.veln"]
 exit = 1
 

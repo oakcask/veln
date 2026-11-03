@@ -356,6 +356,65 @@ fn qualified_module_value_nested_fields_share_direct_alias_and_local_root_identi
 }
 
 #[test]
+fn qualified_module_value_fields_keep_finite_domain_through_widened_record_local() {
+    let mut app = source_module(
+        "app.veln",
+        concat!(
+            "use a::b as wire\n",
+            "fn inspect() -> ()\n",
+            "  let widened: {session: {state: wire::State}} = wire::snapshot\n",
+            "  match widened.session.state\n",
+            "    wire::State::Failed => ()\n",
+            "    wire::State::Ready => begin\n",
+            "      let direct: wire::State::Ready = a::b::snapshot.session.state\n",
+            "      let local: wire::State::Ready = widened.session.state\n",
+            "      ()\n",
+            "    end\n",
+            "    remaining => begin\n",
+            "      let direct: wire::State::Closed = wire::snapshot.session.state\n",
+            "      let local: wire::State::Closed = widened.session.state\n",
+            "      let residual: wire::State::Closed = remaining\n",
+            "      ()\n",
+            "    end\n",
+            "  end\n",
+            "  let restored_direct: wire::State::Ready = wire::snapshot.session.state\n",
+            "  let restored_local: wire::State::Ready = widened.session.state\n",
+            "end\n",
+        ),
+        None,
+        "app",
+    );
+    let values = source_module(
+        "a/b.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready\n",
+            "  pub Closed\n",
+            "  pub Failed\n",
+            "end\n",
+            "pub let snapshot: {session: {state: State::Ready | State::Closed}} = {session: {state: Ready}}\n",
+        ),
+        None,
+        "a::b",
+    );
+    extend(&mut app, values);
+
+    let diagnostics = analyze_surface_module(&app);
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.match_impossible_variant");
+    assert_eq!(diagnostics[1].id, "type.variant_mismatch");
+    assert_eq!(
+        diagnostics[1].message,
+        "value of type `State::Ready | State::Closed` is not assignable to variant type `State::Ready`"
+    );
+    assert_eq!(diagnostics[2].id, "type.variant_mismatch");
+    assert_eq!(
+        diagnostics[2].message,
+        "value of type `State` is not assignable to variant type `State::Ready`"
+    );
+}
+
+#[test]
 fn qualified_module_value_aliases_share_transitive_refinement_and_finite_domains() {
     let mut app = source_module(
         "app.veln",

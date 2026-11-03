@@ -1,7 +1,7 @@
 # Compiler integration contract: JSON diagnostics preserve qualified module
-# value identity refinement, transitive local aliases, companion-private
-# availability, arm-local restoration, finite coverage, and the inaccessible
-# and qualified-call boundaries.
+# value identity refinement, compatible annotated and transitive local aliases,
+# companion-private availability, arm-local restoration, finite coverage, and
+# the inaccessible and qualified-call boundaries.
 command = ["check", "--json", "app.veln", "a/b.veln", "a/b.test.veln", "broken.test.veln"]
 exit = 1
 
@@ -98,7 +98,7 @@ equals = "type.variant_mismatch"
 
 [[json_assert]]
 path = "diagnostics.11.details.actual_type"
-equals = "State::Ready | State::Closed"
+equals = "State"
 
 [[json_assert]]
 path = "diagnostics.12.id"

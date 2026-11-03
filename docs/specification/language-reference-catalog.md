@@ -75,12 +75,17 @@ available module immutable values are stable match roots. Direct and
 explicit-import-alias paths share refinement when they select the same
 package-aware declaration. A local initialized only from that value shares the
 declaration identity, and transitive locals preserve the same finite feasible
-domain. Matching the declaration or any rooted local refines every member for
-the current arm.
+domain. Ordinary record-field paths extend that root with a distinct field
+sequence. Compatible annotated locals retain the declaration's feasible field
+domain while presenting their written field type outside refined arms.
+Matching the declaration, a rooted local, or a rooted field path refines every
+reference to the same place for the current arm.
 Availability follows ordinary lookup, including private target values read by
 their exact test companion; inaccessible, unavailable, ambiguous, and missing
 paths do not become roots.
-Module-value-rooted fields remain outside this behavior.
+Different owner packages, roots, and field sequences remain independent.
+Calls, indexing, constructed records, and other computed expressions do not
+become module-value field roots.
 The selected examples demonstrate refined call typing, complete structural
 assignment, control-flow result joins, alias-qualified identity and
 presentation, generic alias boundaries, structural visibility, publication

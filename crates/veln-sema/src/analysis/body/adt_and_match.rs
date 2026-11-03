@@ -1528,11 +1528,7 @@ impl<'a> FunctionChecker<'a> {
             _ => self.qualified_module_value_stable_place(segments)?,
         };
         for field in fields.into_iter().rev() {
-            record_stable_place_segment_discovered();
-            place = self.intern_stable_place(StablePlaceKey::Field {
-                base: place,
-                field: field.to_string(),
-            });
+            place = self.intern_stable_field_place(place, field);
         }
         Some(place)
     }
@@ -1568,13 +1564,28 @@ impl<'a> FunctionChecker<'a> {
                     _ => self.qualified_module_value_stable_place(segments),
                 }
             })?;
-        record_stable_place_segment_discovered();
-        let place = self.intern_stable_place(StablePlaceKey::Field {
-            base: parent,
-            field: field.to_string(),
-        });
+        let place = self.intern_stable_field_place(parent, field);
         self.last_inferred_stable_place = Some((expr.node_id, place));
         Some(place)
+    }
+
+    fn intern_stable_field_place(&mut self, base: usize, field: &str) -> usize {
+        record_stable_place_segment_discovered();
+        let feasible_type = self
+            .stable_place_feasible_types
+            .get(&base)
+            .and_then(|base_type| base_type.record_field(field))
+            .cloned();
+        let place = self.intern_stable_place(StablePlaceKey::Field {
+            base,
+            field: field.to_string(),
+        });
+        if let Some(feasible_type) = feasible_type {
+            self.stable_place_feasible_types
+                .entry(place)
+                .or_insert(feasible_type);
+        }
+        place
     }
 
     pub(super) fn stable_place_refinement(&self, place: usize) -> Option<&Type> {
