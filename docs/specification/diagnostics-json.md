@@ -843,13 +843,14 @@ differences do not create such an
 invariance failure: when invariant arguments have the same resolved type, an
 outer finite-set or base-to-refinement exclusion remains
 `type.variant_mismatch`, with independent alias spellings in `actual_type` and
-`expected_type`. A genuinely different resolved nested refinement reports
+`expected_type`. A nested refinement that fails ordinary assignment reports
 `type.mismatch`; its actual type preserves the inferred nested refinement. This
-includes assigning an inferred named aggregate with a refined type argument to
-the corresponding type that uses the base ADT. Record fields instead use
-ordinary structural covariance, so an inferred singleton-refined field is
-assignable to the corresponding base-typed field. The reverse record
-assignment fails with `type.mismatch`. During aggregate inference, an
+includes assigning an inferred named aggregate with an invariant refined type
+argument to the corresponding type that uses the base ADT. Record fields and
+compiler-owned `Vec<T>` elements use covariance, so widening an inferred
+singleton-refined field or vector element to its base type produces no
+diagnostic. The reverse record or vector assignment fails with
+`type.mismatch`. During aggregate inference, an
 incompatible later contribution reports the aggregate position's accumulated
 type as expected and preserves the later contribution's constructor refinement
 as actual. The accumulated expected type contains only successfully typed

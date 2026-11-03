@@ -1428,9 +1428,11 @@ boundary, so `[Ready]` can construct an explicitly expected `Vec<State>` and
 The same rule lets `Boxed(Ready)` construct an explicitly expected
 `Box<State>`. Without that context, the values retain `Vec<State::Ready>`,
 `Dict<State::Ready, Int>`, and `Box<State::Ready>::Boxed`. A later assignment
-from any inferred value to the corresponding base-argument aggregate is
-rejected. Named type arguments remain invariant; aggregate inference does not
-add nested covariance.
+widens the inferred vector to `Vec<State>` because the compiler-owned `Vec<T>`
+element is covariant. The corresponding assignments from the inferred
+dictionary and source ADT remain rejected because their named type arguments
+are invariant. Aggregate inference does not add covariance to those invariant
+constructors.
 
 At a direct assignment, argument, or result boundary, variant assignability is
 defined as follows:
