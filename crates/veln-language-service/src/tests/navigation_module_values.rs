@@ -106,6 +106,41 @@ mod navigation_module_value_tests {
     }
 
     #[test]
+    fn dependency_function_and_module_value_navigation_stays_separate() {
+        let data = dependency_snapshot(
+            "data/pkg",
+            &[("shared.veln", "pub let answer: Int = 42\n")],
+            ["shared.veln"],
+        );
+        let callable = dependency_snapshot(
+            "callable/pkg",
+            &[("shared.veln", "pub fn answer() -> Int\n  42\nend\n")],
+            ["shared.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use shared as data from \"data/pkg\"\n",
+                    "use shared as callable from \"callable/pkg\"\n\n",
+                    "let value: Int = data::answer\n",
+                    "let result: Int = callable::answer()\n",
+                ),
+            )],
+            vec![data, callable],
+        );
+
+        let value = query_snapshot(&snapshot, "main.veln", 4, 27).unwrap();
+        assert_eq!(value.selected_symbol.kind, SymbolKind::ModuleValue);
+        assert_eq!(locations(&value.references), [("main.veln", 4, 24)]);
+
+        let function = query_snapshot(&snapshot, "main.veln", 5, 34).unwrap();
+        assert_eq!(function.selected_symbol.kind, SymbolKind::Function);
+        assert_eq!(locations(&function.references), [("main.veln", 5, 29)]);
+        assert_ne!(value.definition.source, function.definition.source);
+    }
+
+    #[test]
     fn standard_library_module_values_do_not_enter_navigation() {
         let standard_library = standard_library_snapshot(
             &[("values.veln", "pub let answer: Int = 42\n")],
