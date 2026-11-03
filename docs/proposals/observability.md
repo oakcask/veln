@@ -1,16 +1,18 @@
 ---
 role: proposal
-update-when: Buffered destination failure accounting, concurrent shutdown, summary outcomes, interruption, or late completion changes.
+update-when: Buffered concurrent shutdown, interruption, or late host-call completion changes.
 ---
 
-# Buffered Observation Failure and Shutdown Lifecycle
+# Buffered Observation Concurrent Shutdown and Interruption
 
 The synchronous exporter, buffered handler and spans, and normal buffered
 lifecycle are implemented in
 [standard-library observability](../specification/standard-library-observability.md).
-This proposal defines only the remaining destination-failure, concurrent
-shutdown, and interruption work. The evidence below is planned, not passing
-evidence for current behavior.
+Buffered destination rejection, ordinary exception containment, failure
+accounting, and final summary outcomes are implemented and specified in
+[standard-library observability](../specification/standard-library-observability.md#buffered-json-lines-export).
+This proposal defines only the remaining concurrent shutdown and interruption
+work. The evidence below is planned, not passing evidence for current behavior.
 
 ## Purpose and API Boundary
 
@@ -18,23 +20,17 @@ The implemented API admits handler and direct observation and span records,
 reports health, drains on normal shutdown, writes the final diagnostic summary
 when an enabled destination accepts it, and freezes its completed report. No
 buffered default capacity, unbounded mode, or public manual-summary operation
-is planned. The remaining work changes destination-failure and shutdown
+is planned. The remaining work changes concurrent shutdown and interruption
 behavior without adding another public admission API.
 
 ## Admission and Record Ordering
 
-The implemented admission order, sequence gaps, cardinality ordering, and
-destination FIFO are specified by
+The implemented admission order, destination failure accounting, sequence
+gaps, cardinality ordering, and destination FIFO are specified by
 [standard-library observability](../specification/standard-library-observability.md#buffered-json-lines-export).
-The remaining failure work must contain destination rejection and exceptions,
-give each accepted record at most one destination attempt, increment
-`failed_exports` once for each rejected or exceptional attempt, continue with
-later records without retry, saturate health counters, and leave the handled
-application result unchanged. An accepted record keeps its admission-time
-observation, context, timestamp, sequence, resource, scope, transformations,
-and health facts. A rejected, failed, or interrupted host attempt can have
-committed a byte prefix, so `failed_exports` is accounting rather than proof of
-byte loss.
+The remaining interruption work must account for unsettled records without
+retry. A rejected, failed, or interrupted host attempt can have committed a
+byte prefix, so `failed_exports` is accounting rather than proof of byte loss.
 
 ## Shutdown State Machine
 
@@ -73,14 +69,12 @@ Process or machine termination can prevent both cleanup and accounting.
 ## Effect and Ownership Boundaries
 
 Provider retention, handler use, span operations, child-task sharing, nested
-restoration, and independently constructed state are implemented. Remaining
-scoped Veln tests cover controlled failure and interruption without adding
-ambient fake selectors to production providers.
+restoration, independently constructed state, and ordinary destination failure
+containment are implemented. Remaining scoped Veln tests cover interruption
+without adding ambient fake selectors to production providers.
 
 Telemetry delivery failures leave the handled application's ordinary value,
-error, or cancellation unchanged. Exporter-internal failures must be contained
-at the exporter boundary so a worker failure cannot escape through a shutdown
-join as a new application failure. The existing
+error, or cancellation unchanged. The existing
 [effect](../specification/effects.md) and
 [execution cleanup](../specification/execution.md#cleanup-limits) contracts
 remain the authority for task cancellation and process termination.
@@ -113,9 +107,7 @@ schemas supply expected outcomes independently of their implementation.
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| O18 | Record write or flush rejection, exception, and counter saturation | One attempt and one failed increment per record; later records proceed; maximum counter does not overflow; application result unchanged. | Companion failure schedules and saturation cases. |
 | O19 | Concurrent shutdown and emission races closure | One drain and at most one summary; concurrent callers share the report; losing submission is `Closed` without state changes. | Companion barrier-controlled transitions. |
-| O20 | Enabled, disabled, rejected, and exceptional diagnostic destinations | Use the implemented enabled-accepted ordering as the control; report disabled without output; contain rejection or exception as one rejected summary outcome; do not change export health or the application's ordinary result. | Companion destination schedules and schema checks. |
 | O21 | Interruption with queued work and an unresolved host call | Prompt interrupted report after call-start revocation; unsettled records counted once; no new record/summary calls. | Companion cancellation schedule. |
 | O22 | In-flight record or summary completes after interrupted return | Late bytes are permitted; frozen report, counters, and call count remain unchanged. | Companion late-completion schedule. |
 | O23 | Interruption before summary, during summary, and after closed | `NotAttempted`, unconfirmed `Rejected`, and unchanged completed report respectively. | Companion state-boundary schedules. |

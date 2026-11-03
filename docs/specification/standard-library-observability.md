@@ -450,9 +450,10 @@ matching value is replaced by the fixed string `[REDACTED]` until the finite
 redaction limit is reached and increments `redacted`. The encoded facts
 aggregate changes to both observation and resource attributes.
 
-A validation rejection, record-destination rejection, or host write failure
-increments `failed_exports` and leaves the handled application's ordinary
-result unchanged. Each rejected attempt consumes its handler sequence value.
+A validation rejection, record-destination rejection, or ordinary runtime
+failure from the destination increments `failed_exports` and leaves the handled
+application's ordinary result unchanged. Task cancellation remains an abrupt
+task outcome. Each rejected attempt consumes its handler sequence value.
 A validation rejection does not call the destination and does not add dropped,
 truncated, or redacted attribute facts. Handler-driven metric-cardinality
 admission still occurs before export validation. A rejected span start retains
@@ -534,15 +535,33 @@ stack use therefore does not grow with the number of completed idle cycles.
 
 Normal `shutdown_buffered` closes admission. After it returns, later submissions
 return `Closed`. Shutdown waits until every accepted record has one completed
-destination attempt. With an enabled diagnostic destination that accepts the
-write, it then attempts one final exporter-health summary and reports
-`SummaryAccepted`. The summary attempt follows every record attempt, including
-when the record and diagnostic destinations identify the same output. The
-admission result at the concurrent shutdown transition remains planned work.
+destination attempt. A destination rejection or ordinary Veln runtime failure
+completes that record's single attempt, increments `failed_exports` once, and
+does not prevent the worker from attempting later accepted records. The counter
+saturates at the maximum `Int`. The exporter does not retry the record, and the
+failure does not change the handled application's ordinary result. Task
+cancellation and contract failure remain abrupt task outcomes rather than
+exporter rejections. A contract-failing record attempt does not increment
+`failed_exports` or continue to later queued records. Shutdown reports the
+current health as `Interrupted` with `SummaryNotAttempted`; it does not freeze a
+completed report.
 
-For that enabled accepted destination, normal shutdown freezes and returns
-`BufferedShutdownReport(Completed, health, SummaryAccepted)`. Later shutdown
-calls return the same report without another record or summary attempt.
+After all record attempts, shutdown handles the diagnostic destination once.
+The disabled destination performs no write and reports `SummaryDisabled`. An
+enabled destination reports `SummaryAccepted` when it accepts the summary and
+`SummaryRejected` when it rejects the write or raises an ordinary Veln runtime
+failure. The summary attempt follows every record attempt, including when the
+record and diagnostic destinations identify the same output. A rejected
+summary does not change exporter health. A contract-failing summary attempt is
+not a rejection: shutdown restores the closing state, returns `Interrupted`
+with `SummaryNotAttempted`, and does not retry or freeze the exporter as
+completed. The admission result at the concurrent shutdown transition remains
+planned work.
+
+Normal shutdown freezes and returns
+`BufferedShutdownReport(Completed, health, summary_outcome)`. The frozen health
+is the snapshot encoded by an enabled summary attempt. Later shutdown calls
+return the same report without another record or summary attempt.
 `buffered_exporter_health` is non-consuming and returns that frozen health after
 completion. The worker retains the scoped observation-destination provider
 active at construction, even if submission and shutdown occur after that scope
@@ -697,9 +716,8 @@ ambient. Raw task and channel operations remain unchanged.
 
 Metric query APIs, asynchronous metric callbacks, automatic shutdown flushing,
 and external telemetry-protocol adapters are not available. Concurrent shutdown,
-shutdown interruption, late host-call completion, and configured destination
-failure schedules are not available. The synchronous and buffered exporters
-have no retry or durable-audit guarantee.
+shutdown interruption, and late host-call completion are not available. The
+synchronous and buffered exporters have no retry or durable-audit guarantee.
 The production metric-cardinality identity bound counts series rather than the
 bytes in their names and attributes. The standalone cardinality handler does
 not retain or export accepted observations. The no-op handler does not record,

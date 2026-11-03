@@ -56,6 +56,39 @@ fn runtime_effects_do_not_select_test_behavior_from_ambient_configuration() {
 }
 
 #[test]
+fn scoped_observation_exporter_contains_only_ordinary_runtime_failures() {
+    let runtime = include_str!("../runtime/observability.java.inc");
+    let values = include_str!("../runtime/values.java.inc");
+    let concurrency = include_str!("../runtime/concurrency.java.inc");
+    let write_start = runtime
+        .find("public static Object observationExportWrite")
+        .expect("observation export write boundary should remain present");
+    let write_end = runtime[write_start..]
+        .find("public static Object observationExportIdentity")
+        .expect("observation identity boundary should follow write");
+    let write = &runtime[write_start..write_start + write_end];
+    let host_start = write
+        .find("if (target.equals(\"stderr\"))")
+        .expect("real host observation export branch should remain present");
+    let scoped = &write[..host_start];
+    let host = &write[host_start..];
+
+    let cancellation = scoped
+        .find("catch (TaskCancellationFailure cancelled)")
+        .expect("task cancellation should remain abrupt");
+    let runtime_failure = scoped
+        .find("catch (RuntimeFailure error)")
+        .expect("ordinary runtime failures should become rejected writes");
+    assert!(cancellation < runtime_failure);
+    assert!(!scoped.contains("catch (RuntimeException error)"));
+    assert!(host.contains("catch (java.io.IOException | RuntimeException error)"));
+
+    assert!(values.contains("class ContractFailure extends RuntimeException"));
+    assert!(values.contains("class RuntimeFailure extends RuntimeException"));
+    assert!(concurrency.contains("class TaskCancellationFailure extends RuntimeFailure"));
+}
+
+#[test]
 fn ambient_policy_rejects_fake_inputs_and_property_selectors() {
     for source in [
         "return System.getenv(\"EXAMPLE_FAKE_CLOCK\");",
