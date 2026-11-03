@@ -1584,6 +1584,23 @@ fn new_buffered_failure_for_test(failed_exports: Int, diagnostic_destination: Di
 	)
 end
 
+fn new_buffered_completion_for_test(failed_exports: Int, diagnostic_destination: DiagnosticDestination, entered: Sender<()>, release: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+	observe::new_buffered_json_lines_with_completion_hook_for_test(
+		observe::Resource("completion", list_nil()),
+		observe::InstrumentationScope("scope", "1"),
+		4,
+		observe::ExporterLimits(8, 64, 2, list_nil()),
+		observe::StandardError,
+		diagnostic_destination,
+		"completion",
+		4,
+		failed_exports,
+		observe_test_support_test::decision_barrier,
+		entered,
+		release,
+	)
+end
+
 fn buffered_failure_body() -> Int effects [observe::Observe]
 	log::info(None, "rejected", list_nil())
 	log::info(None, "exceptional", list_nil())
@@ -1834,7 +1851,6 @@ test concurrent_buffered_shutdown_callers_share_one_drain_summary_and_frozen_rep
 				Ok(()) => true
 				Err(_) => false
 			end
-			task::cancel(first)
 			let repeated = observe::shutdown_buffered(exporter)
 			let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(events.rx, list_nil()), 0)
 			match admitted
@@ -1869,6 +1885,117 @@ test concurrent_buffered_shutdown_callers_share_one_drain_summary_and_frozen_rep
 			end
 		end
 		_ => Err("concurrent shutdown exporter construction failed")
+	end
+end
+
+test abnormal_worker_exit_while_open_freezes_exact_unsettled_accounting() -> Result<(), String> effects [time, concurrency]
+	let events = channel::bounded<String>(3)
+	let release = channel::bounded<()>(1)
+	let constructed = handle new_buffered_failure_for_test(0, observe::NoDiagnosticDestination) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let admitted = handle observe::buffered_export_observation(exporter, buffered_log("open-in-flight")) with observe_test_support_test::clock(0)
+			let started: Option<String> = channel::recv(events.rx)
+			observe::cancel_buffered_worker_for_test(exporter)
+			let report = observe::shutdown_buffered(exporter)
+			let health = observe::buffered_exporter_health(exporter)
+			let closed = handle observe::buffered_export_observation(exporter, buffered_log("after-open-exit")) with observe_test_support_test::clock(0)
+			let _ = channel::send(release.tx, ())
+			let late: Option<String> = channel::recv(events.rx)
+			let repeated = observe::shutdown_buffered(exporter)
+			match admitted
+				observe::Accepted => match report
+					observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match repeated
+						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match health
+							observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => if not buffered_event_is(started, "record-started")
+								Err(buffered_unexpected_event("open worker record start", started))
+							else if not buffered_admission_is_closed(closed)
+								Err("abnormal open worker exit left admission open")
+							else if late == None
+								Err("abnormal open worker exit did not permit the started host call to finish")
+							else
+								Ok(())
+							end
+							_ => Err("abnormal open worker exit did not freeze unsettled health")
+						end
+						_ => Err("late open-worker completion changed the frozen report")
+					end
+					_ => Err("abnormal open worker exit did not interrupt and account for its in-flight record")
+				end
+				_ => Err("open worker exit setup did not admit its record")
+			end
+		end
+		_ => Err("open worker exit exporter construction failed")
+	end
+end
+
+test confirmed_record_outcome_survives_worker_cancellation_before_state_commit() -> Result<(), String> effects [time, concurrency]
+	let entered = channel::bounded<()>(1)
+	let release = channel::bounded<()>(1)
+	let lines = observe_test_support_test::export_lines(1)
+	let constructed = handle new_buffered_completion_for_test(0, observe::NoDiagnosticDestination, entered.tx, release.rx) with observe_test_support_test::exporter(lines.tx, true)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let admitted = handle observe::buffered_export_observation(exporter, buffered_log("confirmed")) with observe_test_support_test::clock(0)
+			let confirmed: Option<()> = channel::recv(entered.rx)
+			observe::cancel_buffered_worker_for_test(exporter)
+			let report = observe::shutdown_buffered(exporter)
+			let line: Option<String> = channel::recv(lines.rx)
+			match report
+				observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => if not buffered_admission_is_accepted(admitted)
+					Err("confirmed record setup was not admitted")
+				else if not buffered_unit_received(confirmed)
+					Err("confirmed record cancellation did not reach its deterministic barrier")
+				else if line == None
+					Err("confirmed record did not reach its destination")
+				else
+					Ok(())
+				end
+				_ => Err("confirmed record was reclassified as unsettled by cancellation")
+			end
+		end
+		_ => Err("confirmed record exporter construction failed")
+	end
+end
+
+test confirmed_summary_outcome_closes_before_interruption_cleanup() -> Result<(), String> effects [concurrency]
+	let entered = channel::bounded<()>(1)
+	let release = channel::bounded<()>(1)
+	let lines = observe_test_support_test::export_lines(1)
+	let waiting = channel::bounded<()>(1)
+	let constructed = handle new_buffered_completion_for_test(5, observe::DiagnosticStandardError, entered.tx, release.rx) with observe_test_support_test::exporter(lines.tx, true)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let shutdown = task::spawn_with(shutdown_buffered_task_observed, { exporter: exporter, waiting: waiting.tx })
+			let shutdown_waiting: Option<()> = channel::recv(waiting.rx)
+			let confirmed: Option<()> = channel::recv(entered.rx)
+			task::cancel(shutdown)
+			let joined = task::join(shutdown)
+			let report = observe::shutdown_buffered(exporter)
+			let repeated = observe::shutdown_buffered(exporter)
+			let line: Option<String> = channel::recv(lines.rx)
+			match joined
+				Err(error) => if task::join_error_is_cancelled(error)
+					match report
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match repeated
+							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => if not buffered_unit_received(shutdown_waiting) or not buffered_unit_received(confirmed)
+								Err("confirmed summary cancellation did not reach both deterministic barriers")
+							else if line == None
+								Err("confirmed summary did not reach its destination")
+							else
+								Ok(())
+							end
+							_ => Err("interruption cleanup changed the report after confirmed summary closure")
+						end
+						_ => Err("confirmed summary was reclassified as rejected by cancellation")
+					end
+				else
+					Err("confirmed summary shutdown lost abrupt cancellation")
+				end
+				Ok(_) => Err("confirmed summary shutdown completed normally after cancellation")
+			end
+		end
+		_ => Err("confirmed summary exporter construction failed")
 	end
 end
 
