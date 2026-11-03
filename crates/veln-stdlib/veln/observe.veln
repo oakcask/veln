@@ -1066,17 +1066,30 @@ end
 
 fn complete_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, diagnostic_destination: DiagnosticDestination, production: Production) -> () effects [concurrency]
 	match channel::recv(state.rx)
-		Some(BufferedExporterState(sequence, failed, dropped, truncated, redacted, _, queued, _, lifecycle)) => match lifecycle
-			BufferedClosed(_) => begin
-				let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, lifecycle))
-				()
-			end
-			_ => begin
-				let health = ExporterHealth(failed, dropped, truncated, redacted, production_health(production))
-				let summary = buffered_summary_outcome(diagnostic_destination, health)
-				let report = BufferedShutdownReport(Completed, health, summary)
-				let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedClosed(report)))
-				()
+		Some(current) => match current
+			BufferedExporterState(sequence, failed, dropped, truncated, redacted, _, queued, _, lifecycle) => match lifecycle
+				BufferedClosed(_) => begin
+					let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, lifecycle))
+					()
+				end
+				_ => match diagnostic_destination
+					NoDiagnosticDestination => begin
+						let health = ExporterHealth(failed, dropped, truncated, redacted, production_health(production))
+						let report = BufferedShutdownReport(Completed, health, SummaryDisabled)
+						let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedClosed(report)))
+						()
+					end
+					_ => begin
+						let committed = channel::bounded<()>(1)
+						defer
+							restore_uncommitted_buffered_state(state.tx, current, committed.rx)
+						end
+						let health = ExporterHealth(failed, dropped, truncated, redacted, production_health(production))
+						let summary = buffered_summary_outcome(diagnostic_destination, health)
+						let report = BufferedShutdownReport(Completed, health, summary)
+						commit_buffered_state(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedClosed(report)), committed.tx)
+					end
+				end
 			end
 		end
 		None => ()

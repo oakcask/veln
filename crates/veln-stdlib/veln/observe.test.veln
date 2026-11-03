@@ -440,6 +440,12 @@ fn shutdown_buffered_task(exporter: BufferedJsonLinesExporter) -> BufferedShutdo
 	observe::shutdown_buffered(exporter)
 end
 
+fn shutdown_buffered_and_send(context: { exporter : BufferedJsonLinesExporter, reports : Sender<BufferedShutdownReport> }) -> () effects [concurrency]
+	let report = observe::shutdown_buffered(context.exporter)
+	let _ = channel::send(context.reports, report)
+	()
+end
+
 test buffered_constructor_rejects_non_positive_capacity_without_destination_effects() -> Result<(), String> effects [concurrency]
 	let lines = observe_test_support_test::export_lines(1)
 	let zero = handle new_buffered_for_test(0, observe::DiagnosticStandardError) with observe_test_support_test::exporter(lines.tx, true)
@@ -1603,6 +1609,41 @@ test buffered_record_rejection_and_exception_are_counted_once_and_later_work_con
 	end
 end
 
+test buffered_record_contract_failure_stops_without_counting_or_later_writes() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(2)
+	let outcomes = channel::bounded<ExportWriteOutcome>(2)
+	let _ = channel::send(outcomes.tx, observe_test_support_test::ContractFailWrite)
+	let _ = channel::send(outcomes.tx, observe_test_support_test::AcceptWrite)
+	let constructed = handle new_buffered_failure_for_test(0, observe::NoDiagnosticDestination) with observe_test_support_test::scheduled_exporter(lines.tx, outcomes.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let first = handle observe::buffered_export_observation(exporter, buffered_log("contract")) with observe_test_support_test::clock(0)
+			let second = handle observe::buffered_export_observation(exporter, buffered_log("later")) with observe_test_support_test::clock(0)
+			let report = observe::shutdown_buffered(exporter)
+			let attempted = channel::recv(lines.rx)
+			let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+			match first
+				observe::Accepted => match second
+					observe::Accepted => match report
+						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => if buffered_line_contains(attempted, "\"message\":\"contract\"")
+							match no_more
+								None => Ok(())
+								Some(_) => Err("contract-failing record continued to later buffered work")
+							end
+						else
+							Err("contract-failing record did not make its single destination attempt")
+						end
+						_ => Err("contract-failing record was counted or reported as completed shutdown")
+					end
+					_ => Err("later record was not admitted before the worker contract failure")
+				end
+				_ => Err("contract-failing record was not admitted")
+			end
+		end
+		_ => Err("buffered contract failure exporter construction failed")
+	end
+end
+
 test buffered_record_failure_counter_saturates_without_stopping_later_work() -> Result<(), String> effects [time, concurrency]
 	let maximum = 9223372036854775807
 	let lines = observe_test_support_test::export_lines(3)
@@ -1700,4 +1741,53 @@ end
 test buffered_summary_rejection_and_exception_are_contained_once() -> Result<(), String> effects [concurrency]
 	let _ = check_buffered_summary_failure(observe_test_support_test::RejectWrite)?
 	check_buffered_summary_failure(observe_test_support_test::FailWrite)
+end
+
+test buffered_summary_contract_failure_restores_closing_state_without_retry() -> Result<(), String> effects [concurrency]
+	let lines = observe_test_support_test::export_lines(2)
+	let outcomes = channel::bounded<ExportWriteOutcome>(1)
+	let reports = channel::bounded<BufferedShutdownReport>(1)
+	let _ = channel::send(outcomes.tx, observe_test_support_test::ContractFailWrite)
+	let constructed = handle new_buffered_failure_for_test(5, observe::DiagnosticStandardError) with observe_test_support_test::scheduled_exporter(lines.tx, outcomes.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let shutdown = task::spawn_with(shutdown_buffered_and_send, { exporter: exporter, reports: reports.tx })
+			let selected: Option<{ index : Int, value : BufferedShutdownReport }> = channel::select_many_timeout(list_cons(reports.rx, list_nil()), 250)
+			let report = match selected
+				Some({ index: 0, value: report }) => report
+				Some(_) => Err("contract-failing buffered summary selected the wrong completion channel")?
+				None => begin
+					task::cancel(shutdown)
+					let _ = task::join(shutdown)
+					Err("contract-failing buffered summary did not restore state before the bounded guard")?
+				end
+			end
+			let attempted = channel::recv(lines.rx)
+			let joined = task::join(shutdown)
+			let repeated = observe::shutdown_buffered(exporter)
+			let health = observe::buffered_exporter_health(exporter)
+			let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+			match report
+				observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match joined
+					Ok(()) => match repeated
+						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match health
+							observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => if buffered_line_contains(attempted, "diagnostic:stderr:{\"schema_version\":1,\"kind\":\"exporter_health\",\"failed_exports\":5")
+								match no_more
+									None => Ok(())
+									Some(_) => Err("contract-failing buffered summary was retried")
+								end
+							else
+								Err("contract-failing buffered summary changed its attempted schema")
+							end
+							_ => Err("contract-failing buffered summary changed exporter health")
+						end
+						_ => Err("contract-failing buffered summary froze a completed report")
+					end
+					Err(_) => Err("contract-failing buffered summary prevented shutdown task completion")
+				end
+				_ => Err("contract-failing buffered summary reported the wrong shutdown outcome")
+			end
+		end
+		_ => Err("buffered summary contract failure exporter construction failed")
+	end
 end

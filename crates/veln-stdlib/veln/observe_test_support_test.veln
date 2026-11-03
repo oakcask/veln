@@ -23,6 +23,7 @@ pub type ExportWriteOutcome
 	pub AcceptWrite
 	pub RejectWrite
 	pub FailWrite
+	pub ContractFailWrite
 end
 
 pub handler exporter(lines: Sender<String>, accepted: Bool) for host_effects::ObservationExporter effects [concurrency]
@@ -45,9 +46,10 @@ pub handler scheduled_exporter(lines: Sender<String>, outcomes: Receiver<ExportW
 			"record:"
 		end, destination), string::concat(":", line)))
 		match channel::recv(outcomes)
-			Some(observe_test_support_test::AcceptWrite) => true
-			Some(observe_test_support_test::RejectWrite) => false
-			Some(observe_test_support_test::FailWrite) => fail_export_write(line)
+			Some(ExportWriteOutcome::AcceptWrite) => true
+			Some(ExportWriteOutcome::RejectWrite) => false
+			Some(ExportWriteOutcome::FailWrite) => fail_export_write(line)
+			Some(ExportWriteOutcome::ContractFailWrite) => fail_export_contract(line)
 			None => false
 		end
 	end
@@ -75,6 +77,11 @@ end
 fn fail_export_write(line: String) -> Bool
 	let sequence = 1
 	int_to_string(1 << (sequence + 63)) == line
+end
+
+fn fail_export_contract(line: String) -> Bool
+	require line == ""
+	true
 end
 
 pub handler exporter_with_empty_identity(lines: Sender<String>, empty_kind: String) for host_effects::ObservationExporter effects [concurrency]

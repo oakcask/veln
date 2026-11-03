@@ -535,21 +535,28 @@ stack use therefore does not grow with the number of completed idle cycles.
 
 Normal `shutdown_buffered` closes admission. After it returns, later submissions
 return `Closed`. Shutdown waits until every accepted record has one completed
-destination attempt. A destination rejection or ordinary runtime exception
+destination attempt. A destination rejection or ordinary Veln runtime failure
 completes that record's single attempt, increments `failed_exports` once, and
 does not prevent the worker from attempting later accepted records. The counter
 saturates at the maximum `Int`. The exporter does not retry the record, and the
 failure does not change the handled application's ordinary result. Task
-cancellation remains an abrupt task outcome rather than an exporter rejection.
+cancellation and contract failure remain abrupt task outcomes rather than
+exporter rejections. A contract-failing record attempt does not increment
+`failed_exports` or continue to later queued records. Shutdown reports the
+current health as `Interrupted` with `SummaryNotAttempted`; it does not freeze a
+completed report.
 
 After all record attempts, shutdown handles the diagnostic destination once.
 The disabled destination performs no write and reports `SummaryDisabled`. An
 enabled destination reports `SummaryAccepted` when it accepts the summary and
-`SummaryRejected` when it rejects the write or raises an ordinary runtime
-exception. The summary attempt follows every record attempt, including when the
+`SummaryRejected` when it rejects the write or raises an ordinary Veln runtime
+failure. The summary attempt follows every record attempt, including when the
 record and diagnostic destinations identify the same output. A rejected
-summary does not change exporter health. The admission result at the concurrent
-shutdown transition remains planned work.
+summary does not change exporter health. A contract-failing summary attempt is
+not a rejection: shutdown restores the closing state, returns `Interrupted`
+with `SummaryNotAttempted`, and does not retry or freeze the exporter as
+completed. The admission result at the concurrent shutdown transition remains
+planned work.
 
 Normal shutdown freezes and returns
 `BufferedShutdownReport(Completed, health, summary_outcome)`. The frozen health

@@ -655,7 +655,7 @@
                 return (Boolean) result;
             } catch (TaskCancellationFailure cancelled) {
                 throw cancelled;
-            } catch (RuntimeException error) {
+            } catch (RuntimeFailure error) {
                 return Boolean.FALSE;
             }
         }
