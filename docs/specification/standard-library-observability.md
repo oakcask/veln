@@ -536,13 +536,15 @@ Normal `shutdown_buffered` closes admission. After it returns, later submissions
 return `Closed`. Shutdown waits until every accepted record has one completed
 destination attempt. With an enabled diagnostic destination that accepts the
 write, it then attempts one final exporter-health summary and reports
-`SummaryAccepted`. The summary attempt follows every record attempt, including
-when the record and diagnostic destinations identify the same output. The
-admission result at the concurrent shutdown transition remains planned work.
+`SummaryAccepted`. With `NoDiagnosticDestination`, shutdown performs no summary
+write and reports `SummaryDisabled`. An enabled summary attempt follows every
+record attempt, including when the record and diagnostic destinations identify
+the same output. The admission result at the concurrent shutdown transition
+remains planned work.
 
-For that enabled accepted destination, normal shutdown freezes and returns
-`BufferedShutdownReport(Completed, health, SummaryAccepted)`. Later shutdown
-calls return the same report without another record or summary attempt.
+Normal shutdown freezes and returns `BufferedShutdownReport(Completed, health,
+summary)`, where `summary` is the accepted or disabled outcome above. Later
+shutdown calls return the same report without another record or summary attempt.
 `buffered_exporter_health` is non-consuming and returns that frozen health after
 completion. The worker retains the scoped observation-destination provider
 active at construction, even if submission and shutdown occur after that scope
