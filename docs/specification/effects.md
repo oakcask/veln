@@ -430,7 +430,8 @@ payload, and whether the payload is a diagnostic summary. Its Boolean result
 reports whether the destination accepted the write. A record that the JSON
 Lines export boundary rejects during validation does not perform this
 operation. An ordinary runtime failure from a scoped handler reports a rejected
-write. Task cancellation remains an abrupt task outcome.
+write. Task cancellation and contract failure remain abrupt task outcomes; the
+effect boundary does not translate either outcome into a rejected write.
 `ObservationExporter::identity(kind, sequence)` supplies the identity used for
 an exported span. These operations let scoped Veln test support capture writes
 and provide deterministic identities. Without a handler, the runtime uses the
