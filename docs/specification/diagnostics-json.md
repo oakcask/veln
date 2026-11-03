@@ -821,11 +821,11 @@ explicit alias spelling is preserved only on the side that supplied it, and an
 expected alias never relabels an inferred actual type. Conflicting alias
 provenance uses the target ADT's canonical display name, including when the
 conflicting singleton or union refinements cover the complete ADT domain and
-render as its base type. The same rule applies when direct and invariant nested
+render as its base type. The same rule applies when direct and exact nested
 constructor payload contributions infer one type argument. The checked
 [`alias diagnostic case`](../../examples/specification/check/adt-variant-refinement-alias-presentation-diagnostics-json/)
 and
-[`invariant payload diagnostic case`](../../examples/specification/check/adt-variant-refinement-invariant-alias-presentation-diagnostics-human/)
+[`exact payload diagnostic case`](../../examples/specification/check/adt-variant-refinement-invariant-alias-presentation-diagnostics-human/)
 cover these presentation boundaries. Details contain `phase`, `node_id`, `actual_type`, `expected_type`,
 declaration-ordered `expected_variants`, `excluded_variants`, and `constraint`.
 `excluded_variants` is an object with `form` and `variants`. The `listed` form
@@ -860,8 +860,10 @@ change the expected type reported for a later contribution. A rejected call or
 constructor expression follows this rule even when recovery can determine its
 refined result type from the resolved declaration. The same rule applies when
 one constructor payload uses a type parameter directly and another uses it
-inside an invariant named type: the diagnostic reports the exact constraint
-established by the other payload rather than widening the nested type. When one
+inside a named type: the diagnostic reports the exact inference constraint
+established by the other payload rather than applying that named type's
+assignment variance. Thus `Vec<A>` establishes an exact constraint here even
+though compiler-owned `Vec<T>` is covariant for assignment. When one
 payload contributes the same type parameter more than once, a conflict reports
 the earlier occurrence's type as expected and the conflicting occurrence's
 type as actual. None of that payload's occurrences update the accumulated type,

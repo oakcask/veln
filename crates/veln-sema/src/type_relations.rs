@@ -272,7 +272,10 @@ fn named_types_are_assignable(
         return false;
     }
 
-    match (expected_identity == "Vec", actual_identity == "Vec") {
+    match (
+        Type::is_compiler_vec_identity(expected_identity),
+        Type::is_compiler_vec_identity(actual_identity),
+    ) {
         (true, true) => match (expected_args, actual_args) {
             ([expected_element], [actual_element]) => {
                 return is_assignable(expected_element, actual_element);

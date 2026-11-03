@@ -495,7 +495,11 @@ fn compiler_vec_argument_is_covariant_through_structural_polarity() {
     ));
     assert!(!is_assignable(
         &wide_vec,
-        &Type::resolved_named("Vec", "other::Vec", vec![wide.clone()]),
+        &Type::resolved_named("Vec", "Vec", vec![wide.clone()]),
+    ));
+    assert!(!is_assignable(
+        &Type::resolved_named("Vec", "Vec", vec![wide.clone()]),
+        &wide_vec,
     ));
     assert!(!is_assignable(
         &Type::named("Box", vec![wide_vec]),

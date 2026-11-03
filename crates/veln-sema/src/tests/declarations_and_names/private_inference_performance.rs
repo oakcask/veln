@@ -397,9 +397,8 @@ fn prelude_callback_return_inference_skips_unrelated_annotated_helpers() {
         nested.return_type,
         crate::semantic_model::Type::named(
             "Option",
-            vec![crate::semantic_model::Type::named(
-                "Vec",
-                vec![crate::semantic_model::Type::string()]
+            vec![crate::semantic_model::Type::vec(
+                crate::semantic_model::Type::string()
             )]
         )
     );

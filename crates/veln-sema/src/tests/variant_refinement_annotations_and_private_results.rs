@@ -102,6 +102,41 @@ fn vec_arguments_are_covariant_at_complete_assignment_boundaries() {
 }
 
 #[test]
+fn identity_free_source_vec_cannot_acquire_compiler_vec_covariance() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "type Vec<A>\n",
+            "  SourceVec(A)\n",
+            "end\n",
+            "fn boundaries(source_ready: Vec<State::Ready>) -> ()\n",
+            "  let invariant_source: Vec<State> = source_ready\n",
+            "  let compiler_value: Vec<State::Ready> = [Ready]\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| (diagnostic.id.as_str(), diagnostic.message.as_str()))
+            .collect::<Vec<_>>(),
+        vec![
+            (
+                "type.mismatch",
+                "expected `Vec<State>`, but found `Vec<State::Ready>`"
+            ),
+            (
+                "type.mismatch",
+                "expected `Vec<State::Ready>`, but found `Vec<State::Ready>`"
+            ),
+        ],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn base_with_different_generic_arguments_uses_an_ordinary_mismatch() {
     let diagnostics = diagnostics_for(concat!(
         "fn needs_some(value: Option<Int>::Some) -> ()\n",

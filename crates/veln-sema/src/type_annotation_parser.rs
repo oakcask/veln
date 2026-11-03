@@ -279,10 +279,10 @@ impl<'a> TypeParser<'a> {
                 args.len()
             ));
         }
-        if name == "Dict" && args.len() == 2 {
-            Ok(Type::dict(args[0].clone(), args[1].clone()))
-        } else {
-            Ok(Type::named(name, args))
+        match (name.as_str(), args.as_slice()) {
+            ("Vec", [item]) => Ok(Type::vec(item.clone())),
+            ("Dict", [key, value]) => Ok(Type::dict(key.clone(), value.clone())),
+            _ => Ok(Type::named(name, args)),
         }
     }
 

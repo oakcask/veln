@@ -1389,12 +1389,14 @@ also applies when a call argument or constructor payload fails but recovery can
 still identify the call or constructor's refined result type.
 
 The join applies when repeated constructor payloads use a type parameter
-directly. If the same parameter also occurs inside an invariant named payload,
-that nested occurrence instead establishes an exact constraint. Every direct
-or nested contribution must then match that constraint; the checker does not
-widen across the nested named type. For example, given `Built(A, Vec<A>)`,
+directly. If the same parameter also occurs inside a named payload, that nested
+occurrence establishes an exact inference constraint independently of the
+named constructor's assignment variance. Every direct or nested contribution
+must match that constraint; assignment covariance does not widen constructor
+type-argument inference. For example, given `Built(A, Vec<A>)`,
 `Built(Ready, [Ready])` infers `Container<State::Ready>::Built`, while
-`Built(Ready, [Closed])` reports `type.mismatch`. Reversing the two payload
+`Built(Ready, [Closed])` reports `type.mismatch`, even though compiler-owned
+`Vec<T>` is covariant at an assignment boundary. Reversing the two payload
 positions does not change either result.
 
 All occurrences contributed by one payload are accepted or rejected together.
@@ -1402,9 +1404,10 @@ If one occurrence conflicts, no occurrence from that payload constrains the
 constructor type argument. A later valid payload therefore continues from the
 last successfully inferred type instead of from a partial result of the failed
 payload. This rule also applies when the rejected payload contains repeated
-occurrences inside one invariant named type.
+occurrences inside one named type that contributes an exact inference
+constraint.
 
-Successful direct and invariant nested contributions also reconcile alias
+Successful direct and exact nested contributions also reconcile alias
 presentation for the inferred type argument. Different alias preferences make
 the target ADT's canonical name permanent for that inference, even when a later
 contribution repeats one alias. The result is independent of payload order and
@@ -1588,7 +1591,9 @@ record and be assignable. Named types with the same constructor require
 invariant generic arguments except for compiler-owned `Vec<T>`. Its element is
 covariant, so `Vec<State::Ready>` satisfies `Vec<State>` but the reverse
 assignment fails. The exception requires the same resolved `Vec` constructor;
-it does not relate distinct nominal constructors. Recovery still lets
+compiler provenance is part of that identity, so a source declaration named
+`Vec` cannot acquire the exception. It does not relate distinct nominal
+constructors. Recovery still lets
 `unknown` match a complete argument. `Path` and `String` are distinct named types at
 assignment boundaries; the runtime path representation is not source-visible.
 Function assignment checks fixed parameter count, parameter types, variadic

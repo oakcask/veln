@@ -550,7 +550,7 @@ pub(crate) fn resolved_standard_runtime_type_kind(
         ("Option", 1) => StandardRuntimeTypeKind::Option,
         ("Result", 2) => StandardRuntimeTypeKind::Result,
         ("List", 1) => StandardRuntimeTypeKind::List,
-        ("Vec", 1) => StandardRuntimeTypeKind::Vec,
+        (identity, 1) if Type::is_compiler_vec_identity(identity) => StandardRuntimeTypeKind::Vec,
         ("Dict", 2) => StandardRuntimeTypeKind::Dict,
         ("String", 0) => StandardRuntimeTypeKind::String,
         _ => return None,
@@ -583,7 +583,11 @@ pub(crate) fn resolved_standard_runtime_type_kind(
     }
     BUILTIN_TYPE_SYNTAX_DESCRIPTORS
         .iter()
-        .any(|descriptor| descriptor.name == identity && descriptor.arity == args.len())
+        .any(|descriptor| {
+            (descriptor.name == identity
+                || (Type::is_compiler_vec_identity(identity) && descriptor.name == name))
+                && descriptor.arity == args.len()
+        })
         .then_some(kind)
 }
 
