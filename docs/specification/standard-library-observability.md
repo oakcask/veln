@@ -450,9 +450,10 @@ matching value is replaced by the fixed string `[REDACTED]` until the finite
 redaction limit is reached and increments `redacted`. The encoded facts
 aggregate changes to both observation and resource attributes.
 
-A validation rejection, record-destination rejection, or host write failure
-increments `failed_exports` and leaves the handled application's ordinary
-result unchanged. Each rejected attempt consumes its handler sequence value.
+A validation rejection, record-destination rejection, or ordinary runtime
+failure from the destination increments `failed_exports` and leaves the handled
+application's ordinary result unchanged. Task cancellation remains an abrupt
+task outcome. Each rejected attempt consumes its handler sequence value.
 A validation rejection does not call the destination and does not add dropped,
 truncated, or redacted attribute facts. Handler-driven metric-cardinality
 admission still occurs before export validation. A rejected span start retains
