@@ -156,7 +156,7 @@ pub type BufferedShutdownReport
 end
 
 pub type BufferedJsonLinesExporter
-	BufferedJsonLinesExporter(capacity: Int, resource: Resource, scope: InstrumentationScope, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, production: Production, span_allocator: BufferedSpanAllocator, state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready: Sender<()>, worker: Task<()>)
+	BufferedJsonLinesExporter(capacity: Int, resource: Resource, scope: InstrumentationScope, limits: ExporterLimits, production: Production, span_allocator: BufferedSpanAllocator, state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready: Sender<()>, worker: Task<()>)
 end
 
 pub type BufferedJsonLinesConstruction
@@ -315,7 +315,7 @@ fn start_buffered_json_lines(resource: Resource, scope: InstrumentationScope, me
 			let _ = channel::send(state.tx, BufferedExporterState(1, 0, 0, 0, 0, 0, list_nil(), false, BufferedOpen))
 			let ready = channel::bounded<()>(1)
 			let worker = task::spawn_with<(), { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook }>(run_buffered_export_worker, { state: state, ready: ready.rx, destination: destination, diagnostic_destination: diagnostic_destination, production: production, idle_hook: idle_hook })
-			BufferedJsonLines(BufferedJsonLinesExporter(capacity, resource, scope, normalize_exporter_limits(limits), destination, diagnostic_destination, production, span_allocator, state, ready.tx, worker))
+			BufferedJsonLines(BufferedJsonLinesExporter(capacity, resource, scope, normalize_exporter_limits(limits), production, span_allocator, state, ready.tx, worker))
 		end
 	end
 end
@@ -337,7 +337,7 @@ pub handler buffered_json_lines(exporter: BufferedJsonLinesExporter) for Observe
 		BufferedSpanStart(span, _) => span
 	end
 	emit(record) => match exporter
-		BufferedJsonLinesExporter(_, _, _, _, _, _, production, _, _, _, _) => if apply_metric_cardinality(production, record)
+		BufferedJsonLinesExporter(_, _, _, _, production, _, _, _, _) => if apply_metric_cardinality(production, record)
 			begin
 				let _ = buffered_export_observation(exporter, record)
 				()
@@ -762,7 +762,7 @@ end
 
 pub fn buffered_start_export_span(exporter: BufferedJsonLinesExporter, request: SpanRequest) -> BufferedSpanStart effects [time, concurrency]
 	match exporter
-		BufferedJsonLinesExporter(_, _, _, _, _, _, _, span_allocator, _, _, _) => match allocate_buffered_span(span_allocator, request)
+		BufferedJsonLinesExporter(_, _, _, _, _, span_allocator, _, _, _) => match allocate_buffered_span(span_allocator, request)
 			span => match span
 				ExportSpan(name, trace_id, span_id, parent_span_id, _, source) => BufferedSpanStart(span, buffered_export_payload(exporter, ExportSpanStart(name, trace_id, span_id, parent_span_id, request_links(request), source)))
 				_ => BufferedSpanStart(span, InvalidRecord)
@@ -830,7 +830,7 @@ end
 
 fn buffered_export_payload_with_hooks(exporter: BufferedJsonLinesExporter, payload: ExportPayload, entry_hook: BufferedAdmissionEntryHook, boundary_hook: BufferedAdmissionBoundaryHook) -> BufferedAdmissionOutcome effects [time, concurrency]
 	match exporter
-		BufferedJsonLinesExporter(capacity, resource, scope, limits, _, _, production, _, state, ready, _) => begin
+		BufferedJsonLinesExporter(capacity, resource, scope, limits, production, _, state, ready, _) => begin
 			notify_buffered_admission_entry(entry_hook)
 			match channel::recv(state.rx)
 				Some(current) => begin
@@ -902,7 +902,7 @@ end
 
 pub fn buffered_exporter_health(exporter: BufferedJsonLinesExporter) -> ExporterHealth effects [concurrency]
 	match exporter
-		BufferedJsonLinesExporter(_, _, _, _, _, _, production, _, state, _, _) => match channel::recv(state.rx)
+		BufferedJsonLinesExporter(_, _, _, _, production, _, state, _, _) => match channel::recv(state.rx)
 			Some(current) => begin
 				let committed = channel::bounded<()>(1)
 				defer
@@ -922,7 +922,7 @@ end
 
 pub fn shutdown_buffered(exporter: BufferedJsonLinesExporter) -> BufferedShutdownReport effects [concurrency]
 	match exporter
-		BufferedJsonLinesExporter(_, _, _, _, _, _, production, _, state, ready, worker) => match begin_buffered_shutdown(state, ready)
+		BufferedJsonLinesExporter(_, _, _, _, production, _, state, ready, worker) => match begin_buffered_shutdown(state, ready)
 			Some(report) => report
 			None => begin
 				let _ = task::join(worker)
@@ -1108,7 +1108,7 @@ end
 
 fn buffered_outstanding_for_test(exporter: BufferedJsonLinesExporter) -> Int effects [concurrency]
 	match exporter
-		BufferedJsonLinesExporter(_, _, _, _, _, _, _, _, state, _, _) => match channel::recv(state.rx)
+		BufferedJsonLinesExporter(_, _, _, _, _, _, state, _, _) => match channel::recv(state.rx)
 			Some(current) => match current
 				BufferedExporterState(_, _, _, _, _, outstanding, _, _, _) => begin
 					let _ = channel::send(state.tx, current)

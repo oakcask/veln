@@ -371,6 +371,19 @@ fn new_buffered_for_test(capacity: Int, diagnostic_destination: DiagnosticDestin
 	)
 end
 
+fn new_buffered_with_file_destinations_for_test() -> BufferedJsonLinesConstruction effects [concurrency]
+	observe::new_buffered_json_lines(
+		observe::Resource("checkout", list_nil()),
+		observe::InstrumentationScope("checkout.web", "1"),
+		4,
+		observe::ExporterLimits(8, 64, 2, list_nil()),
+		observe::FileDestination("records.jsonl"),
+		observe::DiagnosticFileDestination("health.jsonl"),
+		"buffered",
+		1,
+	)
+end
+
 fn new_buffered_for_test_with_idle_hook(capacity: Int, diagnostic_destination: DiagnosticDestination, idle: Sender<()>, resume: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
 	observe::new_buffered_json_lines_with_idle_hook_for_test(
 		observe::Resource("svc", list_nil()),
@@ -461,6 +474,37 @@ test buffered_constructor_accepts_positive_capacity_above_backend_channel_limit_
 			end
 		end
 		observe::InvalidCapacity(_) => Err("positive logical buffered capacity above the backend channel limit was rejected")
+	end
+end
+
+test buffered_worker_retains_record_and_diagnostic_destinations_after_construction() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(2)
+	let constructed = handle new_buffered_with_file_destinations_for_test() with observe_test_support_test::exporter(lines.tx, true)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let admitted = handle observe::buffered_export_observation(exporter, buffered_log("configured")) with observe_test_support_test::clock(0)
+			let record: Option<String> = channel::recv(lines.rx)
+			let report = observe::shutdown_buffered(exporter)
+			let diagnostic: Option<String> = channel::recv(lines.rx)
+			match admitted
+				observe::Accepted => match report
+					observe::BufferedShutdownReport(observe::Completed, _, observe::SummaryAccepted) => match record
+						Some(record_line) => match diagnostic
+							Some(diagnostic_line) => if buffered_contains(record_line, "record:file:records.jsonl:") and buffered_contains(diagnostic_line, "diagnostic:file:health.jsonl:")
+								Ok(())
+							else
+								Err("buffered worker changed a configured record or diagnostic destination")
+							end
+							None => Err("buffered worker did not emit its configured diagnostic destination")
+						end
+						None => Err("buffered worker did not emit its configured record destination")
+					end
+					_ => Err("buffered worker did not complete its configured destination shutdown")
+				end
+				_ => Err("buffered worker rejected a record for configured destinations")
+			end
+		end
+		_ => Err("positive buffered capacity was rejected")
 	end
 end
 
