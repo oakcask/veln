@@ -19,9 +19,9 @@ also states it.
 - Generic named-type variance, bounded inference, variance metadata, and
   nested incompatibility diagnostics:
   [generic-and-function-variance.md](generic-and-function-variance.md).
-- Buffered observation destination-failure schedules, concurrent shutdown,
-  interruption, and late host-call completion beyond the implemented handler,
-  span, and normal lifecycle:
+- Buffered observation concurrent shutdown, interruption, and late host-call
+  completion beyond the implemented handler, span, destination-failure, and
+  normal lifecycle:
   [observability.md](observability.md).
 
 ## Design In Progress

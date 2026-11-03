@@ -295,14 +295,18 @@ pub fn new_json_lines_default(resource: Resource, scope: InstrumentationScope, m
 end
 
 pub fn new_buffered_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int) -> BufferedJsonLinesConstruction effects [concurrency]
-	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, NoBufferedIdleHook)
+	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, 0, NoBufferedIdleHook)
 end
 
 fn new_buffered_json_lines_with_idle_hook_for_test(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], idle: Sender<()>, resume: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
-	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, TestBufferedIdleHook(callback, idle, resume))
+	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, 0, TestBufferedIdleHook(callback, idle, resume))
 end
 
-fn start_buffered_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, idle_hook: BufferedIdleHook) -> BufferedJsonLinesConstruction effects [concurrency]
+fn new_buffered_json_lines_with_failed_exports_for_test(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, failed_exports: Int) -> BufferedJsonLinesConstruction effects [concurrency]
+	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, failed_exports, NoBufferedIdleHook)
+end
+
+fn start_buffered_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, failed_exports: Int, idle_hook: BufferedIdleHook) -> BufferedJsonLinesConstruction effects [concurrency]
 	if capacity <= 0
 		InvalidCapacity(capacity)
 	else
@@ -312,7 +316,7 @@ fn start_buffered_json_lines(resource: Resource, scope: InstrumentationScope, me
 			let _ = channel::send(identity_state.tx, 1)
 			let span_allocator = BufferedSpanAllocator(identity_prefix, identity_state)
 			let state = channel::bounded<BufferedExporterState>(1)
-			let _ = channel::send(state.tx, BufferedExporterState(1, 0, 0, 0, 0, 0, list_nil(), false, BufferedOpen))
+			let _ = channel::send(state.tx, BufferedExporterState(1, failed_exports, 0, 0, 0, 0, list_nil(), false, BufferedOpen))
 			let ready = channel::bounded<()>(1)
 			let worker = task::spawn_with<(), { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook }>(run_buffered_export_worker, { state: state, ready: ready.rx, destination: destination, diagnostic_destination: diagnostic_destination, production: production, idle_hook: idle_hook })
 			BufferedJsonLines(BufferedJsonLinesExporter(capacity, resource, scope, normalize_exporter_limits(limits), production, span_allocator, state, ready.tx, worker))

@@ -650,8 +650,14 @@
         else throw new IllegalStateException("expected observation export destination");
         HandlerFrame adapter = findHandler(OBSERVATION_EXPORTER_EFFECT);
         if (adapter != null) {
-            Object result = invokeHandler(adapter, "write", new Object[] { target, asString(line), diagnostic });
-            return (Boolean) result;
+            try {
+                Object result = invokeHandler(adapter, "write", new Object[] { target, asString(line), diagnostic });
+                return (Boolean) result;
+            } catch (TaskCancellationFailure cancelled) {
+                throw cancelled;
+            } catch (RuntimeException error) {
+                return Boolean.FALSE;
+            }
         }
         try {
             if (target.equals("stderr")) {

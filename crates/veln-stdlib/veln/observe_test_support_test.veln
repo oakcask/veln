@@ -19,6 +19,12 @@ pub fn export_lines(capacity: Int) -> { tx : Sender<String>, rx : Receiver<Strin
 	channel::bounded<String>(capacity)
 end
 
+pub type ExportWriteOutcome
+	pub AcceptWrite
+	pub RejectWrite
+	pub FailWrite
+end
+
 pub handler exporter(lines: Sender<String>, accepted: Bool) for host_effects::ObservationExporter effects [concurrency]
 	write(destination, line, diagnostic) => begin
 		let _ = channel::send(lines, string::concat(string::concat(if diagnostic
@@ -29,6 +35,46 @@ pub handler exporter(lines: Sender<String>, accepted: Bool) for host_effects::Ob
 		accepted
 	end
 	identity(kind, sequence) => string::concat(string::concat(string::concat("fixed-", kind), "-"), int_to_string(sequence))
+end
+
+pub handler scheduled_exporter(lines: Sender<String>, outcomes: Receiver<ExportWriteOutcome>) for host_effects::ObservationExporter effects [concurrency]
+	write(destination, line, diagnostic) => begin
+		let _ = channel::send(lines, string::concat(string::concat(if diagnostic
+			"diagnostic:"
+		else
+			"record:"
+		end, destination), string::concat(":", line)))
+		match channel::recv(outcomes)
+			Some(observe_test_support_test::AcceptWrite) => true
+			Some(observe_test_support_test::RejectWrite) => false
+			Some(observe_test_support_test::FailWrite) => fail_export_write(line)
+			None => false
+		end
+	end
+	identity(kind, sequence) => string::concat(string::concat(string::concat("scheduled-", kind), "-"), int_to_string(sequence))
+end
+
+pub handler record_failure_exporter(lines: Sender<String>) for host_effects::ObservationExporter effects [concurrency]
+	write(destination, line, diagnostic) => begin
+		let _ = channel::send(lines, string::concat(string::concat(if diagnostic
+			"diagnostic:"
+		else
+			"record:"
+		end, destination), string::concat(":", line)))
+		match string_split_once(line, "\"message\":\"rejected\"")
+			Some(_) => false
+			None => match string_split_once(line, "\"message\":\"exceptional\"")
+				Some(_) => fail_export_write(line)
+				None => true
+			end
+		end
+	end
+	identity(kind, sequence) => string::concat(string::concat(string::concat("record-failure-", kind), "-"), int_to_string(sequence))
+end
+
+fn fail_export_write(line: String) -> Bool
+	let sequence = 1
+	int_to_string(1 << (sequence + 63)) == line
 end
 
 pub handler exporter_with_empty_identity(lines: Sender<String>, empty_kind: String) for host_effects::ObservationExporter effects [concurrency]
