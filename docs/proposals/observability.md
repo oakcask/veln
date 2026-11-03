@@ -25,7 +25,7 @@ admission API.
 
 The implemented admission order, sequence gaps, cardinality ordering, and
 destination FIFO are specified by
-[standard-library observability](../specification/standard-library-observability.md#direct-buffered-json-lines-export).
+[standard-library observability](../specification/standard-library-observability.md#buffered-json-lines-export).
 The remaining failure work must contain destination rejection and exceptions,
 give each accepted record at most one destination attempt, increment
 `failed_exports` once for each rejected or exceptional attempt, continue with

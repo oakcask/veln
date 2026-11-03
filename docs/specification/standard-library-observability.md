@@ -15,8 +15,9 @@ structured log helpers for four severities, named domain events, counter
 increments, histogram samples, and a configured production metric-cardinality
 policy with bounded health reporting. It provides a synchronous JSON Lines
 handler with configured resource identity, scope identity, attribute limits,
-destinations, and exporter health, plus a direct bounded buffered exporter with
-explicit admission, health inspection, and shutdown operations.
+destinations, and exporter health, plus a bounded buffered exporter with
+an `Observe` handler, direct observation and span admission, health inspection,
+and explicit shutdown operations.
 Programs choose a lexical handler for the effect; the library does not select
 an exporter implicitly.
 
@@ -508,7 +509,7 @@ span representations are accepted as a no-op. Each direct start, finish, or
 observation export uses the same sequence, destination, attribute-limit, and
 failure-health rules as handler-driven export.
 
-### Direct buffered JSON Lines export
+### Buffered JSON Lines export
 
 `new_buffered_json_lines` rejects zero and negative capacity before it starts a
 worker or performs destination I/O. Every positive `Int` is a valid logical
@@ -554,7 +555,7 @@ the exporter policy when queue capacity later rejects its record. Direct
 `buffered_export_observation` continues to leave cardinality decisions to its
 caller.
 
-Every handler or direct span submission that reaches queue admission validates
+Every handler or direct submission that reaches queue admission validates
 before it checks capacity. An invalid submission at capacity therefore returns
 `InvalidRecord`, not `Full`. Both outcomes consume a sequence and increment
 `failed_exports`, but neither commits dropped, truncated, or redacted attribute
