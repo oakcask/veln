@@ -1,4 +1,5 @@
 use super::*;
+use crate::analysis::variant_refinement_rendering::{render_refinement, written_refinement_base};
 
 struct UnsupportedRefinement {
     depth: usize,
@@ -169,44 +170,4 @@ fn variant_refinement_decode_unsupported_diagnostic(
     }
     diagnostic.related.push(JsonValue::object(related));
     diagnostic
-}
-
-fn written_refinement_base(alternative: &veln_ast::VariantRefinementAlternative) -> String {
-    let base = alternative.base.segments.join("::");
-    if alternative.type_arguments.is_empty() {
-        return base;
-    }
-    let arguments = alternative
-        .type_arguments
-        .iter()
-        .map(render_type_argument)
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("{base}<{arguments}>")
-}
-
-fn render_type_argument(argument: &veln_ast::VariantRefinementTypeArgument) -> String {
-    let mut text = String::new();
-    for (index, fragment) in argument.ty_fragments.iter().enumerate() {
-        text.push_str(fragment);
-        if let Some(refinement) = argument.ty_refinements.get(index) {
-            text.push_str(&render_refinement(refinement));
-        }
-    }
-    text
-}
-
-fn render_refinement(refinement: &veln_ast::VariantRefinementType) -> String {
-    refinement
-        .alternatives
-        .iter()
-        .map(|alternative| {
-            format!(
-                "{}::{}",
-                written_refinement_base(alternative),
-                alternative.variant
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(" | ")
 }

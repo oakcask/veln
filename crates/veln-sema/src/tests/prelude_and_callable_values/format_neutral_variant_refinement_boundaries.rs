@@ -43,6 +43,14 @@ fn binary_schema_decoders_reject_refinements_they_cannot_establish() {
         "{diagnostics:#?}"
     );
     assert_eq!(unsupported[2].span.as_ref(), Some(&nested_inner));
+    assert!(
+        unsupported[2]
+            .details
+            .to_json()
+            .contains("\"target_type\":\"State::Ready\""),
+        "{:#?}",
+        unsupported[2]
+    );
     assert_eq!(
         unsupported[1].details.to_json(),
         concat!(
