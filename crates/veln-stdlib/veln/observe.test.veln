@@ -834,6 +834,51 @@ fn buffered_span_retry_lines(first: Option<String>, finish: Option<String>) -> B
 	end
 end
 
+fn handled_rejected_span_retry(release: Sender<()>, idle: Receiver<()>) -> Bool effects [observe::Observe, concurrency]
+	let span = perform observe::Observe::start_span(observe::SpanRequest("handler-retry", None, list_nil()))
+	let allocated = match observe::context(span)
+		Some(_) => true
+		None => false
+	end
+	let _ = channel::send(release, ())
+	let _ = channel::recv(idle)
+	perform observe::Observe::finish_span(observe::finish(span))
+	allocated
+end
+
+test buffered_handler_consumes_rejected_start_and_independently_admits_finish() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(3)
+	let release = channel::bounded<()>(2)
+	let idle = channel::bounded<()>(2)
+	let resume = channel::bounded<()>(2)
+	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::NoDiagnosticDestination, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let first = handle observe::buffered_export_observation(exporter, buffered_log("occupy-handler")) with observe_test_support_test::clock(0)
+			let first_line = channel::recv(lines.rx)
+			let allocated = handle handle handle handled_rejected_span_retry(release.tx, idle.rx) with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
+			let _ = channel::send(resume.tx, ())
+			let finish_line = channel::recv(lines.rx)
+			let _ = channel::send(release.tx, ())
+			let _ = channel::recv(idle.rx)
+			let _ = channel::send(resume.tx, ())
+			let report = observe::shutdown_buffered(exporter)
+			match first
+				observe::Accepted => if allocated and buffered_span_retry_lines(first_line, finish_line)
+					match report
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, _), observe::SummaryDisabled) => Ok(())
+						_ => Err("buffered handler rejection changed finish or shutdown health")
+					end
+				else
+					Err("buffered handler did not preserve the rejected handle or independently admit finish")
+				end
+				_ => Err("handler rejection occupying record was not admitted")
+			end
+		end
+		_ => Err("buffered handler rejection exporter construction failed")
+	end
+end
+
 fn handled_span_emit(name: String, result: Int) -> Int effects [observe::Observe] callsite
 	let span = perform observe::Observe::start_span(observe::SpanRequest(name, None, list_nil()))
 	perform observe::Observe::emit(observe::Log(observe::LogRecord("log", observe::Info, name, list_nil(), observe::context(span), callsite)))
@@ -907,25 +952,85 @@ fn stalled_buffered_admission(context: { exporter : BufferedJsonLinesExporter, e
 	handle observe::buffered_export_observation_with_boundary_hook_for_test(context.exporter, buffered_log("first"), observe_test_support_test::decision_barrier, context.entered, context.release) with observe_test_support_test::clock(0)
 end
 
-fn overlapping_buffered_admission(context: { exporter : BufferedJsonLinesExporter, started : Sender<()> }) -> BufferedAdmissionOutcome effects [time, concurrency]
-	let _ = channel::send(context.started, ())
-	handle observe::buffered_export_observation(context.exporter, buffered_log("second")) with observe_test_support_test::clock(0)
+fn queued_buffered_admission(context: { exporter : BufferedJsonLinesExporter, entered : Sender<()>, release : Receiver<()> }) -> BufferedAdmissionOutcome effects [time, concurrency]
+	handle observe::buffered_export_observation_with_entry_hook_for_test(context.exporter, buffered_log("second"), observe_test_support_test::decision_barrier, context.entered, context.release) with observe_test_support_test::clock(0)
+end
+
+fn stalled_buffered_record_admission(context: { exporter : BufferedJsonLinesExporter, record : Observation, entered : Sender<()>, release : Receiver<()> }) -> BufferedAdmissionOutcome effects [time, concurrency]
+	handle observe::buffered_export_observation_with_boundary_hook_for_test(context.exporter, context.record, observe_test_support_test::decision_barrier, context.entered, context.release) with observe_test_support_test::clock(0)
+end
+
+fn queued_buffered_record_admission(context: { exporter : BufferedJsonLinesExporter, record : Observation, entered : Sender<()>, release : Receiver<()> }) -> BufferedAdmissionOutcome effects [time, concurrency]
+	handle observe::buffered_export_observation_with_entry_hook_for_test(context.exporter, context.record, observe_test_support_test::decision_barrier, context.entered, context.release) with observe_test_support_test::clock(0)
+end
+
+test buffered_concurrent_invalid_and_full_submissions_do_not_commit_transformations() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(2)
+	let destination_release = channel::bounded<()>(1)
+	let idle = channel::bounded<()>(1)
+	let resume = channel::bounded<()>(1)
+	let invalid_entered = channel::bounded<()>(1)
+	let invalid_release = channel::bounded<()>(1)
+	let full_entered = channel::bounded<()>(1)
+	let full_release = channel::bounded<()>(1)
+	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::NoDiagnosticDestination, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, destination_release.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let occupying = handle observe::buffered_export_observation(exporter, buffered_log("occupy")) with observe_test_support_test::clock(0)
+			let _ = channel::recv(lines.rx)
+			let transforming = list_cons(observe::Attribute("secret", observe::StringValue("long-value")), list_nil())
+			let invalid_record = observe::CounterIncrement(observe::CounterIncrementRecord("invalid", 1, transforming, Some(observe::TraceContext("", "span", true)), callsite_location()))
+			let full_record = observe::HistogramSample(observe::HistogramSampleRecord("full", 2, transforming, None, callsite_location()))
+			let invalid = task::spawn_with(stalled_buffered_record_admission, { exporter: exporter, record: invalid_record, entered: invalid_entered.tx, release: invalid_release.rx })
+			let _ = channel::recv(invalid_entered.rx)
+			let full = task::spawn_with(queued_buffered_record_admission, { exporter: exporter, record: full_record, entered: full_entered.tx, release: full_release.rx })
+			let _ = channel::recv(full_entered.rx)
+			let _ = channel::send(invalid_release.tx, ())
+			let invalid_result = task::join(invalid)
+			let _ = channel::send(full_release.tx, ())
+			let full_result = task::join(full)
+			let health = observe::buffered_exporter_health(exporter)
+			let _ = channel::send(destination_release.tx, ())
+			let _ = channel::recv(idle.rx)
+			let _ = channel::send(resume.tx, ())
+			let report = observe::shutdown_buffered(exporter)
+			match occupying
+				observe::Accepted => match invalid_result
+					Ok(observe::InvalidRecord) => match full_result
+						Ok(observe::Full) => match health
+							observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match report
+								observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => Ok(())
+								_ => Err("concurrent invalid and full admissions changed shutdown health")
+							end
+							_ => Err("concurrent invalid and full admissions committed transformation facts")
+						end
+						_ => Err("queued concurrent admission was not rejected at capacity")
+					end
+					_ => Err("stalled concurrent invalid admission changed outcome")
+				end
+				_ => Err("occupying record was not admitted")
+			end
+		end
+		_ => Err("concurrent rejection exporter construction failed")
+	end
 end
 
 test buffered_concurrent_accepted_submissions_reach_destination_in_admission_order() -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(3)
 	let entered = channel::bounded<()>(1)
 	let release = channel::bounded<()>(1)
-	let started = channel::bounded<()>(1)
+	let queued = channel::bounded<()>(1)
+	let admit = channel::bounded<()>(1)
 	let constructed = handle new_buffered_for_test(2, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let first = task::spawn_with(stalled_buffered_admission, { exporter: exporter, entered: entered.tx, release: release.rx })
 			let _ = channel::recv(entered.rx)
-			let second = task::spawn_with(overlapping_buffered_admission, { exporter: exporter, started: started.tx })
-			let _ = channel::recv(started.rx)
+			let second = task::spawn_with(queued_buffered_admission, { exporter: exporter, entered: queued.tx, release: admit.rx })
+			let _ = channel::recv(queued.rx)
 			let _ = channel::send(release.tx, ())
 			let first_result = task::join(first)
+			let _ = channel::send(admit.tx, ())
 			let second_result = task::join(second)
 			let report = observe::shutdown_buffered(exporter)
 			let first_line = channel::recv(lines.rx)
