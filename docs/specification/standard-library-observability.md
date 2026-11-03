@@ -568,6 +568,10 @@ record is invalid or the queue is full. Its `BufferedSpanStart` result reports
 that start admission. Finishing the returned handle makes a new admission
 attempt and can succeed after the start was rejected. The buffered handler
 uses these operations while retaining the `Observe` operation results.
+If trace- or span-identity generation is cancelled or raises a runtime failure
+before allocation commits, the exporter restores the uncommitted identity
+candidate. A later span start can allocate that candidate, and the aborted
+attempt does not change exporter health.
 
 One buffered exporter is shared by child tasks that inherit its active handler.
 Nested handlers restore the outer exporter when the inner scope exits.
@@ -732,6 +736,7 @@ process or machine termination can prevent it from running.
   preservation of package, nested logical module, and package-relative file
   identity.
 - Buffered constructor, direct and handler admission, span start and finish,
+  identity-allocation recovery after cancellation and runtime failure,
   cardinality ordering, sequence gaps, child-task sharing, nested-scope
   restoration, independent state, ordered drain, repeated idle-to-wake stack
   use, enabled accepted final summary, completed-report, and repeated-shutdown
