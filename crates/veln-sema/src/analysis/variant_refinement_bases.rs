@@ -11,6 +11,8 @@ use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation_with_recovery_slots;
 use crate::types::{TypeEnvironment, TypeParameterIdentityContext, VariantRefinementBaseFailure};
 
+use super::variant_refinement_rendering::{render_type_argument, written_refinement_base};
+
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) struct DiagnosticRecordRenderWork {
@@ -2748,44 +2750,4 @@ fn joined_span(spans: &[SourceSpan]) -> SourceSpan {
     let mut span = spans.first().expect("type path has a segment").clone();
     span.end = spans.last().expect("type path has a segment").end;
     span
-}
-
-fn written_refinement_base(alternative: &veln_ast::VariantRefinementAlternative) -> String {
-    let base = alternative.base.segments.join("::");
-    if alternative.type_arguments.is_empty() {
-        return base;
-    }
-    let arguments = alternative
-        .type_arguments
-        .iter()
-        .map(render_type_argument)
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("{base}<{arguments}>")
-}
-
-fn render_type_argument(argument: &veln_ast::VariantRefinementTypeArgument) -> String {
-    let mut text = String::new();
-    for (index, fragment) in argument.ty_fragments.iter().enumerate() {
-        text.push_str(fragment);
-        if let Some(refinement) = argument.ty_refinements.get(index) {
-            text.push_str(&render_refinement(refinement));
-        }
-    }
-    text
-}
-
-fn render_refinement(refinement: &veln_ast::VariantRefinementType) -> String {
-    refinement
-        .alternatives
-        .iter()
-        .map(|alternative| {
-            format!(
-                "{}::{}",
-                written_refinement_base(alternative),
-                alternative.variant
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(" | ")
 }

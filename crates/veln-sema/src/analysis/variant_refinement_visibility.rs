@@ -14,6 +14,8 @@ use crate::semantic_model::Type;
 use crate::type_syntax::{parse_type_annotation, parse_type_annotation_structure};
 use crate::types::TypeEnvironment;
 
+use super::variant_refinement_rendering::{render_refinement_alternative, render_type_argument};
+
 pub(crate) fn check_public_variant_refinement_visibility(
     function: &Function,
     environment: &TypeEnvironment,
@@ -1077,14 +1079,7 @@ fn refinement_candidate(
         .iter()
         .map(render_type_argument)
         .collect::<Vec<_>>();
-    let mut written_type = alternative.base.segments.join("::");
-    if !type_arguments.is_empty() {
-        written_type.push('<');
-        written_type.push_str(&type_arguments.join(", "));
-        written_type.push('>');
-    }
-    written_type.push_str("::");
-    written_type.push_str(&alternative.variant);
+    let written_type = render_refinement_alternative(alternative);
     RefinementExposureCandidate {
         written_base: alternative.base.segments.join("::"),
         type_argument_count: alternative.type_arguments.len(),
@@ -1107,26 +1102,6 @@ fn refinement_candidate(
         has_function_position: false,
         has_record_field: false,
     }
-}
-
-fn render_type_argument(argument: &veln_ast::VariantRefinementTypeArgument) -> String {
-    let mut text = String::new();
-    for (index, fragment) in argument.ty_fragments.iter().enumerate() {
-        text.push_str(fragment);
-        if let Some(refinement) = argument.ty_refinements.get(index) {
-            text.push_str(&render_refinement(refinement));
-        }
-    }
-    text
-}
-
-fn render_refinement(refinement: &veln_ast::VariantRefinementType) -> String {
-    refinement
-        .alternatives
-        .iter()
-        .map(|alternative| refinement_candidate(alternative).written_type)
-        .collect::<Vec<_>>()
-        .join(" | ")
 }
 
 fn annotation_occurrence_text(
