@@ -20,6 +20,10 @@ const hostHealthUrl = new URL(
   "../examples/specification/run/observability-json-lines-host-boundary/case-text/health.jsonl",
   import.meta.url,
 );
+const bufferedRecordsUrl = new URL(
+  "../examples/specification/run/observability-buffered-json-lines-host-boundary/case-text/records.jsonl",
+  import.meta.url,
+);
 
 function parseLosslessJson(text) {
   let transformed = "";
@@ -316,4 +320,22 @@ test("the captured exporter health summary has one closed int64 record and LF", 
   const missing = { ...health };
   delete missing.redacted_attributes;
   assert.throws(() => validate(missing, healthSchema, "health"));
+});
+
+test("the buffered handler host capture satisfies record and health schemas", async () => {
+  const raw = await readFile(bufferedRecordsUrl, "utf8");
+  assert.equal(raw.includes("\r"), false);
+  assert.equal(raw.endsWith("\n"), true);
+  const lines = raw.split("\n");
+  assert.equal(lines.length, 4);
+  assert.equal(lines[3], "");
+
+  const records = lines.slice(0, 2).map((line) => JSON.parse(line));
+  for (const record of records) validate(record, recordSchema);
+  const health = parseLosslessJson(lines[2]);
+  validate(health, healthSchema, "health");
+
+  assert.deepEqual(records.map(({ kind }) => kind), ["log", "event"]);
+  assert.deepEqual(records.map(({ sequence }) => sequence), [1, 2]);
+  assert.deepEqual(records.map(({ name }) => name), ["log", "second"]);
 });

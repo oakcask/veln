@@ -15,8 +15,9 @@ structured log helpers for four severities, named domain events, counter
 increments, histogram samples, and a configured production metric-cardinality
 policy with bounded health reporting. It provides a synchronous JSON Lines
 handler with configured resource identity, scope identity, attribute limits,
-destinations, and exporter health, plus a direct bounded buffered exporter with
-explicit admission, health inspection, and shutdown operations.
+destinations, and exporter health, plus a bounded buffered exporter with
+an `Observe` handler, direct observation and span admission, health inspection,
+and explicit shutdown operations.
 Programs choose a lexical handler for the effect; the library does not select
 an exporter implicitly.
 
@@ -180,16 +181,23 @@ span handle. `observe::finish_export_span` writes a finish record for a span
 returned by `observe::start_export_span`. The `observe::json_lines` handler
 combines these lower-level operations and is the ordinary installation route.
 
-For direct buffered export, call `observe::new_buffered_json_lines` with the
-same resource, scope, metric limit, exporter limits, destinations, and identity
-prefix as the explicit synchronous constructor, followed by a positive record
-capacity. Match `BufferedJsonLines(exporter)` or
+To construct a buffered exporter, call `observe::new_buffered_json_lines` with
+the same resource, scope, metric limit, exporter limits, destinations, and
+identity prefix as the explicit synchronous constructor, followed by a positive
+record capacity. Match `BufferedJsonLines(exporter)` or
 `InvalidCapacity(capacity)`. Submit log, event, counter, and histogram records
 with `observe::buffered_export_observation`, inspect a non-consuming snapshot
 with `observe::buffered_exporter_health`, and call
 `observe::shutdown_buffered` after all producers finish. The buffered exporter
 has no implicit scope-exit shutdown; a program can register the explicit call
 with `defer` when its cleanup path consumes the report.
+Install `observe::buffered_json_lines(exporter)` to route `Observe` operations
+through the same bounded queue. The handler preserves the handled program's
+ordinary results and consumes admission outcomes. Direct span users call
+`observe::buffered_start_export_span`, match
+`BufferedSpanStart(span, admission)`, and later call
+`observe::buffered_finish_export_span(exporter, observe::finish(span))`.
+Start and finish report separate admission outcomes.
 
 Use `traced::spawn(context, body)` to start a child task whose callback needs
 an explicit `observe::TraceContext`. The callback accepts that context as its
@@ -501,7 +509,7 @@ span representations are accepted as a no-op. Each direct start, finish, or
 observation export uses the same sequence, destination, attribute-limit, and
 failure-health rules as handler-driven export.
 
-### Direct buffered JSON Lines export
+### Buffered JSON Lines export
 
 `new_buffered_json_lines` rejects zero and negative capacity before it starts a
 worker or performs destination I/O. Every positive `Int` is a valid logical
@@ -539,6 +547,55 @@ calls return the same report without another record or summary attempt.
 completion. The worker retains the scoped observation-destination provider
 active at construction, even if submission and shutdown occur after that scope
 exits.
+
+The buffered `Observe` handler applies metric-cardinality admission before
+record validation and capacity admission. A cardinality rejection emits no
+record and consumes no sequence. A series admitted by cardinality remains in
+the exporter policy when queue capacity later rejects its record. Direct
+`buffered_export_observation` continues to leave cardinality decisions to its
+caller.
+
+Every handler or direct observation or span submission that reaches open-export
+queue admission participates in one total admission order. A submission that
+completes before another submission begins precedes it in that order.
+Overlapping submissions can take either order. The admission order assigns
+sequence values to accepted and rejected submissions and is the FIFO order for
+destination attempts of accepted submissions.
+
+Queue admission validates before it checks capacity. An invalid submission at
+capacity therefore returns `InvalidRecord`, not `Full`. Both outcomes consume a
+sequence and increment `failed_exports`, but neither commits dropped,
+truncated, or redacted attribute facts. Later accepted records expose the
+resulting sequence gaps. Immediate results that do not reach queue admission
+are outside the admission order. These include cardinality rejection and a
+buffered finish request that does not contain an exporter span.
+
+`buffered_start_export_span` allocates and returns a span even when its start
+record is invalid, the queue is full, or the exporter is closed. Its
+`BufferedSpanStart` result reports that start admission. Finishing the returned
+handle makes a new admission attempt. It can succeed after an invalid or full
+start. It returns `Closed` without changing the frozen exporter state after a
+closed start. Start validation includes the request's link contexts, while the
+finish record contains only the returned span's own identity and source. An
+invalid link can therefore reject the start without invalidating that span's
+context or its later finish. The buffered handler uses these operations while
+retaining the `Observe` operation results.
+`buffered_finish_export_span` immediately returns `InvalidRecord` when its
+`SpanFinish` contains a no-op or recording span. This result performs no
+destination attempt, allocates no sequence, and leaves exporter health
+unchanged. In contrast, the synchronous `finish_export_span` accepts those span
+representations as a no-op.
+If trace- or span-identity generation is cancelled or raises a runtime failure
+before allocation commits, the exporter restores the uncommitted identity
+candidate. A later span start can allocate that candidate, and the aborted
+attempt does not change exporter health.
+
+One buffered exporter is shared by child tasks that inherit its active handler.
+Nested handlers restore the outer exporter when the inner scope exits.
+Separately constructed exporters do not share sequence, span-allocation,
+cardinality, health, or queue state. Each worker retains the scoped host
+observation-exporter adapter active when that exporter was constructed; without
+an adapter, it uses the real configured host destination.
 
 ### Span lifecycle and recording
 
@@ -639,8 +696,7 @@ ambient. Raw task and channel operations remain unchanged.
 ## Limits
 
 Metric query APIs, asynchronous metric callbacks, automatic shutdown flushing,
-and external telemetry-protocol adapters are not available. Buffered
-`Observe` handling, buffered span start and finish, concurrent shutdown,
+and external telemetry-protocol adapters are not available. Concurrent shutdown,
 shutdown interruption, late host-call completion, and configured destination
 failure schedules are not available. The synchronous and buffered exporters
 have no retry or durable-audit guarantee.
@@ -696,15 +752,19 @@ process or machine termination can prevent it from running.
   schema-invalid export rejection, portable hostile-source replacement, and
   preservation of package, nested logical module, and package-relative file
   identity.
-- Direct buffered constructor, capacity, admission, ordered drain, repeated
-  idle-to-wake stack use, enabled accepted final summary, completed-report, and
-  repeated-shutdown coverage is in `observe.test.veln`, with scoped destination
+- Buffered constructor, direct and handler admission, span start and finish,
+  identity-allocation recovery after cancellation and runtime failure,
+  cardinality ordering, sequence gaps, child-task sharing, nested-scope
+  restoration, independent state, ordered drain, repeated idle-to-wake stack
+  use, enabled accepted final summary, completed-report, and repeated-shutdown
+  coverage is in `observe.test.veln`, with scoped destination
   support in
   [`observe_test_support_test.veln`](../../crates/veln-stdlib/veln/observe_test_support_test.veln).
   The
   [`observability-buffered-json-lines-host-boundary`](../../examples/specification/run/observability-buffered-json-lines-host-boundary/)
-  case checks ordered worker drain and the final summary through the real JVM
-  file destination.
+  case checks handler-driven ordered worker drain and the final summary through
+  the real JVM file destination. Its capture is also validated by
+  `observability-schema.test.mjs`.
 - Production index boundary coverage:
   [`effect_boundary_policy.rs`](../../crates/veln-backend-jvm/src/tests/effect_boundary_policy.rs)
   checks bounded indexed state and the absence of owner tasks, while

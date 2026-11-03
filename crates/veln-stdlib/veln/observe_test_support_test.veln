@@ -75,6 +75,23 @@ pub handler controlled_record_exporter(lines: Sender<String>, release: Receiver<
 	identity(kind, sequence) => string::concat(string::concat(string::concat("controlled-", kind), "-"), int_to_string(sequence))
 end
 
+pub handler controlled_identity_exporter(entered: Sender<()>, release: Receiver<()>, controlled_kind: String, fail: Bool) for host_effects::ObservationExporter effects [concurrency]
+	write(destination, line, diagnostic) => true
+	identity(kind, sequence) => if kind == controlled_kind
+		begin
+			let _ = channel::send(entered, ())
+			let _ = channel::recv(release)
+			if fail
+				int_to_string(1 << (sequence + 63))
+			else
+				string::concat(string::concat(string::concat("controlled-", kind), "-"), int_to_string(sequence))
+			end
+		end
+	else
+		string::concat(string::concat(string::concat("controlled-", kind), "-"), int_to_string(sequence))
+	end
+end
+
 pub fn signal_buffered_idle(idle: Sender<()>, resume: Receiver<()>) -> () effects [concurrency]
 	let _ = channel::send(idle, ())
 	let _ = channel::recv(resume)

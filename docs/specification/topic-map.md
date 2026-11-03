@@ -107,8 +107,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
   fan-in parent and link selection, carrier context injection and extraction,
   and call-site-aware structured logs, named domain events, counter increments,
   histogram samples, production metric-cardinality admission, synchronous JSON
-  Lines export, and direct bounded buffered export with explicit shutdown and
-  bounded health reporting:
+  Lines export, and bounded buffered handler and direct observation and span
+  export with explicit shutdown and bounded health reporting:
   [standard-library-observability.md](standard-library-observability.md).
 - JVM execution behavior, values, calls, control flow, schema execution and
   codecs, and host boundaries:

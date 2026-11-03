@@ -99,12 +99,12 @@ contains = "- Package identity: std"
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/02f715df8fb8181d0dc6dfb9f8ae6aec098728681a857a66878b558c58b17968/documentation/f8b266b7ccb0b846ff7f81019436982fa0f55d091fe0b7c4d422f6def28b8336/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+contains = "veln-doc:///package/std/snapshot/5fc83566e4bb120695cdccb9dfad0f39dd4297f79c35dbe4c9264910279bc751/documentation/0745724a8dfdb24bcef516774674be3cdd9ce1e1eecdf2820151e1c0eb0021fa/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
 
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/02f715df8fb8181d0dc6dfb9f8ae6aec098728681a857a66878b558c58b17968/documentation/f8b266b7ccb0b846ff7f81019436982fa0f55d091fe0b7c4d422f6def28b8336/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
+contains = "veln-doc:///package/std/snapshot/5fc83566e4bb120695cdccb9dfad0f39dd4297f79c35dbe4c9264910279bc751/documentation/0745724a8dfdb24bcef516774674be3cdd9ce1e1eecdf2820151e1c0eb0021fa/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
 
 [[mcp_assert]]
 id = 5
@@ -114,17 +114,17 @@ contains = "- Source path: prelude.veln"
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/02f715df8fb8181d0dc6dfb9f8ae6aec098728681a857a66878b558c58b17968/documentation/f8b266b7ccb0b846ff7f81019436982fa0f55d091fe0b7c4d422f6def28b8336/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+contains = "veln-doc:///package/std/snapshot/5fc83566e4bb120695cdccb9dfad0f39dd4297f79c35dbe4c9264910279bc751/documentation/0745724a8dfdb24bcef516774674be3cdd9ce1e1eecdf2820151e1c0eb0021fa/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/02f715df8fb8181d0dc6dfb9f8ae6aec098728681a857a66878b558c58b17968/documentation/f8b266b7ccb0b846ff7f81019436982fa0f55d091fe0b7c4d422f6def28b8336/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
+contains = "veln-doc:///package/std/snapshot/5fc83566e4bb120695cdccb9dfad0f39dd4297f79c35dbe4c9264910279bc751/documentation/0745724a8dfdb24bcef516774674be3cdd9ce1e1eecdf2820151e1c0eb0021fa/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/02f715df8fb8181d0dc6dfb9f8ae6aec098728681a857a66878b558c58b17968/documentation/f8b266b7ccb0b846ff7f81019436982fa0f55d091fe0b7c4d422f6def28b8336/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
+contains = "veln-doc:///package/std/snapshot/5fc83566e4bb120695cdccb9dfad0f39dd4297f79c35dbe4c9264910279bc751/documentation/0745724a8dfdb24bcef516774674be3cdd9ce1e1eecdf2820151e1c0eb0021fa/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
 
 [[mcp_assert]]
 id = 6
@@ -305,7 +305,9 @@ path = "/result/contents/0/text"
 contains = "Write the complete byte chunk through the active IO handler."
 
 # Integration contract: package documentation publishes the public observation
-# handlers and scoped trace helper while keeping opaque Span constructors private.
+# handlers, buffered span and shutdown functions, and scoped trace helper while
+# keeping opaque Span constructors private. The module-index assertions detect
+# omission of the new buffered declarations independently of their API behavior.
 [[mcp_assert]]
 id = 19
 path = "/result/contents/0/text"
@@ -315,6 +317,21 @@ contains = "# Module observe"
 id = 19
 path = "/result/contents/0/text"
 contains = "handler noop() for Observe"
+
+[[mcp_assert]]
+id = 19
+path = "/result/contents/0/text"
+contains = "handler buffered_json_lines(exporter: BufferedJsonLinesExporter) for Observe effects [time, concurrency]"
+
+[[mcp_assert]]
+id = 19
+path = "/result/contents/0/text"
+contains = "fn buffered_start_export_span(exporter: BufferedJsonLinesExporter, request: SpanRequest) -> BufferedSpanStart effects [time, concurrency]"
+
+[[mcp_assert]]
+id = 19
+path = "/result/contents/0/text"
+contains = "fn shutdown_buffered(exporter: BufferedJsonLinesExporter) -> BufferedShutdownReport effects [concurrency]"
 
 [[mcp_assert]]
 id = 20
