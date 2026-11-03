@@ -14,7 +14,7 @@ use crate::semantic_model::Type;
 use crate::type_syntax::{parse_type_annotation, parse_type_annotation_structure};
 use crate::types::TypeEnvironment;
 
-use super::variant_refinement_rendering::{render_refinement_alternative, render_type_argument};
+use crate::variant_refinement_rendering::{render_refinement_alternative, render_type_argument};
 
 pub(crate) fn check_public_variant_refinement_visibility(
     function: &Function,

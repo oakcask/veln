@@ -11,7 +11,7 @@ use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation_with_recovery_slots;
 use crate::types::{TypeEnvironment, TypeParameterIdentityContext, VariantRefinementBaseFailure};
 
-use super::variant_refinement_rendering::{render_type_argument, written_refinement_base};
+use crate::variant_refinement_rendering::{render_type_argument, written_refinement_base};
 
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]

@@ -1,5 +1,6 @@
 use super::*;
 use crate::semantic_model::Type;
+use crate::variant_refinement_rendering::{render_refinement, render_type_argument};
 
 type SuppressedQualifiedPathLocations = HashMap<String, HashSet<(usize, usize, usize)>>;
 
@@ -479,7 +480,7 @@ fn variant_refinement_is_valid(
     environment: &TypeEnvironment,
     type_parameters: &[String],
 ) -> bool {
-    let text = render_variant_refinement(refinement);
+    let text = render_refinement(refinement);
     record_variant_refinement_classification_work(text.len());
     crate::type_syntax::parse_type_annotation(&text)
         .ok()
@@ -489,63 +490,18 @@ fn variant_refinement_is_valid(
                 .is_none()
                 && refinement.alternatives.iter().all(|alternative| {
                     alternative.type_arguments.iter().all(|argument| {
-                        crate::type_syntax::parse_type_annotation(
-                            &render_variant_refinement_type_argument(argument),
-                        )
-                        .ok()
-                        .is_some_and(|argument| {
-                            environment.type_annotation_is_fully_resolved(
-                                &argument,
-                                current_module,
-                                type_parameters,
-                            )
-                        })
+                        crate::type_syntax::parse_type_annotation(&render_type_argument(argument))
+                            .ok()
+                            .is_some_and(|argument| {
+                                environment.type_annotation_is_fully_resolved(
+                                    &argument,
+                                    current_module,
+                                    type_parameters,
+                                )
+                            })
                     })
                 })
         })
-}
-
-fn render_variant_refinement(refinement: &veln_ast::VariantRefinementType) -> String {
-    refinement
-        .alternatives
-        .iter()
-        .map(render_variant_refinement_alternative)
-        .collect::<Vec<_>>()
-        .join(" | ")
-}
-
-fn render_variant_refinement_alternative(
-    alternative: &veln_ast::VariantRefinementAlternative,
-) -> String {
-    let mut text = alternative.base.segments.join("::");
-    if !alternative.type_arguments.is_empty() {
-        text.push('<');
-        text.push_str(
-            &alternative
-                .type_arguments
-                .iter()
-                .map(render_variant_refinement_type_argument)
-                .collect::<Vec<_>>()
-                .join(", "),
-        );
-        text.push('>');
-    }
-    text.push_str("::");
-    text.push_str(&alternative.variant);
-    text
-}
-
-fn render_variant_refinement_type_argument(
-    argument: &veln_ast::VariantRefinementTypeArgument,
-) -> String {
-    let mut text = String::new();
-    for (index, fragment) in argument.ty_fragments.iter().enumerate() {
-        text.push_str(fragment);
-        if let Some(refinement) = argument.ty_refinements.get(index) {
-            text.push_str(&render_variant_refinement(refinement));
-        }
-    }
-    text
 }
 
 fn push_variant_refinement_path_segments(
