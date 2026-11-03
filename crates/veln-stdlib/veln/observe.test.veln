@@ -387,6 +387,22 @@ fn new_buffered_for_test_with_idle_hook(capacity: Int, diagnostic_destination: D
 	)
 end
 
+fn new_buffered_matrix_for_test(idle: Sender<()>, resume: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+	observe::new_buffered_json_lines_with_idle_hook_for_test(
+		observe::Resource("matrix", list_nil()),
+		observe::InstrumentationScope("scope", "1"),
+		2,
+		observe::ExporterLimits(0, 2, 1, list_cons("secret", list_nil())),
+		observe::StandardError,
+		observe::NoDiagnosticDestination,
+		"matrix",
+		1,
+		observe_test_support_test::signal_buffered_idle,
+		idle,
+		resume,
+	)
+end
+
 fn buffered_log(message: String) -> Observation callsite
 	observe::Log(observe::LogRecord("log", observe::Info, message, list_nil(), None, callsite))
 end
@@ -699,6 +715,246 @@ end
 fn buffered_contains(text: String, fragment: String) -> Bool
 	match string_split_once(text, fragment)
 		Some(_) => true
+		None => false
+	end
+end
+
+fn handled_emit(record: Observation, result: Int) -> Int effects [observe::Observe]
+	perform observe::Observe::emit(record)
+	result
+end
+
+test buffered_handler_orders_cardinality_validation_capacity_and_sequence_gaps() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(3)
+	let release = channel::bounded<()>(2)
+	let idle = channel::bounded<()>(2)
+	let resume = channel::bounded<()>(2)
+	let constructed = handle new_buffered_matrix_for_test(idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let first_result = handle handle handled_emit(buffered_log("first"), 11) with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0)
+			let first_line = channel::recv(lines.rx)
+			let transforming = list_cons(observe::Attribute("secret", observe::StringValue("long-value")), list_nil())
+			let invalid = observe::CounterIncrement(observe::CounterIncrementRecord("invalid", 1, transforming, Some(observe::TraceContext("", "span", true)), callsite_location()))
+			let invalid_result = handle handle handled_emit(invalid, 12) with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0)
+			let full = observe::HistogramSample(observe::HistogramSampleRecord("full", 2, transforming, None, callsite_location()))
+			let full_result = handle handle handled_emit(full, 13) with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0)
+			let rejected = observe::CounterIncrement(observe::CounterIncrementRecord("rejected", 3, list_nil(), None, callsite_location()))
+			let rejected_result = handle handle handled_emit(rejected, 14) with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0)
+			let before_release = observe::buffered_exporter_health(exporter)
+			let _ = channel::send(release.tx, ())
+			let _ = channel::recv(idle.rx)
+			let last_result = handle handle handled_emit(buffered_log("last"), 15) with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0)
+			let _ = channel::send(resume.tx, ())
+			let last_line = channel::recv(lines.rx)
+			let _ = channel::send(release.tx, ())
+			let _ = channel::recv(idle.rx)
+			let _ = channel::send(resume.tx, ())
+			let report = observe::shutdown_buffered(exporter)
+			if first_result == 11 and invalid_result == 12 and full_result == 13 and rejected_result == 14 and last_result == 15 and buffered_sequence_gap(first_line, last_line)
+				match before_release
+					observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(2, 2, 1)) => match report
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(2, 2, 1)), observe::SummaryDisabled) => Ok(())
+						_ => Err("buffered matrix shutdown changed retained admission facts")
+					end
+					_ => Err("buffered handler changed validation, capacity, transformation, or cardinality ordering")
+				end
+			else
+				Err("buffered handler changed a body result or accepted sequence gaps")
+			end
+		end
+		_ => Err("buffered matrix exporter construction failed")
+	end
+end
+
+fn buffered_sequence_gap(first: Option<String>, last: Option<String>) -> Bool
+	match first
+		Some(first_line) => match last
+			Some(last_line) => buffered_contains(first_line, "\"sequence\":1,") and buffered_contains(last_line, "\"sequence\":4,") and buffered_contains(last_line, "\"message\":\"last\"")
+			None => false
+		end
+		None => false
+	end
+end
+
+test buffered_rejected_span_start_returns_handle_and_finish_retries_admission() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(3)
+	let release = channel::bounded<()>(2)
+	let idle = channel::bounded<()>(2)
+	let resume = channel::bounded<()>(2)
+	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::NoDiagnosticDestination, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let first = handle observe::buffered_export_observation(exporter, buffered_log("occupy")) with observe_test_support_test::clock(0)
+			let first_line = channel::recv(lines.rx)
+			let started = handle handle observe::buffered_start_export_span(exporter, observe::SpanRequest("retry", None, list_nil())) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
+			match started
+				observe::BufferedSpanStart(span, observe::Full) => match observe::context(span)
+					Some(_) => begin
+						let _ = channel::send(release.tx, ())
+						let _ = channel::recv(idle.rx)
+						let finish = handle observe::buffered_finish_export_span(exporter, observe::finish(span)) with observe_test_support_test::clock(0)
+						let _ = channel::send(resume.tx, ())
+						let finish_line = channel::recv(lines.rx)
+						let _ = channel::send(release.tx, ())
+						let _ = channel::recv(idle.rx)
+						let _ = channel::send(resume.tx, ())
+						let report = observe::shutdown_buffered(exporter)
+						match first
+							observe::Accepted => match finish
+								observe::Accepted => if buffered_span_retry_lines(first_line, finish_line)
+									match report
+										observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, _), observe::SummaryDisabled) => Ok(())
+										_ => Err("rejected span start changed finish or shutdown health")
+									end
+								else
+									Err("span finish did not preserve the rejected-start sequence gap")
+								end
+								_ => Err("span finish did not make an independent admission attempt")
+							end
+							_ => Err("occupying record was not admitted")
+						end
+					end
+					None => Err("rejected span start did not return its allocated handle")
+				end
+				_ => Err("span start at capacity did not return its handle with Full")
+			end
+		end
+		_ => Err("buffered span exporter construction failed")
+	end
+end
+
+fn buffered_span_retry_lines(first: Option<String>, finish: Option<String>) -> Bool
+	match first
+		Some(first_line) => match finish
+			Some(finish_line) => buffered_contains(first_line, "\"sequence\":1,") and buffered_contains(finish_line, "\"sequence\":3,") and buffered_contains(finish_line, "\"kind\":\"span_finish\"")
+			None => false
+		end
+		None => false
+	end
+end
+
+fn handled_span_emit(name: String, result: Int) -> Int effects [observe::Observe] callsite
+	let span = perform observe::Observe::start_span(observe::SpanRequest(name, None, list_nil()))
+	perform observe::Observe::emit(observe::Log(observe::LogRecord("log", observe::Info, name, list_nil(), observe::context(span), callsite)))
+	perform observe::Observe::finish_span(observe::finish(span))
+	result
+end
+
+fn child_handled_span(name: String) -> Int effects [observe::Observe]
+	handled_span_emit(name, 23)
+end
+
+test buffered_handler_is_shared_with_children_restored_after_nesting_and_state_is_independent() -> Result<(), String> effects [time, concurrency]
+	let outer_lines = observe_test_support_test::export_lines(8)
+	let inner_lines = observe_test_support_test::export_lines(4)
+	let outer_constructed = handle new_buffered_for_test(8, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(outer_lines.tx, true)
+	let inner_constructed = handle new_buffered_for_test(4, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(inner_lines.tx, true)
+	match outer_constructed
+		observe::BufferedJsonLines(outer) => match inner_constructed
+			observe::BufferedJsonLines(inner) => begin
+				let outcomes = handle handle handle begin
+					let child = task::spawn_with(child_handled_span, "child")
+					let parent = handled_span_emit("parent", 29)
+					let joined = task::join(child)
+					let nested = handle handle handled_span_emit("inner", 31) with observe::buffered_json_lines(inner) with observe_test_support_test::exporter(inner_lines.tx, true)
+					let restored = handled_emit(buffered_log("restored"), 37)
+					{ parent: parent, joined: joined, nested: nested, restored: restored }
+				end with observe::buffered_json_lines(outer) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(outer_lines.tx, true)
+				let outer_report = observe::shutdown_buffered(outer)
+				let inner_report = observe::shutdown_buffered(inner)
+				match outcomes.joined
+					Ok(child_result) => if outcomes.parent == 29 and child_result == 23 and outcomes.nested == 31 and outcomes.restored == 37 and buffered_lines_have_sequences(outer_lines.rx, 1, 7) and buffered_lines_have_sequences(inner_lines.rx, 1, 3)
+						match outer_report
+							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => match inner_report
+								observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => Ok(())
+								_ => Err("independent nested buffered exporter changed its own health")
+							end
+							_ => Err("child-shared outer buffered exporter changed its health")
+						end
+					else
+						Err("buffered handler scope did not preserve results, child sharing, restoration, or independent sequence state")
+					end
+					Err(_) => Err("child using the inherited buffered handler did not complete")
+				end
+			end
+			_ => Err("inner buffered exporter construction failed")
+		end
+		_ => Err("outer buffered exporter construction failed")
+	end
+end
+
+fn buffered_lines_have_sequences(lines: Receiver<String>, expected: Int, last: Int) -> Bool effects [concurrency]
+	if expected > last
+		true
+	else
+		match channel::recv(lines)
+			Some(line) => if buffered_contains(line, string::concat(string::concat("\"sequence\":", int_to_string(expected)), ",")) and if expected == 1
+				buffered_contains(line, "\"span_id\":\"fixed-span-1\"")
+			else
+				true
+			end
+				buffered_lines_have_sequences(lines, expected + 1, last)
+			else
+				false
+			end
+			None => false
+		end
+	end
+end
+
+fn stalled_buffered_admission(context: { exporter : BufferedJsonLinesExporter, entered : Sender<()>, release : Receiver<()> }) -> BufferedAdmissionOutcome effects [time, concurrency]
+	handle observe::buffered_export_observation_with_boundary_hook_for_test(context.exporter, buffered_log("first"), observe_test_support_test::decision_barrier, context.entered, context.release) with observe_test_support_test::clock(0)
+end
+
+fn overlapping_buffered_admission(context: { exporter : BufferedJsonLinesExporter, started : Sender<()> }) -> BufferedAdmissionOutcome effects [time, concurrency]
+	let _ = channel::send(context.started, ())
+	handle observe::buffered_export_observation(context.exporter, buffered_log("second")) with observe_test_support_test::clock(0)
+end
+
+test buffered_concurrent_accepted_submissions_reach_destination_in_admission_order() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(3)
+	let entered = channel::bounded<()>(1)
+	let release = channel::bounded<()>(1)
+	let started = channel::bounded<()>(1)
+	let constructed = handle new_buffered_for_test(2, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(lines.tx, true)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let first = task::spawn_with(stalled_buffered_admission, { exporter: exporter, entered: entered.tx, release: release.rx })
+			let _ = channel::recv(entered.rx)
+			let second = task::spawn_with(overlapping_buffered_admission, { exporter: exporter, started: started.tx })
+			let _ = channel::recv(started.rx)
+			let _ = channel::send(release.tx, ())
+			let first_result = task::join(first)
+			let second_result = task::join(second)
+			let report = observe::shutdown_buffered(exporter)
+			let first_line = channel::recv(lines.rx)
+			let second_line = channel::recv(lines.rx)
+			match first_result
+				Ok(observe::Accepted) => match second_result
+					Ok(observe::Accepted) => if buffered_concurrent_fifo(first_line, second_line)
+						match report
+							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, _), observe::SummaryDisabled) => Ok(())
+							_ => Err("concurrent accepted buffered submissions changed shutdown health")
+						end
+					else
+						Err("concurrent accepted buffered submissions did not preserve admission FIFO")
+					end
+					_ => Err("overlapping buffered submission was not accepted")
+				end
+				_ => Err("stalled buffered submission was not accepted")
+			end
+		end
+		_ => Err("concurrent buffered exporter construction failed")
+	end
+end
+
+fn buffered_concurrent_fifo(first: Option<String>, second: Option<String>) -> Bool
+	match first
+		Some(first_line) => match second
+			Some(second_line) => buffered_contains(first_line, "\"sequence\":1,") and buffered_contains(first_line, "\"message\":\"first\"") and buffered_contains(second_line, "\"sequence\":2,") and buffered_contains(second_line, "\"message\":\"second\"")
+			None => false
+		end
 		None => false
 	end
 end

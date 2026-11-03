@@ -1,28 +1,32 @@
 use observe from "std"
 use clock
 
-# This case checks the real JVM buffered observation-exporter boundary.
-# Companion tests own API and capacity permutations. No observation exporter
-# handler is installed here, so the worker retains the production provider and
-# normal shutdown must flush records before the final summary and clean up.
+# This case checks the real JVM buffered observation-exporter boundary through
+# the public Observe handler. Companion tests own API and capacity permutations.
+# No host observation-exporter handler is installed here, so the worker retains
+# the production provider and normal shutdown must flush records before the
+# final summary and clean up.
 pub fn main() -> () effects [stdio, time, concurrency]
 	match configured()
 		observe::BufferedJsonLines(exporter) => begin
-			let first = handle observe::buffered_export_observation(exporter, observe::Log(observe::LogRecord("log", observe::Info, "first", list_nil(), None, source()))) with clock::fixed()
-			let second = handle observe::buffered_export_observation(exporter, observe::Event(observe::EventRecord("second", list_nil(), None, source()))) with clock::fixed()
-			match first
-				observe::Accepted => match second
-					observe::Accepted => match observe::shutdown_buffered(exporter)
-						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => stdio::println("buffered-worker-shutdown-complete")
-						_ => stdio::println("buffered-shutdown-failed")
-					end
-					_ => stdio::println("buffered-second-admission-failed")
+			let result = handle handle emit_records() with observe::buffered_json_lines(exporter) with clock::fixed()
+			match observe::shutdown_buffered(exporter)
+				observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => if result == 2
+					stdio::println("buffered-worker-shutdown-complete")
+				else
+					stdio::println("buffered-handler-result-changed")
 				end
-				_ => stdio::println("buffered-first-admission-failed")
+				_ => stdio::println("buffered-shutdown-failed")
 			end
 		end
 		observe::InvalidCapacity(_) => stdio::println("buffered-construction-failed")
 	end
+end
+
+fn emit_records() -> Int effects [observe::Observe]
+	perform observe::Observe::emit(observe::Log(observe::LogRecord("log", observe::Info, "first", list_nil(), None, source())))
+	perform observe::Observe::emit(observe::Event(observe::EventRecord("second", list_nil(), None, source())))
+	2
 end
 
 fn source() -> SourceLocation
