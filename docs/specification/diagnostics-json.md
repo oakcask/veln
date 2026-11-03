@@ -946,16 +946,17 @@ cover singleton, union, nested selection, the closed details, and provenance.
 A valid constructor arm for a stable match scrutinee refines the matched place
 to the constructor singleton while checking the arm. A stable scrutinee is an
 immutable binding written as a bare name or with redundant parentheses, or a
-record-field path whose base ultimately resolves to an immutable parameter or
-local binding. A qualified, multi-segment reference to an available module
-immutable value is also stable. Direct and explicit-import-alias paths share
-one place when they select the same package-aware declaration. A binding and
-its transparent local aliases share one place. A local initialized only from a
-qualified module immutable value shares that declaration's place, and the
-relation remains transitive. A field path also shares its
-place with repeated access through transparent aliases of the same resolved
-root. A different declaration, root, or field sequence does not share that
-refinement.
+record-field path whose base ultimately resolves to an immutable parameter,
+local binding, or available qualified module immutable value. Every step in a
+stable field path is an ordinary record-field access. A qualified,
+multi-segment reference to an available module immutable value is also stable.
+Direct and explicit-import-alias paths share one place when they select the
+same package-aware declaration. A binding and its transparent local aliases
+share one place. A local initialized only from a qualified module immutable
+value shares that declaration's place, and the relation remains transitive. A
+field path also shares its place with repeated access through transparent
+aliases of the same resolved root. A different declaration, owner package,
+root, or field sequence does not share that refinement.
 
 A transparent-alias group uses the feasible domain established by all valid
 facts for its one immutable value. A wider annotation on one member does not
@@ -965,9 +966,13 @@ residual set. A binding catch-all identifies the complete matched value, so a
 nested match through that binding refines the original place and its aliases.
 Passing any participating binding or field path to a parameter that requires
 its arm refinement emits no `type.variant_mismatch`. A repeated qualified
-reference or rooted local for the selected module-value declaration has the
-same arm refinement. Matching either form refines both. Leaving an arm restores
-the prior type of the binding, field path, or module-value declaration.
+reference, an ordinary record-field path rooted at that reference, or a rooted
+local for the selected module-value declaration has the same arm refinement.
+Direct and import-alias-qualified field paths share that refinement only when
+they select the same package-aware declaration and field sequence. Equal path
+spellings selected from different owner packages remain independent. Matching
+any shared form refines the others. Leaving an arm restores the prior type of
+the binding, field path, or module-value declaration.
 
 A valid same-ADT constructor excluded by the original refined domain reports
 `type.match_impossible_variant` at the constructor's final name segment. Its
@@ -984,8 +989,14 @@ The qualified module-value
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-qualified-module-value-json/)
 cases cover direct and import-alias identity sharing, bidirectional transitive
-local aliases, widening, nested restoration, impossible and redundant arm
-classification, and the computed-call boundary.
+local aliases, module-rooted nested field paths, widening, nested restoration,
+impossible and redundant arm classification, and computed-expression
+boundaries. The module-field package-identity
+[`human`](../../examples/specification/check/adt-variant-refinement-module-field-package-identity-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-module-field-package-identity-json/)
+cases cover independent diagnostics for equal module, value, and field
+spellings selected from different owner packages.
 
 A valid constructor or catch-all with no residual variant reports
 `type.match_redundant_arm` at the complete arm pattern. Its closed details are

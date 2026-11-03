@@ -6,8 +6,14 @@ end
 
 pub let current: State = Ready
 pub let limited: State::Ready | State::Closed = Ready
+pub let snapshot: {session: {state: State::Ready | State::Closed}} = {session: {state: Ready}}
+pub let other_snapshot: {session: {state: State::Closed}} = {session: {state: Closed}}
 let private_current: State = Ready
 
 pub fn read() -> State
 	Ready
+end
+
+pub fn read_snapshot() -> {session: {state: State}}
+	{session: {state: Ready}}
 end

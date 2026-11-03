@@ -1,7 +1,7 @@
 # Compiler integration contract: JSON diagnostics preserve qualified module
-# value identity refinement, transitive local aliases, companion-private
-# availability, arm-local restoration, finite coverage, and the inaccessible
-# and qualified-call boundaries.
+# value identity refinement, compatible annotated and transitive local aliases,
+# companion-private availability, arm-local restoration, finite coverage, and
+# the inaccessible and qualified-call boundaries.
 command = ["check", "--json", "app.veln", "a/b.veln", "a/b.test.veln", "broken.test.veln"]
 exit = 1
 
@@ -18,7 +18,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 10
+equals = 16
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -66,20 +66,80 @@ equals = "type.variant_mismatch"
 
 [[json_assert]]
 path = "diagnostics.8.id"
-equals = "name.unresolved"
+equals = "type.match_impossible_variant"
 
 [[json_assert]]
-path = "diagnostics.8.message"
-equals = "unresolved value `wire::private_current`"
+path = "diagnostics.8.span.start.line"
+equals = 87
 
 [[json_assert]]
-path = "diagnostics.8.span.file"
-equals = "app.veln"
+path = "diagnostics.8.details.scrutinee_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.8.details.arm_variant"
+equals = "Failed"
 
 [[json_assert]]
 path = "diagnostics.9.id"
+equals = "type.match_redundant_arm"
+
+[[json_assert]]
+path = "diagnostics.9.span.start.line"
+equals = 99
+
+[[json_assert]]
+path = "diagnostics.9.details.reason"
+equals = "duplicate_variant"
+
+[[json_assert]]
+path = "diagnostics.10.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.10.details.actual_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.11.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.11.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.12.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.12.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.13.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.13.details.actual_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.14.id"
 equals = "name.unresolved"
 
 [[json_assert]]
-path = "diagnostics.9.message"
+path = "diagnostics.14.message"
+equals = "unresolved value `wire::private_current`"
+
+[[json_assert]]
+path = "diagnostics.14.span.file"
+equals = "app.veln"
+
+[[json_assert]]
+path = "diagnostics.15.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.15.message"
 equals = "unresolved value `broken::private_current`"

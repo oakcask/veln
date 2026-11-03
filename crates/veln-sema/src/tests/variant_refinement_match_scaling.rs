@@ -637,6 +637,10 @@ fn nested_field_path(root: &str, depth: usize) -> String {
     path
 }
 
+fn nested_record_value(depth: usize) -> String {
+    (0..depth).fold("Ready".to_string(), |value, _| format!("{{next: {value}}}"))
+}
+
 fn stable_field_path_scaling_source(
     depth: usize,
     repeated_expressions: usize,
@@ -736,6 +740,34 @@ fn qualified_module_value_scaling_source(repeated_expressions: usize) -> String 
         ));
     }
     source.push_str("      ()\n    end\n    Closed => ()\n  end\nend\n");
+    source
+}
+
+fn qualified_module_value_field_scaling_source(
+    depth: usize,
+    repeated_expressions: usize,
+) -> String {
+    let ty = nested_record_type(depth);
+    let value = nested_record_value(depth);
+    let path = nested_field_path("values::snapshot", depth);
+    let mut source = String::from(concat!(
+        "mod values\n",
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n",
+        "fn accept_ready(value: State::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+    source.push_str(&format!("let snapshot: {ty} = {value}\n"));
+    source.push_str(&format!(
+        "fn inspect() -> ()\n  match {path}\n    Ready => begin\n"
+    ));
+    for _ in 0..repeated_expressions {
+        source.push_str(&format!("      accept_ready({path})\n"));
+    }
+    source.push_str("    end\n    Closed => ()\n  end\nend\n");
     source
 }
 
@@ -878,6 +910,51 @@ fn qualified_module_value_root_work_scales_with_references() {
     }
     for adjacent in measured.windows(2) {
         assert!(adjacent[1].key_lookups <= adjacent[0].key_lookups * 2);
+    }
+}
+
+#[test]
+fn qualified_module_value_field_work_scales_linearly_by_depth_and_repetition() {
+    let by_depth = [32, 64, 128].map(|depth| {
+        measure_stable_place_work(
+            qualified_module_value_field_scaling_source(depth, 16),
+            false,
+        )
+    });
+    for (index, depth) in [32, 64, 128].into_iter().enumerate() {
+        assert_eq!(by_depth[index].roots_created, 1, "{by_depth:?}");
+        assert_eq!(by_depth[index].keys_created, depth, "{by_depth:?}");
+        assert_eq!(by_depth[index].peak_retained_keys, depth, "{by_depth:?}");
+        assert_eq!(
+            by_depth[index].feasible_type_clone_nodes,
+            depth + 1,
+            "{by_depth:?}"
+        );
+        assert_eq!(
+            by_depth[index].segments_discovered,
+            depth * 17,
+            "{by_depth:?}"
+        );
+    }
+    for adjacent in by_depth.windows(2) {
+        assert!(adjacent[1].key_lookups <= adjacent[0].key_lookups * 2 + 2);
+        assert!(adjacent[1].segments_discovered <= adjacent[0].segments_discovered * 2 + 2);
+        assert!(
+            adjacent[1].feasible_type_clone_nodes <= adjacent[0].feasible_type_clone_nodes * 2,
+            "feasible place-state type cloning must grow linearly: {by_depth:?}"
+        );
+    }
+
+    let by_repetition = [8, 16, 32].map(|count| {
+        measure_stable_place_work(
+            qualified_module_value_field_scaling_source(64, count),
+            false,
+        )
+    });
+    assert!(by_repetition.iter().all(|work| work.keys_created == 64));
+    for adjacent in by_repetition.windows(2) {
+        assert!(adjacent[1].key_lookups <= adjacent[0].key_lookups * 2 + 2);
+        assert!(adjacent[1].segments_discovered <= adjacent[0].segments_discovered * 2 + 64);
     }
 }
 

@@ -1,0 +1,1 @@
+pub let snapshot: {state: Option<Int>} = {state: Some(1)}
