@@ -448,7 +448,7 @@ missing = true
 [[mcp_assert]]
 id = 21
 path = "/result/contents/0/uri"
-equals = "veln-pkg:///std/snapshot/f2f609d5f61077aefbd316a0f36ed43c87b4b1758365c0590c3f00f8d59fea12/bytes.veln"
+equals = "veln-pkg:///std/snapshot/c780917c70ffaefb74175a1de713b36ce1ca95e46a4903b73498ac92c4c19393/bytes.veln"
 
 [[mcp_assert]]
 id = 21
@@ -463,7 +463,7 @@ contains = "type ByteView"
 [[mcp_assert]]
 id = 22
 path = "/result/contents/0/uri"
-equals = "veln-pkg:///std/snapshot/f2f609d5f61077aefbd316a0f36ed43c87b4b1758365c0590c3f00f8d59fea12/prelude.veln"
+equals = "veln-pkg:///std/snapshot/c780917c70ffaefb74175a1de713b36ce1ca95e46a4903b73498ac92c4c19393/prelude.veln"
 
 [[mcp_assert]]
 id = 22
