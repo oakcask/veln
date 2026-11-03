@@ -181,10 +181,10 @@ span handle. `observe::finish_export_span` writes a finish record for a span
 returned by `observe::start_export_span`. The `observe::json_lines` handler
 combines these lower-level operations and is the ordinary installation route.
 
-For direct buffered export, call `observe::new_buffered_json_lines` with the
-same resource, scope, metric limit, exporter limits, destinations, and identity
-prefix as the explicit synchronous constructor, followed by a positive record
-capacity. Match `BufferedJsonLines(exporter)` or
+To construct a buffered exporter, call `observe::new_buffered_json_lines` with
+the same resource, scope, metric limit, exporter limits, destinations, and
+identity prefix as the explicit synchronous constructor, followed by a positive
+record capacity. Match `BufferedJsonLines(exporter)` or
 `InvalidCapacity(capacity)`. Submit log, event, counter, and histogram records
 with `observe::buffered_export_observation`, inspect a non-consuming snapshot
 with `observe::buffered_exporter_health`, and call

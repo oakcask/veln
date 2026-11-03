@@ -15,11 +15,11 @@ evidence for current behavior.
 ## Purpose and API Boundary
 
 The implemented API admits handler and direct observation and span records,
-reports health, drains on normal shutdown, writes the final diagnostic summary,
-and freezes its completed report. No buffered default capacity, unbounded mode,
-or public manual-summary operation is planned. The remaining work changes
-destination-failure and shutdown behavior without adding another public
-admission API.
+reports health, drains on normal shutdown, writes the final diagnostic summary
+when an enabled destination accepts it, and freezes its completed report. No
+buffered default capacity, unbounded mode, or public manual-summary operation is
+planned. The remaining work changes destination-failure and shutdown behavior
+without adding another public admission API.
 
 ## Admission and Record Ordering
 
