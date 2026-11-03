@@ -782,6 +782,10 @@ fn allocate_buffered_span(allocator: BufferedSpanAllocator, request: SpanRequest
 	match allocator
 		BufferedSpanAllocator(identity_prefix, state) => match channel::recv(state.rx)
 			Some(next_identity) => begin
+				let committed = channel::bounded<()>(1)
+				defer
+					restore_uncommitted_buffered_span_allocator_state(state.tx, next_identity, committed.rx)
+				end
 				let parent = request_parent(request)
 				let trace_id = match parent
 					Some(TraceContext(parent_trace, _, _)) => parent_trace
@@ -796,10 +800,26 @@ fn allocate_buffered_span(allocator: BufferedSpanAllocator, request: SpanRequest
 					None => true
 				end
 				let span_id = prelude_builtin::observation_export_identity(identity_prefix, "span", next_identity)
-				let _ = channel::send(state.tx, bounded_increment(next_identity))
+				commit_buffered_span_allocator_state(state.tx, bounded_increment(next_identity), committed.tx)
 				ExportSpan(request_name(request), trace_id, span_id, parent_span_id, sampled, request_source(request))
 			end
 			None => NoopSpan(request)
+		end
+	end
+end
+
+fn commit_buffered_span_allocator_state(state: Sender<Int>, next: Int, committed: Sender<()>) -> () effects [concurrency]
+	let _ = channel::send(committed, ())
+	let _ = channel::send(state, next)
+	()
+end
+
+fn restore_uncommitted_buffered_span_allocator_state(state: Sender<Int>, original: Int, committed: Receiver<()>) -> () effects [concurrency]
+	match channel::select_many_timeout(list_cons(committed, list_nil()), 0)
+		Some(_) => ()
+		None => begin
+			let _ = channel::send(state, original)
+			()
 		end
 	end
 end

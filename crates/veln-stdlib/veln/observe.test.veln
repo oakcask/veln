@@ -879,6 +879,89 @@ test buffered_handler_consumes_rejected_start_and_independently_admits_finish() 
 	end
 end
 
+fn controlled_buffered_span_allocation(context: { exporter : BufferedJsonLinesExporter, request : SpanRequest, entered : Sender<()>, release : Receiver<()>, completed : Sender<()>, kind : String, fail : Bool }) -> BufferedSpanStart effects [time, concurrency]
+	defer
+		let _ = channel::send(context.completed, ())
+		()
+	end
+	handle handle observe::buffered_start_export_span(context.exporter, context.request) with observe_test_support_test::clock(0) with observe_test_support_test::controlled_identity_exporter(context.entered, context.release, context.kind, context.fail)
+end
+
+fn buffered_span_request_for_identity(kind: String) -> SpanRequest
+	if kind == "trace"
+		observe::SpanRequest("controlled", None, list_nil())
+	else
+		observe::SpanRequest("controlled", Some(observe::TraceContext("parent-trace", "parent-span", true)), list_nil())
+	end
+end
+
+fn buffered_allocator_remains_usable_after_aborted_identity(kind: String, fail: Bool) -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(2)
+	let constructed = handle new_buffered_for_test(2, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(lines.tx, true)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let entered = channel::bounded<()>(1)
+			let release = channel::bounded<()>(1)
+			let completed = channel::bounded<()>(1)
+			let request = buffered_span_request_for_identity(kind)
+			let worker = task::spawn_with(controlled_buffered_span_allocation, { exporter: exporter, request: request, entered: entered.tx, release: release.rx, completed: completed.tx, kind: kind, fail: fail })
+			let started: Option<()> = channel::recv(entered.rx)
+			if fail
+				()
+			else
+				task::cancel(worker)
+			end
+			let _ = channel::send(release.tx, ())
+			let aborted = if fail
+				match channel::recv(completed.rx)
+					Some(_) => true
+					None => false
+				end
+			else
+				match task::join(worker)
+					Err(error) => task::join_error_is_cancelled(error)
+					Ok(_) => false
+				end
+			end
+			let retried = handle handle observe::buffered_start_export_span(exporter, request) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
+			let report = observe::shutdown_buffered(exporter)
+			match started
+				Some(_) => if aborted and buffered_retried_identity_matches(retried, kind)
+					match report
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, _), observe::SummaryDisabled) => Ok(())
+						_ => Err("retry after aborted buffered span allocation changed shutdown health")
+					end
+				else
+					Err("aborted buffered identity allocation did not restore its token")
+				end
+				None => Err("buffered identity allocation did not reach its deterministic boundary")
+			end
+		end
+		_ => Err("buffered identity recovery exporter construction failed")
+	end
+end
+
+fn buffered_retried_identity_matches(retried: BufferedSpanStart, kind: String) -> Bool
+	match retried
+		observe::BufferedSpanStart(span, observe::Accepted) => match observe::context(span)
+			Some(observe::TraceContext(trace_id, "fixed-span-1", true)) => if kind == "trace"
+				trace_id == "fixed-trace-1"
+			else
+				trace_id == "parent-trace"
+			end
+			_ => false
+		end
+		_ => false
+	end
+end
+
+test buffered_span_allocator_restores_identity_after_cancellation_and_runtime_failure() -> Result<(), String> effects [time, concurrency]
+	let _ = buffered_allocator_remains_usable_after_aborted_identity("trace", false)?
+	let _ = buffered_allocator_remains_usable_after_aborted_identity("span", false)?
+	let _ = buffered_allocator_remains_usable_after_aborted_identity("trace", true)?
+	buffered_allocator_remains_usable_after_aborted_identity("span", true)
+end
+
 fn handled_span_emit(name: String, result: Int) -> Int effects [observe::Observe] callsite
 	let span = perform observe::Observe::start_span(observe::SpanRequest(name, None, list_nil()))
 	perform observe::Observe::emit(observe::Log(observe::LogRecord("log", observe::Info, name, list_nil(), observe::context(span), callsite)))
@@ -926,6 +1009,95 @@ test buffered_handler_is_shared_with_children_restored_after_nesting_and_state_i
 			_ => Err("inner buffered exporter construction failed")
 		end
 		_ => Err("outer buffered exporter construction failed")
+	end
+end
+
+fn buffered_independent_metric() -> Observation callsite
+	observe::CounterIncrement(observe::CounterIncrementRecord("shared-series", 1, list_nil(), None, callsite))
+end
+
+fn buffered_invalid_log() -> Observation callsite
+	observe::Log(observe::LogRecord("log", observe::Info, "invalid", list_nil(), Some(observe::TraceContext("", "span", true)), callsite))
+end
+
+fn new_independent_buffered_for_test() -> BufferedJsonLinesConstruction effects [concurrency]
+	observe::new_buffered_json_lines(
+		observe::Resource("independent", list_nil()),
+		observe::InstrumentationScope("scope", "1"),
+		1,
+		observe::ExporterLimits(8, 64, 2, list_nil()),
+		observe::StandardError,
+		observe::NoDiagnosticDestination,
+		"independent",
+		1,
+	)
+end
+
+test independently_constructed_buffered_exporters_do_not_share_cardinality_health_or_queue_state() -> Result<(), String> effects [time, concurrency]
+	let outer_lines = observe_test_support_test::export_lines(2)
+	let inner_lines = observe_test_support_test::export_lines(2)
+	let outer_release = channel::bounded<()>(1)
+	let inner_release = channel::bounded<()>(1)
+	let outer_constructed = handle new_independent_buffered_for_test() with observe_test_support_test::controlled_record_exporter(outer_lines.tx, outer_release.rx)
+	let inner_constructed = handle new_independent_buffered_for_test() with observe_test_support_test::controlled_record_exporter(inner_lines.tx, inner_release.rx)
+	match outer_constructed
+		observe::BufferedJsonLines(outer) => match inner_constructed
+			observe::BufferedJsonLines(inner) => begin
+				let outer_metric = handle handle handled_emit(buffered_independent_metric(), 41) with observe::buffered_json_lines(outer) with observe_test_support_test::clock(0)
+				let _ = channel::recv(outer_lines.rx)
+				let inner_metric = handle handle handled_emit(buffered_independent_metric(), 43) with observe::buffered_json_lines(inner) with observe_test_support_test::clock(0)
+				let _ = channel::recv(inner_lines.rx)
+				let outer_full = handle observe::buffered_export_observation(outer, buffered_log("full")) with observe_test_support_test::clock(0)
+				let outer_invalid = handle observe::buffered_export_observation(outer, buffered_invalid_log()) with observe_test_support_test::clock(0)
+				let inner_health = observe::buffered_exporter_health(inner)
+				let outer_health = observe::buffered_exporter_health(outer)
+				let _ = channel::send(outer_release.tx, ())
+				let _ = channel::send(inner_release.tx, ())
+				let outer_report = observe::shutdown_buffered(outer)
+				let inner_report = observe::shutdown_buffered(inner)
+				if outer_metric == 41
+					if inner_metric == 43
+						match outer_full
+							observe::Full => match outer_invalid
+								observe::InvalidRecord => if buffered_independent_health_matches(outer_health, inner_health) and buffered_independent_reports_match(outer_report, inner_report)
+									Ok(())
+								else
+									Err("independent buffered exporters shared cardinality, health, or queue state")
+								end
+								_ => Err("invalid record was not rejected independently of capacity")
+							end
+							_ => Err("full buffered exporter admitted a second outstanding record")
+						end
+					else
+						Err("one full buffered exporter prevented the other exporter from admitting work")
+					end
+				else
+					Err("first independent buffered exporter did not admit its metric")
+				end
+			end
+			_ => Err("second independent buffered exporter construction failed")
+		end
+		_ => Err("first independent buffered exporter construction failed")
+	end
+end
+
+fn buffered_independent_health_matches(outer: ExporterHealth, inner: ExporterHealth) -> Bool
+	match outer
+		observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(1, 1, 0)) => match inner
+			observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(1, 1, 0)) => true
+			_ => false
+		end
+		_ => false
+	end
+end
+
+fn buffered_independent_reports_match(outer: BufferedShutdownReport, inner: BufferedShutdownReport) -> Bool
+	match outer
+		observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(1, 1, 0)), observe::SummaryDisabled) => match inner
+			observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(1, 1, 0)), observe::SummaryDisabled) => true
+			_ => false
+		end
+		_ => false
 	end
 end
 
