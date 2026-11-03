@@ -311,6 +311,12 @@ pub(crate) fn same_type_identity(
     actual_name: &str,
     actual_identity: &str,
 ) -> bool {
+    if Type::is_compiler_vec_identity(expected_identity)
+        != Type::is_compiler_vec_identity(actual_identity)
+    {
+        return false;
+    }
+
     expected_identity == actual_identity
         || (expected_name == actual_name
             && (expected_identity == expected_name || actual_identity == actual_name))

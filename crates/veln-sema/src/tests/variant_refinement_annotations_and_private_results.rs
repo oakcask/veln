@@ -109,14 +109,19 @@ fn identity_free_source_vec_cannot_acquire_compiler_vec_covariance() {
             "type Vec<A>\n",
             "  SourceVec(A)\n",
             "end\n",
+            "type Box<A>\n",
+            "  Boxed(A)\n",
+            "end\n",
             "fn boundaries(source_ready: Vec<State::Ready>) -> ()\n",
             "  let invariant_source: Vec<State> = source_ready\n",
             "  let compiler_value: Vec<State::Ready> = [Ready]\n",
+            "  let compiler_box = Boxed([Ready])\n",
+            "  let nested_source: Box<Vec<State::Ready>> = compiler_box\n",
             "end\n",
         )
     ));
 
-    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
     assert_eq!(
         diagnostics
             .iter()
@@ -130,6 +135,10 @@ fn identity_free_source_vec_cannot_acquire_compiler_vec_covariance() {
             (
                 "type.mismatch",
                 "expected `Vec<State::Ready>`, but found `Vec<State::Ready>`"
+            ),
+            (
+                "type.mismatch",
+                "expected `Box<Vec<State::Ready>>`, but found `Box<Vec<State::Ready>>::Boxed`"
             ),
         ],
         "{diagnostics:#?}"
