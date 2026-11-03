@@ -555,19 +555,31 @@ the exporter policy when queue capacity later rejects its record. Direct
 `buffered_export_observation` continues to leave cardinality decisions to its
 caller.
 
-Every handler or direct submission that reaches queue admission validates
-before it checks capacity. An invalid submission at capacity therefore returns
-`InvalidRecord`, not `Full`. Both outcomes consume a sequence and increment
-`failed_exports`, but neither commits dropped, truncated, or redacted attribute
-facts. Later accepted records expose the resulting sequence gaps. Concurrent
-accepted submissions have one serialized admission order; destination calls
-observe their accepted sequence numbers in that order.
+Every handler or direct observation or span submission that reaches open-export
+queue admission participates in one total admission order. A submission that
+completes before another submission begins precedes it in that order.
+Overlapping submissions can take either order. The admission order assigns
+sequence values to accepted and rejected submissions and is the FIFO order for
+destination attempts of accepted submissions.
+
+Queue admission validates before it checks capacity. An invalid submission at
+capacity therefore returns `InvalidRecord`, not `Full`. Both outcomes consume a
+sequence and increment `failed_exports`, but neither commits dropped,
+truncated, or redacted attribute facts. Later accepted records expose the
+resulting sequence gaps. Immediate results that do not reach queue admission
+are outside the admission order. These include cardinality rejection and a
+buffered finish request that does not contain an exporter span.
 
 `buffered_start_export_span` allocates and returns a span even when its start
 record is invalid or the queue is full. Its `BufferedSpanStart` result reports
 that start admission. Finishing the returned handle makes a new admission
 attempt and can succeed after the start was rejected. The buffered handler
 uses these operations while retaining the `Observe` operation results.
+`buffered_finish_export_span` immediately returns `InvalidRecord` when its
+`SpanFinish` contains a no-op or recording span. This result performs no
+destination attempt, allocates no sequence, and leaves exporter health
+unchanged. In contrast, the synchronous `finish_export_span` accepts those span
+representations as a no-op.
 If trace- or span-identity generation is cancelled or raises a runtime failure
 before allocation commits, the exporter restores the uncommitted identity
 candidate. A later span start can allocate that candidate, and the aborted

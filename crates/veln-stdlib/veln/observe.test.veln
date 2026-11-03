@@ -834,6 +834,95 @@ fn buffered_span_retry_lines(first: Option<String>, finish: Option<String>) -> B
 	end
 end
 
+test buffered_invalid_span_start_returns_allocated_handle_and_finish_is_admitted() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(2)
+	let constructed = handle new_buffered_for_test(1, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(lines.tx, true)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let invalid_link = observe::TraceContext("", "linked-span", true)
+			let started = handle handle observe::buffered_start_export_span(exporter, observe::SpanRequest("invalid-link", None, list_cons(invalid_link, list_nil()))) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
+			let after_start = observe::buffered_exporter_health(exporter)
+			let start_destination: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+			match started
+				observe::BufferedSpanStart(span, observe::InvalidRecord) => match observe::context(span)
+					Some(observe::TraceContext("fixed-trace-1", "fixed-span-1", true)) => begin
+						let finish = handle observe::buffered_finish_export_span(exporter, observe::finish(span)) with observe_test_support_test::clock(0)
+						let finish_line: Option<String> = channel::recv(lines.rx)
+						let report = observe::shutdown_buffered(exporter)
+						match after_start
+							observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match start_destination
+								None => match finish
+									observe::Accepted => match finish_line
+										Some(line) => if buffered_contains(line, "\"sequence\":2,") and buffered_contains(line, "\"kind\":\"span_finish\"") and buffered_contains(line, "\"trace_id\":\"fixed-trace-1\"") and buffered_contains(line, "\"span_id\":\"fixed-span-1\"")
+											match report
+												observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => Ok(())
+												_ => Err("invalid span start changed completed exporter health")
+											end
+										else
+											Err("accepted span finish did not expose the invalid-start sequence gap or context")
+										end
+										None => Err("accepted span finish did not reach the destination")
+									end
+									_ => Err("finish after an invalid span start was not admitted independently")
+								end
+								Some(_) => Err("invalid span start reached the destination")
+							end
+							_ => Err("invalid span start changed unrelated exporter health facts")
+						end
+					end
+					_ => Err("invalid span start did not retain its allocated context")
+				end
+				_ => Err("invalid linked context did not return the span with InvalidRecord")
+			end
+		end
+		_ => Err("buffered invalid-span exporter construction failed")
+	end
+end
+
+test buffered_non_exporter_span_finish_is_immediate_and_preserves_state() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(1)
+	let constructed = handle new_buffered_for_test(1, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(lines.tx, true)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let span = handle perform observe::Observe::start_span(observe::SpanRequest("noop", None, list_nil())) with observe::noop()
+			let before = observe::buffered_exporter_health(exporter)
+			let outcome = observe::buffered_finish_export_span(exporter, observe::finish(span))
+			let after = observe::buffered_exporter_health(exporter)
+			let destination: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+			let admitted = handle observe::buffered_export_observation(exporter, buffered_log("after non-exporter finish")) with observe_test_support_test::clock(0)
+			let admitted_line: Option<String> = channel::recv(lines.rx)
+			let report = observe::shutdown_buffered(exporter)
+			match before
+				observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match outcome
+					observe::InvalidRecord => match after
+						observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match destination
+							None => match admitted
+								observe::Accepted => match admitted_line
+									Some(line) => if buffered_contains(line, "\"sequence\":1,") and buffered_contains(line, "\"message\":\"after non-exporter finish\"")
+										match report
+											observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => Ok(())
+											_ => Err("non-exporter span finish changed the completed report")
+										end
+									else
+										Err("non-exporter span finish consumed a sequence")
+									end
+									None => Err("record after non-exporter span finish did not reach the destination")
+								end
+								_ => Err("record after non-exporter span finish was not admitted")
+							end
+							Some(_) => Err("non-exporter span finish reached the destination")
+						end
+						_ => Err("non-exporter span finish changed exporter health or sequence state")
+					end
+					_ => Err("non-exporter buffered span finish did not return InvalidRecord")
+				end
+				_ => Err("new buffered exporter did not start with empty health")
+			end
+		end
+		_ => Err("buffered non-exporter-finish construction failed")
+	end
+end
+
 fn handled_rejected_span_retry(release: Sender<()>, idle: Receiver<()>) -> Bool effects [observe::Observe, concurrency]
 	let span = perform observe::Observe::start_span(observe::SpanRequest("handler-retry", None, list_nil()))
 	let allocated = match observe::context(span)
