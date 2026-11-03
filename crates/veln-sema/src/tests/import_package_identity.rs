@@ -299,6 +299,63 @@ fn qualified_module_value_match_refinement_uses_declaration_identity_and_restore
 }
 
 #[test]
+fn qualified_module_value_nested_fields_share_direct_alias_and_local_root_identity() {
+    let mut app = source_module(
+        "app.veln",
+        concat!(
+            "use a::b as wire\n",
+            "fn inspect() -> ()\n",
+            "  let local = wire::snapshot\n",
+            "  match a::b::snapshot.session.state\n",
+            "    a::b::State::Failed => ()\n",
+            "    a::b::State::Ready => begin\n",
+            "      let direct: wire::State::Ready = a::b::snapshot.session.state\n",
+            "      let aliased: wire::State::Ready = wire::snapshot.session.state\n",
+            "      let rooted_local: wire::State::Ready = local.session.state\n",
+            "      ()\n",
+            "    end\n",
+            "    a::b::State::Ready => ()\n",
+            "    remaining => begin\n",
+            "      let direct: wire::State::Closed = wire::snapshot.session.state\n",
+            "      let rooted_local: wire::State::Closed = local.session.state\n",
+            "      let residual: wire::State::Closed = remaining\n",
+            "      ()\n",
+            "    end\n",
+            "  end\n",
+            "  let restored_direct: wire::State::Ready = wire::snapshot.session.state\n",
+            "  let restored_local: wire::State::Ready = local.session.state\n",
+            "end\n",
+        ),
+        None,
+        "app",
+    );
+    let values = source_module(
+        "a/b.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready\n",
+            "  pub Closed\n",
+            "  pub Failed\n",
+            "end\n",
+            "pub let snapshot: {session: {state: State::Ready | State::Closed}} = {session: {state: Ready}}\n",
+        ),
+        None,
+        "a::b",
+    );
+    extend(&mut app, values);
+
+    let diagnostics = analyze_surface_module(&app);
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.match_impossible_variant");
+    assert_eq!(diagnostics[1].id, "type.match_redundant_arm");
+    assert!(
+        diagnostics[2..]
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.variant_mismatch")
+    );
+}
+
+#[test]
 fn qualified_module_value_aliases_share_transitive_refinement_and_finite_domains() {
     let mut app = source_module(
         "app.veln",
@@ -554,6 +611,59 @@ fn qualified_module_value_match_refinement_keeps_package_identities_distinct() {
         use_decl.name = "shared".to_string();
     }
     let declarations = "pub let current: Option<Int> = Some(1)\n";
+    let mut first = source_module(
+        "first/shared.veln",
+        declarations,
+        Some("first/pkg"),
+        "shared",
+    );
+    let mut second = source_module(
+        "second/shared.veln",
+        declarations,
+        Some("second/pkg"),
+        "shared",
+    );
+    set_declaration_module_name(&mut first, "shared");
+    set_declaration_module_name(&mut second, "shared");
+    extend(&mut app, first);
+    extend(&mut app, second);
+
+    let diagnostics = analyze_surface_module(&app);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.variant_mismatch")
+    );
+}
+
+#[test]
+fn qualified_module_value_field_refinement_keeps_package_identities_distinct() {
+    let mut app = source_module(
+        "app.veln",
+        concat!(
+            "use shared as first from \"first/pkg\"\n",
+            "use shared as second from \"second/pkg\"\n",
+            "fn inspect() -> ()\n",
+            "  let namesake = second::snapshot\n",
+            "  match first::snapshot.state\n",
+            "    Some(_) => begin\n",
+            "      let selected: Option<Int>::Some = first::snapshot.state\n",
+            "      let unrelated: Option<Int>::Some = second::snapshot.state\n",
+            "      let unrelated_local: Option<Int>::Some = namesake.state\n",
+            "      ()\n",
+            "    end\n",
+            "    None => ()\n",
+            "  end\n",
+            "end\n",
+        ),
+        Some("owner/pkg"),
+        "app",
+    );
+    for use_decl in &mut app.uses {
+        use_decl.name = "shared".to_string();
+    }
+    let declarations = "pub let snapshot: {state: Option<Int>} = {state: Some(1)}\n";
     let mut first = source_module(
         "first/shared.veln",
         declarations,

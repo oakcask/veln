@@ -18,7 +18,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 10
+equals = 16
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -66,20 +66,72 @@ equals = "type.variant_mismatch"
 
 [[json_assert]]
 path = "diagnostics.8.id"
-equals = "name.unresolved"
+equals = "type.match_impossible_variant"
 
 [[json_assert]]
-path = "diagnostics.8.message"
-equals = "unresolved value `wire::private_current`"
+path = "diagnostics.8.details.scrutinee_type"
+equals = "State::Ready | State::Closed"
 
 [[json_assert]]
-path = "diagnostics.8.span.file"
-equals = "app.veln"
+path = "diagnostics.8.details.arm_variant"
+equals = "Failed"
 
 [[json_assert]]
 path = "diagnostics.9.id"
+equals = "type.match_redundant_arm"
+
+[[json_assert]]
+path = "diagnostics.9.details.reason"
+equals = "duplicate_variant"
+
+[[json_assert]]
+path = "diagnostics.10.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.10.details.actual_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.11.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.11.details.actual_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.12.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.12.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.13.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.13.details.actual_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.14.id"
 equals = "name.unresolved"
 
 [[json_assert]]
-path = "diagnostics.9.message"
+path = "diagnostics.14.message"
+equals = "unresolved value `wire::private_current`"
+
+[[json_assert]]
+path = "diagnostics.14.span.file"
+equals = "app.veln"
+
+[[json_assert]]
+path = "diagnostics.15.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.15.message"
 equals = "unresolved value `broken::private_current`"

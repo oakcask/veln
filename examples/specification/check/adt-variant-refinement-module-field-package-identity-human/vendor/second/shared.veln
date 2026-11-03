@@ -1,0 +1,6 @@
+pub type State
+	pub Ready
+	pub Closed
+end
+
+pub let snapshot: {state: State} = {state: Ready}

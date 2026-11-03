@@ -1,0 +1,47 @@
+# CLI JSON diagnostics keep module-rooted field refinements separate by the
+# package-aware declaration identity selected by each explicit import alias.
+command = ["check", "--json", "app.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["type.match_non_exhaustive"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 9
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.1.span.start.line"
+equals = 10
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.2.span.start.line"
+equals = 15
+
+[[json_assert]]
+path = "diagnostics.2.details.actual_type"
+equals = "State"

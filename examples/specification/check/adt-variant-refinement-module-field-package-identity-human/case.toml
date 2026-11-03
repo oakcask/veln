@@ -1,0 +1,12 @@
+# CLI human diagnostics keep module-rooted field refinements separate by the
+# package-aware declaration identity selected by each explicit import alias.
+command = ["check", "app.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["app.veln:9:42: error[type.variant_mismatch]", "app.veln:10:48: error[type.variant_mismatch]", "app.veln:15:38: error[type.variant_mismatch]"]
+not_contains = ["type.match_non_exhaustive", "first::snapshot.state`"]
+
+[stderr]
+format = "empty"

@@ -430,17 +430,21 @@ one singleton refinement, or a finite refinement union. The refinement retains
 the resolved ADT identity and its instantiated generic arguments.
 
 The same arm-local rule applies when the scrutinee is a record-field path
-rooted at an immutable parameter or local binding. Repeated access to the same
-field sequence receives the constructor singleton or complete residual type in
-that arm. A transparent alias of the root identifies the same path. Nested
-matches compose with the enclosing path refinement, and leaving an arm restores
-the prior field type. A binding catch-all denotes that same complete field
-value. Matching either the catch-all, one of its transparent aliases, or the
-original field path refines every reference to that value for the nested arm.
-Leaving the nested arm restores the enclosing residual or singleton fact, and
-leaving the outer arm restores the declared field type. The root is identified
-by its resolved binding, so a shadowing binding, a different root, or a
-different field sequence does not share the refinement. The checked
+rooted at an immutable parameter, local binding, or qualified module data
+value. Repeated access to the same field sequence receives the constructor
+singleton or complete residual type in that arm. A transparent alias of the
+root identifies the same path. For a module value, a direct module path, an
+explicit import alias, and a compatible transparent local identify the same
+package-aware declaration root. Nested matches compose with the enclosing path
+refinement, and leaving an arm restores the prior field type. A binding
+catch-all denotes that same complete field value. Matching either the
+catch-all, one of its transparent aliases, or the original field path refines
+every reference to that value for the nested arm. Leaving the nested arm
+restores the enclosing residual or singleton fact, and leaving the outer arm
+restores the declared field type. The root is identified by its resolved
+binding or module declaration, so a shadowing binding, a declaration in another
+package, a different root, or a different field sequence does not share the
+refinement. The checked
 [`adt-variant-refinement-match-field-path`](../../examples/specification/check/adt-variant-refinement-match-field-path/)
 case demonstrates constructor and residual arms, transparent root aliases,
 nested refinement, and restoration.
@@ -568,14 +572,17 @@ under the ordinary companion visibility rule, so that qualified path does
 supply the declaration identity and refines like any other available module
 value.
 
-A field path rooted in a module value is not stable. A local field path is
-stable only when its base ultimately resolves to an immutable parameter or
-local binding. Qualified constructors, function values, calls, separate
-construction, equality, contract predicates, Boolean helpers, indexing,
-operators, and other computed expressions do not establish a module-value
-alias or stable root, even when repeated source text is identical. A computed
-result can be refined after it is stored in its own local, but matching that
-local does not refine the inputs used to compute it. The checked
+A field path rooted in an available module data value is stable when every
+step is an ordinary record-field access. The root retains the module value's
+package-aware declaration identity, and each field sequence is a distinct
+place under that root. A transparent local whose initializer is that module
+value preserves the root identity instead of creating an independent record
+root. Qualified constructors, function values, calls, separate construction,
+equality, contract predicates, Boolean helpers, indexing, operators, and other
+computed expressions do not establish a module-value alias or stable root,
+even when repeated source text is identical. A computed result can be refined
+after it is stored in its own local, but matching that local does not refine
+the inputs used to compute it. The checked
 [`adt-variant-refinement-match-alias-boundaries`](../../examples/specification/check/adt-variant-refinement-match-alias-boundaries/)
 case verifies the available computed-expression, invalid-annotation, and
 restoration boundaries. The checked
@@ -586,9 +593,15 @@ refinement. The qualified module-value
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-qualified-module-value-json/)
 cases verify identity sharing, local shadowing, arm restoration, finite-domain
-coverage, bidirectional and transitive local aliases, widening, nested matches,
-exact-companion private access, inaccessible and unavailable path boundaries,
-and the qualified-call boundary. The checked
+coverage, module-rooted nested field paths, residual arms, bidirectional and
+transitive local aliases, widening, nested matches, exact-companion private
+access, inaccessible and unavailable path boundaries, and computed-expression
+boundaries. The package-identity
+[`human`](../../examples/specification/check/adt-variant-refinement-module-field-package-identity-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-module-field-package-identity-json/)
+cases verify that equal module, value, and field spellings in different owner
+packages remain independent. The checked
 [`module-value runtime execution`](../../examples/specification/run/module-value-runtime-execution/)
 case verifies that the JVM recovers actual qualified module data through a
 match and reads the same declaration through another qualified spelling under

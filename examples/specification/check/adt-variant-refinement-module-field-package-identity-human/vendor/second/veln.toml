@@ -1,0 +1,5 @@
+[package]
+name = "second/pkg"
+
+[lib]
+exports = ["shared.veln"]

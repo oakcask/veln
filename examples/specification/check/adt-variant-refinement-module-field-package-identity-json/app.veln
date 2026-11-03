@@ -1,0 +1,16 @@
+use shared as first from "first/pkg"
+use shared as second from "second/pkg"
+
+fn inspect() -> ()
+	let namesake = second::snapshot
+	match first::snapshot.state
+		first::State::Ready => begin
+			let selected: first::State::Ready = first::snapshot.state
+			let unrelated: second::State::Ready = second::snapshot.state
+			let unrelated_local: second::State::Ready = namesake.state
+			()
+		end
+		first::State::Closed => ()
+	end
+	let restored: first::State::Ready = first::snapshot.state
+end

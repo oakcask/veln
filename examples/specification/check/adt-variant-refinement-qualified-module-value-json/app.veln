@@ -79,6 +79,52 @@ fn computed_call() -> ()
 	end
 end
 
+fn module_field_composition() -> ()
+	let local = wire::snapshot
+	let transitive = local
+	let unrelated = wire::other_snapshot
+	match a::b::snapshot.session.state
+		a::b::State::Failed => begin
+			let preserved: wire::State::Closed = unrelated.session.state
+			()
+		end
+		a::b::State::Ready => begin
+			let direct: wire::State::Ready = a::b::snapshot.session.state
+			let aliased: wire::State::Ready = wire::snapshot.session.state
+			let rooted_local: wire::State::Ready = local.session.state
+			let transitive_local: wire::State::Ready = transitive.session.state
+			let preserved: wire::State::Closed = unrelated.session.state
+			()
+		end
+		a::b::State::Ready => ()
+		remaining => begin
+			let direct: wire::State::Closed = wire::snapshot.session.state
+			let rooted_local: wire::State::Closed = local.session.state
+			let residual: wire::State::Closed = remaining
+			()
+		end
+	end
+	let restored_direct: wire::State::Ready = wire::snapshot.session.state
+	let restored_local: wire::State::Ready = transitive.session.state
+	match wire::read_snapshot().session.state
+		a::b::State::Ready => begin
+			let repeated: wire::State::Ready = wire::read_snapshot().session.state
+			()
+		end
+		a::b::State::Closed => ()
+		a::b::State::Failed => ()
+	end
+	let copied = {session: {state: wire::snapshot.session.state}}
+	match copied.session.state
+		a::b::State::Ready => begin
+			let declaration_unchanged: wire::State::Ready = wire::snapshot.session.state
+			()
+		end
+		a::b::State::Closed => ()
+	end
+	let preserved_after_failures: wire::State::Closed = unrelated.session.state
+end
+
 fn inaccessible_private_path() -> ()
 	match wire::private_current
 		_ => ()

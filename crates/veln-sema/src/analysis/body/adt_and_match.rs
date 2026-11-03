@@ -1512,16 +1512,21 @@ impl<'a> FunctionChecker<'a> {
         let ExprKind::NamePath { segments, .. } = &current.kind else {
             return None;
         };
-        let [root_name] = segments.as_slice() else {
-            return None;
-        };
-        let root = self
-            .visible_binding_index(root_name)
-            .and_then(|index| self.bindings[index].stable_record_root)?;
         if fields.is_empty() {
             return None;
         }
-        let mut place = self.intern_stable_place(StablePlaceKey::Root(root));
+        let mut place = match segments.as_slice() {
+            [root_name] => {
+                let index = self.visible_binding_index(root_name)?;
+                if let Some(place) = self.bindings[index].stable_place {
+                    place
+                } else {
+                    let root = self.bindings[index].stable_record_root?;
+                    self.intern_stable_place(StablePlaceKey::Root(root))
+                }
+            }
+            _ => self.qualified_module_value_stable_place(segments)?,
+        };
         for field in fields.into_iter().rev() {
             record_stable_place_segment_discovered();
             place = self.intern_stable_place(StablePlaceKey::Field {
@@ -1550,13 +1555,18 @@ impl<'a> FunctionChecker<'a> {
                 let ExprKind::NamePath { segments, .. } = &base.kind else {
                     return None;
                 };
-                let [root_name] = segments.as_slice() else {
-                    return None;
-                };
-                let root = self
-                    .visible_binding_index(root_name)
-                    .and_then(|index| self.bindings[index].stable_record_root)?;
-                Some(self.intern_stable_place(StablePlaceKey::Root(root)))
+                match segments.as_slice() {
+                    [root_name] => {
+                        let index = self.visible_binding_index(root_name)?;
+                        if let Some(place) = self.bindings[index].stable_place {
+                            Some(place)
+                        } else {
+                            let root = self.bindings[index].stable_record_root?;
+                            Some(self.intern_stable_place(StablePlaceKey::Root(root)))
+                        }
+                    }
+                    _ => self.qualified_module_value_stable_place(segments),
+                }
             })?;
         record_stable_place_segment_discovered();
         let place = self.intern_stable_place(StablePlaceKey::Field {
