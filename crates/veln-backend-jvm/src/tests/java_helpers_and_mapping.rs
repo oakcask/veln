@@ -268,6 +268,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "observationExportPermitDiscard",
         ),
         (
+            "observation_export_permit_count",
+            "observationExportPermitCount",
+        ),
+        (
             "observation_export_write_coordinated",
             "observationExportWriteCoordinated",
         ),

@@ -37,6 +37,7 @@ fn prelude_observation_export_signature(
         "observation_export_permit_create" => Some((vec![], Type::int())),
         "observation_export_permit_revoke" => Some((vec![Type::int()], Type::int())),
         "observation_export_permit_discard" => Some((vec![Type::int()], Type::unit())),
+        "observation_export_permit_count" => Some((vec![], Type::int())),
         "observation_export_write_coordinated" => Some((
             vec![
                 Type::Unknown,

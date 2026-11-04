@@ -712,6 +712,10 @@
         return UNIT;
     }
 
+    public static Object observationExportPermitCount() {
+        return Long.valueOf(OBSERVATION_EXPORT_PERMITS.size());
+    }
+
     public static Object observationExportWriteCoordinated(
         Object destination,
         Object line,

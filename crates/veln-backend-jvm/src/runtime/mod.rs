@@ -32,6 +32,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "observation_export_permit_create" => "observationExportPermitCreate",
     "observation_export_permit_revoke" => "observationExportPermitRevoke",
     "observation_export_permit_discard" => "observationExportPermitDiscard",
+    "observation_export_permit_count" => "observationExportPermitCount",
     "observation_export_write_coordinated" => "observationExportWriteCoordinated",
     "observation_export_identity" => "observationExportIdentity",
     "production_metric_index_new" => "productionMetricIndexNew",

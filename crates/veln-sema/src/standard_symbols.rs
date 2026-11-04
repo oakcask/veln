@@ -192,6 +192,7 @@ compiler_adapter_symbol_set! {
     "observation_export_permit_create",
     "observation_export_permit_revoke",
     "observation_export_permit_discard",
+    "observation_export_permit_count",
     "observation_export_write_coordinated",
     "observation_export_identity",
     "production_metric_index_new",

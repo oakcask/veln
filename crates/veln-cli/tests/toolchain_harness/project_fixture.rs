@@ -1,7 +1,7 @@
 use super::*;
 use std::io::{BufRead, BufReader, Read};
 
-const FIXTURE_PROCESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+const FIXTURE_PROCESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 pub(super) fn case_name(case_dir: &Path) -> String {
     case_dir
