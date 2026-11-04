@@ -96,11 +96,10 @@ state-bound behavior.
 The JVM runtime provides the JSON record encoder and configured destination
 writer reached by the synchronous and buffered JSON Lines handlers and their
 direct exporter APIs. It also provides the identity generator used by
-synchronous and buffered span export. For buffered shutdown, the runtime
-coordinates each prepared destination call with a revocable permit. A pending
-call that loses the interruption race returns without entering the destination;
-a call that entered the destination can complete after interruption without
-changing the frozen exporter state. Without a scoped
+synchronous and buffered span export. During buffered shutdown, a pending
+destination call that loses the interruption race returns without entering the
+destination. A call that entered the destination can complete after
+interruption without changing the frozen exporter state. Without a scoped
 `host_effects::ObservationExporter` handler, the
 writer flushes standard-error records or creates and appends UTF-8 bytes to the
 configured file, and the identity generator adds a host-generated UUID to the
