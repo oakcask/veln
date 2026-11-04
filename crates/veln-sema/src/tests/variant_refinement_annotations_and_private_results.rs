@@ -139,6 +139,25 @@ fn standard_immutable_constructor_arguments_are_covariant_by_slot() {
 }
 
 #[test]
+fn standard_immutable_constructor_aliases_retain_covariance() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "pub type Optional = Option\n",
+            "pub type Outcome = Result\n",
+            "pub type Sequence = List\n",
+            "fn boundaries(optional: Optional<State::Ready>, outcome: Outcome<State::Ready, String>, sequence: Sequence<State::Ready>) -> ()\n",
+            "  let widened_optional: Option<State> = optional\n",
+            "  let widened_outcome: Result<State, String> = outcome\n",
+            "  let widened_sequence: List<State> = sequence\n",
+            "end\n",
+        )
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn standard_adt_refinements_compose_argument_covariance_with_variant_subsets() {
     let cases = [
         (
