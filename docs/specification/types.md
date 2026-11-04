@@ -1536,6 +1536,9 @@ Complete structural assignment is checked in the accepted
 [`complete-type-structural-assignability`](../../examples/specification/check/complete-type-structural-assignability/)
 case and its
 [`diagnostic companion`](../../examples/specification/check/complete-type-structural-assignability-diagnostics/).
+Those cases cover compiler-owned covariance through direct constructors and
+public aliases. They also check that same-spelled source constructors and their
+aliases remain nominal and invariant.
 
 Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and
@@ -1599,11 +1602,12 @@ invariant generic arguments except for compiler-owned immutable `Option<T>`,
 `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`. Every parameter of those
 constructors is covariant, so an actual argument may widen to the expected
 argument but the reverse assignment fails. The exception requires the same
-resolved compiler-owned constructor. Aliases retain it by resolving to that
-identity, while a source or imported declaration with the same displayed name
-cannot acquire it. The rule does not relate distinct nominal constructors and
-does not coerce runtime values. It applies only where a concrete expected type
-exists; it does not widen a context-free generic join or constructor inference.
+resolved compiler-owned constructor. Public aliases of `Option`, `Result`,
+`List`, and `Dict` retain it by resolving to that identity, while a source or
+imported declaration with the same displayed name cannot acquire it. The rule
+does not relate distinct nominal constructors and does not coerce runtime
+values. It applies only where a concrete expected type exists; it does not
+widen a context-free generic join or constructor inference.
 Recovery still lets `unknown` match a complete argument. `Path` and `String` are distinct named types at
 assignment boundaries; the runtime path representation is not source-visible.
 Function assignment checks fixed parameter count, parameter types, variadic
