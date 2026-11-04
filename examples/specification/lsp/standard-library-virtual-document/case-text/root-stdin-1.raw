@@ -4,7 +4,7 @@ Content-Length: 78
 
 {"jsonrpc":"2.0","id":2,"method":"textDocument/definition","params":{"textDocument":{"uri":"file://./main.veln"},"position":{"line":3,"character":4}}}Content-Length: 178
 
-{"jsonrpc":"2.0","id":3,"method":"veln/virtualDocument","params":{"uri":"veln-pkg:///std/snapshot/bb0ffc2005606cfd513274e90230b9c4f7c0fa9b7a60871680e043999d320948/prelude.veln"}}Content-Length: 151
+{"jsonrpc":"2.0","id":3,"method":"veln/virtualDocument","params":{"uri":"veln-pkg:///std/snapshot/abccdba18709ace4c9f67abc82f0994fc9391f9038c227b98697af61a5002f74/prelude.veln"}}Content-Length: 151
 
 {"jsonrpc":"2.0","id":4,"method":"textDocument/definition","params":{"textDocument":{"uri":"file://./main.veln"},"position":{"line":7,"character":12}}}Content-Length: 151
 
@@ -16,7 +16,7 @@ Content-Length: 78
 
 {"jsonrpc":"2.0","id":8,"method":"textDocument/definition","params":{"textDocument":{"uri":"file://./main.veln"},"position":{"line":24,"character":12}}}Content-Length: 178
 
-{"jsonrpc":"2.0","id":9,"method":"veln/virtualDocument","params":{"uri":"VELN-pkg:///std/snapshot/bb0ffc2005606cfd513274e90230b9c4f7c0fa9b7a60871680e043999d320948/prelude.veln"}}Content-Length: 59
+{"jsonrpc":"2.0","id":9,"method":"veln/virtualDocument","params":{"uri":"VELN-pkg:///std/snapshot/abccdba18709ace4c9f67abc82f0994fc9391f9038c227b98697af61a5002f74/prelude.veln"}}Content-Length: 59
 
 {"jsonrpc":"2.0","id":10,"method":"shutdown","params":null}Content-Length: 47
 
