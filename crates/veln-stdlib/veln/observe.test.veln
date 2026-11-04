@@ -2289,8 +2289,8 @@ test shutdown_cancellation_before_worker_cleanup_registration_freezes_shared_int
 			let survivor_waiting: Option<()> = channel::recv(survivor_wait.rx)
 			task::cancel(cancelled)
 			let cancelled_join = task::join(cancelled)
-			let prompt: Option<{ index : Int, value : BufferedShutdownReport }> = channel::select_many_timeout(list_cons(reports.rx, list_nil()), 250)
 			let survivor_join = task::join(survivor)
+			let prompt: Option<BufferedShutdownReport> = channel::recv(reports.rx)
 			let frozen_before = observe::buffered_exporter_health(exporter)
 			let outstanding_before_release = observe::buffered_outstanding_for_test(exporter)
 			let queue_empty_before_release = observe::buffered_queue_is_empty_for_test(exporter)
@@ -2302,7 +2302,7 @@ test shutdown_cancellation_before_worker_cleanup_registration_freezes_shared_int
 			match cancelled_join
 				Err(error) => if task::join_error_is_cancelled(error) and buffered_unit_received(startup_blocked) and buffered_unit_received(cancelled_waiting) and buffered_unit_received(survivor_waiting) and buffered_admission_is_accepted(admitted)
 					match prompt
-						Some({ index: 0, value: observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) }) => match survivor_join
+						Some(observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted)) => match survivor_join
 							Ok(()) => match repeated
 								observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match frozen_before
 									observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match frozen_after
