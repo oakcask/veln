@@ -65,7 +65,7 @@ run_batch http2-support \
   http2/connection.test.veln \
   http2/hpack.test.veln
 JAVA_TOOL_OPTIONS=-Xss256k run_batch small-stack-observability \
-  --jobs 8 \
+  --jobs 4 \
   observe.test.veln
 run_batch large-companions \
   net.test.veln \
