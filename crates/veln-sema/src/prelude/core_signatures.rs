@@ -2,6 +2,9 @@ use veln_core::{CoreCallTarget, CoreType};
 
 use super::byte_signatures::core_byte_prelude_signature;
 use super::core_network_signatures::core_net_system_signature;
+use super::core_observation_signatures::{
+    core_observation_export_signature, core_production_metric_index_signature,
+};
 use super::source_signatures::compiler_adapter_callback_signature;
 use crate::adt::type_operations as adt;
 use crate::source_less_lookup::{
@@ -75,39 +78,6 @@ fn core_compiler_adapter_signature(
         signature.0,
         signature.1,
     ))
-}
-
-fn core_observation_export_signature(
-    name: &str,
-    expected: &CoreType,
-) -> Option<(Vec<CoreType>, CoreType)> {
-    match name {
-        "observation_json_line" => Some((vec![CoreType::Unknown; 9], expected.clone())),
-        "observation_export_write" => Some((
-            vec![CoreType::Unknown, CoreType::string(), CoreType::bool()],
-            CoreType::bool(),
-        )),
-        "observation_export_identity" => Some((
-            vec![CoreType::string(), CoreType::string(), CoreType::int()],
-            CoreType::string(),
-        )),
-        _ => None,
-    }
-}
-
-fn core_production_metric_index_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> {
-    match name {
-        "production_metric_index_new" => Some((vec![CoreType::int()], CoreType::int())),
-        "production_metric_index_contains" => {
-            Some((vec![CoreType::int(), CoreType::Unknown], CoreType::bool()))
-        }
-        "production_metric_index_insert" => {
-            Some((vec![CoreType::int(), CoreType::Unknown], CoreType::unit()))
-        }
-        "production_metric_index_work" => Some((vec![CoreType::int()], CoreType::int())),
-        "production_metric_index_reset_work" => Some((vec![CoreType::int()], CoreType::unit())),
-        _ => None,
-    }
 }
 
 fn compiler_adapter_core_callback_signature(

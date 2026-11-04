@@ -7,6 +7,7 @@ use crate::source_less_lookup::{
 
 mod byte_signatures;
 mod core_network_signatures;
+mod core_observation_signatures;
 mod core_signatures;
 mod expected_types;
 mod source_signatures;

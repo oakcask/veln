@@ -26,6 +26,11 @@ time bash ../../../scripts/agent-run \
 run_batch() {
   local batch="$1"
   shift
+  local test_options=()
+  if [ "${1:-}" = "--jobs" ]; then
+    test_options=("$1" "$2")
+    shift 2
+  fi
   printf 'veln: stdlib timing: batch=%s companions=%s\n' "$batch" "$#" >&2
   TIMEFORMAT='veln: stdlib timing: stage=batch_invocation duration_seconds=%R'
   time bash ../../../scripts/agent-run \
@@ -33,7 +38,7 @@ run_batch() {
     --manifest-path ../../../Cargo.toml \
     --locked \
     -p veln-cli \
-    -- test "$@"
+    -- test "${test_options[@]}" "$@"
 }
 
 shopt -s globstar nullglob
@@ -59,8 +64,10 @@ run_batch http2-core \
 run_batch http2-support \
   http2/connection.test.veln \
   http2/hpack.test.veln
+JAVA_TOOL_OPTIONS=-Xss256k run_batch small-stack-observability \
+  --jobs 8 \
+  observe.test.veln
 run_batch large-companions \
   net.test.veln \
-  observe.test.veln \
   prelude.test.veln
 run_batch remaining-companions "${remaining_companions[@]}"

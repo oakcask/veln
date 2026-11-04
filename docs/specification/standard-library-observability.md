@@ -409,7 +409,7 @@ one object followed by one `\n`. The object has no fields beyond this table:
 | --- | --- |
 | `schema_version` | The integer `1`. |
 | `kind` | The string `exporter_health`. |
-| `failed_exports` | The cumulative rejected or failed observation-export attempts. |
+| `failed_exports` | The cumulative invalid or capacity-rejected export admissions, failed record-destination attempts, and accepted buffered records left unsettled by interrupted shutdown. |
 | `dropped_attributes` | The cumulative attributes omitted by count limits. |
 | `truncated_attributes` | The cumulative names and values shortened by size limits. |
 | `redacted_attributes` | The cumulative values replaced by the redaction policy. |
@@ -533,18 +533,44 @@ After the queue becomes idle, each later submission can wake the same worker
 without retaining drain stack frames from earlier idle-to-wake cycles. Worker
 stack use therefore does not grow with the number of completed idle cycles.
 
-Normal `shutdown_buffered` closes admission. After it returns, later submissions
-return `Closed`. Shutdown waits until every accepted record has one completed
-destination attempt. A destination rejection or ordinary Veln runtime failure
+The first `shutdown_buffered` call closes admission. Concurrent shutdown callers
+join the same closing transition, drain, and optional summary attempt. They
+receive the same frozen report. A submission that loses the close race returns
+`Closed` without allocating a sequence or changing exporter health. A
+submission that commits first remains accepted and participates in the shared
+drain.
+
+Without interruption, shutdown waits until every accepted record has one
+completed destination attempt. A destination rejection or ordinary Veln runtime failure
 completes that record's single attempt, increments `failed_exports` once, and
 does not prevent the worker from attempting later accepted records. The counter
 saturates at the maximum `Int`. The exporter does not retry the record, and the
 failure does not change the handled application's ordinary result. Task
 cancellation and contract failure remain abrupt task outcomes rather than
-exporter rejections. A contract-failing record attempt does not increment
-`failed_exports` or continue to later queued records. Shutdown reports the
-current health as `Interrupted` with `SummaryNotAttempted`; it does not freeze a
-completed report.
+exporter rejections.
+
+Cancellation of any caller waiting for the shared transition preserves that
+caller's cancellation and interrupts the transition. Interruption atomically
+revokes new record and summary calls, counts every queued or unresolved record
+once in saturating `failed_exports`, and wakes the other shutdown callers with
+one frozen `Interrupted` report. The frozen health includes each metric-series
+admission that commits before interruption freezes the exporter state. If
+interruption freezes the exporter before the worker starts, every queued record
+is counted as unresolved, the other shutdown callers receive the frozen report,
+and later worker progress cannot start a record or summary call. If
+interruption wins after the worker prepares a record call but before destination
+invocation begins, the destination is not invoked and the record is counted as
+unresolved. An unresolved record host call that already began can finish after
+that report returns, but its completion cannot change health, release or retry
+work, start another record, or start the summary. A record call contract failure
+applies the same interrupted accounting and frozen-report rules.
+
+An already-started record or summary host call can append destination bytes
+after interrupted shutdown returns. The call can have committed only a prefix
+of its bytes when interruption freezes the report. Counting an unsettled record
+in `failed_exports` accounts for its unresolved outcome; it does not prove that
+the destination received no bytes, that it received no complete record, or that
+any bytes were lost.
 
 After all record attempts, shutdown handles the diagnostic destination once.
 The disabled destination performs no write and reports `SummaryDisabled`. An
@@ -553,10 +579,25 @@ enabled destination reports `SummaryAccepted` when it accepts the summary and
 failure. The summary attempt follows every record attempt, including when the
 record and diagnostic destinations identify the same output. A rejected
 summary does not change exporter health. A contract-failing summary attempt is
-not a rejection: shutdown restores the closing state, returns `Interrupted`
-with `SummaryNotAttempted`, and does not retry or freeze the exporter as
-completed. The admission result at the concurrent shutdown transition remains
-planned work.
+a rejected unconfirmed attempt: shutdown freezes `Interrupted` with
+`SummaryRejected` and does not retry.
+
+If interruption wins after the worker prepares an enabled summary call but
+before destination invocation begins, the destination is not invoked and the
+frozen outcome is `SummaryNotAttempted`.
+
+| Interruption point | Frozen summary outcome |
+| --- | --- |
+| Before an enabled summary call starts | `SummaryNotAttempted` |
+| During a summary call whose completion is not confirmed | `SummaryRejected` |
+| After the exporter is closed | The already frozen outcome is unchanged. |
+
+An already-started summary call can complete after interrupted shutdown
+returns. Its late completion cannot change the report or health and cannot
+start another call. Once a record or summary host call has confirmed its result,
+interruption preserves that confirmed outcome. An interruption request that
+loses to normal completion has no exporter effect, while the canceled caller
+still exits through task cancellation.
 
 Normal shutdown freezes and returns
 `BufferedShutdownReport(Completed, health, summary_outcome)`. The frozen health
@@ -715,8 +756,11 @@ ambient. Raw task and channel operations remain unchanged.
 ## Limits
 
 Metric query APIs, asynchronous metric callbacks, automatic shutdown flushing,
-and external telemetry-protocol adapters are not available. Concurrent shutdown,
-shutdown interruption, and late host-call completion are not available. The
+and external telemetry-protocol adapters are not available. Interrupted
+shutdown has no hard deadline and does not guarantee cancellation of an
+already-started host call. Without caller interruption, an uninterruptible
+destination can block normal shutdown indefinitely. Process or machine
+termination can prevent both cleanup and unsettled-record accounting. The
 synchronous and buffered exporters have no retry or durable-audit guarantee.
 The production metric-cardinality identity bound counts series rather than the
 bytes in their names and attributes. The standalone cardinality handler does
@@ -774,8 +818,11 @@ process or machine termination can prevent it from running.
   identity-allocation recovery after cancellation and runtime failure,
   cardinality ordering, sequence gaps, child-task sharing, nested-scope
   restoration, independent state, ordered drain, repeated idle-to-wake stack
-  use, enabled accepted final summary, completed-report, and repeated-shutdown
-  coverage is in `observe.test.veln`, with scoped destination
+  use, concurrent shutdown, waiter interruption before worker startup, exact
+  unsettled accounting, late record and summary completion, enabled accepted
+  final summary, completed-report, and repeated-shutdown coverage is in
+  `observe.test.veln`,
+  with scoped destination and barrier
   support in
   [`observe_test_support_test.veln`](../../crates/veln-stdlib/veln/observe_test_support_test.veln).
   The

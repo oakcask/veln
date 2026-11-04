@@ -4,5 +4,12 @@ slow-timeout = { period = "5s" }
 [profile.ci]
 fail-fast = false
 
+[test-groups]
+toolchain-fixtures = { max-threads = 1 }
+
+[[profile.ci.overrides]]
+filter = 'binary(=toolchain_harness) & test(generated_toolchain_cases::)'
+test-group = 'toolchain-fixtures'
+
 [profile.ci.junit]
 path = "junit.xml"

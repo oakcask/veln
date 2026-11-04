@@ -101,9 +101,10 @@ eligible schema shapes.
 
 Private compiler adapters, including the `net_system_*` operations used by
 `std::net::system()`, the `production_metric_index_*` operations used by
-`std::observe::production`, and the `observation_*` operations used by
-`std::observe::json_lines`, publish only their qualified
-`prelude_builtin::name` keys. Bare prelude lookup does not publish those names.
+`std::observe::production`, and the `observation_*` operations used by the
+synchronous and buffered exporters in `std::observe`, publish only their
+qualified `prelude_builtin::name` keys. Bare prelude lookup does not publish
+those names.
 This keeps the host adapters out of the public prelude surface while allowing
 embedded standard-package source to resolve the reserved qualified route.
 Public `net::...` and `observe::...` declarations remain separate from these
