@@ -289,7 +289,7 @@ fn named_types_are_assignable(
     )
 }
 
-fn named_args_are_assignable(
+pub(crate) fn named_args_are_assignable(
     expected_identity: &str,
     expected_args: &[Type],
     actual_identity: &str,

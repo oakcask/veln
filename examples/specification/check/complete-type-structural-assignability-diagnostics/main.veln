@@ -37,6 +37,18 @@ fn accepts_pure_callback(callback: fn() -> ()) -> ()
 	()
 end
 
+fn reject_covariant_refinement(value: Option<State::Ready>::None) -> Option<State>::Some
+	value
+end
+
+fn reject_covariant_base(value: Option<State::Ready>) -> Option<State>::Some
+	value
+end
+
+fn reject_nested_argument(value: Option<State>::None) -> Option<State::Ready>::Some
+	value
+end
+
 fn main(value: State, record: {state: State}, state_values: Vec<State>, optional: Option<State>, success: Result<State, String>, failure: Result<Int, State>, list: List<State>, key_table: Dict<State, Int>, value_table: Dict<String, State>, unrelated: Option<Int>, source_values: source_vec::Vec<State>, source_optional: source_vec::Option<State>, source_result: source_vec::Result<State, String>, source_list: source_vec::List<State>, source_dict: source_vec::Dict<String, State>) -> ()
 	let narrowed: State::Ready = value
 	let narrowed_record: {state: State::Ready, label: String} = record

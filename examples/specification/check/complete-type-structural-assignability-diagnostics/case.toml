@@ -4,6 +4,9 @@ exit = 1
 [stdout]
 format = "json"
 contains = [
+  "value of type `Option<State::Ready>::None` is not assignable to variant type `Option<State>::Some`",
+  "value of type `Option<State::Ready>` is not assignable to variant type `Option<State>::Some`",
+  "expected `Option<State::Ready>::Some`, but found `Option<State>::None`",
   "value of type `State` is not assignable to variant type `State::Ready`",
   "expected `{state: State::Ready, label: String}`, but found `{state: State}`",
   "expected `fn(State) -> State::Ready`, but found `fn(State::Ready) -> State`",
@@ -38,4 +41,32 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 23
+equals = 26
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.0.details.excluded_variants.variants.0"
+equals = "None"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "variant_exclusion"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.1.details.excluded_variants.form"
+equals = "all_except_expected"
+
+[[json_assert]]
+path = "diagnostics.1.related.0.kind"
+equals = "variant_exclusion"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "type.mismatch"

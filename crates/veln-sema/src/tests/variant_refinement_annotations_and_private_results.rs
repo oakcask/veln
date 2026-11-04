@@ -192,6 +192,55 @@ fn standard_adt_refinements_compose_argument_covariance_with_variant_subsets() {
 }
 
 #[test]
+fn standard_adt_variant_mismatches_classify_after_covariant_argument_comparison() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "fn refinement_to_refinement(value: Option<State::Ready>::None) -> Option<State>::Some\n",
+            "  value\n",
+            "end\n",
+            "fn base_to_refinement(value: Option<State::Ready>) -> Option<State>::Some\n",
+            "  value\n",
+            "end\n",
+            "fn nested_argument_failure(value: Option<State>::None) -> Option<State::Ready>::Some\n",
+            "  value\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics[0].id, "type.variant_mismatch",
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics[1].id, "type.variant_mismatch",
+        "{diagnostics:#?}"
+    );
+    assert_eq!(diagnostics[2].id, "type.mismatch", "{diagnostics:#?}");
+
+    let refinement_json = veln_diagnostics::diagnostic_to_json(&diagnostics[0]).to_json();
+    assert!(
+        refinement_json.contains("\"variants\":[\"None\"]"),
+        "{refinement_json}"
+    );
+    assert!(
+        refinement_json.contains("\"kind\":\"variant_exclusion\""),
+        "{refinement_json}"
+    );
+
+    let base_json = veln_diagnostics::diagnostic_to_json(&diagnostics[1]).to_json();
+    assert!(
+        base_json.contains("\"form\":\"all_except_expected\""),
+        "{base_json}"
+    );
+    assert!(
+        base_json.contains("\"kind\":\"variant_exclusion\""),
+        "{base_json}"
+    );
+}
+
+#[test]
 fn same_spelled_source_dict_and_other_generics_remain_invariant_and_nominal() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
