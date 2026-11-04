@@ -37,7 +37,7 @@ fn accepts_pure_callback(callback: fn() -> ()) -> ()
 	()
 end
 
-fn main(value: State, record: {state: State}, state_values: Vec<State>, source_values: source_vec::Vec<State>) -> ()
+fn main(value: State, record: {state: State}, state_values: Vec<State>, optional: Option<State>, success: Result<State, String>, failure: Result<Int, State>, list: List<State>, key_table: Dict<State, Int>, value_table: Dict<String, State>, unrelated: Option<Int>, source_values: source_vec::Vec<State>, source_optional: source_vec::Option<State>, source_result: source_vec::Result<State, String>, source_list: source_vec::List<State>, source_dict: source_vec::Dict<String, State>) -> ()
 	let narrowed: State::Ready = value
 	let narrowed_record: {state: State::Ready, label: String} = record
 	let reversed: fn(State) -> State::Ready = ready_to_state
@@ -51,5 +51,16 @@ fn main(value: State, record: {state: State}, state_values: Vec<State>, source_v
 	let ready_values = [Ready]
 	let widened_values: Vec<State> = ready_values
 	let narrowed_values: Vec<State::Ready> = state_values
+	let narrowed_optional: Option<State::Ready> = optional
+	let narrowed_success: Result<State::Ready, String> = success
+	let narrowed_failure: Result<Int, State::Ready> = failure
+	let narrowed_list: List<State::Ready> = list
+	let narrowed_keys: Dict<State::Ready, Int> = key_table
+	let narrowed_table_values: Dict<String, State::Ready> = value_table
+	let unrelated_argument: Option<String> = unrelated
 	let distinct_constructor: Vec<State> = source_values
+	let distinct_option: Option<State> = source_optional
+	let distinct_result: Result<State, String> = source_result
+	let distinct_list: List<State> = source_list
+	let distinct_dict: Dict<String, State> = source_dict
 end

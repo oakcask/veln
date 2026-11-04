@@ -145,40 +145,6 @@ fn aggregate_refinement_inference_covers_joins_context_and_projection() {
 fn retained_aggregate_refinement_rejections_are_table_driven() {
     for (name, source, rejected_expression, expected, actual, constraint) in [
         (
-            "later dictionary value widening",
-            concat!(
-                "type State\n",
-                "  Ready\n",
-                "  Closed\n",
-                "end\n",
-                "fn main() -> ()\n",
-                "  let inferred = {\"ready\": Ready}\n",
-                "  let widened: Dict<String, State> = inferred\n",
-                "end\n",
-            ),
-            "inferred",
-            "Dict<String, State>",
-            "Dict<String, State::Ready>",
-            "assignable",
-        ),
-        (
-            "later dictionary key widening",
-            concat!(
-                "type State\n",
-                "  Ready\n",
-                "  Closed\n",
-                "end\n",
-                "fn main() -> ()\n",
-                "  let inferred = {State::Ready: 1}\n",
-                "  let widened: Dict<State, Int> = inferred\n",
-                "end\n",
-            ),
-            "inferred",
-            "Dict<State, Int>",
-            "Dict<State::Ready, Int>",
-            "assignable",
-        ),
-        (
             "later generic payload widening",
             concat!(
                 "type State\n",
@@ -338,6 +304,30 @@ fn retained_aggregate_refinement_rejections_are_table_driven() {
             "{name}: {details}"
         );
     }
+}
+
+#[test]
+fn retained_dictionary_refinements_widen_at_later_assignment_boundaries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "end\n",
+            "fn main() -> ()\n",
+            "  let retained_value = {\"ready\": Ready}\n",
+            "  let widened_value: Dict<String, State> = retained_value\n",
+            "  let retained_key = {State::Ready: 1}\n",
+            "  let widened_key: Dict<State, Int> = retained_key\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
 #[test]

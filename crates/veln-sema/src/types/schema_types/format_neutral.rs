@@ -551,7 +551,7 @@ pub(crate) fn resolved_standard_runtime_type_kind(
         ("Result", 2) => StandardRuntimeTypeKind::Result,
         ("List", 1) => StandardRuntimeTypeKind::List,
         (identity, 1) if Type::is_compiler_vec_identity(identity) => StandardRuntimeTypeKind::Vec,
-        ("Dict", 2) => StandardRuntimeTypeKind::Dict,
+        (identity, 2) if Type::is_compiler_dict_identity(identity) => StandardRuntimeTypeKind::Dict,
         ("String", 0) => StandardRuntimeTypeKind::String,
         _ => return None,
     };
@@ -585,7 +585,9 @@ pub(crate) fn resolved_standard_runtime_type_kind(
         .iter()
         .any(|descriptor| {
             (descriptor.name == identity
-                || (Type::is_compiler_vec_identity(identity) && descriptor.name == name))
+                || ((Type::is_compiler_vec_identity(identity)
+                    || Type::is_compiler_dict_identity(identity))
+                    && descriptor.name == name))
                 && descriptor.arity == args.len()
         })
         .then_some(kind)

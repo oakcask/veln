@@ -39,7 +39,7 @@ fn state_vectors_to_ready(values: Vec<State>) -> Vec<State::Ready>
 	[Ready]
 end
 
-fn main(value: State::Ready, record: {state: State::Ready, label: String}, vector_record: {items: Vec<State::Ready>, label: String}) -> ()
+fn main(value: State::Ready, record: {state: State::Ready, label: String}, vector_record: {items: Vec<State::Ready>, label: String}, optional: Option<State::Ready>, success: Result<State::Ready, String>, failure: Result<Int, State::Ready>, list: List<State::Ready>, key_table: Dict<State::Ready, Int>, value_table: Dict<String, State::Ready>) -> ()
 	let direct: State = value
 	let widened_record: {state: State} = record
 	let fixed: fn(State::Ready) -> State = state_to_ready
@@ -52,6 +52,12 @@ fn main(value: State::Ready, record: {state: State::Ready, label: String}, vecto
 	let nested_effect: fn(fn() -> ()) -> () = accepts_stdio_callback
 	let ready_values = [value]
 	let widened_values: Vec<State> = ready_values
+	let widened_optional: Option<State> = optional
+	let widened_success: Result<State, String> = success
+	let widened_failure: Result<Int, State> = failure
+	let widened_list: List<State> = list
+	let widened_keys: Dict<State, Int> = key_table
+	let widened_table_values: Dict<String, State> = value_table
 	let widened_vector_record: {items: Vec<State>} = vector_record
 	let vector_polarity: fn(Vec<State::Ready>) -> Vec<State> = state_vectors_to_ready
 end

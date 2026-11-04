@@ -15,7 +15,18 @@ contains = [
   "expected `fn() -> ()`, but found `fn() -> () effects [stdio]`",
   "expected `fn(fn() -> () effects [stdio]) -> ()`, but found `fn(fn() -> ()) -> ()`",
   "expected `Vec<State::Ready>`, but found `Vec<State>`",
+  "expected `Option<State::Ready>`, but found `Option<State>`",
+  "expected `Result<State::Ready, String>`, but found `Result<State, String>`",
+  "expected `Result<Int, State::Ready>`, but found `Result<Int, State>`",
+  "expected `List<State::Ready>`, but found `List<State>`",
+  "expected `Dict<State::Ready, Int>`, but found `Dict<State, Int>`",
+  "expected `Dict<String, State::Ready>`, but found `Dict<String, State>`",
+  "expected `Option<String>`, but found `Option<Int>`",
   "expected `Vec<State>`, but found `source_vec::Vec<State>`",
+  "expected `Option<State>`, but found `source_vec::Option<State>`",
+  "expected `Result<State, String>`, but found `source_vec::Result<State, String>`",
+  "expected `List<State>`, but found `source_vec::List<State>`",
+  "expected `Dict<String, State>`, but found `source_vec::Dict<String, State>`",
 ]
 
 [stderr]
@@ -27,4 +38,4 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 12
+equals = 23

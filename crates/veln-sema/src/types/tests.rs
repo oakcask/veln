@@ -522,6 +522,97 @@ fn compiler_vec_argument_is_covariant_through_structural_polarity() {
 }
 
 #[test]
+fn compiler_immutable_constructor_slots_are_covariant_and_nominal() {
+    let narrow = Type::variant_refinement("State", Vec::new(), vec!["Ready".to_string()]);
+    let wide = Type::named("State", Vec::new());
+    let cases = [
+        (
+            "Option value",
+            Type::named("Option", vec![narrow.clone()]),
+            Type::named("Option", vec![wide.clone()]),
+            "Option",
+        ),
+        (
+            "Result value",
+            Type::result(narrow.clone(), Type::string()),
+            Type::result(wide.clone(), Type::string()),
+            "Result",
+        ),
+        (
+            "Result error",
+            Type::result(Type::int(), narrow.clone()),
+            Type::result(Type::int(), wide.clone()),
+            "Result",
+        ),
+        (
+            "List item",
+            Type::named("List", vec![narrow.clone()]),
+            Type::named("List", vec![wide.clone()]),
+            "List",
+        ),
+        (
+            "Vec item",
+            Type::vec(narrow.clone()),
+            Type::vec(wide.clone()),
+            "Vec",
+        ),
+        (
+            "Dict key",
+            Type::dict(narrow.clone(), Type::int()),
+            Type::dict(wide.clone(), Type::int()),
+            "Dict",
+        ),
+        (
+            "Dict value",
+            Type::dict(Type::string(), narrow.clone()),
+            Type::dict(Type::string(), wide.clone()),
+            "Dict",
+        ),
+    ];
+
+    for (name, narrow_constructor, wide_constructor, constructor_name) in cases {
+        assert!(
+            is_assignable(&wide_constructor, &narrow_constructor),
+            "{name} should widen"
+        );
+        assert!(
+            !is_assignable(&narrow_constructor, &wide_constructor),
+            "{name} should not narrow"
+        );
+        assert!(
+            !is_assignable(
+                &wide_constructor,
+                &Type::resolved_named(
+                    constructor_name,
+                    format!("source::{constructor_name}"),
+                    match &wide_constructor {
+                        Type::Named { args, .. } => args.clone(),
+                        _ => unreachable!(),
+                    },
+                ),
+            ),
+            "{name} should preserve nominal identity"
+        );
+        assert!(is_assignable(
+            &Type::Record(vec![("value".to_string(), wide_constructor.clone())]),
+            &Type::Record(vec![("value".to_string(), narrow_constructor.clone())]),
+        ));
+        assert!(is_assignable(
+            &Type::function(
+                vec![narrow_constructor.clone()],
+                wide_constructor.clone(),
+                Vec::new(),
+            ),
+            &Type::function(
+                vec![wide_constructor.clone()],
+                narrow_constructor.clone(),
+                Vec::new(),
+            ),
+        ));
+    }
+}
+
+#[test]
 fn parses_singleton_and_same_base_variant_union_annotations() {
     assert_eq!(
         parse_type_annotation("Option<Int>::Some"),

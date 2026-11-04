@@ -102,6 +102,105 @@ fn vec_arguments_are_covariant_at_complete_assignment_boundaries() {
 }
 
 #[test]
+fn standard_immutable_constructor_arguments_are_covariant_by_slot() {
+    let cases = [
+        ("Option<State::Ready>", "Option<State>"),
+        ("Result<State::Ready, String>", "Result<State, String>"),
+        ("Result<Int, State::Ready>", "Result<Int, State>"),
+        ("List<State::Ready>", "List<State>"),
+        ("Dict<State::Ready, Int>", "Dict<State, Int>"),
+        ("Dict<String, State::Ready>", "Dict<String, State>"),
+    ];
+
+    for (narrow, wide) in cases {
+        let diagnostics = diagnostics_for(&format!(
+            "{STATE_DECL}{}",
+            format!(
+                "fn wide_to_narrow(value: {wide}) -> {narrow}\n  value\nend\n\
+                 fn narrow_to_wide(value: {narrow}) -> {wide}\n  value\nend\n\
+                 fn nested(actual: {{value: {narrow}}}, wide: {wide}, narrow: {narrow}) -> ()\n\
+                   let widened: {wide} = narrow\n\
+                   let widened_record: {{value: {wide}}} = actual\n\
+                   let composed: fn({narrow}) -> {wide} = wide_to_narrow\n\
+                   let reversed: {narrow} = wide\n\
+                   let reversed_composed: fn({wide}) -> {narrow} = narrow_to_wide\n\
+                 end\n"
+            )
+        ));
+
+        assert_eq!(diagnostics.len(), 3, "{narrow} -> {wide}: {diagnostics:#?}");
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id == "type.mismatch"),
+            "{narrow} -> {wide}: {diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
+fn standard_adt_refinements_compose_argument_covariance_with_variant_subsets() {
+    let cases = [
+        (
+            "Option<State::Ready>::Some",
+            "Option<State>::Some | Option<State>::None",
+        ),
+        (
+            "Result<State::Ready, String>::Ok",
+            "Result<State, String>::Ok | Result<State, String>::Err",
+        ),
+        (
+            "Result<Int, State::Ready>::Err",
+            "Result<Int, State>::Ok | Result<Int, State>::Err",
+        ),
+        (
+            "List<State::Ready>::Cons",
+            "List<State>::Nil | List<State>::Cons",
+        ),
+    ];
+
+    for (narrow, wide) in cases {
+        let diagnostics = diagnostics_for(&format!(
+            "{STATE_DECL}fn boundaries(narrow: {narrow}, wide: {wide}) -> ()\n\
+               let accepted: {wide} = narrow\n\
+               let rejected: {narrow} = wide\n\
+             end\n"
+        ));
+
+        assert_eq!(diagnostics.len(), 1, "{narrow} -> {wide}: {diagnostics:#?}");
+        assert_eq!(
+            diagnostics[0].id, "type.mismatch",
+            "{narrow} -> {wide}: {diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
+fn same_spelled_source_dict_and_other_generics_remain_invariant_and_nominal() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "type Dict<K, V>\n  SourceDict(K, V)\nend\n",
+            "type Box<A>\n  Boxed(A)\nend\n",
+            "fn boundaries(source_dict: Dict<String, State::Ready>, boxed: Box<State::Ready>) -> ()\n",
+            "  let invariant_dict: Dict<String, State> = source_dict\n",
+            "  let invariant_box: Box<State> = boxed\n",
+            "  let standard_dict = {\"ready\": Ready}\n",
+            "  let nominal_dict: Dict<String, State> = standard_dict\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn identity_free_source_vec_cannot_acquire_compiler_vec_covariance() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",

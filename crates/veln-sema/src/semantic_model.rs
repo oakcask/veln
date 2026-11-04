@@ -305,6 +305,7 @@ pub(crate) fn measure_type_clone_nodes<T>(operation: impl FnOnce() -> T) -> (T, 
 impl Type {
     const RECOVERY_SLOT_IDENTITY_PREFIX: &'static str = "internal:recovery-slot:";
     const COMPILER_VEC_IDENTITY: &'static str = "internal:compiler:Vec";
+    const COMPILER_DICT_IDENTITY: &'static str = "internal:compiler:Dict";
 
     pub(crate) fn recovery_slot(index: usize) -> Self {
         Self::resolved_named(
@@ -453,7 +454,7 @@ impl Type {
     }
 
     pub(crate) fn dict(key: Type, value: Type) -> Self {
-        Self::named("Dict", vec![key, value])
+        Self::resolved_named("Dict", Self::COMPILER_DICT_IDENTITY, vec![key, value])
     }
 
     pub(crate) fn function(params: Vec<Type>, return_type: Type, effects: Vec<String>) -> Self {
@@ -513,6 +514,18 @@ impl Type {
 
     pub(crate) fn is_compiler_vec_identity(identity: &str) -> bool {
         identity == Self::COMPILER_VEC_IDENTITY
+    }
+
+    pub(crate) fn is_compiler_dict_identity(identity: &str) -> bool {
+        identity == Self::COMPILER_DICT_IDENTITY
+    }
+
+    pub(crate) fn is_compiler_covariant_identity(identity: &str) -> bool {
+        identity == "Option"
+            || identity == "Result"
+            || identity == "List"
+            || identity == Self::COMPILER_VEC_IDENTITY
+            || Self::is_compiler_dict_identity(identity)
     }
 
     pub(crate) fn dict_parts(&self) -> Option<(&Type, &Type)> {
