@@ -3,6 +3,8 @@ type State
 	Closed
 end
 
+pub type Table = Dict
+
 fn state_to_ready(value: State) -> State::Ready
 	Ready
 end
@@ -39,7 +41,7 @@ fn state_vectors_to_ready(values: Vec<State>) -> Vec<State::Ready>
 	[Ready]
 end
 
-fn main(value: State::Ready, record: {state: State::Ready, label: String}, vector_record: {items: Vec<State::Ready>, label: String}, optional: Option<State::Ready>, success: Result<State::Ready, String>, failure: Result<Int, State::Ready>, list: List<State::Ready>, key_table: Dict<State::Ready, Int>, value_table: Dict<String, State::Ready>) -> ()
+fn main(value: State::Ready, record: {state: State::Ready, label: String}, vector_record: {items: Vec<State::Ready>, label: String}, optional: Option<State::Ready>, success: Result<State::Ready, String>, failure: Result<Int, State::Ready>, list: List<State::Ready>, key_table: Dict<State::Ready, Int>, value_table: Dict<String, State::Ready>, alias_key_table: Table<State::Ready, Int>, alias_value_table: Table<String, State::Ready>) -> ()
 	let direct: State = value
 	let widened_record: {state: State} = record
 	let fixed: fn(State::Ready) -> State = state_to_ready
@@ -58,6 +60,8 @@ fn main(value: State::Ready, record: {state: State::Ready, label: String}, vecto
 	let widened_list: List<State> = list
 	let widened_keys: Dict<State, Int> = key_table
 	let widened_table_values: Dict<String, State> = value_table
+	let widened_alias_keys: Dict<State, Int> = alias_key_table
+	let widened_alias_values: Dict<String, State> = alias_value_table
 	let widened_vector_record: {items: Vec<State>} = vector_record
 	let vector_polarity: fn(Vec<State::Ready>) -> Vec<State> = state_vectors_to_ready
 end

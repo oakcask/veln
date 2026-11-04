@@ -305,7 +305,7 @@ pub(crate) fn measure_type_clone_nodes<T>(operation: impl FnOnce() -> T) -> (T, 
 impl Type {
     const RECOVERY_SLOT_IDENTITY_PREFIX: &'static str = "internal:recovery-slot:";
     const COMPILER_VEC_IDENTITY: &'static str = "internal:compiler:Vec";
-    const COMPILER_DICT_IDENTITY: &'static str = "internal:compiler:Dict";
+    pub(crate) const COMPILER_DICT_IDENTITY: &'static str = "internal:compiler:Dict";
 
     pub(crate) fn recovery_slot(index: usize) -> Self {
         Self::resolved_named(

@@ -143,15 +143,27 @@ fn standard_immutable_constructor_aliases_retain_covariance() {
             "pub type Optional = Option\n",
             "pub type Outcome = Result\n",
             "pub type Sequence = List\n",
-            "fn boundaries(optional: Optional<State::Ready>, outcome: Outcome<State::Ready, State::Ready>, sequence: Sequence<State::Ready>) -> ()\n",
+            "pub type Table = Dict\n",
+            "fn boundaries(optional: Optional<State::Ready>, outcome: Outcome<State::Ready, State::Ready>, sequence: Sequence<State::Ready>, key_table: Table<State::Ready, Int>, value_table: Table<String, State::Ready>, wide_keys: Dict<State, Int>, wide_values: Dict<String, State>, unrelated: Table<String, Int>) -> ()\n",
             "  let widened_optional: Option<State> = optional\n",
             "  let widened_outcome: Result<State, State> = outcome\n",
             "  let widened_sequence: List<State> = sequence\n",
+            "  let widened_keys: Dict<State, Int> = key_table\n",
+            "  let widened_values: Dict<String, State> = value_table\n",
+            "  let narrowed_keys: Table<State::Ready, Int> = wide_keys\n",
+            "  let narrowed_values: Table<String, State::Ready> = wide_values\n",
+            "  let unrelated_value: Dict<String, String> = unrelated\n",
             "end\n",
         )
     ));
 
-    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]
@@ -246,9 +258,11 @@ fn same_spelled_source_dict_and_other_generics_remain_invariant_and_nominal() {
         "{STATE_DECL}{}",
         concat!(
             "type Dict<K, V>\n  SourceDict(K, V)\nend\n",
+            "pub type Table = Dict\n",
             "type Box<A>\n  Boxed(A)\nend\n",
-            "fn boundaries(source_dict: Dict<String, State::Ready>, boxed: Box<State::Ready>) -> ()\n",
+            "fn boundaries(source_dict: Dict<String, State::Ready>, source_table: Table<String, State::Ready>, boxed: Box<State::Ready>) -> ()\n",
             "  let invariant_dict: Dict<String, State> = source_dict\n",
+            "  let invariant_table: Table<String, State> = source_table\n",
             "  let invariant_box: Box<State> = boxed\n",
             "  let standard_dict = {\"ready\": Ready}\n",
             "  let nominal_dict: Dict<String, State> = standard_dict\n",
@@ -256,7 +270,7 @@ fn same_spelled_source_dict_and_other_generics_remain_invariant_and_nominal() {
         )
     ));
 
-    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
     assert!(
         diagnostics
             .iter()

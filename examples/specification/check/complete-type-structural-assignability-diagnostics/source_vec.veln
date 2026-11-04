@@ -17,3 +17,5 @@ end
 pub type Dict<K, V>
 	pub SourceDict(K, V)
 end
+
+pub type Table = Dict

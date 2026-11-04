@@ -5,6 +5,8 @@ type State
 	Closed
 end
 
+pub type Table = Dict
+
 fn ready_to_state(value: State::Ready) -> State
 	value
 end
@@ -49,7 +51,7 @@ fn reject_nested_argument(value: Option<State>::None) -> Option<State::Ready>::S
 	value
 end
 
-fn main(value: State, record: {state: State}, state_values: Vec<State>, optional: Option<State>, success: Result<State, String>, failure: Result<Int, State>, list: List<State>, key_table: Dict<State, Int>, value_table: Dict<String, State>, unrelated: Option<Int>, source_values: source_vec::Vec<State>, source_optional: source_vec::Option<State>, source_result: source_vec::Result<State, String>, source_list: source_vec::List<State>, source_dict: source_vec::Dict<String, State>) -> ()
+fn main(value: State, record: {state: State}, state_values: Vec<State>, optional: Option<State>, success: Result<State, String>, failure: Result<Int, State>, list: List<State>, key_table: Dict<State, Int>, value_table: Dict<String, State>, alias_key_table: Table<State, Int>, alias_value_table: Table<String, State>, alias_unrelated: Table<String, Int>, unrelated: Option<Int>, source_values: source_vec::Vec<State>, source_optional: source_vec::Option<State>, source_result: source_vec::Result<State, String>, source_list: source_vec::List<State>, source_dict: source_vec::Dict<String, State>, source_table: source_vec::Table<String, State::Ready>) -> ()
 	let narrowed: State::Ready = value
 	let narrowed_record: {state: State::Ready, label: String} = record
 	let reversed: fn(State) -> State::Ready = ready_to_state
@@ -69,10 +71,14 @@ fn main(value: State, record: {state: State}, state_values: Vec<State>, optional
 	let narrowed_list: List<State::Ready> = list
 	let narrowed_keys: Dict<State::Ready, Int> = key_table
 	let narrowed_table_values: Dict<String, State::Ready> = value_table
+	let narrowed_alias_keys: Dict<State::Ready, Int> = alias_key_table
+	let narrowed_alias_values: Dict<String, State::Ready> = alias_value_table
+	let unrelated_alias_argument: Dict<String, String> = alias_unrelated
 	let unrelated_argument: Option<String> = unrelated
 	let distinct_constructor: Vec<State> = source_values
 	let distinct_option: Option<State> = source_optional
 	let distinct_result: Result<State, String> = source_result
 	let distinct_list: List<State> = source_list
 	let distinct_dict: Dict<String, State> = source_dict
+	let invariant_source_alias: source_vec::Table<String, State> = source_table
 end
