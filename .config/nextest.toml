@@ -4,9 +4,5 @@ slow-timeout = { period = "5s" }
 [profile.ci]
 fail-fast = false
 
-[[profile.ci.overrides]]
-filter = "binary(toolchain_harness)"
-slow-timeout = { period = "5s", terminate-after = 18 }
-
 [profile.ci.junit]
 path = "junit.xml"

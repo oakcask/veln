@@ -707,6 +707,56 @@ test buffered_worker_is_stack_bounded_across_repeated_idle_wake_cycles() -> Resu
 	end
 end
 
+fn exercise_buffered_busy_batches(exporter: BufferedJsonLinesExporter, lines: Receiver<String>, release: Sender<()>, remaining: Int) -> Result<(), String> effects [time, concurrency]
+	if remaining <= 0
+		begin
+			let _ = channel::send(release, ())
+			Ok(())
+		end
+	else match handle observe::buffered_export_observation(exporter, buffered_log("busy-batch")) with observe_test_support_test::clock(0)
+		observe::Accepted => begin
+			let _ = channel::send(release, ())
+			match channel::recv(lines)
+				Some(_) => exercise_buffered_busy_batches(exporter, lines, release, remaining - 1)
+				None => Err("buffered busy-batch destination closed")
+			end
+		end
+		_ => Err("buffered busy-batch producer was rejected")
+	end
+	end
+end
+
+test buffered_worker_is_stack_bounded_while_a_producer_sustains_non_empty_batches() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(1)
+	let release = channel::bounded<()>(1)
+	let constructed = handle observe::new_buffered_json_lines(
+		observe::Resource("busy-batches", list_nil()),
+		observe::InstrumentationScope("scope", "1"),
+		1,
+		observe::ExporterLimits(8, 64, 2, list_nil()),
+		observe::StandardError,
+		observe::NoDiagnosticDestination,
+		"busy-batches",
+		2,
+	) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => match handle observe::buffered_export_observation(exporter, buffered_log("busy-batch")) with observe_test_support_test::clock(0)
+			observe::Accepted => match channel::recv(lines.rx)
+				Some(_) => match exercise_buffered_busy_batches(exporter, lines.rx, release.tx, 201)
+					Ok(_) => match observe::shutdown_buffered(exporter)
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => Ok(())
+						_ => Err("busy-batch shutdown did not preserve completed zero-failure health")
+					end
+					Err(error) => Err(error)
+				end
+				None => Err("first buffered busy-batch destination call did not start")
+			end
+			_ => Err("first buffered busy-batch record was rejected")
+		end
+		_ => Err("busy-batch buffered exporter construction failed")
+	end
+end
+
 test buffered_shutdown_drains_in_order_then_freezes_completed_report() -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(6)
 	let release = channel::bounded<()>(4)
@@ -1243,6 +1293,10 @@ end
 
 fn buffered_independent_metric() -> Observation callsite
 	observe::CounterIncrement(observe::CounterIncrementRecord("shared-series", 1, list_nil(), None, callsite))
+end
+
+fn buffered_named_metric(name: String) -> Observation callsite
+	observe::CounterIncrement(observe::CounterIncrementRecord(name, 1, list_nil(), None, callsite))
 end
 
 fn buffered_invalid_log() -> Observation callsite
@@ -2085,7 +2139,13 @@ test concurrent_buffered_shutdown_callers_share_one_drain_summary_and_frozen_rep
 			let first_waiting: Option<()> = channel::recv(first_wait.rx)
 			let second_waiting: Option<()> = channel::recv(second_wait.rx)
 			let closed = handle observe::buffered_export_observation(exporter, buffered_log("lost-close-race")) with observe_test_support_test::clock(0)
+			let _ = handle handle handled_emit(buffered_named_metric("closed-series-1"), 1) with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0)
+			let _ = handle handle handled_emit(buffered_named_metric("closed-series-2"), 2) with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0)
+			let _ = handle handle handled_emit(buffered_named_metric("closed-series-3"), 3) with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0)
+			let _ = handle handle handled_emit(buffered_named_metric("closed-series-4"), 4) with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0)
+			let _ = handle handle handled_emit(buffered_named_metric("closed-series-5"), 5) with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0)
 			let before_release = observe::buffered_exporter_health(exporter)
+			let production_before_release = observe::buffered_production_health_for_test(exporter)
 			let _ = channel::send(release.tx, ())
 			let completed_record: Option<String> = channel::recv(events.rx)
 			let summary_started: Option<String> = channel::recv(events.rx)
@@ -2105,7 +2165,8 @@ test concurrent_buffered_shutdown_callers_share_one_drain_summary_and_frozen_rep
 			let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(events.rx, list_nil()), 0)
 			match admitted
 				observe::Accepted => match closed
-					observe::Closed => match before_release
+					observe::Closed => match production_before_release
+						observe::ProductionHealth(0, 0, 0) => match before_release
 						observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match first_report
 							Some(observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted)) => match second_report
 								Some(observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted)) => if not buffered_event_is(started, "record-started")
@@ -2128,6 +2189,8 @@ test concurrent_buffered_shutdown_callers_share_one_drain_summary_and_frozen_rep
 							_ => Err("first concurrent shutdown caller observed an unexpected report")
 						end
 						_ => Err("admission that lost the close race changed exporter health")
+						end
+						_ => Err("handler metric that lost the close race changed retained, admitted, or dropped metric health")
 					end
 					_ => Err("admission that lost the close race was not closed")
 				end

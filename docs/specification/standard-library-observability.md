@@ -561,6 +561,13 @@ cannot change health, release or retry work, start another record, or start the
 summary. A record call contract failure applies the same interrupted accounting
 and frozen-report rules.
 
+An already-started record or summary host call can append destination bytes
+after interrupted shutdown returns. The call can have committed only a prefix
+of its bytes when interruption freezes the report. Counting an unsettled record
+in `failed_exports` accounts for its unresolved outcome; it does not prove that
+the destination received no bytes, that it received no complete record, or that
+any bytes were lost.
+
 After all record attempts, shutdown handles the diagnostic destination once.
 The disabled destination performs no write and reports `SummaryDisabled`. An
 enabled destination reports `SummaryAccepted` when it accepts the summary and
