@@ -189,6 +189,10 @@ pub(crate) const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescrip
 compiler_adapter_symbol_set! {
     "observation_json_line",
     "observation_export_write",
+    "observation_export_permit_create",
+    "observation_export_permit_revoke",
+    "observation_export_permit_discard",
+    "observation_export_write_coordinated",
     "observation_export_identity",
     "production_metric_index_new",
     "production_metric_index_contains",

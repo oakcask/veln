@@ -1,3 +1,13 @@
+    private static final int OBSERVATION_EXPORT_PENDING = 0;
+    private static final int OBSERVATION_EXPORT_ENTERED = 1;
+    private static final int OBSERVATION_EXPORT_REJECTED = 2;
+    private static final int OBSERVATION_EXPORT_ACCEPTED = 3;
+    private static final int OBSERVATION_EXPORT_REVOKED = 4;
+    private static final java.util.concurrent.atomic.AtomicLong NEXT_OBSERVATION_EXPORT_PERMIT =
+        new java.util.concurrent.atomic.AtomicLong(1L);
+    private static final java.util.concurrent.ConcurrentHashMap<Long, java.util.concurrent.atomic.AtomicInteger>
+        OBSERVATION_EXPORT_PERMITS = new java.util.concurrent.ConcurrentHashMap<>();
+
     private static final class ProductionMetricIndex {
         private final long limit;
         private final java.util.TreeSet<MetricSeriesIdentity> series;
@@ -676,6 +686,53 @@
         } catch (java.io.IOException | RuntimeException error) {
             return Boolean.FALSE;
         }
+    }
+
+    public static Object observationExportPermitCreate() {
+        long permit = NEXT_OBSERVATION_EXPORT_PERMIT.getAndIncrement();
+        OBSERVATION_EXPORT_PERMITS.put(
+            Long.valueOf(permit),
+            new java.util.concurrent.atomic.AtomicInteger(OBSERVATION_EXPORT_PENDING)
+        );
+        return Long.valueOf(permit);
+    }
+
+    public static Object observationExportPermitRevoke(Object permitValue) {
+        Long permit = Long.valueOf(asLong(permitValue));
+        java.util.concurrent.atomic.AtomicInteger state = OBSERVATION_EXPORT_PERMITS.get(permit);
+        if (state == null) return Long.valueOf(OBSERVATION_EXPORT_REVOKED);
+        if (state.compareAndSet(OBSERVATION_EXPORT_PENDING, OBSERVATION_EXPORT_REVOKED)) {
+            return Long.valueOf(OBSERVATION_EXPORT_REVOKED);
+        }
+        return Long.valueOf(state.get());
+    }
+
+    public static Object observationExportPermitDiscard(Object permitValue) {
+        OBSERVATION_EXPORT_PERMITS.remove(Long.valueOf(asLong(permitValue)));
+        return UNIT;
+    }
+
+    public static Object observationExportWriteCoordinated(
+        Object destination,
+        Object line,
+        Object diagnostic,
+        Object permitValue
+    ) {
+        Long permit = Long.valueOf(asLong(permitValue));
+        java.util.concurrent.atomic.AtomicInteger state = OBSERVATION_EXPORT_PERMITS.get(permit);
+        if (state == null || !state.compareAndSet(
+            OBSERVATION_EXPORT_PENDING,
+            OBSERVATION_EXPORT_ENTERED
+        )) {
+            return Long.valueOf(-1L);
+        }
+        Object result = observationExportWrite(destination, line, diagnostic);
+        boolean written = ((Boolean) result).booleanValue();
+        state.compareAndSet(
+            OBSERVATION_EXPORT_ENTERED,
+            written ? OBSERVATION_EXPORT_ACCEPTED : OBSERVATION_EXPORT_REJECTED
+        );
+        return Long.valueOf(written ? 1L : 0L);
     }
 
     public static Object observationExportIdentity(Object prefix, Object kind, Object sequence) {

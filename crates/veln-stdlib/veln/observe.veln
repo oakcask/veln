@@ -111,10 +111,31 @@ type BufferedCompletionHook
 	TestBufferedCompletionHook(callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>)
 end
 
+type BufferedWorkerBoundaryHook
+	NoBufferedWorkerBoundaryHook
+	TestBufferedWorkerBoundaryHook(callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>)
+end
+
+type BufferedCallEntryHook
+	NoBufferedCallEntryHook
+	TestBufferedCallEntryHook(callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>)
+end
+
+type BufferedCallState
+	BufferedNoCall
+	BufferedRecordCall(permit: Int)
+	BufferedSummaryCall(health: ExporterHealth, permit: Int)
+	BufferedCallsRevoked
+end
+
+type BufferedHostCallOutcome
+	BufferedCallSkipped
+	BufferedCallCompleted(written: Bool)
+end
+
 type BufferedLifecycle
 	BufferedOpen
 	BufferedClosing
-	BufferedSummarizing(health: ExporterHealth)
 	BufferedClosed(report: BufferedShutdownReport)
 end
 
@@ -301,22 +322,40 @@ pub fn new_json_lines_default(resource: Resource, scope: InstrumentationScope, m
 end
 
 pub fn new_buffered_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int) -> BufferedJsonLinesConstruction effects [concurrency]
-	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, 0, NoBufferedIdleHook, NoBufferedCompletionHook)
+	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, 0, NoBufferedIdleHook, NoBufferedCompletionHook, NoBufferedWorkerBoundaryHook, NoBufferedWorkerBoundaryHook, NoBufferedCallEntryHook)
 end
 
 fn new_buffered_json_lines_with_idle_hook_for_test(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], idle: Sender<()>, resume: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
-	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, 0, TestBufferedIdleHook(callback, idle, resume), NoBufferedCompletionHook)
+	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, 0, TestBufferedIdleHook(callback, idle, resume), NoBufferedCompletionHook, NoBufferedWorkerBoundaryHook, NoBufferedWorkerBoundaryHook, NoBufferedCallEntryHook)
 end
 
 fn new_buffered_json_lines_with_failed_exports_for_test(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, failed_exports: Int) -> BufferedJsonLinesConstruction effects [concurrency]
-	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, failed_exports, NoBufferedIdleHook, NoBufferedCompletionHook)
+	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, failed_exports, NoBufferedIdleHook, NoBufferedCompletionHook, NoBufferedWorkerBoundaryHook, NoBufferedWorkerBoundaryHook, NoBufferedCallEntryHook)
 end
 
 fn new_buffered_json_lines_with_completion_hook_for_test(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, failed_exports: Int, callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
-	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, failed_exports, NoBufferedIdleHook, TestBufferedCompletionHook(callback, entered, release))
+	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, failed_exports, NoBufferedIdleHook, TestBufferedCompletionHook(callback, entered, release), NoBufferedWorkerBoundaryHook, NoBufferedWorkerBoundaryHook, NoBufferedCallEntryHook)
 end
 
-fn start_buffered_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, failed_exports: Int, idle_hook: BufferedIdleHook, completion_hook: BufferedCompletionHook) -> BufferedJsonLinesConstruction effects [concurrency]
+fn new_buffered_json_lines_with_worker_boundary_hook_for_test(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, failed_exports: Int, before_queue_reversal: Bool, callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+	let queue_hook = if before_queue_reversal
+		TestBufferedWorkerBoundaryHook(callback, entered, release)
+	else
+		NoBufferedWorkerBoundaryHook
+	end
+	let health_hook = if before_queue_reversal
+		NoBufferedWorkerBoundaryHook
+	else
+		TestBufferedWorkerBoundaryHook(callback, entered, release)
+	end
+	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, failed_exports, NoBufferedIdleHook, NoBufferedCompletionHook, queue_hook, health_hook, NoBufferedCallEntryHook)
+end
+
+fn new_buffered_json_lines_with_call_entry_hook_for_test(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, failed_exports: Int, callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, failed_exports, NoBufferedIdleHook, NoBufferedCompletionHook, NoBufferedWorkerBoundaryHook, NoBufferedWorkerBoundaryHook, TestBufferedCallEntryHook(callback, entered, release))
+end
+
+fn start_buffered_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, failed_exports: Int, idle_hook: BufferedIdleHook, completion_hook: BufferedCompletionHook, queue_hook: BufferedWorkerBoundaryHook, health_hook: BufferedWorkerBoundaryHook, call_entry_hook: BufferedCallEntryHook) -> BufferedJsonLinesConstruction effects [concurrency]
 	if capacity <= 0
 		InvalidCapacity(capacity)
 	else
@@ -327,8 +366,10 @@ fn start_buffered_json_lines(resource: Resource, scope: InstrumentationScope, me
 			let span_allocator = BufferedSpanAllocator(identity_prefix, identity_state)
 			let state = channel::bounded<BufferedExporterState>(1)
 			let _ = channel::send(state.tx, BufferedExporterState(1, failed_exports, 0, 0, 0, 0, list_nil(), false, BufferedOpen))
+			let calls = channel::bounded<BufferedCallState>(1)
+			let _ = channel::send(calls.tx, BufferedNoCall)
 			let ready = channel::bounded<()>(1)
-			let worker = task::spawn_with<(), { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook, completion_hook : BufferedCompletionHook }>(run_buffered_export_worker, { state: state, ready: ready.rx, destination: destination, diagnostic_destination: diagnostic_destination, production: production, idle_hook: idle_hook, completion_hook: completion_hook })
+			let worker = task::spawn_with<(), { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls : { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook, completion_hook : BufferedCompletionHook, queue_hook : BufferedWorkerBoundaryHook, health_hook : BufferedWorkerBoundaryHook, call_entry_hook : BufferedCallEntryHook }>(run_buffered_export_worker, { state: state, calls: calls, ready: ready.rx, destination: destination, diagnostic_destination: diagnostic_destination, production: production, idle_hook: idle_hook, completion_hook: completion_hook, queue_hook: queue_hook, health_hook: health_hook, call_entry_hook: call_entry_hook })
 			BufferedJsonLines(BufferedJsonLinesExporter(capacity, resource, scope, normalize_exporter_limits(limits), production, span_allocator, state, ready.tx, worker))
 		end
 	end
@@ -954,6 +995,27 @@ pub fn shutdown_buffered(exporter: BufferedJsonLinesExporter) -> BufferedShutdow
 	end
 end
 
+fn shutdown_buffered_with_wait_hook_for_test(exporter: BufferedJsonLinesExporter, callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>) -> BufferedShutdownReport effects [concurrency]
+	match exporter
+		BufferedJsonLinesExporter(_, _, _, _, production, _, state, ready, worker) => begin
+			let completed = channel::bounded<()>(1)
+			defer
+				interrupt_buffered_shutdown_waiter(worker, completed.rx)
+			end
+			callback(entered, release)
+			let report = match begin_buffered_shutdown(state, ready)
+				Some(frozen) => frozen
+				None => begin
+					let _ = task::join(worker)
+					read_buffered_shutdown_report(state, production)
+				end
+			end
+			let _ = channel::send(completed.tx, ())
+			report
+		end
+	end
+end
+
 fn interrupt_buffered_shutdown_waiter(worker: Task<()>, completed: Receiver<()>) -> () effects [concurrency]
 	match channel::select_many_timeout(list_cons(completed, list_nil()), 0)
 		Some(_) => ()
@@ -989,10 +1051,6 @@ fn begin_buffered_shutdown(state: { tx : Sender<BufferedExporterState>, rx : Rec
 					commit_buffered_state(state.tx, current, committed.tx)
 					None
 				end
-				BufferedExporterState(_, _, _, _, _, _, _, _, BufferedSummarizing(_)) => begin
-					commit_buffered_state(state.tx, current, committed.tx)
-					None
-				end
 			end
 		end
 		None => None
@@ -1017,89 +1075,158 @@ fn read_buffered_shutdown_report(state: { tx : Sender<BufferedExporterState>, rx
 	end
 end
 
-fn run_buffered_export_worker(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook, completion_hook : BufferedCompletionHook }) -> () effects [concurrency]
+fn run_buffered_export_worker(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls : { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook, completion_hook : BufferedCompletionHook, queue_hook : BufferedWorkerBoundaryHook, health_hook : BufferedWorkerBoundaryHook, call_entry_hook : BufferedCallEntryHook }) -> () effects [concurrency]
 	let completed = channel::bounded<()>(1)
 	defer
-		interrupt_unfinished_buffered_transition(context.state, context.production, completed.rx)
+		interrupt_unfinished_buffered_transition(context.state, context.calls, context.production, completed.rx)
 	end
+	run_buffered_export_worker_loop(context)
+	let _ = channel::send(completed.tx, ())
+	()
+end
+
+fn run_buffered_export_worker_loop(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls : { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook, completion_hook : BufferedCompletionHook, queue_hook : BufferedWorkerBoundaryHook, health_hook : BufferedWorkerBoundaryHook, call_entry_hook : BufferedCallEntryHook }) -> () effects [concurrency]
 	match channel::recv(context.ready)
 		Some(_) => if drain_buffered_exports(context)
-			run_buffered_export_worker(context)
+			run_buffered_export_worker_loop(context)
 		else
 			()
 		end
 		None => ()
 	end
-	let _ = channel::send(completed.tx, ())
-	()
 end
 
-fn interrupt_unfinished_buffered_transition(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, production: Production, completed: Receiver<()>) -> () effects [concurrency]
+fn interrupt_unfinished_buffered_transition(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls: { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, production: Production, completed: Receiver<()>) -> () effects [concurrency]
 	match channel::select_many_timeout(list_cons(completed, list_nil()), 0)
 		Some(_) => ()
-		None => interrupt_buffered_transition(state, production)
+		None => interrupt_buffered_transition(state, calls, production)
 	end
 end
 
-fn interrupt_buffered_transition(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, production: Production) -> () effects [concurrency]
-	match channel::recv(state.rx)
-		Some(current) => match current
-			BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, _, _, BufferedOpen) => begin
-				let interrupted_failed = bounded_add(failed, outstanding)
-				let health = ExporterHealth(interrupted_failed, dropped, truncated, redacted, production_health(production))
-				let report = BufferedShutdownReport(Interrupted, health, SummaryNotAttempted)
-				let _ = channel::send(state.tx, BufferedExporterState(sequence, interrupted_failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report)))
-				()
+fn interrupt_buffered_transition(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls: { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, production: Production) -> () effects [concurrency]
+	let cardinality = production_health(production)
+	match channel::recv(calls.rx)
+		Some(active_call) => begin
+			let call_committed = channel::bounded<()>(1)
+			defer
+				restore_uncommitted_buffered_call_state(calls.tx, active_call, call_committed.rx)
 			end
-			BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, _, BufferedClosing) => begin
-				let interrupted_failed = bounded_add(failed, outstanding)
-				let health = ExporterHealth(interrupted_failed, dropped, truncated, redacted, production_health(production))
-				let report = BufferedShutdownReport(Interrupted, health, SummaryNotAttempted)
-				let _ = channel::send(state.tx, BufferedExporterState(sequence, interrupted_failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report)))
-				()
+			let call_phase = match active_call
+				BufferedRecordCall(permit) => prelude_builtin::observation_export_permit_revoke(permit)
+				BufferedSummaryCall(_, permit) => prelude_builtin::observation_export_permit_revoke(permit)
+				BufferedNoCall => 4
+				BufferedCallsRevoked => 4
 			end
-			BufferedExporterState(sequence, failed, dropped, truncated, redacted, _, _, _, BufferedSummarizing(health)) => begin
-				let report = BufferedShutdownReport(Interrupted, health, SummaryRejected)
-				let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report)))
-				()
-			end
-			_ => begin
-				let _ = channel::send(state.tx, current)
-				()
+			match channel::recv(state.rx)
+				Some(current) => begin
+					let state_committed = channel::bounded<()>(1)
+					defer
+						restore_uncommitted_buffered_state(state.tx, current, state_committed.rx)
+					end
+					let next = interrupted_buffered_state(current, active_call, call_phase, cardinality)
+					commit_buffered_transition(state.tx, next, state_committed.tx, calls.tx, BufferedCallsRevoked, call_committed.tx)
+					discard_buffered_call_permit(active_call)
+				end
+				None => commit_buffered_call_state(calls.tx, BufferedCallsRevoked, call_committed.tx)
 			end
 		end
 		None => ()
 	end
 end
 
-fn drain_buffered_exports(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook, completion_hook : BufferedCompletionHook }) -> Bool effects [concurrency]
-	match channel::recv(context.state.rx)
-		Some(BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, _, lifecycle)) => match queued
-			Cons(_, _) => begin
-				let work = list_reverse(queued)
-				let _ = channel::send(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, list_nil(), true, lifecycle))
-				export_buffered_batch(context, work)
-				drain_buffered_exports(context)
+fn discard_buffered_call_permit(active_call: BufferedCallState) -> ()
+	match active_call
+		BufferedRecordCall(permit) => prelude_builtin::observation_export_permit_discard(permit)
+		BufferedSummaryCall(_, permit) => prelude_builtin::observation_export_permit_discard(permit)
+		_ => ()
+	end
+end
+
+fn interrupted_buffered_state(current: BufferedExporterState, active_call: BufferedCallState, call_phase: Int, cardinality: ProductionHealth) -> BufferedExporterState
+	match current
+		BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, _, _, BufferedClosed(report)) => BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, list_nil(), false, BufferedClosed(report))
+		BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, _, _, _) => match active_call
+			BufferedRecordCall(_) => if call_phase == 2 or call_phase == 3
+				begin
+					let confirmed_failed = if call_phase == 2
+						bounded_increment(failed)
+					else
+						failed
+					end
+					let interrupted_failed = bounded_add(confirmed_failed, outstanding - 1)
+					let health = ExporterHealth(interrupted_failed, dropped, truncated, redacted, cardinality)
+					let report = BufferedShutdownReport(Interrupted, health, SummaryNotAttempted)
+					BufferedExporterState(sequence, interrupted_failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report))
+				end
+			else
+				freeze_unsettled_buffered_state(sequence, failed, dropped, truncated, redacted, outstanding, cardinality, SummaryNotAttempted)
 			end
-			Nil => begin
-				match lifecycle
-					BufferedOpen => begin
-						let _ = channel::send(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, false, lifecycle))
-						notify_buffered_idle(context.idle_hook)
-						true
+			BufferedSummaryCall(health, _) => if call_phase == 2 or call_phase == 3
+				begin
+					let summary = if call_phase == 3
+						SummaryAccepted
+					else
+						SummaryRejected
 					end
-					BufferedClosing => begin
-						let _ = channel::send(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, true, lifecycle))
-						complete_buffered_export(context.state, context.diagnostic_destination, context.production, context.completion_hook)
-						false
+					let report = BufferedShutdownReport(Completed, health, summary)
+					BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report))
+				end
+			else if call_phase == 1
+				begin
+					let report = BufferedShutdownReport(Interrupted, health, SummaryRejected)
+					BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report))
+				end
+			else
+				begin
+					let report = BufferedShutdownReport(Interrupted, health, SummaryNotAttempted)
+					BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report))
+				end
+			end
+			_ => freeze_unsettled_buffered_state(sequence, failed, dropped, truncated, redacted, outstanding, cardinality, SummaryNotAttempted)
+		end
+	end
+end
+
+fn freeze_unsettled_buffered_state(sequence: Int, failed: Int, dropped: Int, truncated: Int, redacted: Int, outstanding: Int, cardinality: ProductionHealth, summary: BufferedSummaryOutcome) -> BufferedExporterState
+	let interrupted_failed = bounded_add(failed, outstanding)
+	let health = ExporterHealth(interrupted_failed, dropped, truncated, redacted, cardinality)
+	let report = BufferedShutdownReport(Interrupted, health, summary)
+	BufferedExporterState(sequence, interrupted_failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report))
+end
+
+fn drain_buffered_exports(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls : { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook, completion_hook : BufferedCompletionHook, queue_hook : BufferedWorkerBoundaryHook, health_hook : BufferedWorkerBoundaryHook, call_entry_hook : BufferedCallEntryHook }) -> Bool effects [concurrency]
+	match channel::recv(context.state.rx)
+		Some(current) => begin
+			let committed = channel::bounded<()>(1)
+			defer
+				restore_uncommitted_buffered_state(context.state.tx, current, committed.rx)
+			end
+			match current
+				BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, _, lifecycle) => match queued
+					Cons(_, _) => begin
+						notify_buffered_worker_boundary(context.queue_hook)
+						let work = list_reverse(queued)
+						commit_buffered_state(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, list_nil(), true, lifecycle), committed.tx)
+						export_buffered_batch(context, work)
+						drain_buffered_exports(context)
 					end
-					BufferedSummarizing(_) => begin
-						let _ = channel::send(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, true, lifecycle))
-						false
-					end
-					BufferedClosed(_) => begin
-						let _ = channel::send(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, false, lifecycle))
-						false
+					Nil => begin
+						match lifecycle
+							BufferedOpen => begin
+								commit_buffered_state(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, false, lifecycle), committed.tx)
+								notify_buffered_idle(context.idle_hook)
+								true
+							end
+							BufferedClosing => begin
+								commit_buffered_state(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, true, lifecycle), committed.tx)
+								complete_buffered_export(context)
+								false
+							end
+							BufferedClosed(_) => begin
+								commit_buffered_state(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, false, lifecycle), committed.tx)
+								false
+							end
+						end
 					end
 				end
 			end
@@ -1108,76 +1235,97 @@ fn drain_buffered_exports(context: { state : { tx : Sender<BufferedExporterState
 	end
 end
 
-fn export_buffered_batch(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook, completion_hook : BufferedCompletionHook }, work: List<BufferedExportWork>) -> () effects [concurrency]
+fn export_buffered_batch(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls : { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook, completion_hook : BufferedCompletionHook, queue_hook : BufferedWorkerBoundaryHook, health_hook : BufferedWorkerBoundaryHook, call_entry_hook : BufferedCallEntryHook }, work: List<BufferedExportWork>) -> () effects [concurrency]
 	match work
 		Cons(BufferedExportWork(line, _, _, _), tail) => begin
-			let call = task::spawn_with(buffered_record_host_call, { destination: context.destination, line: line })
-			match task::join(call)
-				Ok(written) => begin
-					let _ = begin
-						let committed = channel::bounded<()>(1)
-						defer
-							settle_uncommitted_confirmed_buffered_export(context.state, written, committed.rx)
+			match prepare_buffered_record_call(context.calls)
+				Some(permit) => begin
+					let call = task::spawn_with(buffered_record_host_call, { destination: context.destination, line: line, permit: permit, entry_hook: context.call_entry_hook })
+					match task::join(call)
+						Ok(BufferedCallCompleted(written)) => begin
+							settle_buffered_export(context.state, context.calls, permit, written, context.completion_hook)
+							export_buffered_batch(context, tail)
 						end
-						settle_buffered_export(context.state, written, committed.tx, context.completion_hook)
-						()
+						Ok(BufferedCallSkipped) => ()
+						Err(_) => interrupt_buffered_transition(context.state, context.calls, context.production)
 					end
-					export_buffered_batch(context, tail)
 				end
-				Err(_) => interrupt_buffered_transition(context.state, context.production)
+				None => ()
 			end
 		end
 		Nil => ()
 	end
 end
 
-fn buffered_record_host_call(context: { destination : ExportDestination, line : String }) -> Bool effects [concurrency]
-	prelude_builtin::observation_export_write(context.destination, context.line, false)
-end
-
-fn settle_uncommitted_confirmed_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, written: Bool, committed: Receiver<()>) -> () effects [concurrency]
-	match channel::select_many_timeout(list_cons(committed, list_nil()), 0)
-		Some(_) => ()
-		None => settle_buffered_export_without_guard(state, written)
-	end
-end
-
-fn settle_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, written: Bool, committed: Sender<()>, completion_hook: BufferedCompletionHook) -> () effects [concurrency]
-	match channel::recv(state.rx)
+fn prepare_buffered_record_call(calls: { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }) -> Option<Int> effects [concurrency]
+	match channel::recv(calls.rx)
 		Some(current) => begin
-			let state_committed = channel::bounded<()>(1)
+			let committed = channel::bounded<()>(1)
 			defer
-				restore_uncommitted_buffered_state(state.tx, current, state_committed.rx)
+				restore_uncommitted_buffered_call_state(calls.tx, current, committed.rx)
 			end
-			notify_buffered_completion(completion_hook)
 			match current
-				BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, worker_active, lifecycle) => begin
-					let next_failed = if written
-						failed
-					else
-						bounded_increment(failed)
-					end
-					let _ = channel::send(committed, ())
-					let _ = channel::send(state_committed.tx, ())
-					let _ = channel::send(state.tx, BufferedExporterState(sequence, next_failed, dropped, truncated, redacted, outstanding - 1, queued, worker_active, lifecycle))
-					()
+				BufferedNoCall => begin
+					let permit = prelude_builtin::observation_export_permit_create()
+					commit_buffered_call_state(calls.tx, BufferedRecordCall(permit), committed.tx)
+					Some(permit)
+				end
+				_ => begin
+					commit_buffered_call_state(calls.tx, current, committed.tx)
+					None
 				end
 			end
 		end
-		None => ()
+		None => None
 	end
 end
 
-fn settle_buffered_export_without_guard(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, written: Bool) -> () effects [concurrency]
-	match channel::recv(state.rx)
-		Some(BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, worker_active, lifecycle)) => begin
-			let next_failed = if written
-				failed
-			else
-				bounded_increment(failed)
+fn buffered_record_host_call(context: { destination : ExportDestination, line : String, permit : Int, entry_hook : BufferedCallEntryHook }) -> BufferedHostCallOutcome effects [concurrency]
+	notify_buffered_call_entry(context.entry_hook)
+	let result = prelude_builtin::observation_export_write_coordinated(context.destination, context.line, false, context.permit)
+	if result < 0
+		BufferedCallSkipped
+	else
+		BufferedCallCompleted(result > 0)
+	end
+end
+
+fn settle_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls: { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, permit: Int, written: Bool, completion_hook: BufferedCompletionHook) -> () effects [concurrency]
+	match channel::recv(calls.rx)
+		Some(active_call) => begin
+			let call_committed = channel::bounded<()>(1)
+			defer
+				restore_uncommitted_buffered_call_state(calls.tx, active_call, call_committed.rx)
 			end
-			let _ = channel::send(state.tx, BufferedExporterState(sequence, next_failed, dropped, truncated, redacted, outstanding - 1, queued, worker_active, lifecycle))
-			()
+			match active_call
+				BufferedRecordCall(active_permit) => if active_permit == permit
+					match channel::recv(state.rx)
+						Some(current) => begin
+							let state_committed = channel::bounded<()>(1)
+							defer
+								restore_uncommitted_buffered_state(state.tx, current, state_committed.rx)
+							end
+							notify_buffered_completion(completion_hook)
+							match current
+								BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, worker_active, lifecycle) => begin
+									let next_failed = if written
+										failed
+									else
+										bounded_increment(failed)
+									end
+									let next = BufferedExporterState(sequence, next_failed, dropped, truncated, redacted, outstanding - 1, queued, worker_active, lifecycle)
+									commit_buffered_transition(state.tx, next, state_committed.tx, calls.tx, BufferedNoCall, call_committed.tx)
+									prelude_builtin::observation_export_permit_discard(permit)
+								end
+							end
+						end
+						None => commit_buffered_call_state(calls.tx, active_call, call_committed.tx)
+					end
+				else
+					commit_buffered_call_state(calls.tx, active_call, call_committed.tx)
+				end
+				_ => commit_buffered_call_state(calls.tx, active_call, call_committed.tx)
+			end
 		end
 		None => ()
 	end
@@ -1197,38 +1345,60 @@ fn notify_buffered_idle(hook: BufferedIdleHook) -> () effects [concurrency]
 	end
 end
 
-fn complete_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, diagnostic_destination: DiagnosticDestination, production: Production, completion_hook: BufferedCompletionHook) -> () effects [concurrency]
+fn notify_buffered_worker_boundary(hook: BufferedWorkerBoundaryHook) -> () effects [concurrency]
+	match hook
+		NoBufferedWorkerBoundaryHook => ()
+		TestBufferedWorkerBoundaryHook(callback, entered, release) => callback(entered, release)
+	end
+end
+
+fn notify_buffered_call_entry(hook: BufferedCallEntryHook) -> () effects [concurrency]
+	match hook
+		NoBufferedCallEntryHook => ()
+		TestBufferedCallEntryHook(callback, entered, release) => callback(entered, release)
+	end
+end
+
+fn complete_buffered_export(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls : { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook, completion_hook : BufferedCompletionHook, queue_hook : BufferedWorkerBoundaryHook, health_hook : BufferedWorkerBoundaryHook, call_entry_hook : BufferedCallEntryHook }) -> () effects [concurrency]
+	let state = context.state
+	let diagnostic_destination = context.diagnostic_destination
+	let production = context.production
+	let completion_hook = context.completion_hook
 	match channel::recv(state.rx)
-		Some(current) => match current
-			BufferedExporterState(sequence, failed, dropped, truncated, redacted, _, queued, _, lifecycle) => match lifecycle
-				BufferedClosed(_) => begin
-					let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, lifecycle))
-					()
-				end
-				BufferedSummarizing(_) => begin
-					let _ = channel::send(state.tx, current)
-					()
-				end
-				_ => match diagnostic_destination
-					NoDiagnosticDestination => begin
-						let health = ExporterHealth(failed, dropped, truncated, redacted, production_health(production))
-						let report = BufferedShutdownReport(Completed, health, SummaryDisabled)
-						let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedClosed(report)))
+		Some(current) => begin
+			let state_committed = channel::bounded<()>(1)
+			defer
+				restore_uncommitted_buffered_state(state.tx, current, state_committed.rx)
+			end
+			match current
+				BufferedExporterState(sequence, failed, dropped, truncated, redacted, _, queued, _, lifecycle) => match lifecycle
+					BufferedClosed(_) => begin
+						commit_buffered_state(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, lifecycle), state_committed.tx)
 						()
 					end
-					_ => begin
-						let health = ExporterHealth(failed, dropped, truncated, redacted, production_health(production))
-						let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, true, BufferedSummarizing(health)))
-						let call = task::spawn_with(buffered_summary_host_call, { destination: diagnostic_destination, line: exporter_health_line(health) })
-						match task::join(call)
-							Ok(written) => begin
-								let committed = channel::bounded<()>(1)
-								defer
-									finish_uncommitted_confirmed_buffered_summary(state, health, written, committed.rx)
+					_ => match diagnostic_destination
+						NoDiagnosticDestination => begin
+							notify_buffered_worker_boundary(context.health_hook)
+							let health = ExporterHealth(failed, dropped, truncated, redacted, production_health(production))
+							let report = BufferedShutdownReport(Completed, health, SummaryDisabled)
+							commit_buffered_state(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedClosed(report)), state_committed.tx)
+							()
+						end
+						_ => begin
+							notify_buffered_worker_boundary(context.health_hook)
+							let health = ExporterHealth(failed, dropped, truncated, redacted, production_health(production))
+							commit_buffered_state(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, true, lifecycle), state_committed.tx)
+							match prepare_buffered_summary_call(context.calls, health)
+								Some(permit) => begin
+									let call = task::spawn_with(buffered_summary_host_call, { destination: diagnostic_destination, line: exporter_health_line(health), permit: permit, entry_hook: context.call_entry_hook })
+									match task::join(call)
+										Ok(BufferedCallCompleted(written)) => finish_buffered_summary(state, context.calls, health, permit, written, completion_hook)
+										Ok(BufferedCallSkipped) => ()
+										Err(_) => interrupt_buffered_transition(state, context.calls, production)
+									end
 								end
-								finish_buffered_summary(state, health, written, committed.tx, completion_hook)
+								None => ()
 							end
-							Err(_) => interrupt_buffered_transition(state, production)
 						end
 					end
 				end
@@ -1238,66 +1408,76 @@ fn complete_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Re
 	end
 end
 
-fn buffered_summary_host_call(context: { destination : DiagnosticDestination, line : String }) -> Bool effects [concurrency]
-	prelude_builtin::observation_export_write(context.destination, context.line, true)
-end
-
-fn finish_uncommitted_confirmed_buffered_summary(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, health: ExporterHealth, written: Bool, committed: Receiver<()>) -> () effects [concurrency]
-	match channel::select_many_timeout(list_cons(committed, list_nil()), 0)
-		Some(_) => ()
-		None => finish_buffered_summary_without_guard(state, health, written)
-	end
-end
-
-fn finish_buffered_summary(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, health: ExporterHealth, written: Bool, committed: Sender<()>, completion_hook: BufferedCompletionHook) -> () effects [concurrency]
-	match channel::recv(state.rx)
+fn prepare_buffered_summary_call(calls: { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, health: ExporterHealth) -> Option<Int> effects [concurrency]
+	match channel::recv(calls.rx)
 		Some(current) => begin
-			let state_committed = channel::bounded<()>(1)
+			let committed = channel::bounded<()>(1)
 			defer
-				restore_uncommitted_buffered_state(state.tx, current, state_committed.rx)
+				restore_uncommitted_buffered_call_state(calls.tx, current, committed.rx)
 			end
-			notify_buffered_completion(completion_hook)
 			match current
-				BufferedExporterState(sequence, failed, dropped, truncated, redacted, _, queued, _, BufferedSummarizing(_)) => begin
-					let summary = if written
-						SummaryAccepted
-					else
-						SummaryRejected
-					end
-					let report = BufferedShutdownReport(Completed, health, summary)
-					let _ = channel::send(committed, ())
-					let _ = channel::send(state_committed.tx, ())
-					let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedClosed(report)))
-					()
+				BufferedNoCall => begin
+					let permit = prelude_builtin::observation_export_permit_create()
+					commit_buffered_call_state(calls.tx, BufferedSummaryCall(health, permit), committed.tx)
+					Some(permit)
 				end
 				_ => begin
-					let _ = channel::send(committed, ())
-					let _ = channel::send(state_committed.tx, ())
-					let _ = channel::send(state.tx, current)
-					()
+					commit_buffered_call_state(calls.tx, current, committed.tx)
+					None
 				end
 			end
 		end
-		None => ()
+		None => None
 	end
 end
 
-fn finish_buffered_summary_without_guard(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, health: ExporterHealth, written: Bool) -> () effects [concurrency]
-	match channel::recv(state.rx)
-		Some(current) => match current
-			BufferedExporterState(sequence, failed, dropped, truncated, redacted, _, queued, _, BufferedSummarizing(_)) => begin
-				let summary = if written
-					SummaryAccepted
-				else
-					SummaryRejected
-				end
-				let report = BufferedShutdownReport(Completed, health, summary)
-				let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedClosed(report)))
-				()
+fn buffered_summary_host_call(context: { destination : DiagnosticDestination, line : String, permit : Int, entry_hook : BufferedCallEntryHook }) -> BufferedHostCallOutcome effects [concurrency]
+	notify_buffered_call_entry(context.entry_hook)
+	let result = prelude_builtin::observation_export_write_coordinated(context.destination, context.line, true, context.permit)
+	if result < 0
+		BufferedCallSkipped
+	else
+		BufferedCallCompleted(result > 0)
+	end
+end
+
+fn finish_buffered_summary(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls: { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, health: ExporterHealth, permit: Int, written: Bool, completion_hook: BufferedCompletionHook) -> () effects [concurrency]
+	match channel::recv(calls.rx)
+		Some(active_call) => begin
+			let call_committed = channel::bounded<()>(1)
+			defer
+				restore_uncommitted_buffered_call_state(calls.tx, active_call, call_committed.rx)
 			end
-			_ => begin
-				let _ = channel::send(state.tx, current)
-				()
+			match active_call
+				BufferedSummaryCall(_, active_permit) => if active_permit == permit
+					match channel::recv(state.rx)
+						Some(current) => begin
+							let state_committed = channel::bounded<()>(1)
+							defer
+								restore_uncommitted_buffered_state(state.tx, current, state_committed.rx)
+							end
+							notify_buffered_completion(completion_hook)
+							match current
+								BufferedExporterState(_, _, _, _, _, _, _, _, BufferedClosed(_)) => commit_buffered_transition(state.tx, current, state_committed.tx, calls.tx, BufferedNoCall, call_committed.tx)
+								BufferedExporterState(sequence, failed, dropped, truncated, redacted, _, queued, _, _) => begin
+									let summary = if written
+										SummaryAccepted
+									else
+										SummaryRejected
+									end
+									let report = BufferedShutdownReport(Completed, health, summary)
+									let next = BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedClosed(report))
+									commit_buffered_transition(state.tx, next, state_committed.tx, calls.tx, BufferedNoCall, call_committed.tx)
+									prelude_builtin::observation_export_permit_discard(permit)
+								end
+							end
+						end
+						None => commit_buffered_call_state(calls.tx, active_call, call_committed.tx)
+					end
+				else
+					commit_buffered_call_state(calls.tx, active_call, call_committed.tx)
+				end
+				_ => commit_buffered_call_state(calls.tx, active_call, call_committed.tx)
 			end
 		end
 		None => ()
@@ -1317,6 +1497,30 @@ end
 fn commit_buffered_state(state: Sender<BufferedExporterState>, next: BufferedExporterState, committed: Sender<()>) -> () effects [concurrency]
 	let _ = channel::send(committed, ())
 	let _ = channel::send(state, next)
+	()
+end
+
+fn commit_buffered_call_state(state: Sender<BufferedCallState>, next: BufferedCallState, committed: Sender<()>) -> () effects [concurrency]
+	let _ = channel::send(committed, ())
+	let _ = channel::send(state, next)
+	()
+end
+
+fn restore_uncommitted_buffered_call_state(state: Sender<BufferedCallState>, original: BufferedCallState, committed: Receiver<()>) -> () effects [concurrency]
+	match channel::select_many_timeout(list_cons(committed, list_nil()), 0)
+		Some(_) => ()
+		None => begin
+			let _ = channel::send(state, original)
+			()
+		end
+	end
+end
+
+fn commit_buffered_transition(state: Sender<BufferedExporterState>, next: BufferedExporterState, state_committed: Sender<()>, calls: Sender<BufferedCallState>, next_call: BufferedCallState, call_committed: Sender<()>) -> () effects [concurrency]
+	let _ = channel::send(state_committed, ())
+	let _ = channel::send(call_committed, ())
+	let _ = channel::send(state, next)
+	let _ = channel::send(calls, next_call)
 	()
 end
 

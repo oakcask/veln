@@ -87,6 +87,18 @@ fn core_observation_export_signature(
             vec![CoreType::Unknown, CoreType::string(), CoreType::bool()],
             CoreType::bool(),
         )),
+        "observation_export_permit_create" => Some((vec![], CoreType::int())),
+        "observation_export_permit_revoke" => Some((vec![CoreType::int()], CoreType::int())),
+        "observation_export_permit_discard" => Some((vec![CoreType::int()], CoreType::unit())),
+        "observation_export_write_coordinated" => Some((
+            vec![
+                CoreType::Unknown,
+                CoreType::string(),
+                CoreType::bool(),
+                CoreType::int(),
+            ],
+            CoreType::int(),
+        )),
         "observation_export_identity" => Some((
             vec![CoreType::string(), CoreType::string(), CoreType::int()],
             CoreType::string(),
