@@ -1892,7 +1892,7 @@ test buffered_record_rejection_and_exception_are_counted_once_and_later_work_con
 	end
 end
 
-test buffered_record_contract_failure_stops_without_counting_or_later_writes() -> Result<(), String> effects [time, concurrency]
+test buffered_record_contract_failure_accounts_unsettled_records_and_stops_later_writes() -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(2)
 	let outcomes = channel::bounded<ExportWriteOutcome>(2)
 	let _ = channel::send(outcomes.tx, observe_test_support_test::ContractFailWrite)

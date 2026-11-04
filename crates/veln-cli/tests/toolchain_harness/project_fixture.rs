@@ -379,48 +379,52 @@ pub(super) fn copy_fixture_dir(base: &Path, dir: &Path, target_root: &Path) {
         }
 
         let target = target_root.join(relative);
-        let metadata = fs::symlink_metadata(&source).unwrap_or_else(|error| {
+        copy_fixture_entry(base, target_root, source, target);
+    }
+}
+
+fn copy_fixture_entry(base: &Path, target_root: &Path, source: PathBuf, target: PathBuf) {
+    let metadata = fs::symlink_metadata(&source).unwrap_or_else(|error| {
+        panic!(
+            "{}: failed to inspect fixture entry: {error}",
+            source.display()
+        )
+    });
+    if is_link_like_metadata(&metadata) {
+        panic!(
+            "{}: replace the link or reparse point with a regular fixture entry before command execution",
+            source.display()
+        );
+    }
+    if metadata.is_dir() {
+        fs::create_dir_all(&target).unwrap_or_else(|error| {
             panic!(
-                "{}: failed to inspect fixture entry: {error}",
-                source.display()
+                "{}: failed to create fixture directory: {error}",
+                target.display()
             )
         });
-        if is_link_like_metadata(&metadata) {
-            panic!(
-                "{}: replace the link or reparse point with a regular fixture entry before command execution",
-                source.display()
-            );
-        }
-        if metadata.is_dir() {
-            fs::create_dir_all(&target).unwrap_or_else(|error| {
+        copy_fixture_dir(base, &source, target_root);
+    } else if metadata.is_file() {
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent).unwrap_or_else(|error| {
                 panic!(
-                    "{}: failed to create fixture directory: {error}",
-                    target.display()
+                    "{}: failed to create fixture parent: {error}",
+                    parent.display()
                 )
             });
-            copy_fixture_dir(base, &source, target_root);
-        } else if metadata.is_file() {
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent).unwrap_or_else(|error| {
-                    panic!(
-                        "{}: failed to create fixture parent: {error}",
-                        parent.display()
-                    )
-                });
-            }
-            fs::copy(&source, &target).unwrap_or_else(|error| {
-                panic!(
-                    "{}: failed to copy fixture to {}: {error}",
-                    source.display(),
-                    target.display()
-                )
-            });
-        } else {
-            panic!(
-                "{}: replace the non-regular fixture entry with a regular file or directory before command execution",
-                source.display()
-            );
         }
+        fs::copy(&source, &target).unwrap_or_else(|error| {
+            panic!(
+                "{}: failed to copy fixture to {}: {error}",
+                source.display(),
+                target.display()
+            )
+        });
+    } else {
+        panic!(
+            "{}: replace the non-regular fixture entry with a regular file or directory before command execution",
+            source.display()
+        );
     }
 }
 
