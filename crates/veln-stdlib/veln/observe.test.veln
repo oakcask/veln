@@ -1455,6 +1455,10 @@ fn queued_buffered_record_admission(context: { exporter : BufferedJsonLinesExpor
 	handle observe::buffered_export_observation_with_entry_hook_for_test(context.exporter, context.record, observe_test_support_test::decision_barrier, context.entered, context.release) with observe_test_support_test::clock(0)
 end
 
+fn cancel_buffered_worker_task(exporter: BufferedJsonLinesExporter) -> () effects [concurrency]
+	observe::cancel_buffered_worker_for_test(exporter)
+end
+
 fn buffered_transforming_log(context: Option<TraceContext>) -> Observation callsite
 	let attributes = list_cons(
 		observe::Attribute("secret", observe::StringValue("value")),
@@ -1639,6 +1643,23 @@ fn new_buffered_failure_for_test(failed_exports: Int, diagnostic_destination: Di
 		"failure",
 		4,
 		failed_exports,
+	)
+end
+
+fn new_buffered_interruption_boundary_for_test(entered: Sender<()>, release: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+	observe::new_buffered_json_lines_with_interruption_hook_for_test(
+		observe::Resource("interruption-boundary", list_nil()),
+		observe::InstrumentationScope("scope", "1"),
+		4,
+		observe::ExporterLimits(8, 64, 2, list_nil()),
+		observe::StandardError,
+		observe::NoDiagnosticDestination,
+		"interruption-boundary",
+		1,
+		0,
+		observe_test_support_test::decision_barrier,
+		entered,
+		release,
 	)
 end
 
@@ -2239,6 +2260,43 @@ test abnormal_worker_exit_while_open_freezes_exact_unsettled_accounting() -> Res
 			end
 		end
 		_ => Err("open worker exit exporter construction failed")
+	end
+end
+
+test interruption_freezes_metric_health_after_atomic_admission() -> Result<(), String> effects [time, concurrency]
+	let interruption_entered = channel::bounded<()>(1)
+	let interruption_release = channel::bounded<()>(1)
+	let lines = observe_test_support_test::export_lines(1)
+	let constructed = handle new_buffered_interruption_boundary_for_test(interruption_entered.tx, interruption_release.rx) with observe_test_support_test::exporter(lines.tx, true)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let interruption = task::spawn_with(cancel_buffered_worker_task, exporter)
+			let interruption_waiting: Option<()> = channel::recv(interruption_entered.rx)
+			let emitted = handle handle handled_emit(buffered_named_metric("atomic-race"), 1) with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0)
+			let _ = channel::send(interruption_release.tx, ())
+			let interruption_result = task::join(interruption)
+			let report = observe::shutdown_buffered(exporter)
+			let health = observe::buffered_exporter_health(exporter)
+			let no_call: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+			if not buffered_unit_received(interruption_waiting) or emitted != 1
+				Err("metric admission and interruption did not reach the atomic boundary")
+			else match interruption_result
+				Ok(()) => match report
+					observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(1, 1, 0)), observe::SummaryNotAttempted) => match health
+						observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(1, 1, 0)) => if buffered_no_selected_line(no_call)
+							Ok(())
+						else
+							Err("atomic interruption started a destination call")
+						end
+						_ => Err("atomic interruption exposed stale metric health")
+					end
+					_ => Err("atomic interruption froze stale metric health")
+				end
+				Err(_) => Err("atomic interruption task did not complete normally")
+			end
+			end
+		end
+		_ => Err("atomic metric interruption exporter construction failed")
 	end
 end
 
