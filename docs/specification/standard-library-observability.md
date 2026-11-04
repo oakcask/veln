@@ -553,13 +553,14 @@ Cancellation of any caller waiting for the shared transition preserves that
 caller's cancellation and interrupts the transition. Interruption atomically
 revokes new record and summary calls, counts every queued or unresolved record
 once in saturating `failed_exports`, and wakes the other shutdown callers with
-one frozen `Interrupted` report. If interruption wins after the worker prepares
-a record call but before destination invocation begins, the destination is not
-invoked and the record is counted as unresolved. An unresolved record host call
-that already began can finish after that report returns, but its completion
-cannot change health, release or retry work, start another record, or start the
-summary. A record call contract failure applies the same interrupted accounting
-and frozen-report rules.
+one frozen `Interrupted` report. The frozen health includes each metric-series
+admission that commits before interruption freezes the exporter state. If
+interruption wins after the worker prepares a record call but before destination
+invocation begins, the destination is not invoked and the record is counted as
+unresolved. An unresolved record host call that already began can finish after
+that report returns, but its completion cannot change health, release or retry
+work, start another record, or start the summary. A record call contract failure
+applies the same interrupted accounting and frozen-report rules.
 
 An already-started record or summary host call can append destination bytes
 after interrupted shutdown returns. The call can have committed only a prefix
@@ -592,7 +593,8 @@ An already-started summary call can complete after interrupted shutdown
 returns. Its late completion cannot change the report or health and cannot
 start another call. Once a record or summary host call has confirmed its result,
 interruption preserves that confirmed outcome. An interruption request that
-loses to normal completion has no exporter effect.
+loses to normal completion has no exporter effect, while the canceled caller
+still exits through task cancellation.
 
 Normal shutdown freezes and returns
 `BufferedShutdownReport(Completed, health, summary_outcome)`. The frozen health

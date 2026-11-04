@@ -104,7 +104,7 @@ contract remains owned by
 
 The `observation_json_line`, `observation_export_write`,
 `observation_export_permit_create`, `observation_export_permit_revoke`,
-`observation_export_permit_discard`,
+`observation_export_permit_discard`, `observation_export_permit_count`,
 `observation_export_write_coordinated`, and `observation_export_identity`
 compiler adapters back the configured JSON Lines handlers in `std::observe`.
 They validate and encode records, write to configured host destinations,
@@ -124,7 +124,9 @@ and before task cancellation can interrupt its caller. Permit creation takes no
 arguments and returns an integer permit. Revocation accepts that permit and
 returns `1` for an entered write, `2` for a confirmed rejection, `3` for a
 confirmed acceptance, or `4` when the pending write was revoked. Discard
-accepts a permit and returns unit.
+accepts a permit and returns unit. Permit count takes no arguments and returns
+the number of retained host permits; companion tests use it to verify that
+cancellation during call preparation does not retain an unpublished permit.
 The identity adapter accepts a string prefix, string kind, and integer sequence
 and returns `String`. The JSON schema, destination behavior, permit use,
 identity use, and failure contract remain owned by
