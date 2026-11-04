@@ -225,7 +225,12 @@ environment variable or system property selects that substitution.
 `observe::new_buffered_json_lines` adds `concurrency` and creates a worker that
 inherits the active observation-exporter adapter. Direct admission of buffered
 observations and spans adds `time` and `concurrency`; buffered health and
-normal shutdown add `concurrency`. Handling with
+shutdown add `concurrency`. Concurrent shutdown callers join one shared
+transition. Cancellation of a caller that is waiting for that transition
+preserves the caller's cancellation and interrupts the shared transition, as
+specified by
+[standard-library observability](standard-library-observability.md#buffered-json-lines-export).
+Handling with
 `observe::buffered_json_lines(exporter)` removes
 `observe::Observe` and adds `time` and `concurrency`. The inherited adapter
 remains attached to the worker after the constructing handler scope exits. The
