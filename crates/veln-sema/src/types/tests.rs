@@ -528,88 +528,95 @@ fn compiler_immutable_constructor_slots_are_covariant_and_nominal() {
     let cases = [
         (
             "Option value",
-            Type::named("Option", vec![narrow.clone()]),
-            Type::named("Option", vec![wide.clone()]),
             "Option",
+            option_with_value as fn(&Type) -> Type,
         ),
-        (
-            "Result value",
-            Type::result(narrow.clone(), Type::string()),
-            Type::result(wide.clone(), Type::string()),
-            "Result",
-        ),
-        (
-            "Result error",
-            Type::result(Type::int(), narrow.clone()),
-            Type::result(Type::int(), wide.clone()),
-            "Result",
-        ),
-        (
-            "List item",
-            Type::named("List", vec![narrow.clone()]),
-            Type::named("List", vec![wide.clone()]),
-            "List",
-        ),
-        (
-            "Vec item",
-            Type::vec(narrow.clone()),
-            Type::vec(wide.clone()),
-            "Vec",
-        ),
-        (
-            "Dict key",
-            Type::dict(narrow.clone(), Type::int()),
-            Type::dict(wide.clone(), Type::int()),
-            "Dict",
-        ),
-        (
-            "Dict value",
-            Type::dict(Type::string(), narrow.clone()),
-            Type::dict(Type::string(), wide.clone()),
-            "Dict",
-        ),
+        ("Result value", "Result", result_with_value),
+        ("Result error", "Result", result_with_error),
+        ("List item", "List", list_with_item),
+        ("Vec item", "Vec", vec_with_item),
+        ("Dict key", "Dict", dict_with_key),
+        ("Dict value", "Dict", dict_with_value),
     ];
 
-    for (name, narrow_constructor, wide_constructor, constructor_name) in cases {
-        assert!(
-            is_assignable(&wide_constructor, &narrow_constructor),
-            "{name} should widen"
+    for (name, constructor_name, construct) in cases {
+        assert_compiler_constructor_slot_covariance(
+            name,
+            construct(&narrow),
+            construct(&wide),
+            constructor_name,
         );
-        assert!(
-            !is_assignable(&narrow_constructor, &wide_constructor),
-            "{name} should not narrow"
-        );
-        assert!(
-            !is_assignable(
-                &wide_constructor,
-                &Type::resolved_named(
-                    constructor_name,
-                    format!("source::{constructor_name}"),
-                    match &wide_constructor {
-                        Type::Named { args, .. } => args.clone(),
-                        _ => unreachable!(),
-                    },
-                ),
-            ),
-            "{name} should preserve nominal identity"
-        );
-        assert!(is_assignable(
-            &Type::Record(vec![("value".to_string(), wide_constructor.clone())]),
-            &Type::Record(vec![("value".to_string(), narrow_constructor.clone())]),
-        ));
-        assert!(is_assignable(
-            &Type::function(
-                vec![narrow_constructor.clone()],
-                wide_constructor.clone(),
-                Vec::new(),
-            ),
-            &Type::function(
-                vec![wide_constructor.clone()],
-                narrow_constructor.clone(),
-                Vec::new(),
-            ),
-        ));
     }
+}
+
+fn option_with_value(value: &Type) -> Type {
+    Type::named("Option", vec![value.clone()])
+}
+
+fn result_with_value(value: &Type) -> Type {
+    Type::result(value.clone(), Type::string())
+}
+
+fn result_with_error(error: &Type) -> Type {
+    Type::result(Type::int(), error.clone())
+}
+
+fn list_with_item(item: &Type) -> Type {
+    Type::named("List", vec![item.clone()])
+}
+
+fn vec_with_item(item: &Type) -> Type {
+    Type::vec(item.clone())
+}
+
+fn dict_with_key(key: &Type) -> Type {
+    Type::dict(key.clone(), Type::int())
+}
+
+fn dict_with_value(value: &Type) -> Type {
+    Type::dict(Type::string(), value.clone())
+}
+
+fn assert_compiler_constructor_slot_covariance(
+    name: &str,
+    narrow_constructor: Type,
+    wide_constructor: Type,
+    constructor_name: &str,
+) {
+    assert!(
+        is_assignable(&wide_constructor, &narrow_constructor),
+        "{name} should widen"
+    );
+    assert!(
+        !is_assignable(&narrow_constructor, &wide_constructor),
+        "{name} should not narrow"
+    );
+    assert!(
+        !is_assignable(
+            &wide_constructor,
+            &Type::resolved_named(
+                constructor_name,
+                format!("source::{constructor_name}"),
+                match &wide_constructor {
+                    Type::Named { args, .. } => args.clone(),
+                    _ => unreachable!(),
+                },
+            ),
+        ),
+        "{name} should preserve nominal identity"
+    );
+    assert!(is_assignable(
+        &Type::Record(vec![("value".to_string(), wide_constructor.clone())]),
+        &Type::Record(vec![("value".to_string(), narrow_constructor.clone())]),
+    ));
+    assert!(is_assignable(
+        &Type::function(
+            vec![narrow_constructor.clone()],
+            wide_constructor.clone(),
+            Vec::new(),
+        ),
+        &Type::function(vec![wide_constructor], narrow_constructor, Vec::new(),),
+    ));
 }
 
 #[test]
