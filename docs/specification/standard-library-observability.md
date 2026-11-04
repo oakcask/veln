@@ -555,6 +555,9 @@ revokes new record and summary calls, counts every queued or unresolved record
 once in saturating `failed_exports`, and wakes the other shutdown callers with
 one frozen `Interrupted` report. The frozen health includes each metric-series
 admission that commits before interruption freezes the exporter state. If
+interruption freezes the exporter before the worker starts, every queued record
+is counted as unresolved, the other shutdown callers receive the frozen report,
+and later worker progress cannot start a record or summary call. If
 interruption wins after the worker prepares a record call but before destination
 invocation begins, the destination is not invoked and the record is counted as
 unresolved. An unresolved record host call that already began can finish after
@@ -815,9 +818,10 @@ process or machine termination can prevent it from running.
   identity-allocation recovery after cancellation and runtime failure,
   cardinality ordering, sequence gaps, child-task sharing, nested-scope
   restoration, independent state, ordered drain, repeated idle-to-wake stack
-  use, concurrent shutdown, waiter interruption, exact unsettled accounting,
-  late record and summary completion, enabled accepted final summary,
-  completed-report, and repeated-shutdown coverage is in `observe.test.veln`,
+  use, concurrent shutdown, waiter interruption before worker startup, exact
+  unsettled accounting, late record and summary completion, enabled accepted
+  final summary, completed-report, and repeated-shutdown coverage is in
+  `observe.test.veln`,
   with scoped destination and barrier
   support in
   [`observe_test_support_test.veln`](../../crates/veln-stdlib/veln/observe_test_support_test.veln).
