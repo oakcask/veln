@@ -143,9 +143,9 @@ fn standard_immutable_constructor_aliases_retain_covariance() {
             "pub type Optional = Option\n",
             "pub type Outcome = Result\n",
             "pub type Sequence = List\n",
-            "fn boundaries(optional: Optional<State::Ready>, outcome: Outcome<State::Ready, String>, sequence: Sequence<State::Ready>) -> ()\n",
+            "fn boundaries(optional: Optional<State::Ready>, outcome: Outcome<State::Ready, State::Ready>, sequence: Sequence<State::Ready>) -> ()\n",
             "  let widened_optional: Option<State> = optional\n",
-            "  let widened_outcome: Result<State, String> = outcome\n",
+            "  let widened_outcome: Result<State, State> = outcome\n",
             "  let widened_sequence: List<State> = sequence\n",
             "end\n",
         )
