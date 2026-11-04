@@ -400,6 +400,23 @@ fn new_buffered_for_test_with_idle_hook(capacity: Int, diagnostic_destination: D
 	)
 end
 
+fn new_buffered_for_test_with_startup_hook(entered: Sender<()>, release: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+	observe::new_buffered_json_lines_with_startup_hook_for_test(
+		observe::Resource("startup", list_nil()),
+		observe::InstrumentationScope("scope", "1"),
+		4,
+		observe::ExporterLimits(8, 64, 2, list_nil()),
+		observe::StandardError,
+		observe::DiagnosticStandardError,
+		"startup",
+		1,
+		0,
+		observe_test_support_test::hold_buffered_worker_start,
+		entered,
+		release,
+	)
+end
+
 fn new_buffered_matrix_for_test(idle: Sender<()>, resume: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
 	observe::new_buffered_json_lines_with_idle_hook_for_test(
 		observe::Resource("matrix", list_nil()),
@@ -2251,6 +2268,70 @@ test summary_interruption_before_actual_write_entry_is_not_attempted() -> Result
 			end
 		end
 		_ => Err("pre-entry summary exporter construction failed")
+	end
+end
+
+test shutdown_cancellation_before_worker_cleanup_registration_freezes_shared_interruption() -> Result<(), String> effects [time, concurrency]
+	let startup = channel::bounded<()>(1)
+	let startup_release = channel::bounded<()>(1)
+	let cancelled_wait = channel::bounded<()>(1)
+	let survivor_wait = channel::bounded<()>(1)
+	let reports = channel::bounded<BufferedShutdownReport>(1)
+	let lines = observe_test_support_test::export_lines(2)
+	let constructed = handle new_buffered_for_test_with_startup_hook(startup.tx, startup_release.rx) with observe_test_support_test::exporter(lines.tx, true)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let startup_blocked: Option<()> = channel::recv(startup.rx)
+			let admitted = handle observe::buffered_export_observation(exporter, buffered_log("startup-queued")) with observe_test_support_test::clock(0)
+			let cancelled = task::spawn_with(shutdown_buffered_task_observed, { exporter: exporter, waiting: cancelled_wait.tx })
+			let survivor = task::spawn_with(shutdown_buffered_and_send_observed, { exporter: exporter, reports: reports.tx, waiting: survivor_wait.tx })
+			let cancelled_waiting: Option<()> = channel::recv(cancelled_wait.rx)
+			let survivor_waiting: Option<()> = channel::recv(survivor_wait.rx)
+			task::cancel(cancelled)
+			let cancelled_join = task::join(cancelled)
+			let prompt: Option<{ index : Int, value : BufferedShutdownReport }> = channel::select_many_timeout(list_cons(reports.rx, list_nil()), 250)
+			let survivor_join = task::join(survivor)
+			let frozen_before = observe::buffered_exporter_health(exporter)
+			let outstanding_before_release = observe::buffered_outstanding_for_test(exporter)
+			let queue_empty_before_release = observe::buffered_queue_is_empty_for_test(exporter)
+			let _ = channel::send(startup_release.tx, ())
+			let no_call: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 50)
+			let repeated = observe::shutdown_buffered(exporter)
+			let frozen_after = observe::buffered_exporter_health(exporter)
+			let closed = handle observe::buffered_export_observation(exporter, buffered_log("after-startup-interruption")) with observe_test_support_test::clock(0)
+			match cancelled_join
+				Err(error) => if task::join_error_is_cancelled(error) and buffered_unit_received(startup_blocked) and buffered_unit_received(cancelled_waiting) and buffered_unit_received(survivor_waiting) and buffered_admission_is_accepted(admitted)
+					match prompt
+						Some({ index: 0, value: observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) }) => match survivor_join
+							Ok(()) => match repeated
+								observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match frozen_before
+									observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match frozen_after
+										observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => if outstanding_before_release != 0 or not queue_empty_before_release
+											Err("startup interruption did not discard queued outstanding work")
+										else if not buffered_no_selected_line(no_call)
+											Err("late worker startup began a record or summary call")
+										else if not buffered_admission_is_closed(closed)
+											Err("startup interruption left admission open")
+										else
+											Ok(())
+										end
+										_ => Err("late worker startup changed frozen health")
+									end
+									_ => Err("startup interruption froze the wrong health")
+								end
+								_ => Err("repeated shutdown changed the startup interruption report")
+							end
+							Err(_) => Err("startup interruption did not wake the survivor normally")
+						end
+						_ => Err("startup interruption did not wake the survivor promptly with the frozen report")
+					end
+				else
+					Err("startup interruption missed a deterministic boundary")
+				end
+				Ok(_) => Err("startup shutdown waiter lost abrupt cancellation")
+			end
+		end
+		_ => Err("startup interruption exporter construction failed")
 	end
 end
 
