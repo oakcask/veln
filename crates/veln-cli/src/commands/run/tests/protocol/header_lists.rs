@@ -261,9 +261,14 @@ fn protocol_result_failure_diagnostic_projects_response_trailer_list_context() {
     );
 }
 
-#[test]
-fn protocol_result_failure_diagnostic_projects_response_ordinary_header_name_facts() {
-    let uppercase_protocol_diagnostic = JsonValue::object([
+fn response_ordinary_header_name_failure(
+    failed_header_fact: &str,
+    header_name: &str,
+    decoded_header_names: &str,
+    rule_provenance: &str,
+    message: &str,
+) -> TestFailure {
+    let protocol_diagnostic = JsonValue::object([
         ("kind", JsonValue::string("protocol_diagnostic")),
         (
             "id",
@@ -279,92 +284,62 @@ fn protocol_result_failure_diagnostic_projects_response_ordinary_header_name_fac
         ("frame_kind", JsonValue::Number(1)),
         ("stream_id", JsonValue::Number(1)),
         ("stream_ref", JsonValue::string("stream")),
+        ("failed_header_fact", JsonValue::string(failed_header_fact)),
+        ("header_name", JsonValue::string(header_name)),
         (
-            "failed_header_fact",
-            JsonValue::string("ordinary_header_name_not_lowercase"),
+            "decoded_header_names",
+            JsonValue::string(decoded_header_names),
         ),
-        ("header_name", JsonValue::string("Server")),
-        ("decoded_header_names", JsonValue::string(":status,Server")),
         ("active_state", JsonValue::string("response-headers")),
-        (
-            "rule_provenance",
-            JsonValue::string("rfc9113_field_name_lowercase"),
-        ),
+        ("rule_provenance", JsonValue::string(rule_provenance)),
     ]);
-    let uppercase_failure = TestFailure::result_with_details(
-        "HTTP/2 response header list contains uppercase ordinary header Server at byte offset 12"
-            .to_string(),
-        None,
-        None,
-        Some(uppercase_protocol_diagnostic),
+    TestFailure::result_with_details(message.to_string(), None, None, Some(protocol_diagnostic))
+}
+
+#[test]
+fn protocol_result_failure_diagnostic_projects_uppercase_response_header_name() {
+    let failure = response_ordinary_header_name_failure(
+        "ordinary_header_name_not_lowercase",
+        "Server",
+        ":status,Server",
+        "rfc9113_field_name_lowercase",
+        "HTTP/2 response header list contains uppercase ordinary header Server at byte offset 12",
     );
 
-    let uppercase_diagnostic = protocol_result_failure_diagnostic(&uppercase_failure)
-        .expect("protocol diagnostic should project");
+    let diagnostic =
+        protocol_result_failure_diagnostic(&failure).expect("protocol diagnostic should project");
 
     assert_eq!(
-        uppercase_diagnostic.message,
+        diagnostic.message,
         "response header list contains uppercase ordinary header Server at byte offset 12"
     );
+    assert!(diagnostic.related[0].to_json().contains(":status,Server"));
     assert!(
-        uppercase_diagnostic.related[0]
-            .to_json()
-            .contains(":status,Server")
-    );
-    assert!(
-        uppercase_diagnostic.related[2]
+        diagnostic.related[2]
             .to_json()
             .contains("rfc9113_field_name_lowercase")
     );
+}
 
-    let token_protocol_diagnostic = JsonValue::object([
-        ("kind", JsonValue::string("protocol_diagnostic")),
-        (
-            "id",
-            JsonValue::string("http2.protocol.invalid_response_header_list"),
-        ),
-        (
-            "byte_offset",
-            JsonValue::object([
-                ("kind", JsonValue::string("ByteOffset")),
-                ("value", JsonValue::Number(12)),
-            ]),
-        ),
-        ("frame_kind", JsonValue::Number(1)),
-        ("stream_id", JsonValue::Number(1)),
-        ("stream_ref", JsonValue::string("stream")),
-        (
-            "failed_header_fact",
-            JsonValue::string("ordinary_header_name_invalid_token"),
-        ),
-        ("header_name", JsonValue::string("bad header")),
-        (
-            "decoded_header_names",
-            JsonValue::string(":status,bad header"),
-        ),
-        ("active_state", JsonValue::string("response-headers")),
-        (
-            "rule_provenance",
-            JsonValue::string("rfc9110_field_name_token"),
-        ),
-    ]);
-    let token_failure = TestFailure::result_with_details(
-        "HTTP/2 response header list contains invalid ordinary header name bad header at byte offset 12"
-            .to_string(),
-        None,
-        None,
-        Some(token_protocol_diagnostic),
+#[test]
+fn protocol_result_failure_diagnostic_projects_invalid_response_header_name_token() {
+    let failure = response_ordinary_header_name_failure(
+        "ordinary_header_name_invalid_token",
+        "bad header",
+        ":status,bad header",
+        "rfc9110_field_name_token",
+        "HTTP/2 response header list contains invalid ordinary header name bad header at byte offset 12",
     );
 
-    let token_diagnostic = protocol_result_failure_diagnostic(&token_failure)
-        .expect("protocol diagnostic should project");
+    let diagnostic =
+        protocol_result_failure_diagnostic(&failure).expect("protocol diagnostic should project");
 
     assert_eq!(
-        token_diagnostic.message,
+        diagnostic.message,
         "response header list contains invalid ordinary header name bad header at byte offset 12"
     );
     assert!(
-        token_diagnostic.related[2]
+        diagnostic.related[2]
             .to_json()
             .contains("rfc9110_field_name_token")
     );
