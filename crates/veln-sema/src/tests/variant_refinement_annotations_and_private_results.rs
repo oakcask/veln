@@ -280,6 +280,47 @@ fn same_spelled_source_dict_and_other_generics_remain_invariant_and_nominal() {
 }
 
 #[test]
+fn imported_source_dict_and_alias_remain_invariant_and_nominal() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "source_dict",
+            SourceFile::new(
+                "source_dict.veln",
+                concat!(
+                    "pub type Dict<K, V>\n  pub SourceDict(K, V)\nend\n",
+                    "pub type Table = Dict\n",
+                ),
+            ),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                format!(
+                    "use source_dict\n{STATE_DECL}{}",
+                    concat!(
+                        "fn boundaries(source_value: source_dict::Dict<String, State::Ready>, source_alias: source_dict::Table<String, State::Ready>) -> ()\n",
+                        "  let invariant_value: source_dict::Dict<String, State> = source_value\n",
+                        "  let invariant_alias: source_dict::Table<String, State> = source_alias\n",
+                        "  let nominal_value: Dict<String, State> = source_value\n",
+                        "end\n",
+                    )
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn identity_free_source_vec_cannot_acquire_compiler_vec_covariance() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
