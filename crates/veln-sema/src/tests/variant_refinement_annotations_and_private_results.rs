@@ -114,18 +114,15 @@ fn standard_immutable_constructor_arguments_are_covariant_by_slot() {
 
     for (narrow, wide) in cases {
         let diagnostics = diagnostics_for(&format!(
-            "{STATE_DECL}{}",
-            format!(
-                "fn wide_to_narrow(value: {wide}) -> {narrow}\n  value\nend\n\
-                 fn narrow_to_wide(value: {narrow}) -> {wide}\n  value\nend\n\
-                 fn nested(actual: {{value: {narrow}}}, wide: {wide}, narrow: {narrow}) -> ()\n\
-                   let widened: {wide} = narrow\n\
-                   let widened_record: {{value: {wide}}} = actual\n\
-                   let composed: fn({narrow}) -> {wide} = wide_to_narrow\n\
-                   let reversed: {narrow} = wide\n\
-                   let reversed_composed: fn({wide}) -> {narrow} = narrow_to_wide\n\
-                 end\n"
-            )
+            "{STATE_DECL}fn wide_to_narrow(value: {wide}) -> {narrow}\n  value\nend\n\
+             fn narrow_to_wide(value: {narrow}) -> {wide}\n  value\nend\n\
+             fn nested(actual: {{value: {narrow}}}, wide: {wide}, narrow: {narrow}) -> ()\n\
+               let widened: {wide} = narrow\n\
+               let widened_record: {{value: {wide}}} = actual\n\
+               let composed: fn({narrow}) -> {wide} = wide_to_narrow\n\
+               let reversed: {narrow} = wide\n\
+               let reversed_composed: fn({wide}) -> {narrow} = narrow_to_wide\n\
+             end\n"
         ));
 
         assert_eq!(diagnostics.len(), 3, "{narrow} -> {wide}: {diagnostics:#?}");
