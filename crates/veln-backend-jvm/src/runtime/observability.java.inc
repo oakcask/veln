@@ -716,7 +716,8 @@
         Object destination,
         Object line,
         Object diagnostic,
-        Object permitValue
+        Object permitValue,
+        Object completionValue
     ) {
         Long permit = Long.valueOf(asLong(permitValue));
         java.util.concurrent.atomic.AtomicInteger state = OBSERVATION_EXPORT_PERMITS.get(permit);
@@ -732,6 +733,10 @@
             OBSERVATION_EXPORT_ENTERED,
             written ? OBSERVATION_EXPORT_ACCEPTED : OBSERVATION_EXPORT_REJECTED
         );
+        Option completion = asOption(completionValue);
+        if (completion.some) {
+            channelSend(completion.value, UNIT);
+        }
         return Long.valueOf(written ? 1L : 0L);
     }
 

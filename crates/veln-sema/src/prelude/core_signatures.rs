@@ -96,6 +96,7 @@ fn core_observation_export_signature(
                 CoreType::string(),
                 CoreType::bool(),
                 CoreType::int(),
+                CoreType::Unknown,
             ],
             CoreType::int(),
         )),

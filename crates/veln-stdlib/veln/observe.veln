@@ -119,6 +119,7 @@ end
 type BufferedCallEntryHook
 	NoBufferedCallEntryHook
 	TestBufferedCallEntryHook(callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>)
+	TestBufferedCallReturnHook(completed: Sender<()>)
 end
 
 type BufferedCallState
@@ -323,6 +324,10 @@ end
 
 pub fn new_buffered_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int) -> BufferedJsonLinesConstruction effects [concurrency]
 	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, 0, NoBufferedIdleHook, NoBufferedCompletionHook, NoBufferedWorkerBoundaryHook, NoBufferedWorkerBoundaryHook, NoBufferedCallEntryHook)
+end
+
+fn new_buffered_json_lines_with_call_return_hook_for_test(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, failed_exports: Int, completed: Sender<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, failed_exports, NoBufferedIdleHook, NoBufferedCompletionHook, NoBufferedWorkerBoundaryHook, NoBufferedWorkerBoundaryHook, TestBufferedCallReturnHook(completed))
 end
 
 fn new_buffered_json_lines_with_idle_hook_for_test(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], idle: Sender<()>, resume: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
@@ -1282,7 +1287,7 @@ end
 
 fn buffered_record_host_call(context: { destination : ExportDestination, line : String, permit : Int, entry_hook : BufferedCallEntryHook }) -> BufferedHostCallOutcome effects [concurrency]
 	notify_buffered_call_entry(context.entry_hook)
-	let result = prelude_builtin::observation_export_write_coordinated(context.destination, context.line, false, context.permit)
+	let result = prelude_builtin::observation_export_write_coordinated(context.destination, context.line, false, context.permit, buffered_call_return_sender(context.entry_hook))
 	if result < 0
 		BufferedCallSkipped
 	else
@@ -1356,6 +1361,14 @@ fn notify_buffered_call_entry(hook: BufferedCallEntryHook) -> () effects [concur
 	match hook
 		NoBufferedCallEntryHook => ()
 		TestBufferedCallEntryHook(callback, entered, release) => callback(entered, release)
+		TestBufferedCallReturnHook(_) => ()
+	end
+end
+
+fn buffered_call_return_sender(hook: BufferedCallEntryHook) -> Option<Sender<()>>
+	match hook
+		TestBufferedCallReturnHook(completed) => Some(completed)
+		_ => None
 	end
 end
 
@@ -1433,7 +1446,7 @@ end
 
 fn buffered_summary_host_call(context: { destination : DiagnosticDestination, line : String, permit : Int, entry_hook : BufferedCallEntryHook }) -> BufferedHostCallOutcome effects [concurrency]
 	notify_buffered_call_entry(context.entry_hook)
-	let result = prelude_builtin::observation_export_write_coordinated(context.destination, context.line, true, context.permit)
+	let result = prelude_builtin::observation_export_write_coordinated(context.destination, context.line, true, context.permit, buffered_call_return_sender(context.entry_hook))
 	if result < 0
 		BufferedCallSkipped
 	else

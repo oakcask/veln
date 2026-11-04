@@ -1640,6 +1640,21 @@ fn new_buffered_call_entry_for_test(failed_exports: Int, diagnostic_destination:
 	)
 end
 
+fn new_buffered_call_return_for_test(failed_exports: Int, diagnostic_destination: DiagnosticDestination, completed: Sender<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+	observe::new_buffered_json_lines_with_call_return_hook_for_test(
+		observe::Resource("return", list_nil()),
+		observe::InstrumentationScope("scope", "1"),
+		4,
+		observe::ExporterLimits(8, 64, 2, list_nil()),
+		observe::StandardError,
+		diagnostic_destination,
+		"return",
+		4,
+		failed_exports,
+		completed,
+	)
+end
+
 fn buffered_failure_body() -> Int effects [observe::Observe]
 	log::info(None, "rejected", list_nil())
 	log::info(None, "exceptional", list_nil())
@@ -2259,10 +2274,11 @@ end
 test cancelled_shutdown_waiter_interrupts_shared_drain_and_late_record_completion_is_inert() -> Result<(), String> effects [time, concurrency]
 	let events = channel::bounded<String>(4)
 	let release = channel::bounded<()>(1)
+	let call_returned = channel::bounded<()>(1)
 	let reports = channel::bounded<BufferedShutdownReport>(1)
 	let cancelled_wait = channel::bounded<()>(1)
 	let survivor_wait = channel::bounded<()>(1)
-	let constructed = handle new_buffered_failure_for_test(0, observe::DiagnosticStandardError) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
+	let constructed = handle new_buffered_call_return_for_test(0, observe::DiagnosticStandardError, call_returned.tx) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let first_admission = handle observe::buffered_export_observation(exporter, buffered_log("in-flight")) with observe_test_support_test::clock(0)
@@ -2283,6 +2299,7 @@ test cancelled_shutdown_waiter_interrupts_shared_drain_and_late_record_completio
 			let frozen_before = observe::buffered_exporter_health(exporter)
 			let _ = channel::send(release.tx, ())
 			let late: Option<String> = channel::recv(events.rx)
+			let returned: Option<()> = channel::recv(call_returned.rx)
 			let repeated = observe::shutdown_buffered(exporter)
 			let frozen_after = observe::buffered_exporter_health(exporter)
 			let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(events.rx, list_nil()), 0)
@@ -2300,7 +2317,7 @@ test cancelled_shutdown_waiter_interrupts_shared_drain_and_late_record_completio
 										Err("interrupted drain did not wake the surviving waiter normally")
 									else if not buffered_admission_is_closed(closed)
 										Err("interrupted drain admitted a record after revocation")
-									else if late == None
+									else if late == None or not buffered_unit_received(returned)
 										Err("interrupted in-flight record did not complete late")
 									else if not buffered_no_selected_line(no_more)
 										Err("late record completion released another destination call")
@@ -2328,8 +2345,9 @@ end
 test summary_interruption_rejects_unconfirmed_call_and_late_completion_is_inert() -> Result<(), String> effects [concurrency]
 	let events = channel::bounded<String>(2)
 	let release = channel::bounded<()>(1)
+	let call_returned = channel::bounded<()>(1)
 	let waiting = channel::bounded<()>(1)
-	let constructed = handle new_buffered_failure_for_test(5, observe::DiagnosticStandardError) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
+	let constructed = handle new_buffered_call_return_for_test(5, observe::DiagnosticStandardError, call_returned.tx) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let shutdown = task::spawn_with(shutdown_buffered_task_observed, { exporter: exporter, waiting: waiting.tx })
@@ -2341,6 +2359,7 @@ test summary_interruption_rejects_unconfirmed_call_and_late_completion_is_inert(
 			let before = observe::buffered_exporter_health(exporter)
 			let _ = channel::send(release.tx, ())
 			let late: Option<String> = channel::recv(events.rx)
+			let returned: Option<()> = channel::recv(call_returned.rx)
 			let repeated = observe::shutdown_buffered(exporter)
 			let after = observe::buffered_exporter_health(exporter)
 			match joined
@@ -2351,7 +2370,7 @@ test summary_interruption_rejects_unconfirmed_call_and_late_completion_is_inert(
 								Err("summary interruption caller did not join the transition")
 							else if not buffered_event_is(started, "summary-started")
 								Err(buffered_unexpected_event("summary interruption start", started))
-							else if late == None
+							else if late == None or not buffered_unit_received(returned)
 								Err("interrupted summary did not complete late")
 							else if not buffered_health_is_five(before) or not buffered_health_is_five(after)
 								Err("late summary completion changed frozen health")

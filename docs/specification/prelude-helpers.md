@@ -116,12 +116,15 @@ declarations.
 The line encoder accepts nine arguments and uses its contextual record result
 type. The ordinary writer accepts a destination value, line string, and
 diagnostic flag and returns `Bool`. The coordinated writer adds an integer
-permit argument and returns `-1` without invoking the destination when that
-permit was revoked, `0` when an entered write is rejected, and `1` when an
-entered write is accepted. Permit creation takes no arguments and returns an
-integer permit. Revocation accepts that permit and returns `1` for an entered
-write, `2` for a confirmed rejection, `3` for a confirmed acceptance, or `4`
-when the pending write was revoked. Discard accepts a permit and returns unit.
+permit and an optional internal completion sender. It returns `-1` without
+invoking the destination when that permit was revoked, `0` when an entered
+write is rejected, and `1` when an entered write is accepted. When the sender
+is present, the writer sends unit after it records the entered call's result
+and before task cancellation can interrupt its caller. Permit creation takes no
+arguments and returns an integer permit. Revocation accepts that permit and
+returns `1` for an entered write, `2` for a confirmed rejection, `3` for a
+confirmed acceptance, or `4` when the pending write was revoked. Discard
+accepts a permit and returns unit.
 The identity adapter accepts a string prefix, string kind, and integer sequence
 and returns `String`. The JSON schema, destination behavior, permit use,
 identity use, and failure contract remain owned by
