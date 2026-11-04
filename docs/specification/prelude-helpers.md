@@ -102,18 +102,29 @@ standard-package declarations. The public policy, identity, health, and effect
 contract remains owned by
 [Standard-library Observability](standard-library-observability.md).
 
-The `observation_json_line`, `observation_export_write`, and
-`observation_export_identity` compiler adapters back the configured JSON Lines
-handler in `std::observe`. They validate and encode one record, write an
-accepted record to a configured host destination, and allocate a host identity,
-respectively. Embedded
+The `observation_json_line`, `observation_export_write`,
+`observation_export_permit_create`, `observation_export_permit_revoke`,
+`observation_export_permit_discard`,
+`observation_export_write_coordinated`, and `observation_export_identity`
+compiler adapters back the configured JSON Lines handlers in `std::observe`.
+They validate and encode records, write to configured host destinations,
+coordinate revocable buffered writes, and allocate host identities. Embedded
 standard-package source calls them through the reserved `prelude_builtin`
 route. They are not bare prelude helpers or public standard-package
-declarations. The line encoder accepts nine arguments and uses its contextual
-record result type. The writer accepts a destination value, line string, and
-diagnostic flag and returns `Bool`. The identity adapter accepts a string
-prefix, string kind, and integer sequence and returns `String`. The JSON schema,
-destination behavior, identity use, and failure contract remain owned by
+declarations.
+
+The line encoder accepts nine arguments and uses its contextual record result
+type. The ordinary writer accepts a destination value, line string, and
+diagnostic flag and returns `Bool`. The coordinated writer adds an integer
+permit argument and returns `-1` without invoking the destination when that
+permit was revoked, `0` when an entered write is rejected, and `1` when an
+entered write is accepted. Permit creation takes no arguments and returns an
+integer permit. Revocation accepts that permit and returns `1` for an entered
+write, `2` for a confirmed rejection, `3` for a confirmed acceptance, or `4`
+when the pending write was revoked. Discard accepts a permit and returns unit.
+The identity adapter accepts a string prefix, string kind, and integer sequence
+and returns `String`. The JSON schema, destination behavior, permit use,
+identity use, and failure contract remain owned by
 [Standard-library Observability](standard-library-observability.md).
 
 `std` is owned by the toolchain. A root package named `std` is accepted only

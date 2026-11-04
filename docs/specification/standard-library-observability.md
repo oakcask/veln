@@ -553,10 +553,13 @@ Cancellation of any caller waiting for the shared transition preserves that
 caller's cancellation and interrupts the transition. Interruption atomically
 revokes new record and summary calls, counts every queued or unresolved record
 once in saturating `failed_exports`, and wakes the other shutdown callers with
-one frozen `Interrupted` report. An unresolved record host call can finish
-after that report returns, but its completion cannot change health, release or
-retry work, start another record, or start the summary. A record call contract
-failure applies the same interrupted accounting and frozen-report rules.
+one frozen `Interrupted` report. If interruption wins after the worker prepares
+a record call but before destination invocation begins, the destination is not
+invoked and the record is counted as unresolved. An unresolved record host call
+that already began can finish after that report returns, but its completion
+cannot change health, release or retry work, start another record, or start the
+summary. A record call contract failure applies the same interrupted accounting
+and frozen-report rules.
 
 After all record attempts, shutdown handles the diagnostic destination once.
 The disabled destination performs no write and reports `SummaryDisabled`. An
@@ -567,6 +570,10 @@ record and diagnostic destinations identify the same output. A rejected
 summary does not change exporter health. A contract-failing summary attempt is
 a rejected unconfirmed attempt: shutdown freezes `Interrupted` with
 `SummaryRejected` and does not retry.
+
+If interruption wins after the worker prepares an enabled summary call but
+before destination invocation begins, the destination is not invoked and the
+frozen outcome is `SummaryNotAttempted`.
 
 | Interruption point | Frozen summary outcome |
 | --- | --- |
