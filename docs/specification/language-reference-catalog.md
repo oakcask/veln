@@ -62,8 +62,9 @@ An alternative with type arguments retains any `TypePath` before those
 arguments, so semantic analysis can diagnose and recover an invalid-cased
 generic base. Its descriptor publishes the current
 singleton and finite-set identity, subset assignability and direct widening,
-complete record and function assignment, compiler-owned `Vec<T>` element
-covariance, aggregate and control-flow joins,
+complete record and function assignment, covariance for every argument of the
+compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and
+`Dict<K, V>` constructors, aggregate and control-flow joins,
 stable match-path narrowing, runtime erasure,
 transitive alias-qualified identity and presentation, complete-domain alias
 reconciliation, generic payload propagation across alias-qualified constructor

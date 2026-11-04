@@ -847,9 +847,12 @@ outer finite-set or base-to-refinement exclusion remains
 `type.mismatch`; its actual type preserves the inferred nested refinement. This
 includes assigning an inferred named aggregate with an invariant refined type
 argument to the corresponding type that uses the base ADT. Record fields and
-compiler-owned `Vec<T>` elements use covariance, so widening an inferred
-singleton-refined field or vector element to its base type produces no
-diagnostic. The reverse record or vector assignment fails with
+every argument of compiler-owned immutable `Option<T>`, `Result<T, E>`,
+`List<T>`, `Vec<T>`, and `Dict<K, V>` use covariance, so widening an inferred
+singleton-refined position to its base type produces no diagnostic. The
+reverse assignment fails with `type.mismatch`. The constructor must have the
+resolved compiler-owned identity; a source or imported constructor with the
+same displayed name remains invariant and a mismatched assignment reports
 `type.mismatch`. During aggregate inference, an
 incompatible later contribution reports the aggregate position's accumulated
 type as expected and preserves the later contribution's constructor refinement

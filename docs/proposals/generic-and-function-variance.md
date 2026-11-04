@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Source-ADT variance inference, bounded generic inference, variance metadata, or nested incompatibility diagnostics change.
+update-when: Source-ADT variance inference, bounded generic inference, dependency variance metadata, variance presentation, nested incompatibility diagnostics, or analysis and language-service failure preservation change.
 ---
 
 # Generic And Function Variance
