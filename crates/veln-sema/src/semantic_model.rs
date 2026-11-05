@@ -304,6 +304,9 @@ pub(crate) fn measure_type_clone_nodes<T>(operation: impl FnOnce() -> T) -> (T, 
 
 impl Type {
     const RECOVERY_SLOT_IDENTITY_PREFIX: &'static str = "internal:recovery-slot:";
+    pub(crate) const COMPILER_OPTION_IDENTITY: &'static str = "internal:compiler::Option";
+    pub(crate) const COMPILER_RESULT_IDENTITY: &'static str = "internal:compiler::Result";
+    pub(crate) const COMPILER_LIST_IDENTITY: &'static str = "internal:compiler::List";
     const COMPILER_VEC_IDENTITY: &'static str = "internal:compiler:Vec";
     pub(crate) const COMPILER_DICT_IDENTITY: &'static str = "internal:compiler:Dict";
 
@@ -444,9 +447,16 @@ impl Type {
         ])
     }
 
-    #[cfg(test)]
+    pub(crate) fn option(value: Type) -> Self {
+        Self::resolved_named("Option", Self::COMPILER_OPTION_IDENTITY, vec![value])
+    }
+
     pub(crate) fn result(value: Type, error: Type) -> Self {
-        Self::named("Result", vec![value, error])
+        Self::resolved_named("Result", Self::COMPILER_RESULT_IDENTITY, vec![value, error])
+    }
+
+    pub(crate) fn list(item: Type) -> Self {
+        Self::resolved_named("List", Self::COMPILER_LIST_IDENTITY, vec![item])
     }
 
     pub(crate) fn vec(item: Type) -> Self {
@@ -521,16 +531,18 @@ impl Type {
     }
 
     pub(crate) fn is_compiler_covariant_identity(identity: &str) -> bool {
-        identity == "Option"
-            || identity == "Result"
-            || identity == "List"
+        identity == Self::COMPILER_OPTION_IDENTITY
+            || identity == Self::COMPILER_RESULT_IDENTITY
+            || identity == Self::COMPILER_LIST_IDENTITY
             || identity == Self::COMPILER_VEC_IDENTITY
             || Self::is_compiler_dict_identity(identity)
     }
 
     pub(crate) fn dict_parts(&self) -> Option<(&Type, &Type)> {
         match self {
-            Self::Named { name, args, .. } if name == "Dict" && args.len() == 2 => {
+            Self::Named { identity, args, .. }
+                if Self::is_compiler_dict_identity(identity) && args.len() == 2 =>
+            {
                 Some((&args[0], &args[1]))
             }
             _ => None,
@@ -656,9 +668,9 @@ mod type_clone_measurement_tests {
                     "Done".to_string(),
                 )],
             })),
-            return_type: Box::new(Type::named(
-                "Result",
-                vec![Type::Unknown, Type::named("String", Vec::new())],
+            return_type: Box::new(Type::result(
+                Type::Unknown,
+                Type::named("String", Vec::new()),
             )),
             effects: Vec::new(),
         };

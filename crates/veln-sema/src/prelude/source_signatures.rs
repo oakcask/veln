@@ -98,12 +98,18 @@ pub(super) fn source_prelude_concrete_type(ty: &Type, known_types: &BTreeSet<Str
     match ty {
         Type::Unknown => Type::Unknown,
         Type::Named { name, args, .. } if source_prelude_type_name_is_known(name, known_types) => {
-            Type::named(
-                name.clone(),
-                args.iter()
-                    .map(|arg| source_prelude_concrete_type(arg, known_types))
-                    .collect(),
-            )
+            let args = args
+                .iter()
+                .map(|arg| source_prelude_concrete_type(arg, known_types))
+                .collect::<Vec<_>>();
+            match (name.as_str(), args.as_slice()) {
+                ("Option", [value]) => Type::option(value.clone()),
+                ("Result", [value, error]) => Type::result(value.clone(), error.clone()),
+                ("List", [item]) => Type::list(item.clone()),
+                ("Vec", [item]) => Type::vec(item.clone()),
+                ("Dict", [key, value]) => Type::dict(key.clone(), value.clone()),
+                _ => Type::named(name.clone(), args),
+            }
         }
         Type::Named { .. } => Type::Unknown,
         Type::VariantRefinement {

@@ -395,12 +395,9 @@ fn prelude_callback_return_inference_skips_unrelated_annotated_helpers() {
     assert_eq!(nested.params[0], crate::semantic_model::Type::int());
     assert_eq!(
         nested.return_type,
-        crate::semantic_model::Type::named(
-            "Option",
-            vec![crate::semantic_model::Type::vec(
-                crate::semantic_model::Type::string()
-            )]
-        )
+        crate::semantic_model::Type::option(crate::semantic_model::Type::vec(
+            crate::semantic_model::Type::string(),
+        ))
     );
     let fixed = environment
         .function("fixed")

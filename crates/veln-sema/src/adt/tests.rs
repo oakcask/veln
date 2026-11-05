@@ -328,6 +328,7 @@ fn production_adt_registry_uses_published_source_less_builtin_adts() {
     let mut builtin_adts = raw_builtin_descriptors_for_test();
     let mut sentinel = builtin_adts[0].clone();
     sentinel.type_name = "RegistrySentinel".to_string();
+    sentinel.nominal_identity = None;
     sentinel.variants[0].name = "RegistrySentinel".to_string();
     sentinel.variants[0].coverage_case = "RegistrySentinel".to_string();
     builtin_adts.push(sentinel);
@@ -386,7 +387,7 @@ fn production_adt_registry_fails_when_standard_symbol_publication_fails() {
 #[test]
 fn source_less_provider_inventory_names_builtin_adt_lookup_routes() {
     let registry = registry();
-    let option = Type::named("Option", vec![Type::Unknown]);
+    let option = Type::option(Type::Unknown);
 
     let descriptor = registry
         .descriptor_for_type(&option)
@@ -672,7 +673,7 @@ fn descriptor_lookup_work_grows_with_lookups_not_unrelated_descriptors() {
             descriptors.push(descriptor);
         }
         let registry = AdtRegistry::from_parts(descriptors, std::collections::BTreeMap::new());
-        let target = Type::named("Option", vec![Type::Unknown]);
+        let target = Type::option(Type::Unknown);
         descriptor_lookup_counters::reset();
         for _ in 0..size {
             assert!(registry.descriptor_for_type(&target).is_some());

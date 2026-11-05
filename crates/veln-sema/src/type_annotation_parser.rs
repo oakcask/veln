@@ -280,6 +280,9 @@ impl<'a> TypeParser<'a> {
             ));
         }
         match (name.as_str(), args.as_slice()) {
+            ("Option", [value]) => Ok(Type::option(value.clone())),
+            ("Result", [value, error]) => Ok(Type::result(value.clone(), error.clone())),
+            ("List", [item]) => Ok(Type::list(item.clone())),
             ("Vec", [item]) => Ok(Type::vec(item.clone())),
             ("Dict", [key, value]) => Ok(Type::dict(key.clone(), value.clone())),
             _ => Ok(Type::named(name, args)),

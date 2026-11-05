@@ -1549,7 +1549,9 @@ case and its
 [`diagnostic companion`](../../examples/specification/check/complete-type-structural-assignability-diagnostics/).
 Those cases cover compiler-owned covariance through direct constructors and
 public aliases. They also check that same-spelled source constructors and their
-aliases remain nominal and invariant.
+aliases remain nominal and invariant. The checked
+[`complete-type-structural-assignability-root-nominal-diagnostics`](../../examples/specification/check/complete-type-structural-assignability-root-nominal-diagnostics/)
+case exercises that separation for declarations in the root module.
 
 Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and

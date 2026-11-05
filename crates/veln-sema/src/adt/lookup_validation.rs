@@ -170,7 +170,10 @@ pub(super) fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
     if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
         return None;
     }
-    if matches!(name.as_str(), "Option" | "Result" | "List") {
+    if decl.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+        && decl.module_name.as_deref() == Some("std::prelude")
+        && matches!(name.as_str(), "Option" | "Result" | "List")
+    {
         return None;
     }
     let type_parameter_indices = decl

@@ -44,11 +44,7 @@ fn mixed_binary_schema_fields_keep_their_decoded_record_shape() {
             ("length".to_string(), Type::int(), 2),
             ("bytes".to_string(), Type::named("ByteView", Vec::new()), 0),
             ("count".to_string(), Type::int(), 1),
-            (
-                "values".to_string(),
-                Type::named("List", vec![Type::int()]),
-                0,
-            ),
+            ("values".to_string(), Type::list(Type::int()), 0,),
             (
                 "header".to_string(),
                 Type::Record(vec![("code".to_string(), Type::int())]),

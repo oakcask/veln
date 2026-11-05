@@ -167,6 +167,45 @@ fn standard_immutable_constructor_aliases_retain_covariance() {
 }
 
 #[test]
+fn root_source_standard_spelling_and_aliases_remain_invariant() {
+    let diagnostics = diagnostics_for(&format!(
+        "{STATE_DECL}{}",
+        concat!(
+            "type Option<A>\n",
+            "  SourceOption(A)\n",
+            "end\n",
+            "pub type Optional = Option\n",
+            "type Result<A, E>\n",
+            "  SourceResult(A, E)\n",
+            "end\n",
+            "pub type Outcome = Result\n",
+            "type List<A>\n",
+            "  SourceList(A)\n",
+            "end\n",
+            "pub type Sequence = List\n",
+            "fn boundaries(optional: Option<State::Ready>, optional_alias: Optional<State::Ready>, success: Result<State::Ready, String>, success_alias: Outcome<State::Ready, String>, failure: Result<Int, State::Ready>, failure_alias: Outcome<Int, State::Ready>, list: List<State::Ready>, list_alias: Sequence<State::Ready>) -> ()\n",
+            "  let widened_optional: Option<State> = optional\n",
+            "  let widened_optional_alias: Optional<State> = optional_alias\n",
+            "  let widened_success: Result<State, String> = success\n",
+            "  let widened_success_alias: Outcome<State, String> = success_alias\n",
+            "  let widened_failure: Result<Int, State> = failure\n",
+            "  let widened_failure_alias: Outcome<Int, State> = failure_alias\n",
+            "  let widened_list: List<State> = list\n",
+            "  let widened_list_alias: Sequence<State> = list_alias\n",
+            "end\n",
+        )
+    ));
+
+    assert_eq!(diagnostics.len(), 8, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn standard_adt_refinements_compose_argument_covariance_with_variant_subsets() {
     let cases = [
         (

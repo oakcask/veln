@@ -848,11 +848,6 @@ fn prelude_helper_input_types_infer_private_callback_parameters() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "type List<A>\n",
-            "  Nil\n",
-            "  Cons(head: A, tail: List<A>)\n",
-            "end\n",
-            "\n",
             "fn vec_string(value) -> String\n",
             "  \"ok\"\n",
             "end\n",

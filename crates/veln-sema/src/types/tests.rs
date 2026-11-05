@@ -550,7 +550,7 @@ fn compiler_immutable_constructor_slots_are_covariant_and_nominal() {
 }
 
 fn option_with_value(value: &Type) -> Type {
-    Type::named("Option", vec![value.clone()])
+    Type::option(value.clone())
 }
 
 fn result_with_value(value: &Type) -> Type {
@@ -562,7 +562,7 @@ fn result_with_error(error: &Type) -> Type {
 }
 
 fn list_with_item(item: &Type) -> Type {
-    Type::named("List", vec![item.clone()])
+    Type::list(item.clone())
 }
 
 fn vec_with_item(item: &Type) -> Type {
@@ -604,6 +604,19 @@ fn assert_compiler_constructor_slot_covariance(
             ),
         ),
         "{name} should preserve nominal identity"
+    );
+    assert!(
+        !is_assignable(
+            &wide_constructor,
+            &Type::named(
+                constructor_name,
+                match &wide_constructor {
+                    Type::Named { args, .. } => args.clone(),
+                    _ => unreachable!(),
+                }
+            ),
+        ),
+        "{name} should not collide with a bare root-source identity"
     );
     assert!(is_assignable(
         &Type::Record(vec![("value".to_string(), wide_constructor.clone())]),
@@ -722,7 +735,7 @@ fn parses_variadic_function_type_annotations() {
         Ok(Type::Function {
             params: vec![Type::string()],
             variadic: Some(Box::new(Type::Unknown)),
-            return_type: Box::new(Type::named("List", vec![Type::string()])),
+            return_type: Box::new(Type::list(Type::string())),
             effects: Vec::new(),
         })
     );
@@ -731,7 +744,7 @@ fn parses_variadic_function_type_annotations() {
         Ok(Type::Function {
             params: vec![Type::string()],
             variadic: Some(Box::new(Type::Unknown)),
-            return_type: Box::new(Type::named("List", vec![Type::string()])),
+            return_type: Box::new(Type::list(Type::string())),
             effects: Vec::new(),
         })
     );

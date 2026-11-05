@@ -1278,7 +1278,7 @@ fn ir_schema_repeat(
             max_value,
             little_endian,
         } => (
-            Some(Type::named("List", vec![Type::int()])),
+            Some(Type::list(Type::int())),
             width,
             max_value,
             little_endian,
@@ -1302,10 +1302,7 @@ fn ir_schema_repeat(
             None,
         ),
         SchemaRepeatPayload::ByteView { length_field } => (
-            Some(Type::named(
-                "List",
-                vec![Type::named("ByteView", Vec::new())],
-            )),
+            Some(Type::list(Type::named("ByteView", Vec::new()))),
             0,
             0,
             false,
@@ -1318,7 +1315,7 @@ fn ir_schema_repeat(
             let element_ty = schema_decode_value_type(module, nested_schema)?;
             let payload_schema = schema_decode_spec_inner(module, nested_schema, stack)?;
             (
-                Some(Type::named("List", vec![element_ty])),
+                Some(Type::list(element_ty)),
                 0,
                 0,
                 false,

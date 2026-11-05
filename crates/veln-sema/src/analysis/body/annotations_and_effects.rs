@@ -37,7 +37,7 @@ impl<'a> FunctionChecker<'a> {
                 .as_ref()
                 .map(|expected| {
                     if param.is_variadic {
-                        Type::named("List", vec![expected.ty.clone()])
+                        Type::list(expected.ty.clone())
                     } else {
                         expected.ty.clone()
                     }
@@ -188,10 +188,7 @@ impl<'a> FunctionChecker<'a> {
         }
         let signature = self.environment.function_for(self.function)?;
         if param.is_variadic {
-            return signature
-                .variadic
-                .clone()
-                .map(|ty| Type::named("List", vec![ty]));
+            return signature.variadic.clone().map(Type::list);
         }
         let index = self
             .function

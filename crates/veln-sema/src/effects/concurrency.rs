@@ -32,9 +32,17 @@ trait SignatureType: Clone + PartialEq {
         Self::named("Result", vec![value, error])
     }
 
+    fn list(item: Self) -> Self {
+        Self::named("List", vec![item])
+    }
+
     fn result_value(&self) -> Option<&Self> {
         let args = self.named_args("Result")?;
         (args.len() == 2).then(|| &args[0])
+    }
+
+    fn list_part(&self) -> Option<&Self> {
+        self.named_argument("List")
     }
 }
 
@@ -79,6 +87,30 @@ macro_rules! common_signature_type_methods {
 
 impl SignatureType for Type {
     common_signature_type_methods!();
+
+    fn option(value: Self) -> Self {
+        Type::option(value)
+    }
+
+    fn result(value: Self, error: Self) -> Self {
+        Type::result(value, error)
+    }
+
+    fn list(item: Self) -> Self {
+        Type::list(item)
+    }
+
+    fn option_part(&self) -> Option<&Self> {
+        crate::adt::type_operations::option_part(self)
+    }
+
+    fn result_value(&self) -> Option<&Self> {
+        crate::adt::type_operations::result_parts(self).map(|(value, _)| value)
+    }
+
+    fn list_part(&self) -> Option<&Self> {
+        crate::adt::type_operations::list_part(self)
+    }
 
     fn function(params: Vec<Self>, return_type: Self, effects: Vec<String>) -> Self {
         Self::function(params, return_type, effects)
@@ -257,10 +289,7 @@ fn select_signature<T: SignatureType>(
         .or_else(|| select_receiver_item_type(name, handle_type))
         .unwrap_or_else(T::unknown);
     let mut params = if is_many_select(name) {
-        vec![T::named(
-            "List",
-            vec![T::named("Receiver", vec![item.clone()])],
-        )]
+        vec![T::list(T::named("Receiver", vec![item.clone()]))]
     } else {
         vec![
             T::named("Receiver", vec![item.clone()]),
@@ -394,7 +423,7 @@ fn receiver_item_type<T: SignatureType>(handle_type: Option<&T>) -> Option<T> {
 fn select_receiver_item_type<T: SignatureType>(name: &str, handle_type: Option<&T>) -> Option<T> {
     if is_many_select(name) {
         handle_type
-            .and_then(|ty| ty.named_argument("List"))
+            .and_then(SignatureType::list_part)
             .and_then(|ty| ty.named_argument("Receiver"))
             .cloned()
     } else {

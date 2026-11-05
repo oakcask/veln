@@ -430,7 +430,7 @@ mod tests {
         fn nested_option(depth: usize, effects: Vec<String>) -> Type {
             let mut ty = Type::function(Vec::new(), Type::unit(), effects);
             for _ in 0..depth {
-                ty = Type::named("Option", vec![ty]);
+                ty = Type::option(ty);
             }
             ty
         }

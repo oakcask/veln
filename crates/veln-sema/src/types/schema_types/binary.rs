@@ -121,7 +121,7 @@ fn schema_decode_repeat_record_field(
     }
     let element_ty = schema_repeat_payload_type(module, schema, repeat, stack)?;
     Some(SchemaDecodedRecordField::Visible {
-        ty: Type::named("List", vec![element_ty]),
+        ty: Type::list(element_ty),
         width: 0,
     })
 }

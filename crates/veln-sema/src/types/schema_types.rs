@@ -177,7 +177,7 @@ fn schema_decode_function_signatures_for_schema(
     let byte_view = Type::named("ByteView", Vec::new());
     let byte_offset = Type::named("ByteOffset", Vec::new());
     let decoded_type = Type::Record(fields.into_iter().map(|(name, ty, _)| (name, ty)).collect());
-    let result = Type::named("Result", vec![decoded_type.clone(), Type::string()]);
+    let result = Type::result(decoded_type.clone(), Type::string());
     let step = Type::named("DecodeStep", vec![decoded_type]);
     vec![
         FunctionSignature {
@@ -267,10 +267,7 @@ fn schema_validate_function_signature_for_schema(
             visibility: schema.visibility,
             params: vec![erased_type, Type::named("ByteOffset", Vec::new())],
             variadic: None,
-            return_type: Type::named(
-                "Result",
-                vec![refined_type, Type::named("DecodeError", Vec::new())],
-            ),
+            return_type: Type::result(refined_type, Type::named("DecodeError", Vec::new())),
             effects: Vec::new(),
             callsite: false,
             node_id: schema.node_id,
@@ -296,7 +293,7 @@ fn schema_validate_function_signature_for_schema(
         visibility: schema.visibility,
         params: vec![decoded_type.clone()],
         variadic: None,
-        return_type: Type::named("Result", vec![decoded_type, Type::string()]),
+        return_type: Type::result(decoded_type, Type::string()),
         effects: Vec::new(),
         callsite: false,
         node_id: schema.node_id,
@@ -325,7 +322,7 @@ fn schema_encode_function_signature_for_schema(
             visibility: schema.visibility,
             params: vec![value_type.clone()],
             variadic: None,
-            return_type: Type::named("Result", vec![value_type, Type::string()]),
+            return_type: Type::result(value_type, Type::string()),
             effects: Vec::new(),
             callsite: false,
             node_id: schema.node_id,
@@ -352,7 +349,7 @@ fn schema_encode_function_signature_for_schema(
         visibility: schema.visibility,
         params: vec![Type::Record(value_fields)],
         variadic: None,
-        return_type: Type::named("Result", vec![byte_chunk, encode_error]),
+        return_type: Type::result(byte_chunk, encode_error),
         effects: Vec::new(),
         callsite: false,
         node_id: schema.node_id,

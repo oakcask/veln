@@ -143,9 +143,12 @@ pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) -> bool {
                 ..
             },
         ) if slot_args.len() == actual_args.len()
-            && (slot_identity == actual_identity
-                || (slot_name == actual_name
-                    && (slot_identity == slot_name || actual_identity == actual_name))) =>
+            && crate::type_relations::same_type_identity(
+                slot_name,
+                slot_identity,
+                actual_name,
+                actual_identity,
+            ) =>
         {
             merge_type_arguments(slot_args, actual_args)
         }

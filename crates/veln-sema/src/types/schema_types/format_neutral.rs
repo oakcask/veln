@@ -41,7 +41,7 @@ pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
         visibility: schema.visibility,
         params: vec![decoded_type.clone()],
         variadic: None,
-        return_type: Type::named("Result", vec![decoded_type, Type::string()]),
+        return_type: Type::result(decoded_type, Type::string()),
         effects: Vec::new(),
         callsite: false,
         node_id: schema.node_id,
@@ -547,9 +547,9 @@ pub(crate) fn resolved_standard_runtime_type_kind(
         return None;
     };
     let kind = match (identity.as_str(), args.len()) {
-        ("Option", 1) => StandardRuntimeTypeKind::Option,
-        ("Result", 2) => StandardRuntimeTypeKind::Result,
-        ("List", 1) => StandardRuntimeTypeKind::List,
+        (Type::COMPILER_OPTION_IDENTITY, 1) => StandardRuntimeTypeKind::Option,
+        (Type::COMPILER_RESULT_IDENTITY, 2) => StandardRuntimeTypeKind::Result,
+        (Type::COMPILER_LIST_IDENTITY, 1) => StandardRuntimeTypeKind::List,
         (identity, 1) if Type::is_compiler_vec_identity(identity) => StandardRuntimeTypeKind::Vec,
         (identity, 2) if Type::is_compiler_dict_identity(identity) => StandardRuntimeTypeKind::Dict,
         ("String", 0) => StandardRuntimeTypeKind::String,
@@ -586,9 +586,7 @@ pub(crate) fn resolved_standard_runtime_type_kind(
         .iter()
         .any(|descriptor| {
             (descriptor.name == identity
-                || ((Type::is_compiler_vec_identity(identity)
-                    || Type::is_compiler_dict_identity(identity))
-                    && descriptor.name == name))
+                || (Type::is_compiler_covariant_identity(identity) && descriptor.name == name))
                 && descriptor.arity == args.len()
         })
         .then_some(kind)

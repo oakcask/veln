@@ -87,8 +87,12 @@ fn minimal_list_adt_constructor_calls_lower_with_declared_context() {
         panic!("tail expression should lower as return");
     };
     assert_eq!(expr.ty, CoreType::named("List", vec![CoreType::int()]));
-    let CoreExprKind::ListCons { head, tail } = &expr.kind else {
-        panic!("List::Cons call should lower to a list constructor");
+    let CoreExprKind::AdtVariant { name, payloads } = &expr.kind else {
+        panic!("source List::Cons call should lower to a nominal ADT constructor");
+    };
+    assert_eq!(name, &["List".to_string(), "Cons".to_string()]);
+    let [head, tail] = payloads.as_slice() else {
+        panic!("source List::Cons should retain its two payloads");
     };
     assert_eq!(head.ty, CoreType::int());
     assert_eq!(tail.ty, CoreType::named("List", vec![CoreType::int()]));

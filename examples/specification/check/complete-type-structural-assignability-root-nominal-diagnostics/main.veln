@@ -1,0 +1,33 @@
+type State
+	Ready
+	Closed
+end
+
+type Option<A>
+	SourceOption(A)
+end
+
+pub type Optional = Option
+
+type Result<A, E>
+	SourceResult(A, E)
+end
+
+pub type Outcome = Result
+
+type List<A>
+	SourceList(A)
+end
+
+pub type Sequence = List
+
+fn reject_root_source_widening(optional: Option<State::Ready>, optional_alias: Optional<State::Ready>, success: Result<State::Ready, String>, success_alias: Outcome<State::Ready, String>, failure: Result<Int, State::Ready>, failure_alias: Outcome<Int, State::Ready>, list: List<State::Ready>, list_alias: Sequence<State::Ready>) -> ()
+	let widened_optional: Option<State> = optional
+	let widened_optional_alias: Optional<State> = optional_alias
+	let widened_success: Result<State, String> = success
+	let widened_success_alias: Outcome<State, String> = success_alias
+	let widened_failure: Result<Int, State> = failure
+	let widened_failure_alias: Outcome<Int, State> = failure_alias
+	let widened_list: List<State> = list
+	let widened_list_alias: Sequence<State> = list_alias
+end

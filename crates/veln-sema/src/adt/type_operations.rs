@@ -73,11 +73,12 @@ pub(crate) fn type_matches_descriptor(ty: &Type, descriptor: &AdtDescriptor) -> 
         _ => return false,
     };
     args.len() == descriptor.type_parameters.len()
-        && if identity == name {
-            name == &descriptor.type_name
-        } else {
-            identity == &descriptor.identity()
-        }
+        && crate::type_relations::same_type_identity(
+            name,
+            identity,
+            &descriptor.type_name,
+            &descriptor.identity(),
+        )
 }
 
 pub(crate) fn core_constructed_type_from_args(
@@ -193,7 +194,7 @@ pub(crate) fn core_payload_type(
 }
 
 pub(crate) fn option_type(value: Type) -> Type {
-    Type::named("Option", vec![value])
+    Type::option(value)
 }
 
 pub(crate) fn core_option_type(value: CoreType) -> CoreType {
@@ -201,7 +202,7 @@ pub(crate) fn core_option_type(value: CoreType) -> CoreType {
 }
 
 pub(crate) fn result_type(value: Type, error: Type) -> Type {
-    Type::named("Result", vec![value, error])
+    Type::result(value, error)
 }
 
 pub(crate) fn core_result_type(value: CoreType, error: CoreType) -> CoreType {
@@ -209,7 +210,7 @@ pub(crate) fn core_result_type(value: CoreType, error: CoreType) -> CoreType {
 }
 
 pub(crate) fn list_type(item: Type) -> Type {
-    Type::named("List", vec![item])
+    Type::list(item)
 }
 
 pub(crate) fn core_list_type(item: CoreType) -> CoreType {
@@ -217,7 +218,14 @@ pub(crate) fn core_list_type(item: CoreType) -> CoreType {
 }
 
 pub(crate) fn option_part(ty: &Type) -> Option<&Type> {
-    named_part(ty, "Option", 1)
+    match ty {
+        Type::Named { identity, args, .. }
+            if identity == Type::COMPILER_OPTION_IDENTITY && args.len() == 1 =>
+        {
+            Some(&args[0])
+        }
+        _ => None,
+    }
 }
 
 pub(crate) fn core_option_part(ty: &CoreType) -> Option<&CoreType> {
@@ -225,7 +233,14 @@ pub(crate) fn core_option_part(ty: &CoreType) -> Option<&CoreType> {
 }
 
 pub(crate) fn result_parts(ty: &Type) -> Option<(&Type, &Type)> {
-    named_parts2(ty, "Result")
+    match ty {
+        Type::Named { identity, args, .. }
+            if identity == Type::COMPILER_RESULT_IDENTITY && args.len() == 2 =>
+        {
+            Some((&args[0], &args[1]))
+        }
+        _ => None,
+    }
 }
 
 pub(crate) fn core_result_parts(ty: &CoreType) -> Option<(&CoreType, &CoreType)> {
@@ -233,7 +248,14 @@ pub(crate) fn core_result_parts(ty: &CoreType) -> Option<(&CoreType, &CoreType)>
 }
 
 pub(crate) fn list_part(ty: &Type) -> Option<&Type> {
-    named_part(ty, "List", 1)
+    match ty {
+        Type::Named { identity, args, .. }
+            if identity == Type::COMPILER_LIST_IDENTITY && args.len() == 1 =>
+        {
+            Some(&args[0])
+        }
+        _ => None,
+    }
 }
 
 pub(crate) fn core_list_part(ty: &CoreType) -> Option<&CoreType> {

@@ -553,7 +553,16 @@ fn test_boundary_return_diagnostic(function: &Function, node_id: &str) -> Option
 }
 
 pub(super) fn is_allowed_test_return(ty: &Type) -> bool {
-    ty == &Type::unit() || adt::result_parts(ty).is_some_and(|(value, _)| value == &Type::unit())
+    ty == &Type::unit()
+        || adt::result_parts(ty).is_some_and(|(value, _)| value == &Type::unit())
+        || matches!(
+            ty,
+            Type::Named { name, identity, args }
+                if name == "Result"
+                    && identity == name
+                    && args.len() == 2
+                    && args[0] == Type::unit()
+        )
 }
 
 pub(in crate::analysis) fn type_contains_unknown(ty: &Type) -> bool {
