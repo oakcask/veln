@@ -1454,6 +1454,15 @@ performs no presentation or materialization work, and leaves the previously
 materialized result unchanged. Elapsed time is observational and is not an
 acceptance threshold.
 
+When an invariant source-ADT argument contains a record with `N` fields, an
+equal record argument matches by field name independently of field order. The
+comparison performs one tracked index insertion and one tracked lookup per
+field. The deterministic scaling check compares reversed field orders at
+widths 64, 128, and 256 and requires exactly `2 * N` tracked operations. A
+field-type conflict or a missing field rejects the argument instead of
+accepting a partial record match. Elapsed time is observational and is not an
+acceptance threshold.
+
 When a concrete payload has the form `Box<A>`, a matching refined carrier such
 as `Box<State::Ready>::Boxed` can supply `State::Ready` for `A`. This direct
 carrier inference allows `Carried(Boxed(Ready))` to infer
