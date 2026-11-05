@@ -1482,6 +1482,30 @@ recursively. Named generic arguments remain invariant except for every
 argument of the compiler-owned immutable `Option<T>`, `Result<T, E>`,
 `List<T>`, `Vec<T>`, and `Dict<K, V>` constructors.
 
+Semantic analysis computes and retains a variance classification for each
+source-ADT type parameter. Each payload occurrence begins covariant. Record
+fields and function results preserve that direction, while fixed and variadic
+function inputs reverse it. A nested named argument composes that direction
+with the matching parameter classification from its checked descriptor.
+Missing, ambiguous, or wrong-arity nested metadata makes that argument
+invariant.
+
+The classifications combine as follows:
+
+| Effective occurrences across all payloads | Retained classification |
+| --- | --- |
+| Positive only, with any number of irrelevant occurrences | Covariant. |
+| Negative only, with any number of irrelevant occurrences | Contravariant. |
+| Both positive and negative, or any invariant occurrence | Invariant. |
+| No effective occurrence | Irrelevant. |
+
+Direct and mutual recursion reach the least restrictive classification that
+satisfies every payload constraint, independently of declaration order. A
+public type alias retains the target declaration's classifications. Assignment
+and aggregate inference do not consume source-ADT classifications yet. A
+source-declared named generic therefore remains invariant at these boundaries,
+regardless of its retained classifications.
+
 | Type form | Assignment condition |
 | --- | --- |
 | Record | Every expected field exists in the actual record, and each actual field type is assignable to the expected field type. Extra actual fields are permitted. |

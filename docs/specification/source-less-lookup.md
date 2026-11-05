@@ -79,11 +79,14 @@ seeds application registry state from the published built-in ADT registry.
 Published built-in ADT descriptors also classify variant-refinement
 availability. Finite descriptors expose their constructor set to refinement
 analysis. The finite `Option`, `Result`, and `List` descriptors carry explicit
-compiler-owned nominal identities. A public alias that terminates at one of
-those descriptors retains that identity and its constructor set. Alias lookup
-also provides an opaque descriptor for the compiler-owned `Dict` identity. A
-`Dict` alias therefore retains dictionary identity without acquiring
-constructors or variant refinements.
+compiler-owned nominal identities and covariant parameter classifications.
+A public alias that terminates at one of those descriptors retains that
+identity, constructor set, and parameter classifications. Alias lookup also
+provides an opaque descriptor for the compiler-owned `Dict` identity and its
+two covariant parameters. A `Dict` alias therefore retains dictionary identity
+and parameter classifications without acquiring constructors or variant
+refinements. These classifications seed source-ADT variance analysis; they do
+not change lookup keys or make source-ADT assignment variance-aware.
 
 Opaque descriptors expose only their type identity. The opaque `NetListener`
 and `NetStream` entries therefore let exported standard-package type aliases

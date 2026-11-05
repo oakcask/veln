@@ -41,10 +41,18 @@ have no constructors and allow exported standard-package aliases to name host
 resources without exposing their representation. Compiler-known ADT
 descriptors classify their variant-refinement availability.
 Constructor-bearing descriptors such as `Option`, `Result`, and `List` expose
-a finite set. The compiler-owned `Dict` identity has an opaque descriptor for
-public type-alias resolution; an alias retains dictionary identity without
-gaining constructors or variant refinements. The two resource descriptors are
-also opaque. The
+a finite set. Their generic parameters are covariant in compiler-known
+descriptor metadata. The compiler-owned `Dict` identity has an opaque
+descriptor for public type-alias resolution, and both of its parameters are
+covariant in that metadata. An alias retains dictionary identity and parameter
+classifications without gaining constructors or variant refinements. Other
+generic compiler-known ADT descriptors are invariant. The two resource
+descriptors are also opaque. Source-ADT variance analysis composes parameter
+occurrences through these checked classifications. It also recognizes the
+compiler-owned `Vec` classification without publishing a source-less ADT
+descriptor for `Vec`.
+Assignment and aggregate inference do not yet consume the retained source-ADT
+classifications. The
 [type](types.md#compatibility-and-limits) and
 [diagnostic](diagnostics-json.md#diagnostic-families) specifications own the
 observable refinement rules and failures. The toolchain
