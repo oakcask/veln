@@ -170,7 +170,9 @@ fn nested_source_and_compiler_owned_constructors_compose_checked_metadata() {
          type NestedFixed<T>\n  Value(Fixed<T>)\nend\n\
          type NestedIgnored<T>\n  Value(Ignored<T>)\nend\n\
          type ReversedProducer<T>\n  Value(fn(Producer<T>) -> ())\nend\n\
-         type Builtins<T>\n  Value(Option<Result<List<Vec<Dict<T, T>>>, T>>)\nend\n",
+         type Builtins<T>\n  Value(Option<Result<List<Vec<Dict<T, T>>>, T>>)\nend\n\
+         type DictKey<T>\n  Value(Dict<T, Int>)\nend\n\
+         type DictValue<T>\n  Value(Dict<Int, T>)\nend\n",
     );
 
     for (name, expected) in [
@@ -180,6 +182,8 @@ fn nested_source_and_compiler_owned_constructors_compose_checked_metadata() {
         ("NestedIgnored", X),
         ("ReversedProducer", N),
         ("Builtins", P),
+        ("DictKey", P),
+        ("DictValue", P),
     ] {
         assert_eq!(variances(&registry, name), vec![expected], "{name}");
     }
@@ -202,6 +206,47 @@ fn nested_source_and_compiler_owned_constructors_compose_checked_metadata() {
             "{name} variance metadata must not publish an ADT descriptor",
         );
     }
+}
+
+fn wide_shift_left_source(width: usize) -> String {
+    let parameters = (0..width)
+        .map(|index| format!("T{index}"))
+        .collect::<Vec<_>>();
+    let mut shifted = parameters.iter().skip(1).cloned().collect::<Vec<_>>();
+    shifted.push(parameters.last().expect("positive width").clone());
+    format!(
+        "type Wide<{}>\n  Direct(T0)\n  Recur(Wide<{}>)\nend\n",
+        parameters.join(", "),
+        shifted.join(", "),
+    )
+}
+
+#[test]
+fn wide_self_recursive_shift_has_linear_repeated_work() {
+    use Variance::Covariant;
+
+    let mut measurements = Vec::new();
+    for width in [256usize, 512] {
+        variance_solver_counters::reset();
+        let start = std::time::Instant::now();
+        let registry = registry_from_source(&wide_shift_left_source(width));
+        let elapsed = start.elapsed();
+        let factor_evaluations = variance_solver_counters::factor_evaluations();
+        let constraint_joins = variance_solver_counters::constraint_joins();
+        assert_eq!(variances(&registry, "Wide"), vec![Covariant; width]);
+        eprintln!(
+            "wide variance width={width} factor_evaluations={factor_evaluations} constraint_joins={constraint_joins} elapsed={elapsed:?}"
+        );
+        measurements.push((factor_evaluations, constraint_joins));
+    }
+    assert!(
+        measurements[1].0 <= measurements[0].0 * 2 + 4,
+        "factor evaluations must grow linearly: {measurements:?}",
+    );
+    assert!(
+        measurements[1].1 <= measurements[0].1 * 2 + 4,
+        "constraint joins must grow linearly: {measurements:?}",
+    );
 }
 
 #[test]
@@ -245,22 +290,43 @@ fn recursive_and_mutually_recursive_results_ignore_declaration_order() {
 
 #[test]
 fn nested_source_analysis_consumes_checked_base_metadata() {
-    use Variance::Covariant;
+    use Variance::{Covariant, Invariant};
     let dependency = registry_from_source(
         "mod dependency\n\
-         pub type Hidden<T>\n  HiddenValue(T)\nend\n",
+         pub type Visible<T>\n  VisibleValue(T)\nend\n\
+         pub type VisibleAlias = Visible\n\
+         type Hidden<T>\n  HiddenValue(T)\nend\n\
+         type OwnerWrapper<T>\n  Value(Hidden<T>)\nend\n",
     );
+    assert_eq!(variances(&dependency, "Visible"), vec![Covariant]);
+    assert_eq!(variances(&dependency, "Hidden"), vec![Covariant]);
+    assert_eq!(variances(&dependency, "OwnerWrapper"), vec![Covariant]);
     let parsed = veln_syntax::parse(&veln_source::SourceFile::new(
         "consumer.veln",
         "mod consumer\n\
          use dependency\n\
-         type Wrapper<T>\n  Value(dependency::Hidden<T>)\nend\n",
+         type PublicWrapper<T>\n  Value(dependency::Visible<T>)\nend\n\
+         type AliasWrapper<T>\n  Value(dependency::VisibleAlias<T>)\nend\n\
+         type PrivateWrapper<T>\n  Value(dependency::Hidden<T>)\nend\n",
     ));
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = veln_ast::lower_surface_ast(&parsed.tree);
     let registry = AdtRegistry::from_module_with_base(&module, &dependency);
 
-    assert_eq!(variances(&registry, "Wrapper"), vec![Covariant]);
+    assert_eq!(variances(&registry, "PublicWrapper"), vec![Covariant]);
+    assert_eq!(variances(&registry, "AliasWrapper"), vec![Covariant]);
+    assert_eq!(variances(&registry, "PrivateWrapper"), vec![Invariant]);
+
+    let parsed = veln_syntax::parse(&veln_source::SourceFile::new(
+        "aliased_consumer.veln",
+        "mod aliased_consumer\n\
+         use dependency as dep\n\
+         type ImportAliasWrapper<T>\n  Value(dep::Visible<T>)\nend\n",
+    ));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = veln_ast::lower_surface_ast(&parsed.tree);
+    let registry = AdtRegistry::from_module_with_base(&module, &dependency);
+    assert_eq!(variances(&registry, "ImportAliasWrapper"), vec![Covariant]);
 }
 
 #[test]
@@ -334,6 +400,7 @@ fn compiler_owned_constructor_metadata_failures_are_invariant() {
             &mut descriptors,
             source_start,
             &Default::default(),
+            &Default::default(),
         );
         assert_eq!(
             descriptors[source_start].parameter_variances,
@@ -378,6 +445,7 @@ fn producer_local_constructor_metadata_rejects_wrong_arity() {
         &mut descriptors,
         source_start,
         &Default::default(),
+        &Default::default(),
     );
 
     assert_eq!(
@@ -406,6 +474,7 @@ fn nested_payload_collection_has_linear_work_and_retained_state() {
         crate::adt::variance::infer_source_parameter_variances(
             &mut descriptors,
             source_start,
+            &Default::default(),
             &Default::default(),
         );
         let elapsed = start.elapsed();
