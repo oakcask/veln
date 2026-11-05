@@ -277,10 +277,16 @@ impl AdtRegistry {
         let resolved_constructor_uses =
             self.resolved_source_constructor_uses(&uses, source_descriptor_start);
         self.canonicalize_source_payload_types(&uses, source_descriptor_start);
+        let alias_variance_targets = self
+            .type_alias_exposure_paths
+            .iter()
+            .filter(|(identity, _)| self.type_alias_identities.contains(*identity))
+            .map(|(identity, path)| (identity.clone(), path.terminal.identity()))
+            .collect();
         crate::adt::variance::infer_source_parameter_variances(
             &mut self.descriptors,
             source_descriptor_start,
-            &self.type_alias_identities,
+            &alias_variance_targets,
             &resolved_constructor_uses,
         );
     }

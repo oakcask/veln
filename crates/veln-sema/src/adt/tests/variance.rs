@@ -263,6 +263,72 @@ fn assignment_falls_back_to_invariance_without_checked_metadata() {
 }
 
 #[test]
+fn standard_prelude_aliases_receive_checked_target_variances_for_assignment() {
+    use Variance::{Contravariant as N, Covariant as P, Invariant as I, Irrelevant as X};
+
+    let registry = registry_from_source(
+        "mod std::prelude\n\
+         pub type Positive<T>\n  PositiveValue(T)\nend\n\
+         pub type Negative<T>\n  NegativeValue(fn(T) -> ())\nend\n\
+         pub type Fixed<T>\n  PositiveUse(T)\n  NegativeUse(fn(T) -> ())\nend\n\
+         pub type Ignored<T>\n  IgnoredValue\nend\n\
+         pub type PositiveAlias = Positive\n\
+         pub type NegativeAlias = Negative\n\
+         pub type FixedAlias = Fixed\n\
+         pub type IgnoredAlias = Ignored\n",
+    );
+    let narrow = crate::semantic_model::Type::variant_refinement(
+        "State",
+        Vec::new(),
+        vec!["Ready".to_string()],
+    );
+    let wide = crate::semantic_model::Type::named("State", Vec::new());
+
+    for (name, variance, forward, reverse) in [
+        ("PositiveAlias", P, true, false),
+        ("NegativeAlias", N, false, true),
+        ("FixedAlias", I, false, false),
+        ("IgnoredAlias", X, true, true),
+    ] {
+        let descriptor = registry
+            .descriptors()
+            .iter()
+            .find(|descriptor| descriptor.type_name == name)
+            .unwrap_or_else(|| panic!("missing alias descriptor {name}"));
+        assert_eq!(descriptor.nominal_identity, None, "{name}");
+        assert_eq!(descriptor.parameter_variances, vec![variance], "{name}");
+        let narrow_instance = crate::semantic_model::Type::resolved_named(
+            name,
+            descriptor.identity(),
+            vec![narrow.clone()],
+        );
+        let wide_instance = crate::semantic_model::Type::resolved_named(
+            name,
+            descriptor.identity(),
+            vec![wide.clone()],
+        );
+        assert_eq!(
+            crate::type_relations::is_assignable_with_registry(
+                &wide_instance,
+                &narrow_instance,
+                &registry,
+            ),
+            forward,
+            "{name} forward",
+        );
+        assert_eq!(
+            crate::type_relations::is_assignable_with_registry(
+                &narrow_instance,
+                &wide_instance,
+                &registry,
+            ),
+            reverse,
+            "{name} reverse",
+        );
+    }
+}
+
+#[test]
 fn nested_source_and_compiler_owned_constructors_compose_checked_metadata() {
     use Variance::{Contravariant as N, Covariant as P, Invariant as I, Irrelevant as X};
     let registry = registry_from_source(

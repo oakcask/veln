@@ -219,6 +219,8 @@ does not authorize application.
   `crates/veln-sema/src/contracts/`.
 - Match-arm refinement of hole diagnostics and candidates:
   [`adt-variant-refinement-match-hole-repairs-json`](../../examples/specification/check/adt-variant-refinement-match-hole-repairs-json/).
+- Source-ADT variance candidate admission, ranking, and exclusion:
+  [`source-adt-variance-hole-repairs-json`](../../examples/specification/check/source-adt-variance-hole-repairs-json/).
 - JSON field definitions and applying-command gates:
   [diagnostics-json.md](diagnostics-json.md),
   [repair-candidates.md](repair-candidates.md), and

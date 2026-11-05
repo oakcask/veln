@@ -415,7 +415,12 @@ impl AdtRegistry {
         let canonical = candidates
             .iter()
             .copied()
-            .filter(|descriptor| descriptor.nominal_identity.is_none())
+            .filter(|descriptor| {
+                descriptor.nominal_identity.is_none()
+                    && !self
+                        .type_alias_identities
+                        .contains(&DescriptorKey::new(descriptor))
+            })
             .collect::<Vec<_>>();
         match canonical.as_slice() {
             [descriptor] => return Some(descriptor.parameter_variances.as_slice()),

@@ -1,0 +1,27 @@
+# Hole repair candidates use the checked variance relation and rank exact types
+# before merely assignable source ADT instances.
+type State
+	Ready
+	Closed
+end
+
+type Producer<T>
+	Produced(T)
+end
+
+type Fixed<T>
+	Positive(T)
+	Negative(fn(T) -> ())
+end
+
+fn ranked(exact: Producer<State>, narrow: Producer<State::Ready>) -> Producer<State>
+	_ranked
+end
+
+fn reversed(wide: Producer<State>) -> Producer<State::Ready>
+	_reversed satisfy candidate => candidate == candidate
+end
+
+fn fixed_mismatch(fixed_value: Fixed<State::Ready>) -> Fixed<State>
+	_invariant satisfy candidate => candidate == candidate
+end
