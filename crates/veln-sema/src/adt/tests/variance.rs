@@ -142,13 +142,7 @@ fn nested_source_and_compiler_owned_constructors_compose_checked_metadata() {
         assert_eq!(variances(&registry, name), vec![expected], "{name}");
     }
 
-    for (name, arity) in [
-        ("Option", 1),
-        ("Result", 2),
-        ("List", 1),
-        ("Vec", 1),
-        ("Dict", 2),
-    ] {
+    for (name, arity) in [("Option", 1), ("Result", 2), ("List", 1)] {
         let descriptor = registry
             .descriptors()
             .iter()
@@ -156,6 +150,15 @@ fn nested_source_and_compiler_owned_constructors_compose_checked_metadata() {
             .expect("compiler-owned descriptor");
         assert_eq!(descriptor.parameter_variances, vec![P; arity], "{name}",);
         assert_eq!(descriptor.type_parameters.len(), arity, "{name}");
+    }
+    for name in ["Vec", "Dict"] {
+        assert!(
+            registry
+                .descriptors()
+                .iter()
+                .all(|descriptor| descriptor.type_name != name),
+            "{name} variance metadata must not publish an ADT descriptor",
+        );
     }
 }
 
@@ -288,6 +291,90 @@ fn compiler_owned_constructor_metadata_failures_are_invariant() {
             "{case}",
         );
     }
+}
+
+fn nested_vec_payload_descriptor(depth: usize) -> crate::adt::descriptors::AdtDescriptor {
+    let mut descriptor = lookup_descriptor("variance", 1);
+    descriptor.type_name = "Deep".to_string();
+    descriptor.module_name = None;
+    let mut payload = crate::semantic_model::Type::named("$param0", Vec::new());
+    for _ in 0..depth {
+        payload = crate::semantic_model::Type::vec(payload);
+    }
+    descriptor.variants[0].payload_fields = vec![crate::adt::descriptors::AdtPayloadField {
+        name: "value".to_string(),
+        ty: crate::adt::descriptors::AdtPayloadType::Concrete(payload),
+    }];
+    descriptor
+}
+
+#[test]
+fn producer_local_constructor_metadata_rejects_wrong_arity() {
+    use Variance::Invariant;
+
+    let mut descriptor = nested_vec_payload_descriptor(0);
+    let parameter = crate::semantic_model::Type::named("$param0", Vec::new());
+    descriptor.variants[0].payload_fields[0].ty = crate::adt::descriptors::AdtPayloadType::Concrete(
+        crate::semantic_model::Type::resolved_named(
+            "Vec",
+            crate::semantic_model::Type::COMPILER_VEC_IDENTITY,
+            vec![parameter.clone(), parameter],
+        ),
+    );
+    let mut descriptors = registry().descriptors().to_vec();
+    let source_start = descriptors.len();
+    descriptors.push(descriptor);
+    crate::adt::variance::infer_source_parameter_variances(
+        &mut descriptors,
+        source_start,
+        &Default::default(),
+    );
+
+    assert_eq!(
+        descriptors[source_start].parameter_variances,
+        vec![Invariant]
+    );
+}
+
+#[test]
+fn nested_payload_collection_has_linear_work_and_retained_state() {
+    use Variance::Covariant;
+
+    let mut adjacent = Vec::new();
+    for depth in [256usize, 512] {
+        let mut descriptors = registry().descriptors().to_vec();
+        assert!(
+            descriptors
+                .iter()
+                .all(|descriptor| { !matches!(descriptor.type_name.as_str(), "Vec" | "Dict") })
+        );
+        let source_start = descriptors.len();
+        descriptors.push(nested_vec_payload_descriptor(depth));
+
+        variance_solver_counters::reset();
+        let start = std::time::Instant::now();
+        crate::adt::variance::infer_source_parameter_variances(
+            &mut descriptors,
+            source_start,
+            &Default::default(),
+        );
+        let elapsed = start.elapsed();
+        let visits = variance_solver_counters::collection_visits();
+        let retained = variance_solver_counters::retained_factors();
+
+        assert_eq!(
+            descriptors[source_start].parameter_variances,
+            vec![Covariant]
+        );
+        assert_eq!(visits, depth + 1, "depth={depth}");
+        assert_eq!(retained, depth, "depth={depth}");
+        eprintln!(
+            "variance payload depth={depth} visits={visits} retained={retained} elapsed={elapsed:?}"
+        );
+        adjacent.push((visits, retained));
+    }
+    assert_eq!(adjacent[1].0, adjacent[0].0 * 2 - 1);
+    assert_eq!(adjacent[1].1, adjacent[0].1 * 2);
 }
 
 fn variance_chain_source(count: usize, reverse: bool) -> String {

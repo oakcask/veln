@@ -566,7 +566,8 @@ pub(crate) fn resolved_standard_runtime_type_kind(
         return None;
     }
     let uses = normal_use_decls(module);
-    let descriptor = if identity != name {
+    let canonical_compiler_dict = Type::is_compiler_dict_identity(identity) && name == "Dict";
+    let descriptor = if identity != name && !canonical_compiler_dict {
         adts.descriptor_for_type(ty)
     } else {
         adts.descriptor_for_type_path_in_owner(
@@ -598,16 +599,6 @@ fn standard_core_container_descriptor_kind(
         && (descriptor.package_name.is_some() || descriptor.module_name.is_some())
     {
         return None;
-    }
-    if descriptor.nominal_identity.as_deref() == Some(Type::COMPILER_VEC_IDENTITY)
-        && descriptor.type_parameters.len() == 1
-    {
-        return Some(StandardRuntimeTypeKind::Vec);
-    }
-    if descriptor.nominal_identity.as_deref() == Some(Type::COMPILER_DICT_IDENTITY)
-        && descriptor.type_parameters.len() == 2
-    {
-        return Some(StandardRuntimeTypeKind::Dict);
     }
     let kinds = descriptor
         .variants
@@ -1083,7 +1074,6 @@ fn format_neutral_schema_named_visible_shape_type(
                 ],
             ))
         }
-        (Some(StandardRuntimeTypeKind::Dict), _) => None,
         (Some(StandardRuntimeTypeKind::Result), [ok, error]) => Some(Type::resolved_named(
             name,
             identity,

@@ -40,6 +40,17 @@ enum MetadataEntry {
     Ambiguous,
 }
 
+const COVARIANT_2: [Variance; 2] = [Variance::Covariant; 2];
+
+fn compiler_owned_variances(identity: &str, arity: usize) -> Option<&'static [Variance]> {
+    let expected: &'static [Variance] = match identity {
+        Type::COMPILER_VEC_IDENTITY => &[Variance::Covariant],
+        Type::COMPILER_DICT_IDENTITY => &COVARIANT_2,
+        _ => return None,
+    };
+    (expected.len() == arity).then_some(expected)
+}
+
 struct MetadataIndex {
     by_identity_and_arity: HashMap<String, HashMap<usize, MetadataEntry>>,
 }
@@ -79,6 +90,9 @@ impl MetadataIndex {
         arity: usize,
         descriptors: &[super::descriptors::AdtDescriptor],
     ) -> Vec<Variance> {
+        if let Some(variances) = compiler_owned_variances(identity, arity) {
+            return variances.to_vec();
+        }
         let Some(descriptor) = self
             .resolve(identity, arity)
             .and_then(|index| descriptors.get(index))
@@ -103,7 +117,17 @@ enum VarianceFactor {
 
 struct ParameterConstraint {
     parameter_index: usize,
-    factors: Vec<VarianceFactor>,
+    factor_path: Option<usize>,
+}
+
+struct FactorPathNode {
+    parent: Option<usize>,
+    factor: VarianceFactor,
+}
+
+struct DescriptorConstraints {
+    parameters: Vec<ParameterConstraint>,
+    factor_paths: Vec<FactorPathNode>,
 }
 
 pub(super) fn infer_source_parameter_variances(
@@ -161,9 +185,10 @@ fn collect_constraints(
     source_start: usize,
     descriptors: &[super::descriptors::AdtDescriptor],
     metadata: &MetadataIndex,
-) -> (Vec<ParameterConstraint>, BTreeSet<usize>) {
+) -> (DescriptorConstraints, BTreeSet<usize>) {
     let descriptor = &descriptors[descriptor_index];
     let mut constraints = Vec::new();
+    let mut factor_paths = Vec::new();
     let mut dependencies = BTreeSet::new();
     for variant in &descriptor.variants {
         for field in &variant.payload_fields {
@@ -171,172 +196,173 @@ fn collect_constraints(
                 super::descriptors::AdtPayloadType::TypeParameter(parameter_index) => {
                     constraints.push(ParameterConstraint {
                         parameter_index: *parameter_index,
-                        factors: Vec::new(),
+                        factor_path: None,
                     });
                 }
                 super::descriptors::AdtPayloadType::SelfType => {
                     for parameter_index in 0..descriptor.type_parameters.len() {
                         dependencies.insert(descriptor_index);
-                        constraints.push(ParameterConstraint {
-                            parameter_index,
-                            factors: vec![VarianceFactor::SourceParameter {
+                        let factor_path = push_factor_path(
+                            &mut factor_paths,
+                            None,
+                            VarianceFactor::SourceParameter {
                                 descriptor_index,
                                 parameter_index,
-                            }],
+                            },
+                        );
+                        constraints.push(ParameterConstraint {
+                            parameter_index,
+                            factor_path: Some(factor_path),
                         });
                     }
                 }
                 super::descriptors::AdtPayloadType::Concrete(ty) => collect_type_constraints(
                     ty,
-                    &[],
                     source_start,
                     descriptors,
                     metadata,
                     &mut constraints,
+                    &mut factor_paths,
                     &mut dependencies,
                 ),
             }
         }
     }
-    (constraints, dependencies)
+    (
+        DescriptorConstraints {
+            parameters: constraints,
+            factor_paths,
+        },
+        dependencies,
+    )
 }
 
 fn collect_type_constraints(
     ty: &Type,
-    factors: &[VarianceFactor],
     source_start: usize,
     descriptors: &[super::descriptors::AdtDescriptor],
     metadata: &MetadataIndex,
     constraints: &mut Vec<ParameterConstraint>,
+    factor_paths: &mut Vec<FactorPathNode>,
     dependencies: &mut BTreeSet<usize>,
 ) {
-    match ty {
-        Type::Named {
-            name,
-            identity,
-            args,
-        } if args.is_empty() => {
-            if let Some(parameter_index) =
-                parameter_placeholder_index(name).or_else(|| parameter_placeholder_index(identity))
-            {
-                constraints.push(ParameterConstraint {
-                    parameter_index,
-                    factors: factors.to_vec(),
-                });
+    let mut work = vec![(ty, None)];
+    while let Some((ty, factor_path)) = work.pop() {
+        #[cfg(test)]
+        variance_solver_counters::record_collection_visit();
+        match ty {
+            Type::Named {
+                name,
+                identity,
+                args,
+            } if args.is_empty() => {
+                if let Some(parameter_index) = parameter_placeholder_index(name)
+                    .or_else(|| parameter_placeholder_index(identity))
+                {
+                    constraints.push(ParameterConstraint {
+                        parameter_index,
+                        factor_path,
+                    });
+                }
             }
-        }
-        Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
-            let resolved = metadata.resolve(identity, args.len());
-            let valid_metadata = resolved
-                .filter(|index| descriptors[*index].parameter_variances.len() == args.len());
-            for (parameter_index, argument) in args.iter().enumerate() {
-                let factor = match valid_metadata {
-                    Some(descriptor_index) if descriptor_index >= source_start => {
-                        dependencies.insert(descriptor_index);
-                        VarianceFactor::SourceParameter {
-                            descriptor_index,
-                            parameter_index,
+            Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
+                let fixed = compiler_owned_variances(identity, args.len());
+                let resolved = fixed
+                    .is_none()
+                    .then(|| metadata.resolve(identity, args.len()))
+                    .flatten();
+                let valid_metadata = resolved
+                    .filter(|index| descriptors[*index].parameter_variances.len() == args.len());
+                for (parameter_index, argument) in args.iter().enumerate().rev() {
+                    let factor = match (fixed, valid_metadata) {
+                        (Some(variances), _) => VarianceFactor::Fixed(variances[parameter_index]),
+                        (None, Some(descriptor_index)) if descriptor_index >= source_start => {
+                            dependencies.insert(descriptor_index);
+                            VarianceFactor::SourceParameter {
+                                descriptor_index,
+                                parameter_index,
+                            }
                         }
-                    }
-                    Some(descriptor_index) => VarianceFactor::Fixed(
-                        descriptors[descriptor_index].parameter_variances[parameter_index],
-                    ),
-                    None => VarianceFactor::Fixed(Variance::Invariant),
-                };
-                let mut nested_factors = factors.to_vec();
-                nested_factors.push(factor);
-                collect_type_constraints(
-                    argument,
-                    &nested_factors,
-                    source_start,
-                    descriptors,
-                    metadata,
-                    constraints,
-                    dependencies,
-                );
+                        (None, Some(descriptor_index)) => VarianceFactor::Fixed(
+                            descriptors[descriptor_index].parameter_variances[parameter_index],
+                        ),
+                        (None, None) => VarianceFactor::Fixed(Variance::Invariant),
+                    };
+                    let nested_path = push_factor_path(factor_paths, factor_path, factor);
+                    work.push((argument, Some(nested_path)));
+                }
             }
-        }
-        Type::Record(fields) => {
-            for (_, field) in fields {
-                collect_type_constraints(
-                    field,
-                    factors,
-                    source_start,
-                    descriptors,
-                    metadata,
-                    constraints,
-                    dependencies,
-                );
+            Type::Record(fields) => {
+                for (_, field) in fields.iter().rev() {
+                    work.push((field, factor_path));
+                }
             }
-        }
-        Type::Function {
-            params,
-            variadic,
-            return_type,
-            ..
-        } => {
-            let mut input_factors = factors.to_vec();
-            input_factors.push(VarianceFactor::Fixed(Variance::Contravariant));
-            for parameter in params {
-                collect_type_constraints(
-                    parameter,
-                    &input_factors,
-                    source_start,
-                    descriptors,
-                    metadata,
-                    constraints,
-                    dependencies,
-                );
-            }
-            if let Some(variadic) = variadic {
-                collect_type_constraints(
-                    variadic,
-                    &input_factors,
-                    source_start,
-                    descriptors,
-                    metadata,
-                    constraints,
-                    dependencies,
-                );
-            }
-            collect_type_constraints(
+            Type::Function {
+                params,
+                variadic,
                 return_type,
-                factors,
-                source_start,
-                descriptors,
-                metadata,
-                constraints,
-                dependencies,
-            );
+                ..
+            } => {
+                work.push((return_type, factor_path));
+                let input_path = push_factor_path(
+                    factor_paths,
+                    factor_path,
+                    VarianceFactor::Fixed(Variance::Contravariant),
+                );
+                if let Some(variadic) = variadic {
+                    work.push((variadic, Some(input_path)));
+                }
+                for parameter in params.iter().rev() {
+                    work.push((parameter, Some(input_path)));
+                }
+            }
+            Type::Unknown => {}
         }
-        Type::Unknown => {}
     }
+}
+
+fn push_factor_path(
+    factor_paths: &mut Vec<FactorPathNode>,
+    parent: Option<usize>,
+    factor: VarianceFactor,
+) -> usize {
+    let index = factor_paths.len();
+    factor_paths.push(FactorPathNode { parent, factor });
+    #[cfg(test)]
+    variance_solver_counters::record_retained_factor();
+    index
 }
 
 fn evaluate_constraints(
     parameter_count: usize,
-    constraints: &[ParameterConstraint],
+    constraints: &DescriptorConstraints,
     descriptors: &[super::descriptors::AdtDescriptor],
 ) -> Vec<Variance> {
     let mut inferred = vec![Variance::Irrelevant; parameter_count];
-    for constraint in constraints {
+    let mut factor_values = Vec::with_capacity(constraints.factor_paths.len());
+    for path in &constraints.factor_paths {
+        let position = path
+            .parent
+            .map(|parent| factor_values[parent])
+            .unwrap_or(Variance::Covariant);
+        let nested = match &path.factor {
+            VarianceFactor::Fixed(variance) => *variance,
+            VarianceFactor::SourceParameter {
+                descriptor_index,
+                parameter_index,
+            } => descriptors
+                .get(*descriptor_index)
+                .and_then(|descriptor| descriptor.parameter_variances.get(*parameter_index))
+                .copied()
+                .unwrap_or(Variance::Invariant),
+        };
+        factor_values.push(position.compose(nested));
+    }
+    for constraint in &constraints.parameters {
         let occurrence = constraint
-            .factors
-            .iter()
-            .fold(Variance::Covariant, |position, factor| {
-                let nested = match factor {
-                    VarianceFactor::Fixed(variance) => *variance,
-                    VarianceFactor::SourceParameter {
-                        descriptor_index,
-                        parameter_index,
-                    } => descriptors
-                        .get(*descriptor_index)
-                        .and_then(|descriptor| descriptor.parameter_variances.get(*parameter_index))
-                        .copied()
-                        .unwrap_or(Variance::Invariant),
-                };
-                position.compose(nested)
-            });
+            .factor_path
+            .map(|path| factor_values[path])
+            .unwrap_or(Variance::Covariant);
         join_parameter(&mut inferred, constraint.parameter_index, occurrence);
     }
     inferred
@@ -384,10 +410,14 @@ pub(crate) mod variance_solver_counters {
 
     thread_local! {
         static EVALUATIONS: Cell<usize> = const { Cell::new(0) };
+        static COLLECTION_VISITS: Cell<usize> = const { Cell::new(0) };
+        static RETAINED_FACTORS: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(crate) fn reset() {
         EVALUATIONS.set(0);
+        COLLECTION_VISITS.set(0);
+        RETAINED_FACTORS.set(0);
     }
 
     pub(super) fn record_evaluation() {
@@ -396,5 +426,21 @@ pub(crate) mod variance_solver_counters {
 
     pub(crate) fn evaluations() -> usize {
         EVALUATIONS.get()
+    }
+
+    pub(super) fn record_collection_visit() {
+        COLLECTION_VISITS.set(COLLECTION_VISITS.get() + 1);
+    }
+
+    pub(super) fn record_retained_factor() {
+        RETAINED_FACTORS.set(RETAINED_FACTORS.get() + 1);
+    }
+
+    pub(crate) fn collection_visits() -> usize {
+        COLLECTION_VISITS.get()
+    }
+
+    pub(crate) fn retained_factors() -> usize {
+        RETAINED_FACTORS.get()
     }
 }

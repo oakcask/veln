@@ -1619,7 +1619,7 @@ argument but the reverse assignment fails. The
 records the immutable lookup and update properties that support the `Dict` key
 rule. The exception requires the same resolved compiler-owned constructor.
 Public aliases of `Option`, `Result`,
-`List`, `Vec`, and `Dict` retain it by resolving to that identity, while a source or
+`List`, and `Dict` retain it by resolving to that identity, while a source or
 imported declaration with the same displayed name cannot acquire it. This
 separation also applies to a same-spelled source declaration in the root
 module and to aliases of that declaration. The rule does not relate distinct

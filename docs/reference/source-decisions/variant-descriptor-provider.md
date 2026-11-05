@@ -7,11 +7,8 @@ update-when: A production compiler or package input supplies ADT identity indepe
 # Variant Descriptor Provider Boundary
 
 Do not add a package or compiler provider merely to make
-`variant_descriptor_unavailable` reachable. The compiler supplies opaque
-descriptors for identities such as `Vec`, `Dict`, `NetListener`, and
-`NetStream`. Those descriptors establish that the types intentionally have no
-public finite constructor set; they do not represent unavailable metadata.
-No selected production input supplies a known finite ADT while omitting its
+`variant_descriptor_unavailable` reachable. There is no selected production
+input that needs an independently known ADT identity while omitting its finite
 variant descriptor. That hypothetical diagnostic is not active proposal work.
 
 The current [diagnostic contract](../../specification/diagnostics-json.md)
@@ -31,9 +28,7 @@ provider with incomplete metadata.
 Current analysis loads source modules and the standard environment through
 `crates/veln-analysis/src/analysis.rs`.
 The descriptor model in `crates/veln-sema/src/adt/descriptors.rs`
-retains finite, opaque, and unavailable states. Compiler-owned opaque
-descriptors carry nominal identity and generic arity without claiming a finite
-constructor set, while refinement base analysis
+retains finite, opaque, and unavailable states, while refinement base analysis
 in `crates/veln-sema/src/types/environment/refinements.rs`
 classifies an unavailable source-backed declaration as `not_adt`. An internal
 descriptor state or unit-test injection alone does not create a production

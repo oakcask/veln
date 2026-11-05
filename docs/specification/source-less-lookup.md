@@ -63,7 +63,7 @@ compiler adapter descriptors to publish.
 | Compiler-adapter descriptors reporting `compiler_adapter` | `prelude_builtin::name` |
 | The implicit standard module name reporting `standard_names` | `prelude` |
 | Built-in type-syntax descriptors reporting `type_syntax` | the built-in type constructor spelling |
-| Built-in ADT descriptors reporting `adt` | type and constructor lookup keys, such as `Option` and `Option::Some`; opaque `Vec`, `Dict`, `NetListener`, and `NetStream` descriptors publish type keys without constructor keys |
+| Built-in ADT descriptors reporting `adt` | type and constructor lookup keys, such as `Option` and `Option::Some`; opaque resource types publish `NetListener` and `NetStream` without constructor keys |
 
 ## Lookup Consumers
 
@@ -80,10 +80,10 @@ Published built-in ADT descriptors also classify variant-refinement
 availability. Finite descriptors expose their constructor set to refinement
 analysis. The finite `Option`, `Result`, and `List` descriptors carry explicit
 compiler-owned nominal identities. A public alias that terminates at one of
-those descriptors retains that identity and its constructor set. The
-compiler-owned `Vec` and `Dict` identities have opaque descriptors. A public
-alias that terminates at either descriptor retains its container identity
-without acquiring constructors or variant refinements.
+those descriptors retains that identity and its constructor set. Alias lookup
+also provides an opaque descriptor for the compiler-owned `Dict` identity. A
+`Dict` alias therefore retains dictionary identity without acquiring
+constructors or variant refinements.
 
 Opaque descriptors expose only their type identity. The opaque `NetListener`
 and `NetStream` entries therefore let exported standard-package type aliases
