@@ -27,6 +27,28 @@ pub(crate) fn infer_private_signature_expr_type(
     .ty
 }
 
+pub(crate) struct CheckedEffectArgumentTypes {
+    signatures: FunctionSignatureMap,
+    returns: FunctionReturnMap,
+}
+
+impl CheckedEffectArgumentTypes {
+    pub(crate) fn new(functions: &[FunctionSignature]) -> Self {
+        #[cfg(test)]
+        crate::types::effect_inference_counters::record_argument_signature_copies(functions.len());
+        Self {
+            signatures: signatures_by_path(functions),
+            returns: returns_by_path(functions),
+        }
+    }
+
+    pub(crate) fn update_effects(&mut self, key: &FunctionKey, effects: &[String]) {
+        if let Some(signature) = self.signatures.get_mut(key) {
+            signature.effects = effects.to_vec();
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn infer_checked_effect_argument_type(
     expr: &Expr,
@@ -35,12 +57,10 @@ pub(crate) fn infer_checked_effect_argument_type(
     current_package: Option<&str>,
     uses: &[UseDecl],
     bindings: &[Binding],
-    functions: &[FunctionSignature],
+    argument_types: &CheckedEffectArgumentTypes,
     adts: &AdtRegistry,
 ) -> Option<Type> {
     let mut bindings = PrivateBindings::without_builtin(bindings.to_vec());
-    let signatures_by_path = signatures_by_path(functions);
-    let returns_by_path = returns_by_path(functions);
     let mut failures = 0;
     let outcome = infer_private_signature_expr_type_with_failures(
         expr,
@@ -49,8 +69,8 @@ pub(crate) fn infer_checked_effect_argument_type(
         current_package,
         uses,
         &mut bindings,
-        Some(&signatures_by_path),
-        &returns_by_path,
+        Some(&argument_types.signatures),
+        &argument_types.returns,
         adts,
         &mut failures,
     );

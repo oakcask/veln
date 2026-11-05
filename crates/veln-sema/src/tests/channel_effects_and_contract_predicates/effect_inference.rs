@@ -625,3 +625,64 @@ fn effect_provenance_reports_omitted_equivalent_paths() {
     assert!(details.contains("\"provenance_truncated\":true"));
     assert!(details.contains("\"omitted_path_count\":1"));
 }
+
+#[test]
+fn effect_argument_signature_copy_work_grows_linearly_across_calls() {
+    fn copied_signatures(count: usize) -> usize {
+        let mut source = String::from("fn consume(value: Int) -> Int\n  value\nend\n");
+        for index in 0..count {
+            source.push_str(&format!(
+                "fn helper_{index}(value: Int) -> Int\n  consume(value + 1)\nend\n"
+            ));
+        }
+        let parsed = parse(&SourceFile::new("main.veln", source));
+        assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::types::effect_inference_counters::reset();
+        let environment = crate::types::TypeEnvironment::from_module(&module);
+        assert!(environment.function("helper_0").unwrap().effects.is_empty());
+        let copies = crate::types::effect_inference_counters::snapshot().argument_signature_copies;
+        assert!(
+            copies > 0,
+            "binary arguments must exercise checked argument inference"
+        );
+        assert!(
+            copies <= module.functions.len(),
+            "copied {copies} signatures for {count} calls"
+        );
+        copies
+    }
+
+    let work_n = copied_signatures(16);
+    let work_2n = copied_signatures(32);
+    let work_4n = copied_signatures(64);
+    assert!(work_4n - work_2n <= 2 * (work_2n - work_n));
+}
+
+#[test]
+fn effect_argument_signatures_follow_later_worklist_updates() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> ()\n",
+            "  consume(1 + 1)\n",
+            "  invoke(later, 1 + 1)\n",
+            "end\n",
+            "fn consume(value: Int) -> Int\n  value\nend\n",
+            "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+            "  callback()\nend\n",
+            "fn later() -> ()\n  stdio::println(\"later\")\nend\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `stdio`"
+    );
+    assert!(crate::types::effect_inference_counters::snapshot().changed_reevaluations > 0);
+}

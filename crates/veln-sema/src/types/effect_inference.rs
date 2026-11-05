@@ -16,6 +16,7 @@ struct FunctionEffectContext<'a> {
     uses: &'a [UseDecl],
     adts: &'a AdtRegistry,
     functions: &'a [FunctionSignature],
+    argument_types: &'a std::cell::OnceCell<CheckedEffectArgumentTypes>,
     user_effects: &'a [EffectSignature],
     handlers: &'a [HandlerSignature],
     effects_by_function: &'a EffectsByFunction,
@@ -38,6 +39,7 @@ impl FunctionEffectContext<'_> {
             bindings,
             adts: self.adts,
             functions: self.functions,
+            argument_types: self.argument_types,
             effects_by_function: self.effects_by_function,
             effects_by_module_path: self.effects_by_module_path,
             companion_access_targets: self.companion_access_targets,
@@ -54,6 +56,7 @@ struct HandlerEffectContext<'a> {
     uses: &'a [UseDecl],
     user_effects: &'a [EffectSignature],
     functions: &'a [FunctionSignature],
+    argument_types: &'a std::cell::OnceCell<CheckedEffectArgumentTypes>,
     effects_by_function: &'a EffectsByFunction,
     effects_by_module_path: &'a EffectsByModulePath,
     handlers: &'a [HandlerSignature],
@@ -67,6 +70,7 @@ impl HandlerEffectContext<'_> {
             uses: self.uses,
             adts: self.adts,
             functions: self.functions,
+            argument_types: self.argument_types,
             user_effects: self.user_effects,
             handlers: self.handlers,
             effects_by_function: self.effects_by_function,
@@ -94,6 +98,7 @@ struct EffectInference<'a> {
     uses: Vec<UseDecl>,
     adts: AdtRegistry,
     functions: &'a mut [FunctionSignature],
+    argument_types: std::cell::OnceCell<CheckedEffectArgumentTypes>,
     user_effects: &'a [EffectSignature],
     handlers: &'a mut [HandlerSignature],
     graph: EffectDependencyGraph,
@@ -139,6 +144,7 @@ impl<'a> EffectInference<'a> {
             evaluated: BTreeSet::new(),
             graph,
             functions,
+            argument_types: std::cell::OnceCell::new(),
             user_effects,
             handlers,
         }
@@ -195,6 +201,7 @@ impl<'a> EffectInference<'a> {
                 uses: &self.uses,
                 user_effects: self.user_effects,
                 functions: self.functions,
+                argument_types: &self.argument_types,
                 effects_by_function: &self.effects_by_function,
                 effects_by_module_path: &self.effects_by_module_path,
                 handlers: self.handlers,
@@ -214,6 +221,7 @@ impl<'a> EffectInference<'a> {
             uses: &self.uses,
             adts: &self.adts,
             functions: self.functions,
+            argument_types: &self.argument_types,
             user_effects: self.user_effects,
             handlers: self.handlers,
             effects_by_function: &self.effects_by_function,
@@ -224,6 +232,11 @@ impl<'a> EffectInference<'a> {
     }
 
     fn update_function_effects(&mut self, function_key: &EffectFunctionKey, inferred: Vec<String>) {
+        // Argument checking shares the signature snapshot, including effects learned
+        // by later worklist evaluations. Return types are fixed during this pass.
+        if let Some(argument_types) = self.argument_types.get_mut() {
+            argument_types.update_effects(function_key, &inferred);
+        }
         self.effects_by_function
             .insert(function_key.clone(), inferred.clone());
         if let Some(module_name) = &function_key.1 {
@@ -397,10 +410,12 @@ fn effect_dependency_graph(
             ))
         })
         .collect::<BTreeSet<_>>();
+    let argument_types = std::cell::OnceCell::new();
     let context = FunctionEffectContext {
         uses: &uses,
         adts,
         functions,
+        argument_types: &argument_types,
         user_effects,
         handlers,
         effects_by_function: &effects_by_function,
