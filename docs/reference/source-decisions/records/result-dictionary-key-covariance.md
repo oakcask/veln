@@ -14,6 +14,12 @@ covariant at assignment boundaries, as specified by the current
 In particular, a dictionary with a refined key type may be assigned to a
 concrete expected dictionary whose key type is a wider type.
 
+The compiler-owned `Dict` descriptor records both key and value parameters as
+covariant. Source-ADT variance analysis composes through that checked metadata
+when a payload contains `Dict`. This metadata agrees with the established
+assignment rule; it does not broaden context-free generic inference or change
+dictionary runtime behavior.
+
 This decision depends on the lookup and update properties below. A backend or
 container design that does not preserve those properties must not inherit this
 classification merely because it exposes dictionary-shaped operations.

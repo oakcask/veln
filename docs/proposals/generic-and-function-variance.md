@@ -81,8 +81,10 @@ These symbols are explanatory notation, not Veln source syntax.
 
 The checked semantic descriptor producer now derives classifications from all
 payloads, composes nested checked classifications, and solves recursive source
-declarations independently of declaration order. Focused semantic tests are
-the executable evidence for that internal producer. The current type
+declarations independently of declaration order. Compiler-owned immutable
+`Option`, `Result`, `List`, `Vec`, and `Dict` descriptors provide covariant
+classifications for nested composition. Focused semantic tests are the
+executable evidence for that internal producer. The current type
 specification and executable specification examples remain unchanged because
 assignment and inference do not consume the metadata yet.
 

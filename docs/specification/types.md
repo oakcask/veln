@@ -1482,6 +1482,12 @@ recursively. Named generic arguments remain invariant except for every
 argument of the compiler-owned immutable `Option<T>`, `Result<T, E>`,
 `List<T>`, `Vec<T>`, and `Dict<K, V>` constructors.
 
+Source-ADT analysis retains a checked variance classification for each type
+parameter, including classifications composed through recursive declarations
+and imported descriptors. Assignment and generic inference do not consume
+those classifications yet. Source-ADT arguments therefore remain invariant at
+the observable compatibility boundary described here.
+
 | Type form | Assignment condition |
 | --- | --- |
 | Record | Every expected field exists in the actual record, and each actual field type is assignable to the expected field type. Extra actual fields are permitted. |
@@ -1619,7 +1625,7 @@ argument but the reverse assignment fails. The
 records the immutable lookup and update properties that support the `Dict` key
 rule. The exception requires the same resolved compiler-owned constructor.
 Public aliases of `Option`, `Result`,
-`List`, and `Dict` retain it by resolving to that identity, while a source or
+`List`, `Vec`, and `Dict` retain it by resolving to that identity, while a source or
 imported declaration with the same displayed name cannot acquire it. This
 separation also applies to a same-spelled source declaration in the root
 module and to aliases of that declaration. The rule does not relate distinct
