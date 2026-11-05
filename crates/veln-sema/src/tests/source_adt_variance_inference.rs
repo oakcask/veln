@@ -94,6 +94,138 @@ fn checked_covariance_joins_across_inference_consumers_and_order() {
 }
 
 #[test]
+fn aggregate_join_uses_checked_variance_in_parameter_order() {
+    let source_text = concat!(
+        "type Joined\n",
+        "  First\n",
+        "  Second\n",
+        "end\n",
+        "type Exact\n",
+        "  First\n",
+        "  Second\n",
+        "end\n",
+        "type Mixed<Join, ExactArgument>\n",
+        "  Value(Join)\n",
+        "end\n",
+        "fn joined(first: Mixed<Joined::First, Exact::First>, second: Mixed<Joined::Second, Exact::First>)\n",
+        "  [first, second]\n",
+        "end\n",
+        "fn rejected(first: Mixed<Joined::First, Exact::First>, second: Mixed<Joined::First, Exact::Second>) -> ()\n",
+        "  let values = [first, second]\n",
+        "  ()\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+    let span = diagnostics[0].span.as_ref().expect("mismatch span");
+    assert_eq!(&source_text[span.start.offset..span.end.offset], "second");
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("joined")
+            .expect("joined function")
+            .return_type
+            .render(),
+        "Vec<Mixed<Joined, Exact::First>>",
+    );
+}
+
+#[test]
+fn aggregate_join_keys_variance_by_resolved_package_declaration_identity() {
+    fn package_module(path: &str, text: &str, package: &str, module: &str) -> SurfaceModule {
+        let source = SourceFile::new(path, text);
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        veln_ast::lower_surface_ast_with_package_module_identity(
+            &parsed.tree,
+            package.to_string(),
+            module.to_string(),
+            source.span(veln_source::TextRange::new(0, 0)),
+        )
+    }
+
+    let app_text = concat!(
+        "use shared as dep from \"dependency/pkg\"\n",
+        "type Wrapper<T>\n",
+        "  Value(T)\n",
+        "end\n",
+        "fn local_join(first: Wrapper<Option<Int>::Some>, second: Wrapper<Option<Int>::None>)\n",
+        "  [first, second]\n",
+        "end\n",
+        "fn imported_rejected(first: dep::Wrapper<dep::ImportedState::First>, second: dep::Wrapper<dep::ImportedState::Second>) -> ()\n",
+        "  let values = [first, second]\n",
+        "  ()\n",
+        "end\n",
+        "fn distinct_owners(local: Wrapper<Int>, imported: dep::Wrapper<Int>) -> ()\n",
+        "  let values = [local, imported]\n",
+        "  ()\n",
+        "end\n",
+    );
+    let dependency_text = concat!(
+        "pub type ImportedState\n",
+        "  pub First\n",
+        "  pub Second\n",
+        "end\n",
+        "pub type Wrapper<T>\n",
+        "  pub Empty\n",
+        "end\n",
+    );
+    let mut module = package_module("app.veln", app_text, "application/pkg", "app");
+    module.uses.first_mut().expect("dependency import").name = "shared".to_string();
+    let mut dependency = package_module(
+        "dependency/shared.veln",
+        dependency_text,
+        "dependency/pkg",
+        "shared",
+    );
+    for declaration in &mut dependency.types {
+        declaration.module_name = Some("shared".to_string());
+    }
+    module.uses.extend(dependency.uses);
+    module.aliases.extend(dependency.aliases);
+    module.effects.extend(dependency.effects);
+    module.handlers.extend(dependency.handlers);
+    module.schemas.extend(dependency.schemas);
+    module.types.extend(dependency.types);
+    module.module_values.extend(dependency.module_values);
+    module.functions.extend(dependency.functions);
+    module.invalid_names.extend(dependency.invalid_names);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}",
+    );
+    let failed_values = diagnostics
+        .iter()
+        .map(|diagnostic| {
+            let span = diagnostic.span.as_ref().expect("mismatch span");
+            &app_text[span.start.offset..span.end.offset]
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(failed_values, ["second", "imported"]);
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("local_join")
+            .expect("local join function")
+            .return_type
+            .render(),
+        "Vec<Wrapper<Option<Int>>>",
+    );
+}
+
+#[test]
 fn failed_nested_covariant_join_rolls_back_arguments_refinements_and_presentation() {
     let source_text = concat!(
         "type State\n",
