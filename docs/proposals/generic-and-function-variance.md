@@ -10,8 +10,10 @@ update-when: Checked source-ADT variance classification production or retention,
 This proposal contains the remaining work for named generic variance. The
 compiler now computes and retains one checked variance classification per
 source-ADT type parameter, but assignment and inference do not consume that
-metadata yet. Veln will add no declaration-site variance modifiers. The
-remaining work includes assignment consumption, bounded generic inference,
+metadata yet. Registry construction normalizes wrong-length internal
+classification metadata to one invariant entry per declared parameter before
+source-ADT composition. Veln will add no declaration-site variance modifiers.
+The remaining work includes assignment consumption, bounded generic inference,
 dependency consumption, detailed nested incompatibility context, presentation,
 and failure preservation.
 
@@ -150,7 +152,7 @@ must not use a failed contribution to justify another accepted assignment.
 | Surface | Selected behavior |
 | --- | --- |
 | Dependency type metadata | Assignment and inference consume the checked classifications retained for local and imported declarations, keyed by resolved declaration identity and parameter order. No metadata-only package input or serialized interface format is introduced. |
-| Missing or invalid variance metadata | Assignment and inference treat unavailable classifications as invariant and never infer covariance from a displayed signature. Malformed dependency metadata still follows the package loader's ordinary rejection policy. |
+| Missing or invalid variance metadata | Registry construction already normalizes a wrong-length internal classification vector to one invariant entry per declared parameter. Assignment and inference treat other unavailable classifications as invariant and never infer covariance from a displayed signature. Structurally malformed package input still follows the package loader's ordinary rejection policy. |
 | Declaration changes | Recompute affected variance contracts and invalidate dependent analysis before accepting downstream assignments. A stale classification cannot survive a payload change. |
 | Source, formatter, package declaration display | Keep `type Name<T...>`; emit no inferred variance modifiers or replacement type names. |
 | Diagnostics, LSP, MCP | Show ordinary types and existing alias preferences. Equal target identity with differing aliases is not a mismatch. Mixed alias preferences in inferred joins use the canonical target name permanently for that inference. |

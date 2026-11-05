@@ -20,6 +20,11 @@ when a payload contains `Dict`. This metadata agrees with the established
 assignment rule; it does not broaden context-free generic inference or change
 dictionary runtime behavior.
 
+Source-ADT composition requires checked metadata with the constructor's
+declared arity. Registry construction replaces wrong-length internal metadata
+with invariant classifications, and an unresolved nested constructor remains
+invariant instead of acquiring covariance from its displayed name.
+
 This decision depends on the lookup and update properties below. A backend or
 container design that does not preserve those properties must not inherit this
 classification merely because it exposes dictionary-shaped operations.
