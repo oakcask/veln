@@ -256,6 +256,11 @@ fn assignment_falls_back_to_invariance_without_checked_metadata() {
     fixture
         .registry
         .clear_parameter_variances_for_identity(&identity);
+    assert!(crate::type_relations::is_assignable_with_registry(
+        &narrow,
+        &narrow,
+        &fixture.registry,
+    ));
     assert!(!crate::type_relations::is_assignable_with_registry(
         &wide,
         &narrow,
@@ -263,59 +268,81 @@ fn assignment_falls_back_to_invariance_without_checked_metadata() {
     ));
 }
 
-#[test]
-fn assignment_variance_lookup_work_is_additive_in_aliases_and_nesting() {
-    fn measure(alias_count: usize, depth: usize) -> (usize, usize, std::time::Duration) {
-        let mut source = String::from("type Positive<T>\n  PositiveValue(T)\nend\n");
-        for index in 0..alias_count {
-            source.push_str(&format!("pub type Alias{index} = Positive\n"));
-        }
-
-        parameter_variance_lookup_counters::reset();
-        let registry = registry_from_source(&source);
-        let construction_work = parameter_variance_lookup_counters::build_candidate_scans();
-        let identity = registry
-            .descriptors()
-            .iter()
-            .find(|descriptor| {
-                descriptor.type_name == "Positive" && descriptor.nominal_identity.is_none()
-            })
-            .expect("source descriptor")
-            .identity();
-        let nested = |mut argument| {
-            for _ in 0..depth {
-                argument = crate::semantic_model::Type::resolved_named(
-                    "Positive",
-                    identity.clone(),
-                    vec![argument],
-                );
-            }
-            argument
-        };
-        let narrow = nested(crate::semantic_model::Type::variant_refinement(
+fn measure_assignment_variance_lookup(
+    alias_count: usize,
+    depth: usize,
+) -> (usize, usize, std::time::Duration) {
+    let source = assignment_variance_lookup_source(alias_count);
+    parameter_variance_lookup_counters::reset();
+    let registry = registry_from_source(&source);
+    let construction_work = parameter_variance_lookup_counters::build_candidate_scans();
+    let identity = registry
+        .descriptors()
+        .iter()
+        .find(|descriptor| {
+            descriptor.type_name == "Positive" && descriptor.nominal_identity.is_none()
+        })
+        .expect("source descriptor")
+        .identity();
+    let narrow = nested_positive_type(
+        crate::semantic_model::Type::variant_refinement(
             "State",
             Vec::new(),
             vec!["Ready".to_string()],
-        ));
-        let wide = nested(crate::semantic_model::Type::named("State", Vec::new()));
+        ),
+        &identity,
+        depth,
+    );
+    let wide = nested_positive_type(
+        crate::semantic_model::Type::named("State", Vec::new()),
+        &identity,
+        depth,
+    );
 
-        parameter_variance_lookup_counters::reset();
-        let started = std::time::Instant::now();
-        assert!(crate::type_relations::is_assignable_with_registry(
-            &wide, &narrow, &registry,
-        ));
-        assert!(!crate::type_relations::is_assignable_with_registry(
-            &narrow, &wide, &registry,
-        ));
-        let elapsed = started.elapsed();
-        let query_work = parameter_variance_lookup_counters::index_lookups();
-        (construction_work, query_work, elapsed)
+    parameter_variance_lookup_counters::reset();
+    let started = std::time::Instant::now();
+    assert!(crate::type_relations::is_assignable_with_registry(
+        &wide, &narrow, &registry,
+    ));
+    assert!(!crate::type_relations::is_assignable_with_registry(
+        &narrow, &wide, &registry,
+    ));
+    (
+        construction_work,
+        parameter_variance_lookup_counters::index_lookups(),
+        started.elapsed(),
+    )
+}
+
+fn assignment_variance_lookup_source(alias_count: usize) -> String {
+    let mut source = String::from("type Positive<T>\n  PositiveValue(T)\nend\n");
+    for index in 0..alias_count {
+        source.push_str(&format!("pub type Alias{index} = Positive\n"));
     }
+    source
+}
 
-    let base = measure(256, 256);
-    let more_aliases = measure(512, 256);
-    let more_depth = measure(256, 512);
-    let coupled = measure(512, 512);
+fn nested_positive_type(
+    mut argument: crate::semantic_model::Type,
+    identity: &str,
+    depth: usize,
+) -> crate::semantic_model::Type {
+    for _ in 0..depth {
+        argument = crate::semantic_model::Type::resolved_named(
+            "Positive",
+            identity.to_string(),
+            vec![argument],
+        );
+    }
+    argument
+}
+
+#[test]
+fn assignment_variance_lookup_work_is_additive_in_aliases_and_nesting() {
+    let base = measure_assignment_variance_lookup(256, 256);
+    let more_aliases = measure_assignment_variance_lookup(512, 256);
+    let more_depth = measure_assignment_variance_lookup(256, 512);
+    let coupled = measure_assignment_variance_lookup(512, 512);
 
     assert!(more_aliases.0 > base.0, "{base:?} {more_aliases:?}");
     assert!(
