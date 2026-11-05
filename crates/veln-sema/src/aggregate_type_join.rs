@@ -37,6 +37,11 @@ struct PreparedContribution<'a> {
     variant_ranks: Option<Vec<usize>>,
 }
 
+struct InitialVariantState {
+    declaration_order: Option<Arc<VariantDeclarationOrder>>,
+    variants: Option<HashSet<usize>>,
+}
+
 impl AggregateTypeJoin {
     pub(crate) fn new(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
         let (root, pending) = join_node(adts, initial)?;
@@ -337,7 +342,7 @@ fn join_node<'a>(
     initial: &'a Type,
 ) -> Option<(JoinNode, Vec<(usize, &'a Type)>)> {
     let initial = adt_type_parts(initial)?;
-    let (declaration_order, variants) = initial_variant_state(adts, initial)?;
+    let variant_state = initial_variant_state(adts, initial)?;
     let (args, pending) = initial_argument_state(adts, initial);
     Some((
         JoinNode {
@@ -349,8 +354,8 @@ fn join_node<'a>(
             presentation_conflicted: false,
             identity: initial.identity.to_string(),
             args,
-            declaration_order,
-            variants,
+            declaration_order: variant_state.declaration_order,
+            variants: variant_state.variants,
         },
         pending,
     ))
@@ -359,7 +364,7 @@ fn join_node<'a>(
 fn initial_variant_state(
     adts: &AdtRegistry,
     initial: AdtTypeParts<'_>,
-) -> Option<(Option<Arc<VariantDeclarationOrder>>, Option<HashSet<usize>>)> {
+) -> Option<InitialVariantState> {
     let (declaration_order, variants) = match initial.variants {
         None => (None, None),
         Some(variants) => {
@@ -374,7 +379,10 @@ fn initial_variant_state(
             (Some(declaration_order), variants)
         }
     };
-    Some((declaration_order, variants))
+    Some(InitialVariantState {
+        declaration_order,
+        variants,
+    })
 }
 
 fn initial_argument_state<'a>(

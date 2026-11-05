@@ -454,12 +454,16 @@ fn invariant_pair_matches<'a>(
                 args: actual_args,
             },
         ) => invariant_named_args_match(
-            expected_name,
-            expected_identity,
-            expected_args,
-            actual_name,
-            actual_identity,
-            actual_args,
+            NamedInvariantParts {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+            },
+            NamedInvariantParts {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+            },
             pending,
         ),
         (
@@ -478,14 +482,22 @@ fn invariant_pair_matches<'a>(
                 ..
             },
         ) => invariant_variant_args_match(
-            expected_name,
-            expected_identity,
-            expected_args,
-            expected_variants,
-            actual_name,
-            actual_identity,
-            actual_args,
-            actual_variants,
+            VariantInvariantParts {
+                named: NamedInvariantParts {
+                    name: expected_name,
+                    identity: expected_identity,
+                    args: expected_args,
+                },
+                variants: expected_variants,
+            },
+            VariantInvariantParts {
+                named: NamedInvariantParts {
+                    name: actual_name,
+                    identity: actual_identity,
+                    args: actual_args,
+                },
+                variants: actual_variants,
+            },
             pending,
         ),
         (Type::Record(expected_fields), Type::Record(actual_fields)) => {
@@ -505,83 +517,81 @@ fn invariant_pair_matches<'a>(
                 effects: actual_effects,
             },
         ) => invariant_function_parts_match(
-            expected_params,
-            expected_variadic,
-            expected_return,
-            expected_effects,
-            actual_params,
-            actual_variadic,
-            actual_return,
-            actual_effects,
+            FunctionInvariantParts {
+                params: expected_params,
+                variadic: expected_variadic,
+                return_type: expected_return,
+                effects: expected_effects,
+            },
+            FunctionInvariantParts {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                effects: actual_effects,
+            },
             pending,
         ),
         _ => false,
     }
 }
 
+#[derive(Clone, Copy)]
+struct NamedInvariantParts<'a> {
+    name: &'a str,
+    identity: &'a str,
+    args: &'a [Type],
+}
+
+#[derive(Clone, Copy)]
+struct VariantInvariantParts<'a> {
+    named: NamedInvariantParts<'a>,
+    variants: &'a [String],
+}
+
+#[derive(Clone, Copy)]
+struct FunctionInvariantParts<'a> {
+    params: &'a [Type],
+    variadic: &'a Option<Box<Type>>,
+    return_type: &'a Type,
+    effects: &'a [String],
+}
+
 fn invariant_named_args_match<'a>(
-    expected_name: &str,
-    expected_identity: &str,
-    expected_args: &'a [Type],
-    actual_name: &str,
-    actual_identity: &str,
-    actual_args: &'a [Type],
+    expected: NamedInvariantParts<'a>,
+    actual: NamedInvariantParts<'a>,
     pending: &mut Vec<(&'a Type, &'a Type)>,
 ) -> bool {
-    if !invariant_named_identity_and_arity_match(
-        expected_name,
-        expected_identity,
-        expected_args,
-        actual_name,
-        actual_identity,
-        actual_args,
-    ) {
+    if !invariant_named_identity_and_arity_match(expected, actual) {
         return false;
     }
-    pending.extend(expected_args.iter().zip(actual_args));
+    pending.extend(expected.args.iter().zip(actual.args));
     true
 }
 
 fn invariant_variant_args_match<'a>(
-    expected_name: &str,
-    expected_identity: &str,
-    expected_args: &'a [Type],
-    expected_variants: &[String],
-    actual_name: &str,
-    actual_identity: &str,
-    actual_args: &'a [Type],
-    actual_variants: &[String],
+    expected: VariantInvariantParts<'a>,
+    actual: VariantInvariantParts<'a>,
     pending: &mut Vec<(&'a Type, &'a Type)>,
 ) -> bool {
-    if !invariant_named_identity_and_arity_match(
-        expected_name,
-        expected_identity,
-        expected_args,
-        actual_name,
-        actual_identity,
-        actual_args,
-    ) || expected_variants != actual_variants
+    if !invariant_named_identity_and_arity_match(expected.named, actual.named)
+        || expected.variants != actual.variants
     {
         return false;
     }
-    pending.extend(expected_args.iter().zip(actual_args));
+    pending.extend(expected.named.args.iter().zip(actual.named.args));
     true
 }
 
 fn invariant_named_identity_and_arity_match(
-    expected_name: &str,
-    expected_identity: &str,
-    expected_args: &[Type],
-    actual_name: &str,
-    actual_identity: &str,
-    actual_args: &[Type],
+    expected: NamedInvariantParts<'_>,
+    actual: NamedInvariantParts<'_>,
 ) -> bool {
     same_type_identity(
-        expected_name,
-        expected_identity,
-        actual_name,
-        actual_identity,
-    ) && expected_args.len() == actual_args.len()
+        expected.name,
+        expected.identity,
+        actual.name,
+        actual.identity,
+    ) && expected.args.len() == actual.args.len()
 }
 
 fn invariant_record_fields_match<'a>(
@@ -603,32 +613,27 @@ fn invariant_record_fields_match<'a>(
 }
 
 fn invariant_function_parts_match<'a>(
-    expected_params: &'a [Type],
-    expected_variadic: &'a Option<Box<Type>>,
-    expected_return: &'a Type,
-    expected_effects: &[String],
-    actual_params: &'a [Type],
-    actual_variadic: &'a Option<Box<Type>>,
-    actual_return: &'a Type,
-    actual_effects: &[String],
+    expected: FunctionInvariantParts<'a>,
+    actual: FunctionInvariantParts<'a>,
     pending: &mut Vec<(&'a Type, &'a Type)>,
 ) -> bool {
-    if expected_params.len() != actual_params.len()
-        || expected_variadic.is_some() != actual_variadic.is_some()
-        || expected_effects.len() != actual_effects.len()
-        || !expected_effects
+    if expected.params.len() != actual.params.len()
+        || expected.variadic.is_some() != actual.variadic.is_some()
+        || expected.effects.len() != actual.effects.len()
+        || !expected
+            .effects
             .iter()
-            .all(|expected| actual_effects.contains(expected))
+            .all(|expected| actual.effects.contains(expected))
     {
         return false;
     }
-    pending.extend(expected_params.iter().zip(actual_params));
+    pending.extend(expected.params.iter().zip(actual.params));
     if let (Some(expected), Some(actual)) =
-        (expected_variadic.as_deref(), actual_variadic.as_deref())
+        (expected.variadic.as_deref(), actual.variadic.as_deref())
     {
         pending.push((expected, actual));
     }
-    pending.push((expected_return, actual_return));
+    pending.push((expected.return_type, actual.return_type));
     true
 }
 
@@ -732,12 +737,16 @@ fn merge_type_presentation<'a>(
             },
         ) if joined_params.len() == actual_params.len() => {
             merge_function_type_presentation(
-                joined_params,
-                joined_variadic,
-                joined_return,
-                actual_params,
-                actual_variadic,
-                actual_return,
+                MutableFunctionPresentationParts {
+                    params: joined_params,
+                    variadic: joined_variadic,
+                    return_type: joined_return,
+                },
+                FunctionPresentationParts {
+                    params: actual_params,
+                    variadic: actual_variadic,
+                    return_type: actual_return,
+                },
                 state,
                 pending,
             );
@@ -820,38 +829,52 @@ fn merge_record_type_presentation<'a>(
     );
 }
 
+struct MutableFunctionPresentationParts<'a> {
+    params: &'a mut [Type],
+    variadic: &'a mut Option<Box<Type>>,
+    return_type: &'a mut Type,
+}
+
+#[derive(Clone, Copy)]
+struct FunctionPresentationParts<'a> {
+    params: &'a [Type],
+    variadic: &'a Option<Box<Type>>,
+    return_type: &'a Type,
+}
+
 fn merge_function_type_presentation<'a>(
-    joined_params: &'a mut [Type],
-    joined_variadic: &'a mut Option<Box<Type>>,
-    joined_return: &'a mut Type,
-    actual_params: &'a [Type],
-    actual_variadic: &'a Option<Box<Type>>,
-    actual_return: &'a Type,
+    joined: MutableFunctionPresentationParts<'a>,
+    actual: FunctionPresentationParts<'a>,
     state: &'a mut TypePresentationState,
     pending: &mut Vec<(&'a mut Type, &'a Type, &'a mut TypePresentationState)>,
 ) {
-    let variadic_count = usize::from(joined_variadic.is_some() && actual_variadic.is_some());
-    let return_index = joined_params.len() + 1;
+    let variadic_count = usize::from(joined.variadic.is_some() && actual.variadic.is_some());
+    let return_index = joined.params.len() + 1;
     prepare_presentation_children(
         state,
         return_index + 1,
-        joined_params.len() + variadic_count + 1,
+        joined.params.len() + variadic_count + 1,
     );
-    let (param_states, remaining_states) = state.children.split_at_mut(joined_params.len());
+    let (param_states, remaining_states) = state.children.split_at_mut(joined.params.len());
     let (variadic_states, return_states) = remaining_states.split_at_mut(1);
     pending.extend(
-        joined_params
+        joined
+            .params
             .iter_mut()
-            .zip(actual_params)
+            .zip(actual.params)
             .zip(param_states)
             .map(|((joined, actual), state)| (joined, actual, state)),
     );
     if let (Some(joined), Some(actual)) =
-        (joined_variadic.as_deref_mut(), actual_variadic.as_deref())
+        (joined.variadic.as_deref_mut(), actual.variadic.as_deref())
     {
         pending.push((joined, actual, &mut variadic_states[0]));
     }
-    pending.push((joined_return, actual_return, &mut return_states[0]));
+    pending.push((
+        joined.return_type,
+        actual.return_type,
+        &mut return_states[0],
+    ));
 }
 
 fn presentation_named_parts(ty: &Type) -> Option<(&str, &str, &[Type])> {
