@@ -64,8 +64,8 @@ pub(super) fn assert_diagnostic_span(
     );
 }
 
-pub(super) fn merged_modules(sources: Vec<SourceFile>) -> SurfaceModule {
-    let mut merged = SurfaceModule {
+pub(super) fn empty_surface_module() -> SurfaceModule {
+    SurfaceModule {
         module: None,
         uses: Vec::new(),
         aliases: Vec::new(),
@@ -76,7 +76,11 @@ pub(super) fn merged_modules(sources: Vec<SourceFile>) -> SurfaceModule {
         module_values: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
-    };
+    }
+}
+
+pub(super) fn merged_modules(sources: Vec<SourceFile>) -> SurfaceModule {
+    let mut merged = empty_surface_module();
     for source in sources {
         let module = lower_surface_ast(&parse(&source).tree);
         merged.uses.extend(module.uses);
@@ -93,18 +97,7 @@ pub(super) fn merged_modules(sources: Vec<SourceFile>) -> SurfaceModule {
 }
 
 pub(super) fn merged_modules_with_identities(sources: Vec<(&str, SourceFile)>) -> SurfaceModule {
-    let mut merged = SurfaceModule {
-        module: None,
-        uses: Vec::new(),
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: Vec::new(),
-        module_values: Vec::new(),
-        functions: Vec::new(),
-        invalid_names: Vec::new(),
-    };
+    let mut merged = empty_surface_module();
     for (module_name, source) in sources {
         let module = veln_ast::lower_surface_ast_with_module_identity(
             &parse(&source).tree,
