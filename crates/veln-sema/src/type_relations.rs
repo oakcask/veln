@@ -485,15 +485,9 @@ pub(crate) fn invariant_args_match(expected: &[Type], actual: &[Type]) -> bool {
                 if expected_fields.len() != actual_fields.len() {
                     return false;
                 }
-                for _ in actual_fields {
-                    record_field_match_work();
-                }
+                let actual_by_name = index_record_fields(actual_fields);
                 for (name, expected_ty) in expected_fields {
-                    record_field_match_work();
-                    let Some((_, actual_ty)) = actual_fields
-                        .iter()
-                        .find(|(actual_name, _)| actual_name == name)
-                    else {
+                    let Some(actual_ty) = indexed_record_field(&actual_by_name, name) else {
                         return false;
                     };
                     pending.push((expected_ty, actual_ty));
@@ -782,17 +776,28 @@ pub(crate) fn record_fields_match_by_name(
     if expected.len() != actual.len() {
         return false;
     }
-    let mut actual_by_name = HashMap::with_capacity(actual.len());
-    for (name, ty) in actual {
-        record_field_match_work();
-        actual_by_name.entry(name.as_str()).or_insert(ty);
-    }
+    let actual_by_name = index_record_fields(actual);
     expected.iter().all(|(name, expected_ty)| {
-        record_field_match_work();
-        actual_by_name
-            .get(name.as_str())
+        indexed_record_field(&actual_by_name, name)
             .is_some_and(|actual_ty| types_match(expected_ty, actual_ty))
     })
+}
+
+fn index_record_fields(fields: &[(String, Type)]) -> HashMap<&str, &Type> {
+    let mut fields_by_name = HashMap::with_capacity(fields.len());
+    for (name, ty) in fields {
+        record_field_match_work();
+        fields_by_name.entry(name.as_str()).or_insert(ty);
+    }
+    fields_by_name
+}
+
+fn indexed_record_field<'a>(
+    fields_by_name: &HashMap<&str, &'a Type>,
+    name: &str,
+) -> Option<&'a Type> {
+    record_field_match_work();
+    fields_by_name.get(name).copied()
 }
 
 fn effects_are_assignable(expected: &[String], actual: &[String]) -> bool {

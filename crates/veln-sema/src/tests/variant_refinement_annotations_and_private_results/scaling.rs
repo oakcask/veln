@@ -359,25 +359,31 @@ fn structural_sibling_recovery_work_is_linear() {
 #[test]
 fn reordered_wide_record_union_base_comparison_is_linear() {
     let measurements = [64, 128, 256].map(|count| {
-        let fields = (0..count)
-            .map(|index| format!("field{index}: Int"))
+        let expected_fields = (0..count)
+            .map(|index| (format!("field{index}"), Type::int()))
             .collect::<Vec<_>>();
-        let reversed_fields = fields.iter().rev().cloned().collect::<Vec<_>>();
-        let source = format!(
-            "type Box<A>\n  Present(value: A)\n  Absent(value: A)\nend\n\
-             fn valid(value: Box<{{{}}}>::Present | Box<{{{}}}>::Absent) -> ()\n  ()\nend\n",
-            fields.join(", "),
-            reversed_fields.join(", ")
-        );
+        let actual_fields = expected_fields.iter().rev().cloned().collect::<Vec<_>>();
+        let expected = Type::Record(expected_fields.clone());
+        let actual = Type::Record(actual_fields.clone());
 
         crate::type_relations::reset_record_field_match_work();
-        let diagnostics = diagnostics_for(&source);
+        assert!(crate::type_relations::invariant_args_match(
+            std::slice::from_ref(&expected),
+            std::slice::from_ref(&actual),
+        ));
         let work = crate::type_relations::take_record_field_match_work();
-        assert!(
-            diagnostics.is_empty(),
-            "count={count} diagnostics={diagnostics:#?}"
-        );
-        assert!(work >= count * 4, "count={count} work={work}");
+        assert_eq!(work, count * 2, "count={count} work={work}");
+
+        let mut conflicting_fields = actual_fields;
+        conflicting_fields[0].1 = Type::string();
+        assert!(!crate::type_relations::invariant_args_match(
+            std::slice::from_ref(&expected),
+            std::slice::from_ref(&Type::Record(conflicting_fields)),
+        ));
+        assert!(!crate::type_relations::invariant_args_match(
+            std::slice::from_ref(&expected),
+            std::slice::from_ref(&Type::Record(expected_fields[..count - 1].to_vec())),
+        ));
         eprintln!("wide record union comparison: fields={count} work={work}");
         work
     });
