@@ -1114,10 +1114,18 @@ fn read_buffered_shutdown_report(state: { tx : Sender<BufferedExporterState>, rx
 				restore_uncommitted_buffered_state(state.tx, current, committed.rx)
 			end
 			let report = match current
-				BufferedExporterState(_, _, _, _, _, _, _, _, BufferedClosed(frozen)) => frozen
-				BufferedExporterState(_, failed, dropped, truncated, redacted, _, _, _, _) => BufferedShutdownReport(Interrupted, ExporterHealth(failed, dropped, truncated, redacted, production_health(production)), SummaryNotAttempted)
+				BufferedExporterState(_, _, _, _, _, _, _, _, BufferedClosed(frozen)) => begin
+					commit_buffered_state(state.tx, current, committed.tx)
+					frozen
+				end
+				BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, _, _, _) => begin
+					let interrupted_failed = bounded_add(failed, outstanding)
+					let health = ExporterHealth(interrupted_failed, dropped, truncated, redacted, production_health(production))
+					let frozen = BufferedShutdownReport(Interrupted, health, SummaryNotAttempted)
+					commit_buffered_state(state.tx, BufferedExporterState(sequence, interrupted_failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(frozen)), committed.tx)
+					frozen
+				end
 			end
-			commit_buffered_state(state.tx, current, committed.tx)
 			report
 		end
 		None => BufferedShutdownReport(Interrupted, ExporterHealth(0, 0, 0, 0, ProductionHealth(0, 0, 0)), SummaryNotAttempted)
