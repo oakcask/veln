@@ -124,6 +124,8 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             propagation: None,
             visibility: Visibility::Public,
         },
+        immutable_opaque_descriptor("Vec", Type::COMPILER_VEC_IDENTITY, &["T"]),
+        immutable_opaque_descriptor("Dict", Type::COMPILER_DICT_IDENTITY, &["K", "V"]),
         AdtDescriptor {
             type_name: "StreamInput".to_string(),
             name_class: SourceLessNameClass::Type,
@@ -342,6 +344,30 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
         opaque_builtin_descriptor("NetListener"),
         opaque_builtin_descriptor("NetStream"),
     ]
+}
+
+fn immutable_opaque_descriptor(
+    type_name: &str,
+    identity: &str,
+    type_parameters: &[&str],
+) -> AdtDescriptor {
+    AdtDescriptor {
+        type_name: type_name.to_string(),
+        name_class: SourceLessNameClass::Type,
+        package_name: None,
+        module_name: None,
+        nominal_identity: Some(identity.to_string()),
+        type_parameters: type_parameters
+            .iter()
+            .map(|parameter| (*parameter).to_string())
+            .collect(),
+        parameter_variances: vec![super::variance::Variance::Covariant; type_parameters.len()],
+        variants: Vec::new(),
+        diagnostic_name: type_name.to_ascii_lowercase(),
+        refinement_availability: crate::adt::descriptors::VariantRefinementAvailability::Opaque,
+        propagation: None,
+        visibility: Visibility::Public,
+    }
 }
 
 fn opaque_builtin_descriptor(name: &str) -> AdtDescriptor {

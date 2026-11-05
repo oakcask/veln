@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::adt::registry::AdtRegistry;
-use crate::adt::variance::Variance;
+use crate::adt::variance::{Variance, variance_solver_counters};
 
 use super::{lookup_descriptor, registry};
 
@@ -142,17 +142,20 @@ fn nested_source_and_compiler_owned_constructors_compose_checked_metadata() {
         assert_eq!(variances(&registry, name), vec![expected], "{name}");
     }
 
-    for name in ["Option", "Result", "List"] {
+    for (name, arity) in [
+        ("Option", 1),
+        ("Result", 2),
+        ("List", 1),
+        ("Vec", 1),
+        ("Dict", 2),
+    ] {
         let descriptor = registry
             .descriptors()
             .iter()
             .find(|descriptor| descriptor.type_name == name)
             .expect("compiler-owned descriptor");
-        assert_eq!(
-            descriptor.parameter_variances,
-            vec![P; descriptor.type_parameters.len()],
-            "{name}",
-        );
+        assert_eq!(descriptor.parameter_variances, vec![P; arity], "{name}",);
+        assert_eq!(descriptor.type_parameters.len(), arity, "{name}");
     }
 }
 
@@ -233,4 +236,107 @@ fn missing_or_malformed_constructor_metadata_is_invariant_without_name_inference
     let registry = AdtRegistry::from_module_with_base(&module, &base);
 
     assert_eq!(variances(&registry, "Wrapper"), vec![Invariant]);
+}
+
+#[test]
+fn compiler_owned_constructor_metadata_failures_are_invariant() {
+    use Variance::Invariant;
+
+    let canonical_wrapper = registry_from_source("type Wrapper<T>\n  Value(Option<T>)\nend\n")
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "Wrapper")
+        .expect("wrapper descriptor")
+        .clone();
+    let builtin_descriptors = registry().descriptors().to_vec();
+
+    for (case, mutate) in [
+        ("missing", 0usize),
+        ("ambiguous", 1),
+        ("declared arity", 2),
+        ("classification arity", 3),
+    ] {
+        let mut descriptors = builtin_descriptors.clone();
+        let option_index = descriptors
+            .iter()
+            .position(|descriptor| {
+                descriptor.nominal_identity.as_deref()
+                    == Some(crate::semantic_model::Type::COMPILER_OPTION_IDENTITY)
+            })
+            .expect("Option descriptor");
+        match mutate {
+            0 => {
+                descriptors.remove(option_index);
+            }
+            1 => descriptors.push(descriptors[option_index].clone()),
+            2 => descriptors[option_index]
+                .type_parameters
+                .push("Unexpected".to_string()),
+            3 => descriptors[option_index].parameter_variances.clear(),
+            _ => unreachable!(),
+        }
+        let source_start = descriptors.len();
+        descriptors.push(canonical_wrapper.clone());
+        crate::adt::variance::infer_source_parameter_variances(
+            &mut descriptors,
+            source_start,
+            &Default::default(),
+        );
+        assert_eq!(
+            descriptors[source_start].parameter_variances,
+            vec![Invariant],
+            "{case}",
+        );
+    }
+}
+
+fn variance_chain_source(count: usize, reverse: bool) -> String {
+    let declarations = (0..count)
+        .map(|index| {
+            if index == 0 {
+                "type A0<T>\n  Value(T)\nend\n".to_string()
+            } else {
+                format!("type A{index}<T>\n  Value(A{}<T>)\nend\n", index - 1)
+            }
+        })
+        .collect::<Vec<_>>();
+    if reverse {
+        declarations.into_iter().rev().collect()
+    } else {
+        declarations.into_iter().collect()
+    }
+}
+
+#[test]
+fn long_single_dependency_chain_has_linear_order_independent_work() {
+    use Variance::Covariant;
+
+    for count in [100usize, 200, 400] {
+        let mut results = Vec::new();
+        for reverse in [false, true] {
+            variance_solver_counters::reset();
+            let start = std::time::Instant::now();
+            let registry = registry_from_source(&variance_chain_source(count, reverse));
+            let elapsed = start.elapsed();
+            let evaluations = variance_solver_counters::evaluations();
+            let chain_variances = (0..count)
+                .map(|index| variances(&registry, &format!("A{index}")))
+                .collect::<Vec<_>>();
+            assert!(
+                chain_variances
+                    .iter()
+                    .all(|variance| variance == &vec![Covariant]),
+                "count={count} reverse={reverse}",
+            );
+            assert!(
+                evaluations <= count * 2,
+                "count={count} reverse={reverse} evaluations={evaluations}",
+            );
+            eprintln!(
+                "variance chain count={count} reverse={reverse} evaluations={evaluations} elapsed={elapsed:?}"
+            );
+            results.push(chain_variances);
+        }
+        assert_eq!(results[0], results[1], "count={count}");
+    }
 }

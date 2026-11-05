@@ -165,7 +165,7 @@ impl<'a> Iterator for TypeAliasExposureDeclarations<'a> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct DescriptorKey {
+pub(super) struct DescriptorKey {
     package_name: Option<String>,
     module_name: Option<String>,
     type_name: String,
@@ -180,7 +180,7 @@ struct VariantDescriptorKey {
 }
 
 impl DescriptorKey {
-    fn new(descriptor: &AdtDescriptor) -> Self {
+    pub(super) fn new(descriptor: &AdtDescriptor) -> Self {
         Self {
             package_name: descriptor.package_name.clone(),
             module_name: descriptor.module_name.clone(),

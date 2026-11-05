@@ -277,6 +277,7 @@ impl AdtRegistry {
         crate::adt::variance::infer_source_parameter_variances(
             &mut self.descriptors,
             source_descriptor_start,
+            &self.type_alias_identities,
         );
     }
 
@@ -512,8 +513,10 @@ fn remove_replaced_standard_descriptors(
         )
         .collect::<Vec<_>>();
     descriptors.retain(|descriptor| {
-        matches!(descriptor.type_name.as_str(), "Option" | "Result" | "List")
-            || !standard_source_types.contains(&descriptor.type_name.as_str())
+        matches!(
+            descriptor.type_name.as_str(),
+            "Option" | "Result" | "List" | "Vec" | "Dict"
+        ) || !standard_source_types.contains(&descriptor.type_name.as_str())
     });
 }
 
