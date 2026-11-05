@@ -93,33 +93,36 @@ fn publish_runtime_detail_families(mut descriptors: Vec<AdtDescriptor>) -> Vec<A
         },
     ]);
     descriptors.insert(detail_index, detail);
-    descriptors.push(AdtDescriptor {
-        type_name: "Http2DiagnosticDetail".to_string(),
-        name_class: SourceLessNameClass::Type,
-        package_name: None,
-        module_name: None,
-        nominal_identity: None,
-        type_parameters: Vec::new(),
-        parameter_variances: Vec::new(),
-        variants: http2_variants,
-        diagnostic_name: "http2diagnosticdetail".to_string(),
-        refinement_availability: crate::adt::descriptors::VariantRefinementAvailability::Finite,
-        propagation: None,
-        visibility: Visibility::Public,
-    });
-    descriptors.push(AdtDescriptor {
-        type_name: "HpackDiagnosticDetail".to_string(),
-        name_class: SourceLessNameClass::Type,
-        package_name: None,
-        module_name: None,
-        nominal_identity: None,
-        type_parameters: Vec::new(),
-        parameter_variances: Vec::new(),
-        variants: hpack_variants,
-        diagnostic_name: "hpackdiagnosticdetail".to_string(),
-        refinement_availability: crate::adt::descriptors::VariantRefinementAvailability::Finite,
-        propagation: None,
-        visibility: Visibility::Public,
-    });
+    descriptors.push(runtime_detail_family_descriptor(
+        "Http2DiagnosticDetail",
+        http2_variants,
+        "http2diagnosticdetail",
+    ));
+    descriptors.push(runtime_detail_family_descriptor(
+        "HpackDiagnosticDetail",
+        hpack_variants,
+        "hpackdiagnosticdetail",
+    ));
     descriptors
+}
+
+fn runtime_detail_family_descriptor(
+    type_name: &str,
+    variants: Vec<AdtVariantDescriptor>,
+    diagnostic_name: &str,
+) -> AdtDescriptor {
+    AdtDescriptor {
+        type_name: type_name.to_string(),
+        name_class: SourceLessNameClass::Type,
+        package_name: None,
+        module_name: None,
+        nominal_identity: None,
+        type_parameters: Vec::new(),
+        parameter_variances: Vec::new(),
+        variants,
+        diagnostic_name: diagnostic_name.to_string(),
+        refinement_availability: crate::adt::descriptors::VariantRefinementAvailability::Finite,
+        propagation: None,
+        visibility: Visibility::Public,
+    }
 }
