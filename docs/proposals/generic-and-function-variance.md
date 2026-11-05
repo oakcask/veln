@@ -85,9 +85,12 @@ declarations independently of declaration order. Checked descriptors provide
 covariant classifications for `Option`, `Result`, and `List`. Producer-local
 metadata keyed by compiler identity and arity provides the same classifications
 for `Vec` and `Dict` without publishing new ADT descriptors. Focused semantic
-tests are the executable evidence for that internal producer. The current type
-specification and executable specification examples remain unchanged because
-assignment and inference do not consume the metadata yet.
+tests are the executable evidence for that internal producer. Nested-payload
+coverage compares adjacent depths and checks one collection visit per type node
+and one retained factor per nesting edge, without imposing a wall-time
+threshold. The current type specification and executable specification examples
+remain unchanged because assignment and inference do not consume the metadata
+yet.
 
 The definition-based inference and recursive constraint treatment follow the
 [Rust Compiler Development Guide's variance discussion](https://rustc-dev-guide.rust-lang.org/variance.html).
