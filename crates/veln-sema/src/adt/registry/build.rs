@@ -148,12 +148,13 @@ impl AdtRegistry {
             variants_by_descriptor,
         } = RegistryIndexes::from_descriptors(&descriptors);
         let local_descriptor_start = descriptors.len();
-        Self {
+        let mut registry = Self {
             descriptors,
             variant_declaration_orders,
             descriptors_by_type_name,
             descriptors_by_source_identity,
             descriptors_by_identity,
+            parameter_variances_by_identity: HashMap::new(),
             variants_by_name,
             variants_by_descriptor,
             companion_access_targets,
@@ -172,7 +173,9 @@ impl AdtRegistry {
             source_import_indexes_ready: false,
             source_import_count: 0,
             local_descriptor_start,
-        }
+        };
+        registry.rebuild_parameter_variance_index();
+        registry
     }
 
     #[cfg(test)]
@@ -289,6 +292,7 @@ impl AdtRegistry {
             &alias_variance_targets,
             &resolved_constructor_uses,
         );
+        self.rebuild_parameter_variance_index();
     }
 
     fn resolved_source_constructor_uses(
@@ -438,7 +442,127 @@ impl AdtRegistry {
         self.declaration_spans = retained_declaration_spans(source, self);
         self.variant_declaration_spans = retained_variant_declaration_spans(source, self);
         self.quarantined_type_identities = source.quarantined_type_identities.clone();
+        self.rebuild_parameter_variance_index();
     }
+
+    pub(super) fn rebuild_parameter_variance_index(&mut self) {
+        type Key = (String, usize);
+        type TargetVariance = (String, Vec<crate::adt::variance::Variance>);
+
+        let mut direct = HashMap::<Key, Vec<usize>>::new();
+        let mut named_aliases = HashMap::<Key, Vec<TargetVariance>>::new();
+        for (index, descriptor) in self.descriptors.iter().enumerate() {
+            #[cfg(test)]
+            super::parameter_variance_lookup_counters::record_build_candidate_scan();
+            let arity = descriptor.type_parameters.len();
+            if descriptor.parameter_variances.len() != arity {
+                continue;
+            }
+            direct
+                .entry((descriptor.identity(), arity))
+                .or_default()
+                .push(index);
+            if descriptor.nominal_identity.is_some() {
+                named_aliases
+                    .entry((descriptor.declaration_identity(), arity))
+                    .or_default()
+                    .push((
+                        descriptor.identity(),
+                        descriptor.parameter_variances.clone(),
+                    ));
+            }
+        }
+
+        let mut index = HashMap::new();
+        for (key, candidates) in direct {
+            let canonical = candidates
+                .iter()
+                .copied()
+                .filter(|candidate| {
+                    let descriptor = &self.descriptors[*candidate];
+                    descriptor.nominal_identity.is_none()
+                        && !self
+                            .type_alias_identities
+                            .contains(&DescriptorKey::new(descriptor))
+                })
+                .collect::<Vec<_>>();
+            let variances = match canonical.as_slice() {
+                [candidate] => Some(self.descriptors[*candidate].parameter_variances.clone()),
+                [] => common_variances(
+                    candidates
+                        .iter()
+                        .map(|candidate| &self.descriptors[*candidate].parameter_variances),
+                ),
+                _ => None,
+            };
+            index.insert(key, variances);
+        }
+
+        let named_aliases = named_aliases
+            .into_iter()
+            .map(|(key, candidates)| (key, common_target_variances(candidates.iter())))
+            .collect::<HashMap<_, _>>();
+        let mut exposed_aliases = HashMap::<Key, Vec<TargetVariance>>::new();
+        for path in self.type_alias_exposure_paths.values() {
+            #[cfg(test)]
+            super::parameter_variance_lookup_counters::record_build_candidate_scan();
+            let terminal = path.terminal.as_ref();
+            let arity = terminal.type_parameters.len();
+            if terminal.parameter_variances.len() != arity {
+                continue;
+            }
+            let outer = &self.type_alias_exposure_segments[path.outer_node.segment]
+                [path.outer_node.offset]
+                .declaration;
+            exposed_aliases
+                .entry((outer.identity.clone(), arity))
+                .or_default()
+                .push((terminal.identity(), terminal.parameter_variances.clone()));
+        }
+        let exposed_aliases = exposed_aliases
+            .into_iter()
+            .map(|(key, candidates)| (key, common_target_variances(candidates.iter())))
+            .collect::<HashMap<_, _>>();
+        for key in named_aliases.keys().chain(exposed_aliases.keys()) {
+            if index.contains_key(key) {
+                continue;
+            }
+            let variances = named_aliases
+                .get(key)
+                .cloned()
+                .flatten()
+                .or_else(|| exposed_aliases.get(key).cloned().flatten());
+            index.insert(key.clone(), variances);
+        }
+        let mut by_identity = HashMap::<String, HashMap<usize, Option<Vec<_>>>>::new();
+        for ((identity, arity), variances) in index {
+            by_identity
+                .entry(identity)
+                .or_default()
+                .insert(arity, variances);
+        }
+        self.parameter_variances_by_identity = by_identity;
+    }
+}
+
+fn common_variances<'a>(
+    mut candidates: impl Iterator<Item = &'a Vec<crate::adt::variance::Variance>>,
+) -> Option<Vec<crate::adt::variance::Variance>> {
+    let variances = candidates.next()?.clone();
+    candidates
+        .all(|candidate| candidate == &variances)
+        .then_some(variances)
+}
+
+fn common_target_variances<'a>(
+    mut candidates: impl Iterator<Item = &'a (String, Vec<crate::adt::variance::Variance>)>,
+) -> Option<Vec<crate::adt::variance::Variance>> {
+    let (identity, variances) = candidates.next()?;
+    candidates
+        .all(|(candidate_identity, candidate_variances)| {
+            candidate_identity == identity && candidate_variances == variances
+        })
+        .then(|| variances.clone())
 }
 
 fn selected_module(module_name: Option<&str>, module_names: &BTreeSet<String>) -> bool {

@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::adt::registry::AdtRegistry;
+use crate::adt::registry::parameter_variance_lookup_counters;
 use crate::adt::variance::{Variance, variance_solver_counters};
 
 use super::{lookup_descriptor, registry};
@@ -260,6 +261,80 @@ fn assignment_falls_back_to_invariance_without_checked_metadata() {
         &narrow,
         &fixture.registry,
     ));
+}
+
+#[test]
+fn assignment_variance_lookup_work_is_additive_in_aliases_and_nesting() {
+    fn measure(alias_count: usize, depth: usize) -> (usize, usize, std::time::Duration) {
+        let mut source = String::from("type Positive<T>\n  PositiveValue(T)\nend\n");
+        for index in 0..alias_count {
+            source.push_str(&format!("pub type Alias{index} = Positive\n"));
+        }
+
+        parameter_variance_lookup_counters::reset();
+        let registry = registry_from_source(&source);
+        let construction_work = parameter_variance_lookup_counters::build_candidate_scans();
+        let identity = registry
+            .descriptors()
+            .iter()
+            .find(|descriptor| {
+                descriptor.type_name == "Positive" && descriptor.nominal_identity.is_none()
+            })
+            .expect("source descriptor")
+            .identity();
+        let nested = |mut argument| {
+            for _ in 0..depth {
+                argument = crate::semantic_model::Type::resolved_named(
+                    "Positive",
+                    identity.clone(),
+                    vec![argument],
+                );
+            }
+            argument
+        };
+        let narrow = nested(crate::semantic_model::Type::variant_refinement(
+            "State",
+            Vec::new(),
+            vec!["Ready".to_string()],
+        ));
+        let wide = nested(crate::semantic_model::Type::named("State", Vec::new()));
+
+        parameter_variance_lookup_counters::reset();
+        let started = std::time::Instant::now();
+        assert!(crate::type_relations::is_assignable_with_registry(
+            &wide, &narrow, &registry,
+        ));
+        assert!(!crate::type_relations::is_assignable_with_registry(
+            &narrow, &wide, &registry,
+        ));
+        let elapsed = started.elapsed();
+        let query_work = parameter_variance_lookup_counters::index_lookups();
+        (construction_work, query_work, elapsed)
+    }
+
+    let base = measure(256, 256);
+    let more_aliases = measure(512, 256);
+    let more_depth = measure(256, 512);
+    let coupled = measure(512, 512);
+
+    assert!(more_aliases.0 > base.0, "{base:?} {more_aliases:?}");
+    assert!(
+        more_aliases.0 <= base.0 * 2 + 8,
+        "{base:?} {more_aliases:?}"
+    );
+    assert_eq!(more_aliases.1, base.1, "{base:?} {more_aliases:?}");
+    assert_eq!(more_depth.0, base.0, "{base:?} {more_depth:?}");
+    assert!(more_depth.1 > base.1, "{base:?} {more_depth:?}");
+    assert!(more_depth.1 <= base.1 * 2 + 2, "{base:?} {more_depth:?}");
+    assert_eq!(coupled.0, more_aliases.0, "{more_aliases:?} {coupled:?}");
+    assert_eq!(coupled.1, more_depth.1, "{more_depth:?} {coupled:?}");
+    assert!(
+        coupled.0 + coupled.1 <= (base.0 + base.1) * 2 + 10,
+        "{base:?} {coupled:?}",
+    );
+    eprintln!(
+        "assignment variance lookup aliases/depth: 256/256={base:?}, 512/256={more_aliases:?}, 256/512={more_depth:?}, 512/512={coupled:?}",
+    );
 }
 
 #[test]
