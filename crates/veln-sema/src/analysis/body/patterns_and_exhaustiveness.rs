@@ -467,7 +467,8 @@ impl<'a> FunctionChecker<'a> {
 
     fn check_literal_or_unit_pattern_type(&mut self, pattern: &Pattern, expected: &Type) {
         if expected == &Type::Unknown
-            || literal_or_unit_pattern_is_compatible(pattern, expected) != Some(false)
+            || literal_or_unit_pattern_is_compatible(pattern, expected, &self.environment.adts)
+                != Some(false)
         {
             return;
         }

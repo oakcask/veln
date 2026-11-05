@@ -145,26 +145,6 @@ fn aggregate_refinement_inference_covers_joins_context_and_projection() {
 fn retained_aggregate_refinement_rejections_are_table_driven() {
     for (name, source, rejected_expression, expected, actual, constraint) in [
         (
-            "later generic payload widening",
-            concat!(
-                "type State\n",
-                "  Ready\n",
-                "  Closed\n",
-                "end\n",
-                "type Pair<A>\n",
-                "  Paired(A, A)\n",
-                "end\n",
-                "fn main() -> ()\n",
-                "  let inferred = Paired(Ready, Ready)\n",
-                "  let widened: Pair<State> = inferred\n",
-                "end\n",
-            ),
-            "inferred",
-            "Pair<State>",
-            "Pair<State::Ready>::Paired",
-            "assignable",
-        ),
-        (
             "mixed direct and nested type parameter",
             concat!(
                 "type State\n",
@@ -676,7 +656,7 @@ fn invariant_payload_contributions_reconcile_alias_presentation_transactionally(
 }
 
 #[test]
-fn refined_direct_carriers_infer_invariant_arguments_without_nested_covariance() {
+fn refined_direct_carriers_infer_exact_arguments_and_assign_by_checked_covariance() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -708,12 +688,7 @@ fn refined_direct_carriers_infer_invariant_arguments_without_nested_covariance()
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
     let diagnostics = analyze_surface_module(&module);
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
-    assert_eq!(
-        diagnostics[0].message.to_string(),
-        "expected `Box<State>`, but found `Box<State::Ready>::Boxed`"
-    );
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 
     let environment = TypeEnvironment::from_module(&module);
     for function in ["nested", "carrier"] {

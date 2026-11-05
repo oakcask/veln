@@ -689,7 +689,8 @@ impl<'a> FunctionChecker<'a> {
         );
         for (arg, mut expected, actual, argument_valid) in inferred {
             expected.ty = instantiate_effect_rows_in_type(&expected.ty, &row_substitutions);
-            valid &= argument_valid && is_assignable(&expected.ty, &actual);
+            valid &= argument_valid
+                && is_assignable_with_registry(&expected.ty, &actual, &self.environment.adts);
             if origin.schema_encode {
                 self.check_schema_encode_assignable(
                     arg,

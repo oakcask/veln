@@ -114,9 +114,10 @@ fn instantiate_callable_effect_rows_with_row(
             .map(|(expected, actual)| (*expected, actual)),
     );
     if comparisons.iter().any(|(expected, actual)| {
-        !crate::type_relations::is_assignable(
+        !crate::type_relations::is_assignable_with_registry(
             &instantiate_effect_rows_in_type(expected, &row_substitutions),
             actual,
+            context.adts,
         )
     }) {
         return None;

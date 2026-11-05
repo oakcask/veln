@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::adt::registry::AdtRegistry;
+use crate::adt::registry::parameter_variance_lookup_counters;
 use crate::adt::variance::{Variance, variance_solver_counters};
 
 use super::{lookup_descriptor, registry};
@@ -20,6 +21,48 @@ fn variances(registry: &AdtRegistry, name: &str) -> Vec<Variance> {
         .unwrap_or_else(|| panic!("missing descriptor {name}"))
         .parameter_variances
         .clone()
+}
+
+struct VarianceAssignmentFixture {
+    registry: AdtRegistry,
+    narrow: crate::semantic_model::Type,
+    wide: crate::semantic_model::Type,
+}
+
+impl VarianceAssignmentFixture {
+    fn new() -> Self {
+        Self {
+            registry: registry_from_source(
+                "type Positive<T>\n  PositiveValue(T)\nend\n\
+                 type Negative<T>\n  NegativeValue(fn(T) -> ())\nend\n\
+                 type Fixed<T>\n  PositiveUse(T)\n  NegativeUse(fn(T) -> ())\nend\n\
+                 type Ignored<T>\n  IgnoredValue\nend\n",
+            ),
+            narrow: crate::semantic_model::Type::variant_refinement(
+                "State",
+                Vec::new(),
+                vec!["Ready".to_string()],
+            ),
+            wide: crate::semantic_model::Type::named("State", Vec::new()),
+        }
+    }
+
+    fn instance(
+        &self,
+        name: &str,
+        argument: crate::semantic_model::Type,
+    ) -> crate::semantic_model::Type {
+        let identity = self
+            .registry
+            .descriptors()
+            .iter()
+            .find(|descriptor| {
+                descriptor.type_name == name && descriptor.nominal_identity.is_none()
+            })
+            .expect("source descriptor")
+            .identity();
+        crate::semantic_model::Type::resolved_named(name, identity, vec![argument])
+    }
 }
 
 #[test]
@@ -153,6 +196,236 @@ fn source_payload_shapes_and_private_payloads_produce_checked_metadata() {
             descriptor.type_parameters.len(),
             "{}",
             descriptor.type_name,
+        );
+    }
+}
+
+#[test]
+fn assignment_consumes_all_checked_source_parameter_variances() {
+    let fixture = VarianceAssignmentFixture::new();
+    for (name, forward, reverse) in [
+        ("Positive", true, false),
+        ("Negative", false, true),
+        ("Fixed", false, false),
+        ("Ignored", true, true),
+    ] {
+        let narrow = fixture.instance(name, fixture.narrow.clone());
+        let wide = fixture.instance(name, fixture.wide.clone());
+        assert_eq!(
+            crate::type_relations::is_assignable_with_registry(&wide, &narrow, &fixture.registry),
+            forward,
+        );
+        assert_eq!(
+            crate::type_relations::is_assignable_with_registry(&narrow, &wide, &fixture.registry),
+            reverse,
+        );
+    }
+}
+
+#[test]
+fn assignment_composes_checked_variance_through_structural_polarity() {
+    let fixture = VarianceAssignmentFixture::new();
+    let narrow = fixture.instance("Positive", fixture.narrow.clone());
+    let wide = fixture.instance("Positive", fixture.wide.clone());
+    let actual = crate::semantic_model::Type::function(
+        vec![wide.clone()],
+        crate::semantic_model::Type::Record(vec![("value".to_string(), narrow.clone())]),
+        Vec::new(),
+    );
+    let expected = crate::semantic_model::Type::function(
+        vec![narrow],
+        crate::semantic_model::Type::Record(vec![("value".to_string(), wide)]),
+        Vec::new(),
+    );
+    assert!(crate::type_relations::is_assignable_with_registry(
+        &expected,
+        &actual,
+        &fixture.registry,
+    ));
+}
+
+#[test]
+fn assignment_falls_back_to_invariance_without_checked_metadata() {
+    let mut fixture = VarianceAssignmentFixture::new();
+    let narrow = fixture.instance("Positive", fixture.narrow.clone());
+    let wide = fixture.instance("Positive", fixture.wide.clone());
+    let identity = match &wide {
+        crate::semantic_model::Type::Named { identity, .. } => identity.clone(),
+        _ => unreachable!(),
+    };
+    fixture
+        .registry
+        .clear_parameter_variances_for_identity(&identity);
+    assert!(crate::type_relations::is_assignable_with_registry(
+        &narrow,
+        &narrow,
+        &fixture.registry,
+    ));
+    assert!(!crate::type_relations::is_assignable_with_registry(
+        &wide,
+        &narrow,
+        &fixture.registry,
+    ));
+}
+
+fn measure_assignment_variance_lookup(
+    alias_count: usize,
+    depth: usize,
+) -> (usize, usize, std::time::Duration) {
+    let source = assignment_variance_lookup_source(alias_count);
+    parameter_variance_lookup_counters::reset();
+    let registry = registry_from_source(&source);
+    let construction_work = parameter_variance_lookup_counters::build_candidate_scans();
+    let identity = registry
+        .descriptors()
+        .iter()
+        .find(|descriptor| {
+            descriptor.type_name == "Positive" && descriptor.nominal_identity.is_none()
+        })
+        .expect("source descriptor")
+        .identity();
+    let narrow = nested_positive_type(
+        crate::semantic_model::Type::variant_refinement(
+            "State",
+            Vec::new(),
+            vec!["Ready".to_string()],
+        ),
+        &identity,
+        depth,
+    );
+    let wide = nested_positive_type(
+        crate::semantic_model::Type::named("State", Vec::new()),
+        &identity,
+        depth,
+    );
+
+    parameter_variance_lookup_counters::reset();
+    let started = std::time::Instant::now();
+    assert!(crate::type_relations::is_assignable_with_registry(
+        &wide, &narrow, &registry,
+    ));
+    assert!(!crate::type_relations::is_assignable_with_registry(
+        &narrow, &wide, &registry,
+    ));
+    (
+        construction_work,
+        parameter_variance_lookup_counters::index_lookups(),
+        started.elapsed(),
+    )
+}
+
+fn assignment_variance_lookup_source(alias_count: usize) -> String {
+    let mut source = String::from("type Positive<T>\n  PositiveValue(T)\nend\n");
+    for index in 0..alias_count {
+        source.push_str(&format!("pub type Alias{index} = Positive\n"));
+    }
+    source
+}
+
+fn nested_positive_type(
+    mut argument: crate::semantic_model::Type,
+    identity: &str,
+    depth: usize,
+) -> crate::semantic_model::Type {
+    for _ in 0..depth {
+        argument = crate::semantic_model::Type::resolved_named(
+            "Positive",
+            identity.to_string(),
+            vec![argument],
+        );
+    }
+    argument
+}
+
+#[test]
+fn assignment_variance_lookup_work_is_additive_in_aliases_and_nesting() {
+    let base = measure_assignment_variance_lookup(256, 256);
+    let more_aliases = measure_assignment_variance_lookup(512, 256);
+    let more_depth = measure_assignment_variance_lookup(256, 512);
+    let coupled = measure_assignment_variance_lookup(512, 512);
+
+    assert!(more_aliases.0 > base.0, "{base:?} {more_aliases:?}");
+    assert!(
+        more_aliases.0 <= base.0 * 2 + 8,
+        "{base:?} {more_aliases:?}"
+    );
+    assert_eq!(more_aliases.1, base.1, "{base:?} {more_aliases:?}");
+    assert_eq!(more_depth.0, base.0, "{base:?} {more_depth:?}");
+    assert!(more_depth.1 > base.1, "{base:?} {more_depth:?}");
+    assert!(more_depth.1 <= base.1 * 2 + 2, "{base:?} {more_depth:?}");
+    assert_eq!(coupled.0, more_aliases.0, "{more_aliases:?} {coupled:?}");
+    assert_eq!(coupled.1, more_depth.1, "{more_depth:?} {coupled:?}");
+    assert!(
+        coupled.0 + coupled.1 <= (base.0 + base.1) * 2 + 10,
+        "{base:?} {coupled:?}",
+    );
+    eprintln!(
+        "assignment variance lookup aliases/depth: 256/256={base:?}, 512/256={more_aliases:?}, 256/512={more_depth:?}, 512/512={coupled:?}",
+    );
+}
+
+#[test]
+fn standard_prelude_aliases_receive_checked_target_variances_for_assignment() {
+    use Variance::{Contravariant as N, Covariant as P, Invariant as I, Irrelevant as X};
+
+    let registry = registry_from_source(
+        "mod std::prelude\n\
+         pub type Positive<T>\n  PositiveValue(T)\nend\n\
+         pub type Negative<T>\n  NegativeValue(fn(T) -> ())\nend\n\
+         pub type Fixed<T>\n  PositiveUse(T)\n  NegativeUse(fn(T) -> ())\nend\n\
+         pub type Ignored<T>\n  IgnoredValue\nend\n\
+         pub type PositiveAlias = Positive\n\
+         pub type NegativeAlias = Negative\n\
+         pub type FixedAlias = Fixed\n\
+         pub type IgnoredAlias = Ignored\n",
+    );
+    let narrow = crate::semantic_model::Type::variant_refinement(
+        "State",
+        Vec::new(),
+        vec!["Ready".to_string()],
+    );
+    let wide = crate::semantic_model::Type::named("State", Vec::new());
+
+    for (name, variance, forward, reverse) in [
+        ("PositiveAlias", P, true, false),
+        ("NegativeAlias", N, false, true),
+        ("FixedAlias", I, false, false),
+        ("IgnoredAlias", X, true, true),
+    ] {
+        let descriptor = registry
+            .descriptors()
+            .iter()
+            .find(|descriptor| descriptor.type_name == name)
+            .unwrap_or_else(|| panic!("missing alias descriptor {name}"));
+        assert_eq!(descriptor.nominal_identity, None, "{name}");
+        assert_eq!(descriptor.parameter_variances, vec![variance], "{name}");
+        let narrow_instance = crate::semantic_model::Type::resolved_named(
+            name,
+            descriptor.identity(),
+            vec![narrow.clone()],
+        );
+        let wide_instance = crate::semantic_model::Type::resolved_named(
+            name,
+            descriptor.identity(),
+            vec![wide.clone()],
+        );
+        assert_eq!(
+            crate::type_relations::is_assignable_with_registry(
+                &wide_instance,
+                &narrow_instance,
+                &registry,
+            ),
+            forward,
+            "{name} forward",
+        );
+        assert_eq!(
+            crate::type_relations::is_assignable_with_registry(
+                &narrow_instance,
+                &wide_instance,
+                &registry,
+            ),
+            reverse,
+            "{name} reverse",
         );
     }
 }

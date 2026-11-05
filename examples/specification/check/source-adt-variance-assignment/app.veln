@@ -1,0 +1,18 @@
+use api as dep
+
+fn accepts_wide(value: dep::Producer<dep::State>) -> ()
+	()
+end
+
+fn imported_and_alias_boundaries(produced: dep::Producer<dep::State::Ready>, consumed: dep::Consumer<dep::State>, fixed: dep::Fixed<dep::State>, ignored_ready: dep::Ignored<dep::State::Ready>, ignored_state: dep::Ignored<dep::State>, refined: dep::Producer<dep::State::Ready>::Produced) -> ()
+	let widened: dep::Producer<dep::State> = produced
+	let through_alias: dep::ProducerAlias<dep::State> = produced
+	let reversed_input: dep::Consumer<dep::State::Ready> = consumed
+	let fixed_equal: dep::Fixed<dep::State> = fixed
+	let ignored_forward: dep::Ignored<dep::State> = ignored_ready
+	let ignored_reverse: dep::Ignored<dep::State::Ready> = ignored_state
+	let widened_refinement: dep::Producer<dep::State> = refined
+	let nested_record: {value: dep::Producer<dep::State>} = {value: produced}
+	let nested_function: fn(dep::Producer<dep::State::Ready>) -> () = accepts_wide
+	()
+end

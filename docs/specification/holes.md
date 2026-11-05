@@ -92,6 +92,12 @@ rank nearer visible bindings before older ones. A broader match discharged by a
 `satisfy` constraint reports that discharge reason instead of the broad type
 reason. Candidate generation retains the first five ranked candidates and any later
 statically discharged `satisfy` candidates.
+Assignable candidate matching uses the complete
+[assignment relation](types.md#compatibility-and-limits). A source-ADT candidate
+therefore uses the checked covariant, contravariant, invariant, or irrelevant
+classification of each resolved parameter. Missing or ambiguous classification
+metadata falls back to invariance. Exact resolved types still rank before a
+candidate admitted only by that relation.
 Each candidate retains the branch that discharged it when different branches
 select different symbols. Safe candidates remain unapplied and retain a
 verification obligation until the edit is applied and the verification hint is
@@ -213,6 +219,8 @@ does not authorize application.
   `crates/veln-sema/src/contracts/`.
 - Match-arm refinement of hole diagnostics and candidates:
   [`adt-variant-refinement-match-hole-repairs-json`](../../examples/specification/check/adt-variant-refinement-match-hole-repairs-json/).
+- Source-ADT variance candidate admission, ranking, and exclusion:
+  [`source-adt-variance-hole-repairs-json`](../../examples/specification/check/source-adt-variance-hole-repairs-json/).
 - JSON field definitions and applying-command gates:
   [diagnostics-json.md](diagnostics-json.md),
   [repair-candidates.md](repair-candidates.md), and

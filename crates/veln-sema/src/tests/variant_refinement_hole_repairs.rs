@@ -237,3 +237,51 @@ fn hole_candidates_include_only_the_visible_shadowed_binding() {
     assert_eq!(details.matches("\"name\":\"value\"").count(), 2);
     assert!(!details.contains("\"type\":\"Int\""));
 }
+
+#[test]
+fn hole_candidate_variance_falls_back_to_invariance_without_checked_metadata() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "end\n",
+            "type Producer<T>\n",
+            "  Produced(T)\n",
+            "end\n",
+            "fn inspect(narrow: Producer<State::Ready>) -> Producer<State>\n",
+            "  _candidate satisfy candidate => candidate == candidate\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let checked = diagnostics_for(source.text());
+    let checked_details = hole_details(&checked, "candidate");
+    assert!(checked_details.contains(concat!(
+        "\"name\":\"narrow\",\"type\":\"Producer<State::Ready>\",",
+        "\"rank\":1,\"reason\":\"satisfy_tautology\""
+    )));
+    assert!(checked_details.contains("\"repair_status\":\"statically_satisfied\""));
+
+    let mut environment = crate::types::TypeEnvironment::from_module(&module);
+    let producer_identity = environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "Producer")
+        .expect("producer descriptor")
+        .identity();
+    environment
+        .adts
+        .clear_parameter_variances_for_identity(&producer_identity);
+    let fallback =
+        crate::pipeline::analyze_surface_module_with_environment_for_test(&module, &environment);
+    let fallback_details = hole_details(&fallback, "candidate");
+    assert!(fallback_details.contains("\"repair_status\":\"blocked_until_discharged\""));
+    assert!(!fallback_details.contains("\"candidates\""));
+    assert!(!fallback_details.contains("\"statically_satisfied\""));
+}

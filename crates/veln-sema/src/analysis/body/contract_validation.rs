@@ -154,7 +154,7 @@ impl<'a> FunctionChecker<'a> {
             return Some(ContractValidation::UnresolvedName { name });
         }
         let actual_type = self.predicate_arg_type(arg, remainder_typing, bindings);
-        (!is_assignable(expected, &actual_type)).then_some(
+        (!is_assignable_with_registry(expected, &actual_type, &self.environment.adts)).then_some(
             ContractValidation::UnsupportedConstruct {
                 reason: "call_argument_type",
             },

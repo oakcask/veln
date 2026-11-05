@@ -47,7 +47,7 @@ use crate::semantic_model::{
     Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, Type, TypeOrigin,
 };
 use crate::source_less_lookup::prelude_symbol;
-use crate::type_relations::{is_assignable, is_assignable_nested};
+use crate::type_relations::{is_assignable_nested_with_registry, is_assignable_with_registry};
 use crate::type_syntax::parse_type_annotation;
 use crate::types::{
     CompanionAccessTarget, EffectSignature, FunctionLookup, HandlerPathResolution,

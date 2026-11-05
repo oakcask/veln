@@ -197,8 +197,11 @@ fn infer_private_constructor_payload(
         return;
     }
     let merge_invariant =
-        crate::type_relations::is_assignable_nested(&payload_expected, &inferred_actual)
-            || unification::is_direct_variant_carrier(&payload_expected, &inferred_actual);
+        crate::type_relations::is_assignable_nested_with_registry(
+            &payload_expected,
+            &inferred_actual,
+            context.adts,
+        ) || unification::is_direct_variant_carrier(&payload_expected, &inferred_actual);
     if plan.unresolved_concrete_carrier && !merge_invariant {
         *context.failures += 1;
         return;
@@ -260,7 +263,7 @@ impl PrivatePayloadInferencePlan {
         };
         outcome.may_contribute.then(|| {
             if self.widens_aggregate_member {
-                inferred_private_aggregate_member_type(outcome.ty, payload_expected)
+                inferred_private_aggregate_member_type(outcome.ty, payload_expected, context.adts)
             } else {
                 outcome.ty
             }

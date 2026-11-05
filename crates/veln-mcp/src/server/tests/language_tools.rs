@@ -106,7 +106,12 @@ fn search_docs_discovers_the_published_variant_refinement_contract() {
         assert!(text.contains(
             "same comparison recurses through covariant record fields and function results"
         ));
-        assert!(text.contains("named generic arguments remain invariant except for every"));
+        assert!(text.contains(
+            "Named generic arguments use the resolved constructor's selected parameter classifications"
+        ));
+        assert!(text.contains(
+            "Source ADTs use their checked covariant, contravariant, invariant, or irrelevant classifications"
+        ));
         assert!(text.contains(
             "compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`"
         ));

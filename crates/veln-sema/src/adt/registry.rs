@@ -7,7 +7,9 @@ use veln_source::{SourcePath, SourceSpan};
 
 use crate::semantic_model::Type;
 
-use super::descriptors::{AdtConstructor, AdtDescriptor, AdtVariantDescriptor};
+use super::descriptors::{
+    AdtConstructor, AdtDescriptor, AdtVariantDescriptor, ParameterVarianceLookup, Variance,
+};
 use super::lookup_validation::{constructor_matches_visible_path, same_descriptor};
 
 mod aliases;
@@ -23,6 +25,7 @@ pub(crate) struct AdtRegistry {
     descriptors_by_type_name: HashMap<String, Vec<usize>>,
     descriptors_by_source_identity: HashMap<(Option<String>, Option<String>, String), Vec<usize>>,
     descriptors_by_identity: HashMap<String, Vec<usize>>,
+    parameter_variances_by_identity: HashMap<String, HashMap<usize, Option<Vec<Variance>>>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
     variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, Option<usize>>>,
     companion_access_targets: BTreeMap<String, String>,
@@ -404,6 +407,29 @@ impl AdtRegistry {
             .find(|descriptor| descriptor.type_parameters.len() == args.len())
     }
 
+    pub(crate) fn parameter_variances_for_identity(
+        &self,
+        identity: &str,
+        arity: usize,
+    ) -> Option<&[Variance]> {
+        #[cfg(test)]
+        parameter_variance_lookup_counters::record_index_lookup();
+        self.parameter_variances_by_identity
+            .get(identity)
+            .and_then(|by_arity| by_arity.get(&arity))
+            .and_then(Option::as_deref)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn clear_parameter_variances_for_identity(&mut self, identity: &str) {
+        for descriptor in &mut self.descriptors {
+            if descriptor.identity() == identity && descriptor.nominal_identity.is_none() {
+                descriptor.parameter_variances.clear();
+            }
+        }
+        self.rebuild_parameter_variance_index();
+    }
+
     pub(crate) fn declaration_span_for_type(&self, ty: &Type) -> Option<&SourceSpan> {
         let descriptor = self.descriptor_for_type(ty)?;
         self.declaration_spans.get(&DescriptorKey::new(descriptor))
@@ -661,6 +687,47 @@ impl AdtRegistry {
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
         self.descriptor_for_type_path_with_arity(name, None, current_module, uses)
+    }
+}
+
+impl ParameterVarianceLookup for AdtRegistry {
+    fn parameter_variances_for_identity(
+        &self,
+        identity: &str,
+        arity: usize,
+    ) -> Option<&[Variance]> {
+        AdtRegistry::parameter_variances_for_identity(self, identity, arity)
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod parameter_variance_lookup_counters {
+    use std::cell::Cell;
+
+    thread_local! {
+        static BUILD_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
+        static INDEX_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(crate) fn reset() {
+        BUILD_CANDIDATE_SCANS.set(0);
+        INDEX_LOOKUPS.set(0);
+    }
+
+    pub(super) fn record_build_candidate_scan() {
+        BUILD_CANDIDATE_SCANS.set(BUILD_CANDIDATE_SCANS.get() + 1);
+    }
+
+    pub(crate) fn build_candidate_scans() -> usize {
+        BUILD_CANDIDATE_SCANS.get()
+    }
+
+    pub(super) fn record_index_lookup() {
+        INDEX_LOOKUPS.set(INDEX_LOOKUPS.get() + 1);
+    }
+
+    pub(crate) fn index_lookups() -> usize {
+        INDEX_LOOKUPS.get()
     }
 }
 

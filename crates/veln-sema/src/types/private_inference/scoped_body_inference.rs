@@ -246,8 +246,11 @@ fn infer_private_let_line(
     let (ty, may_contribute) = match annotation_type {
         Some(annotation_type) => {
             let actual = infer_private_body_expr(expr, Some(&annotation_type), context);
-            let may_contribute =
-                crate::type_relations::is_assignable_nested(&annotation_type, &actual.ty);
+            let may_contribute = crate::type_relations::is_assignable_nested_with_registry(
+                &annotation_type,
+                &actual.ty,
+                context.adts,
+            );
             if !may_contribute {
                 *context.failures += 1;
             }

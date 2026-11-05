@@ -843,8 +843,9 @@ differences do not create such an
 invariance failure: when invariant arguments have the same resolved type, an
 outer finite-set or base-to-refinement exclusion remains
 `type.variant_mismatch`, with independent alias spellings in `actual_type` and
-`expected_type`. The same classification applies when compiler-owned covariant
-arguments are assignable after widening: an actual
+`expected_type`. The same classification applies when named arguments are
+assignable under the resolved constructor's selected variance. For example, an
+actual
 `Option<State::Ready>::None` or base `Option<State::Ready>` where
 `Option<State>::Some` is expected reports the outer exclusion as
 `type.variant_mismatch`. A nested refinement that fails ordinary assignment
@@ -854,13 +855,17 @@ invariant refined type argument to the corresponding type that uses the base
 ADT, or supplying `Option<State>::None` where
 `Option<State::Ready>::Some` is expected. Record fields and every argument of
 compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and
-`Dict<K, V>` use covariance, so widening an inferred singleton-refined position
-to its base type produces no diagnostic when the outer variant set is also
-compatible. The reverse argument assignment fails with `type.mismatch`. The
-constructor must have the resolved compiler-owned identity; a source or
-imported constructor with the same displayed name remains invariant, including
-a root-module declaration and its aliases. A mismatched assignment reports
-`type.mismatch`. During aggregate inference, an
+`Dict<K, V>` use covariance. A covariant source-ADT parameter has the same
+argument direction, while a contravariant parameter reverses it, an invariant
+parameter requires resolved structural equality, and an irrelevant parameter
+does not compare the argument. Widening an inferred singleton-refined position
+through a covariant parameter produces no diagnostic when the outer variant set
+is also compatible. A comparison rejected by the selected parameter
+classification reports `type.mismatch`. Compiler-owned covariance requires the
+resolved compiler-owned identity. A source or imported constructor with the
+same displayed name instead uses its own checked classifications, and its
+aliases retain those classifications. Distinct nominal owners remain
+incompatible. During aggregate inference, an
 incompatible later contribution reports the aggregate position's accumulated
 type as expected and preserves the later contribution's constructor refinement
 as actual. The accumulated expected type contains only successfully typed

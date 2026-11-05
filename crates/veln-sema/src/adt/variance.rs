@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
 use crate::semantic_model::Type;
 
@@ -66,11 +66,11 @@ pub(crate) struct ResolvedConstructorUse {
 impl MetadataIndex {
     fn new(
         descriptors: &[super::descriptors::AdtDescriptor],
-        alias_identities: &BTreeSet<DescriptorKey>,
+        alias_targets: &BTreeMap<DescriptorKey, String>,
     ) -> Self {
         let mut by_identity_and_arity = HashMap::<String, HashMap<usize, MetadataEntry>>::new();
         for (index, descriptor) in descriptors.iter().enumerate() {
-            if alias_identities.contains(&DescriptorKey::new(descriptor)) {
+            if alias_targets.contains_key(&DescriptorKey::new(descriptor)) {
                 continue;
             }
             by_identity_and_arity
@@ -151,7 +151,7 @@ struct FactorNode {
 pub(super) fn infer_source_parameter_variances(
     descriptors: &mut [super::descriptors::AdtDescriptor],
     source_start: usize,
-    alias_identities: &BTreeSet<DescriptorKey>,
+    alias_targets: &BTreeMap<DescriptorKey, String>,
     resolved_constructor_uses: &BTreeSet<ResolvedConstructorUse>,
 ) {
     for descriptor in &mut descriptors[source_start..] {
@@ -159,7 +159,7 @@ pub(super) fn infer_source_parameter_variances(
             vec![Variance::Irrelevant; descriptor.type_parameters.len()];
     }
 
-    let metadata = MetadataIndex::new(descriptors, alias_identities);
+    let metadata = MetadataIndex::new(descriptors, alias_targets);
     let source_count = descriptors.len().saturating_sub(source_start);
     let mut constraints = Vec::with_capacity(source_count);
     for descriptor_index in source_start..descriptors.len() {
@@ -203,7 +203,7 @@ pub(super) fn infer_source_parameter_variances(
         }
     }
 
-    synchronize_alias_variances(descriptors, alias_identities, &metadata);
+    synchronize_alias_variances(descriptors, alias_targets, &metadata);
 }
 
 pub(super) fn normalize_parameter_variance_arity(
@@ -648,15 +648,14 @@ fn push_parameter_constraint(
 
 fn synchronize_alias_variances(
     descriptors: &mut [super::descriptors::AdtDescriptor],
-    alias_identities: &BTreeSet<DescriptorKey>,
+    alias_targets: &BTreeMap<DescriptorKey, String>,
     metadata: &MetadataIndex,
 ) {
     let updates = descriptors
         .iter()
         .enumerate()
-        .filter(|(_, descriptor)| alias_identities.contains(&DescriptorKey::new(descriptor)))
         .filter_map(|(index, descriptor)| {
-            let target_identity = descriptor.nominal_identity.as_deref()?;
+            let target_identity = alias_targets.get(&DescriptorKey::new(descriptor))?;
             Some((
                 index,
                 metadata.checked_variances(

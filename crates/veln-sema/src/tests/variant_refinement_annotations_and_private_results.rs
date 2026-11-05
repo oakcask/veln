@@ -26,7 +26,7 @@ mod scaling;
 mod unknown_finals;
 
 #[test]
-fn records_are_covariant_while_named_arguments_remain_invariant() {
+fn records_and_covariant_source_arguments_widen_without_reversing() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -58,7 +58,7 @@ fn records_are_covariant_while_named_arguments_remain_invariant() {
         )
     ));
 
-    assert_eq!(diagnostics.len(), 5, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
     assert!(
         diagnostics
             .iter()
@@ -92,7 +92,7 @@ fn vec_arguments_are_covariant_at_complete_assignment_boundaries() {
         )
     ));
 
-    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
     assert!(
         diagnostics
             .iter()
@@ -184,42 +184,55 @@ fn standard_immutable_constructor_aliases_retain_covariance() {
 }
 
 #[test]
-fn root_source_standard_spelling_and_aliases_remain_invariant() {
-    let diagnostics = diagnostics_for(&format!(
-        "{STATE_DECL}{}",
-        concat!(
-            "type Option<A>\n",
-            "  SourceOption(A)\n",
-            "end\n",
-            "pub type Optional = Option\n",
-            "type Result<A, E>\n",
-            "  SourceResult(A, E)\n",
-            "end\n",
-            "pub type Outcome = Result\n",
-            "type List<A>\n",
-            "  SourceList(A)\n",
-            "end\n",
-            "pub type Sequence = List\n",
-            "fn boundaries(optional: Option<State::Ready>, optional_alias: Optional<State::Ready>, success: Result<State::Ready, String>, success_alias: Outcome<State::Ready, String>, failure: Result<Int, State::Ready>, failure_alias: Outcome<Int, State::Ready>, list: List<State::Ready>, list_alias: Sequence<State::Ready>) -> ()\n",
-            "  let widened_optional: Option<State> = optional\n",
-            "  let widened_optional_alias: Optional<State> = optional_alias\n",
-            "  let widened_success: Result<State, String> = success\n",
-            "  let widened_success_alias: Outcome<State, String> = success_alias\n",
-            "  let widened_failure: Result<Int, State> = failure\n",
-            "  let widened_failure_alias: Outcome<Int, State> = failure_alias\n",
-            "  let widened_list: List<State> = list\n",
-            "  let widened_list_alias: Sequence<State> = list_alias\n",
-            "end\n",
-        )
-    ));
-
-    assert_eq!(diagnostics.len(), 8, "{diagnostics:#?}");
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id == "type.mismatch"),
-        "{diagnostics:#?}"
+fn root_source_standard_spelling_and_aliases_use_checked_covariance() {
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "{STATE_DECL}{}",
+            concat!(
+                "type Option<A>\n",
+                "  SourceOption(A)\n",
+                "end\n",
+                "pub type Optional = Option\n",
+                "type Result<A, E>\n",
+                "  SourceResult(A, E)\n",
+                "end\n",
+                "pub type Outcome = Result\n",
+                "type List<A>\n",
+                "  SourceList(A)\n",
+                "end\n",
+                "pub type Sequence = List\n",
+                "fn boundaries(optional: Option<State::Ready>, optional_alias: Optional<State::Ready>, success: Result<State::Ready, String>, success_alias: Outcome<State::Ready, String>, failure: Result<Int, State::Ready>, failure_alias: Outcome<Int, State::Ready>, list: List<State::Ready>, list_alias: Sequence<State::Ready>) -> ()\n",
+                "  let widened_optional: Option<State> = optional\n",
+                "  let widened_optional_alias: Optional<State> = optional_alias\n",
+                "  let widened_success: Result<State, String> = success\n",
+                "  let widened_success_alias: Outcome<State, String> = success_alias\n",
+                "  let widened_failure: Result<Int, State> = failure\n",
+                "  let widened_failure_alias: Outcome<Int, State> = failure_alias\n",
+                "  let widened_list: List<State> = list\n",
+                "  let widened_list_alias: Sequence<State> = list_alias\n",
+                "end\n",
+            )
+        ),
     );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let alias_type = &environment.function("boundaries").unwrap().params[1];
+    let Type::Named { identity, args, .. } = alias_type else {
+        panic!("expected named alias type")
+    };
+    assert!(
+        environment
+            .adts
+            .parameter_variances_for_identity(identity, args.len())
+            .is_some(),
+        "missing variance for alias identity {identity:?}"
+    );
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
 #[test]
@@ -309,7 +322,7 @@ fn standard_adt_variant_mismatches_classify_after_covariant_argument_comparison(
 }
 
 #[test]
-fn same_spelled_source_dict_and_other_generics_remain_invariant_and_nominal() {
+fn same_spelled_source_dict_and_other_generics_use_variance_but_remain_nominal() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -326,7 +339,7 @@ fn same_spelled_source_dict_and_other_generics_remain_invariant_and_nominal() {
         )
     ));
 
-    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
     assert!(
         diagnostics
             .iter()
@@ -336,7 +349,7 @@ fn same_spelled_source_dict_and_other_generics_remain_invariant_and_nominal() {
 }
 
 #[test]
-fn imported_source_dict_and_alias_remain_invariant_and_nominal() {
+fn imported_source_dict_and_alias_use_checked_covariance() {
     let module = merged_modules_with_identities(vec![
         (
             "source_dict",
@@ -367,13 +380,7 @@ fn imported_source_dict_and_alias_remain_invariant_and_nominal() {
     ]);
 
     let diagnostics = analyze_surface_module(&module);
-    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id == "type.mismatch"),
-        "{diagnostics:#?}"
-    );
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
 #[test]
@@ -396,17 +403,13 @@ fn identity_free_source_vec_cannot_acquire_compiler_vec_covariance() {
         )
     ));
 
-    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
     assert_eq!(
         diagnostics
             .iter()
             .map(|diagnostic| (diagnostic.id.as_str(), diagnostic.message.as_str()))
             .collect::<Vec<_>>(),
         vec![
-            (
-                "type.mismatch",
-                "expected `Vec<State>`, but found `Vec<State::Ready>`"
-            ),
             (
                 "type.mismatch",
                 "expected `Vec<State::Ready>`, but found `Vec<State::Ready>`"
@@ -436,7 +439,7 @@ fn base_with_different_generic_arguments_uses_an_ordinary_mismatch() {
 }
 
 #[test]
-fn refinements_require_identical_resolved_generic_arguments() {
+fn refinements_apply_checked_covariance_to_structural_arguments() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -470,13 +473,7 @@ fn refinements_require_identical_resolved_generic_arguments() {
     );
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id == "type.mismatch"),
-        "{diagnostics:#?}"
-    );
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
 #[test]

@@ -347,7 +347,7 @@ fn infer_private_aggregate_component(
     }
     let actual = actual.ty;
     let actual = if has_context {
-        inferred_private_aggregate_member_type(actual, component_type)
+        inferred_private_aggregate_member_type(actual, component_type, context.adts)
     } else {
         actual
     };
@@ -359,7 +359,11 @@ fn infer_private_aggregate_component(
         && joined_components
             .as_mut()
             .is_some_and(|joined| joined.try_join(&actual));
-    let assignable = crate::type_relations::is_assignable_nested(&inferred_context, &actual);
+    let assignable = crate::type_relations::is_assignable_nested_with_registry(
+        &inferred_context,
+        &actual,
+        context.adts,
+    );
     let rejected_here = inferred_context != Type::Unknown
         && if has_context {
             !assignable
@@ -401,7 +405,9 @@ pub(crate) fn infer_private_record_type(
                     expected.and_then(|expected| expected.record_field(&field.name));
                 let actual = context.infer(&field.expr, field_expected);
                 let actual = match field_expected {
-                    Some(expected) => inferred_private_aggregate_member_type(actual, expected),
+                    Some(expected) => {
+                        inferred_private_aggregate_member_type(actual, expected, context.adts)
+                    }
                     None => actual,
                 };
                 (field.name.clone(), actual)
@@ -410,8 +416,14 @@ pub(crate) fn infer_private_record_type(
     )
 }
 
-pub(super) fn inferred_private_aggregate_member_type(ty: Type, expected: &Type) -> Type {
-    if expected != &Type::Unknown && crate::type_relations::is_assignable(expected, &ty) {
+pub(super) fn inferred_private_aggregate_member_type(
+    ty: Type,
+    expected: &Type,
+    adts: &AdtRegistry,
+) -> Type {
+    if expected != &Type::Unknown
+        && crate::type_relations::is_assignable_with_registry(expected, &ty, adts)
+    {
         expected.clone()
     } else {
         ty
@@ -517,7 +529,9 @@ fn reject_private_operator_operand(
     expected: &Type,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
-    if outcome.may_contribute && !crate::type_relations::is_assignable(expected, &outcome.ty) {
+    if outcome.may_contribute
+        && !crate::type_relations::is_assignable_with_registry(expected, &outcome.ty, context.adts)
+    {
         *context.failures += 1;
     }
 }
@@ -683,7 +697,11 @@ impl PrivateSignatureInferContext<'_, '_> {
     ) -> PrivateExprInference {
         let mut outcome = self.infer_outcome(expr, Some(expected));
         let rejected_here = outcome.ty != Type::Unknown
-            && !crate::type_relations::is_assignable(expected, &outcome.ty);
+            && !crate::type_relations::is_assignable_with_registry(
+                expected,
+                &outcome.ty,
+                self.adts,
+            );
         if rejected_here && outcome.may_contribute {
             *self.failures += 1;
         }
@@ -698,7 +716,11 @@ impl PrivateSignatureInferContext<'_, '_> {
     ) -> PrivateExprInference {
         let mut outcome = self.infer_outcome(expr, Some(expected));
         let rejected_here = outcome.ty != Type::Unknown
-            && !crate::type_relations::is_assignable_nested(expected, &outcome.ty);
+            && !crate::type_relations::is_assignable_nested_with_registry(
+                expected,
+                &outcome.ty,
+                self.adts,
+            );
         if rejected_here && outcome.may_contribute {
             *self.failures += 1;
         }

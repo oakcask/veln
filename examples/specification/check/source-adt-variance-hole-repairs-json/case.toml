@@ -1,0 +1,80 @@
+command = ["check", "--json", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "partial"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates"
+length = 2
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.0.name"
+equals = "exact"
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.0.type"
+equals = "Producer<State>"
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.0.rank"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.0.reason"
+equals = "exact_type_match"
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.1.name"
+equals = "narrow"
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.1.type"
+equals = "Producer<State::Ready>"
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.1.rank"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.1.reason"
+equals = "assignable_type_match"
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.1.evidence.0.expected_type"
+equals = "Producer<State>"
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.1.evidence.0.candidate_type"
+equals = "Producer<State::Ready>"
+
+[[json_assert]]
+path = "diagnostics.0.details.candidate_queries.0.candidates.1.evidence.1.reason"
+equals = "assignable_type_match"
+
+[[json_assert]]
+path = "diagnostics.1.details.candidate_queries.0.candidates"
+missing = true
+
+[[json_assert]]
+path = "diagnostics.1.details.constraints.0.repair_status"
+equals = "blocked_until_discharged"
+
+[[json_assert]]
+path = "diagnostics.2.details.candidate_queries.0.candidates"
+missing = true
+
+[[json_assert]]
+path = "diagnostics.2.details.constraints.0.repair_status"
+equals = "blocked_until_discharged"

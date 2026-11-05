@@ -211,8 +211,12 @@ fn inferred_control_flow_recovery_type(ty: &Type) -> Type {
     }
 }
 
-fn inferred_aggregate_member_type_with_expected(ty: Type, expected: &Type) -> Type {
-    if expected != &Type::Unknown && is_assignable(expected, &ty) {
+fn inferred_aggregate_member_type_with_expected(
+    ty: Type,
+    expected: &Type,
+    adts: &crate::adt::registry::AdtRegistry,
+) -> Type {
+    if expected != &Type::Unknown && is_assignable_with_registry(expected, &ty, adts) {
         expected.clone()
     } else {
         ty
@@ -230,9 +234,13 @@ fn literal_or_unit_pattern_type(pattern: &Pattern) -> Option<Type> {
     }
 }
 
-fn literal_or_unit_pattern_is_compatible(pattern: &Pattern, expected: &Type) -> Option<bool> {
+fn literal_or_unit_pattern_is_compatible(
+    pattern: &Pattern,
+    expected: &Type,
+    adts: &crate::adt::registry::AdtRegistry,
+) -> Option<bool> {
     let actual = literal_or_unit_pattern_type(pattern)?;
-    Some(expected != &Type::Unknown && is_assignable(expected, &actual))
+    Some(expected != &Type::Unknown && is_assignable_with_registry(expected, &actual, adts))
 }
 
 pub(in crate::analysis) struct FunctionChecker<'a> {
@@ -722,7 +730,11 @@ impl<'a> FunctionChecker<'a> {
                 record_alias_group_lookup();
                 let alias_group = &self.transparent_alias_groups[group];
                 let mut persistent = binding.ty.clone();
-                if is_assignable(&persistent, &alias_group.feasible_type) {
+                if is_assignable_with_registry(
+                    &persistent,
+                    &alias_group.feasible_type,
+                    &self.environment.adts,
+                ) {
                     adt::merge_type_holes(&mut persistent, &alias_group.feasible_type);
                 }
                 alias_group.active_refinements.last().map_or_else(
@@ -746,7 +758,7 @@ impl<'a> FunctionChecker<'a> {
         self.bindings[index].ty = ty.clone();
         if let Some(group) = self.bindings[index].transparent_alias_group {
             let feasible_type = &mut self.transparent_alias_groups[group].feasible_type;
-            if is_assignable(&ty, feasible_type) {
+            if is_assignable_with_registry(&ty, feasible_type, &self.environment.adts) {
                 adt::merge_type_holes(feasible_type, &ty);
             }
         }
