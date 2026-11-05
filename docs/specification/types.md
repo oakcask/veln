@@ -1617,10 +1617,12 @@ constructors is covariant, so an actual argument may widen to the expected
 argument but the reverse assignment fails. The exception requires the same
 resolved compiler-owned constructor. Public aliases of `Option`, `Result`,
 `List`, and `Dict` retain it by resolving to that identity, while a source or
-imported declaration with the same displayed name cannot acquire it. The rule
-does not relate distinct nominal constructors and does not coerce runtime
-values. It applies only where a concrete expected type exists; it does not
-widen a context-free generic join or constructor inference.
+imported declaration with the same displayed name cannot acquire it. This
+separation also applies to a same-spelled source declaration in the root
+module and to aliases of that declaration. The rule does not relate distinct
+nominal constructors and does not coerce runtime values. It applies only where
+a concrete expected type exists; it does not widen a context-free generic join
+or constructor inference.
 Recovery still lets `unknown` match a complete argument. `Path` and `String` are distinct named types at
 assignment boundaries; the runtime path representation is not source-visible.
 Function assignment checks fixed parameter count, parameter types, variadic

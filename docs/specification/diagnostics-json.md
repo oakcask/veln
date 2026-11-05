@@ -858,8 +858,9 @@ compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and
 to its base type produces no diagnostic when the outer variant set is also
 compatible. The reverse argument assignment fails with `type.mismatch`. The
 constructor must have the resolved compiler-owned identity; a source or
-imported constructor with the same displayed name remains invariant and a
-mismatched assignment reports `type.mismatch`. During aggregate inference, an
+imported constructor with the same displayed name remains invariant, including
+a root-module declaration and its aliases. A mismatched assignment reports
+`type.mismatch`. During aggregate inference, an
 incompatible later contribution reports the aggregate position's accumulated
 type as expected and preserves the later contribution's constructor refinement
 as actual. The accumulated expected type contains only successfully typed
