@@ -873,13 +873,18 @@ contributions. A contribution that already produced a diagnostic leaves that
 type unchanged, does not produce a derivative aggregate mismatch, and cannot
 change the expected type reported for a later contribution. A rejected call or
 constructor expression follows this rule even when recovery can determine its
-refined result type from the resolved declaration. The same rule applies when
-one constructor payload uses a type parameter directly and another uses it
-inside a named type: the diagnostic reports the exact inference constraint
-established by the other payload rather than applying that named type's
-assignment variance. Thus `Vec<A>` establishes an exact constraint here even
-though compiler-owned `Vec<T>` is covariant for assignment. When one
-payload contributes the same type parameter more than once, a conflict reports
+refined result type from the resolved declaration. When a constructor payload
+uses a type parameter inside a source ADT, context-free inference recursively
+joins that argument only when the resolved declaration classifies it as
+covariant. The accepted
+[`source-adt-variance-inference`](../../examples/specification/check/source-adt-variance-inference/)
+case checks local and imported joins that emit no diagnostics. Invariant,
+irrelevant, and contravariant source-ADT arguments establish exact constraints,
+as do arguments whose checked classification is unavailable. Compiler-owned
+named types remain exact during this inference, so `Vec<A>` establishes an
+exact constraint even though compiler-owned `Vec<T>` is covariant for
+assignment. When one payload contributes the same type parameter more than
+once, a conflict reports
 the earlier occurrence's type as expected and the conflicting occurrence's
 type as actual. None of that payload's occurrences update the accumulated type,
 so a later payload is checked against only the constraints that were complete
