@@ -428,105 +428,207 @@ pub(crate) fn invariant_args_match(expected: &[Type], actual: &[Type]) -> bool {
     }
     let mut pending = expected.iter().zip(actual).collect::<Vec<_>>();
     while let Some((expected, actual)) = pending.pop() {
-        match (expected, actual) {
-            (Type::Unknown, _) | (_, Type::Unknown) => {}
-            (
-                Type::Named {
-                    name: expected_name,
-                    identity: expected_identity,
-                    args: expected_args,
-                },
-                Type::Named {
-                    name: actual_name,
-                    identity: actual_identity,
-                    args: actual_args,
-                },
-            ) => {
-                if !same_type_identity(
-                    expected_name,
-                    expected_identity,
-                    actual_name,
-                    actual_identity,
-                ) || expected_args.len() != actual_args.len()
-                {
-                    return false;
-                }
-                pending.extend(expected_args.iter().zip(actual_args));
-            }
-            (
-                Type::VariantRefinement {
-                    name: expected_name,
-                    identity: expected_identity,
-                    args: expected_args,
-                    variants: expected_variants,
-                    ..
-                },
-                Type::VariantRefinement {
-                    name: actual_name,
-                    identity: actual_identity,
-                    args: actual_args,
-                    variants: actual_variants,
-                    ..
-                },
-            ) => {
-                if !same_type_identity(
-                    expected_name,
-                    expected_identity,
-                    actual_name,
-                    actual_identity,
-                ) || expected_args.len() != actual_args.len()
-                    || expected_variants != actual_variants
-                {
-                    return false;
-                }
-                pending.extend(expected_args.iter().zip(actual_args));
-            }
-            (Type::Record(expected_fields), Type::Record(actual_fields)) => {
-                if expected_fields.len() != actual_fields.len() {
-                    return false;
-                }
-                let actual_by_name = index_record_fields(actual_fields);
-                for (name, expected_ty) in expected_fields {
-                    let Some(actual_ty) = indexed_record_field(&actual_by_name, name) else {
-                        return false;
-                    };
-                    pending.push((expected_ty, actual_ty));
-                }
-            }
-            (
-                Type::Function {
-                    params: expected_params,
-                    variadic: expected_variadic,
-                    return_type: expected_return,
-                    effects: expected_effects,
-                },
-                Type::Function {
-                    params: actual_params,
-                    variadic: actual_variadic,
-                    return_type: actual_return,
-                    effects: actual_effects,
-                },
-            ) => {
-                if expected_params.len() != actual_params.len()
-                    || expected_variadic.is_some() != actual_variadic.is_some()
-                    || expected_effects.len() != actual_effects.len()
-                    || !expected_effects
-                        .iter()
-                        .all(|expected| actual_effects.contains(expected))
-                {
-                    return false;
-                }
-                pending.extend(expected_params.iter().zip(actual_params));
-                if let (Some(expected), Some(actual)) =
-                    (expected_variadic.as_deref(), actual_variadic.as_deref())
-                {
-                    pending.push((expected, actual));
-                }
-                pending.push((expected_return, actual_return));
-            }
-            _ => return false,
+        if !invariant_pair_matches(expected, actual, &mut pending) {
+            return false;
         }
     }
+    true
+}
+
+fn invariant_pair_matches<'a>(
+    expected: &'a Type,
+    actual: &'a Type,
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    match (expected, actual) {
+        (Type::Unknown, _) | (_, Type::Unknown) => true,
+        (
+            Type::Named {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+            },
+            Type::Named {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+            },
+        ) => invariant_named_args_match(
+            expected_name,
+            expected_identity,
+            expected_args,
+            actual_name,
+            actual_identity,
+            actual_args,
+            pending,
+        ),
+        (
+            Type::VariantRefinement {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+                variants: expected_variants,
+                ..
+            },
+            Type::VariantRefinement {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+                variants: actual_variants,
+                ..
+            },
+        ) => invariant_variant_args_match(
+            expected_name,
+            expected_identity,
+            expected_args,
+            expected_variants,
+            actual_name,
+            actual_identity,
+            actual_args,
+            actual_variants,
+            pending,
+        ),
+        (Type::Record(expected_fields), Type::Record(actual_fields)) => {
+            invariant_record_fields_match(expected_fields, actual_fields, pending)
+        }
+        (
+            Type::Function {
+                params: expected_params,
+                variadic: expected_variadic,
+                return_type: expected_return,
+                effects: expected_effects,
+            },
+            Type::Function {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                effects: actual_effects,
+            },
+        ) => invariant_function_parts_match(
+            expected_params,
+            expected_variadic,
+            expected_return,
+            expected_effects,
+            actual_params,
+            actual_variadic,
+            actual_return,
+            actual_effects,
+            pending,
+        ),
+        _ => false,
+    }
+}
+
+fn invariant_named_args_match<'a>(
+    expected_name: &str,
+    expected_identity: &str,
+    expected_args: &'a [Type],
+    actual_name: &str,
+    actual_identity: &str,
+    actual_args: &'a [Type],
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    if !invariant_named_identity_and_arity_match(
+        expected_name,
+        expected_identity,
+        expected_args,
+        actual_name,
+        actual_identity,
+        actual_args,
+    ) {
+        return false;
+    }
+    pending.extend(expected_args.iter().zip(actual_args));
+    true
+}
+
+fn invariant_variant_args_match<'a>(
+    expected_name: &str,
+    expected_identity: &str,
+    expected_args: &'a [Type],
+    expected_variants: &[String],
+    actual_name: &str,
+    actual_identity: &str,
+    actual_args: &'a [Type],
+    actual_variants: &[String],
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    if !invariant_named_identity_and_arity_match(
+        expected_name,
+        expected_identity,
+        expected_args,
+        actual_name,
+        actual_identity,
+        actual_args,
+    ) || expected_variants != actual_variants
+    {
+        return false;
+    }
+    pending.extend(expected_args.iter().zip(actual_args));
+    true
+}
+
+fn invariant_named_identity_and_arity_match(
+    expected_name: &str,
+    expected_identity: &str,
+    expected_args: &[Type],
+    actual_name: &str,
+    actual_identity: &str,
+    actual_args: &[Type],
+) -> bool {
+    same_type_identity(
+        expected_name,
+        expected_identity,
+        actual_name,
+        actual_identity,
+    ) && expected_args.len() == actual_args.len()
+}
+
+fn invariant_record_fields_match<'a>(
+    expected_fields: &'a [(String, Type)],
+    actual_fields: &'a [(String, Type)],
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    if expected_fields.len() != actual_fields.len() {
+        return false;
+    }
+    let actual_by_name = index_record_fields(actual_fields);
+    for (name, expected_ty) in expected_fields {
+        let Some(actual_ty) = indexed_record_field(&actual_by_name, name) else {
+            return false;
+        };
+        pending.push((expected_ty, actual_ty));
+    }
+    true
+}
+
+fn invariant_function_parts_match<'a>(
+    expected_params: &'a [Type],
+    expected_variadic: &'a Option<Box<Type>>,
+    expected_return: &'a Type,
+    expected_effects: &[String],
+    actual_params: &'a [Type],
+    actual_variadic: &'a Option<Box<Type>>,
+    actual_return: &'a Type,
+    actual_effects: &[String],
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    if expected_params.len() != actual_params.len()
+        || expected_variadic.is_some() != actual_variadic.is_some()
+        || expected_effects.len() != actual_effects.len()
+        || !expected_effects
+            .iter()
+            .all(|expected| actual_effects.contains(expected))
+    {
+        return false;
+    }
+    pending.extend(expected_params.iter().zip(actual_params));
+    if let (Some(expected), Some(actual)) =
+        (expected_variadic.as_deref(), actual_variadic.as_deref())
+    {
+        pending.push((expected, actual));
+    }
+    pending.push((expected_return, actual_return));
     true
 }
 
@@ -572,125 +674,7 @@ impl TypePresentationJoin {
         let mut changed = false;
         let mut pending = vec![(joined, actual, &mut self.state)];
         while let Some((joined, actual, state)) = pending.pop() {
-            match (joined, actual) {
-                (
-                    Type::Named {
-                        name: joined_name,
-                        identity: joined_identity,
-                        args: joined_args,
-                    }
-                    | Type::VariantRefinement {
-                        name: joined_name,
-                        identity: joined_identity,
-                        args: joined_args,
-                        ..
-                    },
-                    actual,
-                ) => {
-                    let Some((actual_name, actual_identity, actual_args)) =
-                        presentation_named_parts(actual)
-                    else {
-                        continue;
-                    };
-                    if !same_type_identity(
-                        joined_name,
-                        joined_identity,
-                        actual_name,
-                        actual_identity,
-                    ) || joined_args.len() != actual_args.len()
-                    {
-                        continue;
-                    }
-                    let canonical_name = joined_identity
-                        .rsplit("::")
-                        .next()
-                        .unwrap_or(joined_name)
-                        .to_string();
-                    changed |= reconcile_presentation_name(
-                        joined_name,
-                        actual_name,
-                        &canonical_name,
-                        &mut state.conflicted,
-                    );
-                    prepare_presentation_children(state, joined_args.len(), joined_args.len());
-                    pending.extend(
-                        joined_args
-                            .iter_mut()
-                            .zip(actual_args)
-                            .zip(state.children.iter_mut())
-                            .map(|((joined, actual), state)| (joined, actual, state)),
-                    );
-                }
-                (Type::Record(joined_fields), Type::Record(actual_fields)) => {
-                    let actual = joined_fields
-                        .iter()
-                        .map(|(name, _)| {
-                            actual_fields
-                                .iter()
-                                .find(|(actual_name, _)| actual_name == name)
-                                .map(|(_, ty)| ty)
-                        })
-                        .collect::<Vec<_>>();
-                    let child_count = actual
-                        .iter()
-                        .rposition(Option::is_some)
-                        .map_or(0, |index| index + 1);
-                    prepare_presentation_children(
-                        state,
-                        child_count,
-                        actual.iter().filter(|actual| actual.is_some()).count(),
-                    );
-                    pending.extend(
-                        joined_fields
-                            .iter_mut()
-                            .zip(actual)
-                            .zip(state.children.iter_mut())
-                            .filter_map(|(((.., joined), actual), state)| {
-                                actual.map(|actual| (joined, actual, state))
-                            }),
-                    );
-                }
-                (
-                    Type::Function {
-                        params: joined_params,
-                        variadic: joined_variadic,
-                        return_type: joined_return,
-                        ..
-                    },
-                    Type::Function {
-                        params: actual_params,
-                        variadic: actual_variadic,
-                        return_type: actual_return,
-                        ..
-                    },
-                ) if joined_params.len() == actual_params.len() => {
-                    let variadic_count =
-                        usize::from(joined_variadic.is_some() && actual_variadic.is_some());
-                    let return_index = joined_params.len() + 1;
-                    prepare_presentation_children(
-                        state,
-                        return_index + 1,
-                        joined_params.len() + variadic_count + 1,
-                    );
-                    let (param_states, remaining_states) =
-                        state.children.split_at_mut(joined_params.len());
-                    let (variadic_states, return_states) = remaining_states.split_at_mut(1);
-                    pending.extend(
-                        joined_params
-                            .iter_mut()
-                            .zip(actual_params)
-                            .zip(param_states)
-                            .map(|((joined, actual), state)| (joined, actual, state)),
-                    );
-                    if let (Some(joined), Some(actual)) =
-                        (joined_variadic.as_deref_mut(), actual_variadic.as_deref())
-                    {
-                        pending.push((joined, actual, &mut variadic_states[0]));
-                    }
-                    pending.push((joined_return, actual_return, &mut return_states[0]));
-                }
-                _ => {}
-            }
+            changed |= merge_type_presentation(joined, actual, state, &mut pending);
         }
         changed
     }
@@ -699,6 +683,175 @@ impl TypePresentationJoin {
     pub(crate) fn retained_nodes(&self) -> usize {
         self.state.retained_nodes()
     }
+}
+
+fn merge_type_presentation<'a>(
+    joined: &'a mut Type,
+    actual: &'a Type,
+    state: &'a mut TypePresentationState,
+    pending: &mut Vec<(&'a mut Type, &'a Type, &'a mut TypePresentationState)>,
+) -> bool {
+    match (joined, actual) {
+        (
+            Type::Named {
+                name: joined_name,
+                identity: joined_identity,
+                args: joined_args,
+            }
+            | Type::VariantRefinement {
+                name: joined_name,
+                identity: joined_identity,
+                args: joined_args,
+                ..
+            },
+            actual,
+        ) => merge_named_type_presentation(
+            joined_name,
+            joined_identity,
+            joined_args,
+            actual,
+            state,
+            pending,
+        ),
+        (Type::Record(joined_fields), Type::Record(actual_fields)) => {
+            merge_record_type_presentation(joined_fields, actual_fields, state, pending);
+            false
+        }
+        (
+            Type::Function {
+                params: joined_params,
+                variadic: joined_variadic,
+                return_type: joined_return,
+                ..
+            },
+            Type::Function {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                ..
+            },
+        ) if joined_params.len() == actual_params.len() => {
+            merge_function_type_presentation(
+                joined_params,
+                joined_variadic,
+                joined_return,
+                actual_params,
+                actual_variadic,
+                actual_return,
+                state,
+                pending,
+            );
+            false
+        }
+        _ => false,
+    }
+}
+
+fn merge_named_type_presentation<'a>(
+    joined_name: &'a mut String,
+    joined_identity: &str,
+    joined_args: &'a mut [Type],
+    actual: &'a Type,
+    state: &'a mut TypePresentationState,
+    pending: &mut Vec<(&'a mut Type, &'a Type, &'a mut TypePresentationState)>,
+) -> bool {
+    let Some((actual_name, actual_identity, actual_args)) = presentation_named_parts(actual) else {
+        return false;
+    };
+    if !same_type_identity(joined_name, joined_identity, actual_name, actual_identity)
+        || joined_args.len() != actual_args.len()
+    {
+        return false;
+    }
+    let canonical_name = joined_identity
+        .rsplit("::")
+        .next()
+        .unwrap_or(joined_name)
+        .to_string();
+    let changed = reconcile_presentation_name(
+        joined_name,
+        actual_name,
+        &canonical_name,
+        &mut state.conflicted,
+    );
+    prepare_presentation_children(state, joined_args.len(), joined_args.len());
+    pending.extend(
+        joined_args
+            .iter_mut()
+            .zip(actual_args)
+            .zip(state.children.iter_mut())
+            .map(|((joined, actual), state)| (joined, actual, state)),
+    );
+    changed
+}
+
+fn merge_record_type_presentation<'a>(
+    joined_fields: &'a mut [(String, Type)],
+    actual_fields: &'a [(String, Type)],
+    state: &'a mut TypePresentationState,
+    pending: &mut Vec<(&'a mut Type, &'a Type, &'a mut TypePresentationState)>,
+) {
+    let actual = joined_fields
+        .iter()
+        .map(|(name, _)| {
+            actual_fields
+                .iter()
+                .find(|(actual_name, _)| actual_name == name)
+                .map(|(_, ty)| ty)
+        })
+        .collect::<Vec<_>>();
+    let child_count = actual
+        .iter()
+        .rposition(Option::is_some)
+        .map_or(0, |index| index + 1);
+    prepare_presentation_children(
+        state,
+        child_count,
+        actual.iter().filter(|actual| actual.is_some()).count(),
+    );
+    pending.extend(
+        joined_fields
+            .iter_mut()
+            .zip(actual)
+            .zip(state.children.iter_mut())
+            .filter_map(|(((.., joined), actual), state)| {
+                actual.map(|actual| (joined, actual, state))
+            }),
+    );
+}
+
+fn merge_function_type_presentation<'a>(
+    joined_params: &'a mut [Type],
+    joined_variadic: &'a mut Option<Box<Type>>,
+    joined_return: &'a mut Type,
+    actual_params: &'a [Type],
+    actual_variadic: &'a Option<Box<Type>>,
+    actual_return: &'a Type,
+    state: &'a mut TypePresentationState,
+    pending: &mut Vec<(&'a mut Type, &'a Type, &'a mut TypePresentationState)>,
+) {
+    let variadic_count = usize::from(joined_variadic.is_some() && actual_variadic.is_some());
+    let return_index = joined_params.len() + 1;
+    prepare_presentation_children(
+        state,
+        return_index + 1,
+        joined_params.len() + variadic_count + 1,
+    );
+    let (param_states, remaining_states) = state.children.split_at_mut(joined_params.len());
+    let (variadic_states, return_states) = remaining_states.split_at_mut(1);
+    pending.extend(
+        joined_params
+            .iter_mut()
+            .zip(actual_params)
+            .zip(param_states)
+            .map(|((joined, actual), state)| (joined, actual, state)),
+    );
+    if let (Some(joined), Some(actual)) =
+        (joined_variadic.as_deref_mut(), actual_variadic.as_deref())
+    {
+        pending.push((joined, actual, &mut variadic_states[0]));
+    }
+    pending.push((joined_return, actual_return, &mut return_states[0]));
 }
 
 fn presentation_named_parts(ty: &Type) -> Option<(&str, &str, &[Type])> {

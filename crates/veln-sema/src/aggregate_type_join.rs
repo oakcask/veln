@@ -242,57 +242,79 @@ impl AggregateTypeJoin {
         let mut materialized = (0..self.nodes.len()).map(|_| None).collect::<Vec<_>>();
         for (index, node) in self.nodes.iter().enumerate().rev() {
             record_materialization();
-            let args = node
-                .args
-                .iter()
-                .map(|argument| match argument {
-                    JoinArg::Exact { ty, .. } => ty.clone(),
-                    JoinArg::Covariant(child) => materialized[*child]
-                        .take()
-                        .expect("covariant child is materialized before its parent"),
-                })
-                .collect();
-            let variants = (index != self.root || include_root_refinement)
-                .then_some(node.variants.as_ref())
-                .flatten();
-            let ty = match variants {
-                None => Type::resolved_named(node.name.clone(), node.identity.clone(), args),
-                Some(variants)
-                    if variants.len() == node.declaration_order.as_ref().unwrap().len() =>
-                {
-                    Type::resolved_named(node.name.clone(), node.identity.clone(), args)
-                }
-                Some(variants) => {
-                    record_work(variants.len());
-                    let declaration_order = node
-                        .declaration_order
-                        .as_ref()
-                        .expect("a refinement join retains declaration order");
-                    let mut ranks = variants.iter().copied().collect::<Vec<_>>();
-                    ranks.sort_unstable();
-                    let variants = ranks
-                        .into_iter()
-                        .map(|rank| {
-                            declaration_order
-                                .name(rank)
-                                .expect("joined variant rank belongs to its declaration")
-                                .to_string()
-                        })
-                        .collect();
-                    Type::resolved_variant_refinement(
-                        node.name.clone(),
-                        node.identity.clone(),
-                        args,
-                        variants,
-                    )
-                }
-            };
-            materialized[index] = Some(ty);
+            let args = materialize_args(node, &mut materialized);
+            materialized[index] =
+                Some(self.materialize_node(index, node, args, include_root_refinement));
         }
         materialized[self.root]
             .take()
             .expect("aggregate root is materialized")
     }
+
+    fn materialize_node(
+        &self,
+        index: usize,
+        node: &JoinNode,
+        args: Vec<Type>,
+        include_root_refinement: bool,
+    ) -> Type {
+        let variants = (index != self.root || include_root_refinement)
+            .then_some(node.variants.as_ref())
+            .flatten();
+        let Some(variants) = variants else {
+            return materialize_named_node(node, args);
+        };
+        if variants.len()
+            == node
+                .declaration_order
+                .as_ref()
+                .expect("a refinement join retains declaration order")
+                .len()
+        {
+            return materialize_named_node(node, args);
+        }
+        materialize_refined_node(node, args, variants)
+    }
+}
+
+fn materialize_args(node: &JoinNode, materialized: &mut [Option<Type>]) -> Vec<Type> {
+    node.args
+        .iter()
+        .map(|argument| match argument {
+            JoinArg::Exact { ty, .. } => ty.clone(),
+            JoinArg::Covariant(child) => materialized[*child]
+                .take()
+                .expect("covariant child is materialized before its parent"),
+        })
+        .collect()
+}
+
+fn materialize_named_node(node: &JoinNode, args: Vec<Type>) -> Type {
+    Type::resolved_named(node.name.clone(), node.identity.clone(), args)
+}
+
+fn materialize_refined_node(
+    node: &JoinNode,
+    args: Vec<Type>,
+    joined_variants: &HashSet<usize>,
+) -> Type {
+    record_work(joined_variants.len());
+    let declaration_order = node
+        .declaration_order
+        .as_ref()
+        .expect("a refinement join retains declaration order");
+    let mut ranks = joined_variants.iter().copied().collect::<Vec<_>>();
+    ranks.sort_unstable();
+    let variants = ranks
+        .into_iter()
+        .map(|rank| {
+            declaration_order
+                .name(rank)
+                .expect("joined variant rank belongs to its declaration")
+                .to_string()
+        })
+        .collect();
+    Type::resolved_variant_refinement(node.name.clone(), node.identity.clone(), args, variants)
 }
 
 impl Drop for AggregateTypeJoin {
@@ -315,6 +337,29 @@ fn join_node<'a>(
     initial: &'a Type,
 ) -> Option<(JoinNode, Vec<(usize, &'a Type)>)> {
     let initial = adt_type_parts(initial)?;
+    let (declaration_order, variants) = initial_variant_state(adts, initial)?;
+    let (args, pending) = initial_argument_state(adts, initial);
+    Some((
+        JoinNode {
+            name: initial.name.to_string(),
+            canonical_name: adts
+                .descriptor_for_type(initial.ty)
+                .map(|descriptor| adts.canonical_type_name_for_descriptor(descriptor))
+                .unwrap_or_else(|| initial.name.to_string()),
+            presentation_conflicted: false,
+            identity: initial.identity.to_string(),
+            args,
+            declaration_order,
+            variants,
+        },
+        pending,
+    ))
+}
+
+fn initial_variant_state(
+    adts: &AdtRegistry,
+    initial: AdtTypeParts<'_>,
+) -> Option<(Option<Arc<VariantDeclarationOrder>>, Option<HashSet<usize>>)> {
     let (declaration_order, variants) = match initial.variants {
         None => (None, None),
         Some(variants) => {
@@ -329,6 +374,13 @@ fn join_node<'a>(
             (Some(declaration_order), variants)
         }
     };
+    Some((declaration_order, variants))
+}
+
+fn initial_argument_state<'a>(
+    adts: &AdtRegistry,
+    initial: AdtTypeParts<'a>,
+) -> (Vec<JoinArg>, Vec<(usize, &'a Type)>) {
     let variances = (!Type::is_compiler_covariant_identity(initial.identity))
         .then(|| adts.parameter_variances_for_identity(initial.identity, initial.args.len()))
         .flatten();
@@ -353,21 +405,7 @@ fn join_node<'a>(
             }
         })
         .collect();
-    Some((
-        JoinNode {
-            name: initial.name.to_string(),
-            canonical_name: adts
-                .descriptor_for_type(initial.ty)
-                .map(|descriptor| adts.canonical_type_name_for_descriptor(descriptor))
-                .unwrap_or_else(|| initial.name.to_string()),
-            presentation_conflicted: false,
-            identity: initial.identity.to_string(),
-            args,
-            declaration_order,
-            variants,
-        },
-        pending,
-    ))
+    (args, pending)
 }
 
 pub(crate) fn merge_invariant_payload_type_args(

@@ -111,101 +111,148 @@ pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) -> bool {
                 name: slot_name,
                 identity: slot_identity,
                 args: slot_args,
-            } => {
-                let Type::Named {
-                    name: actual_name,
-                    identity: actual_identity,
-                    args: actual_args,
-                } = actual
-                else {
-                    continue;
-                };
-                if slot_args.len() == actual_args.len()
-                    && crate::type_relations::same_type_identity(
-                        slot_name,
-                        slot_identity,
-                        actual_name,
-                        actual_identity,
-                    )
-                {
-                    pending.extend(slot_args.iter_mut().zip(actual_args));
-                }
-            }
+            } => queue_named_type_merge(slot_name, slot_identity, slot_args, actual, &mut pending),
             Type::VariantRefinement {
                 name: slot_name,
                 identity: slot_identity,
                 args: slot_args,
                 ..
-            } => {
-                let (actual_name, actual_identity, actual_args) = match actual {
-                    Type::Named {
-                        name,
-                        identity,
-                        args,
-                    }
-                    | Type::VariantRefinement {
-                        name,
-                        identity,
-                        args,
-                        ..
-                    } => (name, identity, args),
-                    _ => continue,
-                };
-                if slot_args.len() == actual_args.len()
-                    && crate::type_relations::same_type_identity(
-                        slot_name,
-                        slot_identity,
-                        actual_name,
-                        actual_identity,
-                    )
-                {
-                    pending.extend(slot_args.iter_mut().zip(actual_args));
-                }
-            }
-            Type::Record(slot_fields) => {
-                let Type::Record(actual_fields) = actual else {
-                    continue;
-                };
-                for (name, slot) in slot_fields {
-                    if let Some((_, actual)) = actual_fields
-                        .iter()
-                        .find(|(actual_name, _)| actual_name == name)
-                    {
-                        pending.push((slot, actual));
-                    }
-                }
-            }
+            } => queue_refinement_type_merge(
+                slot_name,
+                slot_identity,
+                slot_args,
+                actual,
+                &mut pending,
+            ),
+            Type::Record(slot_fields) => queue_record_type_merge(slot_fields, actual, &mut pending),
             Type::Function {
                 params: slot_params,
                 variadic: slot_variadic,
                 return_type: slot_return,
                 effects: _,
-            } => {
-                let Type::Function {
-                    params: actual_params,
-                    variadic: actual_variadic,
-                    return_type: actual_return,
-                    effects: _,
-                } = actual
-                else {
-                    continue;
-                };
-                if slot_params.len() != actual_params.len()
-                    || slot_variadic.is_some() != actual_variadic.is_some()
-                {
-                    continue;
-                }
-                pending.extend(slot_params.iter_mut().zip(actual_params));
-                if let (Some(slot), Some(actual)) =
-                    (slot_variadic.as_deref_mut(), actual_variadic.as_deref())
-                {
-                    pending.push((slot, actual));
-                }
-                pending.push((slot_return, actual_return));
-            }
+            } => queue_function_type_merge(
+                slot_params,
+                slot_variadic,
+                slot_return,
+                actual,
+                &mut pending,
+            ),
         }
     }
     changed
+}
+
+fn queue_named_type_merge<'slot, 'actual>(
+    slot_name: &str,
+    slot_identity: &str,
+    slot_args: &'slot mut [Type],
+    actual: &'actual Type,
+    pending: &mut Vec<(&'slot mut Type, &'actual Type)>,
+) {
+    let Type::Named {
+        name: actual_name,
+        identity: actual_identity,
+        args: actual_args,
+    } = actual
+    else {
+        return;
+    };
+    queue_matching_type_args(
+        (slot_name, slot_identity, slot_args),
+        (actual_name, actual_identity, actual_args),
+        pending,
+    );
+}
+
+fn queue_refinement_type_merge<'slot, 'actual>(
+    slot_name: &str,
+    slot_identity: &str,
+    slot_args: &'slot mut [Type],
+    actual: &'actual Type,
+    pending: &mut Vec<(&'slot mut Type, &'actual Type)>,
+) {
+    let (actual_name, actual_identity, actual_args) = match actual {
+        Type::Named {
+            name,
+            identity,
+            args,
+        }
+        | Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => (name, identity, args),
+        _ => return,
+    };
+    queue_matching_type_args(
+        (slot_name, slot_identity, slot_args),
+        (actual_name, actual_identity, actual_args),
+        pending,
+    );
+}
+
+fn queue_matching_type_args<'slot, 'actual>(
+    (slot_name, slot_identity, slot_args): (&str, &str, &'slot mut [Type]),
+    (actual_name, actual_identity, actual_args): (&str, &str, &'actual [Type]),
+    pending: &mut Vec<(&'slot mut Type, &'actual Type)>,
+) {
+    if slot_args.len() == actual_args.len()
+        && crate::type_relations::same_type_identity(
+            slot_name,
+            slot_identity,
+            actual_name,
+            actual_identity,
+        )
+    {
+        pending.extend(slot_args.iter_mut().zip(actual_args));
+    }
+}
+
+fn queue_record_type_merge<'slot, 'actual>(
+    slot_fields: &'slot mut [(String, Type)],
+    actual: &'actual Type,
+    pending: &mut Vec<(&'slot mut Type, &'actual Type)>,
+) {
+    let Type::Record(actual_fields) = actual else {
+        return;
+    };
+    for (name, slot) in slot_fields {
+        if let Some((_, actual)) = actual_fields
+            .iter()
+            .find(|(actual_name, _)| actual_name == name)
+        {
+            pending.push((slot, actual));
+        }
+    }
+}
+
+fn queue_function_type_merge<'slot, 'actual>(
+    slot_params: &'slot mut [Type],
+    slot_variadic: &'slot mut Option<Box<Type>>,
+    slot_return: &'slot mut Type,
+    actual: &'actual Type,
+    pending: &mut Vec<(&'slot mut Type, &'actual Type)>,
+) {
+    let Type::Function {
+        params: actual_params,
+        variadic: actual_variadic,
+        return_type: actual_return,
+        effects: _,
+    } = actual
+    else {
+        return;
+    };
+    if slot_params.len() != actual_params.len()
+        || slot_variadic.is_some() != actual_variadic.is_some()
+    {
+        return;
+    }
+    pending.extend(slot_params.iter_mut().zip(actual_params));
+    if let (Some(slot), Some(actual)) = (slot_variadic.as_deref_mut(), actual_variadic.as_deref()) {
+        pending.push((slot, actual));
+    }
+    pending.push((slot_return, actual_return));
 }
 
 #[derive(Debug)]

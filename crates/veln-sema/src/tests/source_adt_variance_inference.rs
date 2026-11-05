@@ -138,19 +138,13 @@ fn aggregate_join_uses_checked_variance_in_parameter_order() {
 
 #[test]
 fn aggregate_join_keys_variance_by_resolved_package_declaration_identity() {
-    fn package_module(path: &str, text: &str, package: &str, module: &str) -> SurfaceModule {
-        let source = SourceFile::new(path, text);
-        let parsed = parse(&source);
-        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-        veln_ast::lower_surface_ast_with_package_module_identity(
-            &parsed.tree,
-            package.to_string(),
-            module.to_string(),
-            source.span(veln_source::TextRange::new(0, 0)),
-        )
-    }
+    let (module, app_text) = package_identity_join_fixture();
+    assert_package_identity_join_diagnostics(&module, app_text);
+    assert_local_package_identity_join(&module);
+}
 
-    let app_text = concat!(
+fn package_identity_join_fixture() -> (SurfaceModule, &'static str) {
+    const APP_TEXT: &str = concat!(
         "use shared as dep from \"dependency/pkg\"\n",
         "type Wrapper<T>\n",
         "  Value(T)\n",
@@ -167,7 +161,7 @@ fn aggregate_join_keys_variance_by_resolved_package_declaration_identity() {
         "  ()\n",
         "end\n",
     );
-    let dependency_text = concat!(
+    const DEPENDENCY_TEXT: &str = concat!(
         "pub type ImportedState\n",
         "  pub First\n",
         "  pub Second\n",
@@ -176,11 +170,12 @@ fn aggregate_join_keys_variance_by_resolved_package_declaration_identity() {
         "  pub Empty\n",
         "end\n",
     );
-    let mut module = package_module("app.veln", app_text, "application/pkg", "app");
+
+    let mut module = package_module("app.veln", APP_TEXT, "application/pkg", "app");
     module.uses.first_mut().expect("dependency import").name = "shared".to_string();
     let mut dependency = package_module(
         "dependency/shared.veln",
-        dependency_text,
+        DEPENDENCY_TEXT,
         "dependency/pkg",
         "shared",
     );
@@ -196,8 +191,23 @@ fn aggregate_join_keys_variance_by_resolved_package_declaration_identity() {
     module.module_values.extend(dependency.module_values);
     module.functions.extend(dependency.functions);
     module.invalid_names.extend(dependency.invalid_names);
+    (module, APP_TEXT)
+}
 
-    let diagnostics = analyze_surface_module(&module);
+fn package_module(path: &str, text: &str, package: &str, module: &str) -> SurfaceModule {
+    let source = SourceFile::new(path, text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    veln_ast::lower_surface_ast_with_package_module_identity(
+        &parsed.tree,
+        package.to_string(),
+        module.to_string(),
+        source.span(veln_source::TextRange::new(0, 0)),
+    )
+}
+
+fn assert_package_identity_join_diagnostics(module: &SurfaceModule, app_text: &str) {
+    let diagnostics = analyze_surface_module(module);
     assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
     assert!(
         diagnostics
@@ -213,8 +223,10 @@ fn aggregate_join_keys_variance_by_resolved_package_declaration_identity() {
         })
         .collect::<Vec<_>>();
     assert_eq!(failed_values, ["second", "imported"]);
+}
 
-    let environment = TypeEnvironment::from_module(&module);
+fn assert_local_package_identity_join(module: &SurfaceModule) {
+    let environment = TypeEnvironment::from_module(module);
     assert_eq!(
         environment
             .function("local_join")
