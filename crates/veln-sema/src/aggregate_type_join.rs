@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use crate::adt::descriptors::AdtConstructor;
+use crate::adt::descriptors::{AdtConstructor, Variance};
 use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
 use crate::adt::{type_operations as adt, unification};
 use crate::semantic_model::Type;
@@ -15,6 +15,7 @@ pub(crate) struct AggregateTypeJoin {
     identity: String,
     args: Vec<Type>,
     arg_presentations: Vec<TypePresentationJoin>,
+    arg_joins: Vec<Option<Box<AggregateTypeJoin>>>,
     declaration_order: Option<Arc<VariantDeclarationOrder>>,
     variants: Option<HashSet<usize>>,
     materialized: RefCell<Option<Type>>,
@@ -41,6 +42,7 @@ impl AggregateTypeJoin {
         let arg_presentations = (0..args.len())
             .map(|_| TypePresentationJoin::default())
             .collect();
+        let arg_joins = (0..args.len()).map(|_| None).collect();
         Some(Self {
             name: initial.name.to_string(),
             canonical_name: adts
@@ -51,6 +53,7 @@ impl AggregateTypeJoin {
             identity: initial.identity.to_string(),
             args,
             arg_presentations,
+            arg_joins,
             declaration_order,
             variants,
             materialized: RefCell::new(None),
@@ -68,15 +71,64 @@ impl AggregateTypeJoin {
         Self::new(adts, initial)
     }
 
-    pub(crate) fn try_join(&mut self, right: &Type) -> bool {
+    pub(crate) fn try_join(&mut self, adts: &AdtRegistry, right: &Type) -> bool {
+        if !self.can_join(adts, right) {
+            return false;
+        }
+        self.join_unchecked(adts, right);
+        true
+    }
+
+    fn can_join(&self, adts: &AdtRegistry, right: &Type) -> bool {
         let Some(right) = adt_type_parts(right) else {
             return false;
         };
         if !same_type_identity(&self.name, &self.identity, right.name, right.identity)
-            || !invariant_args_match(&self.args, right.args)
+            || self.args.len() != right.args.len()
         {
             return false;
         }
+        let variances = (!Type::is_compiler_covariant_identity(&self.identity))
+            .then(|| adts.parameter_variances_for_identity(&self.identity, self.args.len()))
+            .flatten();
+        for (index, (joined, right)) in self.args.iter().zip(right.args).enumerate() {
+            let variance = variances
+                .and_then(|variances| variances.get(index).copied())
+                .unwrap_or(Variance::Invariant);
+            if invariant_args_match(std::slice::from_ref(joined), std::slice::from_ref(right)) {
+                continue;
+            }
+            if variance != Variance::Covariant {
+                return false;
+            }
+            let can_join = self.arg_joins[index].as_ref().map_or_else(
+                || Self::new(adts, joined).is_some_and(|nested| nested.can_join(adts, right)),
+                |nested| nested.can_join(adts, right),
+            );
+            if !can_join {
+                return false;
+            }
+        }
+        if let (Some(_), Some(right_variants)) = (&self.variants, right.variants) {
+            let declaration_order = self
+                .declaration_order
+                .as_ref()
+                .expect("a refinement join retains declaration order");
+            if right_variants
+                .iter()
+                .any(|variant| declaration_order.rank(variant).is_none())
+            {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn join_unchecked(&mut self, adts: &AdtRegistry, right: &Type) {
+        let right = adt_type_parts(right).expect("a validated aggregate contribution");
+        let variances = (!Type::is_compiler_covariant_identity(&self.identity))
+            .then(|| adts.parameter_variances_for_identity(&self.identity, self.args.len()))
+            .flatten();
         let mut changed = false;
         if !self.presentation_conflicted && right.name != self.canonical_name {
             if self.name == self.canonical_name {
@@ -88,14 +140,37 @@ impl AggregateTypeJoin {
                 changed = true;
             }
         }
-        for ((joined, presentation), right) in self
+        for (index, ((joined, presentation), right)) in self
             .args
             .iter_mut()
             .zip(&mut self.arg_presentations)
             .zip(right.args)
+            .enumerate()
         {
-            changed |= unification::merge_type_slot(joined, right);
-            changed |= presentation.merge(joined, right);
+            let variance = variances
+                .and_then(|variances| variances.get(index).copied())
+                .unwrap_or(Variance::Invariant);
+            if variance != Variance::Covariant
+                || invariant_args_match(std::slice::from_ref(&*joined), std::slice::from_ref(right))
+            {
+                changed |= unification::merge_type_slot(joined, right);
+                changed |= presentation.merge(joined, right);
+                continue;
+            }
+            if self.arg_joins[index].is_none() {
+                let nested = Self::new(adts, joined)
+                    .expect("a validated covariant argument has a join representation");
+                self.arg_joins[index] = Some(Box::new(nested));
+            }
+            let mut presentation_probe = joined.clone();
+            presentation.merge(&mut presentation_probe, right);
+            let nested = self.arg_joins[index]
+                .as_mut()
+                .expect("covariant argument join was initialized");
+            nested.join_unchecked(adts, right);
+            *joined = nested.result_type();
+            presentation.merge(joined, right);
+            changed = true;
         }
         match (&mut self.variants, right.variants) {
             (Some(joined), Some(right)) => {
@@ -105,9 +180,9 @@ impl AggregateTypeJoin {
                     .as_ref()
                     .expect("a refinement join retains declaration order");
                 for variant in right {
-                    let Some(rank) = declaration_order.rank(variant) else {
-                        return false;
-                    };
+                    let rank = declaration_order
+                        .rank(variant)
+                        .expect("a validated refinement variant has a declaration rank");
                     changed |= joined.insert(rank);
                 }
             }
@@ -121,19 +196,16 @@ impl AggregateTypeJoin {
         if changed {
             *self.materialized.borrow_mut() = None;
         }
-        true
     }
 
-    pub(crate) fn try_join_resolved(&mut self, right: &Type) -> bool {
+    pub(crate) fn try_join_resolved(&mut self, adts: &AdtRegistry, right: &Type) -> bool {
         let Some(right_parts) = adt_type_parts(right) else {
             return false;
         };
-        if right_parts.args.iter().any(type_contains_unknown)
-            || !invariant_args_match(&self.args, right_parts.args)
-        {
+        if right_parts.args.iter().any(type_contains_unknown) {
             return false;
         }
-        self.try_join(right)
+        self.try_join(adts, right)
     }
 
     pub(crate) fn has_complete_domain(&self) -> bool {

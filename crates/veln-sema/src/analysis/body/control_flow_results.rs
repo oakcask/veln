@@ -94,7 +94,7 @@ pub(super) fn contribute_control_flow_result(
     let joined = result
         .joined
         .as_mut()
-        .is_some_and(|joined| joined.try_join_resolved(actual));
+        .is_some_and(|joined| joined.try_join_resolved(adts, actual));
     if !joined {
         result.failed = true;
         result.joined = None;

@@ -358,7 +358,7 @@ fn infer_private_aggregate_component(
     let joined = !has_context
         && joined_components
             .as_mut()
-            .is_some_and(|joined| joined.try_join(&actual));
+            .is_some_and(|joined| joined.try_join(context.adts, &actual));
     let assignable = crate::type_relations::is_assignable_nested_with_registry(
         &inferred_context,
         &actual,

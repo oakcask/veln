@@ -114,7 +114,7 @@ fn merge_private_control_flow_result(
         return;
     }
     if let Some(joined) = joined_result.as_mut()
-        && joined.try_join_resolved(&actual)
+        && joined.try_join_resolved(adts, &actual)
     {
         return;
     }

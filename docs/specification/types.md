@@ -1388,6 +1388,15 @@ successful contributions and for an inferred private result. This exclusion
 also applies when a call argument or constructor payload fails but recovery can
 still identify the call or constructor's refined result type.
 
+When contributions have the same resolved source-ADT constructor and arity,
+context-free inference reads that declaration's checked classifications in
+parameter order. A covariant argument recursively uses the same bounded join,
+including through another source ADT. Invariant, irrelevant, and contravariant
+arguments must match exactly. Missing, invalid, inaccessible, or ambiguous
+classification metadata also requires exact arguments. Local and imported
+declarations use the same rule because lookup uses resolved nominal identity
+rather than displayed spelling.
+
 Without a concrete expected component or result type, assignment covariance
 does not join unequal arguments of compiler-owned immutable constructors. For
 example, `Option<State::Ready>` and `Option<State>` are incompatible
@@ -1401,10 +1410,9 @@ the covariant widening.
 
 The join applies when repeated constructor payloads use a type parameter
 directly. If the same parameter also occurs inside a named payload, that nested
-occurrence establishes an exact inference constraint independently of the
-named constructor's assignment variance. Every direct or nested contribution
-must match that constraint; assignment covariance does not widen constructor
-type-argument inference. For example, given `Built(A, Vec<A>)`,
+occurrence uses a covariant join only when it is a checked covariant argument
+of a source ADT. Other nested named arguments establish exact inference
+constraints. For example, given `Built(A, Vec<A>)`,
 `Built(Ready, [Ready])` infers `Container<State::Ready>::Built`, while
 `Built(Ready, [Closed])` reports `type.mismatch`, even though compiler-owned
 `Vec<T>` is covariant at an assignment boundary. Reversing the two payload
@@ -1428,14 +1436,19 @@ a presentation conflict. The checked
 [`invariant alias presentation diagnostic`](../../examples/specification/check/adt-variant-refinement-invariant-alias-presentation-diagnostics-human/)
 case covers the canonical result for both contribution orders.
 
+A source-ADT covariant join is transactional across all arguments. If a later
+nested argument cannot join, the failed contribution does not change an
+earlier argument, a refinement set, or alias presentation. Permuting successful
+contributions produces the same resolved type and presentation.
+
 When a concrete payload has the form `Box<A>`, a matching refined carrier such
 as `Box<State::Ready>::Boxed` can supply `State::Ready` for `A`. This direct
 carrier inference allows `Carried(Boxed(Ready))` to infer
 `Carrier<State::Ready>::Carried`. It does not make named type arguments
-covariant during inference. A later assignment of `Box<State::Ready>` to
-`Box<State>` is accepted because the checked declaration classifies `Box`'s
-payload parameter as covariant; constructor inference still requires its
-nested contributions to agree exactly.
+covariant merely from their spelling. When `Box` is a source ADT whose checked
+payload parameter is covariant, context-free inference can recursively join
+`Box<State::Ready>` and `Box<State::Closed>`. A later assignment of
+`Box<State::Ready>` to `Box<State>` uses the same checked classification.
 
 An explicit aggregate component type supplies context while the aggregate is
 constructed. A constructor singleton can widen directly at that component
@@ -1450,8 +1463,9 @@ covariant. A source ADT assignment applies that declaration's checked parameter
 classification. A direct payload such as `Box<A>` makes `A` covariant, so the
 corresponding inferred `Box<State::Ready>` also widens to `Box<State>`. A
 parameter used in both input and output positions is invariant and rejects the
-same widening. Aggregate inference does not use assignment variance to join
-unequal inferred arguments.
+same widening. Context-free aggregate inference consumes checked source-ADT
+covariance only; it does not infer a contravariant meet or structural
+record/function join, and compiler-owned constructor arguments remain exact.
 
 ### Source ADT parameter classifications
 
@@ -1614,6 +1628,10 @@ case and its
 [`diagnostic companion`](../../examples/specification/check/source-adt-variance-assignment-diagnostics/).
 They cover all four classifications, aliases, imported declarations, nested
 structural polarity, refinements, and distinct nominal owners.
+Context-free covariant joins for local and imported source ADTs are checked by
+the accepted
+[`source-adt-variance-inference`](../../examples/specification/check/source-adt-variance-inference/)
+case.
 
 Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and

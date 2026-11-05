@@ -275,7 +275,7 @@ impl<'a> FunctionChecker<'a> {
         }
         joined_type
             .as_mut()
-            .is_some_and(|joined| joined.try_join(aggregate))
+            .is_some_and(|joined| joined.try_join(&self.environment.adts, aggregate))
     }
 
     #[allow(clippy::too_many_arguments)]

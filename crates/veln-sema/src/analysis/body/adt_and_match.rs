@@ -762,7 +762,7 @@ impl<'a> FunctionChecker<'a> {
         !contextual_item
             && joined_items
                 .as_mut()
-                .is_some_and(|joined| joined.try_join(actual))
+                .is_some_and(|joined| joined.try_join(&self.environment.adts, actual))
     }
 
     fn push_list_item_mismatch(
@@ -2018,7 +2018,7 @@ impl ConstructorTypeArgInference {
         }
         let joined = self.joined[type_index]
             .as_mut()
-            .is_some_and(|joined| joined.try_join(actual));
+            .is_some_and(|joined| joined.try_join(adts, actual));
         if joined {
             self.presentations[type_index].merge(&mut self.inferred[type_index], actual);
         }

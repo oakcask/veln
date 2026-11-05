@@ -16,8 +16,8 @@ also states it.
 
 ## Ready
 
-- Consume the implemented source-ADT variance classifications in bounded
-  generic inference for local and imported declarations; add modifier-free
+- Complete bounded inference beyond implemented source-ADT covariant joins,
+  including contravariant meets and structural joins; add modifier-free
   presentation, nested incompatibility diagnostics, and failure preservation:
   [generic-and-function-variance.md](generic-and-function-variance.md).
 
