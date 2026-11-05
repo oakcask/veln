@@ -177,10 +177,46 @@ fn grow_chunk(chunk: ByteChunk, doublings: Int) -> ByteChunk
 	if doublings == 0 chunk else grow_chunk(byte_append(chunk, chunk), doublings - 1) end
 end
 
+# The parent's Busy probes briefly own the operation slot themselves. A worker
+# that starts during a probe must retry rather than exit before the barrier.
+# Keep the original deadline and bound retries so startup cannot wait forever.
+fn accept_after_probe(listener: net::Listener, deadline: Deadline, token: Option<CancelToken>, attempts: Int) -> Result<net::Stream, net::NetError> effects [net::IO, time]
+	let result = net::accept_with(listener, Some(deadline), token)
+	match result
+		Err(net::NetError(_, _, _, net::Busy, _)) => if attempts > 0 begin
+			time::wait_until(time::deadline_after_ms(1))
+			accept_after_probe(listener, deadline, token, attempts - 1)
+		end else result end
+		_ => result
+	end
+end
+
+fn read_after_probe(stream: net::Stream, deadline: Deadline, attempts: Int) -> Result<net::ReadOutcome, net::NetError> effects [net::IO, time]
+	let result = net::read_with(stream, Some(deadline), None)
+	match result
+		Err(net::NetError(_, _, _, net::Busy, _)) => if attempts > 0 begin
+			time::wait_until(time::deadline_after_ms(1))
+			read_after_probe(stream, deadline, attempts - 1)
+		end else result end
+		_ => result
+	end
+end
+
+fn write_after_probe(stream: net::Stream, chunk: ByteChunk, deadline: Deadline, attempts: Int) -> net::WriteOutcome effects [net::IO, time]
+	let result = net::write_with(stream, chunk, Some(deadline), None)
+	match result
+		net::WriteFailed(net::ByteCount(0), net::NetError(_, _, _, net::Busy, _)) => if attempts > 0 begin
+			time::wait_until(time::deadline_after_ms(1))
+			write_after_probe(stream, chunk, deadline, attempts - 1)
+		end else result end
+		_ => result
+	end
+end
+
 fn blocked_write_closed(context: { stream : net::Stream, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, time, concurrency]
 	let bytes = grow_chunk(bytes("x")?, 23)
 	let _ = channel::send(context.ready, ())
-	match net::write_with(context.stream, bytes, Some(time::deadline_after_ms(5000)), None)
+	match write_after_probe(context.stream, bytes, time::deadline_after_ms(5000), 1000)
 		net::WriteFailed(net::ByteCount(committed), net::NetError(_, _, _, net::Closed, _)) => if committed > 0
 			Ok(())
 		else
@@ -256,7 +292,7 @@ end
 
 fn blocked_accept_closed(context: { listener : net::Listener, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, time, concurrency]
 	let _ = channel::send(context.ready, ())
-	match net::accept_with(context.listener, Some(time::deadline_after_ms(10000)), None)
+	match accept_after_probe(context.listener, time::deadline_after_ms(10000), None, 1000)
 		Err(net::NetError(_, _, _, net::Closed, _)) => Ok(())
 		Err(error) => Err(error)
 		Ok(_) => Err(net::NetError("accept", None, None, net::Other, "closed listener accepted a stream"))
@@ -265,7 +301,7 @@ end
 
 fn blocked_accept_cancelled(context: { listener : net::Listener, token : CancelToken, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, time, concurrency]
 	let _ = channel::send(context.ready, ())
-	match net::accept_with(context.listener, Some(time::deadline_after_ms(10000)), Some(context.token))
+	match accept_after_probe(context.listener, time::deadline_after_ms(10000), Some(context.token), 1000)
 		Err(net::NetError(_, _, _, net::Cancelled, _)) => Ok(())
 		Err(error) => Err(error)
 		Ok(_) => Err(net::NetError("accept", None, None, net::Other, "cancelled accept returned a stream"))
@@ -295,7 +331,7 @@ end
 
 fn blocked_read_closed(context: { stream : net::Stream, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, time, concurrency]
 	let _ = channel::send(context.ready, ())
-	match net::read_with(context.stream, Some(time::deadline_after_ms(1000)), None)
+	match read_after_probe(context.stream, time::deadline_after_ms(1000), 1000)
 		Err(net::NetError(_, _, _, net::Closed, _)) => Ok(())
 		Err(error) => Err(error)
 		Ok(_) => Err(net::NetError("read", None, None, net::Other, "closed stream read unexpectedly succeeded"))
