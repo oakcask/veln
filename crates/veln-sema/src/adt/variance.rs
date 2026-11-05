@@ -246,6 +246,15 @@ fn collect_type_constraints(
     factor_paths: &mut Vec<FactorPathNode>,
     dependencies: &mut BTreeSet<usize>,
 ) {
+    let context = ConstraintMetadata {
+        source_start,
+        descriptors,
+        metadata,
+    };
+    let mut storage = ConstraintStorage {
+        factor_paths,
+        dependencies,
+    };
     let mut work = vec![(ty, None)];
     while let Some((ty, factor_path)) = work.pop() {
         #[cfg(test)]
@@ -266,31 +275,14 @@ fn collect_type_constraints(
                 }
             }
             Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
-                let fixed = compiler_owned_variances(identity, args.len());
-                let resolved = fixed
-                    .is_none()
-                    .then(|| metadata.resolve(identity, args.len()))
-                    .flatten();
-                let valid_metadata = resolved
-                    .filter(|index| descriptors[*index].parameter_variances.len() == args.len());
-                for (parameter_index, argument) in args.iter().enumerate().rev() {
-                    let factor = match (fixed, valid_metadata) {
-                        (Some(variances), _) => VarianceFactor::Fixed(variances[parameter_index]),
-                        (None, Some(descriptor_index)) if descriptor_index >= source_start => {
-                            dependencies.insert(descriptor_index);
-                            VarianceFactor::SourceParameter {
-                                descriptor_index,
-                                parameter_index,
-                            }
-                        }
-                        (None, Some(descriptor_index)) => VarianceFactor::Fixed(
-                            descriptors[descriptor_index].parameter_variances[parameter_index],
-                        ),
-                        (None, None) => VarianceFactor::Fixed(Variance::Invariant),
-                    };
-                    let nested_path = push_factor_path(factor_paths, factor_path, factor);
-                    work.push((argument, Some(nested_path)));
-                }
+                push_named_argument_constraints(
+                    identity,
+                    args,
+                    factor_path,
+                    &context,
+                    &mut storage,
+                    &mut work,
+                );
             }
             Type::Record(fields) => {
                 for (_, field) in fields.iter().rev() {
@@ -305,7 +297,7 @@ fn collect_type_constraints(
             } => {
                 work.push((return_type, factor_path));
                 let input_path = push_factor_path(
-                    factor_paths,
+                    storage.factor_paths,
                     factor_path,
                     VarianceFactor::Fixed(Variance::Contravariant),
                 );
@@ -318,6 +310,52 @@ fn collect_type_constraints(
             }
             Type::Unknown => {}
         }
+    }
+}
+
+struct ConstraintMetadata<'a> {
+    source_start: usize,
+    descriptors: &'a [super::descriptors::AdtDescriptor],
+    metadata: &'a MetadataIndex,
+}
+
+struct ConstraintStorage<'a> {
+    factor_paths: &'a mut Vec<FactorPathNode>,
+    dependencies: &'a mut BTreeSet<usize>,
+}
+
+fn push_named_argument_constraints<'a>(
+    identity: &str,
+    args: &'a [Type],
+    factor_path: Option<usize>,
+    context: &ConstraintMetadata<'_>,
+    storage: &mut ConstraintStorage<'_>,
+    work: &mut Vec<(&'a Type, Option<usize>)>,
+) {
+    let fixed = compiler_owned_variances(identity, args.len());
+    let resolved = fixed
+        .is_none()
+        .then(|| context.metadata.resolve(identity, args.len()))
+        .flatten();
+    let valid_metadata = resolved
+        .filter(|index| context.descriptors[*index].parameter_variances.len() == args.len());
+    for (parameter_index, argument) in args.iter().enumerate().rev() {
+        let factor = match (fixed, valid_metadata) {
+            (Some(variances), _) => VarianceFactor::Fixed(variances[parameter_index]),
+            (None, Some(descriptor_index)) if descriptor_index >= context.source_start => {
+                storage.dependencies.insert(descriptor_index);
+                VarianceFactor::SourceParameter {
+                    descriptor_index,
+                    parameter_index,
+                }
+            }
+            (None, Some(descriptor_index)) => VarianceFactor::Fixed(
+                context.descriptors[descriptor_index].parameter_variances[parameter_index],
+            ),
+            (None, None) => VarianceFactor::Fixed(Variance::Invariant),
+        };
+        let nested_path = push_factor_path(storage.factor_paths, factor_path, factor);
+        work.push((argument, Some(nested_path)));
     }
 }
 
