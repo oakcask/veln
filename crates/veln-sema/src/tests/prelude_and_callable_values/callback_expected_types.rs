@@ -319,6 +319,13 @@ fn callsite_function_values_preserve_metadata_and_lower_indirect_context() {
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
     assert_eq!(core.readiness, CoreReadiness::Complete);
+    assert_callsite_function_value_core(&core);
+
+    let ir = lowered.ir.expect("complete core should lower to IR");
+    assert_callsite_function_value_ir(&ir);
+}
+
+fn assert_callsite_function_value_core(core: &veln_core::CheckedProgram) {
     let located = core
         .functions
         .iter()
@@ -357,8 +364,9 @@ fn callsite_function_values_preserve_metadata_and_lower_indirect_context() {
         CoreCallTarget::CallsiteValue { name, callsite }
             if name == "callback" && matches!(callsite.kind, CoreExprKind::Record(_))
     ));
+}
 
-    let ir = lowered.ir.expect("complete core should lower to IR");
+fn assert_callsite_function_value_ir(ir: &veln_ir::TypedProgram) {
     let located = ir
         .functions
         .iter()
