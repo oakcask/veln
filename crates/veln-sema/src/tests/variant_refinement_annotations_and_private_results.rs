@@ -104,18 +104,35 @@ fn vec_arguments_are_covariant_at_complete_assignment_boundaries() {
 #[test]
 fn standard_immutable_constructor_arguments_are_covariant_by_slot() {
     let cases = [
-        ("Option<State::Ready>", "Option<State>"),
-        ("Result<State::Ready, String>", "Result<State, String>"),
-        ("Result<Int, State::Ready>", "Result<Int, State>"),
-        ("List<State::Ready>", "List<State>"),
-        ("Dict<State::Ready, Int>", "Dict<State, Int>"),
-        ("Dict<String, State::Ready>", "Dict<String, State>"),
+        ("Option<State::Ready>", "Option<State>", "Option<String>"),
+        (
+            "Result<State::Ready, String>",
+            "Result<State, String>",
+            "Result<String, String>",
+        ),
+        (
+            "Result<Int, State::Ready>",
+            "Result<Int, State>",
+            "Result<Int, String>",
+        ),
+        ("List<State::Ready>", "List<State>", "List<String>"),
+        (
+            "Dict<State::Ready, Int>",
+            "Dict<State, Int>",
+            "Dict<String, Int>",
+        ),
+        (
+            "Dict<String, State::Ready>",
+            "Dict<String, State>",
+            "Dict<String, String>",
+        ),
     ];
 
-    for (narrow, wide) in cases {
+    for (narrow, wide, unrelated) in cases {
         let diagnostics = diagnostics_for(&format!(
             "{STATE_DECL}fn wide_to_narrow(value: {wide}) -> {narrow}\n  value\nend\n\
              fn narrow_to_wide(value: {narrow}) -> {wide}\n  value\nend\n\
+             fn unrelated_to_wide(value: {unrelated}) -> {wide}\n  value\nend\n\
              fn nested(actual: {{value: {narrow}}}, wide: {wide}, narrow: {narrow}) -> ()\n\
                let widened: {wide} = narrow\n\
                let widened_record: {{value: {wide}}} = actual\n\
@@ -125,7 +142,7 @@ fn standard_immutable_constructor_arguments_are_covariant_by_slot() {
              end\n"
         ));
 
-        assert_eq!(diagnostics.len(), 3, "{narrow} -> {wide}: {diagnostics:#?}");
+        assert_eq!(diagnostics.len(), 4, "{narrow} -> {wide}: {diagnostics:#?}");
         assert!(
             diagnostics
                 .iter()
