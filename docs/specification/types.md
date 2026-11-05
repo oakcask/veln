@@ -1409,10 +1409,11 @@ checks every contribution by ordinary assignment compatibility and can accept
 the covariant widening.
 
 The join applies when repeated constructor payloads use a type parameter
-directly. If the same parameter also occurs inside a named payload, that nested
-occurrence uses a covariant join only when it is a checked covariant argument
-of a source ADT. Other nested named arguments establish exact inference
-constraints. For example, given `Built(A, Vec<A>)`,
+directly and those direct occurrences contribute complete source-ADT types.
+If the same parameter also occurs inside a named payload, that nested
+occurrence establishes an exact inference constraint independently of the
+named constructor's assignment or inference variance. For example, given
+`Built(A, Vec<A>)`,
 `Built(Ready, [Ready])` infers `Container<State::Ready>::Built`, while
 `Built(Ready, [Closed])` reports `type.mismatch`, even though compiler-owned
 `Vec<T>` is covariant at an assignment boundary. Reversing the two payload

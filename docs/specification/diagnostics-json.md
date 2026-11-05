@@ -873,10 +873,10 @@ contributions. A contribution that already produced a diagnostic leaves that
 type unchanged, does not produce a derivative aggregate mismatch, and cannot
 change the expected type reported for a later contribution. A rejected call or
 constructor expression follows this rule even when recovery can determine its
-refined result type from the resolved declaration. When a constructor payload
-uses a type parameter inside a source ADT, context-free inference recursively
-joins that argument only when the resolved declaration classifies it as
-covariant. The accepted
+refined result type from the resolved declaration. Repeated direct payload
+parameters can contribute complete source-ADT types, whose checked covariant
+arguments context-free inference joins recursively. A type parameter nested
+inside a named payload still establishes an exact constraint. The accepted
 [`source-adt-variance-inference`](../../examples/specification/check/source-adt-variance-inference/)
 case checks local and imported joins that emit no diagnostics. Invariant,
 irrelevant, and contravariant source-ADT arguments establish exact constraints,
