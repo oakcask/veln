@@ -61,7 +61,9 @@ pub(super) fn type_for_effect_call_argument(
                 context.current_package,
                 context.uses,
                 context.bindings,
-                context.functions,
+                context
+                    .argument_types
+                    .get_or_init(|| CheckedEffectArgumentTypes::new(context.functions)),
                 context.adts,
             )
         }),

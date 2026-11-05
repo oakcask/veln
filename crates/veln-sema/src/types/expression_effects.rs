@@ -11,6 +11,7 @@ pub(super) struct ExprEffectContext<'a> {
     pub(super) bindings: &'a [Binding],
     pub(super) adts: &'a AdtRegistry,
     pub(super) functions: &'a [FunctionSignature],
+    pub(super) argument_types: &'a std::cell::OnceCell<CheckedEffectArgumentTypes>,
     pub(super) effects_by_function: &'a EffectsByFunction,
     pub(super) effects_by_module_path: &'a EffectsByModulePath,
     pub(super) companion_access_targets: &'a BTreeMap<String, String>,

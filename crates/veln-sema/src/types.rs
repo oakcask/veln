@@ -70,6 +70,7 @@ pub(crate) mod effect_inference_counters {
     use super::*;
 
     thread_local! {
+        static ARGUMENT_SIGNATURE_COPIES: Cell<usize> = const { Cell::new(0) };
         static DEPENDENCY_DISCOVERY_SCANS: Cell<usize> = const { Cell::new(0) };
         static FUNCTION_BODY_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
         static HANDLER_OPERATION_CLAUSE_EVALUATIONS: Cell<usize> = const { Cell::new(0) };
@@ -80,6 +81,7 @@ pub(crate) mod effect_inference_counters {
 
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
     pub(crate) struct Snapshot {
+        pub(crate) argument_signature_copies: usize,
         pub(crate) dependency_discovery_scans: usize,
         pub(crate) function_body_collections: usize,
         pub(crate) handler_operation_clause_evaluations: usize,
@@ -89,6 +91,7 @@ pub(crate) mod effect_inference_counters {
     }
 
     pub(crate) fn reset() {
+        ARGUMENT_SIGNATURE_COPIES.set(0);
         DEPENDENCY_DISCOVERY_SCANS.set(0);
         FUNCTION_BODY_COLLECTIONS.set(0);
         HANDLER_OPERATION_CLAUSE_EVALUATIONS.set(0);
@@ -99,6 +102,7 @@ pub(crate) mod effect_inference_counters {
 
     pub(crate) fn snapshot() -> Snapshot {
         Snapshot {
+            argument_signature_copies: ARGUMENT_SIGNATURE_COPIES.get(),
             dependency_discovery_scans: DEPENDENCY_DISCOVERY_SCANS.get(),
             function_body_collections: FUNCTION_BODY_COLLECTIONS.get(),
             handler_operation_clause_evaluations: HANDLER_OPERATION_CLAUSE_EVALUATIONS.get(),
@@ -106,6 +110,10 @@ pub(crate) mod effect_inference_counters {
             handled_effect_stack_work: HANDLED_EFFECT_STACK_WORK.get(),
             handled_effect_membership_work: HANDLED_EFFECT_MEMBERSHIP_WORK.get(),
         }
+    }
+
+    pub(crate) fn record_argument_signature_copies(count: usize) {
+        ARGUMENT_SIGNATURE_COPIES.set(ARGUMENT_SIGNATURE_COPIES.get() + count);
     }
 
     pub(super) fn record_dependency_discovery_scan() {
