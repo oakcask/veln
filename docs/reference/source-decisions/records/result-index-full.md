@@ -23,6 +23,7 @@ smallest category page.
 - [Contract Expression Language](result-contract-expression-language.md)
 - [Contract Predicate Parsing](result-contract-predicate-parsing.md)
 - [Contract Static Runtime Boundary](result-contract-static-runtime-boundary.md)
+- [Dictionary Key Covariance](result-dictionary-key-covariance.md)
 - [Effect Access Modes](result-effect-access-modes.md)
 - [Effect Declaration Boundary](result-effect-declaration-boundary.md)
 - [Error Type Inference](result-error-type-inference.md)

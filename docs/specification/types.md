@@ -1614,8 +1614,11 @@ record and be assignable. Named types with the same constructor require
 invariant generic arguments except for compiler-owned immutable `Option<T>`,
 `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`. Every parameter of those
 constructors is covariant, so an actual argument may widen to the expected
-argument but the reverse assignment fails. The exception requires the same
-resolved compiler-owned constructor. Public aliases of `Option`, `Result`,
+argument but the reverse assignment fails. The
+[dictionary key covariance decision](../reference/source-decisions/records/result-dictionary-key-covariance.md)
+records the immutable lookup and update properties that support the `Dict` key
+rule. The exception requires the same resolved compiler-owned constructor.
+Public aliases of `Option`, `Result`,
 `List`, and `Dict` retain it by resolving to that identity, while a source or
 imported declaration with the same displayed name cannot acquire it. This
 separation also applies to a same-spelled source declaration in the root
