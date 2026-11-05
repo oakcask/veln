@@ -12,10 +12,14 @@ compiler now computes and retains one checked variance classification per
 source-ADT type parameter, but assignment and inference do not consume that
 metadata yet. Registry construction normalizes wrong-length internal
 classification metadata to one invariant entry per declared parameter before
-source-ADT composition. Veln will add no declaration-site variance modifiers.
-The remaining work includes assignment consumption, bounded generic inference,
-dependency consumption, detailed nested incompatibility context, presentation,
-and failure preservation.
+source-ADT composition. Composition through another source declaration uses
+its classifications only when owner-aware lookup resolves one accessible
+constructor with the expected arity; unavailable, inaccessible, or ambiguous
+constructors remain invariant. Compiler-owned `Vec` and `Dict` classifications
+are selected by their compiler identity and exact arity. Veln will add no
+declaration-site variance modifiers. The remaining work includes assignment
+consumption, bounded generic inference, dependency consumption, detailed
+nested incompatibility context, presentation, and failure preservation.
 
 Recursive assignment through records and functions is current behavior under
 the [type specification](../specification/types.md#compatibility-and-limits).
