@@ -1,0 +1,15 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "value of type `Option<State::Ready>::None` is not assignable to variant type `Option<State>::Some`",
+  "Excluded variants: None.",
+  "value of type `Option<State::Ready>` is not assignable to variant type `Option<State>::Some`",
+  "Excluded variants: every `Option<State::Ready>` variant except Some.",
+  "Return type declared here.",
+]
+
+[stderr]
+format = "empty"
