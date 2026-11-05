@@ -45,15 +45,10 @@ fn handler_operation_clause_bindings_for_source(
     source: &SourceFile,
     tokens: &[Token],
 ) -> Vec<ClauseBinding> {
-    let defer_block_openers = defer_block_openers(tokens);
-    record_handler_clause_binding_token_visits(tokens.len());
+    let structure = scope_structure_with(tokens, || record_handler_clause_binding_token_visits(1));
     let mut clause_bindings = Vec::new();
-    let clause_headers = handler_operation_clause_headers_with(
-        tokens,
-        &defer_block_openers,
-        || record_handler_clause_binding_token_visits(1),
-    );
-    for arrow_index in clause_headers
+    for arrow_index in structure
+        .handler_operation_clause_headers
         .iter()
         .enumerate()
         .filter_map(|(index, is_header)| is_header.then_some(index))
@@ -64,8 +59,8 @@ fn handler_operation_clause_bindings_for_source(
             tokens,
             arrow_index,
             source.text().len(),
-            &defer_block_openers,
-            &clause_headers,
+            &structure.defer_block_openers,
+            &structure.handler_operation_clause_headers,
             || record_handler_clause_binding_token_visits(1),
         );
         let Some(lparen_index) = tokens[line_start_index..arrow_index]
@@ -97,7 +92,7 @@ fn handler_operation_clause_bindings_for_source(
     clause_bindings.extend(handler_context_parameter_bindings_for_source(
         source,
         tokens,
-        &defer_block_openers,
+        &structure.defer_block_openers,
     ));
     clause_bindings
 }
@@ -174,14 +169,13 @@ fn handler_operation_clause_body_end(
     arrow_index: usize,
     file_end: usize,
 ) -> usize {
-    let defer_block_openers = defer_block_openers(tokens);
-    let clause_headers = handler_operation_clause_headers_with(tokens, &defer_block_openers, || {});
+    let structure = scope_structure_with(tokens, || {});
     handler_operation_clause_body_end_with_defer_openers(
         tokens,
         arrow_index,
         file_end,
-        &defer_block_openers,
-        &clause_headers,
+        &structure.defer_block_openers,
+        &structure.handler_operation_clause_headers,
     )
 }
 
