@@ -180,6 +180,17 @@ pub(super) fn infer_source_parameter_variances(
     synchronize_alias_variances(descriptors, alias_identities, &metadata);
 }
 
+pub(super) fn normalize_parameter_variance_arity(
+    descriptors: &mut [super::descriptors::AdtDescriptor],
+) {
+    for descriptor in descriptors {
+        if descriptor.parameter_variances.len() != descriptor.type_parameters.len() {
+            descriptor.parameter_variances =
+                vec![Variance::Invariant; descriptor.type_parameters.len()];
+        }
+    }
+}
+
 fn collect_constraints(
     descriptor_index: usize,
     source_start: usize,

@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Checked source-ADT variance consumption, bounded generic inference, dependency variance metadata, variance presentation, nested incompatibility diagnostics, or analysis and language-service failure preservation change.
+update-when: Checked source-ADT variance classification production or retention, its assignment or inference consumption, dependency variance metadata, variance presentation, nested incompatibility diagnostics, or analysis and language-service failure preservation change.
 ---
 
 # Generic And Function Variance

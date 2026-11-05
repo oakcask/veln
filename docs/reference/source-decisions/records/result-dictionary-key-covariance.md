@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: supporting
-update-when: Compiler-owned Dict key variance, dictionary lookup equality, persistent dictionary updates, or widened-dictionary companion coverage changes.
+update-when: Compiler-owned Dict variance metadata or source-ADT variance composition, dictionary lookup equality, persistent dictionary updates, or widened-dictionary companion coverage changes.
 ---
 
 # Dictionary Key Covariance

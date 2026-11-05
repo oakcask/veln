@@ -134,10 +134,11 @@ impl AdtRegistry {
     }
 
     fn from_parts_with_annotation_types(
-        descriptors: Vec<AdtDescriptor>,
+        mut descriptors: Vec<AdtDescriptor>,
         companion_access_targets: BTreeMap<String, String>,
         annotation_types: BTreeMap<(Option<String>, Option<String>, String), Type>,
     ) -> Self {
+        crate::adt::variance::normalize_parameter_variance_arity(&mut descriptors);
         let RegistryIndexes {
             variant_declaration_orders,
             descriptors_by_type_name,

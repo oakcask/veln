@@ -55,6 +55,48 @@ fn variance_composition_covers_all_cells() {
 }
 
 #[test]
+fn nested_source_constructor_composition_covers_all_cells() {
+    use Variance::{Contravariant as N, Covariant as P, Invariant as I, Irrelevant as X};
+
+    let cases = [
+        ("PP", "Positive", "Positive", P),
+        ("PN", "Positive", "Negative", N),
+        ("PI", "Positive", "Invariant", I),
+        ("PX", "Positive", "Irrelevant", X),
+        ("NP", "Negative", "Positive", N),
+        ("NN", "Negative", "Negative", P),
+        ("NI", "Negative", "Invariant", I),
+        ("NX", "Negative", "Irrelevant", X),
+        ("IP", "Invariant", "Positive", I),
+        ("IN", "Invariant", "Negative", I),
+        ("II", "Invariant", "Invariant", I),
+        ("IX", "Invariant", "Irrelevant", I),
+        ("XP", "Irrelevant", "Positive", X),
+        ("XN", "Irrelevant", "Negative", X),
+        ("XI", "Irrelevant", "Invariant", X),
+        ("XX", "Irrelevant", "Irrelevant", X),
+    ];
+    let mut source = cases
+        .iter()
+        .map(|(case, outer, nested, _)| {
+            format!("type Case{case}<T>\n  Value{case}({outer}<{nested}<T>>)\nend\n")
+        })
+        .collect::<String>();
+    source.push_str(
+        "type Positive<T>\n  PositiveValue(T)\nend\n\
+         type Negative<T>\n  NegativeValue(fn(T) -> ())\nend\n\
+         type Invariant<T>\n  InvariantOutput(T)\n  InvariantInput(fn(T) -> ())\nend\n\
+         type Irrelevant<T>\n  IrrelevantValue\nend\n",
+    );
+
+    let registry = registry_from_source(&source);
+
+    for (case, _, _, expected) in cases {
+        assert_eq!(variances(&registry, &format!("Case{case}")), vec![expected]);
+    }
+}
+
+#[test]
 fn occurrence_join_covers_positive_negative_invariant_and_unused() {
     use Variance::{Contravariant as N, Covariant as P, Invariant as I, Irrelevant as X};
 
@@ -239,6 +281,14 @@ fn missing_or_malformed_constructor_metadata_is_invariant_without_name_inference
     let registry = AdtRegistry::from_module_with_base(&module, &base);
 
     assert_eq!(variances(&registry, "Wrapper"), vec![Invariant]);
+    for descriptor in registry.descriptors() {
+        assert_eq!(
+            descriptor.parameter_variances.len(),
+            descriptor.type_parameters.len(),
+            "{}",
+            descriptor.type_name,
+        );
+    }
 }
 
 #[test]
