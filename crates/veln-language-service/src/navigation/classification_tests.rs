@@ -58,6 +58,48 @@ fn defer_block_openers_require_a_direct_cleanup_body_line() {
 }
 
 #[test]
+fn scope_structure_classifies_each_token_once() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Adjust\n",
+            "  amount(value: Int) -> Int\n",
+            "end\n\n",
+            "handler adjust() for Adjust\n",
+            "  amount(value) => begin\n",
+            "    defer\n",
+            "      consume(value)\n",
+            "    end\n",
+            "    value\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let tokens = lex(&source).tokens;
+    let visits = Cell::new(0);
+
+    let structure = scope_structure_with(&tokens, || visits.set(visits.get() + 1));
+
+    assert_eq!(visits.get(), tokens.len());
+    assert_eq!(
+        structure
+            .handler_operation_clause_headers
+            .iter()
+            .filter(|is_header| **is_header)
+            .count(),
+        1
+    );
+    assert_eq!(
+        structure
+            .defer_block_openers
+            .iter()
+            .filter(|is_opener| **is_opener)
+            .count(),
+        1
+    );
+}
+
+#[test]
 fn unqualified_workspace_navigation_does_not_build_a_classification_context() {
     let dependencies = IndexedDependencies::new_direct(vec![crate::tests::dependency_snapshot(
         "example/pkg",

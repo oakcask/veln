@@ -268,6 +268,7 @@ include!("navigation/function_alias_declarations.rs");
 include!("navigation/recovery_declarations.rs");
 include!("navigation/handler_bindings.rs");
 include!("navigation/references.rs");
+include!("navigation/scope_structure.rs");
 include!("navigation/scopes.rs");
 include!("navigation/local_binding_scopes.rs");
 include!("navigation/token_roles.rs");
@@ -376,18 +377,15 @@ impl SignatureShadowIndex {
 }
 
 fn signature_shadow_scopes(tokens: &[Token]) -> (Vec<FunctionScope>, Vec<bool>) {
-    let defer_block_openers = defer_block_openers(tokens);
+    let structure = scope_structure(tokens);
     let mut scopes = tokens
         .first()
         .filter(|token| matches!(token.kind, TokenKind::Fn | TokenKind::Test))
-        .and_then(|_| function_scope(tokens, 0, &defer_block_openers))
+        .and_then(|_| function_scope(tokens, 0, &structure.defer_block_openers))
         .into_iter()
         .collect::<Vec<_>>();
-    scopes.extend(handler_operation_clause_scopes(
-        tokens,
-        &defer_block_openers,
-    ));
-    (scopes, defer_block_openers)
+    scopes.extend(handler_operation_clause_scopes(tokens, &structure));
+    (scopes, structure.defer_block_openers)
 }
 
 fn widen_recovered_signature_scope(

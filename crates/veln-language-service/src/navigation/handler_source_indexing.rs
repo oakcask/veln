@@ -447,10 +447,9 @@ fn handler_operation_clause_body_ranges(
     source: &SourceFile,
     tokens: &[Token],
 ) -> Vec<(usize, usize)> {
-    let defer_block_openers = defer_block_openers(tokens);
-    let clause_headers =
-        handler_operation_clause_headers_with(tokens, &defer_block_openers, || {});
-    clause_headers
+    let structure = scope_structure_with(tokens, || {});
+    structure
+        .handler_operation_clause_headers
         .iter()
         .enumerate()
         .filter(|(_, is_header)| **is_header)
@@ -463,8 +462,8 @@ fn handler_operation_clause_body_ranges(
                     tokens,
                     arrow_index,
                     source.text().len(),
-                    &defer_block_openers,
-                    &clause_headers,
+                    &structure.defer_block_openers,
+                    &structure.handler_operation_clause_headers,
                 ),
             )
         })
