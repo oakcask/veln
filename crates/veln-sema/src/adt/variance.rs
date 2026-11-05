@@ -1,12 +1,6 @@
 use crate::semantic_model::Type;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Variance {
-    Covariant,
-    Contravariant,
-    Invariant,
-    Irrelevant,
-}
+pub(crate) use super::descriptors::Variance;
 
 impl Variance {
     pub(crate) const fn compose(self, nested: Self) -> Self {

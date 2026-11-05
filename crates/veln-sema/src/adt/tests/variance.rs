@@ -220,12 +220,13 @@ fn missing_or_malformed_constructor_metadata_is_invariant_without_name_inference
     use Variance::Invariant;
     let mut opaque = lookup_descriptor("dependency", 1);
     opaque.type_name = "CovariantLooking".to_string();
-    opaque.module_name = None;
     opaque.parameter_variances.clear();
+    opaque.refinement_availability = crate::adt::descriptors::VariantRefinementAvailability::Opaque;
     let base = AdtRegistry::from_parts(vec![opaque], BTreeMap::new());
     let parsed = veln_syntax::parse(&veln_source::SourceFile::new(
         "variance.veln",
-        "type Wrapper<T>\n  Value(CovariantLooking<T>)\nend\n",
+        "use dependency\n\
+         type Wrapper<T>\n  Value(dependency::CovariantLooking<T>)\nend\n",
     ));
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = veln_ast::lower_surface_ast(&parsed.tree);

@@ -79,49 +79,12 @@ These symbols are explanatory notation, not Veln source syntax.
 | Opaque or imported generic type with no checked variance metadata | Every parameter `=`. | Representation safety cannot be inferred from a name or helper signature. |
 | Nongeneric resource or other nongeneric type | No parameter variance. | Its nominal identity still controls assignment. |
 
-## Implemented Source-ADT Classification Producer
-
-A payload starts positive. Record fields and function results preserve the
-position; fixed and variadic function inputs reverse it. A nested named type
-composes the enclosing position with its corresponding parameter's variance.
-An alias neither declares nor overrides variance.
-
-The complete composition table follows. The row is the enclosing position;
-the column is the nested parameter classification.
-
-| Enclosing / nested | `+` | `-` | `=` | `*` |
-| --- | --- | --- | --- | --- |
-| `+` | `+` | `-` | `=` | `*` |
-| `-` | `-` | `+` | `=` | `*` |
-| `=` | `=` | `=` | `=` | `=` |
-| `*` | `*` | `*` | `*` | `*` |
-
-Invariance requires exact argument identity. Consequently an occurrence below
-an invariant argument remains invariant even if a further nested constructor
-would otherwise ignore it. An irrelevant enclosing argument ignores its
-entire argument for assignment.
-
-| Occurrences across all payloads | Inferred result |
-| --- | --- |
-| Positive only, with any number of irrelevant occurrences | `+`. |
-| Negative only, with any number of irrelevant occurrences | `-`. |
-| Positive and negative, or any invariant occurrence | `=`. |
-| No effective occurrence, including occurrences only through irrelevant parameters | `*`. |
-
-Recursive and mutually recursive declarations receive the least restrictive
-classification satisfying all their declaration constraints together. The
-answer must not depend on declaration order or a recursive edge being visited
-first. For example, a recursive list with a direct `T` head is covariant. A
-recursive chain that carries `fn(T) -> ()` is contravariant. A chain carrying
-both a `T` and `fn(T) -> ()` is invariant. A cycle in which `T` is only passed
-around recursive type arguments and never observed in any payload is
-irrelevant. This specifies the result, not a required solver architecture. The
-checked semantic descriptor producer implements this classification contract.
-Focused semantic tests cover the complete composition table, occurrence joins,
-payload shapes, nested constructors, conservative missing-metadata fallback,
-recursive declaration permutations, and descriptor arity. Because the metadata
-has no language-visible consumer yet, the current type specification and
-executable specification examples remain unchanged.
+The checked semantic descriptor producer now derives classifications from all
+payloads, composes nested checked classifications, and solves recursive source
+declarations independently of declaration order. Focused semantic tests are
+the executable evidence for that internal producer. The current type
+specification and executable specification examples remain unchanged because
+assignment and inference do not consume the metadata yet.
 
 The definition-based inference and recursive constraint treatment follow the
 [Rust Compiler Development Guide's variance discussion](https://rustc-dev-guide.rust-lang.org/variance.html).
@@ -135,7 +98,7 @@ The [Rustonomicon's subtyping and variance chapter](https://doc.rust-lang.org/no
 explains the function input/output directions and distinguishes owning
 collection covariance from mutation through an alias. Veln adopts these
 polarity directions in the current structural kernel and the remaining
-source-ADT inference design, with immutable source values replacing Rust's
+variance consumption design, with immutable source values replacing Rust's
 ownership conditions. Rust's lifetime relation supplies comparative reasoning,
 not the ADT-refinement relation specified here. Treating every payload as
 covariant is rejected because a stored callback can consume its parameter.
@@ -223,14 +186,13 @@ repair context; the primary message remains the specific assignment failure.
 ## Acceptance Model
 
 Classification production is implemented and checked by focused semantic
-tests. The remaining evidence is planned, not implemented or passing. The
-tables above remain the independent acceptance oracle for consumers; current
+tests. The evidence below is planned, not implemented or passing. The tables
+above remain the independent acceptance oracle for consumers; current
 assignment and inference behavior cannot supply the remaining expected results.
 
 | Contract | Planned evidence and required observation |
 | --- | --- |
-| Source-ADT classification metadata | Implemented semantic tests cover every composition cell; positive, negative, invariant, and irrelevant occurrence joins; direct, record, function, variadic, nested, private, compiler-owned, checked dependency, and missing-metadata payloads; and classification arity. Assignment directions, same-spelled distinct ADTs, and refinement sets remain planned with assignment consumption. |
-| Recursive classification | Implemented source-ADT fixtures cover positive, negative, mixed, irrelevant, recursive, and mutually recursive cases. Declaration permutations produce the same classifications. |
+| Variance-aware assignment | Assignment directions, same-spelled distinct ADTs, and refinement sets use the checked classifications without changing type identity. |
 | Bounded inference | Permuted branch, collection, and payload cases cover successful joins, annotation-required meets, irrelevant slots, exact constraints, and transactional exclusion of failed contributions. |
 | Metadata and identity | Package fixtures compare local and imported behavior, hidden payloads, absent metadata, and invalidation after a variance-changing payload edit. |
 | Presentation and diagnostics | Human and JSON fixtures cover nested paths, reversed input comparison, direct exclusions, aliases, modifier-free declarations, and stable package/LSP/MCP presentations. |

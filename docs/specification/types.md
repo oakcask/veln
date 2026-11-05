@@ -1478,12 +1478,9 @@ condition. An earlier error that leaves an expression untyped does not add a
 derivative refinement mismatch.
 
 Complete record and function types use the same assignment relation
-recursively. Semantic analysis computes and retains a variance classification
-for each source-ADT type parameter, but assignment and inference do not yet
-consume those classifications. Source-ADT arguments therefore remain
-invariant, as do other named generic arguments except for every argument of the
-compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and
-`Dict<K, V>` constructors.
+recursively. Named generic arguments remain invariant except for every
+argument of the compiler-owned immutable `Option<T>`, `Result<T, E>`,
+`List<T>`, `Vec<T>`, and `Dict<K, V>` constructors.
 
 | Type form | Assignment condition |
 | --- | --- |

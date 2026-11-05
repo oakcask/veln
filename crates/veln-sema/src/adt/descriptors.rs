@@ -3,7 +3,13 @@ use veln_ast::Visibility;
 use crate::semantic_model::Type;
 use crate::source_less_names::SourceLessNameClass;
 
-use super::variance::Variance;
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Variance {
+    Covariant,
+    Contravariant,
+    Invariant,
+    Irrelevant,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AdtVariantKind {
