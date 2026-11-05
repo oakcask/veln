@@ -15,3 +15,8 @@ end
 pub type Fixed<T>
 	Both(T, fn(T) -> ())
 end
+
+pub type Split<T>
+	Positive(T)
+	Negative(fn(T) -> ())
+end

@@ -13,11 +13,11 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 5
+equals = 6
 
 [[json_assert]]
 path = "diagnostics"
-length = 5
+length = 6
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -37,4 +37,8 @@ equals = "type.mismatch"
 
 [[json_assert]]
 path = "diagnostics.4.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.5.id"
 equals = "type.variant_mismatch"
