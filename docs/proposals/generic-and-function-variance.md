@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Checked source-ADT variance classification production or retention, its assignment or inference consumption, dependency variance metadata, variance presentation, nested incompatibility diagnostics, or analysis and language-service failure preservation change.
+update-when: Checked source-ADT variance classification production, retention, or performance evidence, its assignment or inference consumption, dependency variance metadata, variance presentation, nested incompatibility diagnostics, or analysis and language-service failure preservation change.
 ---
 
 # Generic And Function Variance
@@ -173,6 +173,13 @@ traversal cannot choose different facts. Related notes explain polarity and
 repair context; the primary message remains the specific assignment failure.
 
 ## Acceptance Model
+
+Current semantic tests check the retained source-ADT classifications separately
+from the remaining consumer contracts. The producer performance regression uses
+a nested covariant `Pair` comb at depths 128 and 256. When depth doubles, the
+tracked factor-evaluation and dependency-edge counts may grow by at most twice
+the smaller count plus eight. Elapsed time is diagnostic output and is not an
+acceptance threshold.
 
 The evidence below is planned, not implemented or passing. The tables above
 remain the independent acceptance oracle for consumers; current assignment and
