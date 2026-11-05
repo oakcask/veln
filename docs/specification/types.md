@@ -1482,12 +1482,6 @@ recursively. Named generic arguments remain invariant except for every
 argument of the compiler-owned immutable `Option<T>`, `Result<T, E>`,
 `List<T>`, `Vec<T>`, and `Dict<K, V>` constructors.
 
-Source-ADT analysis retains a checked variance classification for each type
-parameter, including classifications composed through recursive declarations
-and imported descriptors. Assignment and generic inference do not consume
-those classifications yet. Source-ADT arguments therefore remain invariant at
-the observable compatibility boundary described here.
-
 | Type form | Assignment condition |
 | --- | --- |
 | Record | Every expected field exists in the actual record, and each actual field type is assignable to the expected field type. Extra actual fields are permitted. |
