@@ -194,7 +194,6 @@ impl ExpectedTypeSource {
     }
 }
 
-#[cfg_attr(not(test), derive(Clone))]
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Type {
     Unknown,
@@ -225,51 +224,127 @@ thread_local! {
     static MEASURED_TYPE_CLONE_NODES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
-#[cfg(test)]
 impl Clone for Type {
     fn clone(&self) -> Self {
-        TYPE_CLONE_MEASUREMENT_DEPTH.with(|depth| {
-            if depth.get() > 0 {
-                MEASURED_TYPE_CLONE_NODES.set(MEASURED_TYPE_CLONE_NODES.get() + 1);
-            }
-        });
-        match self {
-            Self::Unknown => Self::Unknown,
-            Self::Named {
-                name,
-                identity,
-                args,
-            } => Self::Named {
-                name: name.clone(),
-                identity: identity.clone(),
-                args: args.clone(),
-            },
-            Self::VariantRefinement {
-                name,
-                identity,
-                args,
-                variants,
-                unresolved_alternatives,
-            } => Self::VariantRefinement {
-                name: name.clone(),
-                identity: identity.clone(),
-                args: args.clone(),
-                variants: variants.clone(),
-                unresolved_alternatives: unresolved_alternatives.clone(),
-            },
-            Self::Record(fields) => Self::Record(fields.clone()),
-            Self::Function {
-                params,
-                variadic,
-                return_type,
-                effects,
-            } => Self::Function {
-                params: params.clone(),
-                variadic: variadic.clone(),
-                return_type: return_type.clone(),
-                effects: effects.clone(),
-            },
+        enum Task<'a> {
+            Visit(&'a Type),
+            Named(String, String, usize),
+            Variant(
+                String,
+                String,
+                usize,
+                Arc<[String]>,
+                Vec<(String, Vec<Type>, String)>,
+            ),
+            Record(Vec<String>),
+            Function(usize, bool, Vec<String>),
         }
+
+        let mut tasks = vec![Task::Visit(self)];
+        let mut cloned = Vec::new();
+        while let Some(task) = tasks.pop() {
+            match task {
+                Task::Visit(ty) => {
+                    #[cfg(test)]
+                    TYPE_CLONE_MEASUREMENT_DEPTH.with(|depth| {
+                        if depth.get() > 0 {
+                            MEASURED_TYPE_CLONE_NODES.set(MEASURED_TYPE_CLONE_NODES.get() + 1);
+                        }
+                    });
+                    match ty {
+                        Self::Unknown => cloned.push(Self::Unknown),
+                        Self::Named {
+                            name,
+                            identity,
+                            args,
+                        } => {
+                            tasks.push(Task::Named(name.clone(), identity.clone(), args.len()));
+                            tasks.extend(args.iter().rev().map(Task::Visit));
+                        }
+                        Self::VariantRefinement {
+                            name,
+                            identity,
+                            args,
+                            variants,
+                            unresolved_alternatives,
+                        } => {
+                            tasks.push(Task::Variant(
+                                name.clone(),
+                                identity.clone(),
+                                args.len(),
+                                variants.clone(),
+                                unresolved_alternatives.clone(),
+                            ));
+                            tasks.extend(args.iter().rev().map(Task::Visit));
+                        }
+                        Self::Record(fields) => {
+                            tasks.push(Task::Record(
+                                fields.iter().map(|(name, _)| name.clone()).collect(),
+                            ));
+                            tasks.extend(fields.iter().rev().map(|(_, ty)| Task::Visit(ty)));
+                        }
+                        Self::Function {
+                            params,
+                            variadic,
+                            return_type,
+                            effects,
+                        } => {
+                            tasks.push(Task::Function(
+                                params.len(),
+                                variadic.is_some(),
+                                effects.clone(),
+                            ));
+                            tasks.push(Task::Visit(return_type));
+                            if let Some(variadic) = variadic {
+                                tasks.push(Task::Visit(variadic));
+                            }
+                            tasks.extend(params.iter().rev().map(Task::Visit));
+                        }
+                    }
+                }
+                Task::Named(name, identity, count) => {
+                    let args = cloned.split_off(cloned.len() - count);
+                    cloned.push(Self::Named {
+                        name,
+                        identity,
+                        args,
+                    });
+                }
+                Task::Variant(name, identity, count, variants, unresolved_alternatives) => {
+                    let args = cloned.split_off(cloned.len() - count);
+                    cloned.push(Self::VariantRefinement {
+                        name,
+                        identity,
+                        args,
+                        variants,
+                        unresolved_alternatives,
+                    });
+                }
+                Task::Record(names) => {
+                    let fields = cloned
+                        .split_off(cloned.len() - names.len())
+                        .into_iter()
+                        .zip(names)
+                        .map(|(ty, name)| (name, ty))
+                        .collect();
+                    cloned.push(Self::Record(fields));
+                }
+                Task::Function(param_count, has_variadic, effects) => {
+                    let mut parts = cloned
+                        .split_off(cloned.len() - param_count - usize::from(has_variadic) - 1);
+                    let params = parts.drain(..param_count).collect();
+                    let variadic = has_variadic.then(|| Box::new(parts.remove(0)));
+                    let return_type = Box::new(parts.remove(0));
+                    cloned.push(Self::Function {
+                        params,
+                        variadic,
+                        return_type,
+                        effects,
+                    });
+                }
+            }
+        }
+        cloned.pop().expect("type cloning produces one root")
     }
 }
 
@@ -300,6 +375,39 @@ pub(crate) fn measure_type_clone_nodes<T>(operation: impl FnOnce() -> T) -> (T, 
         0
     };
     (result, measured)
+}
+
+pub(crate) fn drop_type_iteratively(root: Type) {
+    let mut pending = vec![root];
+    while let Some(mut ty) = pending.pop() {
+        match &mut ty {
+            Type::Unknown => {}
+            Type::Named { args, .. } => pending.append(args),
+            Type::VariantRefinement {
+                args,
+                unresolved_alternatives,
+                ..
+            } => {
+                pending.append(args);
+                for (_, mut alternatives, _) in std::mem::take(unresolved_alternatives) {
+                    pending.append(&mut alternatives);
+                }
+            }
+            Type::Record(fields) => {
+                pending.extend(std::mem::take(fields).into_iter().map(|(_, ty)| ty));
+            }
+            Type::Function {
+                params,
+                variadic,
+                return_type,
+                ..
+            } => {
+                pending.append(params);
+                pending.extend(variadic.take().map(|ty| *ty));
+                pending.push(*std::mem::replace(return_type, Box::new(Type::Unknown)));
+            }
+        }
+    }
 }
 
 impl Type {

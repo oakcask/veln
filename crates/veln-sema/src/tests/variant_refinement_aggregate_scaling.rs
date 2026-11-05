@@ -11,6 +11,227 @@ fn diagnostics_for(source: &str) -> Vec<Diagnostic> {
     analyze_surface_module(&lower_surface_ast(&parsed.tree))
 }
 
+fn deep_source_adt_registry() -> TypeEnvironment {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "  Failed\n",
+            "end\n",
+            "type Positive<T>\n",
+            "  Present(T)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    TypeEnvironment::from_module(&lower_surface_ast(&parsed.tree))
+}
+
+fn source_adt_identity(environment: &TypeEnvironment, name: &str) -> String {
+    environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == name)
+        .unwrap_or_else(|| panic!("missing {name} descriptor"))
+        .identity()
+}
+
+fn deep_covariant_type(
+    depth: usize,
+    positive_identity: &str,
+    wrapper_name: &str,
+    leaf: Type,
+) -> Type {
+    (0..depth).fold(leaf, |nested, _| {
+        Type::resolved_named(
+            wrapper_name.to_string(),
+            positive_identity.to_string(),
+            vec![nested],
+        )
+    })
+}
+
+fn state_refinement(identity: &str, name: &str, variant: &str) -> Type {
+    Type::resolved_variant_refinement(
+        name.to_string(),
+        identity.to_string(),
+        Vec::new(),
+        vec![variant.to_string()],
+    )
+}
+
+fn deep_leaf(mut ty: &Type, depth: usize) -> &Type {
+    for _ in 0..depth {
+        let Type::Named { args, .. } = ty else {
+            panic!("expected a named covariant wrapper, found {ty:?}");
+        };
+        ty = &args[0];
+    }
+    ty
+}
+
+#[derive(Debug)]
+struct DeepJoinMeasurement {
+    retained_nodes: usize,
+    acceptance: crate::aggregate_type_join::DeepJoinWork,
+    acceptance_clones: usize,
+    materialization: crate::aggregate_type_join::DeepJoinWork,
+    materialization_clones: usize,
+}
+
+fn measure_deep_source_adt_join(
+    environment: &TypeEnvironment,
+    depth: usize,
+    equal_leaf: bool,
+) -> DeepJoinMeasurement {
+    let state_identity = source_adt_identity(environment, "State");
+    let positive_identity = source_adt_identity(environment, "Positive");
+    let initial = deep_covariant_type(
+        depth,
+        &positive_identity,
+        "FirstPositive",
+        state_refinement(&state_identity, "FirstState", "Ready"),
+    );
+    let right = deep_covariant_type(
+        depth,
+        &positive_identity,
+        "SecondPositive",
+        state_refinement(
+            &state_identity,
+            "SecondState",
+            if equal_leaf { "Ready" } else { "Closed" },
+        ),
+    );
+
+    crate::aggregate_type_join::reset_deep_work();
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("deep source ADT join");
+    let retained_nodes = crate::aggregate_type_join::take_deep_work().retained_nodes;
+
+    crate::aggregate_type_join::reset_deep_work();
+    let started = std::time::Instant::now();
+    let (accepted, acceptance_clones) = crate::semantic_model::measure_type_clone_nodes(|| {
+        joined.try_join(&environment.adts, &right)
+    });
+    let acceptance = crate::aggregate_type_join::take_deep_work();
+    assert!(accepted);
+    let acceptance_elapsed = started.elapsed();
+
+    crate::aggregate_type_join::reset_deep_work();
+    let started = std::time::Instant::now();
+    let (materialized, materialization_clones) =
+        crate::semantic_model::measure_type_clone_nodes(|| joined.result_type());
+    let materialization = crate::aggregate_type_join::take_deep_work();
+    let materialization_elapsed = started.elapsed();
+
+    let Type::VariantRefinement { name, variants, .. } = deep_leaf(&materialized, depth) else {
+        panic!("expected a refined State leaf");
+    };
+    assert_eq!(name, "State");
+    assert_eq!(variants.len(), usize::from(!equal_leaf) + 1);
+    eprintln!(
+        "deep source-ADT join depth={depth} equal_leaf={equal_leaf}: acceptance={acceptance_elapsed:?} {acceptance:?} clones={acceptance_clones}, materialization={materialization_elapsed:?} {materialization:?} clones={materialization_clones}"
+    );
+
+    DeepJoinMeasurement {
+        retained_nodes,
+        acceptance,
+        acceptance_clones,
+        materialization,
+        materialization_clones,
+    }
+}
+
+#[test]
+fn deep_source_adt_covariant_join_work_is_linear_and_transactional() {
+    let environment = deep_source_adt_registry();
+    let depths = [512, 1024, 2048];
+    let differing = depths.map(|depth| measure_deep_source_adt_join(&environment, depth, false));
+    let equal = depths.map(|depth| measure_deep_source_adt_join(&environment, depth, true));
+
+    for measurements in [&differing, &equal] {
+        for (measurement, depth) in measurements.iter().zip(depths) {
+            assert_eq!(measurement.retained_nodes, depth + 1);
+            assert_eq!(measurement.acceptance.node_visits, depth + 1);
+            assert_eq!(measurement.acceptance.retained_nodes, depth + 1);
+            assert_eq!(measurement.acceptance.presentation_nodes, depth + 1);
+            assert_eq!(measurement.acceptance.materialized_nodes, 0);
+            assert_eq!(measurement.acceptance_clones, 0);
+            assert_eq!(measurement.materialization.node_visits, 0);
+            assert_eq!(measurement.materialization.presentation_nodes, 0);
+            assert_eq!(measurement.materialization.materialized_nodes, depth + 1);
+            assert_eq!(measurement.materialization_clones, 0);
+        }
+        for adjacent in measurements.windows(2) {
+            assert!(adjacent[1].retained_nodes <= adjacent[0].retained_nodes * 2 + 1);
+            assert!(
+                adjacent[1].acceptance.node_visits <= adjacent[0].acceptance.node_visits * 2 + 1
+            );
+            assert!(
+                adjacent[1].acceptance.presentation_nodes
+                    <= adjacent[0].acceptance.presentation_nodes * 2 + 1
+            );
+            assert!(
+                adjacent[1].materialization.materialized_nodes
+                    <= adjacent[0].materialization.materialized_nodes * 2 + 1
+            );
+        }
+    }
+
+    let depth = 256;
+    let state_identity = source_adt_identity(&environment, "State");
+    let positive_identity = source_adt_identity(&environment, "Positive");
+    let initial = deep_covariant_type(
+        depth,
+        &positive_identity,
+        "FirstPositive",
+        state_refinement(&state_identity, "FirstState", "Ready"),
+    );
+    let second = deep_covariant_type(
+        depth,
+        &positive_identity,
+        "SecondPositive",
+        state_refinement(&state_identity, "SecondState", "Closed"),
+    );
+    let rejected = deep_covariant_type(
+        depth,
+        &positive_identity,
+        "RejectedPositive",
+        Type::string(),
+    );
+    let later = deep_covariant_type(
+        depth,
+        &positive_identity,
+        "FirstPositive",
+        state_refinement(&state_identity, "FirstState", "Failed"),
+    );
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("deep transactional join");
+    assert!(joined.try_join(&environment.adts, &second));
+    let before_failure = joined.result_type();
+    crate::aggregate_type_join::reset_deep_work();
+    assert!(!joined.try_join(&environment.adts, &rejected));
+    let failed_work = crate::aggregate_type_join::take_deep_work();
+    assert_eq!(failed_work.node_visits, depth + 1);
+    assert_eq!(failed_work.presentation_nodes, 0);
+    assert_eq!(failed_work.materialized_nodes, 0);
+    let after_failure = joined.result_type();
+    assert_eq!(before_failure, after_failure);
+    assert!(joined.try_join(&environment.adts, &later));
+    let materialized = joined.result_type();
+    let Type::Named { name, args, .. } = deep_leaf(&materialized, depth) else {
+        panic!("expected the complete State domain after rollback");
+    };
+    assert_eq!(name, "State", "alias conflict must remain canonical");
+    assert!(args.is_empty());
+}
+
 fn aggregate_join_scaling_source(variant_count: usize) -> String {
     let variants = (0..variant_count)
         .map(|index| format!("Variant{index:04}"))
