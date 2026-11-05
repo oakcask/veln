@@ -1432,8 +1432,10 @@ When a concrete payload has the form `Box<A>`, a matching refined carrier such
 as `Box<State::Ready>::Boxed` can supply `State::Ready` for `A`. This direct
 carrier inference allows `Carried(Boxed(Ready))` to infer
 `Carrier<State::Ready>::Carried`. It does not make named type arguments
-covariant: a later use of `Box<State::Ready>` where `Box<State>` is required
-still reports `type.mismatch`.
+covariant during inference. A later assignment of `Box<State::Ready>` to
+`Box<State>` is accepted because the checked declaration classifies `Box`'s
+payload parameter as covariant; constructor inference still requires its
+nested contributions to agree exactly.
 
 An explicit aggregate component type supplies context while the aggregate is
 constructed. A constructor singleton can widen directly at that component
@@ -1444,9 +1446,12 @@ The same rule lets `Boxed(Ready)` construct an explicitly expected
 `Dict<State::Ready, Int>`, and `Box<State::Ready>::Boxed`. A later assignment
 widens the inferred vector to `Vec<State>` and the inferred dictionary to
 `Dict<State, Int>` because those compiler-owned immutable constructors are
-covariant. The corresponding assignment from the inferred source ADT remains
-rejected because its named type argument is invariant. Aggregate inference
-does not add covariance to an invariant constructor.
+covariant. A source ADT assignment applies that declaration's checked parameter
+classification. A direct payload such as `Box<A>` makes `A` covariant, so the
+corresponding inferred `Box<State::Ready>` also widens to `Box<State>`. A
+parameter used in both input and output positions is invariant and rejects the
+same widening. Aggregate inference does not use assignment variance to join
+unequal inferred arguments.
 
 At a direct assignment, argument, or result boundary, variant assignability is
 defined as follows:
@@ -1461,8 +1466,9 @@ defined as follows:
 | `A<T>` | a singleton or variant set | Rejected. |
 | `A<T>::W` | a different singleton `A<T>::V` | Rejected. |
 
-For the compiler-owned immutable ADTs, the argument comparison also permits a
-refinement such as `Option<State::Ready>::Some` where
+For compiler-owned immutable ADTs and covariant source-ADT parameters, the
+argument comparison also permits a refinement such as
+`Option<State::Ready>::Some` where
 `Option<State>::Some | Option<State>::None` is expected. The argument must
 widen covariantly and the actual variant set must remain a subset of the
 expected set. Reversing either relation is rejected.
@@ -1478,9 +1484,12 @@ condition. An earlier error that leaves an expression untyped does not add a
 derivative refinement mismatch.
 
 Complete record and function types use the same assignment relation
-recursively. Named generic arguments remain invariant except for every
-argument of the compiler-owned immutable `Option<T>`, `Result<T, E>`,
-`List<T>`, `Vec<T>`, and `Dict<K, V>` constructors.
+recursively. A source ADT uses the checked classification retained for each
+parameter of its resolved declaration. Local declarations, imported
+declarations, refinements, and aliases of those declarations use the same
+classification because assignment selects metadata by resolved constructor
+identity and arity. If usable checked metadata is absent or ambiguous, every
+argument falls back to invariant comparison.
 
 | Type form | Assignment condition |
 | --- | --- |
@@ -1489,7 +1498,7 @@ argument of the compiler-owned immutable `Option<T>`, `Result<T, E>`,
 | Variadic function inputs | Both functions are variadic, their fixed counts match, and the expected variadic element type is assignable to the actual variadic element type. A fixed function and a variadic function are incompatible. |
 | Function result | The actual result type is assignable to the expected result type. |
 | Function effects | Every actual effect occurs in the expected effect set. The check applies independently at every nested function node. |
-| Same named type | The resolved constructor identity matches. Generic arguments match invariantly for ordinary constructors. For compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`, each actual argument must instead be assignable to its expected argument. `unknown` retains its recovery behavior inside an argument. |
+| Same named type | The resolved constructor identity and arity match. A covariant source parameter requires the actual argument to be assignable to the expected argument. A contravariant parameter reverses that comparison. An invariant parameter requires resolved structural equality. An irrelevant parameter performs no argument comparison, but both complete arguments remain part of type identity. Compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>` use covariance in every argument. Missing or unusable source metadata falls back to invariance. `unknown` retains its recovery behavior inside a compared argument. |
 
 Function inputs are contravariant as complete types. Function results and
 record fields are covariant. Two nested function-input positions reverse the
@@ -1508,8 +1517,8 @@ is the complete base ADT. A `variant_exclusion` related note renders the same
 fact for human output, and another related note identifies the expected local
 annotation, parameter, result declaration, compiler-known helper parameter, or
 generated schema encode helper parameter inferred at the call site. Invariant
-named-type arguments are compared by
-resolved type identity, not by alias display spelling. If the arguments differ
+named-type arguments are compared by resolved structural equality, not by
+alias display spelling. If the arguments differ
 only by aliases of one target, an outer refinement exclusion therefore remains
 a `type.variant_mismatch`, and each rendered side retains its own alias
 spelling. If the resolved nested refinements differ, or a nested record,
@@ -1548,10 +1557,13 @@ Complete structural assignment is checked in the accepted
 case and its
 [`diagnostic companion`](../../examples/specification/check/complete-type-structural-assignability-diagnostics/).
 Those cases cover compiler-owned covariance through direct constructors and
-public aliases. They also check that same-spelled source constructors and their
-aliases remain nominal and invariant. The checked
-[`complete-type-structural-assignability-root-nominal-diagnostics`](../../examples/specification/check/complete-type-structural-assignability-root-nominal-diagnostics/)
-case exercises that separation for declarations in the root module.
+public aliases.
+Checked source-ADT variance assignment is covered by the accepted
+[`source-adt-variance-assignment`](../../examples/specification/check/source-adt-variance-assignment/)
+case and its
+[`diagnostic companion`](../../examples/specification/check/source-adt-variance-assignment-diagnostics/).
+They cover all four classifications, aliases, imported declarations, nested
+structural polarity, refinements, and distinct nominal owners.
 
 Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and
@@ -1605,16 +1617,17 @@ and schema `validate` clauses remain in the runtime-validation boundary,
 including on composed branches without refinements. A binary schema anywhere
 in that graph makes the operation a static failure, as does the
 provider-dependent unavailable-descriptor diagnostic.
-This behavior does not add variance for named generic constructors outside the
-compiler-owned immutable set, and it does not add generic inference.
+This schema behavior does not alter the checked variance of a named generic
+constructor, and it does not add generic inference.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual
-record and be assignable. Named types with the same constructor require
-invariant generic arguments except for compiler-owned immutable `Option<T>`,
-`Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`. Every parameter of those
-constructors is covariant, so an actual argument may widen to the expected
-argument but the reverse assignment fails. The
+record and be assignable. Named types with the same resolved constructor use
+the source declaration's checked covariant, contravariant, invariant, or
+irrelevant parameter classifications. Unavailable checked metadata falls back
+to invariance. Compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`,
+`Vec<T>`, and `Dict<K, V>` are covariant in every parameter, so an actual
+argument may widen to the expected argument but the reverse assignment fails. The
 [dictionary key covariance decision](../reference/source-decisions/records/result-dictionary-key-covariance.md)
 records the immutable lookup and update properties that support the `Dict` key
 rule. The exception requires the same resolved compiler-owned constructor.
@@ -1622,7 +1635,8 @@ Public aliases of `Option`, `Result`,
 `List`, and `Dict` retain it by resolving to that identity, while a source or
 imported declaration with the same displayed name cannot acquire it. This
 separation also applies to a same-spelled source declaration in the root
-module and to aliases of that declaration. The rule does not relate distinct
+module and to aliases of that declaration. Source aliases instead retain their
+target declaration's checked classifications. The rule does not relate distinct
 nominal constructors and does not coerce runtime values. It applies only where
 a concrete expected type exists; it does not widen a context-free generic join
 or constructor inference.

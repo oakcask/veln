@@ -88,7 +88,9 @@ impl<'a> FunctionChecker<'a> {
             .expect("defer capture boundary");
         self.defer_blocks.pop();
 
-        if actual != Type::Unknown && !is_assignable(&Type::unit(), &actual) {
+        if actual != Type::Unknown
+            && !is_assignable_with_registry(&Type::unit(), &actual, &self.environment.adts)
+        {
             let result_span = body
                 .last()
                 .and_then(|line| match &line.kind {
@@ -510,7 +512,7 @@ impl<'a> FunctionChecker<'a> {
             return;
         };
         let actual = Type::unit();
-        if is_assignable(&expected.ty, &actual) {
+        if is_assignable_with_registry(&expected.ty, &actual, &self.environment.adts) {
             return;
         }
         self.diagnostics.push(Diagnostic::new(

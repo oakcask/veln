@@ -218,6 +218,7 @@ pub(crate) fn collect_private_function_value_constraints(
             &target_key,
             return_type.as_ref().clone(),
             context.constraints.changed,
+            context.constraints.adts,
         );
     }
 }
@@ -361,13 +362,18 @@ fn update_private_signature_return_from_function_value(
     key: &FunctionKey,
     inferred: Type,
     changed: &mut bool,
+    adts: &AdtRegistry,
 ) {
     let Some(signature) = private_signature_mut(functions, key) else {
         return;
     };
     if matches!(signature.return_type, Type::VariantRefinement { .. })
         && matches!(inferred, Type::Named { .. })
-        && crate::type_relations::is_assignable(&inferred, &signature.return_type)
+        && crate::type_relations::is_assignable_with_registry(
+            &inferred,
+            &signature.return_type,
+            adts,
+        )
     {
         signature.return_type = inferred;
         *changed = true;

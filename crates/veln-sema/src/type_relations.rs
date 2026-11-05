@@ -105,227 +105,305 @@ fn record_type_presentation_child_insertions(inserted: usize) {
     let _ = inserted;
 }
 
+use crate::adt::registry::AdtRegistry;
+use crate::adt::variance::Variance;
+
 pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
-    if trivially_assignable(expected, actual) {
-        return true;
+    Assignability::without_registry().is_assignable(expected, actual)
+}
+
+pub(crate) fn is_assignable_with_registry(
+    expected: &Type,
+    actual: &Type,
+    adts: &AdtRegistry,
+) -> bool {
+    Assignability::with_registry(adts).is_assignable(expected, actual)
+}
+
+pub(crate) fn is_assignable_nested_with_registry(
+    expected: &Type,
+    actual: &Type,
+    adts: &AdtRegistry,
+) -> bool {
+    is_assignable_with_registry(expected, actual, adts)
+}
+
+#[derive(Clone, Copy)]
+struct Assignability<'a> {
+    adts: Option<&'a AdtRegistry>,
+}
+
+impl<'a> Assignability<'a> {
+    fn without_registry() -> Self {
+        Self { adts: None }
     }
-    match (expected, actual) {
-        (
-            Type::VariantRefinement {
-                name: expected_name,
-                identity: expected_identity,
-                args: expected_args,
-                variants: expected_variants,
-                ..
-            },
-            Type::VariantRefinement {
-                name: actual_name,
-                identity: actual_identity,
-                args: actual_args,
-                variants: actual_variants,
-                ..
-            },
-        ) => {
-            let expected_variants = expected_variants
+
+    fn with_registry(adts: &'a AdtRegistry) -> Self {
+        Self { adts: Some(adts) }
+    }
+
+    fn is_assignable(self, expected: &Type, actual: &Type) -> bool {
+        if Self::trivially_assignable(expected, actual) {
+            return true;
+        }
+        match (expected, actual) {
+            (
+                Type::VariantRefinement {
+                    name: expected_name,
+                    identity: expected_identity,
+                    args: expected_args,
+                    variants: expected_variants,
+                    ..
+                },
+                Type::VariantRefinement {
+                    name: actual_name,
+                    identity: actual_identity,
+                    args: actual_args,
+                    variants: actual_variants,
+                    ..
+                },
+            ) => {
+                let expected_variants = expected_variants
+                    .iter()
+                    .map(String::as_str)
+                    .collect::<HashSet<_>>();
+                same_type_identity(
+                    expected_name,
+                    expected_identity,
+                    actual_name,
+                    actual_identity,
+                ) && self.named_args_are_assignable(
+                    expected_identity,
+                    expected_args,
+                    actual_identity,
+                    actual_args,
+                ) && actual_variants.iter().all(|variant| {
+                    record_variant_set_lookup();
+                    expected_variants.contains(variant.as_str())
+                })
+            }
+            (
+                Type::Named {
+                    name: expected_name,
+                    identity: expected_identity,
+                    args: expected_args,
+                    ..
+                },
+                Type::VariantRefinement {
+                    name: actual_name,
+                    identity: actual_identity,
+                    args: actual_args,
+                    ..
+                },
+            ) => {
+                same_type_identity(
+                    expected_name,
+                    expected_identity,
+                    actual_name,
+                    actual_identity,
+                ) && self.named_args_are_assignable(
+                    expected_identity,
+                    expected_args,
+                    actual_identity,
+                    actual_args,
+                )
+            }
+            _ => self.structurally_assignable(expected, actual),
+        }
+    }
+
+    fn trivially_assignable(expected: &Type, actual: &Type) -> bool {
+        expected == &Type::Unknown || actual == &Type::Unknown || expected == actual
+    }
+
+    fn structurally_assignable(self, expected: &Type, actual: &Type) -> bool {
+        match (expected, actual) {
+            (Type::Record(expected_fields), Type::Record(actual_fields)) => {
+                self.records_are_assignable(expected_fields, actual_fields)
+            }
+            (
+                Type::Named {
+                    name: expected_name,
+                    identity: expected_identity,
+                    args: expected_args,
+                },
+                Type::Named {
+                    name: actual_name,
+                    identity: actual_identity,
+                    args: actual_args,
+                },
+            ) => self.named_types_are_assignable(
+                expected_name,
+                expected_identity,
+                expected_args,
+                actual_name,
+                actual_identity,
+                actual_args,
+            ),
+            (
+                Type::VariantRefinement {
+                    name: expected_name,
+                    identity: expected_identity,
+                    args: expected_args,
+                    variants: expected_variants,
+                    ..
+                },
+                Type::VariantRefinement {
+                    name: actual_name,
+                    identity: actual_identity,
+                    args: actual_args,
+                    variants: actual_variants,
+                    ..
+                },
+            ) => {
+                same_type_identity(
+                    expected_name,
+                    expected_identity,
+                    actual_name,
+                    actual_identity,
+                ) && invariant_args_match(expected_args, actual_args)
+                    && expected_variants == actual_variants
+            }
+            (
+                Type::Function {
+                    params: expected_params,
+                    variadic: expected_variadic,
+                    return_type: expected_return,
+                    effects: expected_effects,
+                },
+                Type::Function {
+                    params: actual_params,
+                    variadic: actual_variadic,
+                    return_type: actual_return,
+                    effects: actual_effects,
+                },
+            ) => {
+                self.parameters_are_assignable(expected_params, actual_params)
+                    && self.variadics_are_assignable(expected_variadic, actual_variadic)
+                    && self.is_assignable(expected_return, actual_return)
+                    && effects_are_assignable(expected_effects, actual_effects)
+            }
+            _ => false,
+        }
+    }
+
+    fn records_are_assignable(
+        self,
+        expected: &[(String, Type)],
+        actual: &[(String, Type)],
+    ) -> bool {
+        expected.iter().all(|(expected_name, expected_ty)| {
+            actual
                 .iter()
-                .map(String::as_str)
-                .collect::<HashSet<_>>();
-            same_type_identity(
-                expected_name,
-                expected_identity,
-                actual_name,
-                actual_identity,
-            ) && named_args_are_assignable(
-                expected_identity,
-                expected_args,
-                actual_identity,
-                actual_args,
-            ) && actual_variants.iter().all(|variant| {
-                record_variant_set_lookup();
-                expected_variants.contains(variant.as_str())
-            })
-        }
-        (
-            Type::Named {
-                name: expected_name,
-                identity: expected_identity,
-                args: expected_args,
-                ..
-            },
-            Type::VariantRefinement {
-                name: actual_name,
-                identity: actual_identity,
-                args: actual_args,
-                ..
-            },
-        ) => {
-            same_type_identity(
-                expected_name,
-                expected_identity,
-                actual_name,
-                actual_identity,
-            ) && named_args_are_assignable(
-                expected_identity,
-                expected_args,
-                actual_identity,
-                actual_args,
-            )
-        }
-        _ => structurally_assignable(expected, actual),
+                .find(|(actual_name, _)| actual_name == expected_name)
+                .is_some_and(|(_, actual_ty)| self.is_assignable(expected_ty, actual_ty))
+        })
     }
-}
 
-pub(crate) fn is_assignable_nested(expected: &Type, actual: &Type) -> bool {
-    is_assignable(expected, actual)
-}
-
-fn trivially_assignable(expected: &Type, actual: &Type) -> bool {
-    expected == &Type::Unknown || actual == &Type::Unknown || expected == actual
-}
-
-fn structurally_assignable(expected: &Type, actual: &Type) -> bool {
-    match (expected, actual) {
-        (Type::Record(expected_fields), Type::Record(actual_fields)) => {
-            records_are_assignable(expected_fields, actual_fields)
-        }
-        (
-            Type::Named {
-                name: expected_name,
-                identity: expected_identity,
-                args: expected_args,
-            },
-            Type::Named {
-                name: actual_name,
-                identity: actual_identity,
-                args: actual_args,
-            },
-        ) => named_types_are_assignable(
+    fn named_types_are_assignable(
+        self,
+        expected_name: &str,
+        expected_identity: &str,
+        expected_args: &[Type],
+        actual_name: &str,
+        actual_identity: &str,
+        actual_args: &[Type],
+    ) -> bool {
+        if !same_type_identity(
             expected_name,
             expected_identity,
-            expected_args,
             actual_name,
             actual_identity,
+        ) || expected_args.len() != actual_args.len()
+        {
+            return false;
+        }
+
+        self.named_args_are_assignable(
+            expected_identity,
+            expected_args,
+            actual_identity,
             actual_args,
-        ),
-        (
-            Type::VariantRefinement {
-                name: expected_name,
-                identity: expected_identity,
-                args: expected_args,
-                variants: expected_variants,
-                ..
-            },
-            Type::VariantRefinement {
-                name: actual_name,
-                identity: actual_identity,
-                args: actual_args,
-                variants: actual_variants,
-                ..
-            },
-        ) => {
-            same_type_identity(
-                expected_name,
-                expected_identity,
-                actual_name,
-                actual_identity,
-            ) && invariant_args_match(expected_args, actual_args)
-                && expected_variants == actual_variants
+        )
+    }
+
+    fn named_args_are_assignable(
+        self,
+        expected_identity: &str,
+        expected_args: &[Type],
+        actual_identity: &str,
+        actual_args: &[Type],
+    ) -> bool {
+        let compiler_variance = match (
+            Type::is_compiler_covariant_identity(expected_identity),
+            Type::is_compiler_covariant_identity(actual_identity),
+        ) {
+            (true, true) => Some(Variance::Covariant),
+            (true, false) | (false, true) => return false,
+            (false, false) => None,
+        };
+        if expected_args.len() != actual_args.len() {
+            return false;
         }
-        (
-            Type::Function {
-                params: expected_params,
-                variadic: expected_variadic,
-                return_type: expected_return,
-                effects: expected_effects,
-            },
-            Type::Function {
-                params: actual_params,
-                variadic: actual_variadic,
-                return_type: actual_return,
-                effects: actual_effects,
-            },
-        ) => {
-            parameters_are_assignable(expected_params, actual_params)
-                && variadics_are_assignable(expected_variadic, actual_variadic)
-                && is_assignable(expected_return, actual_return)
-                && effects_are_assignable(expected_effects, actual_effects)
+        if expected_identity != actual_identity {
+            return invariant_args_match(expected_args, actual_args);
         }
-        _ => false,
+        let registry_variances = self.adts.and_then(|adts| {
+            adts.parameter_variances_for_identity(expected_identity, expected_args.len())
+        });
+        expected_args
+            .iter()
+            .zip(actual_args)
+            .enumerate()
+            .all(|(index, (expected, actual))| {
+                let variance = compiler_variance
+                    .or_else(|| {
+                        registry_variances.and_then(|variances| variances.get(index).copied())
+                    })
+                    .unwrap_or(Variance::Invariant);
+                match variance {
+                    Variance::Covariant => self.is_assignable(expected, actual),
+                    Variance::Contravariant => self.is_assignable(actual, expected),
+                    Variance::Invariant => invariant_types_match(expected, actual),
+                    Variance::Irrelevant => true,
+                }
+            })
+    }
+
+    fn parameters_are_assignable(self, expected: &[Type], actual: &[Type]) -> bool {
+        expected.len() == actual.len()
+            && expected
+                .iter()
+                .zip(actual)
+                .all(|(expected, actual)| self.is_assignable(actual, expected))
+    }
+
+    fn variadics_are_assignable(
+        self,
+        expected: &Option<Box<Type>>,
+        actual: &Option<Box<Type>>,
+    ) -> bool {
+        match (expected, actual) {
+            (Some(expected), Some(actual)) => self.is_assignable(actual, expected),
+            (None, None) => true,
+            _ => false,
+        }
     }
 }
 
-fn records_are_assignable(expected: &[(String, Type)], actual: &[(String, Type)]) -> bool {
-    expected.iter().all(|(expected_name, expected_ty)| {
-        actual
-            .iter()
-            .find(|(actual_name, _)| actual_name == expected_name)
-            .is_some_and(|(_, actual_ty)| is_assignable(expected_ty, actual_ty))
-    })
-}
-
-fn named_types_are_assignable(
-    expected_name: &str,
+pub(crate) fn named_args_are_assignable_with_registry(
     expected_identity: &str,
     expected_args: &[Type],
-    actual_name: &str,
     actual_identity: &str,
     actual_args: &[Type],
+    adts: &AdtRegistry,
 ) -> bool {
-    if !same_type_identity(
-        expected_name,
-        expected_identity,
-        actual_name,
-        actual_identity,
-    ) || expected_args.len() != actual_args.len()
-    {
-        return false;
-    }
-
-    named_args_are_assignable(
+    Assignability::with_registry(adts).named_args_are_assignable(
         expected_identity,
         expected_args,
         actual_identity,
         actual_args,
     )
-}
-
-pub(crate) fn named_args_are_assignable(
-    expected_identity: &str,
-    expected_args: &[Type],
-    actual_identity: &str,
-    actual_args: &[Type],
-) -> bool {
-    match (
-        Type::is_compiler_covariant_identity(expected_identity),
-        Type::is_compiler_covariant_identity(actual_identity),
-    ) {
-        (true, true) => {
-            expected_identity == actual_identity
-                && expected_args.len() == actual_args.len()
-                && expected_args
-                    .iter()
-                    .zip(actual_args)
-                    .all(|(expected, actual)| is_assignable(expected, actual))
-        }
-        (true, false) | (false, true) => false,
-        (false, false) => invariant_args_match(expected_args, actual_args),
-    }
-}
-
-fn parameters_are_assignable(expected: &[Type], actual: &[Type]) -> bool {
-    expected.len() == actual.len()
-        && expected
-            .iter()
-            .zip(actual)
-            .all(|(expected, actual)| is_assignable(actual, expected))
-}
-
-fn variadics_are_assignable(expected: &Option<Box<Type>>, actual: &Option<Box<Type>>) -> bool {
-    match (expected, actual) {
-        (Some(expected), Some(actual)) => is_assignable(actual, expected),
-        (None, None) => true,
-        _ => false,
-    }
 }
 
 pub(crate) fn same_type_identity(

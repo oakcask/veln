@@ -1,0 +1,17 @@
+pub type State
+	Ready
+	Closed
+end
+
+pub type Producer<T>
+	Produced(T)
+	Other
+end
+
+pub type Consumer<T>
+	Consumed(fn(T) -> ())
+end
+
+pub type Fixed<T>
+	Both(T, fn(T) -> ())
+end

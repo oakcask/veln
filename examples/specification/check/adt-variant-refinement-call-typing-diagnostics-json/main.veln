@@ -118,7 +118,7 @@ fn needs_base_box(value: Box<{x: Int}>) -> ()
 	()
 end
 
-fn wrong_box_argument(value: Box<{x: Int, y: Int}>::Boxed) -> ()
+fn accepted_covariant_box_argument(value: Box<{x: Int, y: Int}>::Boxed) -> ()
 	needs_narrow_box(value)
 	needs_base_box(value)
 end

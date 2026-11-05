@@ -70,7 +70,7 @@ impl<'a> FunctionChecker<'a> {
         expected_source: &ExpectedType,
         constraint: &'static str,
     ) {
-        if is_assignable(expected, actual) {
+        if is_assignable_with_registry(expected, actual, &self.environment.adts) {
             return;
         }
         if !type_contains_unknown(expected)
@@ -148,9 +148,9 @@ impl<'a> FunctionChecker<'a> {
         direct: bool,
     ) {
         if if direct {
-            is_assignable(expected, actual)
+            is_assignable_with_registry(expected, actual, &self.environment.adts)
         } else {
-            is_assignable_nested(expected, actual)
+            is_assignable_nested_with_registry(expected, actual, &self.environment.adts)
         } {
             return;
         }
@@ -578,7 +578,7 @@ impl<'a> FunctionChecker<'a> {
         self.effective_visible_bindings()
             .into_iter()
             .any(|(index, ty)| {
-                is_assignable(expected, &ty)
+                is_assignable_with_registry(expected, &ty, &self.environment.adts)
                     && constraint
                         .reason_for(self.bindings[index].name.as_str())
                         .is_some()
@@ -649,7 +649,9 @@ impl<'a> FunctionChecker<'a> {
             .into_iter()
             .rev()
             .enumerate()
-            .filter(|(_, (_, ty))| is_assignable(expected, ty))
+            .filter(|(_, (_, ty))| {
+                is_assignable_with_registry(expected, ty, &self.environment.adts)
+            })
             .map(|(distance, (index, ty))| RankedSymbolCandidate {
                 type_score: u8::from(ty != *expected),
                 distance,
@@ -913,11 +915,12 @@ fn variant_mismatch_sets<'a>(
             },
         ) => {
             if expected_identity != actual_identity
-                || !crate::type_relations::named_args_are_assignable(
+                || !crate::type_relations::named_args_are_assignable_with_registry(
                     expected_identity,
                     expected_args,
                     actual_identity,
                     actual_args,
+                    adts,
                 )
             {
                 return None;
@@ -949,11 +952,12 @@ fn variant_mismatch_sets<'a>(
                 ..
             },
         ) if expected_identity == actual_identity
-            && crate::type_relations::named_args_are_assignable(
+            && crate::type_relations::named_args_are_assignable_with_registry(
                 expected_identity,
                 expected_args,
                 actual_identity,
                 actual_args,
+                adts,
             ) =>
         {
             adts.descriptor_for_type(actual)?;
@@ -994,7 +998,7 @@ fn compare_schema_encode_types<'a>(
     actual: &'a Type,
     adts: &AdtRegistry,
 ) -> SchemaEncodeTypeComparison<'a> {
-    if is_assignable(expected, actual) {
+    if is_assignable_with_registry(expected, actual, adts) {
         return SchemaEncodeTypeComparison::Assignable;
     }
     if let Some(facts) = variant_mismatch_sets(expected, actual, adts) {

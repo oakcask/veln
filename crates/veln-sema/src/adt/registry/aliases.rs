@@ -251,6 +251,8 @@ fn alias_descriptor(alias: &PublicAlias, target: &AdtDescriptor) -> AdtDescripto
 struct TypeAliasTargetIndex {
     descriptor_first: HashMap<TypeAliasKey, usize>,
     descriptor_last: HashMap<TypeAliasKey, usize>,
+    canonical_descriptor_first: HashMap<TypeAliasKey, usize>,
+    canonical_descriptor_last: HashMap<TypeAliasKey, usize>,
     prelude_public: HashMap<String, TypeAliasTarget>,
     ambiguous_prelude_public: HashSet<String>,
     opaque_public: HashMap<String, usize>,
@@ -270,6 +272,8 @@ impl TypeAliasTargetIndex {
         let mut index = Self {
             descriptor_first: HashMap::new(),
             descriptor_last: HashMap::new(),
+            canonical_descriptor_first: HashMap::new(),
+            canonical_descriptor_last: HashMap::new(),
             prelude_public: HashMap::new(),
             ambiguous_prelude_public: HashSet::new(),
             opaque_public: HashMap::new(),
@@ -287,7 +291,13 @@ impl TypeAliasTargetIndex {
         for (position, descriptor) in descriptors.iter().enumerate() {
             let key = descriptor_identity(descriptor);
             self.descriptor_first.entry(key.clone()).or_insert(position);
-            self.descriptor_last.insert(key, position);
+            self.descriptor_last.insert(key.clone(), position);
+            if descriptor.nominal_identity.is_none() {
+                self.canonical_descriptor_first
+                    .entry(key.clone())
+                    .or_insert(position);
+                self.canonical_descriptor_last.insert(key, position);
+            }
             if descriptor.module_name.as_deref() == Some("std::prelude")
                 && descriptor.visibility == Visibility::Public
             {
@@ -417,7 +427,15 @@ impl TypeAliasTargetIndex {
 
     fn local_target(&self, key: &TypeAliasKey) -> IndexedTarget {
         let alias = indexed_position(&self.alias_first, &self.alias_last, key);
-        let descriptor = indexed_position(&self.descriptor_first, &self.descriptor_last, key);
+        let descriptor = match indexed_position(&self.descriptor_first, &self.descriptor_last, key)
+        {
+            IndexedPosition::Ambiguous => indexed_position(
+                &self.canonical_descriptor_first,
+                &self.canonical_descriptor_last,
+                key,
+            ),
+            descriptor => descriptor,
+        };
         match (alias, descriptor) {
             (IndexedPosition::Unique(index), IndexedPosition::Absent) => {
                 IndexedTarget::Unique(TypeAliasTarget::Alias(index))

@@ -93,7 +93,7 @@ fn type_for_effect_perform(
     }
     for (arg, param) in args.iter().zip(&operation.params) {
         let actual = type_for_effect_call_argument(arg, param, context)?;
-        if !crate::type_relations::is_assignable(param, &actual) {
+        if !crate::type_relations::is_assignable_with_registry(param, &actual, context.adts) {
             return None;
         }
     }
@@ -176,9 +176,10 @@ fn type_for_effect_call(
             .map(|(expected, actual)| (*expected, actual)),
     );
     if comparisons.iter().any(|(expected, actual)| {
-        !crate::type_relations::is_assignable(
+        !crate::type_relations::is_assignable_with_registry(
             &instantiate_effect_rows_in_type(expected, &substitutions),
             actual,
+            context.adts,
         )
     }) {
         return None;
@@ -229,7 +230,7 @@ fn type_for_effect_schema_call(
     }
     for (arg, param) in args.iter().zip(&signature.params) {
         let actual = type_for_effect_call_argument(arg, param, context)?;
-        if !crate::type_relations::is_assignable(param, &actual) {
+        if !crate::type_relations::is_assignable_with_registry(param, &actual, context.adts) {
             return None;
         }
     }
@@ -268,9 +269,10 @@ fn type_for_effect_constructor_call(
             .map(|(expected, actual)| (expected, actual)),
     );
     if payload_comparisons.iter().any(|(expected, actual)| {
-        !crate::type_relations::is_assignable(
+        !crate::type_relations::is_assignable_with_registry(
             &instantiate_effect_rows_in_type(expected, &row_substitutions),
             actual,
+            context.adts,
         )
     }) {
         return None;

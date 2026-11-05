@@ -75,7 +75,13 @@ impl<'a> FunctionChecker<'a> {
         let actual = self.infer_expr(&field.expr, field_expected.as_ref());
         let aggregate_actual = field_expected.as_ref().map_or_else(
             || actual.clone(),
-            |expected| inferred_aggregate_member_type_with_expected(actual.clone(), &expected.ty),
+            |expected| {
+                inferred_aggregate_member_type_with_expected(
+                    actual.clone(),
+                    &expected.ty,
+                    &self.environment.adts,
+                )
+            },
         );
         if let Some(field_expected) = &field_expected {
             if matches!(
@@ -200,7 +206,12 @@ impl<'a> FunctionChecker<'a> {
         if self.diagnostics.len() != item_diagnostic_count {
             return current_type.clone();
         }
-        let aggregate = dict_member_aggregate_type(&actual, contextual_type, has_contextual_type);
+        let aggregate = dict_member_aggregate_type(
+            &actual,
+            contextual_type,
+            has_contextual_type,
+            &self.environment.adts,
+        );
         let joined =
             self.join_dict_member(current_type, joined_type, &aggregate, has_contextual_type);
         self.check_dict_member(
@@ -280,8 +291,18 @@ impl<'a> FunctionChecker<'a> {
         constraint: &'static str,
     ) {
         if (!has_contextual_type && joined)
-            || (joined_type.is_none() && is_assignable_nested(&item_expected.ty, aggregate))
-            || (has_contextual_type && is_assignable_nested(&item_expected.ty, aggregate))
+            || (joined_type.is_none()
+                && is_assignable_nested_with_registry(
+                    &item_expected.ty,
+                    aggregate,
+                    &self.environment.adts,
+                ))
+            || (has_contextual_type
+                && is_assignable_nested_with_registry(
+                    &item_expected.ty,
+                    aggregate,
+                    &self.environment.adts,
+                ))
         {
             return;
         }
@@ -664,9 +685,10 @@ fn dict_member_aggregate_type(
     actual: &Type,
     contextual_type: &Type,
     has_contextual_type: bool,
+    adts: &crate::adt::registry::AdtRegistry,
 ) -> Type {
     if has_contextual_type {
-        inferred_aggregate_member_type_with_expected(actual.clone(), contextual_type)
+        inferred_aggregate_member_type_with_expected(actual.clone(), contextual_type, adts)
     } else {
         actual.clone()
     }

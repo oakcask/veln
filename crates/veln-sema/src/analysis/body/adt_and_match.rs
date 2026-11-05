@@ -525,7 +525,11 @@ impl<'a> FunctionChecker<'a> {
             || (!matches!(field.ty, AdtPayloadType::TypeParameter(_))
                 && !type_contains_unknown(&arg_expected.ty));
         let inferred = if has_context {
-            inferred_aggregate_member_type_with_expected(actual, &arg_expected.ty)
+            inferred_aggregate_member_type_with_expected(
+                actual,
+                &arg_expected.ty,
+                &self.environment.adts,
+            )
         } else {
             actual
         };
@@ -589,7 +593,10 @@ impl<'a> FunctionChecker<'a> {
             return;
         }
         let join_failed = !has_context && !joined && type_args.has_join(field);
-        if joined || (!join_failed && is_assignable_nested(&expected.ty, actual)) {
+        if joined
+            || (!join_failed
+                && is_assignable_nested_with_registry(&expected.ty, actual, &self.environment.adts))
+        {
             return;
         }
         let mismatch_context = ExpectedType {
@@ -699,7 +706,11 @@ impl<'a> FunctionChecker<'a> {
             return;
         }
         let aggregate_actual = if contextual_item {
-            inferred_aggregate_member_type_with_expected(actual.clone(), expected_item)
+            inferred_aggregate_member_type_with_expected(
+                actual.clone(),
+                expected_item,
+                &self.environment.adts,
+            )
         } else {
             actual.clone()
         };
@@ -722,8 +733,11 @@ impl<'a> FunctionChecker<'a> {
                 &mismatch_context,
                 "list_element",
             );
-        } else if !is_assignable_nested(&item_expected.ty, &aggregate_actual)
-            && (contextual_item || !joined)
+        } else if !is_assignable_nested_with_registry(
+            &item_expected.ty,
+            &aggregate_actual,
+            &self.environment.adts,
+        ) && (contextual_item || !joined)
         {
             self.push_list_item_mismatch(item, &item_expected, &actual, joined_items);
         }
@@ -1746,7 +1760,8 @@ impl<'a> FunctionChecker<'a> {
             | PatternKind::FloatLiteral(_)
             | PatternKind::BoolLiteral(_)
             | PatternKind::Unit => {
-                literal_or_unit_pattern_is_compatible(pattern, expected).unwrap_or(false)
+                literal_or_unit_pattern_is_compatible(pattern, expected, &self.environment.adts)
+                    .unwrap_or(false)
             }
         }
     }

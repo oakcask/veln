@@ -1,0 +1,40 @@
+command = ["check", "--json", "app.veln", "api.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 5
+
+[[json_assert]]
+path = "diagnostics"
+length = 5
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.4.id"
+equals = "type.variant_mismatch"

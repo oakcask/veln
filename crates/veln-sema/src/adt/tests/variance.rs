@@ -158,6 +158,110 @@ fn source_payload_shapes_and_private_payloads_produce_checked_metadata() {
 }
 
 #[test]
+fn assignment_consumes_all_checked_source_parameter_variances() {
+    let mut registry = registry_from_source(
+        "type Positive<T>\n  PositiveValue(T)\nend\n\
+         type Negative<T>\n  NegativeValue(fn(T) -> ())\nend\n\
+         type Fixed<T>\n  PositiveUse(T)\n  NegativeUse(fn(T) -> ())\nend\n\
+         type Ignored<T>\n  IgnoredValue\nend\n",
+    );
+    let narrow = crate::semantic_model::Type::variant_refinement(
+        "State",
+        Vec::new(),
+        vec!["Ready".to_string()],
+    );
+    let wide = crate::semantic_model::Type::named("State", Vec::new());
+    let named = |name: &str, argument: crate::semantic_model::Type| {
+        let identity = registry
+            .descriptors()
+            .iter()
+            .find(|descriptor| {
+                descriptor.type_name == name && descriptor.nominal_identity.is_none()
+            })
+            .expect("source descriptor")
+            .identity();
+        crate::semantic_model::Type::resolved_named(name, identity, vec![argument])
+    };
+
+    let positive_narrow = named("Positive", narrow.clone());
+    let positive_wide = named("Positive", wide.clone());
+    let negative_narrow = named("Negative", narrow.clone());
+    let negative_wide = named("Negative", wide.clone());
+    let fixed_narrow = named("Fixed", narrow.clone());
+    let fixed_wide = named("Fixed", wide.clone());
+    let ignored_narrow = named("Ignored", narrow.clone());
+    let ignored_wide = named("Ignored", wide.clone());
+
+    assert!(crate::type_relations::is_assignable_with_registry(
+        &positive_wide,
+        &positive_narrow,
+        &registry,
+    ));
+    assert!(!crate::type_relations::is_assignable_with_registry(
+        &positive_narrow,
+        &positive_wide,
+        &registry,
+    ));
+    assert!(crate::type_relations::is_assignable_with_registry(
+        &negative_narrow,
+        &negative_wide,
+        &registry,
+    ));
+    assert!(!crate::type_relations::is_assignable_with_registry(
+        &negative_wide,
+        &negative_narrow,
+        &registry,
+    ));
+    assert!(!crate::type_relations::is_assignable_with_registry(
+        &fixed_wide,
+        &fixed_narrow,
+        &registry,
+    ));
+    assert!(!crate::type_relations::is_assignable_with_registry(
+        &fixed_narrow,
+        &fixed_wide,
+        &registry,
+    ));
+    assert!(crate::type_relations::is_assignable_with_registry(
+        &ignored_wide,
+        &ignored_narrow,
+        &registry,
+    ));
+    assert!(crate::type_relations::is_assignable_with_registry(
+        &ignored_narrow,
+        &ignored_wide,
+        &registry,
+    ));
+
+    let nested_actual = crate::semantic_model::Type::function(
+        vec![positive_wide.clone()],
+        crate::semantic_model::Type::Record(vec![("value".to_string(), positive_narrow.clone())]),
+        Vec::new(),
+    );
+    let nested_expected = crate::semantic_model::Type::function(
+        vec![positive_narrow.clone()],
+        crate::semantic_model::Type::Record(vec![("value".to_string(), positive_wide.clone())]),
+        Vec::new(),
+    );
+    assert!(crate::type_relations::is_assignable_with_registry(
+        &nested_expected,
+        &nested_actual,
+        &registry,
+    ));
+
+    let positive_identity = match &positive_wide {
+        crate::semantic_model::Type::Named { identity, .. } => identity.clone(),
+        _ => unreachable!(),
+    };
+    registry.clear_parameter_variances_for_identity(&positive_identity);
+    assert!(!crate::type_relations::is_assignable_with_registry(
+        &positive_wide,
+        &positive_narrow,
+        &registry,
+    ));
+}
+
+#[test]
 fn nested_source_and_compiler_owned_constructors_compose_checked_metadata() {
     use Variance::{Contravariant as N, Covariant as P, Invariant as I, Irrelevant as X};
     let registry = registry_from_source(

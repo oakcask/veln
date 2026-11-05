@@ -1,0 +1,14 @@
+use api as dep
+
+type Producer<T>
+	Produced(T)
+end
+
+fn rejected_directions(wide: dep::Producer<dep::State>, narrow: dep::Producer<dep::State::Ready>, consumer: dep::Consumer<dep::State::Ready>, fixed: dep::Fixed<dep::State::Ready>, all_variants: dep::Producer<dep::State::Ready>) -> ()
+	let covariant_reverse: dep::Producer<dep::State::Ready> = wide
+	let contravariant_reverse: dep::Consumer<dep::State> = consumer
+	let invariant_argument: dep::Fixed<dep::State> = fixed
+	let distinct_owner: Producer<dep::State::Ready> = narrow
+	let refinement_reverse: dep::Producer<dep::State::Ready>::Produced = all_variants
+	()
+end
