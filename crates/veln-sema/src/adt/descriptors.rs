@@ -11,6 +11,11 @@ pub(crate) enum Variance {
     Irrelevant,
 }
 
+pub(crate) trait ParameterVarianceLookup {
+    fn parameter_variances_for_identity(&self, identity: &str, arity: usize)
+    -> Option<&[Variance]>;
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AdtVariantKind {
     OptionSome,

@@ -7,9 +7,10 @@ use veln_source::{SourcePath, SourceSpan};
 
 use crate::semantic_model::Type;
 
-use super::descriptors::{AdtConstructor, AdtDescriptor, AdtVariantDescriptor};
+use super::descriptors::{
+    AdtConstructor, AdtDescriptor, AdtVariantDescriptor, ParameterVarianceLookup, Variance,
+};
 use super::lookup_validation::{constructor_matches_visible_path, same_descriptor};
-use super::variance::Variance;
 
 mod aliases;
 mod build;
@@ -410,8 +411,27 @@ impl AdtRegistry {
         identity: &str,
         arity: usize,
     ) -> Option<&[Variance]> {
-        let candidates = self
-            .descriptors_by_identity
+        let candidates = self.parameter_variance_candidates(identity, arity);
+        let canonical = candidates
+            .iter()
+            .copied()
+            .filter(|descriptor| descriptor.nominal_identity.is_none())
+            .collect::<Vec<_>>();
+        match canonical.as_slice() {
+            [descriptor] => return Some(descriptor.parameter_variances.as_slice()),
+            [] => {}
+            _ => return None,
+        }
+        if candidates.is_empty() {
+            return self
+                .named_alias_parameter_variances(identity, arity)
+                .or_else(|| self.exposed_alias_parameter_variances(identity, arity));
+        }
+        common_parameter_variances(&candidates)
+    }
+
+    fn parameter_variance_candidates(&self, identity: &str, arity: usize) -> Vec<&AdtDescriptor> {
+        self.descriptors_by_identity
             .get(identity)
             .into_iter()
             .flatten()
@@ -420,69 +440,46 @@ impl AdtRegistry {
                 descriptor.type_parameters.len() == arity
                     && descriptor.parameter_variances.len() == arity
             })
+            .collect()
+    }
+
+    fn named_alias_parameter_variances(&self, identity: &str, arity: usize) -> Option<&[Variance]> {
+        let leaf = identity.rsplit("::").next().unwrap_or(identity);
+        let candidates = self
+            .descriptors_by_type_name
+            .get(leaf)
+            .into_iter()
+            .flatten()
+            .map(|index| &self.descriptors[*index])
+            .filter(|descriptor| {
+                descriptor.declaration_identity() == identity
+                    && descriptor.nominal_identity.is_some()
+                    && descriptor.type_parameters.len() == arity
+                    && descriptor.parameter_variances.len() == arity
+            })
             .collect::<Vec<_>>();
-        let canonical = candidates
-            .iter()
-            .copied()
-            .filter(|descriptor| descriptor.nominal_identity.is_none())
+        common_target_parameter_variances(&candidates)
+    }
+
+    fn exposed_alias_parameter_variances(
+        &self,
+        identity: &str,
+        arity: usize,
+    ) -> Option<&[Variance]> {
+        let candidates = self
+            .type_alias_exposure_paths
+            .values()
+            .filter_map(|path| {
+                let outer = &self.type_alias_exposure_segments[path.outer_node.segment]
+                    [path.outer_node.offset]
+                    .declaration;
+                (outer.identity == identity
+                    && path.terminal.type_parameters.len() == arity
+                    && path.terminal.parameter_variances.len() == arity)
+                    .then_some(path.terminal.as_ref())
+            })
             .collect::<Vec<_>>();
-        if canonical.len() == 1 {
-            return Some(canonical[0].parameter_variances.as_slice());
-        }
-        if !canonical.is_empty() {
-            return None;
-        }
-        if candidates.is_empty() {
-            let leaf = identity.rsplit("::").next().unwrap_or(identity);
-            let named_aliases = self
-                .descriptors_by_type_name
-                .get(leaf)
-                .into_iter()
-                .flatten()
-                .map(|index| &self.descriptors[*index])
-                .filter(|descriptor| {
-                    descriptor.declaration_identity() == identity
-                        && descriptor.nominal_identity.is_some()
-                        && descriptor.type_parameters.len() == arity
-                        && descriptor.parameter_variances.len() == arity
-                })
-                .collect::<Vec<_>>();
-            if let Some(target) = named_aliases.first() {
-                return named_aliases
-                    .iter()
-                    .all(|candidate| {
-                        candidate.identity() == target.identity()
-                            && candidate.parameter_variances == target.parameter_variances
-                    })
-                    .then_some(target.parameter_variances.as_slice());
-            }
-            let alias_targets = self
-                .type_alias_exposure_paths
-                .values()
-                .filter_map(|path| {
-                    let outer = &self.type_alias_exposure_segments[path.outer_node.segment]
-                        [path.outer_node.offset]
-                        .declaration;
-                    (outer.identity == identity
-                        && path.terminal.type_parameters.len() == arity
-                        && path.terminal.parameter_variances.len() == arity)
-                        .then_some(path.terminal.as_ref())
-                })
-                .collect::<Vec<_>>();
-            let target = alias_targets.first()?;
-            return alias_targets
-                .iter()
-                .all(|candidate| {
-                    candidate.identity() == target.identity()
-                        && candidate.parameter_variances == target.parameter_variances
-                })
-                .then_some(target.parameter_variances.as_slice());
-        }
-        let variances = candidates.first()?.parameter_variances.as_slice();
-        candidates
-            .iter()
-            .all(|descriptor| descriptor.parameter_variances == variances)
-            .then_some(variances)
+        common_target_parameter_variances(&candidates)
     }
 
     #[cfg(test)]
@@ -751,6 +748,37 @@ impl AdtRegistry {
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
         self.descriptor_for_type_path_with_arity(name, None, current_module, uses)
+    }
+}
+
+fn common_parameter_variances<'a>(candidates: &[&'a AdtDescriptor]) -> Option<&'a [Variance]> {
+    let variances = candidates.first()?.parameter_variances.as_slice();
+    candidates
+        .iter()
+        .all(|candidate| candidate.parameter_variances == variances)
+        .then_some(variances)
+}
+
+fn common_target_parameter_variances<'a>(
+    candidates: &[&'a AdtDescriptor],
+) -> Option<&'a [Variance]> {
+    let target = candidates.first()?;
+    candidates
+        .iter()
+        .all(|candidate| {
+            candidate.identity() == target.identity()
+                && candidate.parameter_variances == target.parameter_variances
+        })
+        .then_some(target.parameter_variances.as_slice())
+}
+
+impl ParameterVarianceLookup for AdtRegistry {
+    fn parameter_variances_for_identity(
+        &self,
+        identity: &str,
+        arity: usize,
+    ) -> Option<&[Variance]> {
+        AdtRegistry::parameter_variances_for_identity(self, identity, arity)
     }
 }
 

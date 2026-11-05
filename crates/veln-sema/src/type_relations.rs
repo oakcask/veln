@@ -105,8 +105,7 @@ fn record_type_presentation_child_insertions(inserted: usize) {
     let _ = inserted;
 }
 
-use crate::adt::registry::AdtRegistry;
-use crate::adt::variance::Variance;
+use crate::adt::descriptors::{ParameterVarianceLookup, Variance};
 
 pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
     Assignability::without_registry().is_assignable(expected, actual)
@@ -115,7 +114,7 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
 pub(crate) fn is_assignable_with_registry(
     expected: &Type,
     actual: &Type,
-    adts: &AdtRegistry,
+    adts: &dyn ParameterVarianceLookup,
 ) -> bool {
     Assignability::with_registry(adts).is_assignable(expected, actual)
 }
@@ -123,14 +122,14 @@ pub(crate) fn is_assignable_with_registry(
 pub(crate) fn is_assignable_nested_with_registry(
     expected: &Type,
     actual: &Type,
-    adts: &AdtRegistry,
+    adts: &dyn ParameterVarianceLookup,
 ) -> bool {
     is_assignable_with_registry(expected, actual, adts)
 }
 
 #[derive(Clone, Copy)]
 struct Assignability<'a> {
-    adts: Option<&'a AdtRegistry>,
+    adts: Option<&'a dyn ParameterVarianceLookup>,
 }
 
 impl<'a> Assignability<'a> {
@@ -138,7 +137,7 @@ impl<'a> Assignability<'a> {
         Self { adts: None }
     }
 
-    fn with_registry(adts: &'a AdtRegistry) -> Self {
+    fn with_registry(adts: &'a dyn ParameterVarianceLookup) -> Self {
         Self { adts: Some(adts) }
     }
 
@@ -396,7 +395,7 @@ pub(crate) fn named_args_are_assignable_with_registry(
     expected_args: &[Type],
     actual_identity: &str,
     actual_args: &[Type],
-    adts: &AdtRegistry,
+    adts: &dyn ParameterVarianceLookup,
 ) -> bool {
     Assignability::with_registry(adts).named_args_are_assignable(
         expected_identity,
