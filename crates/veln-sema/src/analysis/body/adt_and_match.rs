@@ -530,7 +530,15 @@ impl<'a> FunctionChecker<'a> {
             actual
         };
         let joined = type_args.try_join(field, &inferred, &self.environment.adts);
-        self.check_constructor_payload(arg, field, &arg_expected, &inferred, joined, type_args);
+        self.check_constructor_payload(
+            arg,
+            field,
+            &arg_expected,
+            &inferred,
+            has_context,
+            joined,
+            type_args,
+        );
         if self.diagnostics.len() == diagnostic_count
             && let Err(conflict) = type_args.commit(
                 field,
@@ -551,12 +559,14 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn check_constructor_payload(
         &mut self,
         arg: &Expr,
         field: &AdtPayloadField,
         expected: &ExpectedType,
         actual: &Type,
+        has_context: bool,
         joined: bool,
         type_args: &ConstructorTypeArgInference,
     ) {
@@ -578,20 +588,31 @@ impl<'a> FunctionChecker<'a> {
             );
             return;
         }
-        if joined || is_assignable_nested(&expected.ty, actual) {
+        let join_failed = !has_context && !joined && type_args.has_join(field);
+        if joined || (!join_failed && is_assignable_nested(&expected.ty, actual)) {
             return;
         }
         let mismatch_context = ExpectedType {
             ty: type_args.mismatch_expected(field, expected),
             ..expected.clone()
         };
-        self.check_contextual_assignable_nested(
-            arg,
-            &mismatch_context.ty,
-            actual,
-            &mismatch_context,
-            "call_argument",
-        );
+        if join_failed {
+            self.push_inferred_type_mismatch(
+                arg,
+                &mismatch_context.ty,
+                actual,
+                &mismatch_context,
+                "call_argument",
+            );
+        } else {
+            self.check_contextual_assignable_nested(
+                arg,
+                &mismatch_context.ty,
+                actual,
+                &mismatch_context,
+                "call_argument",
+            );
+        }
     }
 
     pub(super) fn infer_list(
@@ -684,7 +705,24 @@ impl<'a> FunctionChecker<'a> {
         };
         let joined =
             self.join_list_item(contextual_item, item_type, joined_items, &aggregate_actual);
-        if !is_assignable_nested(&item_expected.ty, &aggregate_actual)
+        let join_failed = !contextual_item && !joined && joined_items.is_some();
+        if join_failed {
+            let mismatch_expected = joined_items
+                .as_ref()
+                .map(AggregateTypeJoin::result_type)
+                .unwrap_or_else(|| item_expected.ty.clone());
+            let mismatch_context = ExpectedType {
+                ty: mismatch_expected,
+                ..item_expected.clone()
+            };
+            self.push_inferred_type_mismatch(
+                item,
+                &mismatch_context.ty,
+                &actual,
+                &mismatch_context,
+                "list_element",
+            );
+        } else if !is_assignable_nested(&item_expected.ty, &aggregate_actual)
             && (contextual_item || !joined)
         {
             self.push_list_item_mismatch(item, &item_expected, &actual, joined_items);
@@ -1797,6 +1835,7 @@ impl<'a> FunctionChecker<'a> {
             self.check_assignable(&arm.expr, &expected.ty, &actual, expected, "match_arm");
             return;
         }
+        let recovering_from_failed_join = result.failed();
         if !contribute_control_flow_result(&self.environment.adts, result, &actual) {
             let mismatch_expected = ExpectedType {
                 ty: result.recovery_type.clone(),
@@ -1805,13 +1844,23 @@ impl<'a> FunctionChecker<'a> {
                 origin_span: Some(match_expr.span.clone()),
                 origin_message: "Match result type inferred here.",
             };
-            self.check_assignable(
-                &arm.expr,
-                &mismatch_expected.ty,
-                &actual,
-                &mismatch_expected,
-                "match_arm",
-            );
+            if recovering_from_failed_join || type_contains_unknown(&actual) {
+                self.check_assignable(
+                    &arm.expr,
+                    &mismatch_expected.ty,
+                    &actual,
+                    &mismatch_expected,
+                    "match_arm",
+                );
+            } else {
+                self.push_inferred_type_mismatch(
+                    &arm.expr,
+                    &mismatch_expected.ty,
+                    &actual,
+                    &mismatch_expected,
+                    "match_arm",
+                );
+            }
         }
     }
 
@@ -1959,6 +2008,13 @@ impl ConstructorTypeArgInference {
             self.presentations[type_index].merge(&mut self.inferred[type_index], actual);
         }
         joined
+    }
+
+    fn has_join(&self, field: &AdtPayloadField) -> bool {
+        let AdtPayloadType::TypeParameter(type_index) = field.ty else {
+            return false;
+        };
+        self.joined[type_index].is_some()
     }
 
     fn mismatch_expected(&self, field: &AdtPayloadField, fallback: &ExpectedType) -> Type {

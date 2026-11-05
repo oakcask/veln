@@ -281,10 +281,6 @@ fn compiler_adapter_helpers_report_user_call_site_diagnostics() {
             "main.veln",
             format!(
                 concat!(
-                    "type List<A>\n",
-                    "  Nil\n",
-                    "  Cons(head: A, tail: List<A>)\n",
-                    "end\n",
                     "fn to_int(value: Int) -> Int\n",
                     "  value\n",
                     "end\n",

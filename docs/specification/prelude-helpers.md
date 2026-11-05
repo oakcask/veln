@@ -41,18 +41,22 @@ have no constructors and allow exported standard-package aliases to name host
 resources without exposing their representation. Compiler-known ADT
 descriptors classify their variant-refinement availability.
 Constructor-bearing descriptors such as `Option`, `Result`, and `List` expose
-a finite set, while the two resource descriptors are opaque. The
+a finite set. The compiler-owned `Dict` identity has an opaque descriptor for
+public type-alias resolution; an alias retains dictionary identity without
+gaining constructors or variant refinements. The two resource descriptors are
+also opaque. The
 [type](types.md#compatibility-and-limits) and
 [diagnostic](diagnostics-json.md#diagnostic-families) specifications own the
 observable refinement rules and failures. The toolchain
 `std` package is the source of truth for prelude declarations, visibility,
-ordinary types, ADTs other than compiler-owned `Option`, `Result`, and `List`,
-and Veln helper bodies. Only declarations resolved to that package's
+source-declared types and ADTs, and Veln helper bodies. Compiler descriptors
+instead own the nominal identities and refinement availability of `Option`,
+`Result`, `List`, and `Dict`. Only declarations resolved to that package's
 `std::prelude` module receive standard-prelude descriptor identity. A
-same-spelled module owned by an application keeps its package-qualified
-identity and cannot replace a standard descriptor. Compiler adapters retain
-expected-type and callback inference for public helper names declared by the
-standard package.
+same-spelled type or module owned by an application keeps its package-qualified
+identity and cannot replace or acquire a compiler-owned standard descriptor.
+Compiler adapters retain expected-type and callback inference for public
+helper names declared by the standard package.
 
 The `time::wall_time` descriptor returns the structural record type named by
 the public `std::prelude::WallTime` alias. The descriptor therefore supplies

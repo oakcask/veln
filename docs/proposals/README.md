@@ -16,9 +16,9 @@ also states it.
 
 ## Ready
 
-- Remaining named-type variance for `Option`, `Result`, `List`, `Dict`, and
-  source ADTs, plus bounded inference, variance metadata, and nested
-  incompatibility diagnostics:
+- Source-ADT parameter variance inference, bounded generic inference,
+  dependency variance metadata, modifier-free presentation, nested
+  incompatibility diagnostics, and failure preservation:
   [generic-and-function-variance.md](generic-and-function-variance.md).
 
 ## Design In Progress

@@ -39,7 +39,7 @@ impl DerefMut for PrivateBindings {
 pub(crate) fn function_body_param_type(param: &veln_ast::Param) -> Type {
     let ty = parse_type_or_unknown(param.ty.as_deref());
     if param.is_variadic {
-        Type::named("List", vec![ty])
+        Type::list(ty)
     } else {
         ty
     }

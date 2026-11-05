@@ -192,6 +192,10 @@ fn infer_private_constructor_payload(
         return;
     };
     let joined = type_args.try_join(field, &inferred_actual, context.adts);
+    if expected.is_none() && !joined && type_args.has_join(field) {
+        *context.failures += 1;
+        return;
+    }
     let merge_invariant =
         crate::type_relations::is_assignable_nested(&payload_expected, &inferred_actual)
             || unification::is_direct_variant_carrier(&payload_expected, &inferred_actual);
@@ -350,6 +354,17 @@ impl PrivateConstructorTypeArgInference {
             self.presentations[*type_index].merge(&mut self.inferred[*type_index], actual);
         }
         joined
+    }
+
+    fn has_join(&self, field: Option<&AdtPayloadField>) -> bool {
+        let Some(AdtPayloadField {
+            ty: AdtPayloadType::TypeParameter(type_index),
+            ..
+        }) = field
+        else {
+            return false;
+        };
+        self.joined[*type_index].is_some()
     }
 
     #[allow(clippy::too_many_arguments)]

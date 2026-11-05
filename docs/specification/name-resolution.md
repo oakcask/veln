@@ -400,8 +400,11 @@ and [`unavailable typed call`](../../examples/specification/check/module-value-u
 cases cover both outcomes.
 
 A finite chain of public type aliases is a valid type-alias target when it
-terminates in a resolved source ADT. Every alias in the chain retains the
-terminal ADT's nominal identity while remaining a selectable type name. A
+terminates in a resolved source ADT or in the compiler-owned `Option`, `Result`,
+`List`, or `Dict` constructor. Every alias in the chain retains the terminal
+type's nominal identity while remaining a selectable type name. Only a
+terminal finite ADT supplies constructors and supports variant-refinement
+qualification; an alias of `Dict` remains an opaque named dictionary type. A
 direct function target reports `name.kind_mismatch`. A target that does not
 resolve to a type reports `name.unresolved`. The
 [type compatibility rules](types.md#compatibility-and-limits) define how a

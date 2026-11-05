@@ -41,9 +41,6 @@ pub(super) fn named_field(name: &str, type_name: &str) -> AdtPayloadField {
 pub(super) fn diagnostic_path_field() -> AdtPayloadField {
     field(
         "field_path",
-        Type::named(
-            "List",
-            vec![Type::named("RuntimeDiagnosticFieldPathSegment", Vec::new())],
-        ),
+        Type::list(Type::named("RuntimeDiagnosticFieldPathSegment", Vec::new())),
     )
 }

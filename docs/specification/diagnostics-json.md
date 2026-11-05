@@ -843,13 +843,23 @@ differences do not create such an
 invariance failure: when invariant arguments have the same resolved type, an
 outer finite-set or base-to-refinement exclusion remains
 `type.variant_mismatch`, with independent alias spellings in `actual_type` and
-`expected_type`. A nested refinement that fails ordinary assignment reports
-`type.mismatch`; its actual type preserves the inferred nested refinement. This
-includes assigning an inferred named aggregate with an invariant refined type
-argument to the corresponding type that uses the base ADT. Record fields and
-compiler-owned `Vec<T>` elements use covariance, so widening an inferred
-singleton-refined field or vector element to its base type produces no
-diagnostic. The reverse record or vector assignment fails with
+`expected_type`. The same classification applies when compiler-owned covariant
+arguments are assignable after widening: an actual
+`Option<State::Ready>::None` or base `Option<State::Ready>` where
+`Option<State>::Some` is expected reports the outer exclusion as
+`type.variant_mismatch`. A nested refinement that fails ordinary assignment
+instead reports `type.mismatch`; its actual type preserves the inferred nested
+refinement. This includes assigning an inferred named aggregate with an
+invariant refined type argument to the corresponding type that uses the base
+ADT, or supplying `Option<State>::None` where
+`Option<State::Ready>::Some` is expected. Record fields and every argument of
+compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and
+`Dict<K, V>` use covariance, so widening an inferred singleton-refined position
+to its base type produces no diagnostic when the outer variant set is also
+compatible. The reverse argument assignment fails with `type.mismatch`. The
+constructor must have the resolved compiler-owned identity; a source or
+imported constructor with the same displayed name remains invariant, including
+a root-module declaration and its aliases. A mismatched assignment reports
 `type.mismatch`. During aggregate inference, an
 incompatible later contribution reports the aggregate position's accumulated
 type as expected and preserves the later contribution's constructor refinement
@@ -870,6 +880,14 @@ type as actual. None of that payload's occurrences update the accumulated type,
 so a later payload is checked against only the constraints that were complete
 before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
+
+Compiler-owned covariance is not an inference fallback when no concrete
+expected component or result type exists. Unequal covariantly related
+`Option`, `Result`, `List`, `Vec`, or `Dict` arguments in one collection,
+constructor, `if`, or `match` inference report ordinary `type.mismatch` at the
+incompatible contribution. The accumulated type is `expected_type`, and the
+contribution's complete type is `actual_type`. Reversing contribution order
+reverses those rendered roles but does not make the inference succeed.
 
 Generated schema encode boundaries additionally inspect corresponding fields
 of anonymous records and corresponding arguments of `Option`, `List`, `Vec`,

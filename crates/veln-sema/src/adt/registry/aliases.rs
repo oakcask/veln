@@ -12,7 +12,7 @@ use super::{
     TypeAliasExposureNode, TypeAliasExposureNodeId, TypeAliasExposurePathRecord,
     descriptor_identity,
 };
-use crate::adt::descriptors::AdtDescriptor;
+use crate::adt::descriptors::{AdtDescriptor, VariantRefinementAvailability};
 
 pub(super) fn type_alias_descriptors(
     module: &SurfaceModule,
@@ -71,6 +71,7 @@ fn eligible_type_aliases(module: &SurfaceModule) -> Vec<&PublicAlias> {
 enum TypeAliasTarget {
     Descriptor(usize),
     Alias(usize),
+    CompilerDict,
     Missing,
 }
 
@@ -198,9 +199,28 @@ impl<'a> TypeAliasResolver<'a> {
                     return (path, Some(self.descriptors[index].clone()));
                 }
                 TypeAliasTarget::Alias(index) => current = index,
+                TypeAliasTarget::CompilerDict => {
+                    return (path, Some(compiler_dict_descriptor()));
+                }
                 TypeAliasTarget::Missing => return (path, None),
             }
         }
+    }
+}
+
+fn compiler_dict_descriptor() -> AdtDescriptor {
+    AdtDescriptor {
+        type_name: "Dict".to_string(),
+        name_class: crate::source_less_names::SourceLessNameClass::Type,
+        package_name: None,
+        module_name: None,
+        nominal_identity: Some(crate::semantic_model::Type::COMPILER_DICT_IDENTITY.to_string()),
+        type_parameters: vec!["K".to_string(), "V".to_string()],
+        variants: Vec::new(),
+        diagnostic_name: "dict".to_string(),
+        refinement_availability: VariantRefinementAvailability::Opaque,
+        propagation: None,
+        visibility: Visibility::Public,
     }
 }
 
@@ -360,6 +380,9 @@ impl TypeAliasTargetIndex {
             }
             if let Some(&index) = self.opaque_public.get(name) {
                 return TypeAliasTarget::Descriptor(index);
+            }
+            if name == "Dict" {
+                return TypeAliasTarget::CompilerDict;
             }
             return TypeAliasTarget::Missing;
         }

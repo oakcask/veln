@@ -153,6 +153,60 @@ test container_transformations_preserve_order_and_original_state() -> Result<(),
 	expect_prelude(list_fold(list, 0, add_values) == 6 and reversed and list_fold(list_filter(list, keep_non_two), 0, add_values) == 4 and list_fold(list_map(list, double_value), 0, add_values) == 12 and list_is_empty(list_nil()), "List transformation changed")
 end
 
+fn collect_covariant_entry(entries: Vec<{ key : Option<Int>, value : Result<Int, String> }>, key: Option<Int>, value: Result<Int, String>) -> Vec<{ key : Option<Int>, value : Result<Int, String> }>
+	vec_push(entries, { key: key, value: value })
+end
+
+test widened_dictionary_operations_preserve_original_entries_and_order() -> Result<(), String>
+	let primary: Option<Int>::Some = Some(1)
+	let secondary: Option<Int>::Some = Some(2)
+	let additional: Option<Int>::None = None
+	let first: Result<Int, String>::Ok = Ok(10)
+	let second: Result<Int, String>::Ok = Ok(20)
+	let additional_value: Result<Int, String>::Err = Err("added")
+	let empty: Dict<Option<Int>::Some, Result<Int, String>::Ok> = {}
+	let original = dict_insert(dict_insert(empty, primary, first), secondary, second)
+	let widened: Dict<Option<Int>, Result<Int, String>> = original
+	let original_entries: Vec<{ key : Option<Int>, value : Result<Int, String> }> = dict_fold(widened, [], collect_covariant_entry)
+	let present = match dict_get(widened, primary)
+		Some(Ok(10)) => true
+		_ => false
+	end
+	let absent = match dict_get(widened, additional)
+		None => true
+		_ => false
+	end
+	let inserted = dict_insert(widened, additional, additional_value)
+	let removed = dict_remove(widened, primary)
+	let inserted_visible = match dict_get(inserted, additional)
+		Some(Err("added")) => true
+		_ => false
+	end
+	let removed_absent = match dict_get(removed, primary)
+		None => true
+		_ => false
+	end
+	let original_view: Dict<Option<Int>, Result<Int, String>> = original
+	let preserved_entries: Vec<{ key : Option<Int>, value : Result<Int, String> }> = dict_fold(original_view, [], collect_covariant_entry)
+	let original_values = match dict_get(original_view, primary)
+		Some(Ok(10)) => match dict_get(original_view, secondary)
+			Some(Ok(20)) => match dict_get(original_view, additional)
+				None => true
+				_ => false
+			end
+			_ => false
+		end
+		_ => false
+	end
+	let _ = expect_prelude(present, "widened Dict lost a present key")?
+	let _ = expect_prelude(absent, "widened Dict found an absent key")?
+	let _ = expect_prelude(inserted_visible, "insert through widened Dict did not retain the new entry")?
+	let _ = expect_prelude(removed_absent, "remove through widened Dict retained the removed entry")?
+	let _ = expect_prelude(original_values, "widened Dict operation changed original keys or values")?
+	let _ = expect_prelude(vec_len(original_entries) == 2, "widened Dict iteration lost an original entry")?
+	expect_prelude(preserved_entries == original_entries, "widened Dict operation changed original iteration order")
+end
+
 test option_result_and_contextual_traversal_preserve_variants() -> Result<(), String>
 	let option = match option_and_then(option_map(Some(3), double_value), keep_positive)
 		Some(6) => true

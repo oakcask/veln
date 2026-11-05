@@ -1657,10 +1657,6 @@ fn bytecode_backend_public_list_helpers_traverse_large_lists_iteratively_when_ja
     }
 
     let ir = lower_to_ir(concat!(
-        "type List<A>\n",
-        "  Nil\n",
-        "  Cons(head: A, tail: List<A>)\n",
-        "end\n",
         "fn add(total: Int, value: Int) -> Int\n",
         "  total + value\n",
         "end\n",

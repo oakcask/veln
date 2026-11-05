@@ -502,10 +502,6 @@ fn infers_prelude_helper_calls_from_expected_types() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "type List<A>\n",
-            "  Nil\n",
-            "  Cons(head: A, tail: List<A>)\n",
-            "end\n",
             "pub fn main(items: Vec<Int>, other: Vec<Int>, table: Dict<String, Int>, ",
             "list: List<Int>, one_byte: Byte, chunk: ByteChunk, other_chunk: ByteChunk, ",
             "view: ByteView, count: ByteCount, offset: ByteOffset, ",

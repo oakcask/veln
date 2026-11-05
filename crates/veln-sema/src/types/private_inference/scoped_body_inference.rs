@@ -328,7 +328,7 @@ pub(crate) fn private_function_body_bindings(
                 let ty = if param.is_variadic {
                     signature
                         .and_then(|signature| signature.variadic.clone())
-                        .map(|ty| Type::named("List", vec![ty]))
+                        .map(Type::list)
                         .unwrap_or_else(|| function_body_param_type(param))
                 } else {
                     signature

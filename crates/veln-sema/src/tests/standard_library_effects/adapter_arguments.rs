@@ -69,10 +69,6 @@ fn compiler_adapter_helpers_report_direct_argument_diagnostics() {
         (
             "list_is_empty",
             concat!(
-                "type List<A>\n",
-                "  Nil\n",
-                "  Cons(head: A, tail: List<A>)\n",
-                "end\n",
                 "pub fn main(value: Int) -> Bool\n",
                 "  list_is_empty(value)\n",
                 "end\n",
@@ -82,10 +78,6 @@ fn compiler_adapter_helpers_report_direct_argument_diagnostics() {
         (
             "list_map",
             concat!(
-                "type List<A>\n",
-                "  Nil\n",
-                "  Cons(head: A, tail: List<A>)\n",
-                "end\n",
                 "fn stringify(value: Int) -> String\n",
                 "  \"ok\"\n",
                 "end\n",
@@ -98,10 +90,6 @@ fn compiler_adapter_helpers_report_direct_argument_diagnostics() {
         (
             "list_try_map",
             concat!(
-                "type List<A>\n",
-                "  Nil\n",
-                "  Cons(head: A, tail: List<A>)\n",
-                "end\n",
                 "fn stringify(value: Int) -> Result<String, String>\n",
                 "  Ok(\"ok\")\n",
                 "end\n",

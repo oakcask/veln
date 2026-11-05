@@ -98,12 +98,7 @@ pub(super) fn source_prelude_concrete_type(ty: &Type, known_types: &BTreeSet<Str
     match ty {
         Type::Unknown => Type::Unknown,
         Type::Named { name, args, .. } if source_prelude_type_name_is_known(name, known_types) => {
-            Type::named(
-                name.clone(),
-                args.iter()
-                    .map(|arg| source_prelude_concrete_type(arg, known_types))
-                    .collect(),
-            )
+            source_prelude_concrete_named_type(name, args, known_types)
         }
         Type::Named { .. } => Type::Unknown,
         Type::VariantRefinement {
@@ -113,14 +108,7 @@ pub(super) fn source_prelude_concrete_type(ty: &Type, known_types: &BTreeSet<Str
             variants,
             ..
         } if source_prelude_type_name_is_known(name, known_types) => {
-            Type::resolved_variant_refinement(
-                name.clone(),
-                identity.clone(),
-                args.iter()
-                    .map(|arg| source_prelude_concrete_type(arg, known_types))
-                    .collect(),
-                variants.to_vec(),
-            )
+            source_prelude_concrete_refinement(name, identity, args, variants, known_types)
         }
         Type::VariantRefinement { .. } => Type::Unknown,
         Type::Record(fields) => Type::Record(
@@ -129,22 +117,66 @@ pub(super) fn source_prelude_concrete_type(ty: &Type, known_types: &BTreeSet<Str
                 .map(|(name, ty)| (name.clone(), source_prelude_concrete_type(ty, known_types)))
                 .collect(),
         ),
-        Type::Function {
-            params,
-            variadic,
-            return_type,
-            effects,
-        } => Type::Function {
-            params: params
-                .iter()
-                .map(|param| source_prelude_concrete_type(param, known_types))
-                .collect(),
-            variadic: variadic
-                .as_deref()
-                .map(|ty| Box::new(source_prelude_concrete_type(ty, known_types))),
-            return_type: Box::new(source_prelude_concrete_type(return_type, known_types)),
-            effects: effects.clone(),
-        },
+        Type::Function { .. } => source_prelude_concrete_function(ty, known_types),
+    }
+}
+
+fn source_prelude_concrete_named_type(
+    name: &str,
+    args: &[Type],
+    known_types: &BTreeSet<String>,
+) -> Type {
+    let args = args
+        .iter()
+        .map(|arg| source_prelude_concrete_type(arg, known_types))
+        .collect::<Vec<_>>();
+    match (name, args.as_slice()) {
+        ("Option", [value]) => Type::option(value.clone()),
+        ("Result", [value, error]) => Type::result(value.clone(), error.clone()),
+        ("List", [item]) => Type::list(item.clone()),
+        ("Vec", [item]) => Type::vec(item.clone()),
+        ("Dict", [key, value]) => Type::dict(key.clone(), value.clone()),
+        _ => Type::named(name, args),
+    }
+}
+
+fn source_prelude_concrete_refinement(
+    name: &str,
+    identity: &str,
+    args: &[Type],
+    variants: &[String],
+    known_types: &BTreeSet<String>,
+) -> Type {
+    Type::resolved_variant_refinement(
+        name,
+        identity,
+        args.iter()
+            .map(|arg| source_prelude_concrete_type(arg, known_types))
+            .collect(),
+        variants.to_vec(),
+    )
+}
+
+fn source_prelude_concrete_function(ty: &Type, known_types: &BTreeSet<String>) -> Type {
+    let Type::Function {
+        params,
+        variadic,
+        return_type,
+        effects,
+    } = ty
+    else {
+        unreachable!("caller should provide a function type");
+    };
+    Type::Function {
+        params: params
+            .iter()
+            .map(|param| source_prelude_concrete_type(param, known_types))
+            .collect(),
+        variadic: variadic
+            .as_deref()
+            .map(|ty| Box::new(source_prelude_concrete_type(ty, known_types))),
+        return_type: Box::new(source_prelude_concrete_type(return_type, known_types)),
+        effects: effects.clone(),
     }
 }
 

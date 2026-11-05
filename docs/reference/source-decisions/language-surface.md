@@ -36,6 +36,7 @@ or compatibility context.
 
 ## Types And Values
 
+- [Dictionary Key Covariance](records/result-dictionary-key-covariance.md)
 - [Error Type Inference](records/result-error-type-inference.md)
 - [First-Slice Value Mutability](records/result-first-slice-value-mutability.md)
 - [Public Function Type Boundaries](records/result-public-function-type-boundaries.md)

@@ -1388,6 +1388,17 @@ successful contributions and for an inferred private result. This exclusion
 also applies when a call argument or constructor payload fails but recovery can
 still identify the call or constructor's refined result type.
 
+Without a concrete expected component or result type, assignment covariance
+does not join unequal arguments of compiler-owned immutable constructors. For
+example, `Option<State::Ready>` and `Option<State>` are incompatible
+contributions to one inferred collection position in either source order. The
+same boundary applies to `Result`, `List`, `Vec`, and `Dict` arguments, repeated
+generic constructor payloads, and unannotated `if` or `match` results. The
+incompatible contribution reports `type.mismatch` against the type accumulated
+from preceding successful contributions. A concrete expected type instead
+checks every contribution by ordinary assignment compatibility and can accept
+the covariant widening.
+
 The join applies when repeated constructor payloads use a type parameter
 directly. If the same parameter also occurs inside a named payload, that nested
 occurrence establishes an exact inference constraint independently of the
@@ -1431,11 +1442,11 @@ boundary, so `[Ready]` can construct an explicitly expected `Vec<State>` and
 The same rule lets `Boxed(Ready)` construct an explicitly expected
 `Box<State>`. Without that context, the values retain `Vec<State::Ready>`,
 `Dict<State::Ready, Int>`, and `Box<State::Ready>::Boxed`. A later assignment
-widens the inferred vector to `Vec<State>` because the compiler-owned `Vec<T>`
-element is covariant. The corresponding assignments from the inferred
-dictionary and source ADT remain rejected because their named type arguments
-are invariant. Aggregate inference does not add covariance to those invariant
-constructors.
+widens the inferred vector to `Vec<State>` and the inferred dictionary to
+`Dict<State, Int>` because those compiler-owned immutable constructors are
+covariant. The corresponding assignment from the inferred source ADT remains
+rejected because its named type argument is invariant. Aggregate inference
+does not add covariance to an invariant constructor.
 
 At a direct assignment, argument, or result boundary, variant assignability is
 defined as follows:
@@ -1450,6 +1461,12 @@ defined as follows:
 | `A<T>` | a singleton or variant set | Rejected. |
 | `A<T>::W` | a different singleton `A<T>::V` | Rejected. |
 
+For the compiler-owned immutable ADTs, the argument comparison also permits a
+refinement such as `Option<State::Ready>::Some` where
+`Option<State>::Some | Option<State>::None` is expected. The argument must
+widen covariantly and the actual variant set must remain a subset of the
+expected set. Reversing either relation is rejected.
+
 The base ADT identity is nominal and includes the resolved owning package and
 module. A refinement of one ADT cannot widen to a same-spelled base ADT from
 another package or module.
@@ -1461,8 +1478,9 @@ condition. An earlier error that leaves an expression untyped does not add a
 derivative refinement mismatch.
 
 Complete record and function types use the same assignment relation
-recursively. Named generic arguments remain invariant except for the
-compiler-owned immutable `Vec<T>` constructor.
+recursively. Named generic arguments remain invariant except for every
+argument of the compiler-owned immutable `Option<T>`, `Result<T, E>`,
+`List<T>`, `Vec<T>`, and `Dict<K, V>` constructors.
 
 | Type form | Assignment condition |
 | --- | --- |
@@ -1471,7 +1489,7 @@ compiler-owned immutable `Vec<T>` constructor.
 | Variadic function inputs | Both functions are variadic, their fixed counts match, and the expected variadic element type is assignable to the actual variadic element type. A fixed function and a variadic function are incompatible. |
 | Function result | The actual result type is assignable to the expected result type. |
 | Function effects | Every actual effect occurs in the expected effect set. The check applies independently at every nested function node. |
-| Same named type | The resolved constructor identity and all generic arguments match invariantly. For the compiler-owned `Vec<T>` constructor, the actual element type must instead be assignable to the expected element type. `unknown` retains its recovery behavior inside an argument. |
+| Same named type | The resolved constructor identity matches. Generic arguments match invariantly for ordinary constructors. For compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`, each actual argument must instead be assignable to its expected argument. `unknown` retains its recovery behavior inside an argument. |
 
 Function inputs are contravariant as complete types. Function results and
 record fields are covariant. Two nested function-input positions reverse the
@@ -1529,6 +1547,11 @@ Complete structural assignment is checked in the accepted
 [`complete-type-structural-assignability`](../../examples/specification/check/complete-type-structural-assignability/)
 case and its
 [`diagnostic companion`](../../examples/specification/check/complete-type-structural-assignability-diagnostics/).
+Those cases cover compiler-owned covariance through direct constructors and
+public aliases. They also check that same-spelled source constructors and their
+aliases remain nominal and invariant. The checked
+[`complete-type-structural-assignability-root-nominal-diagnostics`](../../examples/specification/check/complete-type-structural-assignability-root-nominal-diagnostics/)
+case exercises that separation for declarations in the root module.
 
 Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and
@@ -1582,19 +1605,28 @@ and schema `validate` clauses remain in the runtime-validation boundary,
 including on composed branches without refinements. A binary schema anywhere
 in that graph makes the operation a static failure, as does the
 provider-dependent unavailable-descriptor diagnostic.
-This behavior does not add variance for named generic constructors other than
-the compiler-owned `Vec<T>` exception, and it does not add generic inference.
+This behavior does not add variance for named generic constructors outside the
+compiler-owned immutable set, and it does not add generic inference.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual
 record and be assignable. Named types with the same constructor require
-invariant generic arguments except for compiler-owned `Vec<T>`. Its element is
-covariant, so `Vec<State::Ready>` satisfies `Vec<State>` but the reverse
-assignment fails. The exception requires the same resolved `Vec` constructor;
-compiler provenance is part of that identity, so a source declaration named
-`Vec` cannot acquire the exception. It does not relate distinct nominal
-constructors. Recovery still lets
-`unknown` match a complete argument. `Path` and `String` are distinct named types at
+invariant generic arguments except for compiler-owned immutable `Option<T>`,
+`Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`. Every parameter of those
+constructors is covariant, so an actual argument may widen to the expected
+argument but the reverse assignment fails. The
+[dictionary key covariance decision](../reference/source-decisions/records/result-dictionary-key-covariance.md)
+records the immutable lookup and update properties that support the `Dict` key
+rule. The exception requires the same resolved compiler-owned constructor.
+Public aliases of `Option`, `Result`,
+`List`, and `Dict` retain it by resolving to that identity, while a source or
+imported declaration with the same displayed name cannot acquire it. This
+separation also applies to a same-spelled source declaration in the root
+module and to aliases of that declaration. The rule does not relate distinct
+nominal constructors and does not coerce runtime values. It applies only where
+a concrete expected type exists; it does not widen a context-free generic join
+or constructor inference.
+Recovery still lets `unknown` match a complete argument. `Path` and `String` are distinct named types at
 assignment boundaries; the runtime path representation is not source-visible.
 Function assignment checks fixed parameter count, parameter types, variadic
 shape, return type, and effects. Variadic and fixed-arity function types are

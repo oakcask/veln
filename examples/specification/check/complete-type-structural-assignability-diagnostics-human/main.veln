@@ -1,0 +1,12 @@
+type State
+	Ready
+	Closed
+end
+
+fn reject_covariant_refinement(value: Option<State::Ready>::None) -> Option<State>::Some
+	value
+end
+
+fn reject_covariant_base(value: Option<State::Ready>) -> Option<State>::Some
+	value
+end

@@ -154,7 +154,7 @@ fn schema_encode_repeat_field_type(
         return Some(None);
     }
     let element_ty = schema_repeat_payload_type(module, schema, repeat, &mut Vec::new())?;
-    Some(Some(Type::named("List", vec![element_ty])))
+    Some(Some(Type::list(element_ty)))
 }
 
 fn schema_references_are_visible_int(
@@ -249,7 +249,7 @@ mod tests {
                 ("length".to_string(), Type::int()),
                 ("payload".to_string(), Type::named("ByteView", Vec::new())),
                 ("count".to_string(), Type::int()),
-                ("items".to_string(), Type::named("List", vec![Type::int()])),
+                ("items".to_string(), Type::list(Type::int())),
                 (
                     "header".to_string(),
                     Type::Record(vec![

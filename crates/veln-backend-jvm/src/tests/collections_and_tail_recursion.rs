@@ -245,10 +245,6 @@ fn bytecode_backend_runs_dict_callback_aliases_when_java_is_available() {
 #[test]
 fn bytecode_backend_runs_list_helpers_when_java_is_available() {
     let ir = lower_to_ir(concat!(
-        "type List<A>\n",
-        "  Nil\n",
-        "  Cons(head: A, tail: List<A>)\n",
-        "end\n",
         "fn add(total: Int, value: Int) -> Int\n",
         "  total + value\n",
         "end\n",

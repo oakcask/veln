@@ -4,6 +4,9 @@ exit = 1
 [stdout]
 format = "json"
 contains = [
+  "value of type `Option<State::Ready>::None` is not assignable to variant type `Option<State>::Some`",
+  "value of type `Option<State::Ready>` is not assignable to variant type `Option<State>::Some`",
+  "expected `Option<State::Ready>::Some`, but found `Option<State>::None`",
   "value of type `State` is not assignable to variant type `State::Ready`",
   "expected `{state: State::Ready, label: String}`, but found `{state: State}`",
   "expected `fn(State) -> State::Ready`, but found `fn(State::Ready) -> State`",
@@ -15,7 +18,27 @@ contains = [
   "expected `fn() -> ()`, but found `fn() -> () effects [stdio]`",
   "expected `fn(fn() -> () effects [stdio]) -> ()`, but found `fn(fn() -> ()) -> ()`",
   "expected `Vec<State::Ready>`, but found `Vec<State>`",
+  "expected `Option<State::Ready>`, but found `Option<State>`",
+  "expected `Result<State::Ready, String>`, but found `Result<State, String>`",
+  "expected `Result<Int, State::Ready>`, but found `Result<Int, State>`",
+  "expected `List<State::Ready>`, but found `List<State>`",
+  "expected `Dict<State::Ready, Int>`, but found `Dict<State, Int>`",
+  "expected `Dict<String, State::Ready>`, but found `Dict<String, State>`",
+  "expected `Dict<State::Ready, Int>`, but found `Table<State, Int>`",
+  "expected `Dict<String, State::Ready>`, but found `Table<String, State>`",
+  "expected `Dict<String, String>`, but found `Table<String, Int>`",
+  "expected `Option<String>`, but found `Option<Int>`",
+  "expected `Result<State, String>`, but found `Result<String, String>`",
+  "expected `Result<Int, State>`, but found `Result<Int, String>`",
+  "expected `List<State>`, but found `List<String>`",
+  "expected `Dict<State, Int>`, but found `Table<String, Int>`",
   "expected `Vec<State>`, but found `source_vec::Vec<State>`",
+  "expected `Option<State>`, but found `source_vec::Option<State>`",
+  "expected `Result<State, String>`, but found `source_vec::Result<State, String>`",
+  "expected `List<State>`, but found `source_vec::List<State>`",
+  "expected `Dict<String, State>`, but found `source_vec::Dict<String, State>`",
+  "expected `source_vec::Table<String, State>`, but found `source_vec::Table<String, State::Ready>`",
+  "expected `Option<State>`, but found `Option<State::Ready>`",
 ]
 
 [stderr]
@@ -27,4 +50,32 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 12
+equals = 35
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.0.details.excluded_variants.variants.0"
+equals = "None"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "variant_exclusion"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.1.details.excluded_variants.form"
+equals = "all_except_expected"
+
+[[json_assert]]
+path = "diagnostics.1.related.0.kind"
+equals = "variant_exclusion"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "type.mismatch"

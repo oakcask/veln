@@ -78,12 +78,21 @@ arity through the published built-in type-syntax registry. Built-in ADT lookup
 seeds application registry state from the published built-in ADT registry.
 Published built-in ADT descriptors also classify variant-refinement
 availability. Finite descriptors expose their constructor set to refinement
-analysis. Opaque descriptors expose only their type identity. The opaque
-`NetListener` and `NetStream` entries therefore let exported standard-package
-type aliases resolve to their compiler-provided resource identities without
-making either resource source-constructible or refinable. A built-in
-type-syntax identity without an ADT descriptor likewise exposes no finite
-variant set. The resulting annotation failures are specified by
+analysis. The finite `Option`, `Result`, and `List` descriptors carry explicit
+compiler-owned nominal identities. A public alias that terminates at one of
+those descriptors retains that identity and its constructor set. Alias lookup
+also provides an opaque descriptor for the compiler-owned `Dict` identity. A
+`Dict` alias therefore retains dictionary identity without acquiring
+constructors or variant refinements.
+
+Opaque descriptors expose only their type identity. The opaque `NetListener`
+and `NetStream` entries therefore let exported standard-package type aliases
+resolve to their compiler-provided resource identities without making either
+resource source-constructible or refinable. A built-in type-syntax identity
+without an ADT descriptor likewise exposes no finite variant set. A source or
+imported type with the same displayed name retains its source-owned nominal
+identity; source-less fallback does not grant it a compiler-owned identity.
+The resulting annotation and assignment behavior is specified by
 [Types](types.md#compatibility-and-limits) and
 [Diagnostic JSON](diagnostics-json.md#diagnostic-families).
 When a qualified variant-refinement base identifies a source declaration, that

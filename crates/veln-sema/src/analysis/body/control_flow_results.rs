@@ -42,6 +42,7 @@ impl<'a> FunctionChecker<'a> {
             self.check_assignable(branch_expr, &expected.ty, &actual, expected, "if_branch");
             return;
         }
+        let recovering_from_failed_join = result.failed();
         if !contribute_control_flow_result(&self.environment.adts, result, &actual) {
             let mismatch_expected = ExpectedType {
                 ty: result.recovery_type.clone(),
@@ -50,13 +51,23 @@ impl<'a> FunctionChecker<'a> {
                 origin_span: Some(if_expr.span.clone()),
                 origin_message: "If result type inferred here.",
             };
-            self.check_assignable(
-                branch_expr,
-                &mismatch_expected.ty,
-                &actual,
-                &mismatch_expected,
-                "if_branch",
-            );
+            if recovering_from_failed_join || type_contains_unknown(&actual) {
+                self.check_assignable(
+                    branch_expr,
+                    &mismatch_expected.ty,
+                    &actual,
+                    &mismatch_expected,
+                    "if_branch",
+                );
+            } else {
+                self.push_inferred_type_mismatch(
+                    branch_expr,
+                    &mismatch_expected.ty,
+                    &actual,
+                    &mismatch_expected,
+                    "if_branch",
+                );
+            }
         }
     }
 }
@@ -115,5 +126,9 @@ impl ControlFlowResultJoin {
                 .map(AggregateTypeJoin::result_type)
                 .unwrap_or(self.recovery_type)
         }
+    }
+
+    pub(super) fn failed(&self) -> bool {
+        self.failed
     }
 }

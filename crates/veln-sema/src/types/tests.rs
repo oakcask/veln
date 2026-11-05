@@ -522,6 +522,117 @@ fn compiler_vec_argument_is_covariant_through_structural_polarity() {
 }
 
 #[test]
+fn compiler_immutable_constructor_slots_are_covariant_and_nominal() {
+    let narrow = Type::variant_refinement("State", Vec::new(), vec!["Ready".to_string()]);
+    let wide = Type::named("State", Vec::new());
+    let cases = [
+        (
+            "Option value",
+            "Option",
+            option_with_value as fn(&Type) -> Type,
+        ),
+        ("Result value", "Result", result_with_value),
+        ("Result error", "Result", result_with_error),
+        ("List item", "List", list_with_item),
+        ("Vec item", "Vec", vec_with_item),
+        ("Dict key", "Dict", dict_with_key),
+        ("Dict value", "Dict", dict_with_value),
+    ];
+
+    for (name, constructor_name, construct) in cases {
+        assert_compiler_constructor_slot_covariance(
+            name,
+            construct(&narrow),
+            construct(&wide),
+            constructor_name,
+        );
+    }
+}
+
+fn option_with_value(value: &Type) -> Type {
+    Type::option(value.clone())
+}
+
+fn result_with_value(value: &Type) -> Type {
+    Type::result(value.clone(), Type::string())
+}
+
+fn result_with_error(error: &Type) -> Type {
+    Type::result(Type::int(), error.clone())
+}
+
+fn list_with_item(item: &Type) -> Type {
+    Type::list(item.clone())
+}
+
+fn vec_with_item(item: &Type) -> Type {
+    Type::vec(item.clone())
+}
+
+fn dict_with_key(key: &Type) -> Type {
+    Type::dict(key.clone(), Type::int())
+}
+
+fn dict_with_value(value: &Type) -> Type {
+    Type::dict(Type::string(), value.clone())
+}
+
+fn assert_compiler_constructor_slot_covariance(
+    name: &str,
+    narrow_constructor: Type,
+    wide_constructor: Type,
+    constructor_name: &str,
+) {
+    assert!(
+        is_assignable(&wide_constructor, &narrow_constructor),
+        "{name} should widen"
+    );
+    assert!(
+        !is_assignable(&narrow_constructor, &wide_constructor),
+        "{name} should not narrow"
+    );
+    assert!(
+        !is_assignable(
+            &wide_constructor,
+            &Type::resolved_named(
+                constructor_name,
+                format!("source::{constructor_name}"),
+                match &wide_constructor {
+                    Type::Named { args, .. } => args.clone(),
+                    _ => unreachable!(),
+                },
+            ),
+        ),
+        "{name} should preserve nominal identity"
+    );
+    assert!(
+        !is_assignable(
+            &wide_constructor,
+            &Type::named(
+                constructor_name,
+                match &wide_constructor {
+                    Type::Named { args, .. } => args.clone(),
+                    _ => unreachable!(),
+                }
+            ),
+        ),
+        "{name} should not collide with a bare root-source identity"
+    );
+    assert!(is_assignable(
+        &Type::Record(vec![("value".to_string(), wide_constructor.clone())]),
+        &Type::Record(vec![("value".to_string(), narrow_constructor.clone())]),
+    ));
+    assert!(is_assignable(
+        &Type::function(
+            vec![narrow_constructor.clone()],
+            wide_constructor.clone(),
+            Vec::new(),
+        ),
+        &Type::function(vec![wide_constructor], narrow_constructor, Vec::new(),),
+    ));
+}
+
+#[test]
 fn parses_singleton_and_same_base_variant_union_annotations() {
     assert_eq!(
         parse_type_annotation("Option<Int>::Some"),
@@ -624,7 +735,7 @@ fn parses_variadic_function_type_annotations() {
         Ok(Type::Function {
             params: vec![Type::string()],
             variadic: Some(Box::new(Type::Unknown)),
-            return_type: Box::new(Type::named("List", vec![Type::string()])),
+            return_type: Box::new(Type::list(Type::string())),
             effects: Vec::new(),
         })
     );
@@ -633,7 +744,7 @@ fn parses_variadic_function_type_annotations() {
         Ok(Type::Function {
             params: vec![Type::string()],
             variadic: Some(Box::new(Type::Unknown)),
-            return_type: Box::new(Type::named("List", vec![Type::string()])),
+            return_type: Box::new(Type::list(Type::string())),
             effects: Vec::new(),
         })
     );

@@ -135,11 +135,15 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
                 expected_identity,
                 actual_name,
                 actual_identity,
-            ) && invariant_args_match(expected_args, actual_args)
-                && actual_variants.iter().all(|variant| {
-                    record_variant_set_lookup();
-                    expected_variants.contains(variant.as_str())
-                })
+            ) && named_args_are_assignable(
+                expected_identity,
+                expected_args,
+                actual_identity,
+                actual_args,
+            ) && actual_variants.iter().all(|variant| {
+                record_variant_set_lookup();
+                expected_variants.contains(variant.as_str())
+            })
         }
         (
             Type::Named {
@@ -160,7 +164,12 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
                 expected_identity,
                 actual_name,
                 actual_identity,
-            ) && invariant_args_match(expected_args, actual_args)
+            ) && named_args_are_assignable(
+                expected_identity,
+                expected_args,
+                actual_identity,
+                actual_args,
+            )
         }
         _ => structurally_assignable(expected, actual),
     }
@@ -272,21 +281,35 @@ fn named_types_are_assignable(
         return false;
     }
 
-    match (
-        Type::is_compiler_vec_identity(expected_identity),
-        Type::is_compiler_vec_identity(actual_identity),
-    ) {
-        (true, true) => match (expected_args, actual_args) {
-            ([expected_element], [actual_element]) => {
-                return is_assignable(expected_element, actual_element);
-            }
-            _ => return false,
-        },
-        (true, false) | (false, true) => return false,
-        (false, false) => {}
-    }
+    named_args_are_assignable(
+        expected_identity,
+        expected_args,
+        actual_identity,
+        actual_args,
+    )
+}
 
-    invariant_args_match(expected_args, actual_args)
+pub(crate) fn named_args_are_assignable(
+    expected_identity: &str,
+    expected_args: &[Type],
+    actual_identity: &str,
+    actual_args: &[Type],
+) -> bool {
+    match (
+        Type::is_compiler_covariant_identity(expected_identity),
+        Type::is_compiler_covariant_identity(actual_identity),
+    ) {
+        (true, true) => {
+            expected_identity == actual_identity
+                && expected_args.len() == actual_args.len()
+                && expected_args
+                    .iter()
+                    .zip(actual_args)
+                    .all(|(expected, actual)| is_assignable(expected, actual))
+        }
+        (true, false) | (false, true) => false,
+        (false, false) => invariant_args_match(expected_args, actual_args),
+    }
 }
 
 fn parameters_are_assignable(expected: &[Type], actual: &[Type]) -> bool {
@@ -311,8 +334,8 @@ pub(crate) fn same_type_identity(
     actual_name: &str,
     actual_identity: &str,
 ) -> bool {
-    if Type::is_compiler_vec_identity(expected_identity)
-        != Type::is_compiler_vec_identity(actual_identity)
+    if Type::is_compiler_covariant_identity(expected_identity)
+        != Type::is_compiler_covariant_identity(actual_identity)
     {
         return false;
     }

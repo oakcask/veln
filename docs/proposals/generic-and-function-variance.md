@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Generic named-type assignability, aggregate covariance, bounded generic inference, variance metadata, or nested incompatibility diagnostics change.
+update-when: Source-ADT variance inference, bounded generic inference, dependency variance metadata, variance presentation, nested incompatibility diagnostics, or analysis and language-service failure preservation change.
 ---
 
 # Generic And Function Variance
@@ -9,18 +9,23 @@ update-when: Generic named-type assignability, aggregate covariance, bounded gen
 
 This proposal contains the remaining work for named generic variance. The
 compiler will infer source-ADT parameter variance from payload declarations.
-The remaining compiler-owned immutable `Option`, `Result`, `List`, and `Dict`
-constructors will be covariant, and Veln will add no declaration-site variance
-modifiers. The remaining work also includes bounded generic inference,
-dependency metadata, and detailed nested incompatibility context.
+Veln will add no declaration-site variance modifiers. The remaining work also
+includes bounded generic inference, dependency metadata, detailed nested
+incompatibility context, and failure preservation.
 
 Recursive assignment through records and functions is current behavior under
 the [type specification](../specification/types.md#compatibility-and-limits).
 That implemented kernel makes record fields and function results covariant,
 function inputs contravariant, and concrete function effect sets covariant.
-Named generic arguments remain invariant except for the compiler-owned
-`Vec<T>` covariance described by the current
+The compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`,
+and `Dict<K, V>` constructors already apply assignment covariance as described
+by the current
 [type specification](../specification/types.md#compatibility-and-limits).
+Current context-free aggregate, control-flow, and constructor inference still
+rejects unequal complete arguments even when assignment covariance relates
+them. The bounded joins proposed below are remaining behavior; they would
+replace that current limitation rather than describe behavior already
+implemented.
 
 ## Assignment Relation And Identity
 
@@ -67,24 +72,9 @@ These symbols are explanatory notation, not Veln source syntax.
 
 | Constructor | Parameter classifications | Reason |
 | --- | --- | --- |
-| `Option<T>` | `T: +` | A present payload produces a `T`. |
-| `Result<T, E>` | `T: +`, `E: +` | Both payload alternatives produce their parameter. |
-| `List<T>` | `T: +` | Immutable heads and recursive tails produce elements. |
-| `Dict<K, V>` | `K: +`, `V: +` | Stored entries produce keys and values; updates return another dictionary. |
 | Source ADT, including source-backed standard types | Infer each parameter from every payload in the declaration. | Visibility and call sites do not change the classification. |
 | Opaque or imported generic type with no checked variance metadata | Every parameter `=`. | Representation safety cannot be inferred from a name or helper signature. |
 | Nongeneric resource or other nongeneric type | No parameter variance. | Its nominal identity still controls assignment. |
-
-Dictionary key covariance is deliberate. The inspected JVM implementation of
-`dictGet` uses the stored map's ordinary key equality; `dictInsert` and
-`dictRemove` copy the map and freeze the result. These operations receive no
-key type annotation or stored comparison callback. A widened dictionary may
-therefore be queried with an additional key type without invoking a callback
-that accepts only the original narrower type. Inserting a wider key produces
-a widened result and cannot change the original dictionary. This reasoning
-would not establish covariance for a different container that stores a
-key-consuming comparator or exposes mutation through an alias. The acceptance
-model must confirm preservation through the supported runtime boundaries.
 
 ## Source-ADT Inference
 
@@ -140,8 +130,8 @@ source-ADT inference design, with immutable source values replacing Rust's
 ownership conditions. Rust's lifetime relation supplies comparative reasoning,
 not the ADT-refinement relation specified here. Treating every payload as
 covariant is rejected because a stored callback can consume its parameter.
-Treating every constructor as invariant is safe but needlessly rejects the
-immutable producer cases above.
+Treating every source constructor as invariant is safe but needlessly rejects
+immutable producer cases.
 
 ## Generic Inference And Joins
 
@@ -229,23 +219,19 @@ the expected results for the change.
 
 | Contract | Planned evidence and required observation |
 | --- | --- |
-| Remaining constructor and polarity tables | Table-driven semantic tests cover every remaining named-parameter classification and composition cell, both assignment directions, same-spelled distinct ADTs, and refinement sets with varying arguments. |
+| Source-ADT classification and polarity tables | Table-driven semantic tests cover every inferred parameter classification and composition cell, both assignment directions, same-spelled distinct ADTs, and refinement sets with varying arguments. |
 | Recursive inference | Source-ADT fixtures cover positive, negative, mixed, irrelevant, opaque, and mutually recursive cases; declaration permutations must yield the same classifications. |
 | Bounded inference | Permuted branch, collection, and payload cases cover successful joins, annotation-required meets, irrelevant slots, exact constraints, and transactional exclusion of failed contributions. |
-| Immutable dictionary safety | Companion tests in `crates/veln-stdlib/veln/` widen refined keys and values, query existing and absent keys, insert/remove on the widened value, and prove that the original keys, values, and iteration order remain unchanged. |
-| Host and backend behavior | Backend cases independently check representation-preserving widened callback calls and container transport; they do not substitute for stdlib API tests. |
 | Metadata and identity | Package fixtures compare local and imported behavior, hidden payloads, absent metadata, and invalidation after a variance-changing payload edit. |
 | Presentation and diagnostics | Human and JSON fixtures cover nested paths, reversed input comparison, direct exclusions, aliases, modifier-free declarations, and stable package/LSP/MCP presentations. |
 | Failure preservation | Analysis and language-service regression cases prove no partial signature escapes rejection, retained successful snapshots survive applicable failures, and rejected programs do not run. |
 
 Compiler evidence belongs in the existing semantic test suites and
-`examples/specification/check/` with diagnostic companions. Standard-library
-behavior belongs in companion tests under the
-[test placement policy](../reference/toolchain-test-harness.md). Run the
-existing executable specification harness and focused package, LSP, MCP, and
-backend suites for their respective contracts. Recursive generated-input
-coverage must follow the repository's bounded-run and performance-audit
-skills; this proposal sets no unmeasured timing target.
+`examples/specification/check/` with diagnostic companions. Run the existing
+executable specification harness and focused package, LSP, and MCP suites for
+their respective contracts. Recursive generated-input coverage must follow
+the repository's bounded-run and performance-audit skills; this proposal sets
+no unmeasured timing target.
 
 Once those checks pass, update the named-generic variance and inference sections
 in the current type specification, together with executable examples. Then
@@ -255,15 +241,15 @@ retire this proposal and its catalog entry.
 
 This proposal is independently ready. It does not depend on the remaining
 refinement-flow, repair, or handler proposals. The current structural
-record/function assignment kernel is its implemented prerequisite.
+record/function assignment kernel and compiler-owned immutable constructor
+covariance are its implemented prerequisites.
 It excludes mutable references, declaration-site variance syntax, general
 unions/intersections, higher-kinded types, predicate-based subtyping, and
 runtime representation changes solely for variance.
 
 The inspected local implementation anchors are
 `crates/veln-sema/src/type_relations.rs` for current structural polarity and the
-future application of the remaining named-parameter classifications;
-`crates/veln-sema/src/aggregate_type_join.rs` for current refinement joins; and
-`crates/veln-backend-jvm/src/runtime/collections.java.inc` for persistent
-map operations. These identify the affected implementation boundaries; the
-proposal tables define the intended replacement behavior.
+future application of inferred source-ADT parameter classifications, and
+`crates/veln-sema/src/aggregate_type_join.rs` for current refinement joins.
+These identify the affected implementation boundaries; the proposal tables
+define the intended replacement behavior.

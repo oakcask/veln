@@ -70,7 +70,7 @@ pub(super) fn check_schema_repeat_field(
             })?
         }
     };
-    Some(Type::named("List", vec![element_ty]))
+    Some(Type::list(element_ty))
 }
 
 pub(super) fn check_schema_repeat_byte_view_reference(

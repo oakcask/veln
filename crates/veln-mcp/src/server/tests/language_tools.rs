@@ -106,8 +106,10 @@ fn search_docs_discovers_the_published_variant_refinement_contract() {
         assert!(text.contains(
             "same comparison recurses through covariant record fields and function results"
         ));
-        assert!(text.contains("named generic arguments remain invariant except for the"));
-        assert!(text.contains("compiler-owned immutable `Vec<T>` constructor"));
+        assert!(text.contains("named generic arguments remain invariant except for every"));
+        assert!(text.contains(
+            "compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`"
+        ));
         assert!(text.contains("Control-flow result inference applies the same join"));
         assert!(text.contains("Refinements are erased at runtime"));
         assert!(!text.contains("not implemented semantic type behavior"));

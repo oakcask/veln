@@ -1,3 +1,21 @@
 pub type Vec<A>
 	pub Wrapped(A)
 end
+
+pub type Option<A>
+	pub SourceOption(A)
+end
+
+pub type Result<A, E>
+	pub SourceResult(A, E)
+end
+
+pub type List<A>
+	pub SourceList(A)
+end
+
+pub type Dict<K, V>
+	pub SourceDict(K, V)
+end
+
+pub type Table = Dict

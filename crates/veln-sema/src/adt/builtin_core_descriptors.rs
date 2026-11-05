@@ -15,7 +15,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             name_class: SourceLessNameClass::Type,
             package_name: None,
             module_name: None,
-            nominal_identity: None,
+            nominal_identity: Some(Type::COMPILER_OPTION_IDENTITY.to_string()),
             type_parameters: vec!["T".to_string()],
             variants: vec![
                 AdtVariantDescriptor {
@@ -48,7 +48,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             name_class: SourceLessNameClass::Type,
             package_name: None,
             module_name: None,
-            nominal_identity: None,
+            nominal_identity: Some(Type::COMPILER_RESULT_IDENTITY.to_string()),
             type_parameters: vec!["T".to_string(), "E".to_string()],
             variants: vec![
                 AdtVariantDescriptor {
@@ -87,7 +87,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             name_class: SourceLessNameClass::Type,
             package_name: None,
             module_name: None,
-            nominal_identity: None,
+            nominal_identity: Some(Type::COMPILER_LIST_IDENTITY.to_string()),
             type_parameters: vec!["A".to_string()],
             variants: vec![
                 AdtVariantDescriptor {

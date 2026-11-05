@@ -179,10 +179,10 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
                         name: "chunks".to_string(),
-                        ty: AdtPayloadType::Concrete(Type::named(
-                            "List",
-                            vec![Type::named("ByteChunk", Vec::new())],
-                        )),
+                        ty: AdtPayloadType::Concrete(Type::list(Type::named(
+                            "ByteChunk",
+                            Vec::new(),
+                        ))),
                     }],
                     coverage_case: "Encoded(_)".to_string(),
                     visibility: Visibility::Public,
@@ -194,10 +194,10 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                     payload_fields: vec![
                         AdtPayloadField {
                             name: "chunks".to_string(),
-                            ty: AdtPayloadType::Concrete(Type::named(
-                                "List",
-                                vec![Type::named("ByteChunk", Vec::new())],
-                            )),
+                            ty: AdtPayloadType::Concrete(Type::list(Type::named(
+                                "ByteChunk",
+                                Vec::new(),
+                            ))),
                         },
                         AdtPayloadField {
                             name: "produced".to_string(),

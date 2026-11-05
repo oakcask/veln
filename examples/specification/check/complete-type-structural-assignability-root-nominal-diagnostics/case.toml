@@ -1,0 +1,22 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "expected `Option<State>`, but found `Option<State::Ready>`",
+  "expected `Result<State, String>`, but found `Result<State::Ready, String>`",
+  "expected `Result<Int, State>`, but found `Result<Int, State::Ready>`",
+  "expected `List<State>`, but found `List<State::Ready>`",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 8

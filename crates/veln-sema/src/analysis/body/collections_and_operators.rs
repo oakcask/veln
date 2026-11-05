@@ -279,7 +279,10 @@ impl<'a> FunctionChecker<'a> {
         joined: bool,
         constraint: &'static str,
     ) {
-        if is_assignable_nested(&item_expected.ty, aggregate) || (!has_contextual_type && joined) {
+        if (!has_contextual_type && joined)
+            || (joined_type.is_none() && is_assignable_nested(&item_expected.ty, aggregate))
+            || (has_contextual_type && is_assignable_nested(&item_expected.ty, aggregate))
+        {
             return;
         }
         let mismatch_expected = joined_type
@@ -289,13 +292,23 @@ impl<'a> FunctionChecker<'a> {
             ty: mismatch_expected,
             ..item_expected.clone()
         };
-        self.check_contextual_assignable_nested(
-            item,
-            &mismatch_context.ty,
-            actual,
-            &mismatch_context,
-            constraint,
-        );
+        if !has_contextual_type && joined_type.is_some() {
+            self.push_inferred_type_mismatch(
+                item,
+                &mismatch_context.ty,
+                actual,
+                &mismatch_context,
+                constraint,
+            );
+        } else {
+            self.check_contextual_assignable_nested(
+                item,
+                &mismatch_context.ty,
+                actual,
+                &mismatch_context,
+                constraint,
+            );
+        }
     }
 
     pub(super) fn infer_try(

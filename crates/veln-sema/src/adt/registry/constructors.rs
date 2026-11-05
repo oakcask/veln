@@ -174,6 +174,7 @@ impl AdtRegistry {
         }
         let mut matches =
             self.lookup_constructor_candidates(segments, current_module, uses, include_imports);
+        prefer_explicit_source_constructor(&mut matches, segments);
         prefer_current_module_constructors(&mut matches, segments, current_module, uses);
         match matches.as_slice() {
             [] => ConstructorLookup::Missing,
@@ -212,6 +213,22 @@ impl AdtRegistry {
         deduplicate_nominal_constructors(&mut matches);
         matches
     }
+}
+
+fn prefer_explicit_source_constructor(matches: &mut Vec<AdtConstructor<'_>>, segments: &[String]) {
+    let [type_name, _] = segments else {
+        return;
+    };
+    if !matches.iter().any(|constructor| {
+        constructor.descriptor.nominal_identity.is_none()
+            && constructor.descriptor.type_name == *type_name
+    }) {
+        return;
+    }
+    matches.retain(|constructor| {
+        constructor.descriptor.nominal_identity.is_none()
+            && constructor.descriptor.type_name == *type_name
+    });
 }
 
 fn deduplicate_nominal_constructors(constructors: &mut Vec<AdtConstructor<'_>>) {
