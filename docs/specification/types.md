@@ -1532,7 +1532,10 @@ recursively. A source ADT uses the checked classification retained for each
 parameter of its resolved declaration. Local declarations, imported
 declarations, refinements, and aliases of those declarations use the same
 classification because assignment selects metadata by resolved constructor
-identity and arity. A refinement uses the classification of the complete ADT
+identity and arity. This includes source aliases published by the standard
+prelude: the alias keeps its ordinary source-visible representation while its
+arguments use the target declaration's checked classifications. A refinement
+uses the classification of the complete ADT
 declaration, including variants outside the selected set; it does not derive a
 more permissive classification from only the selected variants. If usable
 checked metadata is absent or ambiguous, every argument falls back to invariant

@@ -18,9 +18,9 @@ when owner-aware lookup resolves one accessible constructor with the expected
 arity; unavailable, inaccessible, or ambiguous constructors remain invariant.
 Compiler-owned `Vec` and `Dict` classifications are selected by their compiler
 identity and exact arity. Veln will add no declaration-site variance modifiers.
-The remaining work includes bounded generic inference, remaining dependency
-consumption, detailed nested incompatibility context, presentation, and failure
-preservation.
+The remaining work includes bounded generic inference and its dependency
+metadata consumption, detailed nested incompatibility context, presentation,
+and failure preservation.
 
 Recursive assignment through records and functions is current behavior under
 the [type specification](../specification/types.md#compatibility-and-limits).
