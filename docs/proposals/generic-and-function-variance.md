@@ -167,7 +167,18 @@ repair context; the primary message remains the specific assignment failure.
 
 Current semantic tests check the retained source-ADT classifications and the
 implemented covariant consumers separately from the remaining contracts. The
-producer performance regression uses
+implemented inference performance regression compares recursive source-ADT
+covariant joins at depths 512, 1024, and 2048 for equal and differing leaf
+refinements. Acceptance, retained join state, presentation reconciliation, and
+result materialization each grow by at most twice the preceding count plus
+one. Acceptance and materialization clone no type nodes. A rejected depth-256
+contribution performs no presentation or materialization work and leaves the
+previous result unchanged. Elapsed time is diagnostic output and is not an
+acceptance threshold. The current
+[type specification](../specification/types.md#inference-rules) owns this
+implemented contract.
+
+The producer performance regression uses
 a nested covariant `Pair` comb at depths 128 and 256. When depth doubles, the
 tracked factor-evaluation and dependency-edge counts may grow by at most twice
 the smaller count plus eight. Elapsed time is diagnostic output and is not an

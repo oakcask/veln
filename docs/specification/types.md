@@ -1442,6 +1442,18 @@ nested argument cannot join, the failed contribution does not change an
 earlier argument, a refinement set, or alias presentation. Permuting successful
 contributions produces the same resolved type and presentation.
 
+For a source ADT nested through `D` covariant source-ADT arguments, the join
+retains `D + 1` state nodes. Accepting another equally shaped contribution
+visits `D + 1` nodes, retains `D + 1` join nodes, and visits `D + 1`
+presentation nodes without cloning or materializing the joined type. Reading
+the result materializes `D + 1` nodes without cloning them. The deterministic
+scaling check compares depths 512, 1024, and 2048 for both equal and differing
+leaf refinements. Each doubled depth permits at most twice the preceding count
+plus one. A rejected contribution at depth 256 visits the same linear path,
+performs no presentation or materialization work, and leaves the previously
+materialized result unchanged. Elapsed time is observational and is not an
+acceptance threshold.
+
 When a concrete payload has the form `Box<A>`, a matching refined carrier such
 as `Box<State::Ready>::Boxed` can supply `State::Ready` for `A`. This direct
 carrier inference allows `Carried(Boxed(Ready))` to infer
