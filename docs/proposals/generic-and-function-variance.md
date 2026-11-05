@@ -7,56 +7,13 @@ update-when: Checked source-ADT variance classification production, retention, o
 
 ## Summary
 
-This proposal contains the remaining work for named generic variance. The
-compiler computes and retains one checked variance classification per
-source-ADT type parameter, and assignment consumes that metadata for local and
-imported declarations. Context-free inference also consumes checked covariance
-for local and imported source ADTs. Registry
-construction normalizes wrong-length internal classification metadata to one
-invariant entry per declared parameter before source-ADT composition.
-Composition through another source declaration uses its classifications only
-when owner-aware lookup resolves one accessible constructor with the expected
-arity; unavailable, inaccessible, or ambiguous constructors remain invariant.
-Compiler-owned `Vec` and `Dict` classifications are selected by their compiler
-identity and exact arity. Veln will add no declaration-site variance modifiers.
-The remaining work includes bounded inference beyond source-ADT covariant
-joins, dependency invalidation, detailed nested incompatibility context,
-presentation, and failure preservation.
-
-Recursive assignment through records and functions is current behavior under
-the [type specification](../specification/types.md#compatibility-and-limits).
-That implemented kernel makes record fields and function results covariant,
-function inputs contravariant, and concrete function effect sets covariant.
-The compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`,
-and `Dict<K, V>` constructors already apply assignment covariance as described
-by the current
-[type specification](../specification/types.md#compatibility-and-limits).
-Current context-free aggregate, control-flow, and constructor inference joins
-checked covariant arguments of the same resolved source ADT recursively. The
-[type specification](../specification/types.md#inference-rules) owns that
-implemented behavior. Contravariant meets, compiler-owned and structural
-joins, detailed diagnostics, presentation completion, and broader failure
-preservation remain proposed below.
-
-## Implemented Assignment Prerequisite
-
-Source-ADT assignment uses the retained checked classifications, resolved
-constructor identity, and refinement-set subset relation. The current
-[type specification](../specification/types.md#compatibility-and-limits) owns
-that implemented behavior and its executable evidence. The remaining inference
-design below uses the same classification vocabulary without changing the
-implemented assignment relation.
-
-## Implemented Source-ADT Join Prerequisite
-
-For the same resolved source-ADT constructor and arity, aggregate,
-control-flow, and repeated constructor-payload inference recursively joins
-checked covariant arguments. Other classifications and unavailable metadata
-remain exact. The join uses resolved identity and parameter order for local and
-imported declarations. A failed nested contribution does not commit argument,
-refinement, or alias-presentation state. The current
-[type specification](../specification/types.md#inference-rules) and checked
-examples own this behavior; the remaining design below does not reopen it.
+This proposal contains the remaining work for named generic variance. Current
+assignment and source-ADT covariant inference behavior is defined by the
+[type specification](../specification/types.md#compatibility-and-limits) and
+its [inference rules](../specification/types.md#inference-rules). The remaining
+work adds bounded inference beyond source-ADT covariant joins, dependency
+invalidation, detailed nested incompatibility context, presentation, and
+failure preservation. It does not add declaration-site variance modifiers.
 
 ## Related Work For Remaining Inference
 
@@ -164,19 +121,6 @@ traversal cannot choose different facts. Related notes explain polarity and
 repair context; the primary message remains the specific assignment failure.
 
 ## Acceptance Model
-
-Current semantic tests check the retained source-ADT classifications and the
-implemented covariant consumers separately from the remaining contracts. The
-implemented inference performance regression compares recursive source-ADT
-covariant joins at depths 512, 1024, and 2048 for equal and differing leaf
-refinements. Acceptance, retained join state, presentation reconciliation, and
-result materialization each grow by at most twice the preceding count plus
-one. Acceptance and materialization clone no type nodes. A rejected depth-256
-contribution performs no presentation or materialization work and leaves the
-previous result unchanged. Elapsed time is diagnostic output and is not an
-acceptance threshold. The current
-[type specification](../specification/types.md#inference-rules) owns this
-implemented contract.
 
 The producer performance regression uses
 a nested covariant `Pair` comb at depths 128 and 256. When depth doubles, the
