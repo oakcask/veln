@@ -44,7 +44,11 @@ Constructor-bearing descriptors such as `Option`, `Result`, and `List` expose
 a finite set. The compiler-owned `Dict` identity has an opaque descriptor for
 public type-alias resolution; an alias retains dictionary identity without
 gaining constructors or variant refinements. The two resource descriptors are
-also opaque. The
+also opaque. Generic ADT descriptors also retain one variance classification
+per type parameter. The compiler-owned `Option`, `Result`, `List`, and `Dict`
+parameters are covariant. Generic codec descriptors remain invariant. These
+classifications do not change descriptor lookup or refinement availability;
+the
 [type](types.md#compatibility-and-limits) and
 [diagnostic](diagnostics-json.md#diagnostic-families) specifications own the
 observable refinement rules and failures. The toolchain
