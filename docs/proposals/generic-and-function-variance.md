@@ -45,6 +45,35 @@ that implemented behavior and its executable evidence. The remaining inference
 design below uses the same classification vocabulary without changing the
 implemented assignment relation.
 
+## Related Work For Remaining Inference
+
+The inspected primary source is the Rust Project's
+[variance discussion in the Rustonomicon](https://doc.rust-lang.org/nomicon/subtyping.html#variance).
+Its variance table classifies function inputs as contravariant and function
+results as covariant. Its function examples explain that a replacement may
+return a more specific result but must accept every input accepted by the
+expected function. The same table shows that an owning collection can be
+covariant while mutation through an alias can require invariance.
+
+Veln adopts the input and output polarity finding for the remaining inference
+design, but not Rust's type relation as a whole. Rust uses lifetime subtyping
+and ownership or aliasing properties that are not Veln's nominal ADT identity,
+finite variant-refinement subset relation, or immutable source-value model.
+The source therefore supports the direction in which constraints compose; it
+does not establish which Veln refinement is a join or meet, nor does it make
+Rust's mutation rules an authority for Veln assignment.
+
+Consequently, the design below collects lower bounds from positive occurrences
+and selects their bounded join `J`, collects upper bounds from negative
+occurrences and selects their bounded meet `M`, and requires equality for an
+invariant occurrence. An irrelevant occurrence contributes no inference
+constraint, but context-free joining still requires equal irrelevant arguments
+because each complete argument remains part of nominal type identity.
+The same polarity makes function inputs use `M` and results use `J`. When a
+required bounded join or meet is not available among Veln's contributed types,
+the design requires explicit context instead of importing a lifetime,
+ownership, union, intersection, or bottom-type relation from Rust.
+
 ## Generic Inference And Joins
 
 Assignment compatibility does not promise unrestricted subtype inference.

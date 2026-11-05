@@ -1453,6 +1453,50 @@ parameter used in both input and output positions is invariant and rejects the
 same widening. Aggregate inference does not use assignment variance to join
 unequal inferred arguments.
 
+### Source ADT parameter classifications
+
+Source declarations keep the syntax `type Name<T...>` and have no variance
+modifier. The checker derives one classification for each declared parameter
+from every payload field of every variant, including private variants. It
+starts each payload occurrence in a positive position and applies these rules
+recursively:
+
+| Payload position | Effect on the occurrence |
+| --- | --- |
+| Direct parameter or record field | Preserve the current positive or negative position. |
+| Function result | Preserve the current position. |
+| Fixed or variadic function input | Reverse positive and negative positions. |
+| Argument of a named constructor or refinement | Compose the current position with that constructor parameter's checked classification according to the following table. A resolved alias uses its target constructor. |
+
+| Current position | Covariant parameter | Contravariant parameter | Invariant parameter | Irrelevant parameter |
+| --- | --- | --- | --- | --- |
+| Positive | Positive | Negative | Invariant | No occurrence |
+| Negative | Negative | Positive | Invariant | No occurrence |
+| Invariant | Invariant | Invariant | Invariant | Invariant |
+| No occurrence | No occurrence | No occurrence | No occurrence | No occurrence |
+
+Composition uses the resolved constructor identity and exact arity. It uses a
+source constructor's checked classifications only when that declaration is
+resolvable and its metadata is usable. Compiler-owned immutable constructors
+use their checked covariant classifications. If a composed constructor is
+unavailable, inaccessible, ambiguous, has the wrong arity, or otherwise lacks
+usable checked metadata, each of its arguments is treated as invariant. The
+checker does not infer covariance from a constructor name or displayed
+signature.
+
+The checker aggregates occurrences across the complete declaration. A
+parameter used only positively is covariant. A parameter used only negatively
+is contravariant. A parameter with an invariant occurrence, or with both
+positive and negative occurrences, is invariant. A parameter with no effective
+occurrence is irrelevant. These rules apply recursively through other source
+declarations and do not depend on declaration order. A recursive cycle with no
+other occurrence remains irrelevant. For example, `Producer<T>`
+with payload `T` is covariant, `Consumer<T>` with payload `fn(T) -> ()` is
+contravariant, `Fixed<T>` with both payloads is invariant, and a parameter not
+used by any variant of `Ignored<T>` is irrelevant. Nesting any of those types
+composes its classification with the enclosing record, function, or named
+constructor position.
+
 At a direct assignment, argument, or result boundary, variant assignability is
 defined as follows:
 
