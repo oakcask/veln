@@ -134,10 +134,11 @@ impl AdtRegistry {
     }
 
     fn from_parts_with_annotation_types(
-        descriptors: Vec<AdtDescriptor>,
+        mut descriptors: Vec<AdtDescriptor>,
         companion_access_targets: BTreeMap<String, String>,
         annotation_types: BTreeMap<(Option<String>, Option<String>, String), Type>,
     ) -> Self {
+        crate::adt::variance::normalize_parameter_variance_arity(&mut descriptors);
         let RegistryIndexes {
             variant_declaration_orders,
             descriptors_by_type_name,
@@ -273,7 +274,77 @@ impl AdtRegistry {
         self.source_import_indexes_ready = true;
         self.source_import_count = uses.len();
         self.local_descriptor_start = local_descriptor_start;
+        let resolved_constructor_uses =
+            self.resolved_source_constructor_uses(&uses, source_descriptor_start);
         self.canonicalize_source_payload_types(&uses, source_descriptor_start);
+        crate::adt::variance::infer_source_parameter_variances(
+            &mut self.descriptors,
+            source_descriptor_start,
+            &self.type_alias_identities,
+            &resolved_constructor_uses,
+        );
+    }
+
+    fn resolved_source_constructor_uses(
+        &self,
+        uses: &[UseDecl],
+        source_descriptor_start: usize,
+    ) -> BTreeSet<crate::adt::variance::ResolvedConstructorUse> {
+        let mut resolved = BTreeSet::new();
+        for (descriptor_index, descriptor) in self
+            .descriptors
+            .iter()
+            .enumerate()
+            .skip(source_descriptor_start)
+        {
+            for variant in &descriptor.variants {
+                for field in &variant.payload_fields {
+                    let crate::adt::descriptors::AdtPayloadType::Concrete(ty) = &field.ty else {
+                        continue;
+                    };
+                    let mut work = vec![ty];
+                    while let Some(ty) = work.pop() {
+                        match ty {
+                            Type::Named { name, args, .. }
+                            | Type::VariantRefinement { name, args, .. } => {
+                                if let Some(target) = self.unique_descriptor_for_type_path_in_owner(
+                                    name,
+                                    args.len(),
+                                    descriptor.module_name.as_deref(),
+                                    descriptor.package_name.as_deref(),
+                                    uses,
+                                ) {
+                                    resolved.insert(crate::adt::variance::ResolvedConstructorUse {
+                                        owner_descriptor_index: descriptor_index,
+                                        name: target.type_name.clone(),
+                                        identity: target.identity(),
+                                        arity: args.len(),
+                                    });
+                                }
+                                work.extend(args.iter().rev());
+                            }
+                            Type::Record(fields) => {
+                                work.extend(fields.iter().rev().map(|(_, field)| field));
+                            }
+                            Type::Function {
+                                params,
+                                variadic,
+                                return_type,
+                                ..
+                            } => {
+                                work.push(return_type);
+                                if let Some(variadic) = variadic {
+                                    work.push(variadic);
+                                }
+                                work.extend(params.iter().rev());
+                            }
+                            Type::Unknown => {}
+                        }
+                    }
+                }
+            }
+        }
+        resolved
     }
 
     fn canonicalize_source_payload_types(

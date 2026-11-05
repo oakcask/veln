@@ -307,7 +307,7 @@ impl Type {
     pub(crate) const COMPILER_OPTION_IDENTITY: &'static str = "internal:compiler::Option";
     pub(crate) const COMPILER_RESULT_IDENTITY: &'static str = "internal:compiler::Result";
     pub(crate) const COMPILER_LIST_IDENTITY: &'static str = "internal:compiler::List";
-    const COMPILER_VEC_IDENTITY: &'static str = "internal:compiler:Vec";
+    pub(crate) const COMPILER_VEC_IDENTITY: &'static str = "internal:compiler:Vec";
     pub(crate) const COMPILER_DICT_IDENTITY: &'static str = "internal:compiler:Dict";
 
     pub(crate) fn recovery_slot(index: usize) -> Self {

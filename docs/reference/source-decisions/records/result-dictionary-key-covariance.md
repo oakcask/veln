@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: supporting
-update-when: Compiler-owned Dict key variance, dictionary lookup equality, persistent dictionary updates, or widened-dictionary companion coverage changes.
+update-when: Compiler-owned Dict variance metadata or source-ADT variance composition, dictionary lookup equality, persistent dictionary updates, or widened-dictionary companion coverage changes.
 ---
 
 # Dictionary Key Covariance
@@ -13,6 +13,20 @@ covariant at assignment boundaries, as specified by the current
 [assignment compatibility rules](../../../specification/types.md#compatibility-and-limits).
 In particular, a dictionary with a refined key type may be assigned to a
 concrete expected dictionary whose key type is a wider type.
+
+Compiler-owned variance metadata records both `Dict` parameters as covariant.
+Source-ADT variance analysis selects that classification only for the
+compiler-owned dictionary identity at its exact arity; it does not require a
+finite ADT descriptor or infer covariance from the displayed name. This
+metadata agrees with the established assignment rule; it does not broaden
+context-free generic inference or change dictionary runtime behavior.
+
+Source-ADT composition requires checked metadata with the constructor's
+declared arity. For another source declaration, owner-aware lookup must resolve
+one accessible constructor before its retained classifications can participate.
+Registry construction replaces wrong-length internal metadata with invariant
+classifications. An unavailable, inaccessible, or ambiguous nested constructor
+also remains invariant instead of acquiring covariance from its displayed name.
 
 This decision depends on the lookup and update properties below. A backend or
 container design that does not preserve those properties must not inherit this

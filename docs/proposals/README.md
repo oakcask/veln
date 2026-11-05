@@ -16,9 +16,10 @@ also states it.
 
 ## Ready
 
-- Source-ADT parameter variance inference, bounded generic inference,
-  dependency variance metadata, modifier-free presentation, nested
-  incompatibility diagnostics, and failure preservation:
+- Consume the implemented source-ADT variance classifications in assignment
+  and bounded generic inference for local and imported declarations; add
+  modifier-free presentation, nested incompatibility diagnostics, and failure
+  preservation:
   [generic-and-function-variance.md](generic-and-function-variance.md).
 
 ## Design In Progress

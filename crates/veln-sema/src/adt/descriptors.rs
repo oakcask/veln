@@ -4,6 +4,14 @@ use crate::semantic_model::Type;
 use crate::source_less_names::SourceLessNameClass;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Variance {
+    Covariant,
+    Contravariant,
+    Invariant,
+    Irrelevant,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AdtVariantKind {
     OptionSome,
     OptionNone,
@@ -29,6 +37,7 @@ pub(crate) struct AdtDescriptor {
     pub(crate) module_name: Option<String>,
     pub(crate) nominal_identity: Option<String>,
     pub(crate) type_parameters: Vec<String>,
+    pub(crate) parameter_variances: Vec<Variance>,
     pub(crate) variants: Vec<AdtVariantDescriptor>,
     pub(crate) diagnostic_name: String,
     pub(crate) refinement_availability: VariantRefinementAvailability,
