@@ -125,11 +125,14 @@ enum VarianceFactor {
 
 struct FactorPathNode {
     parent: Option<usize>,
+    children: Vec<usize>,
     factor: VarianceFactor,
+    composed: Variance,
+    target_parameters: BTreeSet<usize>,
 }
 
 struct DescriptorConstraints {
-    parameters: Vec<Vec<Option<usize>>>,
+    direct_occurrences: Vec<Variance>,
     factor_paths: Vec<FactorPathNode>,
 }
 
@@ -137,6 +140,12 @@ struct DescriptorConstraints {
 struct ParameterNode {
     descriptor_index: usize,
     parameter_index: usize,
+}
+
+#[derive(Clone, Copy)]
+struct FactorNode {
+    descriptor_offset: usize,
+    factor_index: usize,
 }
 
 pub(super) fn infer_source_parameter_variances(
@@ -163,38 +172,34 @@ pub(super) fn infer_source_parameter_variances(
         ));
     }
 
-    let reverse_dependencies = parameter_reverse_dependencies(source_start, &constraints);
+    let factor_dependencies = source_factor_dependencies(source_start, descriptors, &constraints);
+    initialize_factor_summaries(&mut constraints, descriptors);
     let mut queued = descriptors[source_start..]
         .iter()
-        .map(|descriptor| vec![true; descriptor.type_parameters.len()])
+        .map(|descriptor| vec![false; descriptor.type_parameters.len()])
         .collect::<Vec<_>>();
-    let mut worklist = descriptors[source_start..]
-        .iter()
-        .enumerate()
-        .flat_map(|(offset, descriptor)| {
-            (0..descriptor.type_parameters.len()).map(move |parameter_index| ParameterNode {
-                descriptor_index: source_start + offset,
-                parameter_index,
-            })
-        })
-        .collect::<VecDeque<_>>();
+    let mut worklist = VecDeque::new();
+    seed_parameter_occurrences(
+        source_start,
+        &constraints,
+        descriptors,
+        &mut queued,
+        &mut worklist,
+    );
     while let Some(node) = worklist.pop_front() {
         let offset = node.descriptor_index - source_start;
         queued[offset][node.parameter_index] = false;
         #[cfg(test)]
         variance_solver_counters::record_evaluation();
-        let inferred = evaluate_parameter(node.parameter_index, &constraints[offset], descriptors);
-        if descriptors[node.descriptor_index].parameter_variances[node.parameter_index] == inferred
-        {
-            continue;
-        }
-        descriptors[node.descriptor_index].parameter_variances[node.parameter_index] = inferred;
-        for dependent in &reverse_dependencies[offset][node.parameter_index] {
-            let dependent_offset = dependent.descriptor_index - source_start;
-            if !queued[dependent_offset][dependent.parameter_index] {
-                queued[dependent_offset][dependent.parameter_index] = true;
-                worklist.push_back(*dependent);
-            }
+        for dependent in &factor_dependencies[offset][node.parameter_index] {
+            propagate_factor_change(
+                *dependent,
+                source_start,
+                &mut constraints,
+                descriptors,
+                &mut queued,
+                &mut worklist,
+            );
         }
     }
 
@@ -220,7 +225,7 @@ fn collect_constraints(
     resolved_constructor_uses: &BTreeSet<ResolvedConstructorUse>,
 ) -> DescriptorConstraints {
     let descriptor = &descriptors[descriptor_index];
-    let mut constraints = vec![Vec::new(); descriptor.type_parameters.len()];
+    let mut constraints = vec![Variance::Irrelevant; descriptor.type_parameters.len()];
     let mut factor_paths = Vec::new();
     let context = ConstraintMetadata {
         source_start,
@@ -233,7 +238,12 @@ fn collect_constraints(
         for field in &variant.payload_fields {
             match &field.ty {
                 super::descriptors::AdtPayloadType::TypeParameter(parameter_index) => {
-                    push_parameter_constraint(&mut constraints, *parameter_index, None);
+                    push_parameter_constraint(
+                        &mut constraints,
+                        &mut factor_paths,
+                        *parameter_index,
+                        None,
+                    );
                 }
                 super::descriptors::AdtPayloadType::SelfType => {
                     for parameter_index in 0..descriptor.type_parameters.len() {
@@ -247,6 +257,7 @@ fn collect_constraints(
                         );
                         push_parameter_constraint(
                             &mut constraints,
+                            &mut factor_paths,
                             parameter_index,
                             Some(factor_path),
                         );
@@ -259,7 +270,7 @@ fn collect_constraints(
         }
     }
     DescriptorConstraints {
-        parameters: constraints,
+        direct_occurrences: constraints,
         factor_paths,
     }
 }
@@ -267,7 +278,7 @@ fn collect_constraints(
 fn collect_type_constraints(
     ty: &Type,
     context: &ConstraintMetadata<'_>,
-    constraints: &mut [Vec<Option<usize>>],
+    constraints: &mut [Variance],
     factor_paths: &mut Vec<FactorPathNode>,
 ) {
     let mut storage = ConstraintStorage { factor_paths };
@@ -284,7 +295,12 @@ fn collect_type_constraints(
                 if let Some(parameter_index) = parameter_placeholder_index(name)
                     .or_else(|| parameter_placeholder_index(identity))
                 {
-                    push_parameter_constraint(constraints, parameter_index, factor_path);
+                    push_parameter_constraint(
+                        constraints,
+                        storage.factor_paths,
+                        parameter_index,
+                        factor_path,
+                    );
                 }
             }
             Type::Named {
@@ -397,96 +413,83 @@ fn push_factor_path(
     factor: VarianceFactor,
 ) -> usize {
     let index = factor_paths.len();
-    factor_paths.push(FactorPathNode { parent, factor });
+    factor_paths.push(FactorPathNode {
+        parent,
+        children: Vec::new(),
+        factor,
+        composed: Variance::Irrelevant,
+        target_parameters: BTreeSet::new(),
+    });
+    if let Some(parent) = parent {
+        factor_paths[parent].children.push(index);
+        #[cfg(test)]
+        variance_solver_counters::record_dependency_edge();
+    }
     #[cfg(test)]
     variance_solver_counters::record_retained_factor();
     index
 }
 
-fn evaluate_parameter(
-    parameter_index: usize,
+fn factor_value(
+    factor: &VarianceFactor,
+    descriptors: &[super::descriptors::AdtDescriptor],
+) -> Variance {
+    match factor {
+        VarianceFactor::Fixed(variance) => *variance,
+        VarianceFactor::SourceParameter {
+            descriptor_index,
+            parameter_index,
+        } => descriptors
+            .get(*descriptor_index)
+            .and_then(|descriptor| descriptor.parameter_variances.get(*parameter_index))
+            .copied()
+            .unwrap_or(Variance::Invariant),
+    }
+}
+
+fn composed_factor_value(
+    factor_index: usize,
     constraints: &DescriptorConstraints,
     descriptors: &[super::descriptors::AdtDescriptor],
 ) -> Variance {
-    let mut inferred = Variance::Irrelevant;
-    for factor_path in &constraints.parameters[parameter_index] {
-        #[cfg(test)]
-        variance_solver_counters::record_constraint_join();
-        let occurrence = factor_path.map_or(Variance::Covariant, |path| {
-            evaluate_factor_path(path, constraints, descriptors)
-        });
-        inferred = inferred.join(occurrence);
-    }
-    inferred
+    let node = &constraints.factor_paths[factor_index];
+    let parent = node.parent.map_or(Variance::Covariant, |parent| {
+        constraints.factor_paths[parent].composed
+    });
+    parent.compose(factor_value(&node.factor, descriptors))
 }
 
-fn evaluate_factor_path(
-    mut path: usize,
-    constraints: &DescriptorConstraints,
-    descriptors: &[super::descriptors::AdtDescriptor],
-) -> Variance {
-    let mut factors = Vec::new();
-    loop {
-        factors.push(path);
-        let Some(parent) = constraints.factor_paths[path].parent else {
-            break;
-        };
-        path = parent;
-    }
-    factors
-        .into_iter()
-        .rev()
-        .fold(Variance::Covariant, |position, path| {
-            #[cfg(test)]
-            variance_solver_counters::record_factor_evaluation();
-            let nested = match &constraints.factor_paths[path].factor {
-                VarianceFactor::Fixed(variance) => *variance,
-                VarianceFactor::SourceParameter {
-                    descriptor_index,
-                    parameter_index,
-                } => descriptors
-                    .get(*descriptor_index)
-                    .and_then(|descriptor| descriptor.parameter_variances.get(*parameter_index))
-                    .copied()
-                    .unwrap_or(Variance::Invariant),
-            };
-            position.compose(nested)
-        })
-}
-
-fn parameter_reverse_dependencies(
+fn source_factor_dependencies(
     source_start: usize,
+    descriptors: &[super::descriptors::AdtDescriptor],
     constraints: &[DescriptorConstraints],
-) -> Vec<Vec<BTreeSet<ParameterNode>>> {
+) -> Vec<Vec<Vec<FactorNode>>> {
     let mut reverse = constraints
         .iter()
-        .map(|descriptor| vec![BTreeSet::new(); descriptor.parameters.len()])
+        .enumerate()
+        .map(|(offset, _)| {
+            vec![Vec::new(); descriptors[source_start + offset].type_parameters.len()]
+        })
         .collect::<Vec<_>>();
-    for (target_offset, descriptor) in constraints.iter().enumerate() {
-        for (target_parameter, occurrences) in descriptor.parameters.iter().enumerate() {
-            let target = ParameterNode {
-                descriptor_index: source_start + target_offset,
-                parameter_index: target_parameter,
-            };
-            for occurrence in occurrences.iter().flatten() {
-                let mut path = Some(*occurrence);
-                while let Some(index) = path {
-                    let factor = &descriptor.factor_paths[index];
-                    if let VarianceFactor::SourceParameter {
-                        descriptor_index,
-                        parameter_index,
-                    } = factor.factor
-                        && descriptor_index >= source_start
-                    {
-                        let source_offset = descriptor_index - source_start;
-                        if let Some(dependents) = reverse
-                            .get_mut(source_offset)
-                            .and_then(|parameters| parameters.get_mut(parameter_index))
-                        {
-                            dependents.insert(target);
-                        }
-                    }
-                    path = factor.parent;
+    for (descriptor_offset, descriptor) in constraints.iter().enumerate() {
+        for (factor_index, factor) in descriptor.factor_paths.iter().enumerate() {
+            if let VarianceFactor::SourceParameter {
+                descriptor_index,
+                parameter_index,
+            } = factor.factor
+                && descriptor_index >= source_start
+            {
+                let source_offset = descriptor_index - source_start;
+                if let Some(dependents) = reverse
+                    .get_mut(source_offset)
+                    .and_then(|parameters| parameters.get_mut(parameter_index))
+                {
+                    dependents.push(FactorNode {
+                        descriptor_offset,
+                        factor_index,
+                    });
+                    #[cfg(test)]
+                    variance_solver_counters::record_dependency_edge();
                 }
             }
         }
@@ -494,13 +497,152 @@ fn parameter_reverse_dependencies(
     reverse
 }
 
+fn initialize_factor_summaries(
+    constraints: &mut [DescriptorConstraints],
+    descriptors: &[super::descriptors::AdtDescriptor],
+) {
+    for descriptor in constraints {
+        for factor_index in 0..descriptor.factor_paths.len() {
+            #[cfg(test)]
+            variance_solver_counters::record_factor_evaluation();
+            descriptor.factor_paths[factor_index].composed =
+                composed_factor_value(factor_index, descriptor, descriptors);
+        }
+    }
+}
+
+fn seed_parameter_occurrences(
+    source_start: usize,
+    constraints: &[DescriptorConstraints],
+    descriptors: &mut [super::descriptors::AdtDescriptor],
+    queued: &mut [Vec<bool>],
+    worklist: &mut VecDeque<ParameterNode>,
+) {
+    for (descriptor_offset, descriptor) in constraints.iter().enumerate() {
+        for (parameter_index, occurrence) in
+            descriptor.direct_occurrences.iter().copied().enumerate()
+        {
+            join_parameter_occurrence(
+                ParameterNode {
+                    descriptor_index: source_start + descriptor_offset,
+                    parameter_index,
+                },
+                occurrence,
+                source_start,
+                descriptors,
+                queued,
+                worklist,
+            );
+        }
+        for factor in &descriptor.factor_paths {
+            for parameter_index in &factor.target_parameters {
+                join_parameter_occurrence(
+                    ParameterNode {
+                        descriptor_index: source_start + descriptor_offset,
+                        parameter_index: *parameter_index,
+                    },
+                    factor.composed,
+                    source_start,
+                    descriptors,
+                    queued,
+                    worklist,
+                );
+            }
+        }
+    }
+}
+
+fn propagate_factor_change(
+    factor: FactorNode,
+    source_start: usize,
+    constraints: &mut [DescriptorConstraints],
+    descriptors: &mut [super::descriptors::AdtDescriptor],
+    queued: &mut [Vec<bool>],
+    worklist: &mut VecDeque<ParameterNode>,
+) {
+    let mut pending = VecDeque::from([factor]);
+    while let Some(factor) = pending.pop_front() {
+        #[cfg(test)]
+        variance_solver_counters::record_factor_evaluation();
+        let composed = composed_factor_value(
+            factor.factor_index,
+            &constraints[factor.descriptor_offset],
+            descriptors,
+        );
+        let node = &mut constraints[factor.descriptor_offset].factor_paths[factor.factor_index];
+        if node.composed == composed {
+            continue;
+        }
+        node.composed = composed;
+        let children = node.children.clone();
+        let target_parameters = node.target_parameters.clone();
+        for parameter_index in target_parameters {
+            join_parameter_occurrence(
+                ParameterNode {
+                    descriptor_index: source_start + factor.descriptor_offset,
+                    parameter_index,
+                },
+                composed,
+                source_start,
+                descriptors,
+                queued,
+                worklist,
+            );
+        }
+        pending.extend(children.into_iter().map(|factor_index| FactorNode {
+            descriptor_offset: factor.descriptor_offset,
+            factor_index,
+        }));
+    }
+}
+
+fn join_parameter_occurrence(
+    parameter: ParameterNode,
+    occurrence: Variance,
+    source_start: usize,
+    descriptors: &mut [super::descriptors::AdtDescriptor],
+    queued: &mut [Vec<bool>],
+    worklist: &mut VecDeque<ParameterNode>,
+) {
+    #[cfg(test)]
+    variance_solver_counters::record_constraint_join();
+    let current =
+        descriptors[parameter.descriptor_index].parameter_variances[parameter.parameter_index];
+    let inferred = current.join(occurrence);
+    if current == inferred {
+        return;
+    }
+    descriptors[parameter.descriptor_index].parameter_variances[parameter.parameter_index] =
+        inferred;
+    let offset = parameter.descriptor_index - source_start;
+    if !queued[offset][parameter.parameter_index] {
+        queued[offset][parameter.parameter_index] = true;
+        worklist.push_back(parameter);
+    }
+}
+
 fn push_parameter_constraint(
-    constraints: &mut [Vec<Option<usize>>],
+    constraints: &mut [Variance],
+    factor_paths: &mut [FactorPathNode],
     parameter_index: usize,
     factor_path: Option<usize>,
 ) {
-    if let Some(parameter) = constraints.get_mut(parameter_index) {
-        parameter.push(factor_path);
+    match factor_path {
+        None => {
+            if let Some(parameter) = constraints.get_mut(parameter_index) {
+                *parameter = parameter.join(Variance::Covariant);
+            }
+        }
+        Some(factor_path) => {
+            if constraints.get(parameter_index).is_some()
+                && factor_paths[factor_path]
+                    .target_parameters
+                    .insert(parameter_index)
+            {
+                #[cfg(test)]
+                variance_solver_counters::record_dependency_edge();
+            }
+        }
     }
 }
 
@@ -544,6 +686,7 @@ pub(crate) mod variance_solver_counters {
         static RETAINED_FACTORS: Cell<usize> = const { Cell::new(0) };
         static FACTOR_EVALUATIONS: Cell<usize> = const { Cell::new(0) };
         static CONSTRAINT_JOINS: Cell<usize> = const { Cell::new(0) };
+        static DEPENDENCY_EDGES: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(crate) fn reset() {
@@ -552,6 +695,7 @@ pub(crate) mod variance_solver_counters {
         RETAINED_FACTORS.set(0);
         FACTOR_EVALUATIONS.set(0);
         CONSTRAINT_JOINS.set(0);
+        DEPENDENCY_EDGES.set(0);
     }
 
     pub(super) fn record_evaluation() {
@@ -578,6 +722,10 @@ pub(crate) mod variance_solver_counters {
         CONSTRAINT_JOINS.set(CONSTRAINT_JOINS.get() + 1);
     }
 
+    pub(super) fn record_dependency_edge() {
+        DEPENDENCY_EDGES.set(DEPENDENCY_EDGES.get() + 1);
+    }
+
     pub(crate) fn collection_visits() -> usize {
         COLLECTION_VISITS.get()
     }
@@ -592,5 +740,9 @@ pub(crate) mod variance_solver_counters {
 
     pub(crate) fn constraint_joins() -> usize {
         CONSTRAINT_JOINS.get()
+    }
+
+    pub(crate) fn dependency_edges() -> usize {
+        DEPENDENCY_EDGES.get()
     }
 }

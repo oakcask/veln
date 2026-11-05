@@ -496,6 +496,50 @@ fn nested_payload_collection_has_linear_work_and_retained_state() {
     assert_eq!(adjacent[1].1, adjacent[0].1 * 2);
 }
 
+fn covariant_pair_comb_source(depth: usize) -> String {
+    let mut nested = "T".to_string();
+    for _ in 0..depth {
+        nested = format!("Pair<T, {nested}>");
+    }
+    format!(
+        "type Pair<A, B>\n  PairValue(A, B)\nend\n\
+         type Comb<T>\n  CombValue({nested})\nend\n"
+    )
+}
+
+#[test]
+fn nested_pair_comb_has_linear_factor_and_dependency_work() {
+    use Variance::Covariant;
+
+    let mut measurements = Vec::new();
+    for depth in [128usize, 256] {
+        variance_solver_counters::reset();
+        let start = std::time::Instant::now();
+        let registry = registry_from_source(&covariant_pair_comb_source(depth));
+        let elapsed = start.elapsed();
+        let retained = variance_solver_counters::retained_factors();
+        let factor_evaluations = variance_solver_counters::factor_evaluations();
+        let dependency_edges = variance_solver_counters::dependency_edges();
+
+        assert_eq!(variances(&registry, "Pair"), vec![Covariant; 2]);
+        assert_eq!(variances(&registry, "Comb"), vec![Covariant]);
+        assert_eq!(retained, depth * 2, "depth={depth}");
+        eprintln!(
+            "variance comb depth={depth} retained={retained} factor_evaluations={factor_evaluations} dependency_edges={dependency_edges} elapsed={elapsed:?}"
+        );
+        measurements.push((retained, factor_evaluations, dependency_edges));
+    }
+
+    assert!(
+        measurements[1].1 <= measurements[0].1 * 2 + 8,
+        "factor evaluations must grow linearly: {measurements:?}",
+    );
+    assert!(
+        measurements[1].2 <= measurements[0].2 * 2 + 8,
+        "dependency construction must grow linearly: {measurements:?}",
+    );
+}
+
 fn variance_chain_source(count: usize, reverse: bool) -> String {
     let declarations = (0..count)
         .map(|index| {
