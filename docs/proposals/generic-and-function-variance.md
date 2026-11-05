@@ -21,6 +21,11 @@ The compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`,
 and `Dict<K, V>` constructors already apply assignment covariance as described
 by the current
 [type specification](../specification/types.md#compatibility-and-limits).
+Current context-free aggregate, control-flow, and constructor inference still
+rejects unequal complete arguments even when assignment covariance relates
+them. The bounded joins proposed below are remaining behavior; they would
+replace that current limitation rather than describe behavior already
+implemented.
 
 ## Assignment Relation And Identity
 

@@ -1388,6 +1388,17 @@ successful contributions and for an inferred private result. This exclusion
 also applies when a call argument or constructor payload fails but recovery can
 still identify the call or constructor's refined result type.
 
+Without a concrete expected component or result type, assignment covariance
+does not join unequal arguments of compiler-owned immutable constructors. For
+example, `Option<State::Ready>` and `Option<State>` are incompatible
+contributions to one inferred collection position in either source order. The
+same boundary applies to `Result`, `List`, `Vec`, and `Dict` arguments, repeated
+generic constructor payloads, and unannotated `if` or `match` results. The
+incompatible contribution reports `type.mismatch` against the type accumulated
+from preceding successful contributions. A concrete expected type instead
+checks every contribution by ordinary assignment compatibility and can accept
+the covariant widening.
+
 The join applies when repeated constructor payloads use a type parameter
 directly. If the same parameter also occurs inside a named payload, that nested
 occurrence establishes an exact inference constraint independently of the

@@ -880,6 +880,14 @@ so a later payload is checked against only the constraints that were complete
 before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
+Compiler-owned covariance is not an inference fallback when no concrete
+expected component or result type exists. Unequal covariantly related
+`Option`, `Result`, `List`, `Vec`, or `Dict` arguments in one collection,
+constructor, `if`, or `match` inference report ordinary `type.mismatch` at the
+incompatible contribution. The accumulated type is `expected_type`, and the
+contribution's complete type is `actual_type`. Reversing contribution order
+reverses those rendered roles but does not make the inference succeed.
+
 Generated schema encode boundaries additionally inspect corresponding fields
 of anonymous records and corresponding arguments of `Option`, `List`, `Vec`,
 `Dict`, and `Result`. When the boundary supplies the expected record type, a
