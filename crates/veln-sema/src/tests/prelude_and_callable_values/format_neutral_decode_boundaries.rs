@@ -642,16 +642,22 @@ fn generated_format_neutral_schema_decode_helpers_accept_option_inside_record_fi
 }
 
 #[test]
-fn generated_format_neutral_schema_decode_helpers_accept_dicts_inside_record_fields() {
+fn generated_format_neutral_schema_helpers_accept_dicts_alongside_a_dict_alias() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
+            "pub type Table = Dict\n",
+            "\n",
             "schema Packet\n",
             "  metadata: {scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>}\n",
             "end\n",
             "\n",
-            "pub fn main(packet: {metadata: {scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>}}) -> Result<{metadata: {scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>}}, String>\n",
+            "pub fn decode_packet(packet: {metadata: {scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>}}) -> Result<{metadata: {scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>}}, String>\n",
             "  byte_decode_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn encode_packet(packet: {metadata: {scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>}}) -> Result<{metadata: {scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>}}, String>\n",
+            "  byte_encode_packet(packet)\n",
             "end\n",
         ),
     );
@@ -664,4 +670,28 @@ fn generated_format_neutral_schema_decode_helpers_accept_dicts_inside_record_fie
     let ir = lowered.ir.expect("typed IR should be built");
     assert_eq!(ir.schema_decoders.len(), 1);
     assert_eq!(ir.schema_decoders[0].schema_name, "Packet");
+    for (function_name, expected_target) in [
+        (
+            "decode_packet",
+            IrCallTarget::SchemaNeutralDecode("Packet".to_string()),
+        ),
+        (
+            "encode_packet",
+            IrCallTarget::SchemaNeutralEncode("Packet".to_string()),
+        ),
+    ] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call { target, args }
+                if target == &expected_target && args.len() == 1
+        ));
+    }
 }

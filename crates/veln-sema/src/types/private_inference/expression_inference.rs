@@ -339,9 +339,15 @@ fn infer_private_aggregate_component(
         && joined_components
             .as_mut()
             .is_some_and(|joined| joined.try_join(&actual));
+    let assignable = crate::type_relations::is_assignable_nested(&inferred_context, &actual);
     let rejected_here = inferred_context != Type::Unknown
-        && !crate::type_relations::is_assignable_nested(&inferred_context, &actual)
-        && (has_context || !joined);
+        && if has_context {
+            !assignable
+        } else if joined_components.is_some() {
+            !joined
+        } else {
+            !assignable
+        };
     if rejected_here {
         *context.failures += 1;
         return;

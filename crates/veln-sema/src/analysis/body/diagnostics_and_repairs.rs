@@ -127,6 +127,17 @@ impl<'a> FunctionChecker<'a> {
         );
     }
 
+    pub(in crate::analysis) fn push_inferred_type_mismatch(
+        &mut self,
+        expr: &Expr,
+        expected: &Type,
+        actual: &Type,
+        expected_source: &ExpectedType,
+        constraint: &'static str,
+    ) {
+        self.push_type_mismatch_diagnostic(expr, expected, actual, expected_source, constraint);
+    }
+
     fn check_assignable_with_widening(
         &mut self,
         expr: &Expr,

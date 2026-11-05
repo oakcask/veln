@@ -566,7 +566,8 @@ pub(crate) fn resolved_standard_runtime_type_kind(
         return None;
     }
     let uses = normal_use_decls(module);
-    let descriptor = if identity != name {
+    let canonical_compiler_dict = Type::is_compiler_dict_identity(identity) && name == "Dict";
+    let descriptor = if identity != name && !canonical_compiler_dict {
         adts.descriptor_for_type(ty)
     } else {
         adts.descriptor_for_type_path_in_owner(
