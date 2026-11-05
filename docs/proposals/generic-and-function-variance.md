@@ -161,6 +161,15 @@ tracked factor-evaluation and dependency-edge counts may grow by at most twice
 the smaller count plus eight. Elapsed time is diagnostic output and is not an
 acceptance threshold.
 
+The assignment lookup regression measures 256 and 512 public aliases against
+source-ADT nesting depths 256 and 512. Doubling only the alias count can at
+most double registry-construction candidate scans plus eight and does not
+increase assignment index lookups. Doubling only the nesting depth can at most
+double assignment index lookups plus two and does not increase construction
+scans. Doubling both dimensions keeps each count equal to its corresponding
+single-dimension result, and the combined work can at most double the baseline
+plus ten. Elapsed time is diagnostic output and is not an acceptance threshold.
+
 The evidence below is planned, not implemented or passing. The tables above
 remain the independent acceptance oracle for the remaining consumers; current
 inference behavior cannot supply the expected results.
