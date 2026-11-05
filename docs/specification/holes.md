@@ -92,6 +92,12 @@ rank nearer visible bindings before older ones. A broader match discharged by a
 `satisfy` constraint reports that discharge reason instead of the broad type
 reason. Candidate generation retains the first five ranked candidates and any later
 statically discharged `satisfy` candidates.
+Assignable candidate matching uses the complete
+[assignment relation](types.md#compatibility-and-limits). A source-ADT candidate
+therefore uses the checked covariant, contravariant, invariant, or irrelevant
+classification of each resolved parameter. Missing or ambiguous classification
+metadata falls back to invariance. Exact resolved types still rank before a
+candidate admitted only by that relation.
 Each candidate retains the branch that discharged it when different branches
 select different symbols. Safe candidates remain unapplied and retain a
 verification obligation until the edit is applied and the verification hint is

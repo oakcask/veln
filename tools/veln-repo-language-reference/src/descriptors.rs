@@ -177,7 +177,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
             body: &[
                 "The topic selects grammar for type parameters, return annotations, result bindings, ADT variant-refinement type text, and constructor patterns.",
                 "A refinement `State::Ready` identifies the singleton set containing the declared `Ready` variant of `State`. A union such as `State::Ready | State::Closed` identifies a finite set of variants from the same ADT identity and type arguments. Duplicate alternatives are removed and the set uses declaration order. A constructor expression infers its singleton refinement when type information is available.",
-                "A refinement is assignable to the same refinement or to a refinement whose variant set is a superset. It can widen directly to its base ADT, and the same comparison recurses through covariant record fields and function results. Function inputs are contravariant, concrete effect sets are covariant, and named generic arguments remain invariant except for every argument of the compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>` constructors. Those arguments use the same assignment relation. Assignment in the opposite direction is rejected at each covariant position. The exception follows resolved compiler-owned identity, so a source or imported constructor with the same displayed name remains invariant.",
+                "A refinement is assignable to the same refinement or to a refinement whose variant set is a superset. It can widen directly to its base ADT, and the same comparison recurses through covariant record fields and function results. Function inputs are contravariant and concrete effect sets are covariant. Named generic arguments use the resolved constructor's selected parameter classifications. Source ADTs use their checked covariant, contravariant, invariant, or irrelevant classifications; missing or ambiguous metadata falls back to invariance. Every argument of the compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>` constructors is covariant. Imported declarations and aliases retain the resolved target's classifications, while distinct nominal owners remain incompatible.",
                 "Lists, dictionaries, records, and constructor payloads retain compatible refinements. Aggregate inference joins compatible singleton and finite-set refinements. Control-flow result inference applies the same join to `if` and `match` branches. A join widens to the base ADT when one branch is already base-typed or when the joined set contains every declared variant.",
                 "A constructor pattern narrows a stable matched value to the selected singleton in that arm. A residual catch-all receives the feasible variants not selected by earlier arms. Refinement applies to immutable parameters and local bindings, transparent local aliases that share one feasible domain, and record-field paths rooted at those stable values. Computed expressions are not stable refinement paths.",
                 "Refinements are erased at runtime and use the base ADT representation. They do not add a runtime state store, linear consumption, reachability or progress proofs, payload predicates, or restrictions on constructing visible variants.",
@@ -210,6 +210,11 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                     case: "check/complete-type-structural-assignability",
                     display_name: "Complete record and function assignment",
                     files: &["main.veln"],
+                },
+                ExampleSelection {
+                    case: "check/source-adt-variance-assignment",
+                    display_name: "Source ADT variance assignment",
+                    files: &["api.veln", "app.veln"],
                 },
                 ExampleSelection {
                     case: "check/adt-variant-refinement-control-flow-result-joins",

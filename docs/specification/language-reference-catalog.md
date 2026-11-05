@@ -62,9 +62,10 @@ An alternative with type arguments retains any `TypePath` before those
 arguments, so semantic analysis can diagnose and recover an invalid-cased
 generic base. Its descriptor publishes the current
 singleton and finite-set identity, subset assignability and direct widening,
-complete record and function assignment, covariance for every argument of the
-compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and
-`Dict<K, V>` constructors, aggregate and control-flow joins,
+complete record and function assignment, checked source-ADT parameter variance,
+covariance for every argument of the compiler-owned immutable `Option<T>`,
+`Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>` constructors, aggregate
+and control-flow joins,
 stable match-path narrowing, runtime erasure,
 transitive alias-qualified identity and presentation, complete-domain alias
 reconciliation, generic payload propagation across alias-qualified constructor
@@ -88,12 +89,12 @@ paths do not become roots.
 Different owner packages, roots, and field sequences remain independent.
 Calls, indexing, constructed records, and other computed expressions do not
 become module-value field roots.
-The selected examples demonstrate refined call typing, complete structural
-assignment, control-flow result joins, alias-qualified identity and
-presentation, generic alias boundaries, structural visibility, publication
-quarantine, and qualified module-value match refinement. The current type and
-source specifications remain authoritative for those behaviors and the
-accepted source forms, including malformed-form boundaries.
+The selected examples demonstrate refined call typing, complete structural and
+source-ADT variance assignment, control-flow result joins, alias-qualified
+identity and presentation, generic alias boundaries, structural visibility,
+publication quarantine, and qualified module-value match refinement. The
+current type and source specifications remain authoritative for those
+behaviors and the accepted source forms, including malformed-form boundaries.
 The `contracts` topic selects the function-contract, schema-validation, and
 schema-field predicate entry productions. The complete grammar distinguishes
 function contracts and hole `satisfy` predicates, which admit integer `%`,
