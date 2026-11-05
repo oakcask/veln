@@ -16,6 +16,7 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
             module_name: None,
             nominal_identity: None,
             type_parameters: Vec::new(),
+            parameter_variances: Vec::new(),
             variants: vec![AdtVariantDescriptor {
                 name: "RuntimeDiagnosticFieldPathSegment".to_string(),
                 name_class: SourceLessNameClass::Constructor,
@@ -45,6 +46,7 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
             module_name: None,
             nominal_identity: None,
             type_parameters: Vec::new(),
+            parameter_variances: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "RuntimeByteCountFacts".to_string(),
@@ -125,6 +127,7 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
             module_name: None,
             nominal_identity: None,
             type_parameters: Vec::new(),
+            parameter_variances: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "RuntimeBytePreview".to_string(),
@@ -172,6 +175,7 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
             module_name: None,
             nominal_identity: None,
             type_parameters: vec!["TState".to_string()],
+            parameter_variances: vec![super::variance::Variance::Invariant],
             variants: vec![
                 AdtVariantDescriptor {
                     name: "Encoded".to_string(),

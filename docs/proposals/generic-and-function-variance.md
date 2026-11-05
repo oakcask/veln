@@ -8,10 +8,13 @@ update-when: Source-ADT variance inference, bounded generic inference, dependenc
 ## Summary
 
 This proposal contains the remaining work for named generic variance. The
-compiler will infer source-ADT parameter variance from payload declarations.
-Veln will add no declaration-site variance modifiers. The remaining work also
-includes bounded generic inference, dependency metadata, detailed nested
-incompatibility context, and failure preservation.
+compiler now computes and retains one checked variance classification per
+source-ADT type parameter. It includes private payloads, recursive declarations,
+and checked classifications inherited from dependencies. This metadata is not
+yet consumed by assignment or inference. Veln will add no declaration-site
+variance modifiers. The remaining work includes assignment consumption,
+bounded generic inference, dependency consumption, detailed nested
+incompatibility context, presentation, and failure preservation.
 
 Recursive assignment through records and functions is current behavior under
 the [type specification](../specification/types.md#compatibility-and-limits).
@@ -76,7 +79,7 @@ These symbols are explanatory notation, not Veln source syntax.
 | Opaque or imported generic type with no checked variance metadata | Every parameter `=`. | Representation safety cannot be inferred from a name or helper signature. |
 | Nongeneric resource or other nongeneric type | No parameter variance. | Its nominal identity still controls assignment. |
 
-## Source-ADT Inference
+## Implemented Source-ADT Classification Producer
 
 A payload starts positive. Record fields and function results preserve the
 position; fixed and variadic function inputs reverse it. A nested named type
@@ -112,7 +115,13 @@ first. For example, a recursive list with a direct `T` head is covariant. A
 recursive chain that carries `fn(T) -> ()` is contravariant. A chain carrying
 both a `T` and `fn(T) -> ()` is invariant. A cycle in which `T` is only passed
 around recursive type arguments and never observed in any payload is
-irrelevant. This specifies the result, not a required solver architecture.
+irrelevant. This specifies the result, not a required solver architecture. The
+checked semantic descriptor producer implements this classification contract.
+Focused semantic tests cover the complete composition table, occurrence joins,
+payload shapes, nested constructors, conservative missing-metadata fallback,
+recursive declaration permutations, and descriptor arity. Because the metadata
+has no language-visible consumer yet, the current type specification and
+executable specification examples remain unchanged.
 
 The definition-based inference and recursive constraint treatment follow the
 [Rust Compiler Development Guide's variance discussion](https://rustc-dev-guide.rust-lang.org/variance.html).
@@ -190,12 +199,12 @@ contributions has the same resolved type and presentation in every order.
 Diagnostic recovery may report errors at their original source locations; it
 must not use a failed contribution to justify another accepted assignment.
 
-## Metadata, Presentation, And Failure
+## Remaining Metadata Consumption, Presentation, And Failure
 
 | Surface | Selected behavior |
 | --- | --- |
-| Dependency type metadata | Source-package analysis computes one classification per declared parameter, keyed by resolved declaration identity and parameter order. Importers use these checked semantic descriptors, including for hidden payloads. No metadata-only package input or serialized interface format is introduced. |
-| Missing or invalid variance metadata | Use invariance for unavailable classifications; malformed dependency metadata still follows the package loader's ordinary rejection policy. Never infer covariance from a displayed signature. |
+| Dependency type metadata | Source-package analysis computes one classification per declared parameter, keyed by resolved declaration identity and parameter order. Importers already retain these checked semantic descriptors, including classifications derived from hidden payloads. Remaining consumers will use them for assignment and inference. No metadata-only package input or serialized interface format is introduced. |
+| Missing or invalid variance metadata | Classification production already uses invariance for unavailable classifications and never infers covariance from a displayed signature. Remaining assignment and inference consumers must preserve that fallback. Malformed dependency metadata still follows the package loader's ordinary rejection policy. |
 | Declaration changes | Recompute affected variance contracts and invalidate dependent analysis before accepting downstream assignments. A stale classification cannot survive a payload change. |
 | Source, formatter, package declaration display | Keep `type Name<T...>`; emit no inferred variance modifiers or replacement type names. |
 | Diagnostics, LSP, MCP | Show ordinary types and existing alias preferences. Equal target identity with differing aliases is not a mismatch. Mixed alias preferences in inferred joins use the canonical target name permanently for that inference. |
@@ -213,14 +222,15 @@ repair context; the primary message remains the specific assignment failure.
 
 ## Acceptance Model
 
-The following evidence is planned, not implemented or passing. The tables above
-are the independent acceptance oracle; current compiler behavior cannot supply
-the expected results for the change.
+Classification production is implemented and checked by focused semantic
+tests. The remaining evidence is planned, not implemented or passing. The
+tables above remain the independent acceptance oracle for consumers; current
+assignment and inference behavior cannot supply the remaining expected results.
 
 | Contract | Planned evidence and required observation |
 | --- | --- |
-| Source-ADT classification and polarity tables | Table-driven semantic tests cover every inferred parameter classification and composition cell, both assignment directions, same-spelled distinct ADTs, and refinement sets with varying arguments. |
-| Recursive inference | Source-ADT fixtures cover positive, negative, mixed, irrelevant, opaque, and mutually recursive cases; declaration permutations must yield the same classifications. |
+| Source-ADT classification metadata | Implemented semantic tests cover every composition cell; positive, negative, invariant, and irrelevant occurrence joins; direct, record, function, variadic, nested, private, compiler-owned, checked dependency, and missing-metadata payloads; and classification arity. Assignment directions, same-spelled distinct ADTs, and refinement sets remain planned with assignment consumption. |
+| Recursive classification | Implemented source-ADT fixtures cover positive, negative, mixed, irrelevant, recursive, and mutually recursive cases. Declaration permutations produce the same classifications. |
 | Bounded inference | Permuted branch, collection, and payload cases cover successful joins, annotation-required meets, irrelevant slots, exact constraints, and transactional exclusion of failed contributions. |
 | Metadata and identity | Package fixtures compare local and imported behavior, hidden payloads, absent metadata, and invalidation after a variance-changing payload edit. |
 | Presentation and diagnostics | Human and JSON fixtures cover nested paths, reversed input comparison, direct exclusions, aliases, modifier-free declarations, and stable package/LSP/MCP presentations. |
@@ -233,7 +243,7 @@ their respective contracts. Recursive generated-input coverage must follow
 the repository's bounded-run and performance-audit skills; this proposal sets
 no unmeasured timing target.
 
-Once those checks pass, update the named-generic variance and inference sections
+Once the remaining checks pass, update the named-generic variance and inference sections
 in the current type specification, together with executable examples. Then
 retire this proposal and its catalog entry.
 
@@ -247,9 +257,10 @@ It excludes mutable references, declaration-site variance syntax, general
 unions/intersections, higher-kinded types, predicate-based subtyping, and
 runtime representation changes solely for variance.
 
-The inspected local implementation anchors are
+The checked ADT variance producer is the implementation anchor for
+classification metadata. The inspected local implementation anchors are
 `crates/veln-sema/src/type_relations.rs` for current structural polarity and the
-future application of inferred source-ADT parameter classifications, and
+future application of source-ADT parameter classifications, and
 `crates/veln-sema/src/aggregate_type_join.rs` for current refinement joins.
 These identify the affected implementation boundaries; the proposal tables
 define the intended replacement behavior.

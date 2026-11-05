@@ -216,6 +216,7 @@ fn compiler_dict_descriptor() -> AdtDescriptor {
         module_name: None,
         nominal_identity: Some(crate::semantic_model::Type::COMPILER_DICT_IDENTITY.to_string()),
         type_parameters: vec!["K".to_string(), "V".to_string()],
+        parameter_variances: vec![crate::adt::variance::Variance::Covariant; 2],
         variants: Vec::new(),
         diagnostic_name: "dict".to_string(),
         refinement_availability: VariantRefinementAvailability::Opaque,

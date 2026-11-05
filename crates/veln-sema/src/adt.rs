@@ -1,5 +1,6 @@
 pub(crate) mod descriptors;
 pub(crate) mod registry;
+pub(crate) mod variance;
 
 mod builtin_codec_descriptors;
 mod builtin_core_descriptors;

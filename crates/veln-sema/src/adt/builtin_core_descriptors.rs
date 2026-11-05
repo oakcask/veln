@@ -17,6 +17,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             module_name: None,
             nominal_identity: Some(Type::COMPILER_OPTION_IDENTITY.to_string()),
             type_parameters: vec!["T".to_string()],
+            parameter_variances: vec![super::variance::Variance::Covariant],
             variants: vec![
                 AdtVariantDescriptor {
                     name: "Some".to_string(),
@@ -50,6 +51,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             module_name: None,
             nominal_identity: Some(Type::COMPILER_RESULT_IDENTITY.to_string()),
             type_parameters: vec!["T".to_string(), "E".to_string()],
+            parameter_variances: vec![super::variance::Variance::Covariant; 2],
             variants: vec![
                 AdtVariantDescriptor {
                     name: "Ok".to_string(),
@@ -89,6 +91,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             module_name: None,
             nominal_identity: Some(Type::COMPILER_LIST_IDENTITY.to_string()),
             type_parameters: vec!["A".to_string()],
+            parameter_variances: vec![super::variance::Variance::Covariant],
             variants: vec![
                 AdtVariantDescriptor {
                     name: "Nil".to_string(),
@@ -128,6 +131,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             module_name: None,
             nominal_identity: None,
             type_parameters: Vec::new(),
+            parameter_variances: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "Chunk".to_string(),
@@ -161,6 +165,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             module_name: None,
             nominal_identity: None,
             type_parameters: Vec::new(),
+            parameter_variances: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "SendBytes".to_string(),
@@ -202,6 +207,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             module_name: None,
             nominal_identity: None,
             type_parameters: Vec::new(),
+            parameter_variances: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "AcceptStream".to_string(),
@@ -251,6 +257,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             module_name: None,
             nominal_identity: None,
             type_parameters: Vec::new(),
+            parameter_variances: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "ReadChunk".to_string(),
@@ -300,6 +307,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             module_name: None,
             nominal_identity: None,
             type_parameters: Vec::new(),
+            parameter_variances: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "WriteCompleted".to_string(),
@@ -344,6 +352,7 @@ fn opaque_builtin_descriptor(name: &str) -> AdtDescriptor {
         module_name: None,
         nominal_identity: None,
         type_parameters: Vec::new(),
+        parameter_variances: Vec::new(),
         variants: Vec::new(),
         diagnostic_name: name.to_ascii_lowercase(),
         refinement_availability: super::descriptors::VariantRefinementAvailability::Opaque,

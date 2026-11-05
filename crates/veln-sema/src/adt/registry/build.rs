@@ -274,6 +274,10 @@ impl AdtRegistry {
         self.source_import_count = uses.len();
         self.local_descriptor_start = local_descriptor_start;
         self.canonicalize_source_payload_types(&uses, source_descriptor_start);
+        crate::adt::variance::infer_source_parameter_variances(
+            &mut self.descriptors,
+            source_descriptor_start,
+        );
     }
 
     fn canonicalize_source_payload_types(

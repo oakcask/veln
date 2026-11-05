@@ -64,6 +64,7 @@ fn lookup_descriptor(module: &str, arity: usize) -> AdtDescriptor {
         module_name: Some(module.to_string()),
         nominal_identity: None,
         type_parameters: (0..arity).map(|index| format!("T{index}")).collect(),
+        parameter_variances: vec![crate::adt::variance::Variance::Invariant; arity],
         variants: vec![AdtVariantDescriptor {
             name: "Hidden".to_string(),
             name_class: SourceLessNameClass::Constructor,
@@ -79,6 +80,8 @@ fn lookup_descriptor(module: &str, arity: usize) -> AdtDescriptor {
     }
 }
 
+#[path = "tests/variance.rs"]
+mod variance;
 #[path = "tests/variant_lookup.rs"]
 mod variant_lookup;
 
@@ -426,6 +429,7 @@ fn validated_registry_indexes_descriptor_and_constructor_owners() {
         module_name: Some("example".to_string()),
         nominal_identity: None,
         type_parameters: Vec::new(),
+        parameter_variances: Vec::new(),
         variants: vec![AdtVariantDescriptor {
             name: "OwnedValue".to_string(),
             name_class: SourceLessNameClass::Constructor,

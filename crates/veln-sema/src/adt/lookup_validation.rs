@@ -199,6 +199,7 @@ pub(super) fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
         module_name: decl.module_name.clone(),
         nominal_identity: None,
         type_parameters: decl.params.clone(),
+        parameter_variances: vec![crate::adt::variance::Variance::Irrelevant; decl.params.len()],
         variants,
         diagnostic_name: name.to_lowercase(),
         refinement_availability,
