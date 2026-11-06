@@ -157,7 +157,7 @@ fn missing_field_satisfy_diagnostic(
 fn hole_related_notes(
     contracts: &[Contract],
     satisfy: Option<&SatisfyClause>,
-    expected: Option<&ExpectedType>,
+    expected: Option<&ExpectedType<'_>>,
 ) -> Vec<JsonValue> {
     let mut notes = Vec::new();
     notes.extend(expected_type_related_note(expected));
@@ -166,7 +166,7 @@ fn hole_related_notes(
     notes
 }
 
-fn expected_type_related_note(expected: Option<&ExpectedType>) -> Option<JsonValue> {
+fn expected_type_related_note(expected: Option<&ExpectedType<'_>>) -> Option<JsonValue> {
     let expected = expected?;
     let span = expected.origin_span.as_ref()?;
     Some(JsonValue::object([
@@ -224,7 +224,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         expr: &Expr,
         satisfy: &SatisfyClause,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
     ) {
         self.report_satisfy_literal_zero_remainders(satisfy);
         let Some(candidate) = satisfy.candidate.as_deref() else {
@@ -278,7 +278,7 @@ impl<'a> FunctionChecker<'a> {
     fn satisfy_predicate_bindings(
         &self,
         candidate: &str,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
         rejected_callsite_shadow: bool,
     ) -> Vec<Binding> {
         let mut bindings = self
@@ -293,7 +293,7 @@ impl<'a> FunctionChecker<'a> {
         if !rejected_callsite_shadow {
             bindings.push(Binding::new(
                 candidate.to_string(),
-                expected.map_or(Type::Unknown, |expected| expected.ty.clone()),
+                expected.map_or(Type::Unknown, |expected| expected.ty.as_ref().clone()),
             ));
         }
         bindings
@@ -426,7 +426,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         name: Option<&str>,
         satisfy: Option<&SatisfyClause>,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
     ) {
         let expected_type = expected
             .map(|expected| expected.ty.render())
@@ -434,8 +434,9 @@ impl<'a> FunctionChecker<'a> {
         let expected_source =
             expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source);
         let candidate_queries =
-            self.candidate_queries(expected.map(|expected| &expected.ty), expr, satisfy);
-        let constraints = self.hole_constraints(satisfy, expected.map(|expected| &expected.ty));
+            self.candidate_queries(expected.map(|expected| expected.ty.as_ref()), expr, satisfy);
+        let constraints =
+            self.hole_constraints(satisfy, expected.map(|expected| expected.ty.as_ref()));
         let local_bindings = self.hole_local_bindings();
         let details = hole_details(
             expr,

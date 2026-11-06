@@ -1,5 +1,6 @@
 use super::*;
 use crate::adt::descriptors::AdtPayloadField;
+use std::borrow::Cow;
 
 fn private_type_contains_unknown(ty: &Type) -> bool {
     match ty {
@@ -199,13 +200,20 @@ fn infer_private_constructor_payload(
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
     let field = constructor.variant.payload_fields.get(index);
-    let mut payload_expected = type_args.payload_expected(expected, constructor, index, field);
+    let mut payload_expected =
+        crate::aggregate_type_join::measure_completion_payload_context(|| {
+            type_args.payload_expected(expected, constructor, index, field)
+        });
     let needs_completion = private_expression_needs_aggregate_completion_context(arg, context);
     if expected.is_none() && needs_completion {
-        payload_expected = private_completion_context_type(arg, payload_expected, context);
+        payload_expected = Cow::Owned(private_completion_context_type(
+            arg,
+            payload_expected.into_owned(),
+            context,
+        ));
     }
     if expected.is_none() && type_args.has_nested_join(field) && !needs_completion {
-        payload_expected = Type::Unknown;
+        payload_expected = Cow::Owned(Type::Unknown);
     }
     let plan = PrivatePayloadInferencePlan::new(expected.is_some(), field, &payload_expected);
     let Some(inferred_actual) = plan.infer(arg, &payload_expected, context) else {
@@ -315,13 +323,24 @@ impl PrivateConstructorTypeArgInference {
         }
     }
 
-    fn payload_expected(
+    fn payload_expected<'expected>(
         &self,
-        expected: Option<&Type>,
+        expected: Option<&'expected Type>,
         constructor: AdtConstructor<'_>,
         index: usize,
         field: Option<&AdtPayloadField>,
-    ) -> Type {
+    ) -> Cow<'expected, Type> {
+        if let (
+            Some(expected),
+            Some(AdtPayloadField {
+                ty: AdtPayloadType::TypeParameter(type_index),
+                ..
+            }),
+        ) = (expected, field)
+            && let Some(expected_args) = unification::adt_args(expected, constructor.descriptor)
+        {
+            return Cow::Borrowed(&expected_args[*type_index]);
+        }
         expected
             .and_then(|expected| {
                 let expected_args = unification::adt_args(expected, constructor.descriptor)?;
@@ -330,7 +349,12 @@ impl PrivateConstructorTypeArgInference {
                     expected_args[type_index].clone()
                 })
             })
-            .or_else(|| field.and_then(|field| self.direct_payload_context(field)))
+            .map(Cow::Owned)
+            .or_else(|| {
+                field
+                    .and_then(|field| self.direct_payload_context(field))
+                    .map(Cow::Owned)
+            })
             .or_else(|| {
                 adt::payload_type_with_resolved_args(constructor, index, |type_index| {
                     crate::aggregate_type_join::record_work(1);
@@ -339,8 +363,9 @@ impl PrivateConstructorTypeArgInference {
                         .map(crate::aggregate_type_join::AggregateTypeJoin::result_type)
                         .unwrap_or_else(|| self.inferred[type_index].clone())
                 })
+                .map(Cow::Owned)
             })
-            .unwrap_or(Type::Unknown)
+            .unwrap_or_else(|| Cow::Owned(Type::Unknown))
     }
 
     fn direct_payload_context(&self, field: &AdtPayloadField) -> Option<Type> {

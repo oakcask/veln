@@ -2,6 +2,7 @@ use super::control_flow_results::{ControlFlowResultJoin, contribute_control_flow
 use super::*;
 use crate::adt::descriptors::AdtPayloadField;
 use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -441,12 +442,13 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         expr: &Expr,
         args: &[Expr],
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
         constructor: AdtConstructor,
     ) -> Type {
         let diagnostic_count = self.diagnostics.len();
-        let expected = expected
-            .filter(|expected| adt::type_matches_descriptor(&expected.ty, constructor.descriptor));
+        let expected = expected.filter(|expected| {
+            adt::type_matches_descriptor(expected.ty.as_ref(), constructor.descriptor)
+        });
         let mut inferred_type_args =
             self.infer_constructor_type_args(expr, args, expected, constructor);
         fill_unknown_constructor_type_args(
@@ -455,8 +457,9 @@ impl<'a> FunctionChecker<'a> {
             constructor,
             &self.environment.adts,
         );
-        let expected_type_args = expected
-            .and_then(|expected| unification::adt_args(&expected.ty, constructor.descriptor));
+        let expected_type_args = expected.and_then(|expected| {
+            unification::adt_args(expected.ty.as_ref(), constructor.descriptor)
+        });
         let type_args = if self.diagnostics.len() != diagnostic_count {
             expected_type_args.unwrap_or(&inferred_type_args)
         } else {
@@ -492,7 +495,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         expr: &Expr,
         args: &[Expr],
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
         constructor: AdtConstructor,
     ) -> Vec<Type> {
         let mut type_args = ConstructorTypeArgInference::new(constructor);
@@ -535,28 +538,45 @@ impl<'a> FunctionChecker<'a> {
         arg: &Expr,
         field: &AdtPayloadField,
         index: usize,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
         constructor: AdtConstructor,
         type_args: &mut ConstructorTypeArgInference,
     ) {
-        let mut arg_expected = expected.cloned().unwrap_or_else(|| ExpectedType {
-            ty: Type::Unknown,
-            source: ExpectedTypeSource::Inferred,
-            origin_node_id: call.node_id,
-            origin_span: Some(call.span.clone()),
-            origin_message: "Constructor payload inferred here.",
-        });
-        arg_expected.ty =
-            type_args.payload_expected(expected, constructor, index, field, &self.environment.adts);
+        let mut arg_expected =
+            crate::aggregate_type_join::measure_completion_payload_context(|| {
+                let payload_expected = type_args.payload_expected(
+                    expected,
+                    constructor,
+                    index,
+                    field,
+                    &self.environment.adts,
+                );
+                ExpectedType {
+                    ty: payload_expected,
+                    source: expected
+                        .map_or(ExpectedTypeSource::Inferred, |expected| expected.source),
+                    origin_node_id: expected
+                        .map_or(call.node_id, |expected| expected.origin_node_id),
+                    origin_span: expected.map_or_else(
+                        || Some(call.span.clone()),
+                        |expected| expected.origin_span.clone(),
+                    ),
+                    origin_message: expected
+                        .map_or("Constructor payload inferred here.", |expected| {
+                            expected.origin_message
+                        }),
+                }
+            });
         if expected.is_none() && self.expression_needs_aggregate_completion_context(arg) {
-            arg_expected.ty = self.project_completion_context(arg, arg_expected.ty);
+            arg_expected.ty =
+                Cow::Owned(self.project_completion_context(arg, arg_expected.ty.into_owned()));
         }
         if expected.is_none()
             && matches!(field.ty, AdtPayloadType::TypeParameter(_))
             && type_args.has_nested_join(field)
             && !self.expression_needs_aggregate_completion_context(arg)
         {
-            arg_expected.ty = Type::Unknown;
+            arg_expected.ty = Cow::Owned(Type::Unknown);
         }
         let diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(arg, Some(&arg_expected));
@@ -565,11 +585,11 @@ impl<'a> FunctionChecker<'a> {
         }
         let has_context = expected.is_some()
             || (!matches!(field.ty, AdtPayloadType::TypeParameter(_))
-                && !type_contains_unknown(&arg_expected.ty));
+                && !type_contains_unknown(arg_expected.ty.as_ref()));
         let inferred = if has_context || self.expression_needs_aggregate_completion_context(arg) {
             inferred_aggregate_member_type_with_expected(
                 actual,
-                &arg_expected.ty,
+                arg_expected.ty.as_ref(),
                 &self.environment.adts,
             )
         } else {
@@ -610,7 +630,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         arg: &Expr,
         field: &AdtPayloadField,
-        expected: &ExpectedType,
+        expected: &ExpectedType<'_>,
         actual: &Type,
         has_context: bool,
         joined: bool,
@@ -621,13 +641,13 @@ impl<'a> FunctionChecker<'a> {
             AdtPayloadType::SelfType | AdtPayloadType::Concrete(_)
         ) {
             if matches!(field.ty, AdtPayloadType::Concrete(_))
-                && unification::is_direct_variant_carrier(&expected.ty, actual)
+                && unification::is_direct_variant_carrier(expected.ty.as_ref(), actual)
             {
                 return;
             }
             self.check_contextual_assignable_nested(
                 arg,
-                &expected.ty,
+                expected.ty.as_ref(),
                 actual,
                 expected,
                 "call_argument",
@@ -637,18 +657,22 @@ impl<'a> FunctionChecker<'a> {
         let join_failed = !has_context && !joined && type_args.has_join(field);
         if joined
             || (!join_failed
-                && is_assignable_nested_with_registry(&expected.ty, actual, &self.environment.adts))
+                && is_assignable_nested_with_registry(
+                    expected.ty.as_ref(),
+                    actual,
+                    &self.environment.adts,
+                ))
         {
             return;
         }
         let mismatch_context = ExpectedType {
-            ty: type_args.mismatch_expected(field, expected),
+            ty: Cow::Owned(type_args.mismatch_expected(field, expected)),
             ..expected.clone()
         };
         if join_failed {
             self.push_inferred_type_mismatch(
                 arg,
-                &mismatch_context.ty,
+                mismatch_context.ty.as_ref(),
                 actual,
                 &mismatch_context,
                 "call_argument",
@@ -656,7 +680,7 @@ impl<'a> FunctionChecker<'a> {
         } else {
             self.check_contextual_assignable_nested(
                 arg,
-                &mismatch_context.ty,
+                mismatch_context.ty.as_ref(),
                 actual,
                 &mismatch_context,
                 "call_argument",
@@ -668,19 +692,19 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         expr: &Expr,
         items: &[Expr],
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
     ) -> Type {
         let diagnostic_count = self.diagnostics.len();
         if items.is_empty()
             && let Some(expected) = expected
             && expected.ty.vec_part().is_some()
-            && type_contains_unknown(&expected.ty)
+            && type_contains_unknown(expected.ty.as_ref())
         {
             self.push_ambiguous_empty_collection_type(
                 expr.node_id,
                 expr.span.clone(),
                 "Vec",
-                &expected.ty,
+                expected.ty.as_ref(),
             );
         }
         let expected_item = expected
@@ -722,7 +746,7 @@ impl<'a> FunctionChecker<'a> {
             && (self.diagnostics.len() != diagnostic_count
                 || !type_contains_variant_refinement(&actual))
         {
-            expected.ty.clone()
+            expected.ty.as_ref().clone()
         } else {
             actual
         }
@@ -733,7 +757,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         list: &Expr,
         item: &Expr,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
         expected_item: &Type,
         contextual_item: bool,
         item_type: &mut Type,
@@ -765,7 +789,7 @@ impl<'a> FunctionChecker<'a> {
             if contextual_item || self.expression_needs_aggregate_completion_context(item) {
                 inferred_aggregate_member_type_with_expected(
                     actual.clone(),
-                    &item_expected.ty,
+                    item_expected.ty.as_ref(),
                     &self.environment.adts,
                 )
             } else {
@@ -778,20 +802,20 @@ impl<'a> FunctionChecker<'a> {
             let mismatch_expected = joined_items
                 .as_ref()
                 .map(AggregateTypeJoin::result_type)
-                .unwrap_or_else(|| item_expected.ty.clone());
+                .unwrap_or_else(|| item_expected.ty.as_ref().clone());
             let mismatch_context = ExpectedType {
-                ty: mismatch_expected,
+                ty: Cow::Owned(mismatch_expected),
                 ..item_expected.clone()
             };
             self.push_inferred_type_mismatch(
                 item,
-                &mismatch_context.ty,
+                mismatch_context.ty.as_ref(),
                 &actual,
                 &mismatch_context,
                 "list_element",
             );
         } else if !is_assignable_nested_with_registry(
-            &item_expected.ty,
+            item_expected.ty.as_ref(),
             &aggregate_actual,
             &self.environment.adts,
         ) && (contextual_item || !joined)
@@ -825,21 +849,21 @@ impl<'a> FunctionChecker<'a> {
     fn push_list_item_mismatch(
         &mut self,
         item: &Expr,
-        item_expected: &ExpectedType,
+        item_expected: &ExpectedType<'_>,
         actual: &Type,
         joined_items: &Option<AggregateTypeJoin>,
     ) {
         let mismatch_expected = joined_items
             .as_ref()
             .map(AggregateTypeJoin::result_type)
-            .unwrap_or_else(|| item_expected.ty.clone());
+            .unwrap_or_else(|| item_expected.ty.as_ref().clone());
         let mismatch_context = ExpectedType {
-            ty: mismatch_expected,
+            ty: Cow::Owned(mismatch_expected),
             ..item_expected.clone()
         };
         self.check_contextual_assignable_nested(
             item,
-            &mismatch_context.ty,
+            mismatch_context.ty.as_ref(),
             actual,
             &mismatch_context,
             "list_element",
@@ -851,7 +875,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         scrutinee: &Expr,
         arms: &[MatchArm],
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
     ) -> Type {
         let inferred_scrutinee_type = self.infer_match_scrutinee(expr, scrutinee, arms);
         let inferred_scrutinee_type = self
@@ -887,13 +911,13 @@ impl<'a> FunctionChecker<'a> {
                 self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
             }
             return expected
-                .map(|expected| expected.ty.clone())
+                .map(|expected| expected.ty.as_ref().clone())
                 .unwrap_or(Type::Unknown);
         }
 
         let mut result = ControlFlowResultJoin::new(
             expected
-                .map(|expected| expected.ty.clone())
+                .map(|expected| expected.ty.as_ref().clone())
                 .unwrap_or(Type::Unknown),
         );
         let domain = RefinedMatchDomain {
@@ -1052,7 +1076,7 @@ impl<'a> FunctionChecker<'a> {
             MatchScrutineePatternInference::Uninferred => None,
         };
         let scrutinee_expected = pattern_scrutinee_type.as_ref().map(|ty| ExpectedType {
-            ty: ty.clone(),
+            ty: Cow::Owned(ty.clone()),
             source: ExpectedTypeSource::Inferred,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
@@ -1424,7 +1448,7 @@ impl<'a> FunctionChecker<'a> {
         match_expr: &Expr,
         domain: &RefinedMatchDomain<'_>,
         arm: &MatchArm,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
         result: &mut ControlFlowResultJoin,
         refined_coverage: Option<&mut RefinedMatchCoverage>,
     ) {
@@ -1896,7 +1920,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         match_expr: &Expr,
         arm: &MatchArm,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
         result: &mut ControlFlowResultJoin,
     ) {
         let recovery_type = match result.joined.as_ref() {
@@ -1908,7 +1932,7 @@ impl<'a> FunctionChecker<'a> {
             && let Some(recovery_type) = recovery_type
         {
             Some(ExpectedType {
-                ty: recovery_type,
+                ty: Cow::Owned(recovery_type),
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: match_expr.node_id,
                 origin_span: Some(match_expr.span.clone()),
@@ -1926,7 +1950,7 @@ impl<'a> FunctionChecker<'a> {
                 .map_or(actual.clone(), |expected| {
                     inferred_aggregate_member_type_with_expected(
                         actual,
-                        &expected.ty,
+                        expected.ty.as_ref(),
                         &self.environment.adts,
                     )
                 })
@@ -1934,13 +1958,19 @@ impl<'a> FunctionChecker<'a> {
             actual
         };
         if let Some(expected) = expected {
-            self.check_assignable(&arm.expr, &expected.ty, &actual, expected, "match_arm");
+            self.check_assignable(
+                &arm.expr,
+                expected.ty.as_ref(),
+                &actual,
+                expected,
+                "match_arm",
+            );
             return;
         }
         let recovering_from_failed_join = result.failed();
         if !contribute_control_flow_result(&self.environment.adts, result, &actual) {
             let mismatch_expected = ExpectedType {
-                ty: result.recovery_type.clone(),
+                ty: Cow::Owned(result.recovery_type.clone()),
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: match_expr.node_id,
                 origin_span: Some(match_expr.span.clone()),
@@ -1949,7 +1979,7 @@ impl<'a> FunctionChecker<'a> {
             if recovering_from_failed_join || type_contains_unknown(&actual) {
                 self.check_assignable(
                     &arm.expr,
-                    &mismatch_expected.ty,
+                    mismatch_expected.ty.as_ref(),
                     &actual,
                     &mismatch_expected,
                     "match_arm",
@@ -1957,7 +1987,7 @@ impl<'a> FunctionChecker<'a> {
             } else {
                 self.push_inferred_type_mismatch(
                     &arm.expr,
-                    &mismatch_expected.ty,
+                    mismatch_expected.ty.as_ref(),
                     &actual,
                     &mismatch_expected,
                     "match_arm",
@@ -1973,13 +2003,13 @@ impl<'a> FunctionChecker<'a> {
         then_branch: &Expr,
         else_if_branches: &[IfBranch],
         else_branch: &Expr,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
     ) -> Type {
         self.check_if_condition(expr, condition);
 
         let mut result = ControlFlowResultJoin::new(
             expected
-                .map(|expected| expected.ty.clone())
+                .map(|expected| expected.ty.as_ref().clone())
                 .unwrap_or(Type::Unknown),
         );
         for branch in else_if_branches {
@@ -2071,17 +2101,33 @@ impl ConstructorTypeArgInference {
         }
     }
 
-    fn payload_expected(
+    fn payload_expected<'expected>(
         &self,
-        expected: Option<&ExpectedType>,
+        expected: Option<&'expected ExpectedType<'_>>,
         constructor: AdtConstructor<'_>,
         index: usize,
         field: &AdtPayloadField,
         adts: &AdtRegistry,
-    ) -> Type {
+    ) -> Cow<'expected, Type> {
+        if let (Some(expected), AdtPayloadType::TypeParameter(type_index)) = (expected, &field.ty)
+            && let Some(expected_args) =
+                unification::adt_args(expected.ty.as_ref(), constructor.descriptor)
+        {
+            return if matches!(expected.source, ExpectedTypeSource::Inferred)
+                && !crate::aggregate_type_join::constructor_parameter_accepts_completion_context(
+                    constructor,
+                    *type_index,
+                    adts,
+                ) {
+                Cow::Owned(Type::Unknown)
+            } else {
+                Cow::Borrowed(&expected_args[*type_index])
+            };
+        }
         expected
             .and_then(|expected| {
-                let expected_args = unification::adt_args(&expected.ty, constructor.descriptor)?;
+                let expected_args =
+                    unification::adt_args(expected.ty.as_ref(), constructor.descriptor)?;
                 adt::payload_type_with_resolved_args(constructor, index, |type_index| {
                     crate::aggregate_type_join::record_work(1);
                     if matches!(expected.source, ExpectedTypeSource::Inferred)
@@ -2097,7 +2143,8 @@ impl ConstructorTypeArgInference {
                     }
                 })
             })
-            .or_else(|| self.direct_payload_context(field))
+            .map(Cow::Owned)
+            .or_else(|| self.direct_payload_context(field).map(Cow::Owned))
             .or_else(|| {
                 adt::payload_type_with_resolved_args(constructor, index, |type_index| {
                     crate::aggregate_type_join::record_work(1);
@@ -2106,8 +2153,9 @@ impl ConstructorTypeArgInference {
                         .map(AggregateTypeJoin::result_type)
                         .unwrap_or_else(|| self.inferred[type_index].clone())
                 })
+                .map(Cow::Owned)
             })
-            .unwrap_or(Type::Unknown)
+            .unwrap_or_else(|| Cow::Owned(Type::Unknown))
     }
 
     fn direct_payload_context(&self, field: &AdtPayloadField) -> Option<Type> {
@@ -2155,14 +2203,14 @@ impl ConstructorTypeArgInference {
             .is_some_and(AggregateTypeJoin::has_nested_refinement_domain)
     }
 
-    fn mismatch_expected(&self, field: &AdtPayloadField, fallback: &ExpectedType) -> Type {
+    fn mismatch_expected(&self, field: &AdtPayloadField, fallback: &ExpectedType<'_>) -> Type {
         let AdtPayloadType::TypeParameter(type_index) = field.ty else {
-            return fallback.ty.clone();
+            return fallback.ty.as_ref().clone();
         };
         self.joined[type_index]
             .as_ref()
             .map(AggregateTypeJoin::result_type)
-            .unwrap_or_else(|| fallback.ty.clone())
+            .unwrap_or_else(|| fallback.ty.as_ref().clone())
     }
 
     fn commit(
@@ -2222,12 +2270,13 @@ impl ConstructorTypeArgInference {
 
 fn fill_unknown_constructor_type_args(
     inferred_type_args: &mut [Type],
-    expected: Option<&ExpectedType>,
+    expected: Option<&ExpectedType<'_>>,
     constructor: AdtConstructor<'_>,
     adts: &AdtRegistry,
 ) {
     let Some((expected, expected_args)) = expected.and_then(|expected| {
-        unification::adt_args(&expected.ty, constructor.descriptor).map(|args| (expected, args))
+        unification::adt_args(expected.ty.as_ref(), constructor.descriptor)
+            .map(|args| (expected, args))
     }) else {
         return;
     };

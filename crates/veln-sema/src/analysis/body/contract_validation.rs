@@ -473,7 +473,7 @@ impl<'a> FunctionChecker<'a> {
         origin_span: &SourceSpan,
         source: ExpectedTypeSource,
         origin_message: &'static str,
-    ) -> Option<ExpectedType> {
+    ) -> Option<ExpectedType<'static>> {
         let (refinements, paths) = structure;
         let invalid_refinement = !self.annotation_owner_prevalidated
             && super::super::annotation_has_unavailable_refinement_identity(
@@ -534,10 +534,12 @@ impl<'a> FunctionChecker<'a> {
                     return None;
                 }
                 Some(ExpectedType {
-                    ty: self.environment.canonicalize_type_annotation_in_owner(
-                        ty,
-                        self.function.module_name.as_deref(),
-                        self.function.package_name.as_deref(),
+                    ty: std::borrow::Cow::Owned(
+                        self.environment.canonicalize_type_annotation_in_owner(
+                            ty,
+                            self.function.module_name.as_deref(),
+                            self.function.package_name.as_deref(),
+                        ),
                     ),
                     source,
                     origin_node_id,
@@ -557,7 +559,7 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    pub(super) fn return_expected(&self, origin_node_id: NodeId) -> Option<ExpectedType> {
+    pub(super) fn return_expected(&self, origin_node_id: NodeId) -> Option<ExpectedType<'static>> {
         if self.declaration_types_are_quarantined {
             return None;
         }
@@ -573,7 +575,7 @@ impl<'a> FunctionChecker<'a> {
                 )
             })
             .map(|ty| ExpectedType {
-                ty,
+                ty: std::borrow::Cow::Owned(ty),
                 source: ExpectedTypeSource::DeclaredReturn,
                 origin_node_id,
                 origin_span: Some(self.function.span.clone()),
@@ -590,7 +592,7 @@ impl<'a> FunctionChecker<'a> {
                     .flatten()
                     .filter(|ty| !type_contains_unknown(ty))
                     .map(|ty| ExpectedType {
-                        ty,
+                        ty: std::borrow::Cow::Owned(ty),
                         source: ExpectedTypeSource::Inferred,
                         origin_node_id,
                         origin_span: Some(self.function.span.clone()),

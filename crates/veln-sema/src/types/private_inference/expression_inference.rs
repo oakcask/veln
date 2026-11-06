@@ -513,12 +513,12 @@ pub(super) fn inferred_private_aggregate_member_type(
     expected: &Type,
     adts: &AdtRegistry,
 ) -> Type {
-    if expected != &Type::Unknown
-        && crate::type_relations::is_assignable_with_registry(expected, &ty, adts)
+    if expected == &Type::Unknown
+        || !crate::type_relations::is_assignable_with_registry(expected, &ty, adts)
     {
-        expected.clone()
-    } else {
         ty
+    } else {
+        crate::aggregate_type_join::present_completion_payload_context_type(ty, expected)
     }
 }
 

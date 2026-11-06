@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::sync::Arc;
 use veln_ast::NodeId;
 use veln_source::SourceSpan;
@@ -158,8 +159,8 @@ impl Binding {
 }
 
 #[derive(Clone)]
-pub(crate) struct ExpectedType {
-    pub(crate) ty: Type,
+pub(crate) struct ExpectedType<'a> {
+    pub(crate) ty: Cow<'a, Type>,
     pub(crate) source: ExpectedTypeSource,
     pub(crate) origin_node_id: NodeId,
     pub(crate) origin_span: Option<SourceSpan>,

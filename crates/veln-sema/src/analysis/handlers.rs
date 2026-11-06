@@ -454,7 +454,7 @@ fn clause_body_diagnostics(
         );
     }
     let expected = ExpectedType {
-        ty: operation.return_type.clone(),
+        ty: std::borrow::Cow::Owned(operation.return_type.clone()),
         source: ExpectedTypeSource::DeclaredReturn,
         origin_node_id: operation.node_id,
         origin_span: Some(operation.name_span.clone()),

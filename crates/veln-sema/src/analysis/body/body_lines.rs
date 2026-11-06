@@ -116,12 +116,16 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn infer_begin_body(
         &mut self,
         body: &[BodyLine],
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
     ) -> Type {
         self.infer_scoped_body(body, expected)
     }
 
-    fn infer_scoped_body(&mut self, body: &[BodyLine], expected: Option<&ExpectedType>) -> Type {
+    fn infer_scoped_body(
+        &mut self,
+        body: &[BodyLine],
+        expected: Option<&ExpectedType<'_>>,
+    ) -> Type {
         let saved_bindings = self.bindings.len();
         let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
         let saved_omitted_bindings = self.omitted_local_bindings.len();
@@ -254,12 +258,12 @@ impl<'a> FunctionChecker<'a> {
             })
             .flatten();
         if let Some(expected) = &expected {
-            self.check_assignable(expr, &expected.ty, &actual, expected, "assignable");
+            self.check_assignable(expr, expected.ty.as_ref(), &actual, expected, "assignable");
         }
         let initializer_failed = self.diagnostics.len() != initializer_diagnostic_count;
         let binding_type = expected
             .as_ref()
-            .map_or_else(|| actual.clone(), |expected| expected.ty.clone());
+            .map_or_else(|| actual.clone(), |expected| expected.ty.as_ref().clone());
         (
             binding_type,
             expected.as_ref().and_then(|expected| {
@@ -449,7 +453,13 @@ impl<'a> FunctionChecker<'a> {
                 .any(|diagnostic| diagnostic.id == "name.callsite_requires_modifier")
                 || self.expr_is_diagnosed_unknown_reference(expr));
         if let Some(expected) = &expected {
-            self.check_assignable(expr, &expected.ty, &actual, expected, "return_value");
+            self.check_assignable(
+                expr,
+                expected.ty.as_ref(),
+                &actual,
+                expected,
+                "return_value",
+            );
         }
     }
 
@@ -512,7 +522,7 @@ impl<'a> FunctionChecker<'a> {
             return;
         };
         let actual = Type::unit();
-        if is_assignable_with_registry(&expected.ty, &actual, &self.environment.adts) {
+        if is_assignable_with_registry(expected.ty.as_ref(), &actual, &self.environment.adts) {
             return;
         }
         self.diagnostics.push(Diagnostic::new(

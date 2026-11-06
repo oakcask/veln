@@ -177,7 +177,7 @@ fn completion_scaling_source(depth: usize, incomplete_first: bool) -> String {
     )
 }
 
-fn completion_work_components(work: crate::aggregate_type_join::CompletionWork) -> [usize; 10] {
+fn completion_work_components(work: crate::aggregate_type_join::CompletionWork) -> [usize; 11] {
     [
         work.fact_tasks,
         work.cache_hits,
@@ -189,6 +189,7 @@ fn completion_work_components(work: crate::aggregate_type_join::CompletionWork) 
         work.plan_edges,
         work.application_tasks,
         work.cloned_type_nodes,
+        work.payload_context_cloned_type_nodes,
     ]
 }
 
@@ -242,7 +243,7 @@ fn measure_nested_completion_work(
 }
 
 #[test]
-fn nested_completion_work_is_linear_in_private_and_ordinary_analysis() {
+fn nested_completion_payload_context_clone_work_is_linear_in_both_pipelines() {
     let depths = [16, 32, 64, 128];
     for incomplete_first in [true, false] {
         let measured = depths.map(|depth| measure_nested_completion_work(depth, incomplete_first));
@@ -283,7 +284,7 @@ fn nested_completion_work_is_linear_in_private_and_ordinary_analysis() {
                 for (previous, next) in previous.into_iter().zip(next) {
                     assert!(
                         next <= previous * 2 + 128,
-                        "doubling depth must add only linear completion work: {measured:?}",
+                        "doubling depth must add only linear completion and payload-context clone work: {measured:?}",
                     );
                 }
             }

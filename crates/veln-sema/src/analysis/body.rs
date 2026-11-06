@@ -217,10 +217,10 @@ fn inferred_aggregate_member_type_with_expected(
     expected: &Type,
     adts: &crate::adt::registry::AdtRegistry,
 ) -> Type {
-    if expected != &Type::Unknown && is_assignable_with_registry(expected, &ty, adts) {
-        expected.clone()
-    } else {
+    if expected == &Type::Unknown || !is_assignable_with_registry(expected, &ty, adts) {
         ty
+    } else {
+        crate::aggregate_type_join::present_completion_payload_context_type(ty, expected)
     }
 }
 

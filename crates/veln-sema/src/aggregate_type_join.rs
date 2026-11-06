@@ -1193,6 +1193,7 @@ pub(crate) struct CompletionWork {
     pub(crate) plan_edges: usize,
     pub(crate) application_tasks: usize,
     pub(crate) cloned_type_nodes: usize,
+    pub(crate) payload_context_cloned_type_nodes: usize,
 }
 
 #[cfg(test)]
@@ -1209,6 +1210,7 @@ impl CompletionWork {
             + self.plan_edges
             + self.application_tasks
             + self.cloned_type_nodes
+            + self.payload_context_cloned_type_nodes
     }
 }
 
@@ -1227,6 +1229,7 @@ thread_local! {
             plan_edges: 0,
             application_tasks: 0,
             cloned_type_nodes: 0,
+            payload_context_cloned_type_nodes: 0,
         })
     };
 }
@@ -1239,6 +1242,53 @@ pub(crate) fn reset_completion_work() {
 #[cfg(test)]
 pub(crate) fn take_completion_work() -> CompletionWork {
     COMPLETION_WORK.replace(CompletionWork::default())
+}
+
+#[cfg(test)]
+pub(crate) fn measure_completion_payload_context<T>(operation: impl FnOnce() -> T) -> T {
+    let (result, nodes) = crate::semantic_model::measure_type_clone_nodes(operation);
+    COMPLETION_WORK.update(|mut work| {
+        work.payload_context_cloned_type_nodes += nodes;
+        work
+    });
+    result
+}
+
+pub(crate) fn present_completion_payload_context_type(actual: Type, expected: &Type) -> Type {
+    match (actual, expected) {
+        (
+            Type::Named { args, identity, .. } | Type::VariantRefinement { args, identity, .. },
+            Type::Named {
+                name,
+                identity: expected_identity,
+                args: expected_args,
+            },
+        ) if identity == *expected_identity && args == *expected_args => {
+            Type::resolved_named(name, expected_identity, args)
+        }
+        (actual, expected) if &actual == expected => actual,
+        (_, expected) => {
+            #[cfg(test)]
+            {
+                let (cloned, nodes) =
+                    crate::semantic_model::measure_type_clone_nodes(|| expected.clone());
+                COMPLETION_WORK.update(|mut work| {
+                    work.payload_context_cloned_type_nodes += nodes;
+                    work
+                });
+                cloned
+            }
+            #[cfg(not(test))]
+            {
+                expected.clone()
+            }
+        }
+    }
+}
+
+#[cfg(not(test))]
+pub(crate) fn measure_completion_payload_context<T>(operation: impl FnOnce() -> T) -> T {
+    operation()
 }
 
 macro_rules! completion_work_counter {
@@ -1342,4 +1392,50 @@ fn record_materialization() {
         work.materialized_nodes += 1;
         work
     });
+}
+
+#[cfg(test)]
+mod completion_payload_context_tests {
+    use super::{Type, present_completion_payload_context_type};
+
+    #[test]
+    fn contextual_presentation_reuses_only_equal_nested_arguments() {
+        let expected_unknown_widening = Type::option(Type::int());
+        assert_eq!(
+            present_completion_payload_context_type(
+                Type::option(Type::Unknown),
+                &expected_unknown_widening,
+            ),
+            expected_unknown_widening,
+        );
+
+        let expected_refinement_widening =
+            Type::option(Type::resolved_named("State", "State", Vec::new()));
+        assert_eq!(
+            present_completion_payload_context_type(
+                Type::option(Type::resolved_variant_refinement(
+                    "State",
+                    "State",
+                    Vec::new(),
+                    vec!["Ready".to_string()],
+                )),
+                &expected_refinement_widening,
+            ),
+            expected_refinement_widening,
+        );
+    }
+
+    #[test]
+    fn contextual_presentation_preserves_expected_aliases() {
+        let expected = Type::resolved_named(
+            "OptionalNumber",
+            Type::COMPILER_OPTION_IDENTITY,
+            vec![Type::resolved_named("Number", "Int", Vec::new())],
+        );
+        let actual = Type::option(Type::resolved_named("Integer", "Int", Vec::new()));
+        assert_eq!(
+            present_completion_payload_context_type(actual, &expected),
+            expected,
+        );
+    }
 }

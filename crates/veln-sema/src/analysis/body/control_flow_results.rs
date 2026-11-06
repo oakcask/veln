@@ -3,21 +3,27 @@ use super::*;
 impl<'a> FunctionChecker<'a> {
     pub(super) fn check_if_condition(&mut self, if_expr: &Expr, condition: &Expr) {
         let expected = ExpectedType {
-            ty: Type::bool(),
+            ty: std::borrow::Cow::Owned(Type::bool()),
             source: ExpectedTypeSource::Inferred,
             origin_node_id: if_expr.node_id,
             origin_span: Some(if_expr.span.clone()),
             origin_message: "If condition expected `Bool` here.",
         };
         let actual = self.infer_expr(condition, Some(&expected));
-        self.check_assignable(condition, &expected.ty, &actual, &expected, "if_condition");
+        self.check_assignable(
+            condition,
+            expected.ty.as_ref(),
+            &actual,
+            &expected,
+            "if_condition",
+        );
     }
 
     pub(super) fn infer_if_branch(
         &mut self,
         if_expr: &Expr,
         branch_expr: &Expr,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
         result: &mut ControlFlowResultJoin,
     ) {
         let recovery_type = match result.joined.as_ref() {
@@ -29,7 +35,7 @@ impl<'a> FunctionChecker<'a> {
             && let Some(recovery_type) = recovery_type
         {
             Some(ExpectedType {
-                ty: recovery_type,
+                ty: std::borrow::Cow::Owned(recovery_type),
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: if_expr.node_id,
                 origin_span: Some(if_expr.span.clone()),
@@ -47,7 +53,7 @@ impl<'a> FunctionChecker<'a> {
                 .map_or(actual.clone(), |expected| {
                     inferred_aggregate_member_type_with_expected(
                         actual,
-                        &expected.ty,
+                        expected.ty.as_ref(),
                         &self.environment.adts,
                     )
                 })
@@ -55,13 +61,19 @@ impl<'a> FunctionChecker<'a> {
             actual
         };
         if let Some(expected) = expected {
-            self.check_assignable(branch_expr, &expected.ty, &actual, expected, "if_branch");
+            self.check_assignable(
+                branch_expr,
+                expected.ty.as_ref(),
+                &actual,
+                expected,
+                "if_branch",
+            );
             return;
         }
         let recovering_from_failed_join = result.failed();
         if !contribute_control_flow_result(&self.environment.adts, result, &actual) {
             let mismatch_expected = ExpectedType {
-                ty: result.recovery_type.clone(),
+                ty: std::borrow::Cow::Owned(result.recovery_type.clone()),
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: if_expr.node_id,
                 origin_span: Some(if_expr.span.clone()),
@@ -70,7 +82,7 @@ impl<'a> FunctionChecker<'a> {
             if recovering_from_failed_join || type_contains_unknown(&actual) {
                 self.check_assignable(
                     branch_expr,
-                    &mismatch_expected.ty,
+                    mismatch_expected.ty.as_ref(),
                     &actual,
                     &mismatch_expected,
                     "if_branch",
@@ -78,7 +90,7 @@ impl<'a> FunctionChecker<'a> {
             } else {
                 self.push_inferred_type_mismatch(
                     branch_expr,
-                    &mismatch_expected.ty,
+                    mismatch_expected.ty.as_ref(),
                     &actual,
                     &mismatch_expected,
                     "if_branch",

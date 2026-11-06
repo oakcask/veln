@@ -7,7 +7,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         segments: &[String],
         expr: &Expr,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
     ) -> Type {
         if let [name] = segments
             && let Some(ty) = self.infer_local_binding_name(name, expected)
@@ -70,12 +70,12 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         segments: &[String],
         expr: &Expr,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
     ) -> Option<Type> {
         let constructor = expected
             .and_then(|expected| {
                 self.environment.adts.descriptor_for_type_prefer_module(
-                    &expected.ty,
+                    expected.ty.as_ref(),
                     self.function.module_name.as_deref(),
                 )
             })
@@ -95,14 +95,16 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         segments: &[String],
         expr: &Expr,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
         constructor: AdtConstructor<'_>,
     ) -> Type {
-        let matching_expected = expected
-            .filter(|expected| adt::type_matches_descriptor(&expected.ty, constructor.descriptor));
+        let matching_expected = expected.filter(|expected| {
+            adt::type_matches_descriptor(expected.ty.as_ref(), constructor.descriptor)
+        });
         let inferred_args = matching_expected
             .and_then(|expected| {
-                unification::adt_args(&expected.ty, constructor.descriptor).map(<[Type]>::to_vec)
+                unification::adt_args(expected.ty.as_ref(), constructor.descriptor)
+                    .map(<[Type]>::to_vec)
             })
             .unwrap_or_else(|| vec![Type::Unknown; constructor.descriptor.type_parameters.len()]);
         let inferred = adt::refined_constructed_type_from_args(constructor, &inferred_args);
@@ -127,7 +129,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         segments: &[String],
         expr: &Expr,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
     ) -> Type {
         match segments {
             [name] => self.infer_bare_name(name, expr, expected),
@@ -139,7 +141,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         name: &str,
         expr: &Expr,
-        _expected: Option<&ExpectedType>,
+        _expected: Option<&ExpectedType<'_>>,
     ) -> Type {
         debug_assert!(self.visible_binding_index(name).is_none());
         if self.bare_prelude_import_is_ambiguous(name) {
@@ -281,7 +283,7 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn infer_local_binding_name(
         &mut self,
         name: &str,
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
     ) -> Option<Type> {
         let index = self.visible_binding_index(name)?;
         self.record_defer_capture(index, name);
@@ -289,23 +291,23 @@ impl<'a> FunctionChecker<'a> {
         if matches!(current, Type::Record(ref fields) if fields.is_empty())
             && let Some(expected) = expected
             && expected.ty.dict_parts().is_some()
-            && !type_contains_unknown(&expected.ty)
+            && !type_contains_unknown(expected.ty.as_ref())
         {
-            self.set_binding_type(index, expected.ty.clone());
-            return Some(expected.ty.clone());
+            self.set_binding_type(index, expected.ty.as_ref().clone());
+            return Some(expected.ty.as_ref().clone());
         }
         if type_contains_unknown(&current)
             && let Some(expected) = expected
-            && !type_contains_unknown(&expected.ty)
+            && !type_contains_unknown(expected.ty.as_ref())
         {
             if matches!(current, Type::VariantRefinement { .. }) {
                 let mut constrained = current.clone();
-                adt::merge_type_holes(&mut constrained, &expected.ty);
+                adt::merge_type_holes(&mut constrained, expected.ty.as_ref());
                 self.set_binding_type(index, constrained.clone());
                 return Some(constrained);
             }
-            self.set_binding_type(index, expected.ty.clone());
-            return Some(expected.ty.clone());
+            self.set_binding_type(index, expected.ty.as_ref().clone());
+            return Some(expected.ty.as_ref().clone());
         }
         Some(current)
     }
@@ -315,7 +317,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         callee: &Expr,
         args: &[Expr],
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
     ) -> Type {
         if let Some(ty) = self.infer_local_callable_call(expr, callee, args) {
             return ty;
@@ -424,7 +426,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         callee: &Expr,
         args: &[Expr],
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
     ) -> Option<Type> {
         if let ExprKind::NamePath { segments, .. } = &callee.kind {
             if segments.len() == 1
@@ -470,13 +472,13 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         expr: &Expr,
         args: &[Expr],
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
         segments: &[String],
     ) -> Option<Type> {
         let constructor = expected
             .and_then(|expected| {
                 self.environment.adts.descriptor_for_type_prefer_module(
-                    &expected.ty,
+                    expected.ty.as_ref(),
                     self.function.module_name.as_deref(),
                 )
             })
@@ -496,7 +498,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         expr: &Expr,
         args: &[Expr],
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
         segments: &[String],
     ) -> Option<Type> {
         let constructor = self
@@ -522,7 +524,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         callee: &Expr,
         args: &[Expr],
-        expected: Option<&ExpectedType>,
+        expected: Option<&ExpectedType<'_>>,
     ) -> Option<Type> {
         if self.bare_call_is_ambiguous(callee) {
             if let ExprKind::NamePath { segments, .. } = &callee.kind
@@ -546,7 +548,7 @@ impl<'a> FunctionChecker<'a> {
 
         let (params, variadic, return_type, origin) = self.call_signature(
             callee,
-            expected.map(|expected| &expected.ty),
+            expected.map(|expected| expected.ty.as_ref()),
             args.first()
                 .and_then(|arg| self.shallow_expr_type(arg))
                 .as_ref(),
@@ -651,7 +653,7 @@ impl<'a> FunctionChecker<'a> {
             };
             let expected = type_origin.map_or_else(
                 || ExpectedType {
-                    ty: param_type.clone(),
+                    ty: std::borrow::Cow::Owned(param_type.clone()),
                     source: if origin.schema_encode {
                         ExpectedTypeSource::SchemaEncodeParameter
                     } else {
@@ -662,7 +664,7 @@ impl<'a> FunctionChecker<'a> {
                     origin_message: "Callee parameter type declared here.",
                 },
                 |type_origin| ExpectedType {
-                    ty: param_type.clone(),
+                    ty: std::borrow::Cow::Owned(param_type.clone()),
                     source: type_origin.source,
                     origin_node_id: type_origin.node_id,
                     origin_span: Some(type_origin.span.clone()),
@@ -672,7 +674,10 @@ impl<'a> FunctionChecker<'a> {
             let inference_expected = call_bound_row.map_or_else(
                 || expected.clone(),
                 |row| ExpectedType {
-                    ty: mask_call_bound_effect_row(&expected.ty, row),
+                    ty: std::borrow::Cow::Owned(mask_call_bound_effect_row(
+                        expected.ty.as_ref(),
+                        row,
+                    )),
                     ..expected.clone()
                 },
             );
@@ -685,22 +690,35 @@ impl<'a> FunctionChecker<'a> {
             call_bound_row,
             inferred
                 .iter()
-                .map(|(_, expected, actual, _)| (&expected.ty, actual)),
+                .map(|(_, expected, actual, _)| (expected.ty.as_ref(), actual)),
         );
         for (arg, mut expected, actual, argument_valid) in inferred {
-            expected.ty = instantiate_effect_rows_in_type(&expected.ty, &row_substitutions);
+            expected.ty = std::borrow::Cow::Owned(instantiate_effect_rows_in_type(
+                expected.ty.as_ref(),
+                &row_substitutions,
+            ));
             valid &= argument_valid
-                && is_assignable_with_registry(&expected.ty, &actual, &self.environment.adts);
+                && is_assignable_with_registry(
+                    expected.ty.as_ref(),
+                    &actual,
+                    &self.environment.adts,
+                );
             if origin.schema_encode {
                 self.check_schema_encode_assignable(
                     arg,
-                    &expected.ty,
+                    expected.ty.as_ref(),
                     &actual,
                     &expected,
                     "call_argument",
                 );
             } else {
-                self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
+                self.check_assignable(
+                    arg,
+                    expected.ty.as_ref(),
+                    &actual,
+                    &expected,
+                    "call_argument",
+                );
             }
         }
         valid.then_some(row_substitutions)
