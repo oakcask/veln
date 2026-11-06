@@ -1418,7 +1418,11 @@ using the partial join as their expected type. They can therefore widen the
 join instead of being forced to equal its current refinement. When the join
 root is an unrefined named type and every nested refinement domain is complete,
 the accumulated type can provide context to a later context-dependent
-expression such as a nullary generic constructor. An incomplete nested
+expression. This includes a nullary generic constructor or a payload-carrying
+constructor whose payloads do not determine every generic argument, such as
+`Ok(1)` without an independently known error type. Independently inferred
+generic arguments keep their own presentation; the admitted context fills only
+the arguments that remain unknown. An incomplete nested
 refinement domain provides no such context. Dictionary keys and values maintain
 separate joins, so a complete earlier member can contextualize a later empty
 collection in the same position. An earlier empty member remains incomplete

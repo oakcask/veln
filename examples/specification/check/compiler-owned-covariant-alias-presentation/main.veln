@@ -5,6 +5,8 @@ end
 
 pub type FirstTable = Dict
 pub type SecondTable = Dict
+pub type First = State
+pub type Second = State
 
 fn forward(first: FirstTable<String, State::Ready>, second: SecondTable<String, State::Closed>)
 	[first, second]
@@ -14,11 +16,21 @@ fn reverse(first: FirstTable<String, State::Ready>, second: SecondTable<String, 
 	[second, first]
 end
 
+fn constructed_forward(first: Option<First>, second: Second::Closed)
+	[first, Some(second)]
+end
+
+fn constructed_reverse(first: Option<First>, second: Second::Closed)
+	[Some(second), first]
+end
+
 fn needs_int(value: Int) -> ()
 	()
 end
 
-fn observe(first: FirstTable<String, State::Ready>, second: SecondTable<String, State::Closed>) -> ()
+fn observe(first: FirstTable<String, State::Ready>, second: SecondTable<String, State::Closed>, first_option: Option<First>, closed: Second::Closed) -> ()
 	needs_int(forward(first, second))
 	needs_int(reverse(first, second))
+	needs_int(constructed_forward(first_option, closed))
+	needs_int(constructed_reverse(first_option, closed))
 end

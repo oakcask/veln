@@ -276,7 +276,7 @@ pub(super) fn infer_private_list_type(
             has_context,
             &mut item_type,
             &mut joined_items,
-            false,
+            true,
             context,
         );
     }
@@ -351,7 +351,7 @@ fn infer_private_aggregate_component(
                 context.current_module,
                 context.uses,
             ) {
-                joined.inference_type()
+                Type::Unknown
             } else {
                 let admitted_context = joined.inference_type();
                 if crate::aggregate_type_join::expression_requires_direct_payload_context(
@@ -397,14 +397,13 @@ fn infer_private_aggregate_component(
         &actual,
         context.adts,
     );
-    let rejected_here = inferred_context != Type::Unknown
-        && if has_context {
-            !assignable
-        } else if joined_components.is_some() {
-            !joined
-        } else {
-            !assignable
-        };
+    let rejected_here = if has_context {
+        inferred_context != Type::Unknown && !assignable
+    } else if joined_components.is_some() {
+        !joined
+    } else {
+        inferred_context != Type::Unknown && !assignable
+    };
     if rejected_here {
         *context.failures += 1;
         return;

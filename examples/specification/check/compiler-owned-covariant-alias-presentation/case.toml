@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["type.mismatch", "Vec<Dict<String, State>>"]
+contains = ["type.mismatch", "Vec<Dict<String, State>>", "Vec<Option<State>>"]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 2
+equals = 4
 
 [[json_assert]]
 path = "diagnostics.0.details.actual_type"
@@ -24,6 +24,14 @@ equals = "Vec<Dict<String, State>>"
 path = "diagnostics.1.details.actual_type"
 equals = "Vec<Dict<String, State>>"
 
+[[json_assert]]
+path = "diagnostics.2.details.actual_type"
+equals = "Vec<Option<State>>"
+
+[[json_assert]]
+path = "diagnostics.3.details.actual_type"
+equals = "Vec<Option<State>>"
+
 [[diagnostics]]
 id = "type.mismatch"
 severity = "error"
@@ -31,7 +39,7 @@ kind = "type"
 
 [diagnostics.span]
 file = "main.veln"
-line = 22
+line = 32
 column = 12
 
 [[diagnostics]]
@@ -41,5 +49,25 @@ kind = "type"
 
 [diagnostics.span]
 file = "main.veln"
-line = 23
+line = 33
+column = 12
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 34
+column = 12
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 35
 column = 12

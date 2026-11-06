@@ -494,7 +494,7 @@ impl<'a> FunctionChecker<'a> {
         for arg in args.iter().skip(constructor.variant.payload_fields.len()) {
             self.infer_expr(arg, None);
         }
-        type_args.finish()
+        type_args.finish(expected.map(|expected| &expected.ty), constructor)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -711,7 +711,18 @@ impl<'a> FunctionChecker<'a> {
     ) {
         let inferred_context = match joined_items {
             Some(joined) if joined.has_incomplete_nested_refinement_domain() => Type::Unknown,
-            Some(joined) => joined.inference_type(),
+            Some(joined)
+                if crate::aggregate_type_join::expression_requires_direct_payload_context(
+                    item,
+                    &joined.inference_type(),
+                    &self.environment.adts,
+                    self.function.module_name.as_deref(),
+                    &self.resolution_uses,
+                ) =>
+            {
+                joined.inference_type()
+            }
+            Some(_) => Type::Unknown,
             None => item_type.clone(),
         };
         let item_expected = collection_item_expected(
@@ -1877,7 +1888,14 @@ impl<'a> FunctionChecker<'a> {
         } else {
             None
         };
+        let diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(&arm.expr, expected.or(recovery_expected.as_ref()));
+        if self.diagnostics.len() != diagnostic_count
+            && expected
+                .is_none_or(|expected| matches!(expected.source, ExpectedTypeSource::Inferred))
+        {
+            return;
+        }
         if let Some(expected) = expected {
             self.check_assignable(&arm.expr, &expected.ty, &actual, expected, "match_arm");
             return;
@@ -2117,11 +2135,20 @@ impl ConstructorTypeArgInference {
         Ok(())
     }
 
-    fn finish(mut self) -> Vec<Type> {
+    fn finish(mut self, expected: Option<&Type>, constructor: AdtConstructor<'_>) -> Vec<Type> {
         crate::aggregate_type_join::record_work(self.inferred.len());
         for (inferred, joined) in self.inferred.iter_mut().zip(self.joined) {
             if let Some(joined) = joined {
                 *inferred = joined.result_type();
+            }
+        }
+        if let Some(expected_args) =
+            expected.and_then(|expected| unification::adt_args(expected, constructor.descriptor))
+        {
+            for (inferred, expected) in self.inferred.iter_mut().zip(expected_args) {
+                if *inferred == Type::Unknown {
+                    *inferred = expected.clone();
+                }
             }
         }
         self.inferred

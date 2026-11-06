@@ -32,15 +32,18 @@ pub(crate) fn infer_private_match_type(
         } else {
             Some(&result)
         };
-        let actual = context.infer(
+        let outcome = context.infer_outcome(
             &arm.expr,
             expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none)),
         );
+        if !outcome.may_contribute {
+            continue;
+        }
         merge_private_control_flow_result(
             &mut result,
             &mut joined_result,
             &mut join_failed,
-            actual,
+            outcome.ty,
             context.adts,
             expected.is_none(),
         );
@@ -80,16 +83,19 @@ pub(crate) fn infer_private_if_result_type(
         };
         let branch_expected =
             expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none));
-        let actual = match branch_expected {
-            Some(expected) => context.infer_expected_outcome(branch_expr, expected).ty,
-            None => context.infer(branch_expr, None),
+        let outcome = match branch_expected {
+            Some(expected) => context.infer_expected_outcome(branch_expr, expected),
+            None => context.infer_outcome(branch_expr, None),
         };
+        if !outcome.may_contribute {
+            continue;
+        }
         let was_join_failed = join_failed;
         merge_private_control_flow_result(
             &mut result,
             &mut joined_result,
             &mut join_failed,
-            actual,
+            outcome.ty,
             context.adts,
             expected.is_none(),
         );

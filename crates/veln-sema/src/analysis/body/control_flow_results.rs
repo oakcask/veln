@@ -44,7 +44,14 @@ impl<'a> FunctionChecker<'a> {
         } else {
             None
         };
+        let diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(branch_expr, expected.or(recovery_expected.as_ref()));
+        if self.diagnostics.len() != diagnostic_count
+            && expected
+                .is_none_or(|expected| matches!(expected.source, ExpectedTypeSource::Inferred))
+        {
+            return;
+        }
         if let Some(expected) = expected {
             self.check_assignable(branch_expr, &expected.ty, &actual, expected, "if_branch");
             return;

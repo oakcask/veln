@@ -40,6 +40,14 @@ pub(crate) fn expression_requires_direct_payload_context(
                 ConstructorLookup::Ambiguous | ConstructorLookup::Missing => false,
             }
         }
+        ExprKind::Call { callee, args } => constructor_call_requires_context(
+            callee,
+            args,
+            admitted_context,
+            adts,
+            current_module,
+            uses,
+        ),
         _ => false,
     }
 }
@@ -64,8 +72,102 @@ pub(crate) fn expression_could_require_direct_payload_context(
                 ConstructorLookup::Missing => false,
             }
         }
+        ExprKind::Call { callee, args } => {
+            let ExprKind::NamePath { segments, .. } = &callee.kind else {
+                return false;
+            };
+            match adts.constructor(segments, current_module, uses) {
+                ConstructorLookup::Found(constructor) => {
+                    constructor_has_uninferred_parameter(constructor, args.len())
+                        || args.iter().any(|arg| {
+                            expression_could_require_direct_payload_context(
+                                arg,
+                                adts,
+                                current_module,
+                                uses,
+                            )
+                        })
+                }
+                ConstructorLookup::Ambiguous => true,
+                ConstructorLookup::Missing => false,
+            }
+        }
         _ => false,
     }
+}
+
+fn constructor_call_requires_context(
+    callee: &Expr,
+    args: &[Expr],
+    admitted_context: &Type,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> bool {
+    let ExprKind::NamePath { segments, .. } = &callee.kind else {
+        return false;
+    };
+    let constructor = match adts.constructor(segments, current_module, uses) {
+        ConstructorLookup::Found(constructor) => constructor,
+        ConstructorLookup::Ambiguous => {
+            let Some(descriptor) = adts.descriptor_for_type(admitted_context) else {
+                return false;
+            };
+            let Some(constructor) =
+                adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
+            else {
+                return false;
+            };
+            constructor
+        }
+        ConstructorLookup::Missing => return false,
+    };
+    if constructor_has_uninferred_parameter(constructor, args.len()) {
+        return true;
+    }
+    let Some(expected_args) = unification::adt_args(admitted_context, constructor.descriptor)
+    else {
+        return false;
+    };
+    args.iter().enumerate().any(|(index, arg)| {
+        let Some(payload_context) =
+            adt::payload_type_with_resolved_args(constructor, index, |type_index| {
+                expected_args[type_index].clone()
+            })
+        else {
+            return false;
+        };
+        expression_requires_direct_payload_context(
+            arg,
+            &payload_context,
+            adts,
+            current_module,
+            uses,
+        )
+    })
+}
+
+fn constructor_has_uninferred_parameter(
+    constructor: AdtConstructor<'_>,
+    argument_count: usize,
+) -> bool {
+    if constructor.descriptor.type_parameters.is_empty() {
+        return false;
+    }
+    let mut inferred = vec![false; constructor.descriptor.type_parameters.len()];
+    for field in constructor
+        .variant
+        .payload_fields
+        .iter()
+        .take(argument_count)
+    {
+        if let crate::adt::descriptors::AdtPayloadType::TypeParameter(index) = field.ty
+            && let Some(inferred) = inferred.get_mut(index)
+        {
+            *inferred = true;
+        }
+    }
+    inferred.iter().any(|inferred| !inferred)
 }
 
 struct JoinNode {

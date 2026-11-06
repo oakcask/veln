@@ -70,3 +70,32 @@ end
 fn observe_control_flow(first: Bool, second: Bool, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>) -> ()
 	needs_int(retained_control_flow(first, second, accepted, rejected, later))
 end
+
+
+fn failed_result(value: Int) -> Option<State::Failed>
+	Some(Failed)
+end
+
+fn retained_after_failed_if(first: Bool, second: Bool, accepted: Option<State::Ready>, later: Option<State::Closed>)
+	if first
+		accepted
+	else if second
+		failed_result("bad")
+	else
+		later
+	end
+end
+
+fn retained_after_failed_match(state: State, accepted: Option<State::Ready>, later: Option<State::Closed>)
+	match state
+		Ready => accepted
+		Failed => failed_result("bad")
+		Closed => later
+	end
+end
+
+fn observe_failed_recovery(first: Bool, second: Bool, state: State, accepted: Option<State::Ready>, later: Option<State::Closed>) -> ()
+	let if_result: Option<State::Ready | State::Closed> = retained_after_failed_if(first, second, accepted, later)
+	let match_result: Option<State::Ready | State::Closed> = retained_after_failed_match(state, accepted, later)
+	()
+end

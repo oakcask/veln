@@ -523,3 +523,225 @@ fn failed_compiler_owned_control_flow_join_preserves_admitted_state() {
         "Option<State::Ready | State::Closed>",
     );
 }
+
+#[test]
+fn complete_constructor_contributions_preserve_aliases_until_joined() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "end\n",
+            "pub type First = State\n",
+            "pub type Second = State\n",
+            "type Pair<T>\n",
+            "  Paired(T, T)\n",
+            "end\n",
+            "fn list_forward(first: Option<First>, second: Second::Closed)\n",
+            "  [first, Some(second)]\n",
+            "end\n",
+            "fn list_reverse(first: Option<First>, second: Second::Closed)\n",
+            "  [Some(second), first]\n",
+            "end\n",
+            "fn payload_forward(first: Option<First>, second: Second::Closed)\n",
+            "  Paired(first, Some(second))\n",
+            "end\n",
+            "fn payload_reverse(first: Option<First>, second: Second::Closed)\n",
+            "  Paired(Some(second), first)\n",
+            "end\n",
+            "fn dictionary_forward(first: Option<First>, second: Second::Closed)\n",
+            "  {1: first, 2: Some(second)}\n",
+            "end\n",
+            "fn dictionary_reverse(first: Option<First>, second: Second::Closed)\n",
+            "  {2: Some(second), 1: first}\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["list_forward", "list_reverse"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            "Vec<Option<State>>",
+        );
+    }
+    for function in ["payload_forward", "payload_reverse"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            "Pair<Option<State>>::Paired",
+        );
+    }
+    for function in ["dictionary_forward", "dictionary_reverse"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            "Dict<Int, Option<State>>",
+        );
+    }
+}
+
+#[test]
+fn incomplete_constructor_calls_use_only_admitted_completion_context() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Pair<T>\n",
+            "  Paired(T, T)\n",
+            "end\n",
+            "fn private_dictionary(first: Result<Int, String>)\n",
+            "  {1: first, 2: Ok(1)}\n",
+            "end\n",
+            "fn private_payload(first: Result<Int, String>)\n",
+            "  Paired(first, Ok(1))\n",
+            "end\n",
+            "fn nested_dictionary(first: Option<Result<Int, String>>)\n",
+            "  {1: first, 2: Some(Ok(1))}\n",
+            "end\n",
+            "fn nested_payload(first: Option<Result<Int, String>>)\n",
+            "  Paired(first, Some(Ok(1)))\n",
+            "end\n",
+            "fn needs_int(value: Int) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn ordinary_dictionary(first: Result<Int, String>) -> ()\n",
+            "  needs_int({1: first, 2: Ok(1)})\n",
+            "end\n",
+            "fn ordinary_payload(first: Result<Int, String>) -> ()\n",
+            "  needs_int(Paired(first, Ok(1)))\n",
+            "end\n",
+            "fn no_context()\n",
+            "  Ok(1)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .count(),
+        2,
+        "{diagnostics:#?}",
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.inference_ambiguous"),
+        "{diagnostics:#?}",
+    );
+    let rendered = format!("{diagnostics:#?}");
+    assert!(
+        rendered.contains("Dict<Int, Result<Int, String>>")
+            && rendered.contains("Pair<Result<Int, String>>::Paired"),
+        "{diagnostics:#?}",
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("private_dictionary")
+            .expect("private_dictionary function")
+            .return_type
+            .render(),
+        "Dict<Int, Result<Int, String>>",
+    );
+    assert_eq!(
+        environment
+            .function("private_payload")
+            .expect("private_payload function")
+            .return_type
+            .render(),
+        "Pair<Result<Int, String>>::Paired",
+    );
+    assert_eq!(
+        environment
+            .function("nested_dictionary")
+            .expect("nested_dictionary function")
+            .return_type
+            .render(),
+        "Dict<Int, Option<Result<Int, String>>>",
+    );
+    assert_eq!(
+        environment
+            .function("nested_payload")
+            .expect("nested_payload function")
+            .return_type
+            .render(),
+        "Pair<Option<Result<Int, String>>>::Paired",
+    );
+}
+
+#[test]
+fn diagnostically_failed_control_flow_results_do_not_contribute() {
+    let source_text = concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Failed\n",
+        "  Closed\n",
+        "end\n",
+        "fn failed(value: Int) -> Option<State::Failed>\n",
+        "  Some(Failed)\n",
+        "end\n",
+        "fn selected(first: Bool, second: Bool, ready: Option<State::Ready>, closed: Option<State::Closed>)\n",
+        "  if first\n",
+        "    ready\n",
+        "  else if second\n",
+        "    failed(\"bad\")\n",
+        "  else\n",
+        "    closed\n",
+        "  end\n",
+        "end\n",
+        "fn matched(state: State, ready: Option<State::Ready>, closed: Option<State::Closed>)\n",
+        "  match state\n",
+        "    Ready => ready\n",
+        "    Failed => failed(\"bad\")\n",
+        "    Closed => closed\n",
+        "  end\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}",
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["selected", "matched"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            "Option<State::Ready | State::Closed>",
+        );
+    }
+}
