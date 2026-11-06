@@ -1417,17 +1417,28 @@ does not contribute a type argument by itself. During context-free aggregate
 inference, the checker first joins expressions that do contribute arguments.
 It then uses that joined type as the expected type for these incomplete
 expressions. Expected type projection follows incomplete expressions through
-non-empty vector and dictionary literals and through compiler-owned
-constructors. This rule applies to collection and dictionary members, repeated
-constructor payloads, and unannotated `if` or `match` results. Therefore
+non-empty vector and dictionary literals, through compiler-owned constructors,
+and through a resolved source-ADT constructor's direct type-parameter payload.
+This rule applies to collection and dictionary members, repeated constructor
+payloads, and unannotated `if` or `match` results. Therefore
 `[Some(Ready), None]` and `[None, Some(Ready)]` both infer
 `Vec<Option<State::Ready>>`, both orders of `Some(None)` and `Some(Some(1))`
 infer `Vec<Option<Option<Int>>>`, and both orders of `[None]` and `[Some(1)]`
-infer `Vec<Vec<Option<Int>>>`. Incomplete-constructor detection uses resolved
-compiler-owned identity. A resolved source constructor named `None` or `Nil`
-remains an ordinary refinement contribution. If no other expression supplies
-the missing argument, the existing unknown or ambiguity result remains
-unchanged.
+infer `Vec<Vec<Option<Int>>>`. Given `type Box<T> Boxed(T) end`, both orders of
+`Some(Boxed(None))` and `Some(Boxed(Some(1)))` infer
+`Vec<Option<Box<Option<Int>>>>`. Incomplete-constructor detection uses
+resolved compiler-owned identity. A resolved source constructor named `None`
+or `Nil` remains an ordinary refinement contribution. If no other expression
+supplies the missing argument, the existing unknown or ambiguity result
+remains unchanged.
+
+Nested completion work is linear in compiler-owned constructor depth for both
+private omitted-result inference and ordinary body checking. The deterministic
+scaling check measures both contribution orders at depths 16, 32, 64, and 128.
+For each tracked fact, lookup, classification, projection, application, and
+type-clone component, doubling depth permits at most twice the preceding count
+plus 128. The projection performs no completion-fact snapshot copies. Elapsed
+time is observational and is not an acceptance threshold.
 
 Presentation reconciliation applies at each joined compiler-owned constructor.
 One alias preference and canonical spelling retain that alias. Different alias
