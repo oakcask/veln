@@ -22,14 +22,27 @@ pub(crate) fn expression_needs_completion_context(
         {
             compiler_owned_constructor(segments, adts, current_module, uses).is_some()
         }
-        ExprKind::List(items) => items.is_empty(),
-        ExprKind::Dict(entries) => entries.is_empty(),
+        ExprKind::List(items) => {
+            items.is_empty()
+                || items.iter().any(|item| {
+                    expression_needs_completion_context(item, adts, current_module, uses)
+                })
+        }
+        ExprKind::Dict(entries) => {
+            entries.is_empty()
+                || entries.iter().any(|entry| {
+                    expression_needs_completion_context(&entry.key, adts, current_module, uses)
+                        || expression_needs_completion_context(
+                            &entry.value,
+                            adts,
+                            current_module,
+                            uses,
+                        )
+                })
+        }
         ExprKind::Record(fields) => fields.is_empty(),
-        ExprKind::Call { callee, args }
-            if compiler_owned_constructor_callee(callee, adts, current_module, uses) =>
-        {
-            args.iter()
-                .any(|arg| expression_needs_completion_context(arg, adts, current_module, uses))
+        ExprKind::Call { callee, args } => {
+            compiler_owned_call_needs_completion_context(callee, args, adts, current_module, uses)
         }
         _ => false,
     }
@@ -44,11 +57,45 @@ pub(crate) fn completion_context_type(
 ) -> Type {
     match &expr.kind {
         ExprKind::NamePath { segments, .. }
-            if segments
-                .last()
-                .is_some_and(|name| name == "None" || name == "Nil") =>
+            if compiler_owned_constructor(segments, adts, current_module, uses)
+                .is_some_and(|constructor| constructor_matches_expected(constructor, expected)) =>
         {
             unrefined_type(expected)
+        }
+        ExprKind::List(items) => {
+            let mut projected = expected.clone();
+            let Type::Named { identity, args, .. } = &mut projected else {
+                return expected.clone();
+            };
+            if !Type::is_compiler_vec_identity(identity) || args.len() != 1 {
+                return expected.clone();
+            }
+            for item in items {
+                if expression_needs_completion_context(item, adts, current_module, uses) {
+                    args[0] = completion_context_type(item, &args[0], adts, current_module, uses);
+                }
+            }
+            projected
+        }
+        ExprKind::Dict(entries) => {
+            let mut projected = expected.clone();
+            let Type::Named { identity, args, .. } = &mut projected else {
+                return expected.clone();
+            };
+            if !Type::is_compiler_dict_identity(identity) || args.len() != 2 {
+                return expected.clone();
+            }
+            for entry in entries {
+                if expression_needs_completion_context(&entry.key, adts, current_module, uses) {
+                    args[0] =
+                        completion_context_type(&entry.key, &args[0], adts, current_module, uses);
+                }
+                if expression_needs_completion_context(&entry.value, adts, current_module, uses) {
+                    args[1] =
+                        completion_context_type(&entry.value, &args[1], adts, current_module, uses);
+                }
+            }
+            projected
         }
         ExprKind::Call { callee, args } => {
             let ExprKind::NamePath { segments, .. } = &callee.kind else {
@@ -80,13 +127,23 @@ pub(crate) fn completion_context_type(
                 let Some(expected_arg) = type_args.get_mut(*index) else {
                     continue;
                 };
-                *expected_arg =
-                    completion_context_type(arg, expected_arg, adts, current_module, uses);
+                if expression_needs_completion_context(arg, adts, current_module, uses) {
+                    *expected_arg =
+                        completion_context_type(arg, expected_arg, adts, current_module, uses);
+                }
             }
             projected
         }
         _ => expected.clone(),
     }
+}
+
+fn constructor_matches_expected(constructor: AdtConstructor<'_>, expected: &Type) -> bool {
+    let expected_identity = match expected {
+        Type::Named { identity, .. } | Type::VariantRefinement { identity, .. } => identity,
+        _ => return false,
+    };
+    constructor.descriptor.nominal_identity.as_deref() == Some(expected_identity.as_str())
 }
 
 fn unrefined_type(ty: &Type) -> Type {
@@ -101,8 +158,9 @@ fn unrefined_type(ty: &Type) -> Type {
     }
 }
 
-fn compiler_owned_constructor_callee(
+fn compiler_owned_call_needs_completion_context(
     callee: &Expr,
+    args: &[Expr],
     adts: &AdtRegistry,
     current_module: Option<&str>,
     uses: &[UseDecl],
@@ -110,7 +168,27 @@ fn compiler_owned_constructor_callee(
     let ExprKind::NamePath { segments, .. } = &callee.kind else {
         return false;
     };
-    compiler_owned_constructor(segments, adts, current_module, uses).is_some()
+    let Some(constructor) = compiler_owned_constructor(segments, adts, current_module, uses) else {
+        return false;
+    };
+    let complete_direct_parameters =
+        (0..constructor.descriptor.type_parameters.len()).all(|parameter| {
+            args.iter()
+                .zip(&constructor.variant.payload_fields)
+                .any(|(arg, field)| {
+                    matches!(field.ty, AdtPayloadType::TypeParameter(index) if index == parameter)
+                        && !expression_needs_completion_context(arg, adts, current_module, uses)
+                })
+        });
+    args.iter().enumerate().any(|(index, arg)| {
+        expression_needs_completion_context(arg, adts, current_module, uses)
+            && !(complete_direct_parameters
+                && constructor
+                    .variant
+                    .payload_fields
+                    .get(index)
+                    .is_some_and(|field| matches!(field.ty, AdtPayloadType::SelfType)))
+    })
 }
 
 fn compiler_owned_constructor<'a>(
@@ -129,8 +207,8 @@ fn compiler_owned_constructor<'a>(
         {
             Some(constructor)
         }
-        ConstructorLookup::Found(_) | ConstructorLookup::Ambiguous => None,
-        ConstructorLookup::Missing => match segments {
+        ConstructorLookup::Found(_) => None,
+        ConstructorLookup::Ambiguous | ConstructorLookup::Missing => match segments {
             [name] if name == "None" || name == "Nil" => {
                 let type_name = if name == "None" { "Option" } else { "List" };
                 let qualified = [type_name.to_string(), name.clone()];

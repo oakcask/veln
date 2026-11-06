@@ -375,6 +375,172 @@ fn nested_compiler_owned_completion_context_is_order_independent() {
 }
 
 #[test]
+fn non_empty_literals_propagate_nested_completion_context_in_any_order() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Pair<T>\n",
+            "  Paired(T, T)\n",
+            "end\n",
+            "fn vector_forward()\n",
+            "  [[None], [Some(1)]]\n",
+            "end\n",
+            "fn vector_reverse()\n",
+            "  [[Some(1)], [None]]\n",
+            "end\n",
+            "fn dictionary_forward()\n",
+            "  [{1: None}, {1: Some(1)}]\n",
+            "end\n",
+            "fn dictionary_reverse()\n",
+            "  [{1: Some(1)}, {1: None}]\n",
+            "end\n",
+            "fn dictionary_entries_forward()\n",
+            "  {1: [None], 2: [Some(1)]}\n",
+            "end\n",
+            "fn dictionary_entries_reverse()\n",
+            "  {1: [Some(1)], 2: [None]}\n",
+            "end\n",
+            "fn repeated_payload_forward()\n",
+            "  Paired([None], [Some(1)])\n",
+            "end\n",
+            "fn repeated_payload_reverse()\n",
+            "  Paired([Some(1)], [None])\n",
+            "end\n",
+            "fn selected_forward(flag: Bool)\n",
+            "  if flag [None] else [Some(1)] end\n",
+            "end\n",
+            "fn selected_reverse(flag: Bool)\n",
+            "  if flag [Some(1)] else [None] end\n",
+            "end\n",
+            "fn matched_forward(flag: Bool)\n",
+            "  match flag true => [None] false => [Some(1)] end\n",
+            "end\n",
+            "fn matched_reverse(flag: Bool)\n",
+            "  match flag true => [Some(1)] false => [None] end\n",
+            "end\n",
+            "fn verify(flag: Bool) -> ()\n",
+            "  let vector_forward = [[None], [Some(1)]]\n",
+            "  let vector_reverse = [[Some(1)], [None]]\n",
+            "  let dictionary_forward = [{1: None}, {1: Some(1)}]\n",
+            "  let dictionary_reverse = [{1: Some(1)}, {1: None}]\n",
+            "  let dictionary_entries_forward = {1: [None], 2: [Some(1)]}\n",
+            "  let dictionary_entries_reverse = {1: [Some(1)], 2: [None]}\n",
+            "  let repeated_payload_forward = Paired([None], [Some(1)])\n",
+            "  let repeated_payload_reverse = Paired([Some(1)], [None])\n",
+            "  let selected_forward = if flag [None] else [Some(1)] end\n",
+            "  let selected_reverse = if flag [Some(1)] else [None] end\n",
+            "  let matched_forward = match flag true => [None] false => [Some(1)] end\n",
+            "  let matched_reverse = match flag true => [Some(1)] false => [None] end\n",
+            "  let _: Vec<Vec<Option<Int>>> = vector_forward\n",
+            "  let _: Vec<Vec<Option<Int>>> = vector_reverse\n",
+            "  let _: Vec<Dict<Int, Option<Int>>> = dictionary_forward\n",
+            "  let _: Vec<Dict<Int, Option<Int>>> = dictionary_reverse\n",
+            "  let _: Dict<Int, Vec<Option<Int>>> = dictionary_entries_forward\n",
+            "  let _: Dict<Int, Vec<Option<Int>>> = dictionary_entries_reverse\n",
+            "  let _: Pair<Vec<Option<Int>>>::Paired = repeated_payload_forward\n",
+            "  let _: Pair<Vec<Option<Int>>>::Paired = repeated_payload_reverse\n",
+            "  let _: Vec<Option<Int>> = selected_forward\n",
+            "  let _: Vec<Option<Int>> = selected_reverse\n",
+            "  let _: Vec<Option<Int>> = matched_forward\n",
+            "  let _: Vec<Option<Int>> = matched_reverse\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for (function, expected) in [
+        ("vector_forward", "Vec<Vec<Option<Int>>>"),
+        ("vector_reverse", "Vec<Vec<Option<Int>>>"),
+        ("dictionary_forward", "Vec<Dict<Int, Option<Int>>>"),
+        ("dictionary_reverse", "Vec<Dict<Int, Option<Int>>>"),
+        ("dictionary_entries_forward", "Dict<Int, Vec<Option<Int>>>"),
+        ("dictionary_entries_reverse", "Dict<Int, Vec<Option<Int>>>"),
+        ("repeated_payload_forward", "Pair<Vec<Option<Int>>>::Paired"),
+        ("repeated_payload_reverse", "Pair<Vec<Option<Int>>>::Paired"),
+        ("selected_forward", "Vec<Option<Int>>"),
+        ("selected_reverse", "Vec<Option<Int>>"),
+        ("matched_forward", "Vec<Option<Int>>"),
+        ("matched_reverse", "Vec<Option<Int>>"),
+    ] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            expected,
+            "unexpected inferred result for {function}",
+        );
+    }
+}
+
+#[test]
+fn source_none_and_nil_heads_keep_refinements_during_list_tail_completion() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  None\n",
+            "  Nil\n",
+            "  Ready\n",
+            "end\n",
+            "fn none_forward(ready: List<State::Ready>)\n",
+            "  [ready, Cons(State::None, Nil)]\n",
+            "end\n",
+            "fn none_reverse(ready: List<State::Ready>)\n",
+            "  [Cons(State::None, Nil), ready]\n",
+            "end\n",
+            "fn nil_forward(ready: List<State::Ready>)\n",
+            "  [ready, Cons(State::Nil, Nil)]\n",
+            "end\n",
+            "fn nil_reverse(ready: List<State::Ready>)\n",
+            "  [Cons(State::Nil, Nil), ready]\n",
+            "end\n",
+            "fn verify(ready: List<State::Ready>) -> ()\n",
+            "  let none_forward = [ready, Cons(State::None, Nil)]\n",
+            "  let none_reverse = [Cons(State::None, Nil), ready]\n",
+            "  let nil_forward = [ready, Cons(State::Nil, Nil)]\n",
+            "  let nil_reverse = [Cons(State::Nil, Nil), ready]\n",
+            "  let _: Vec<List<State::None | State::Ready>> = none_forward\n",
+            "  let _: Vec<List<State::None | State::Ready>> = none_reverse\n",
+            "  let _: Vec<List<State::Nil | State::Ready>> = nil_forward\n",
+            "  let _: Vec<List<State::Nil | State::Ready>> = nil_reverse\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for (function, expected) in [
+        ("none_forward", "Vec<List<State::None | State::Ready>>"),
+        ("none_reverse", "Vec<List<State::None | State::Ready>>"),
+        ("nil_forward", "Vec<List<State::Nil | State::Ready>>"),
+        ("nil_reverse", "Vec<List<State::Nil | State::Ready>>"),
+    ] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            expected,
+            "unexpected inferred result for {function}",
+        );
+    }
+}
+
+#[test]
 fn source_variants_named_none_or_nil_remain_join_contributions() {
     let source = SourceFile::new(
         "main.veln",
