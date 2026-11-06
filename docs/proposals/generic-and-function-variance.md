@@ -12,9 +12,10 @@ assignment and implemented covariant inference behavior is defined by the
 [type specification](../specification/types.md#compatibility-and-limits) and
 its [inference rules](../specification/types.md#inference-rules). The remaining
 work adds bounded inference beyond source-ADT and compiler-owned covariant
-joins, completion context for incomplete expressions, dependency invalidation,
-detailed nested incompatibility context, presentation, and failure
-preservation. It does not add declaration-site variance modifiers.
+joins, source-order-independent completion of incomplete expressions,
+dependency invalidation, detailed nested incompatibility context,
+presentation, and failure preservation. It does not add declaration-site
+variance modifiers.
 
 ## Related Work For Remaining Inference
 
@@ -54,9 +55,12 @@ defines equal-type and same-constructor source-ADT or compiler-owned covariant
 joins. Inference uses the following remaining bounded, order-independent rules
 when a recursive join goes beyond those implemented cases. It must inspect all
 successful contributions before concluding that a required join is unavailable.
-Incomplete expressions do not contribute types to `J`. The remaining
-completion rule first joins complete contributions, then checks each incomplete
-expression with the joined type as its expected context.
+Current inference can pass an accumulated join to a later incomplete expression
+when the join root is an unrefined named type and no nested refinement domain
+remains incomplete, but it does not revisit an earlier expression. Incomplete
+expressions do not contribute types to `J`. The remaining completion rule first
+joins complete contributions, then checks each incomplete expression with the
+joined type as its expected context, independent of source order.
 
 Write `J(S)` for the selected common supertype of a nonempty collection of
 complete contributing types. Write `M(S)` for its bounded common subtype.

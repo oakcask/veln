@@ -219,16 +219,17 @@ checking. An explicitly annotated member keeps its own declared presentation
 while the group retains one feasible match domain.
 
 Non-empty `Vec<T>` and `Dict<K, V>` literals infer their element, key, and
-value positions from every successfully typed contribution. Constructor
-refinements of the same resolved ADT and compatible generic arguments join
-into a declaration-ordered variant set, independent of source order. An
-unresolved generic argument can become concrete from another contribution;
-after it is concrete, later contributions must have the same argument. A join
-containing every declared variant, or a join of a refinement and its base ADT,
-becomes the base ADT. A contribution that produces its own diagnostic does not
-change the accumulated type, so a later successful contribution joins with
-only the preceding successful facts. Other conflicting facts remain focused
-`type.mismatch` diagnostics at the incompatible element, key, or value.
+value positions from every successfully typed contribution. Same-constructor
+compiler-owned immutable types recursively join every argument. Source-ADT
+arguments recursively join only where checked variance metadata marks the
+parameter covariant; other classifications and unavailable metadata require
+exact arguments. Constructor refinements join into a declaration-ordered
+variant set, independent of source order. A join containing every declared
+variant, or a join of a refinement and its base ADT, becomes the base ADT. A
+contribution that produces its own diagnostic does not change the accumulated
+type, so a later successful contribution joins with only the preceding
+successful facts. Other conflicting facts remain focused `type.mismatch`
+diagnostics at the incompatible element, key, or value.
 
 When a private non-exported helper omits parameter or return annotations,
 same-module concrete call sites may constrain the helper's single monomorphic
@@ -629,11 +630,15 @@ an otherwise ambiguous generic constructor. The result remains the base ADT.
 `if` and `else if` conditions are checked with expected type `Bool`. A
 non-`Bool` condition reports `type.mismatch` at the condition expression.
 Branch body expressions share the expected result type when one is available.
-Without one, branch results use the same symmetric ADT-refinement join as
-`match`; all other combinations retain the compatibility behavior described
-above. Typed holes in conditions therefore receive `Bool`. A hole in a branch
-receives the enclosing expected result type when one exists. A result join does
-not itself provide that expectation. The checked control-flow cases are in
+Without one, branch results use the same recursive aggregate join as `match`,
+including compiler-owned immutable constructors and checked covariant
+source-ADT parameters. Typed holes in conditions therefore receive `Bool`. A
+hole in a branch receives the enclosing expected result type when one exists.
+A root-refinement join does not provide that expectation. A join whose root is
+an unrefined named type can provide its materialized type to a later sibling
+only when it has no incomplete nested refinement domain. The join does not
+revisit an earlier branch that lacked that context. The checked control-flow
+cases are in
 [`adt-variant-refinement-control-flow-result-joins`](../../examples/specification/check/adt-variant-refinement-control-flow-result-joins/)
 and its
 [`diagnostic companion`](../../examples/specification/check/adt-variant-refinement-control-flow-result-joins-diagnostics/).
@@ -1407,14 +1412,21 @@ constructor or a source-ADT variant refinement. A concrete expected type still
 checks each contribution by ordinary assignment compatibility.
 
 Context-free aggregate inference does not run a separate completion pass. It
-checks each contribution once in source order with the expected type available
-at that position. A partial type admitted without a diagnostic can still have
-an `unknown` argument made concrete by a later contribution under the ordinary
-inference rule above. If the original check instead reports an ambiguity or a
-mismatch, later facts do not cause that expression to be checked again. The
-failed expression leaves the accumulated join unchanged under the
-transactional rule below. An independently available concrete expected type
-still checks the contribution by ordinary assignment compatibility.
+checks each contribution once in source order. Repeated direct constructor
+payloads and dictionary members that have complete types are inferred without
+using the partial join as their expected type. They can therefore widen the
+join instead of being forced to equal its current refinement. When the join
+root is an unrefined named type and every nested refinement domain is complete,
+the accumulated type can provide context to a later context-dependent
+expression such as a nullary generic constructor. An incomplete nested
+refinement domain provides no such context. A partial type admitted without a
+diagnostic can still have an `unknown` argument made concrete by a later
+contribution under the ordinary inference rule above. If the original check
+instead reports an ambiguity or a mismatch, later facts do not cause that
+expression to be checked again. The failed expression leaves the accumulated
+join unchanged under the transactional rule below. An independently available
+concrete expected type still checks the contribution by ordinary assignment
+compatibility.
 
 Presentation reconciliation applies at each joined compiler-owned constructor.
 One alias preference and canonical spelling retain that alias. Different alias
@@ -1428,7 +1440,9 @@ case covers the conflicting-alias result in both contribution orders.
 The join applies when repeated constructor payloads use a type parameter
 directly and those direct occurrences contribute complete types supported by
 the bounded join, including source ADTs and compiler-owned immutable
-constructors.
+constructors. Each complete direct occurrence is inferred independently before
+it contributes. A later direct context-dependent expression instead uses the
+accumulated concrete argument as its expected type when one is available.
 If the same parameter also occurs inside a named payload, that nested
 occurrence establishes an exact inference constraint independently of the
 named constructor's assignment or inference variance. For example, given
@@ -1851,10 +1865,11 @@ Dictionary literals infer `Dict<K, V>` from their expected type when available.
 An empty `{}` expression becomes an empty dictionary only when the expected type
 is `Dict<K, V>`. Without an expected dictionary type, the first entry supplies
 the initial key and value contributions. Each later entry contributes to the
-same positions. Compatible same-ADT refinements join as described above;
-otherwise, an incompatible key or value reports `type.mismatch`. A dictionary
-key may be any implemented expression; the parser only reserves a first bare
-`name: value` entry for record literals.
+same positions. Key and value positions independently use the recursive
+same-constructor covariant join described above. When that bounded join and
+ordinary compatibility are both unavailable, an incompatible key or value
+reports `type.mismatch`. A dictionary key may be any implemented expression;
+the parser only reserves a first bare `name: value` entry for record literals.
 
 Record field access `expr.name` requires the base expression to have a record
 type containing `name`. The access has the declared field type. Accessing a
