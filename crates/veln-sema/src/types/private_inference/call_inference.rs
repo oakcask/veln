@@ -365,7 +365,7 @@ impl PrivateConstructorTypeArgInference {
                 })
                 .map(Cow::Owned)
             })
-            .unwrap_or_else(|| Cow::Owned(Type::Unknown))
+            .unwrap_or(Cow::Owned(Type::Unknown))
     }
 
     fn direct_payload_context(&self, field: &AdtPayloadField) -> Option<Type> {
