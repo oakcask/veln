@@ -21,7 +21,7 @@ impl<'a> FunctionChecker<'a> {
         result: &mut ControlFlowResultJoin,
     ) {
         let recovery_type = match result.joined.as_ref() {
-            Some(joined) => control_flow_join_context(branch_expr, joined),
+            Some(joined) => self.control_flow_join_context(branch_expr, joined),
             None if result.recovery_type != Type::Unknown => Some(result.recovery_type.clone()),
             None => None,
         };
@@ -39,6 +39,21 @@ impl<'a> FunctionChecker<'a> {
             None
         };
         let actual = self.infer_expr(branch_expr, expected.or(recovery_expected.as_ref()));
+        let actual = if expected.is_none()
+            && self.expression_needs_aggregate_completion_context(branch_expr)
+        {
+            recovery_expected
+                .as_ref()
+                .map_or(actual.clone(), |expected| {
+                    inferred_aggregate_member_type_with_expected(
+                        actual,
+                        &expected.ty,
+                        &self.environment.adts,
+                    )
+                })
+        } else {
+            actual
+        };
         if let Some(expected) = expected {
             self.check_assignable(branch_expr, &expected.ty, &actual, expected, "if_branch");
             return;

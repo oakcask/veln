@@ -323,6 +323,46 @@ fn body_inference_separates_join_contributions_from_completion_context() {
 }
 
 #[test]
+fn nested_compiler_owned_completion_context_is_order_independent() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn forward()\n",
+            "  [Some(None), Some(Some(1))]\n",
+            "end\n",
+            "fn reverse()\n",
+            "  [Some(Some(1)), Some(None)]\n",
+            "end\n",
+            "fn verify() -> ()\n",
+            "  let forward = [Some(None), Some(Some(1))]\n",
+            "  let reverse = [Some(Some(1)), Some(None)]\n",
+            "  let _: Vec<Option<Option<Int>>> = forward\n",
+            "  let _: Vec<Option<Option<Int>>> = reverse\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["forward", "reverse"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            "Vec<Option<Option<Int>>>",
+            "unexpected inferred result for {function}",
+        );
+    }
+}
+
+#[test]
 fn compiler_owned_outer_alias_conflicts_use_canonical_carrier_names() {
     let source = SourceFile::new(
         "main.veln",

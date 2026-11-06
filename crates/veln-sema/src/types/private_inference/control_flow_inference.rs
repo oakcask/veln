@@ -28,14 +28,14 @@ pub(crate) fn infer_private_match_type(
     for completion_pass in completion_passes {
         for arm in arms {
             if expected.is_none()
-                && private_expression_needs_aggregate_completion_context(&arm.expr)
+                && private_expression_needs_aggregate_completion_context(&arm.expr, context)
                     != *completion_pass
             {
                 continue;
             }
             let joined_context = joined_result
                 .as_ref()
-                .and_then(|joined| private_control_flow_join_context(&arm.expr, joined));
+                .and_then(|joined| private_control_flow_join_context(&arm.expr, joined, context));
             let recovery_expected = if joined_result.is_some() {
                 joined_context.as_ref()
             } else {
@@ -45,6 +45,15 @@ pub(crate) fn infer_private_match_type(
                 &arm.expr,
                 expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none)),
             );
+            let actual = if expected.is_none()
+                && private_expression_needs_aggregate_completion_context(&arm.expr, context)
+            {
+                recovery_expected.map_or(actual.clone(), |expected| {
+                    inferred_private_aggregate_member_type(actual, expected, context.adts)
+                })
+            } else {
+                actual
+            };
             merge_private_control_flow_result(
                 &mut result,
                 &mut joined_result,
@@ -84,14 +93,14 @@ pub(crate) fn infer_private_if_result_type(
             .chain(std::iter::once(else_branch))
         {
             if expected.is_none()
-                && private_expression_needs_aggregate_completion_context(branch_expr)
+                && private_expression_needs_aggregate_completion_context(branch_expr, context)
                     != *completion_pass
             {
                 continue;
             }
             let joined_context = joined_result
                 .as_ref()
-                .and_then(|joined| private_control_flow_join_context(branch_expr, joined));
+                .and_then(|joined| private_control_flow_join_context(branch_expr, joined, context));
             let recovery_expected = if joined_result.is_some() {
                 joined_context.as_ref()
             } else {
@@ -102,6 +111,15 @@ pub(crate) fn infer_private_if_result_type(
             let actual = match branch_expected {
                 Some(expected) => context.infer_expected_outcome(branch_expr, expected).ty,
                 None => context.infer(branch_expr, None),
+            };
+            let actual = if expected.is_none()
+                && private_expression_needs_aggregate_completion_context(branch_expr, context)
+            {
+                branch_expected.map_or(actual.clone(), |expected| {
+                    inferred_private_aggregate_member_type(actual, expected, context.adts)
+                })
+            } else {
+                actual
             };
             let was_join_failed = join_failed;
             merge_private_control_flow_result(

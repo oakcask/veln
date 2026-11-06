@@ -277,7 +277,8 @@ pub(super) fn infer_private_list_type(
     for completion_pass in completion_passes {
         for item in items {
             if expected.is_none()
-                && private_expression_needs_aggregate_completion_context(item) != *completion_pass
+                && private_expression_needs_aggregate_completion_context(item, context)
+                    != *completion_pass
             {
                 continue;
             }
@@ -322,7 +323,7 @@ pub(super) fn infer_private_dict_type(
         for entry in entries {
             let has_key_context = expected.and_then(Type::dict_parts).is_some();
             if expected.is_some()
-                || private_expression_needs_aggregate_completion_context(&entry.key)
+                || private_expression_needs_aggregate_completion_context(&entry.key, context)
                     == *completion_pass
             {
                 infer_private_aggregate_component(
@@ -334,7 +335,7 @@ pub(super) fn infer_private_dict_type(
                 );
             }
             if expected.is_some()
-                || private_expression_needs_aggregate_completion_context(&entry.value)
+                || private_expression_needs_aggregate_completion_context(&entry.value, context)
                     == *completion_pass
             {
                 infer_private_aggregate_component(
@@ -367,7 +368,9 @@ fn infer_private_aggregate_component(
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
     let inferred_context = match joined_components {
-        Some(joined) => private_aggregate_join_context(expr, joined).unwrap_or(Type::Unknown),
+        Some(joined) => {
+            private_aggregate_join_context(expr, joined, context).unwrap_or(Type::Unknown)
+        }
         None => component_type.clone(),
     };
     let actual = context.infer_outcome(expr, item_type_unknown_as_none(&inferred_context));
@@ -375,11 +378,12 @@ fn infer_private_aggregate_component(
         return;
     }
     let actual = actual.ty;
-    let actual = if has_context {
-        inferred_private_aggregate_member_type(actual, component_type, context.adts)
-    } else {
-        actual
-    };
+    let actual =
+        if has_context || private_expression_needs_aggregate_completion_context(expr, context) {
+            inferred_private_aggregate_member_type(actual, &inferred_context, context.adts)
+        } else {
+            actual
+        };
     if !has_context && joined_components.is_none() && *component_type != Type::Unknown {
         *joined_components =
             crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, component_type);
@@ -415,34 +419,52 @@ fn infer_private_aggregate_component(
     }
 }
 
-pub(super) fn private_expression_needs_aggregate_completion_context(expr: &Expr) -> bool {
-    match &expr.kind {
-        ExprKind::NamePath { segments, .. } => segments
-            .last()
-            .is_some_and(|name| name == "None" || name == "Nil"),
-        ExprKind::List(items) => items.is_empty(),
-        ExprKind::Dict(entries) => entries.is_empty(),
-        _ => false,
-    }
+pub(super) fn private_expression_needs_aggregate_completion_context(
+    expr: &Expr,
+    context: &PrivateSignatureInferContext<'_, '_>,
+) -> bool {
+    crate::aggregate_type_join::expression_needs_completion_context(
+        expr,
+        context.adts,
+        context.current_module,
+        context.uses,
+    )
 }
 
 pub(super) fn private_aggregate_join_context(
     expr: &Expr,
     joined: &crate::aggregate_type_join::AggregateTypeJoin,
+    context: &PrivateSignatureInferContext<'_, '_>,
 ) -> Option<Type> {
-    let needs_completion = private_expression_needs_aggregate_completion_context(expr);
-    (!joined.has_nested_refinement_domain() || needs_completion).then(|| joined.inference_type())
+    let needs_completion = private_expression_needs_aggregate_completion_context(expr, context);
+    (!joined.has_nested_refinement_domain() || needs_completion)
+        .then(|| private_completion_context_type(expr, joined.inference_type(), context))
 }
 
 pub(super) fn private_control_flow_join_context(
     expr: &Expr,
     joined: &crate::aggregate_type_join::AggregateTypeJoin,
+    context: &PrivateSignatureInferContext<'_, '_>,
 ) -> Option<Type> {
-    let needs_completion = private_expression_needs_aggregate_completion_context(expr);
+    let needs_completion = private_expression_needs_aggregate_completion_context(expr, context);
     (joined.has_complete_root_domain()
         && (!joined.has_nested_refinement_domain() || needs_completion)
         || joined.has_compiler_owned_root() && needs_completion)
-        .then(|| joined.inference_type())
+        .then(|| private_completion_context_type(expr, joined.inference_type(), context))
+}
+
+pub(super) fn private_completion_context_type(
+    expr: &Expr,
+    expected: Type,
+    context: &PrivateSignatureInferContext<'_, '_>,
+) -> Type {
+    crate::aggregate_type_join::completion_context_type(
+        expr,
+        &expected,
+        context.adts,
+        context.current_module,
+        context.uses,
+    )
 }
 
 pub(crate) fn infer_private_record_type(

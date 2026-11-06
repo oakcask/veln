@@ -1,11 +1,134 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use crate::adt::descriptors::{AdtConstructor, Variance};
-use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
+use crate::adt::descriptors::{AdtConstructor, AdtPayloadType, Variance};
+use crate::adt::registry::{AdtRegistry, ConstructorLookup, VariantDeclarationOrder};
 use crate::adt::{type_operations as adt, unification};
 use crate::semantic_model::Type;
 use crate::type_relations::{TypePresentationJoin, invariant_args_match, same_type_identity};
+use veln_ast::{Expr, ExprKind, UseDecl};
+
+pub(crate) fn expression_needs_completion_context(
+    expr: &Expr,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> bool {
+    match &expr.kind {
+        ExprKind::NamePath { segments, .. } => segments
+            .last()
+            .is_some_and(|name| name == "None" || name == "Nil"),
+        ExprKind::List(items) => items.is_empty(),
+        ExprKind::Dict(entries) => entries.is_empty(),
+        ExprKind::Call { callee, args }
+            if compiler_owned_constructor_callee(callee, adts, current_module, uses) =>
+        {
+            args.iter()
+                .any(|arg| expression_needs_completion_context(arg, adts, current_module, uses))
+        }
+        _ => false,
+    }
+}
+
+pub(crate) fn completion_context_type(
+    expr: &Expr,
+    expected: &Type,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> Type {
+    match &expr.kind {
+        ExprKind::NamePath { segments, .. }
+            if segments
+                .last()
+                .is_some_and(|name| name == "None" || name == "Nil") =>
+        {
+            unrefined_type(expected)
+        }
+        ExprKind::Call { callee, args } => {
+            let ExprKind::NamePath { segments, .. } = &callee.kind else {
+                return expected.clone();
+            };
+            let Some(constructor) =
+                compiler_owned_constructor(segments, adts, current_module, uses)
+            else {
+                return expected.clone();
+            };
+            let expected_identity = match expected {
+                Type::Named { identity, .. } | Type::VariantRefinement { identity, .. } => identity,
+                _ => return expected.clone(),
+            };
+            if constructor.descriptor.nominal_identity.as_deref()
+                != Some(expected_identity.as_str())
+            {
+                return expected.clone();
+            }
+            let mut projected = unrefined_type(expected);
+            let type_args = match &mut projected {
+                Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
+                _ => unreachable!("unrefining a named type preserves its shape"),
+            };
+            for (arg, field) in args.iter().zip(&constructor.variant.payload_fields) {
+                let AdtPayloadType::TypeParameter(index) = &field.ty else {
+                    continue;
+                };
+                let Some(expected_arg) = type_args.get_mut(*index) else {
+                    continue;
+                };
+                *expected_arg =
+                    completion_context_type(arg, expected_arg, adts, current_module, uses);
+            }
+            projected
+        }
+        _ => expected.clone(),
+    }
+}
+
+fn unrefined_type(ty: &Type) -> Type {
+    match ty {
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => Type::resolved_named(name, identity, args.clone()),
+        ty => ty.clone(),
+    }
+}
+
+fn compiler_owned_constructor_callee(
+    callee: &Expr,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> bool {
+    let ExprKind::NamePath { segments, .. } = &callee.kind else {
+        return false;
+    };
+    compiler_owned_constructor(segments, adts, current_module, uses).is_some()
+}
+
+fn compiler_owned_constructor<'a>(
+    segments: &[String],
+    adts: &'a AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> Option<AdtConstructor<'a>> {
+    match adts.constructor(segments, current_module, uses) {
+        ConstructorLookup::Found(constructor)
+            if constructor
+                .descriptor
+                .nominal_identity
+                .as_deref()
+                .is_some_and(Type::is_compiler_covariant_identity) =>
+        {
+            Some(constructor)
+        }
+        ConstructorLookup::Found(_) | ConstructorLookup::Ambiguous | ConstructorLookup::Missing => {
+            None
+        }
+    }
+}
 
 pub(crate) struct AggregateTypeJoin {
     nodes: Vec<JoinNode>,

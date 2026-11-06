@@ -146,7 +146,8 @@ impl<'a> FunctionChecker<'a> {
         for completion_pass in completion_passes {
             for entry in entries {
                 if expected.is_some()
-                    || expression_needs_aggregate_completion_context(&entry.key) == *completion_pass
+                    || self.expression_needs_aggregate_completion_context(&entry.key)
+                        == *completion_pass
                 {
                     key_type = self.infer_dict_member(
                         &entry.key,
@@ -161,7 +162,7 @@ impl<'a> FunctionChecker<'a> {
                     );
                 }
                 if expected.is_some()
-                    || expression_needs_aggregate_completion_context(&entry.value)
+                    || self.expression_needs_aggregate_completion_context(&entry.value)
                         == *completion_pass
                 {
                     value_type = self.infer_dict_member(
@@ -223,12 +224,20 @@ impl<'a> FunctionChecker<'a> {
         if self.diagnostics.len() != item_diagnostic_count {
             return current_type.clone();
         }
-        let aggregate = dict_member_aggregate_type(
-            &actual,
-            contextual_type,
-            has_contextual_type,
-            &self.environment.adts,
-        );
+        let aggregate = if self.expression_needs_aggregate_completion_context(item) {
+            inferred_aggregate_member_type_with_expected(
+                actual.clone(),
+                &item_expected.ty,
+                &self.environment.adts,
+            )
+        } else {
+            dict_member_aggregate_type(
+                &actual,
+                contextual_type,
+                has_contextual_type,
+                &self.environment.adts,
+            )
+        };
         let joined =
             self.join_dict_member(current_type, joined_type, &aggregate, has_contextual_type);
         self.check_dict_member(
@@ -263,7 +272,7 @@ impl<'a> FunctionChecker<'a> {
         origin_message: &'static str,
     ) -> ExpectedType {
         let inferred_context = joined_type
-            .and_then(|joined| aggregate_join_context(item, joined))
+            .and_then(|joined| self.aggregate_join_context(item, joined))
             .unwrap_or_else(|| current_type.clone());
         let item_type = if inferred_context == Type::Unknown {
             contextual_type.clone()

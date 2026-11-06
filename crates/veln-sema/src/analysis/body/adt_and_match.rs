@@ -488,7 +488,7 @@ impl<'a> FunctionChecker<'a> {
                     continue;
                 };
                 if expected.is_none()
-                    && expression_needs_aggregate_completion_context(arg) != *completion_pass
+                    && self.expression_needs_aggregate_completion_context(arg) != *completion_pass
                 {
                     continue;
                 }
@@ -528,10 +528,13 @@ impl<'a> FunctionChecker<'a> {
             origin_message: "Constructor payload inferred here.",
         });
         arg_expected.ty = type_args.payload_expected(expected, constructor, index, field);
+        if expected.is_none() && self.expression_needs_aggregate_completion_context(arg) {
+            arg_expected.ty = self.project_completion_context(arg, arg_expected.ty);
+        }
         if expected.is_none()
             && matches!(field.ty, AdtPayloadType::TypeParameter(_))
             && type_args.has_nested_join(field)
-            && !expression_needs_aggregate_completion_context(arg)
+            && !self.expression_needs_aggregate_completion_context(arg)
         {
             arg_expected.ty = Type::Unknown;
         }
@@ -543,7 +546,7 @@ impl<'a> FunctionChecker<'a> {
         let has_context = expected.is_some()
             || (!matches!(field.ty, AdtPayloadType::TypeParameter(_))
                 && !type_contains_unknown(&arg_expected.ty));
-        let inferred = if has_context {
+        let inferred = if has_context || self.expression_needs_aggregate_completion_context(arg) {
             inferred_aggregate_member_type_with_expected(
                 actual,
                 &arg_expected.ty,
@@ -675,7 +678,7 @@ impl<'a> FunctionChecker<'a> {
         for completion_pass in completion_passes {
             for item in items {
                 if expected.is_none()
-                    && expression_needs_aggregate_completion_context(item) != *completion_pass
+                    && self.expression_needs_aggregate_completion_context(item) != *completion_pass
                 {
                     continue;
                 }
@@ -717,7 +720,9 @@ impl<'a> FunctionChecker<'a> {
         joined_items: &mut Option<AggregateTypeJoin>,
     ) {
         let inferred_context = match joined_items {
-            Some(joined) => aggregate_join_context(item, joined).unwrap_or(Type::Unknown),
+            Some(joined) => self
+                .aggregate_join_context(item, joined)
+                .unwrap_or(Type::Unknown),
             None => item_type.clone(),
         };
         let item_expected = collection_item_expected(
@@ -736,15 +741,16 @@ impl<'a> FunctionChecker<'a> {
         if self.diagnostics.len() != diagnostic_count {
             return;
         }
-        let aggregate_actual = if contextual_item {
-            inferred_aggregate_member_type_with_expected(
-                actual.clone(),
-                expected_item,
-                &self.environment.adts,
-            )
-        } else {
-            actual.clone()
-        };
+        let aggregate_actual =
+            if contextual_item || self.expression_needs_aggregate_completion_context(item) {
+                inferred_aggregate_member_type_with_expected(
+                    actual.clone(),
+                    &item_expected.ty,
+                    &self.environment.adts,
+                )
+            } else {
+                actual.clone()
+            };
         let joined =
             self.join_list_item(contextual_item, item_type, joined_items, &aggregate_actual);
         let join_failed = !contextual_item && !joined && joined_items.is_some();
@@ -883,7 +889,8 @@ impl<'a> FunctionChecker<'a> {
         for completion_pass in completion_passes {
             for arm in arms {
                 if reorder_for_completion
-                    && expression_needs_aggregate_completion_context(&arm.expr) != *completion_pass
+                    && self.expression_needs_aggregate_completion_context(&arm.expr)
+                        != *completion_pass
                 {
                     continue;
                 }
@@ -1873,7 +1880,7 @@ impl<'a> FunctionChecker<'a> {
         result: &mut ControlFlowResultJoin,
     ) {
         let recovery_type = match result.joined.as_ref() {
-            Some(joined) => control_flow_join_context(&arm.expr, joined),
+            Some(joined) => self.control_flow_join_context(&arm.expr, joined),
             None if result.recovery_type != Type::Unknown => Some(result.recovery_type.clone()),
             None => None,
         };
@@ -1891,6 +1898,21 @@ impl<'a> FunctionChecker<'a> {
             None
         };
         let actual = self.infer_expr(&arm.expr, expected.or(recovery_expected.as_ref()));
+        let actual = if expected.is_none()
+            && self.expression_needs_aggregate_completion_context(&arm.expr)
+        {
+            recovery_expected
+                .as_ref()
+                .map_or(actual.clone(), |expected| {
+                    inferred_aggregate_member_type_with_expected(
+                        actual,
+                        &expected.ty,
+                        &self.environment.adts,
+                    )
+                })
+        } else {
+            actual
+        };
         if let Some(expected) = expected {
             self.check_assignable(&arm.expr, &expected.ty, &actual, expected, "match_arm");
             return;
@@ -1954,7 +1976,7 @@ impl<'a> FunctionChecker<'a> {
                 .chain(std::iter::once(else_branch))
             {
                 if expected.is_none()
-                    && expression_needs_aggregate_completion_context(branch_expr)
+                    && self.expression_needs_aggregate_completion_context(branch_expr)
                         != *completion_pass
                 {
                     continue;

@@ -171,7 +171,8 @@ fn infer_private_constructor_call(
     for completion_pass in completion_passes {
         for (index, arg) in args.iter().enumerate() {
             if expected.is_none()
-                && private_expression_needs_aggregate_completion_context(arg) != *completion_pass
+                && private_expression_needs_aggregate_completion_context(arg, context)
+                    != *completion_pass
             {
                 continue;
             }
@@ -199,15 +200,21 @@ fn infer_private_constructor_payload(
 ) {
     let field = constructor.variant.payload_fields.get(index);
     let mut payload_expected = type_args.payload_expected(expected, constructor, index, field);
-    if expected.is_none()
-        && type_args.has_nested_join(field)
-        && !private_expression_needs_aggregate_completion_context(arg)
-    {
+    let needs_completion = private_expression_needs_aggregate_completion_context(arg, context);
+    if expected.is_none() && needs_completion {
+        payload_expected = private_completion_context_type(arg, payload_expected, context);
+    }
+    if expected.is_none() && type_args.has_nested_join(field) && !needs_completion {
         payload_expected = Type::Unknown;
     }
     let plan = PrivatePayloadInferencePlan::new(expected.is_some(), field, &payload_expected);
     let Some(inferred_actual) = plan.infer(arg, &payload_expected, context) else {
         return;
+    };
+    let inferred_actual = if expected.is_none() && needs_completion {
+        inferred_private_aggregate_member_type(inferred_actual, &payload_expected, context.adts)
+    } else {
+        inferred_actual
     };
     let joined = type_args.try_join(field, &inferred_actual, context.adts);
     if expected.is_none() && !joined && type_args.has_join(field) {

@@ -9,6 +9,7 @@ use super::boundary::{
 };
 use super::repair_reasoning::*;
 use super::*;
+use crate::aggregate_type_join::{completion_context_type, expression_needs_completion_context};
 use crate::effect_rows::{
     call_bound_effect_row, instantiate_effect_rows, instantiate_effect_rows_in_type,
     mask_call_bound_effect_row, solve_call_bound_effect_row,
@@ -197,30 +198,6 @@ fn type_contains_variant_refinement(ty: &Type) -> bool {
         }
         Type::Unknown => false,
     }
-}
-
-fn expression_needs_aggregate_completion_context(expr: &Expr) -> bool {
-    match &expr.kind {
-        ExprKind::NamePath { segments, .. } => segments
-            .last()
-            .is_some_and(|name| name == "None" || name == "Nil"),
-        ExprKind::List(items) => items.is_empty(),
-        ExprKind::Dict(entries) => entries.is_empty(),
-        _ => false,
-    }
-}
-
-fn aggregate_join_context(expr: &Expr, joined: &AggregateTypeJoin) -> Option<Type> {
-    let needs_completion = expression_needs_aggregate_completion_context(expr);
-    (!joined.has_nested_refinement_domain() || needs_completion).then(|| joined.inference_type())
-}
-
-fn control_flow_join_context(expr: &Expr, joined: &AggregateTypeJoin) -> Option<Type> {
-    let needs_completion = expression_needs_aggregate_completion_context(expr);
-    (joined.has_complete_root_domain()
-        && (!joined.has_nested_refinement_domain() || needs_completion)
-        || joined.has_compiler_owned_root() && needs_completion)
-        .then(|| joined.inference_type())
 }
 
 fn inferred_control_flow_recovery_type(ty: &Type) -> Type {
@@ -582,6 +559,39 @@ fn resolution_uses_for_function(
 }
 
 impl<'a> FunctionChecker<'a> {
+    fn expression_needs_aggregate_completion_context(&self, expr: &Expr) -> bool {
+        expression_needs_completion_context(
+            expr,
+            &self.environment.adts,
+            self.function.module_name.as_deref(),
+            &self.resolution_uses,
+        )
+    }
+
+    fn aggregate_join_context(&self, expr: &Expr, joined: &AggregateTypeJoin) -> Option<Type> {
+        let needs_completion = self.expression_needs_aggregate_completion_context(expr);
+        (!joined.has_nested_refinement_domain() || needs_completion)
+            .then(|| self.project_completion_context(expr, joined.inference_type()))
+    }
+
+    fn control_flow_join_context(&self, expr: &Expr, joined: &AggregateTypeJoin) -> Option<Type> {
+        let needs_completion = self.expression_needs_aggregate_completion_context(expr);
+        (joined.has_complete_root_domain()
+            && (!joined.has_nested_refinement_domain() || needs_completion)
+            || joined.has_compiler_owned_root() && needs_completion)
+            .then(|| self.project_completion_context(expr, joined.inference_type()))
+    }
+
+    fn project_completion_context(&self, expr: &Expr, expected: Type) -> Type {
+        completion_context_type(
+            expr,
+            &expected,
+            &self.environment.adts,
+            self.function.module_name.as_deref(),
+            &self.resolution_uses,
+        )
+    }
+
     pub(super) fn for_source_declaration(
         function: &'a Function,
         environment: &'a TypeEnvironment,

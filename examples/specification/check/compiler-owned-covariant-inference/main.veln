@@ -90,6 +90,14 @@ fn constructed_option_reverse()
 	[None, Some(Ready)]
 end
 
+fn nested_constructed_option()
+	[Some(None), Some(Some(1))]
+end
+
+fn nested_constructed_option_reverse()
+	[Some(Some(1)), Some(None)]
+end
+
 fn selected_constructed_option(flag: Bool)
 	if flag
 		Some(Ready)
@@ -145,6 +153,8 @@ fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option
 	let paired_constructed_vector_reverse_result: Pair<Vec<State::Ready | State::Closed>>::Paired = paired_constructed_vector_reverse()
 	let constructed_option_result: Vec<Option<State::Ready>> = constructed_option()
 	let constructed_option_reverse_result: Vec<Option<State::Ready>> = constructed_option_reverse()
+	let nested_constructed_option_result: Vec<Option<Option<Int>>> = nested_constructed_option()
+	let nested_constructed_option_reverse_result: Vec<Option<Option<Int>>> = nested_constructed_option_reverse()
 	let selected_constructed_option_result: Option<State::Ready> = selected_constructed_option(flag)
 	let selected_constructed_option_reverse_result: Option<State::Ready> = selected_constructed_option_reverse(flag)
 	let matched_constructed_option_result: Option<State::Ready> = matched_constructed_option(flag)
