@@ -1419,14 +1419,21 @@ join instead of being forced to equal its current refinement. When the join
 root is an unrefined named type and every nested refinement domain is complete,
 the accumulated type can provide context to a later context-dependent
 expression such as a nullary generic constructor. An incomplete nested
-refinement domain provides no such context. A partial type admitted without a
-diagnostic can still have an `unknown` argument made concrete by a later
-contribution under the ordinary inference rule above. If the original check
-instead reports an ambiguity or a mismatch, later facts do not cause that
-expression to be checked again. The failed expression leaves the accumulated
-join unchanged under the transactional rule below. An independently available
-concrete expected type still checks the contribution by ordinary assignment
-compatibility.
+refinement domain provides no such context. Dictionary keys and values maintain
+separate joins, so a complete earlier member can contextualize a later empty
+collection in the same position. An earlier empty member remains incomplete
+when only a later member is complete because the checker does not revisit it.
+For repeated direct constructor payloads, an admitted concrete payload type can
+select an unqualified nullary constructor that is otherwise ambiguous between
+ADTs when one candidate belongs to that admitted type. Without that admitted or
+independently supplied context, the namesake remains `name.ambiguous`. A partial
+type admitted without a diagnostic can still have an `unknown` argument made
+concrete by a later contribution under the ordinary inference rule above. If
+the original check instead reports an ambiguity or a mismatch, later facts do
+not cause that expression to be checked again. The failed expression leaves the
+accumulated join unchanged under the transactional rule below. An independently
+available concrete expected type still checks the contribution by ordinary
+assignment compatibility.
 
 Presentation reconciliation applies at each joined compiler-owned constructor.
 One alias preference and canonical spelling retain that alias. Different alias

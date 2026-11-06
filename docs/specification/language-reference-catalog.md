@@ -70,8 +70,10 @@ source-ADT arguments for local and imported declarations, recursive joins
 through every argument of same-constructor compiler-owned immutable types,
 transactional exclusion of contributions whose nested argument cannot join,
 one-pass context from an unrefined named join with no incomplete nested domain
-to a later context-dependent expression, and exact inference for other
-source-ADT classifications or unavailable metadata,
+to a later context-dependent expression, including an empty collection used as
+a later dictionary key or value or an otherwise ambiguous nullary constructor
+selected by its admitted payload type, and exact inference for other source-ADT
+classifications or unavailable metadata,
 stable match-path narrowing, runtime erasure,
 transitive alias-qualified identity and presentation, complete-domain alias
 reconciliation, generic payload propagation across alias-qualified constructor
