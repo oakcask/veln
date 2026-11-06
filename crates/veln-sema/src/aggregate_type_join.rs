@@ -231,17 +231,83 @@ struct ProjectionPlan {
     nodes: Vec<ProjectionNode>,
 }
 
-enum ProjectionApplicationTask<'a> {
-    Visit(&'a Type, usize),
-    Clone(&'a Type),
-    FinishNamed(String, String, usize),
-    FinishVariant(
-        String,
-        String,
-        usize,
-        Arc<[String]>,
-        Vec<(String, Vec<Type>, String)>,
-    ),
+// Completion projection runs in unoptimized compiler binaries used by the
+// standard-library harness. Keep this hot stack operation expanded in the
+// caller while giving it a separate, named boundary.
+macro_rules! queue_projected_args {
+    ($args:expr, $node:expr, $tasks:expr, $task:ident) => {{
+        for (index, arg) in $args.iter().enumerate().rev() {
+            if let Some(child) = $node.children.get(&index) {
+                $tasks.push($task::Visit(arg, *child));
+            } else {
+                $tasks.push($task::Clone(arg));
+            }
+        }
+    }};
+}
+
+macro_rules! finish_projected_type {
+    (named, $projected:expr, $name:expr, $identity:expr, $count:expr) => {{
+        let args = $projected.split_off($projected.len() - $count);
+        $projected.push(Type::resolved_named($name, $identity, args));
+    }};
+    (
+        variant,
+        $projected:expr,
+        $name:expr,
+        $identity:expr,
+        $count:expr,
+        $variants:expr,
+        $unresolved_alternatives:expr
+    ) => {{
+        let args = $projected.split_off($projected.len() - $count);
+        $projected.push(Type::VariantRefinement {
+            name: $name,
+            identity: $identity,
+            args,
+            variants: $variants,
+            unresolved_alternatives: $unresolved_alternatives,
+        });
+    }};
+}
+
+macro_rules! queue_projection_type {
+    (named, $name:expr, $identity:expr, $args:expr, $node:expr, $tasks:expr, $task:ident) => {{
+        $tasks.push($task::FinishNamed(
+            $name.clone(),
+            $identity.clone(),
+            $args.len(),
+        ));
+        queue_projected_args!($args, $node, $tasks, $task);
+    }};
+    (
+        variant,
+        $name:expr,
+        $identity:expr,
+        $args:expr,
+        $variants:expr,
+        $unresolved_alternatives:expr,
+        $node:expr,
+        $tasks:expr,
+        $task:ident
+    ) => {{
+        if $node.unrefine {
+            $tasks.push($task::FinishNamed(
+                $name.clone(),
+                $identity.clone(),
+                $args.len(),
+            ));
+        } else {
+            $tasks.push($task::FinishVariant(
+                $name.clone(),
+                $identity.clone(),
+                $args.len(),
+                $variants.clone(),
+                $unresolved_alternatives.clone(),
+            ));
+        }
+        queue_projected_args!($args, $node, $tasks, $task);
+    }};
 }
 
 impl ProjectionPlan {
@@ -345,119 +411,76 @@ impl ProjectionPlan {
     }
 
     fn apply(&self, expected: &Type) -> Type {
-        let mut tasks = vec![ProjectionApplicationTask::Visit(expected, 0)];
+        enum Task<'a> {
+            Visit(&'a Type, usize),
+            Clone(&'a Type),
+            FinishNamed(String, String, usize),
+            FinishVariant(
+                String,
+                String,
+                usize,
+                Arc<[String]>,
+                Vec<(String, Vec<Type>, String)>,
+            ),
+        }
+        let mut tasks = vec![Task::Visit(expected, 0)];
         let mut projected = Vec::new();
         while let Some(task) = tasks.pop() {
             record_completion_application_task();
-            self.apply_task(task, &mut tasks, &mut projected);
+            match task {
+                Task::Visit(ty, node_index) => {
+                    let node = &self.nodes[node_index];
+                    match ty {
+                        Type::Named {
+                            name,
+                            identity,
+                            args,
+                        } => {
+                            queue_projection_type!(named, name, identity, args, node, tasks, Task);
+                        }
+                        Type::VariantRefinement {
+                            name,
+                            identity,
+                            args,
+                            variants,
+                            unresolved_alternatives,
+                        } => {
+                            queue_projection_type!(
+                                variant,
+                                name,
+                                identity,
+                                args,
+                                variants,
+                                unresolved_alternatives,
+                                node,
+                                tasks,
+                                Task
+                            );
+                        }
+                        _ => projected.push(clone_completion_type(ty)),
+                    }
+                }
+                Task::Clone(ty) => projected.push(clone_completion_type(ty)),
+                Task::FinishNamed(name, identity, count) => {
+                    finish_projected_type!(named, projected, name, identity, count);
+                }
+                Task::FinishVariant(name, identity, count, variants, unresolved_alternatives) => {
+                    finish_projected_type!(
+                        variant,
+                        projected,
+                        name,
+                        identity,
+                        count,
+                        variants,
+                        unresolved_alternatives
+                    );
+                }
+            }
         }
         projected
             .pop()
             .expect("completion projection produces one type")
     }
-
-    fn apply_task<'a>(
-        &self,
-        task: ProjectionApplicationTask<'a>,
-        tasks: &mut Vec<ProjectionApplicationTask<'a>>,
-        projected: &mut Vec<Type>,
-    ) {
-        match task {
-            ProjectionApplicationTask::Visit(ty, node_index) => {
-                self.visit_application_type(ty, node_index, tasks, projected);
-            }
-            ProjectionApplicationTask::Clone(ty) => {
-                projected.push(clone_completion_type(ty));
-            }
-            ProjectionApplicationTask::FinishNamed(name, identity, count) => {
-                let args = take_projected_args(projected, count);
-                projected.push(Type::resolved_named(name, identity, args));
-            }
-            ProjectionApplicationTask::FinishVariant(
-                name,
-                identity,
-                count,
-                variants,
-                unresolved_alternatives,
-            ) => {
-                let args = take_projected_args(projected, count);
-                projected.push(Type::VariantRefinement {
-                    name,
-                    identity,
-                    args,
-                    variants,
-                    unresolved_alternatives,
-                });
-            }
-        }
-    }
-
-    fn visit_application_type<'a>(
-        &self,
-        ty: &'a Type,
-        node_index: usize,
-        tasks: &mut Vec<ProjectionApplicationTask<'a>>,
-        projected: &mut Vec<Type>,
-    ) {
-        let node = &self.nodes[node_index];
-        match ty {
-            Type::Named {
-                name,
-                identity,
-                args,
-            } => {
-                tasks.push(ProjectionApplicationTask::FinishNamed(
-                    name.clone(),
-                    identity.clone(),
-                    args.len(),
-                ));
-                queue_projected_args(args, node, tasks);
-            }
-            Type::VariantRefinement {
-                name,
-                identity,
-                args,
-                variants,
-                unresolved_alternatives,
-            } => {
-                tasks.push(if node.unrefine {
-                    ProjectionApplicationTask::FinishNamed(
-                        name.clone(),
-                        identity.clone(),
-                        args.len(),
-                    )
-                } else {
-                    ProjectionApplicationTask::FinishVariant(
-                        name.clone(),
-                        identity.clone(),
-                        args.len(),
-                        variants.clone(),
-                        unresolved_alternatives.clone(),
-                    )
-                });
-                queue_projected_args(args, node, tasks);
-            }
-            _ => projected.push(clone_completion_type(ty)),
-        }
-    }
-}
-
-fn queue_projected_args<'a>(
-    args: &'a [Type],
-    node: &ProjectionNode,
-    tasks: &mut Vec<ProjectionApplicationTask<'a>>,
-) {
-    for (index, arg) in args.iter().enumerate().rev() {
-        if let Some(child) = node.children.get(&index) {
-            tasks.push(ProjectionApplicationTask::Visit(arg, *child));
-        } else {
-            tasks.push(ProjectionApplicationTask::Clone(arg));
-        }
-    }
-}
-
-fn take_projected_args(projected: &mut Vec<Type>, count: usize) -> Vec<Type> {
-    projected.split_off(projected.len() - count)
 }
 
 fn named_type_args(ty: &Type) -> Option<&[Type]> {
