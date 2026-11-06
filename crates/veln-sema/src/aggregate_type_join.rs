@@ -183,28 +183,11 @@ fn call_completion_fact(
         .map(|arg| completion_fact(needs, arg.node_id))
         .collect::<Vec<_>>();
     if !constructor_is_compiler_owned(constructor) {
-        let mut complete_direct_parameters =
-            vec![false; constructor.descriptor.type_parameters.len()];
-        for (field, needs_completion) in constructor
-            .variant
-            .payload_fields
-            .iter()
-            .zip(&argument_needs)
-        {
-            let Some(index) = completion_parameter_index(constructor, field, adts) else {
-                continue;
-            };
-            if !needs_completion && let Some(complete) = complete_direct_parameters.get_mut(index) {
-                *complete = true;
-            }
-        }
         return argument_needs
             .iter()
             .zip(&constructor.variant.payload_fields)
             .any(|(needs_completion, field)| {
-                *needs_completion
-                    && completion_parameter_index(constructor, field, adts)
-                        .is_some_and(|index| !complete_direct_parameters[index])
+                *needs_completion && completion_parameter_index(constructor, field, adts).is_some()
             });
     }
     let mut complete_direct_parameters = vec![false; constructor.descriptor.type_parameters.len()];
