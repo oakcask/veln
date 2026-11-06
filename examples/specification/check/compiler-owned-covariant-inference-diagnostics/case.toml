@@ -14,7 +14,27 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 2
+equals = 8
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 26
+column = 10
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 30
+column = 3
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -23,7 +43,7 @@ kind = "type"
 
 [diagnostics.span]
 file = "main.veln"
-line = 11
+line = 34
 column = 10
 
 [[diagnostics]]
@@ -33,5 +53,45 @@ kind = "type"
 
 [diagnostics.span]
 file = "main.veln"
-line = 18
+line = 38
+column = 11
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 50
+column = 38
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 55
+column = 40
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 60
+column = 10
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 67
 column = 3

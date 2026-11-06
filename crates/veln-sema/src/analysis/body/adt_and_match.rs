@@ -449,7 +449,12 @@ impl<'a> FunctionChecker<'a> {
             .filter(|expected| adt::type_matches_descriptor(&expected.ty, constructor.descriptor));
         let mut inferred_type_args =
             self.infer_constructor_type_args(expr, args, expected, constructor);
-        fill_unknown_constructor_type_args(&mut inferred_type_args, expected, constructor);
+        fill_unknown_constructor_type_args(
+            &mut inferred_type_args,
+            expected,
+            constructor,
+            &self.environment.adts,
+        );
         let expected_type_args = expected
             .and_then(|expected| unification::adt_args(&expected.ty, constructor.descriptor));
         let type_args = if self.diagnostics.len() != diagnostic_count {
@@ -458,7 +463,13 @@ impl<'a> FunctionChecker<'a> {
             &inferred_type_args
         };
         let inferred_base = adt::constructed_type_from_args(constructor, type_args);
-        if type_contains_unknown(&inferred_base) && expected.is_none() {
+        let expected_supplies_every_argument = expected.is_some_and(|expected| {
+            !matches!(expected.source, ExpectedTypeSource::Inferred)
+                || inferred_type_args
+                    .iter()
+                    .all(|argument| !type_contains_unknown(argument))
+        });
+        if type_contains_unknown(&inferred_base) && !expected_supplies_every_argument {
             self.push_ambiguous_constructor_type(
                 expr.node_id,
                 expr.span.clone(),
@@ -527,7 +538,8 @@ impl<'a> FunctionChecker<'a> {
             origin_span: Some(call.span.clone()),
             origin_message: "Constructor payload inferred here.",
         });
-        arg_expected.ty = type_args.payload_expected(expected, constructor, index, field);
+        arg_expected.ty =
+            type_args.payload_expected(expected, constructor, index, field, &self.environment.adts);
         if expected.is_none() && self.expression_needs_aggregate_completion_context(arg) {
             arg_expected.ty = self.project_completion_context(arg, arg_expected.ty);
         }
@@ -2057,13 +2069,24 @@ impl ConstructorTypeArgInference {
         constructor: AdtConstructor<'_>,
         index: usize,
         field: &AdtPayloadField,
+        adts: &AdtRegistry,
     ) -> Type {
         expected
             .and_then(|expected| {
                 let expected_args = unification::adt_args(&expected.ty, constructor.descriptor)?;
                 adt::payload_type_with_resolved_args(constructor, index, |type_index| {
                     crate::aggregate_type_join::record_work(1);
-                    expected_args[type_index].clone()
+                    if matches!(expected.source, ExpectedTypeSource::Inferred)
+                        && !crate::aggregate_type_join::constructor_parameter_accepts_completion_context(
+                            constructor,
+                            type_index,
+                            adts,
+                        )
+                    {
+                        Type::Unknown
+                    } else {
+                        expected_args[type_index].clone()
+                    }
                 })
             })
             .or_else(|| self.direct_payload_context(field))
@@ -2193,15 +2216,24 @@ fn fill_unknown_constructor_type_args(
     inferred_type_args: &mut [Type],
     expected: Option<&ExpectedType>,
     constructor: AdtConstructor<'_>,
+    adts: &AdtRegistry,
 ) {
-    let Some(expected_args) =
-        expected.and_then(|expected| unification::adt_args(&expected.ty, constructor.descriptor))
-    else {
+    let Some((expected, expected_args)) = expected.and_then(|expected| {
+        unification::adt_args(&expected.ty, constructor.descriptor).map(|args| (expected, args))
+    }) else {
         return;
     };
-    for (inferred, expected) in inferred_type_args.iter_mut().zip(expected_args) {
-        if *inferred == Type::Unknown {
-            *inferred = expected.clone();
+    for (index, (inferred, expected_arg)) in
+        inferred_type_args.iter_mut().zip(expected_args).enumerate()
+    {
+        let accepts_context = !matches!(expected.source, ExpectedTypeSource::Inferred)
+            || crate::aggregate_type_join::constructor_parameter_accepts_completion_context(
+                constructor,
+                index,
+                adts,
+            );
+        if accepts_context && *inferred == Type::Unknown {
+            *inferred = expected_arg.clone();
         }
     }
 }

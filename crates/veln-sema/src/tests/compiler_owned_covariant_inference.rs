@@ -420,6 +420,118 @@ fn nested_completion_projects_through_source_adt_payloads_in_any_order() {
 }
 
 #[test]
+fn nested_completion_requires_checked_covariant_source_payloads() {
+    let source_text = concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n",
+        "type Fixed<T>\n",
+        "  Output(T)\n",
+        "  Input(fn(T) -> ())\n",
+        "end\n",
+        "type Negative<T>\n",
+        "  Consume(fn(T) -> ())\n",
+        "  NegativeEmpty\n",
+        "end\n",
+        "type Ignored<T>\n",
+        "  IgnoredEmpty\n",
+        "end\n",
+        "fn forward(known: Fixed<Option<State::Ready>>)\n",
+        "  [known, Output(None)]\n",
+        "end\n",
+        "fn reverse(known: Fixed<Option<State::Ready>>)\n",
+        "  [Output(None), known]\n",
+        "end\n",
+        "fn negative_forward(first: Negative<Option<State::Ready>>, second: Negative<Option<State::Closed>>)\n",
+        "  [first, second]\n",
+        "end\n",
+        "fn negative_reverse(first: Negative<Option<State::Ready>>, second: Negative<Option<State::Closed>>)\n",
+        "  [second, first]\n",
+        "end\n",
+        "fn ignored_ready(value: Ignored<State::Ready>) -> Ignored<State::Ready>\n",
+        "  value\n",
+        "end\n",
+        "fn ignored_closed(value: Ignored<State::Closed>) -> Ignored<State::Closed>\n",
+        "  value\n",
+        "end\n",
+        "fn ignored_forward(first: Ignored<State::Ready>, second: Ignored<State::Closed>) -> ()\n",
+        "  let values = [ignored_ready(first), ignored_closed(second)]\n",
+        "  ()\n",
+        "end\n",
+        "fn ignored_reverse(first: Ignored<State::Ready>, second: Ignored<State::Closed>) -> ()\n",
+        "  let values = [ignored_closed(second), ignored_ready(first)]\n",
+        "  ()\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
+    let ids = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        ids,
+        [
+            "type.inference_ambiguous",
+            "type.inference_ambiguous",
+            "type.mismatch",
+            "type.mismatch",
+            "type.mismatch",
+            "type.mismatch",
+        ],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn unavailable_source_variance_metadata_disables_nested_completion() {
+    let source_text = concat!(
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "type Box<T>\n",
+        "  Boxed(T)\n",
+        "end\n",
+        "fn forward(known: Box<Option<State::Ready>>)\n",
+        "  [known, Boxed(None)]\n",
+        "end\n",
+        "fn reverse(known: Box<Option<State::Ready>>)\n",
+        "  [Boxed(None), known]\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let mut environment = TypeEnvironment::from_module(&module);
+    let identity = environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "Box")
+        .expect("box descriptor")
+        .identity();
+    environment
+        .adts
+        .clear_parameter_variances_for_identity(&identity);
+
+    let diagnostics =
+        crate::pipeline::analyze_surface_module_with_environment_for_test(&module, &environment);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.inference_ambiguous"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn non_empty_literals_propagate_nested_completion_context_in_any_order() {
     let source = SourceFile::new(
         "main.veln",

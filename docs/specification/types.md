@@ -1418,7 +1418,12 @@ inference, the checker first joins expressions that do contribute arguments.
 It then uses that joined type as the expected type for these incomplete
 expressions. Expected type projection follows incomplete expressions through
 non-empty vector and dictionary literals, through compiler-owned constructors,
-and through a resolved source-ADT constructor's direct type-parameter payload.
+and through a resolved source-ADT constructor's direct payload only when that
+parameter has a usable checked covariant classification. Invariant,
+contravariant, irrelevant, and unavailable source-parameter classifications do
+not receive an argument from the joined type. Their arguments remain subject
+to exact context-free inference, so an incomplete constructor still requires
+explicit context.
 This rule applies to collection and dictionary members, repeated constructor
 payloads, and unannotated `if` or `match` results. Therefore
 `[Some(Ready), None]` and `[None, Some(Ready)]` both infer
@@ -1706,8 +1711,11 @@ and control-flow inference are checked by the accepted
 case. The same case checks completion context for `None`, `Nil`, empty vectors,
 and empty dictionaries, including nested compiler-owned constructors,
 non-empty vector and dictionary literals, resolved source constructors with
-the same leaf names, and both source orders. Transactional exclusion of an
-unavailable nested join is checked by its
+the same leaf names, checked covariant source-ADT payloads, and both source
+orders. The diagnostic companion checks that invariant, contravariant, and
+irrelevant source parameters retain their context-free boundary in both
+contribution orders. Transactional exclusion of an unavailable nested join is
+also checked by that
 [`diagnostic companion`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/).
 
 Variant-refinement semantic-token classifications are specified in

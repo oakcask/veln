@@ -7,6 +7,55 @@ end
 pub type First = State
 pub type Second = State
 
+type Fixed<T>
+	Output(T)
+	Input(fn(T) -> ())
+end
+
+type Negative<T>
+	Consume(fn(T) -> ())
+end
+
+type Ignored<T>
+	Ignored
+end
+
+# Compiler integration contract: context-free inference cannot project a
+# previously joined source-ADT argument through a non-covariant parameter.
+fn invariant_forward(known: Fixed<Option<State::Ready>>)
+	[known, Output(None)]
+end
+
+fn invariant_reverse(known: Fixed<Option<State::Ready>>)
+	[Output(None), known]
+end
+
+fn contravariant_forward(first: Negative<Option<State::Ready>>, second: Negative<Option<State::Closed>>)
+	[first, second]
+end
+
+fn contravariant_reverse(first: Negative<Option<State::Ready>>, second: Negative<Option<State::Closed>>)
+	[second, first]
+end
+
+fn ignored_ready(value: Ignored<State::Ready>) -> Ignored<State::Ready>
+	value
+end
+
+fn ignored_closed(value: Ignored<State::Closed>) -> Ignored<State::Closed>
+	value
+end
+
+fn irrelevant_forward(first: Ignored<State::Ready>, second: Ignored<State::Closed>) -> ()
+	let values = [ignored_ready(first), ignored_closed(second)]
+	()
+end
+
+fn irrelevant_reverse(first: Ignored<State::Ready>, second: Ignored<State::Closed>) -> ()
+	let values = [ignored_closed(second), ignored_ready(first)]
+	()
+end
+
 fn retained(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>)
 	[first, rejected, later]
 end

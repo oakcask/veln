@@ -111,9 +111,7 @@ fn queue_completion_children<'a>(
                 return;
             };
             for (arg, field) in args.iter().zip(&constructor.variant.payload_fields).rev() {
-                if constructor_is_compiler_owned(constructor)
-                    || matches!(field.ty, AdtPayloadType::TypeParameter(_))
-                {
+                if completion_parameter_index(constructor, field, adts).is_some() {
                     queue(arg);
                 }
             }
@@ -187,7 +185,7 @@ fn call_completion_fact(
             .iter()
             .zip(&constructor.variant.payload_fields)
             .any(|(needs_completion, field)| {
-                *needs_completion && matches!(field.ty, AdtPayloadType::TypeParameter(_))
+                *needs_completion && completion_parameter_index(constructor, field, adts).is_some()
             });
     }
     let mut complete_direct_parameters = vec![false; constructor.descriptor.type_parameters.len()];
@@ -382,7 +380,8 @@ impl ProjectionPlan {
                         continue;
                     };
                     for (arg, field) in args.iter().zip(&constructor.variant.payload_fields) {
-                        let AdtPayloadType::TypeParameter(index) = field.ty else {
+                        let Some(index) = completion_parameter_index(constructor, field, adts)
+                        else {
                             continue;
                         };
                         if facts.fact(arg.node_id)
@@ -481,6 +480,32 @@ impl ProjectionPlan {
             .pop()
             .expect("completion projection produces one type")
     }
+}
+
+fn completion_parameter_index(
+    constructor: AdtConstructor<'_>,
+    field: &crate::adt::descriptors::AdtPayloadField,
+    adts: &AdtRegistry,
+) -> Option<usize> {
+    let AdtPayloadType::TypeParameter(index) = field.ty else {
+        return None;
+    };
+    constructor_parameter_accepts_completion_context(constructor, index, adts).then_some(index)
+}
+
+pub(crate) fn constructor_parameter_accepts_completion_context(
+    constructor: AdtConstructor<'_>,
+    index: usize,
+    adts: &AdtRegistry,
+) -> bool {
+    if constructor_is_compiler_owned(constructor) {
+        return true;
+    }
+    let identity = constructor.descriptor.identity();
+    adts.parameter_variances_for_identity(&identity, constructor.descriptor.type_parameters.len())
+        .and_then(|variances| variances.get(index))
+        .filter(|variance| **variance == Variance::Covariant)
+        .is_some()
 }
 
 fn named_type_args(ty: &Type) -> Option<&[Type]> {

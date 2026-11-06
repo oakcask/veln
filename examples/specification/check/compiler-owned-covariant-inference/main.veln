@@ -105,7 +105,8 @@ fn nested_constructed_option_reverse()
 end
 
 # Compiler integration contract: public check accepts compiler-owned completion
-# through a resolved source-ADT payload in either contribution order.
+# through a resolved checked-covariant source-ADT payload in either
+# contribution order.
 fn source_nested_constructed_option()
 	[Some(Boxed(None)), Some(Boxed(Some(1)))]
 end
