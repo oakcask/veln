@@ -6,7 +6,7 @@ use crate::adt::registry::{AdtRegistry, ConstructorLookup, VariantDeclarationOrd
 use crate::adt::{type_operations as adt, unification};
 use crate::semantic_model::Type;
 use crate::type_relations::{TypePresentationJoin, invariant_args_match, same_type_identity};
-use veln_ast::{Expr, ExprKind, UseDecl};
+use veln_ast::{DictEntry, Expr, ExprKind, UseDecl};
 
 pub(crate) fn expression_needs_completion_context(
     expr: &Expr,
@@ -63,79 +63,108 @@ pub(crate) fn completion_context_type(
             unrefined_type(expected)
         }
         ExprKind::List(items) => {
-            let mut projected = expected.clone();
-            let Type::Named { identity, args, .. } = &mut projected else {
-                return expected.clone();
-            };
-            if !Type::is_compiler_vec_identity(identity) || args.len() != 1 {
-                return expected.clone();
-            }
-            for item in items {
-                if expression_needs_completion_context(item, adts, current_module, uses) {
-                    args[0] = completion_context_type(item, &args[0], adts, current_module, uses);
-                }
-            }
-            projected
+            list_completion_context_type(items, expected, adts, current_module, uses)
         }
         ExprKind::Dict(entries) => {
-            let mut projected = expected.clone();
-            let Type::Named { identity, args, .. } = &mut projected else {
-                return expected.clone();
-            };
-            if !Type::is_compiler_dict_identity(identity) || args.len() != 2 {
-                return expected.clone();
-            }
-            for entry in entries {
-                if expression_needs_completion_context(&entry.key, adts, current_module, uses) {
-                    args[0] =
-                        completion_context_type(&entry.key, &args[0], adts, current_module, uses);
-                }
-                if expression_needs_completion_context(&entry.value, adts, current_module, uses) {
-                    args[1] =
-                        completion_context_type(&entry.value, &args[1], adts, current_module, uses);
-                }
-            }
-            projected
+            dict_completion_context_type(entries, expected, adts, current_module, uses)
         }
-        ExprKind::Call { callee, args } => {
-            let ExprKind::NamePath { segments, .. } = &callee.kind else {
-                return expected.clone();
-            };
-            let Some(constructor) =
-                compiler_owned_constructor(segments, adts, current_module, uses)
-            else {
-                return expected.clone();
-            };
-            let expected_identity = match expected {
-                Type::Named { identity, .. } | Type::VariantRefinement { identity, .. } => identity,
-                _ => return expected.clone(),
-            };
-            if constructor.descriptor.nominal_identity.as_deref()
-                != Some(expected_identity.as_str())
-            {
-                return expected.clone();
-            }
-            let mut projected = unrefined_type(expected);
-            let type_args = match &mut projected {
-                Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
-                _ => unreachable!("unrefining a named type preserves its shape"),
-            };
-            for (arg, field) in args.iter().zip(&constructor.variant.payload_fields) {
-                let AdtPayloadType::TypeParameter(index) = &field.ty else {
-                    continue;
-                };
-                let Some(expected_arg) = type_args.get_mut(*index) else {
-                    continue;
-                };
-                if expression_needs_completion_context(arg, adts, current_module, uses) {
-                    *expected_arg =
-                        completion_context_type(arg, expected_arg, adts, current_module, uses);
-                }
-            }
-            projected
-        }
+        ExprKind::Call { callee, args } => compiler_owned_call_completion_context_type(
+            callee,
+            args,
+            expected,
+            adts,
+            current_module,
+            uses,
+        ),
         _ => expected.clone(),
     }
+}
+
+fn list_completion_context_type(
+    items: &[Expr],
+    expected: &Type,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> Type {
+    let mut projected = expected.clone();
+    let Type::Named { identity, args, .. } = &mut projected else {
+        return expected.clone();
+    };
+    if !Type::is_compiler_vec_identity(identity) || args.len() != 1 {
+        return expected.clone();
+    }
+    for item in items {
+        if expression_needs_completion_context(item, adts, current_module, uses) {
+            args[0] = completion_context_type(item, &args[0], adts, current_module, uses);
+        }
+    }
+    projected
+}
+
+fn dict_completion_context_type(
+    entries: &[DictEntry],
+    expected: &Type,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> Type {
+    let mut projected = expected.clone();
+    let Type::Named { identity, args, .. } = &mut projected else {
+        return expected.clone();
+    };
+    if !Type::is_compiler_dict_identity(identity) || args.len() != 2 {
+        return expected.clone();
+    }
+    for entry in entries {
+        if expression_needs_completion_context(&entry.key, adts, current_module, uses) {
+            args[0] = completion_context_type(&entry.key, &args[0], adts, current_module, uses);
+        }
+        if expression_needs_completion_context(&entry.value, adts, current_module, uses) {
+            args[1] = completion_context_type(&entry.value, &args[1], adts, current_module, uses);
+        }
+    }
+    projected
+}
+
+fn compiler_owned_call_completion_context_type(
+    callee: &Expr,
+    args: &[Expr],
+    expected: &Type,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> Type {
+    let ExprKind::NamePath { segments, .. } = &callee.kind else {
+        return expected.clone();
+    };
+    let Some(constructor) = compiler_owned_constructor(segments, adts, current_module, uses) else {
+        return expected.clone();
+    };
+    let expected_identity = match expected {
+        Type::Named { identity, .. } | Type::VariantRefinement { identity, .. } => identity,
+        _ => return expected.clone(),
+    };
+    if constructor.descriptor.nominal_identity.as_deref() != Some(expected_identity.as_str()) {
+        return expected.clone();
+    }
+    let mut projected = unrefined_type(expected);
+    let type_args = match &mut projected {
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
+        _ => unreachable!("unrefining a named type preserves its shape"),
+    };
+    for (arg, field) in args.iter().zip(&constructor.variant.payload_fields) {
+        let AdtPayloadType::TypeParameter(index) = &field.ty else {
+            continue;
+        };
+        let Some(expected_arg) = type_args.get_mut(*index) else {
+            continue;
+        };
+        if expression_needs_completion_context(arg, adts, current_module, uses) {
+            *expected_arg = completion_context_type(arg, expected_arg, adts, current_module, uses);
+        }
+    }
+    projected
 }
 
 fn constructor_matches_expected(constructor: AdtConstructor<'_>, expected: &Type) -> bool {
