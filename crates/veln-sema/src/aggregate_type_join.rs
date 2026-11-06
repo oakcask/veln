@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::adt::descriptors::{AdtConstructor, AdtPayloadType, Variance};
@@ -6,7 +6,7 @@ use crate::adt::registry::{AdtRegistry, ConstructorLookup, VariantDeclarationOrd
 use crate::adt::{type_operations as adt, unification};
 use crate::semantic_model::Type;
 use crate::type_relations::{TypePresentationJoin, invariant_args_match, same_type_identity};
-use veln_ast::{Expr, ExprKind, UseDecl};
+use veln_ast::{DictEntry, Expr, ExprKind, UseDecl};
 
 pub(crate) fn expression_needs_completion_context(
     expr: &Expr,
@@ -14,7 +14,38 @@ pub(crate) fn expression_needs_completion_context(
     current_module: Option<&str>,
     uses: &[UseDecl],
 ) -> bool {
-    completion_fact(expr, adts, current_module, uses)
+    match &expr.kind {
+        ExprKind::NamePath { segments, .. }
+            if segments
+                .last()
+                .is_some_and(|name| name == "None" || name == "Nil") =>
+        {
+            compiler_owned_constructor(segments, adts, current_module, uses).is_some()
+        }
+        ExprKind::List(items) => {
+            items.is_empty()
+                || items.iter().all(|item| {
+                    expression_needs_completion_context(item, adts, current_module, uses)
+                })
+        }
+        ExprKind::Dict(entries) => {
+            entries.is_empty()
+                || entries.iter().any(|entry| {
+                    expression_needs_completion_context(&entry.key, adts, current_module, uses)
+                        || expression_needs_completion_context(
+                            &entry.value,
+                            adts,
+                            current_module,
+                            uses,
+                        )
+                })
+        }
+        ExprKind::Record(fields) => fields.is_empty(),
+        ExprKind::Call { callee, args } => {
+            compiler_owned_call_needs_completion_context(callee, args, adts, current_module, uses)
+        }
+        _ => false,
+    }
 }
 
 pub(crate) fn completion_context_type(
@@ -24,141 +55,141 @@ pub(crate) fn completion_context_type(
     current_module: Option<&str>,
     uses: &[UseDecl],
 ) -> Type {
-    let facts = CompletionFacts::collect(expr, adts, current_module, uses);
-    let plan = ProjectionPlan::collect(expr, expected, &facts, adts, current_module, uses);
-    plan.apply(expected)
-}
-
-struct CompletionFacts {
-    needs: HashMap<*const Expr, bool>,
-}
-
-impl CompletionFacts {
-    fn collect(
-        root: &Expr,
-        adts: &AdtRegistry,
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> Self {
-        ensure_completion_facts(root, adts, current_module, uses);
-        let needs = COMPLETION_FACT_CACHE.with(|cache| {
-            let cache = cache.borrow();
-            let mut needs = HashMap::new();
-            let mut pending = vec![root];
-            while let Some(expr) = pending.pop() {
-                let key = expr as *const Expr;
-                needs.insert(key, cache[&key]);
-                queue_completion_children(expr, |child| pending.push(child));
-            }
-            needs
-        });
-        Self { needs }
-    }
-
-    fn needs(&self, expr: &Expr) -> bool {
-        self.needs[&(expr as *const Expr)]
-    }
-}
-
-thread_local! {
-    static COMPLETION_FACT_CACHE: std::cell::RefCell<HashMap<*const Expr, bool>> =
-        std::cell::RefCell::new(HashMap::new());
-}
-
-pub(crate) fn reset_completion_fact_cache() {
-    COMPLETION_FACT_CACHE.with(|cache| cache.borrow_mut().clear());
-}
-
-fn completion_fact(
-    expr: &Expr,
-    adts: &AdtRegistry,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) -> bool {
-    ensure_completion_facts(expr, adts, current_module, uses);
-    COMPLETION_FACT_CACHE.with(|cache| cache.borrow()[&(expr as *const Expr)])
-}
-
-fn ensure_completion_facts(
-    root: &Expr,
-    adts: &AdtRegistry,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) {
-    COMPLETION_FACT_CACHE.with(|cache| {
-        let mut needs = cache.borrow_mut();
-        let mut pending = vec![(root, false)];
-        while let Some((expr, visited)) = pending.pop() {
-            let key = expr as *const Expr;
-            if needs.contains_key(&key) {
-                continue;
-            }
-            if !visited {
-                pending.push((expr, true));
-                queue_completion_children(expr, |child| pending.push((child, false)));
-                continue;
-            }
-            record_completion_classification();
-            let fact = match &expr.kind {
-                ExprKind::NamePath { segments, .. }
-                    if segments
-                        .last()
-                        .is_some_and(|name| name == "None" || name == "Nil") =>
-                {
-                    compiler_owned_constructor(segments, adts, current_module, uses).is_some()
-                }
-                ExprKind::List(items) => {
-                    items.is_empty() || items.iter().all(|item| needs[&(item as *const Expr)])
-                }
-                ExprKind::Dict(entries) => {
-                    entries.is_empty()
-                        || entries.iter().any(|entry| {
-                            needs[&(&entry.key as *const Expr)]
-                                || needs[&(&entry.value as *const Expr)]
-                        })
-                }
-                ExprKind::Record(fields) => fields.is_empty(),
-                ExprKind::Call { callee, args } => compiler_owned_call_completion_fact(
-                    callee,
-                    args,
-                    &needs,
-                    adts,
-                    current_module,
-                    uses,
-                ),
-                _ => false,
-            };
-            needs.insert(key, fact);
-        }
-    });
-}
-
-fn queue_completion_children<'a>(expr: &'a Expr, mut queue: impl FnMut(&'a Expr)) {
     match &expr.kind {
+        ExprKind::NamePath { segments, .. }
+            if compiler_owned_constructor(segments, adts, current_module, uses)
+                .is_some_and(|constructor| constructor_matches_expected(constructor, expected)) =>
+        {
+            unrefined_type(expected)
+        }
         ExprKind::List(items) => {
-            for item in items.iter().rev() {
-                queue(item);
-            }
+            list_completion_context_type(items, expected, adts, current_module, uses)
         }
         ExprKind::Dict(entries) => {
-            for entry in entries.iter().rev() {
-                queue(&entry.value);
-                queue(&entry.key);
-            }
+            dict_completion_context_type(entries, expected, adts, current_module, uses)
         }
-        ExprKind::Call { args, .. } => {
-            for arg in args.iter().rev() {
-                queue(arg);
-            }
-        }
-        _ => {}
+        ExprKind::Call { callee, args } => compiler_owned_call_completion_context_type(
+            callee,
+            args,
+            expected,
+            adts,
+            current_module,
+            uses,
+        ),
+        _ => expected.clone(),
     }
 }
 
-fn compiler_owned_call_completion_fact(
+fn list_completion_context_type(
+    items: &[Expr],
+    expected: &Type,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> Type {
+    let mut projected = expected.clone();
+    let Type::Named { identity, args, .. } = &mut projected else {
+        return expected.clone();
+    };
+    if !Type::is_compiler_vec_identity(identity) || args.len() != 1 {
+        return expected.clone();
+    }
+    for item in items {
+        if expression_needs_completion_context(item, adts, current_module, uses) {
+            args[0] = completion_context_type(item, &args[0], adts, current_module, uses);
+        }
+    }
+    projected
+}
+
+fn dict_completion_context_type(
+    entries: &[DictEntry],
+    expected: &Type,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> Type {
+    let mut projected = expected.clone();
+    let Type::Named { identity, args, .. } = &mut projected else {
+        return expected.clone();
+    };
+    if !Type::is_compiler_dict_identity(identity) || args.len() != 2 {
+        return expected.clone();
+    }
+    for entry in entries {
+        if expression_needs_completion_context(&entry.key, adts, current_module, uses) {
+            args[0] = completion_context_type(&entry.key, &args[0], adts, current_module, uses);
+        }
+        if expression_needs_completion_context(&entry.value, adts, current_module, uses) {
+            args[1] = completion_context_type(&entry.value, &args[1], adts, current_module, uses);
+        }
+    }
+    projected
+}
+
+fn compiler_owned_call_completion_context_type(
     callee: &Expr,
     args: &[Expr],
-    needs: &HashMap<*const Expr, bool>,
+    expected: &Type,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> Type {
+    let ExprKind::NamePath { segments, .. } = &callee.kind else {
+        return expected.clone();
+    };
+    let Some(constructor) = compiler_owned_constructor(segments, adts, current_module, uses) else {
+        return expected.clone();
+    };
+    let expected_identity = match expected {
+        Type::Named { identity, .. } | Type::VariantRefinement { identity, .. } => identity,
+        _ => return expected.clone(),
+    };
+    if constructor.descriptor.nominal_identity.as_deref() != Some(expected_identity.as_str()) {
+        return expected.clone();
+    }
+    let mut projected = unrefined_type(expected);
+    let type_args = match &mut projected {
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
+        _ => unreachable!("unrefining a named type preserves its shape"),
+    };
+    for (arg, field) in args.iter().zip(&constructor.variant.payload_fields) {
+        let AdtPayloadType::TypeParameter(index) = &field.ty else {
+            continue;
+        };
+        let Some(expected_arg) = type_args.get_mut(*index) else {
+            continue;
+        };
+        if expression_needs_completion_context(arg, adts, current_module, uses) {
+            *expected_arg = completion_context_type(arg, expected_arg, adts, current_module, uses);
+        }
+    }
+    projected
+}
+
+fn constructor_matches_expected(constructor: AdtConstructor<'_>, expected: &Type) -> bool {
+    let expected_identity = match expected {
+        Type::Named { identity, .. } | Type::VariantRefinement { identity, .. } => identity,
+        _ => return false,
+    };
+    constructor.descriptor.nominal_identity.as_deref() == Some(expected_identity.as_str())
+}
+
+fn unrefined_type(ty: &Type) -> Type {
+    match ty {
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => Type::resolved_named(name, identity, args.clone()),
+        ty => ty.clone(),
+    }
+}
+
+fn compiler_owned_call_needs_completion_context(
+    callee: &Expr,
+    args: &[Expr],
     adts: &AdtRegistry,
     current_module: Option<&str>,
     uses: &[UseDecl],
@@ -169,264 +200,24 @@ fn compiler_owned_call_completion_fact(
     let Some(constructor) = compiler_owned_constructor(segments, adts, current_module, uses) else {
         return false;
     };
-    let argument_needs = args
-        .iter()
-        .map(|arg| needs[&(arg as *const Expr)])
-        .collect::<Vec<_>>();
-    let mut complete_direct_parameters = vec![false; constructor.descriptor.type_parameters.len()];
-    for (field, needs_completion) in constructor
-        .variant
-        .payload_fields
-        .iter()
-        .zip(&argument_needs)
-    {
-        if let AdtPayloadType::TypeParameter(index) = field.ty
-            && !needs_completion
-            && let Some(complete) = complete_direct_parameters.get_mut(index)
-        {
-            *complete = true;
-        }
-    }
-    let complete_direct_parameters = complete_direct_parameters
-        .into_iter()
-        .all(|complete| complete);
-    argument_needs
-        .iter()
-        .enumerate()
-        .any(|(index, needs_completion)| {
-            *needs_completion
-                && !(complete_direct_parameters
-                    && constructor
-                        .variant
-                        .payload_fields
-                        .get(index)
-                        .is_some_and(|field| matches!(field.ty, AdtPayloadType::SelfType)))
-        })
-}
-
-#[derive(Default)]
-struct ProjectionNode {
-    unrefine: bool,
-    children: HashMap<usize, usize>,
-}
-
-struct ProjectionPlan {
-    nodes: Vec<ProjectionNode>,
-}
-
-impl ProjectionPlan {
-    fn collect(
-        root_expr: &Expr,
-        root_expected: &Type,
-        facts: &CompletionFacts,
-        adts: &AdtRegistry,
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> Self {
-        let mut plan = Self {
-            nodes: vec![ProjectionNode::default()],
-        };
-        let mut pending = vec![(root_expr, root_expected, 0)];
-        while let Some((expr, expected, plan_node)) = pending.pop() {
-            record_completion_projection();
-            match &expr.kind {
-                ExprKind::NamePath { segments, .. } => {
-                    if compiler_owned_constructor(segments, adts, current_module, uses).is_some_and(
-                        |constructor| constructor_matches_expected(constructor, expected),
-                    ) {
-                        plan.nodes[plan_node].unrefine = true;
-                    }
-                }
-                ExprKind::List(items) => {
-                    let Some(args) =
-                        expected_compiler_args(expected, Type::is_compiler_vec_identity, 1)
-                    else {
-                        continue;
-                    };
-                    for item in items.iter().filter(|item| facts.needs(item)) {
-                        let child = plan.child(plan_node, 0);
-                        pending.push((item, &args[0], child));
-                    }
-                }
-                ExprKind::Dict(entries) => {
-                    let Some(args) =
-                        expected_compiler_args(expected, Type::is_compiler_dict_identity, 2)
-                    else {
-                        continue;
-                    };
-                    for entry in entries {
-                        for (expr, index) in [(&entry.key, 0), (&entry.value, 1)] {
-                            if facts.needs(expr) {
-                                let child = plan.child(plan_node, index);
-                                pending.push((expr, &args[index], child));
-                            }
-                        }
-                    }
-                }
-                ExprKind::Call { callee, args } => {
-                    let ExprKind::NamePath { segments, .. } = &callee.kind else {
-                        continue;
-                    };
-                    let Some(constructor) =
-                        compiler_owned_constructor(segments, adts, current_module, uses)
-                    else {
-                        continue;
-                    };
-                    if !constructor_matches_expected(constructor, expected) {
-                        continue;
-                    }
-                    plan.nodes[plan_node].unrefine = true;
-                    let Some(type_args) = named_type_args(expected) else {
-                        continue;
-                    };
-                    for (arg, field) in args.iter().zip(&constructor.variant.payload_fields) {
-                        let AdtPayloadType::TypeParameter(index) = field.ty else {
-                            continue;
-                        };
-                        if facts.needs(arg)
-                            && let Some(expected_arg) = type_args.get(index)
-                        {
-                            let child = plan.child(plan_node, index);
-                            pending.push((arg, expected_arg, child));
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-        plan
-    }
-
-    fn child(&mut self, parent: usize, argument: usize) -> usize {
-        if let Some(child) = self.nodes[parent].children.get(&argument) {
-            return *child;
-        }
-        let child = self.nodes.len();
-        self.nodes.push(ProjectionNode::default());
-        self.nodes[parent].children.insert(argument, child);
-        child
-    }
-
-    fn apply(&self, expected: &Type) -> Type {
-        enum Task<'a> {
-            Visit(&'a Type, usize),
-            Clone(&'a Type),
-            FinishNamed(String, String, usize),
-            FinishVariant(
-                String,
-                String,
-                usize,
-                Arc<[String]>,
-                Vec<(String, Vec<Type>, String)>,
-            ),
-        }
-        let mut tasks = vec![Task::Visit(expected, 0)];
-        let mut projected = Vec::new();
-        while let Some(task) = tasks.pop() {
-            match task {
-                Task::Visit(ty, node_index) => {
-                    let node = &self.nodes[node_index];
-                    match ty {
-                        Type::Named {
-                            name,
-                            identity,
-                            args,
-                        } => {
-                            tasks.push(Task::FinishNamed(
-                                name.clone(),
-                                identity.clone(),
-                                args.len(),
-                            ));
-                            for (index, arg) in args.iter().enumerate().rev() {
-                                if let Some(child) = node.children.get(&index) {
-                                    tasks.push(Task::Visit(arg, *child));
-                                } else {
-                                    tasks.push(Task::Clone(arg));
-                                }
-                            }
-                        }
-                        Type::VariantRefinement {
-                            name,
-                            identity,
-                            args,
-                            variants,
-                            unresolved_alternatives,
-                        } => {
-                            if node.unrefine {
-                                tasks.push(Task::FinishNamed(
-                                    name.clone(),
-                                    identity.clone(),
-                                    args.len(),
-                                ));
-                            } else {
-                                tasks.push(Task::FinishVariant(
-                                    name.clone(),
-                                    identity.clone(),
-                                    args.len(),
-                                    variants.clone(),
-                                    unresolved_alternatives.clone(),
-                                ));
-                            }
-                            for (index, arg) in args.iter().enumerate().rev() {
-                                if let Some(child) = node.children.get(&index) {
-                                    tasks.push(Task::Visit(arg, *child));
-                                } else {
-                                    tasks.push(Task::Clone(arg));
-                                }
-                            }
-                        }
-                        _ => projected.push(ty.clone()),
-                    }
-                }
-                Task::Clone(ty) => projected.push(ty.clone()),
-                Task::FinishNamed(name, identity, count) => {
-                    let args = projected.split_off(projected.len() - count);
-                    projected.push(Type::resolved_named(name, identity, args));
-                }
-                Task::FinishVariant(name, identity, count, variants, unresolved_alternatives) => {
-                    let args = projected.split_off(projected.len() - count);
-                    projected.push(Type::VariantRefinement {
-                        name,
-                        identity,
-                        args,
-                        variants,
-                        unresolved_alternatives,
-                    });
-                }
-            }
-        }
-        projected
-            .pop()
-            .expect("completion projection produces one type")
-    }
-}
-
-fn named_type_args(ty: &Type) -> Option<&[Type]> {
-    match ty {
-        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => Some(args),
-        _ => None,
-    }
-}
-
-fn expected_compiler_args(
-    expected: &Type,
-    identity_matches: impl FnOnce(&str) -> bool,
-    arity: usize,
-) -> Option<&[Type]> {
-    match expected {
-        Type::Named { identity, args, .. } if identity_matches(identity) && args.len() == arity => {
-            Some(args)
-        }
-        _ => None,
-    }
-}
-
-fn constructor_matches_expected(constructor: AdtConstructor<'_>, expected: &Type) -> bool {
-    let expected_identity = match expected {
-        Type::Named { identity, .. } | Type::VariantRefinement { identity, .. } => identity,
-        _ => return false,
-    };
-    constructor.descriptor.nominal_identity.as_deref() == Some(expected_identity.as_str())
+    let complete_direct_parameters =
+        (0..constructor.descriptor.type_parameters.len()).all(|parameter| {
+            args.iter()
+                .zip(&constructor.variant.payload_fields)
+                .any(|(arg, field)| {
+                    matches!(field.ty, AdtPayloadType::TypeParameter(index) if index == parameter)
+                        && !expression_needs_completion_context(arg, adts, current_module, uses)
+                })
+        });
+    args.iter().enumerate().any(|(index, arg)| {
+        expression_needs_completion_context(arg, adts, current_module, uses)
+            && !(complete_direct_parameters
+                && constructor
+                    .variant
+                    .payload_fields
+                    .get(index)
+                    .is_some_and(|field| matches!(field.ty, AdtPayloadType::SelfType)))
+    })
 }
 
 fn compiler_owned_constructor<'a>(
@@ -1038,51 +829,6 @@ pub(crate) fn reset_work() {
 #[cfg(test)]
 pub(crate) fn take_work() -> usize {
     crate::inference_work::take()
-}
-
-#[cfg(test)]
-#[derive(Clone, Copy, Debug, Default)]
-pub(crate) struct CompletionWork {
-    pub(crate) classified_expressions: usize,
-    pub(crate) projected_expressions: usize,
-}
-
-#[cfg(test)]
-thread_local! {
-    static COMPLETION_WORK: std::cell::Cell<CompletionWork> = const {
-        std::cell::Cell::new(CompletionWork {
-            classified_expressions: 0,
-            projected_expressions: 0,
-        })
-    };
-}
-
-#[cfg(test)]
-pub(crate) fn reset_completion_work() {
-    COMPLETION_WORK.set(CompletionWork::default());
-}
-
-#[cfg(test)]
-pub(crate) fn take_completion_work() -> CompletionWork {
-    COMPLETION_WORK.replace(CompletionWork::default())
-}
-
-#[inline(always)]
-fn record_completion_classification() {
-    #[cfg(test)]
-    COMPLETION_WORK.update(|mut work| {
-        work.classified_expressions += 1;
-        work
-    });
-}
-
-#[inline(always)]
-fn record_completion_projection() {
-    #[cfg(test)]
-    COMPLETION_WORK.update(|mut work| {
-        work.projected_expressions += 1;
-        work
-    });
 }
 
 #[cfg(test)]
