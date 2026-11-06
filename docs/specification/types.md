@@ -1495,6 +1495,17 @@ from the last admitted state. Permuting successful contributions produces the
 same resolved type and presentation. These rules apply to compiler-owned
 constructors and covariant source-ADT parameters.
 
+Projecting an admitted aggregate context through nested compiler-owned
+constructors has bounded linear classification work. The deterministic
+workload nests `Result<Int, String>` inside `D` `Option` arguments, then joins
+an independently typed value with `D` nested `Some` calls around `Ok(1)`. It
+measures both ordinary body inference and omitted private-result inference at
+depths 32, 64, and 128. The work counter records each projected expression and
+each constructor-payload edge that is classified for an affected type
+argument. For adjacent measurements `W(D)` and `W(2D)`, the check requires
+`W(2D) <= 2 * W(D) + 32`. Elapsed time is observational and is not an
+acceptance threshold.
+
 For a source ADT nested through `D` covariant source-ADT arguments, the join
 retains `D + 1` state nodes. Accepting another equally shaped contribution
 visits `D + 1` nodes, retains `D + 1` join nodes, and visits `D + 1`
