@@ -1410,14 +1410,18 @@ An expression such as `None`, `Nil`, an empty vector, or an empty dictionary
 does not contribute a type argument by itself. During context-free aggregate
 inference, the checker first joins expressions that do contribute arguments.
 It then uses that joined type as the expected type for these incomplete
-expressions, including when an incomplete expression is nested inside a
-compiler-owned constructor. This rule applies to collection and dictionary
-members, repeated constructor payloads, and unannotated `if` or `match`
-results. Therefore `[Some(Ready), None]` and `[None, Some(Ready)]` both infer
-`Vec<Option<State::Ready>>`, while both orders of `Some(None)` and
-`Some(Some(1))` infer `Vec<Option<Option<Int>>>`. If no other expression
-supplies the missing argument, the existing unknown or ambiguity result
-remains unchanged.
+expressions. Expected type projection follows incomplete expressions through
+non-empty vector and dictionary literals and through compiler-owned
+constructors. This rule applies to collection and dictionary members, repeated
+constructor payloads, and unannotated `if` or `match` results. Therefore
+`[Some(Ready), None]` and `[None, Some(Ready)]` both infer
+`Vec<Option<State::Ready>>`, both orders of `Some(None)` and `Some(Some(1))`
+infer `Vec<Option<Option<Int>>>`, and both orders of `[None]` and `[Some(1)]`
+infer `Vec<Vec<Option<Int>>>`. Incomplete-constructor detection uses resolved
+compiler-owned identity. A resolved source constructor named `None` or `Nil`
+remains an ordinary refinement contribution. If no other expression supplies
+the missing argument, the existing unknown or ambiguity result remains
+unchanged.
 
 Presentation reconciliation applies at each joined compiler-owned constructor.
 One alias preference and canonical spelling retain that alias. Different alias
@@ -1683,9 +1687,10 @@ Recursive compiler-owned joins, argument independence, contribution order,
 and control-flow inference are checked by the accepted
 [`compiler-owned-covariant-inference`](../../examples/specification/check/compiler-owned-covariant-inference/)
 case. The same case checks completion context for `None`, `Nil`, empty vectors,
-and empty dictionaries, including a nested compiler-owned constructor and both
-source orders. Transactional exclusion of an unavailable nested join is
-checked by its
+and empty dictionaries, including nested compiler-owned constructors,
+non-empty vector and dictionary literals, resolved source constructors with
+the same leaf names, and both source orders. Transactional exclusion of an
+unavailable nested join is checked by its
 [`diagnostic companion`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/).
 
 Variant-refinement semantic-token classifications are specified in
