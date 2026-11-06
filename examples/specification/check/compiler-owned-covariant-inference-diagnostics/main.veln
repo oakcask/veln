@@ -56,26 +56,20 @@ fn irrelevant_reverse(first: Ignored<State::Ready>, second: Ignored<State::Close
 	()
 end
 
-fn retained(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>)
-	[first, rejected, later]
+fn retained(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>) -> ()
+	let joined = [first, rejected, later]
+	let incompatible: Vec<Dict<String, Result<First::Ready | First::Closed, First::Ready>>> = joined
+	()
 end
 
-fn retained_control_flow(first: Bool, second: Bool, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>)
-	if first
+fn retained_control_flow(first: Bool, second: Bool, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>) -> ()
+	let joined = if first
 		accepted
 	else if second
 		rejected
 	else
 		later
 	end
-end
-
-fn observe(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>) -> ()
-	let preserved: Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>> = retained(first, rejected, later)
-	()
-end
-
-fn observe_control_flow(first: Bool, second: Bool, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>) -> ()
-	let preserved: Option<State::Ready | State::Closed> = retained_control_flow(first, second, accepted, rejected, later)
+	let incompatible: Option<String> = joined
 	()
 end

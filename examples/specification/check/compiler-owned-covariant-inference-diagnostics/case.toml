@@ -14,7 +14,15 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 8
+equals = 10
+
+[[json_assert]]
+path = "diagnostics.7.details.actual_type"
+equals = "Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>>"
+
+[[json_assert]]
+path = "diagnostics.9.details.actual_type"
+equals = "Option<State::Ready | State::Closed>"
 
 [[diagnostics]]
 id = "type.inference_ambiguous"
@@ -84,7 +92,7 @@ kind = "type"
 [diagnostics.span]
 file = "main.veln"
 line = 60
-column = 10
+column = 23
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -93,5 +101,25 @@ kind = "type"
 
 [diagnostics.span]
 file = "main.veln"
-line = 67
+line = 61
+column = 92
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 69
 column = 3
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 73
+column = 37

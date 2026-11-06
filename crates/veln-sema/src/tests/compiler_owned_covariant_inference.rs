@@ -463,6 +463,14 @@ fn nested_completion_requires_checked_covariant_source_payloads() {
         "  let values = [ignored_closed(second), ignored_ready(first)]\n",
         "  ()\n",
         "end\n",
+        "fn compiler_owned_inferred_context_remains_deferred(flag: Bool) -> Result<(), String>\n",
+        "  let _ = if flag\n",
+        "    Ok(())\n",
+        "  else\n",
+        "    Err(\"failed\")\n",
+        "  end?\n",
+        "  Ok(())\n",
+        "end\n",
     );
     let source = SourceFile::new("main.veln", source_text);
     let parsed = parse(&source);

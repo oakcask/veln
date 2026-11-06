@@ -463,13 +463,21 @@ impl<'a> FunctionChecker<'a> {
             &inferred_type_args
         };
         let inferred_base = adt::constructed_type_from_args(constructor, type_args);
-        let expected_supplies_every_argument = expected.is_some_and(|expected| {
+        let expected_supplies_or_defers_every_argument = expected.is_some_and(|expected| {
             !matches!(expected.source, ExpectedTypeSource::Inferred)
                 || inferred_type_args
                     .iter()
-                    .all(|argument| !type_contains_unknown(argument))
+                    .enumerate()
+                    .all(|(index, argument)| {
+                        !type_contains_unknown(argument)
+                            || crate::aggregate_type_join::constructor_parameter_accepts_completion_context(
+                                constructor,
+                                index,
+                                &self.environment.adts,
+                            )
+                    })
         });
-        if type_contains_unknown(&inferred_base) && !expected_supplies_every_argument {
+        if type_contains_unknown(&inferred_base) && !expected_supplies_or_defers_every_argument {
             self.push_ambiguous_constructor_type(
                 expr.node_id,
                 expr.span.clone(),
