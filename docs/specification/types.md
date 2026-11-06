@@ -1576,6 +1576,22 @@ used by any variant of `Ignored<T>` is irrelevant. Nesting any of those types
 composes its classification with the enclosing record, function, or named
 constructor position.
 
+Variance production for a nested covariant `Pair` comb has bounded linear
+instrumented work. The scaling check compares nesting depths 128 and 256.
+When the depth doubles, the factor-evaluation count and dependency-edge count
+may each grow by at most twice the smaller count plus eight. Elapsed time is
+observational and is not an acceptance threshold.
+
+Assignment variance lookup keeps declaration construction and nested
+comparison work additive. The scaling check combines 256 and 512 public aliases
+with source-ADT nesting depths 256 and 512. Doubling only the alias count may at
+most double registry-construction candidate scans plus eight and does not
+increase assignment index lookups. Doubling only the nesting depth may at most
+double assignment index lookups plus two and does not increase construction
+scans. With both dimensions doubled, each count equals its corresponding
+single-dimension result, and their sum may at most double the baseline sum plus
+ten. Elapsed time is observational and is not an acceptance threshold.
+
 At a direct assignment, argument, or result boundary, variant assignability is
 defined as follows:
 
@@ -1975,6 +1991,10 @@ case covers that boundary. Schema predicates do not accept `%`.
 - Source-ADT covariant inference, checked variance parameter order, and
   resolved declaration identity:
   `crates/veln-sema/src/tests/source_adt_variance_inference.rs`.
+- Source-ADT variance production and assignment lookup scaling:
+  `crates/veln-sema/src/adt/tests/variance.rs`, in
+  `nested_pair_comb_has_linear_factor_and_dependency_work` and
+  `assignment_variance_lookup_work_is_additive_in_aliases_and_nesting`.
 - Invalid variant-refinement base recovery scaling:
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results.rs`.
 - Direct variant-refinement visibility, union-base comparison and diagnostic

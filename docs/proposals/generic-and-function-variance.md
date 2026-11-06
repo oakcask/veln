@@ -12,8 +12,7 @@ assignment and implemented covariant inference behavior is defined by the
 [type specification](../specification/types.md#compatibility-and-limits) and
 its [inference rules](../specification/types.md#inference-rules). The remaining
 work adds bounded inference beyond source-ADT and compiler-owned covariant
-joins, source-order-independent completion of incomplete expressions,
-dependency invalidation, detailed nested incompatibility context,
+joins, dependency invalidation, detailed nested incompatibility context,
 presentation, and failure preservation. It does not add declaration-site
 variance modifiers.
 
@@ -55,12 +54,6 @@ defines equal-type and same-constructor source-ADT or compiler-owned covariant
 joins. Inference uses the following remaining bounded, order-independent rules
 when a recursive join goes beyond those implemented cases. It must inspect all
 successful contributions before concluding that a required join is unavailable.
-Current inference can pass an accumulated join to a later incomplete expression
-when the join root is an unrefined named type and no nested refinement domain
-remains incomplete, but it does not revisit an earlier expression. Incomplete
-expressions do not contribute types to `J`. The remaining completion rule first
-joins complete contributions, then checks each incomplete expression with the
-joined type as its expected context, independent of source order.
 
 Write `J(S)` for the selected common supertype of a nonempty collection of
 complete contributing types. Write `M(S)` for its bounded common subtype.
@@ -68,7 +61,6 @@ Normalize aliases and effect/field ordering before applying this table.
 
 | Contributions | Selected result |
 | --- | --- |
-| Incomplete expression after complete contributions establish `J` | Check the incomplete expression against `J` without adding a partial type to the join. Project that expected context through nested compiler-owned constructors, non-empty vector and dictionary literals, and direct payloads of resolved source-ADT constructors only where checked covariance metadata permits it. |
 | Covariant argument beyond the implemented source-ADT and compiler-owned cases | `J` of the argument contributions. |
 | Contravariant argument | `M` of the argument contributions. |
 | Invariant or irrelevant argument | Require equal arguments for context-free inference. Otherwise require an explicit expected type; do not invent an argument or erase its identity. |
@@ -109,8 +101,6 @@ provenance. Successful inference over the same contributions must have the
 same resolved type and presentation in every order.
 Diagnostic recovery may report errors at their original source locations; it
 must not use a failed contribution to justify another accepted assignment.
-The same state rule applies to incomplete-expression completion: a failed
-projection must not change the complete join that supplied its expected type.
 
 ## Remaining Invalidation, Presentation, And Failure
 
@@ -136,7 +126,7 @@ remain the independent acceptance oracle only for the remaining behavior.
 
 | Contract | Planned evidence and required observation |
 | --- | --- |
-| Bounded inference | Permuted cases cover annotation-required contravariant meets, structural joins, and transactional exclusion of failures outside the implemented source-ADT and compiler-owned joins. Complete-plus-incomplete permutations cover `None`, `Nil`, empty collections, nested literals, and checked source-ADT payload projection without treating those expressions as complete `J` inputs. |
+| Bounded inference | Permuted cases cover annotation-required contravariant meets, structural joins, and transactional exclusion of failures outside the implemented source-ADT and compiler-owned joins. |
 | Metadata invalidation | Package fixtures prove that a variance-changing payload edit invalidates dependent analysis before subsequent inference. |
 | Presentation and diagnostics | Human and JSON fixtures cover nested paths, reversed input comparison, direct exclusions, modifier-free declarations, and stable diagnostic, formatter, package, LSP, and MCP presentations. |
 | Failure preservation | Analysis and language-service regression cases prove no partial signature escapes rejection, retained successful snapshots survive applicable failures, and rejected programs do not run. |
