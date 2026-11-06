@@ -51,9 +51,12 @@ Assignment compatibility does not promise unrestricted subtype inference.
 A concrete expected type supplies the target; every contribution must satisfy
 it under the rules above. Without that context, the current type specification
 defines equal-type and same-constructor source-ADT or compiler-owned covariant
-joins. Inference uses the following remaining bounded, order-independent rules
-when a recursive join goes beyond those implemented cases. It must inspect all
-successful contributions before concluding that a required join is unavailable.
+joins. Those implemented joins also supply context to incomplete expressions
+such as `None` or an empty collection after concrete contributions have been
+joined. Inference uses the following remaining bounded, order-independent
+rules when a recursive join goes beyond those implemented cases. It must
+inspect all successful contributions before concluding that a required join
+is unavailable.
 
 Write `J(S)` for the selected common supertype of a nonempty collection of
 complete contributing types. Write `M(S)` for its bounded common subtype.

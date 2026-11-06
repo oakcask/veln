@@ -1406,6 +1406,16 @@ collection elements, repeated generic constructor payloads, and unannotated
 constructor or a source-ADT variant refinement. A concrete expected type still
 checks each contribution by ordinary assignment compatibility.
 
+An expression such as `None`, `Nil`, an empty vector, or an empty dictionary
+does not contribute a type argument by itself. During context-free aggregate
+inference, the checker first joins expressions that do contribute arguments.
+It then uses that joined type as the expected type for these incomplete
+expressions. This rule applies to collection and dictionary members, repeated
+constructor payloads, and unannotated `if` or `match` results. Therefore
+`[Some(Ready), None]` and `[None, Some(Ready)]` both infer
+`Vec<Option<State::Ready>>`. If no other expression supplies the missing
+argument, the existing unknown or ambiguity result remains unchanged.
+
 Presentation reconciliation applies at each joined compiler-owned constructor.
 One alias preference and canonical spelling retain that alias. Different alias
 preferences for the same compiler-owned identity make the inferred node use
@@ -1669,7 +1679,9 @@ case.
 Recursive compiler-owned joins, argument independence, contribution order,
 and control-flow inference are checked by the accepted
 [`compiler-owned-covariant-inference`](../../examples/specification/check/compiler-owned-covariant-inference/)
-case. Transactional exclusion of an unavailable nested join is checked by its
+case. The same case checks completion context for `None` in collections and
+control-flow results in both source orders. Transactional exclusion of an
+unavailable nested join is checked by its
 [`diagnostic companion`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/).
 
 Variant-refinement semantic-token classifications are specified in
