@@ -20,15 +20,21 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         result: &mut ControlFlowResultJoin,
     ) {
+        let recovery_type = match result.joined.as_ref() {
+            Some(joined)
+                if joined.has_complete_domain() && !joined.has_nested_refinement_domain() =>
+            {
+                Some(joined.inference_type())
+            }
+            Some(_) => None,
+            None if result.recovery_type != Type::Unknown => Some(result.recovery_type.clone()),
+            None => None,
+        };
         let recovery_expected = if expected.is_none()
-            && result
-                .joined
-                .as_ref()
-                .is_none_or(AggregateTypeJoin::has_complete_domain)
-            && result.recovery_type != Type::Unknown
+            && let Some(recovery_type) = recovery_type
         {
             Some(ExpectedType {
-                ty: result.recovery_type.clone(),
+                ty: recovery_type,
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: if_expr.node_id,
                 origin_span: Some(if_expr.span.clone()),
@@ -96,6 +102,13 @@ pub(super) fn contribute_control_flow_result(
         .as_mut()
         .is_some_and(|joined| joined.try_join_resolved(adts, actual));
     if !joined {
+        if result
+            .joined
+            .as_ref()
+            .is_some_and(|joined| joined.has_same_root(actual))
+        {
+            return false;
+        }
         result.failed = true;
         result.joined = None;
     }

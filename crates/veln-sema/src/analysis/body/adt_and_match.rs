@@ -685,10 +685,11 @@ impl<'a> FunctionChecker<'a> {
         item_type: &mut Type,
         joined_items: &mut Option<AggregateTypeJoin>,
     ) {
-        let inferred_context = joined_items
-            .as_ref()
-            .map(AggregateTypeJoin::inference_type)
-            .unwrap_or_else(|| item_type.clone());
+        let inferred_context = match joined_items {
+            Some(joined) if joined.has_nested_refinement_domain() => Type::Unknown,
+            Some(joined) => joined.inference_type(),
+            None => item_type.clone(),
+        };
         let item_expected = collection_item_expected(
             if inferred_context == Type::Unknown {
                 expected_item.clone()
@@ -1828,15 +1829,21 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         result: &mut ControlFlowResultJoin,
     ) {
+        let recovery_type = match result.joined.as_ref() {
+            Some(joined)
+                if joined.has_complete_domain() && !joined.has_nested_refinement_domain() =>
+            {
+                Some(joined.inference_type())
+            }
+            Some(_) => None,
+            None if result.recovery_type != Type::Unknown => Some(result.recovery_type.clone()),
+            None => None,
+        };
         let recovery_expected = if expected.is_none()
-            && result
-                .joined
-                .as_ref()
-                .is_none_or(AggregateTypeJoin::has_complete_domain)
-            && result.recovery_type != Type::Unknown
+            && let Some(recovery_type) = recovery_type
         {
             Some(ExpectedType {
-                ty: result.recovery_type.clone(),
+                ty: recovery_type,
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: match_expr.node_id,
                 origin_span: Some(match_expr.span.clone()),

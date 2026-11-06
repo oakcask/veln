@@ -337,10 +337,11 @@ fn infer_private_aggregate_component(
     joined_components: &mut Option<crate::aggregate_type_join::AggregateTypeJoin>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
-    let inferred_context = joined_components
-        .as_ref()
-        .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
-        .unwrap_or_else(|| component_type.clone());
+    let inferred_context = match joined_components {
+        Some(joined) if joined.has_nested_refinement_domain() => Type::Unknown,
+        Some(joined) => joined.inference_type(),
+        None => component_type.clone(),
+    };
     let actual = context.infer_outcome(expr, item_type_unknown_as_none(&inferred_context));
     if !actual.may_contribute {
         return;

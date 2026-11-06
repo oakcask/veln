@@ -11,7 +11,22 @@ fn retained(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict
 	[first, rejected, later]
 end
 
+fn retained_control_flow(first: Bool, second: Bool, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>)
+	if first
+		accepted
+	else if second
+		rejected
+	else
+		later
+	end
+end
+
 fn observe(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>) -> ()
 	let preserved: Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>> = retained(first, rejected, later)
+	()
+end
+
+fn observe_control_flow(first: Bool, second: Bool, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>) -> ()
+	let preserved: Option<State::Ready | State::Closed> = retained_control_flow(first, second, accepted, rejected, later)
 	()
 end

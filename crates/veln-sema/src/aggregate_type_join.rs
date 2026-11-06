@@ -240,6 +240,26 @@ impl AggregateTypeJoin {
         self.nodes[self.root].variants.is_none()
     }
 
+    pub(crate) fn has_nested_refinement_domain(&self) -> bool {
+        self.nodes
+            .iter()
+            .enumerate()
+            .any(|(index, node)| index != self.root && node.variants.is_some())
+    }
+
+    pub(crate) fn has_same_root(&self, right: &Type) -> bool {
+        let Some(right) = adt_type_parts(right) else {
+            return false;
+        };
+        let root = &self.nodes[self.root];
+        right
+            .args
+            .iter()
+            .all(|argument| !type_contains_unknown(argument))
+            && same_type_identity(&root.name, &root.identity, right.name, right.identity)
+            && root.args.len() == right.args.len()
+    }
+
     pub(crate) fn inference_type(&self) -> Type {
         self.materialize(false)
     }

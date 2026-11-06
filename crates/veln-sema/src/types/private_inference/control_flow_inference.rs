@@ -18,13 +18,18 @@ pub(crate) fn infer_private_match_type(
     };
     context.infer(scrutinee, scrutinee_expected.as_ref());
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
-    let mut joined_result = None;
+    let mut joined_result: Option<crate::aggregate_type_join::AggregateTypeJoin> = None;
     let mut join_failed = false;
     for arm in arms {
-        let recovery_expected = joined_result
+        let joined_context = joined_result
             .as_ref()
-            .is_none_or(crate::aggregate_type_join::AggregateTypeJoin::has_complete_domain)
-            .then_some(&result);
+            .filter(|joined| joined.has_complete_domain() && !joined.has_nested_refinement_domain())
+            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type);
+        let recovery_expected = if joined_result.is_some() {
+            joined_context.as_ref()
+        } else {
+            Some(&result)
+        };
         let actual = context.infer(
             &arm.expr,
             expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none)),
@@ -54,16 +59,21 @@ pub(crate) fn infer_private_if_result_type(
         context.infer_expected_outcome(&branch.condition, &Type::bool());
     }
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
-    let mut joined_result = None;
+    let mut joined_result: Option<crate::aggregate_type_join::AggregateTypeJoin> = None;
     let mut join_failed = false;
     for branch_expr in std::iter::once(then_branch)
         .chain(else_if_branches.iter().map(|branch| &branch.expr))
         .chain(std::iter::once(else_branch))
     {
-        let recovery_expected = joined_result
+        let joined_context = joined_result
             .as_ref()
-            .is_none_or(crate::aggregate_type_join::AggregateTypeJoin::has_complete_domain)
-            .then_some(&result);
+            .filter(|joined| joined.has_complete_domain() && !joined.has_nested_refinement_domain())
+            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type);
+        let recovery_expected = if joined_result.is_some() {
+            joined_context.as_ref()
+        } else {
+            Some(&result)
+        };
         let branch_expected =
             expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none));
         let actual = match branch_expected {
@@ -115,6 +125,12 @@ fn merge_private_control_flow_result(
     }
     if let Some(joined) = joined_result.as_mut()
         && joined.try_join_resolved(adts, &actual)
+    {
+        return;
+    }
+    if joined_result
+        .as_ref()
+        .is_some_and(|joined| joined.has_same_root(&actual))
     {
         return;
     }

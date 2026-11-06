@@ -43,11 +43,23 @@ fn vector(first: Vec<State::Ready>, second: Vec<State::Closed>)
 	[first, second]
 end
 
+fn constructed_vector()
+	[[Ready], [Closed]]
+end
+
 fn selected_vector(flag: Bool, first: Vec<State::Ready>, second: Vec<State::Closed>)
 	if flag
 		first
 	else
 		second
+	end
+end
+
+fn selected_constructed_vector(flag: Bool)
+	if flag
+		[Ready]
+	else
+		[Closed]
 	end
 end
 
@@ -78,7 +90,9 @@ fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option
 	let result_reverse_result: Vec<Result<Option<State::Ready | State::Closed>, List<State::Closed | State::Failed>>> = result_reverse(first_result, second_result)
 	let list_result: Vec<List<State::Ready | State::Closed>> = list(first_list, second_list)
 	let vector_result: Vec<Vec<State::Ready | State::Closed>> = vector(first_vector, second_vector)
+	let constructed_vector_result: Vec<Vec<State::Ready | State::Closed>> = constructed_vector()
 	let selected_vector_result: Vec<State::Ready | State::Closed> = selected_vector(flag, first_vector, second_vector)
+	let selected_constructed_vector_result: Vec<State::Ready | State::Closed> = selected_constructed_vector(flag)
 	let matched_option_result: Option<State::Ready | State::Closed> = matched_option(flag, first_option, second_option)
 	let paired_option_result: Pair<Option<State::Ready | State::Closed>>::Paired = paired_option(first_option, second_option)
 	let dictionary_result: Vec<Dict<Option<State::Ready | State::Closed>, Positive<State::Closed | State::Failed>>> = dictionary(first_dict, second_dict)

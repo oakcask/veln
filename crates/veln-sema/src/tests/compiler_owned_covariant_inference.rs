@@ -48,11 +48,21 @@ fn compiler_owned_covariant_arguments_join_recursively_and_in_any_order() {
             "fn vector(first: Vec<State::Ready>, second: Vec<State::Closed>)\n",
             "  [first, second]\n",
             "end\n",
+            "fn constructed_vector()\n",
+            "  [[Ready], [Closed]]\n",
+            "end\n",
             "fn selected_vector(flag: Bool, first: Vec<State::Ready>, second: Vec<State::Closed>)\n",
             "  if flag\n",
             "    first\n",
             "  else\n",
             "    second\n",
+            "  end\n",
+            "end\n",
+            "fn selected_constructed_vector(flag: Bool)\n",
+            "  if flag\n",
+            "    [Ready]\n",
+            "  else\n",
+            "    [Closed]\n",
             "  end\n",
             "end\n",
             "fn matched_option(flag: Bool, first: Option<State::Ready>, second: Option<State::Closed>)\n",
@@ -120,7 +130,15 @@ fn compiler_owned_covariant_arguments_join_recursively_and_in_any_order() {
         ),
         ("list", "Vec<List<State::Ready | State::Closed>>"),
         ("vector", "Vec<Vec<State::Ready | State::Closed>>"),
+        (
+            "constructed_vector",
+            "Vec<Vec<State::Ready | State::Closed>>",
+        ),
         ("selected_vector", "Vec<State::Ready | State::Closed>"),
+        (
+            "selected_constructed_vector",
+            "Vec<State::Ready | State::Closed>",
+        ),
         ("matched_option", "Option<State::Ready | State::Closed>"),
         (
             "paired_option",
@@ -261,5 +279,44 @@ fn failed_compiler_owned_nested_join_preserves_admitted_state() {
             .return_type
             .render(),
         "Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>>",
+    );
+}
+
+#[test]
+fn failed_compiler_owned_control_flow_join_preserves_admitted_state() {
+    let source_text = concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Failed\n",
+        "end\n",
+        "fn retained(first: Bool, second: Bool, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>)\n",
+        "  if first\n",
+        "    accepted\n",
+        "  else if second\n",
+        "    rejected\n",
+        "  else\n",
+        "    later\n",
+        "  end\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+    let span = diagnostics[0].span.as_ref().expect("mismatch span");
+    assert_eq!(&source_text[span.start.offset..span.end.offset], "rejected");
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("retained")
+            .expect("retained function")
+            .return_type
+            .render(),
+        "Option<State::Ready | State::Closed>",
     );
 }

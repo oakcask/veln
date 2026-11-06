@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 1
+equals = 2
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -25,3 +25,13 @@ kind = "type"
 file = "main.veln"
 line = 11
 column = 10
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 18
+column = 3
