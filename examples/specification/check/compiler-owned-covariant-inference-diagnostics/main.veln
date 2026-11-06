@@ -1,0 +1,17 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+pub type First = State
+pub type Second = State
+
+fn retained(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>)
+	[first, rejected, later]
+end
+
+fn observe(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>) -> ()
+	let preserved: Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>> = retained(first, rejected, later)
+	()
+end

@@ -1391,22 +1391,20 @@ still identify the call or constructor's refined result type.
 When contributions have the same resolved source-ADT constructor and arity,
 context-free inference reads that declaration's checked classifications in
 parameter order. A covariant argument recursively uses the same bounded join,
-including through another source ADT. Invariant, irrelevant, and contravariant
-arguments must match exactly. Missing, invalid, inaccessible, or ambiguous
-classification metadata also requires exact arguments. Local and imported
-declarations use the same rule because lookup uses resolved nominal identity
-rather than displayed spelling.
+including through source ADTs and compiler-owned immutable constructors.
+Invariant, irrelevant, and contravariant arguments must match exactly.
+Missing, invalid, inaccessible, or ambiguous classification metadata also
+requires exact arguments. Local and imported declarations use the same rule
+because lookup uses resolved nominal identity rather than displayed spelling.
 
-Without a concrete expected component or result type, assignment covariance
-does not join unequal arguments of compiler-owned immutable constructors. For
-example, `Option<State::Ready>` and `Option<State>` are incompatible
-contributions to one inferred collection position in either source order. The
-same boundary applies to `Result`, `List`, `Vec`, and `Dict` arguments, repeated
-generic constructor payloads, and unannotated `if` or `match` results. The
-incompatible contribution reports `type.mismatch` against the type accumulated
-from preceding successful contributions. A concrete expected type instead
-checks every contribution by ordinary assignment compatibility and can accept
-the covariant widening.
+Same-constructor contributions to compiler-owned immutable `Option<T>`,
+`Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>` recursively join every
+argument. `Result` joins its value and error arguments independently, and
+`Dict` joins its key and value arguments independently. The rule applies to
+collection elements, repeated generic constructor payloads, and unannotated
+`if` or `match` results. Each recursive join can include another compiler-owned
+constructor or a source-ADT variant refinement. A concrete expected type still
+checks each contribution by ordinary assignment compatibility.
 
 The join applies when repeated constructor payloads use a type parameter
 directly and those direct occurrences contribute complete source-ADT types.
@@ -1437,10 +1435,12 @@ a presentation conflict. The checked
 [`invariant alias presentation diagnostic`](../../examples/specification/check/adt-variant-refinement-invariant-alias-presentation-diagnostics-human/)
 case covers the canonical result for both contribution orders.
 
-A source-ADT covariant join is transactional across all arguments. If a later
-nested argument cannot join, the failed contribution does not change an
+A same-constructor covariant join is transactional across all arguments. If a
+later nested argument cannot join, the failed contribution reports
+`type.mismatch` against the previously accumulated type and does not change an
 earlier argument, a refinement set, or alias presentation. Permuting successful
-contributions produces the same resolved type and presentation.
+contributions produces the same resolved type and presentation. These rules
+apply to compiler-owned constructors and covariant source-ADT parameters.
 
 For a source ADT nested through `D` covariant source-ADT arguments, the join
 retains `D + 1` state nodes. Accepting another equally shaped contribution
@@ -1486,8 +1486,8 @@ classification. A direct payload such as `Box<A>` makes `A` covariant, so the
 corresponding inferred `Box<State::Ready>` also widens to `Box<State>`. A
 parameter used in both input and output positions is invariant and rejects the
 same widening. Context-free aggregate inference consumes checked source-ADT
-covariance only; it does not infer a contravariant meet or structural
-record/function join, and compiler-owned constructor arguments remain exact.
+covariance and the covariance of compiler-owned immutable constructors. It
+does not infer a contravariant meet or structural record or function join.
 
 ### Source ADT parameter classifications
 
@@ -1654,6 +1654,11 @@ Context-free covariant joins for local and imported source ADTs are checked by
 the accepted
 [`source-adt-variance-inference`](../../examples/specification/check/source-adt-variance-inference/)
 case.
+Recursive compiler-owned joins, argument independence, contribution order,
+and control-flow inference are checked by the accepted
+[`compiler-owned-covariant-inference`](../../examples/specification/check/compiler-owned-covariant-inference/)
+case. Transactional exclusion of an unavailable nested join is checked by its
+[`diagnostic companion`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/).
 
 Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and

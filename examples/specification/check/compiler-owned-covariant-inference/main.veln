@@ -1,0 +1,70 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+pub type First = State
+pub type Second = State
+
+type Positive<T>
+	Present(T)
+end
+
+fn option(first: Option<First::Ready>, second: Option<Second::Closed>)
+	[first, second]
+end
+
+fn option_reverse(first: Option<First::Ready>, second: Option<Second::Closed>)
+	[second, first]
+end
+
+fn option_base(narrow: Option<State::Ready>, wide: Option<State>)
+	[wide, narrow]
+end
+
+fn result(first: Result<Option<State::Ready>, List<State::Closed>>, second: Result<Option<State::Closed>, List<State::Failed>>)
+	[first, second]
+end
+
+fn result_reverse(first: Result<Option<State::Ready>, List<State::Closed>>, second: Result<Option<State::Closed>, List<State::Failed>>)
+	[second, first]
+end
+
+fn list(first: List<State::Ready>, second: List<State::Closed>)
+	[first, second]
+end
+
+fn vector(first: Vec<State::Ready>, second: Vec<State::Closed>)
+	[first, second]
+end
+
+fn selected_vector(flag: Bool, first: Vec<State::Ready>, second: Vec<State::Closed>)
+	if flag
+		first
+	else
+		second
+	end
+end
+
+fn dictionary(first: Dict<Option<State::Ready>, Positive<State::Closed>>, second: Dict<Option<State::Closed>, Positive<State::Failed>>)
+	[second, first]
+end
+
+fn dictionary_forward(first: Dict<Option<State::Ready>, Positive<State::Closed>>, second: Dict<Option<State::Closed>, Positive<State::Failed>>)
+	[first, second]
+end
+
+fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option<Second::Closed>, wide_option: Option<State>, first_result: Result<Option<State::Ready>, List<State::Closed>>, second_result: Result<Option<State::Closed>, List<State::Failed>>, first_list: List<State::Ready>, second_list: List<State::Closed>, first_vector: Vec<State::Ready>, second_vector: Vec<State::Closed>, first_dict: Dict<Option<State::Ready>, Positive<State::Closed>>, second_dict: Dict<Option<State::Closed>, Positive<State::Failed>>) -> ()
+	let option_result: Vec<Option<State::Ready | State::Closed>> = option(first_option, second_option)
+	let option_reverse_result: Vec<Option<State::Ready | State::Closed>> = option_reverse(first_option, second_option)
+	let option_base_result: Vec<Option<State>> = option_base(first_option, wide_option)
+	let result_result: Vec<Result<Option<State::Ready | State::Closed>, List<State::Closed | State::Failed>>> = result(first_result, second_result)
+	let result_reverse_result: Vec<Result<Option<State::Ready | State::Closed>, List<State::Closed | State::Failed>>> = result_reverse(first_result, second_result)
+	let list_result: Vec<List<State::Ready | State::Closed>> = list(first_list, second_list)
+	let vector_result: Vec<Vec<State::Ready | State::Closed>> = vector(first_vector, second_vector)
+	let selected_vector_result: Vec<State::Ready | State::Closed> = selected_vector(flag, first_vector, second_vector)
+	let dictionary_result: Vec<Dict<Option<State::Ready | State::Closed>, Positive<State::Closed | State::Failed>>> = dictionary(first_dict, second_dict)
+	let dictionary_forward_result: Vec<Dict<Option<State::Ready | State::Closed>, Positive<State::Closed | State::Failed>>> = dictionary_forward(first_dict, second_dict)
+	()
+end

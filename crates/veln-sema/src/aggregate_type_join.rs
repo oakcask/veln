@@ -66,11 +66,16 @@ impl AggregateTypeJoin {
     }
 
     pub(crate) fn new_resolved_refinement(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
-        let args = match initial {
-            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
+        let (identity, args) = match initial {
+            Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
+                (identity, args)
+            }
             _ => return None,
         };
-        if args.iter().any(type_contains_unknown) || adts.descriptor_for_type(initial).is_none() {
+        if args.iter().any(type_contains_unknown)
+            || (adts.descriptor_for_type(initial).is_none()
+                && !Type::is_compiler_covariant_identity(identity))
+        {
             return None;
         }
         Self::new(adts, initial)
@@ -389,7 +394,8 @@ fn initial_argument_state<'a>(
     adts: &AdtRegistry,
     initial: AdtTypeParts<'a>,
 ) -> (Vec<JoinArg>, Vec<(usize, &'a Type)>) {
-    let variances = (!Type::is_compiler_covariant_identity(initial.identity))
+    let compiler_covariant = Type::is_compiler_covariant_identity(initial.identity);
+    let variances = (!compiler_covariant)
         .then(|| adts.parameter_variances_for_identity(initial.identity, initial.args.len()))
         .flatten();
     let mut pending = Vec::new();
@@ -398,9 +404,13 @@ fn initial_argument_state<'a>(
         .iter()
         .enumerate()
         .map(|(index, ty)| {
-            let variance = variances
-                .and_then(|variances| variances.get(index).copied())
-                .unwrap_or(Variance::Invariant);
+            let variance = if compiler_covariant {
+                Variance::Covariant
+            } else {
+                variances
+                    .and_then(|variances| variances.get(index).copied())
+                    .unwrap_or(Variance::Invariant)
+            };
             if variance == Variance::Covariant && adt_type_parts(ty).is_some() {
                 pending.push((index, ty));
                 JoinArg::Covariant(usize::MAX)

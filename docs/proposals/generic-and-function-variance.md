@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Checked source-ADT variance classification production, retention, or performance evidence, its assignment or inference consumption, dependency variance metadata, variance presentation, nested incompatibility diagnostics, or analysis and language-service failure preservation change.
+update-when: Checked source-ADT variance classification or compiler-owned covariant inference, their assignment or inference consumption, dependency variance metadata, variance presentation, nested incompatibility diagnostics, or analysis and language-service failure preservation change.
 ---
 
 # Generic And Function Variance
@@ -8,12 +8,13 @@ update-when: Checked source-ADT variance classification production, retention, o
 ## Summary
 
 This proposal contains the remaining work for named generic variance. Current
-assignment and source-ADT covariant inference behavior is defined by the
+assignment and implemented covariant inference behavior is defined by the
 [type specification](../specification/types.md#compatibility-and-limits) and
 its [inference rules](../specification/types.md#inference-rules). The remaining
-work adds bounded inference beyond source-ADT covariant joins, dependency
-invalidation, detailed nested incompatibility context, presentation, and
-failure preservation. It does not add declaration-site variance modifiers.
+work adds bounded inference beyond source-ADT and compiler-owned covariant
+joins, dependency invalidation, detailed nested incompatibility context,
+presentation, and failure preservation. It does not add declaration-site
+variance modifiers.
 
 ## Related Work For Remaining Inference
 
@@ -48,9 +49,11 @@ ownership, union, intersection, or bottom-type relation from Rust.
 
 Assignment compatibility does not promise unrestricted subtype inference.
 A concrete expected type supplies the target; every contribution must satisfy
-it under the rules above. Without that context, inference uses the following
-bounded, order-independent joins. It must inspect all successful contributions
-before concluding that a required join is unavailable.
+it under the rules above. Without that context, the current type specification
+defines equal-type and same-constructor source-ADT or compiler-owned covariant
+joins. Inference uses the following remaining bounded, order-independent rules
+when a recursive join goes beyond those implemented cases. It must inspect all
+successful contributions before concluding that a required join is unavailable.
 
 Write `J(S)` for the selected common supertype of a nonempty collection of
 complete contributing types. Write `M(S)` for its bounded common subtype.
@@ -58,9 +61,7 @@ Normalize aliases and effect/field ordering before applying this table.
 
 | Contributions | Selected result |
 | --- | --- |
-| All resolved types equal | That type. |
-| Same nominal constructor, with refinements allowed | Join variant sets by union, treating a base as the complete set; compute arguments by the following variance rows. |
-| Covariant argument beyond the implemented source-ADT case | `J` of the argument contributions. |
+| Covariant argument beyond the implemented source-ADT and compiler-owned cases | `J` of the argument contributions. |
 | Contravariant argument | `M` of the argument contributions. |
 | Invariant or irrelevant argument | Require equal arguments for context-free inference. Otherwise require an explicit expected type; do not invent an argument or erase its identity. |
 | Records with identical field names | Join each corresponding field with `J`. |
@@ -142,7 +143,7 @@ remain the independent acceptance oracle only for the remaining behavior.
 
 | Contract | Planned evidence and required observation |
 | --- | --- |
-| Bounded inference | Permuted cases cover annotation-required contravariant meets, compiler-owned and structural joins, and transactional exclusion of failures outside the implemented source-ADT join. |
+| Bounded inference | Permuted cases cover annotation-required contravariant meets, structural joins, and transactional exclusion of failures outside the implemented source-ADT and compiler-owned joins. |
 | Metadata invalidation | Package fixtures prove that a variance-changing payload edit invalidates dependent analysis before subsequent inference. |
 | Presentation and diagnostics | Human and JSON fixtures cover nested paths, reversed input comparison, direct exclusions, aliases, modifier-free declarations, and stable package/LSP/MCP presentations. |
 | Failure preservation | Analysis and language-service regression cases prove no partial signature escapes rejection, retained successful snapshots survive applicable failures, and rejected programs do not run. |
@@ -160,13 +161,14 @@ Then retire this proposal and its catalog entry.
 
 This proposal is independently ready. It does not depend on the remaining
 refinement-flow, repair, or handler proposals. The current structural
-record/function assignment kernel and compiler-owned immutable constructor
-covariance are its implemented prerequisites.
+record/function assignment kernel, compiler-owned immutable constructor joins,
+and source-ADT covariant joins are its implemented prerequisites.
 It excludes mutable references, declaration-site variance syntax, general
 unions/intersections, higher-kinded types, predicate-based subtyping, and
 runtime representation changes solely for variance.
 
 The inspected local implementation anchor is
-`crates/veln-sema/src/aggregate_type_join.rs` for current refinement joins.
-It identifies the shared inference boundary. The proposal tables define only
-the intended behavior that remains beyond the implemented source-ADT join.
+`crates/veln-sema/src/aggregate_type_join.rs` for current refinement and
+compiler-owned constructor joins. It identifies the shared inference boundary.
+The proposal tables define only the intended behavior that remains beyond the
+implemented covariant joins.
