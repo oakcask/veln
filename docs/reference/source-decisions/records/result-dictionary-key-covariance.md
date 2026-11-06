@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: supporting
-update-when: Compiler-owned Dict variance metadata or source-ADT variance composition, dictionary lookup equality, persistent dictionary updates, or widened-dictionary companion coverage changes.
+update-when: Compiler-owned Dict variance metadata or its assignment or context-free inference consumption, source-ADT variance composition, dictionary lookup equality, persistent dictionary updates, or widened-dictionary companion coverage changes.
 ---
 
 # Dictionary Key Covariance
@@ -18,8 +18,10 @@ Compiler-owned variance metadata records both `Dict` parameters as covariant.
 Source-ADT variance analysis selects that classification only for the
 compiler-owned dictionary identity at its exact arity; it does not require a
 finite ADT descriptor or infer covariance from the displayed name. This
-metadata agrees with the established assignment rule; it does not broaden
-context-free generic inference or change dictionary runtime behavior.
+metadata agrees with the established assignment rule and does not change
+dictionary runtime behavior. Context-free inference uses the same
+compiler-owned classification to join both arguments of same-constructor
+dictionaries recursively.
 
 Source-ADT composition requires checked metadata with the constructor's
 declared arity. For another source declaration, owner-aware lookup must resolve
