@@ -1243,11 +1243,15 @@ thread_local! {
 #[cfg(test)]
 pub(crate) fn reset_completion_work() {
     COMPLETION_WORK.set(CompletionWork::default());
+    crate::inference_work::reset_completion_payload_context_type_nodes();
 }
 
 #[cfg(test)]
 pub(crate) fn take_completion_work() -> CompletionWork {
-    COMPLETION_WORK.replace(CompletionWork::default())
+    let mut work = COMPLETION_WORK.replace(CompletionWork::default());
+    work.payload_context_visited_type_nodes =
+        crate::inference_work::take_completion_payload_context_type_nodes();
+    work
 }
 
 #[cfg(test)]
@@ -1261,19 +1265,6 @@ pub(crate) fn measure_completion_payload_context<T>(operation: impl FnOnce() -> 
 }
 
 #[cfg(test)]
-#[inline(always)]
-pub(crate) fn record_completion_payload_context_type_node() {
-    COMPLETION_WORK.update(|mut work| {
-        work.payload_context_visited_type_nodes += 1;
-        work
-    });
-}
-
-#[cfg(not(test))]
-#[inline(always)]
-pub(crate) fn record_completion_payload_context_type_node() {}
-
-#[cfg(test)]
 pub(crate) fn record_completion_analysis_type_clones(nodes: usize) {
     COMPLETION_WORK.update(|mut work| {
         work.analysis_cloned_type_nodes += nodes;
@@ -1285,7 +1276,7 @@ pub(crate) fn present_validated_completion_payload_context_type(
     actual: Type,
     expected: &Type,
 ) -> Type {
-    record_completion_payload_context_type_node();
+    crate::inference_work::record_completion_payload_context_type_node();
     match (actual, expected) {
         (
             Type::Named { args, identity, .. } | Type::VariantRefinement { args, identity, .. },

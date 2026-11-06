@@ -543,42 +543,16 @@ impl<'a> FunctionChecker<'a> {
         type_args: &mut ConstructorTypeArgInference,
     ) {
         let needs_completion = self.expression_needs_aggregate_completion_context(arg);
-        let mut arg_expected =
-            crate::aggregate_type_join::measure_completion_payload_context(|| {
-                let payload_expected = type_args.payload_expected(
-                    expected,
-                    constructor,
-                    index,
-                    field,
-                    &self.environment.adts,
-                );
-                ExpectedType {
-                    ty: payload_expected,
-                    source: expected
-                        .map_or(ExpectedTypeSource::Inferred, |expected| expected.source),
-                    origin_node_id: expected
-                        .map_or(call.node_id, |expected| expected.origin_node_id),
-                    origin_span: expected.map_or_else(
-                        || Some(call.span.clone()),
-                        |expected| expected.origin_span.clone(),
-                    ),
-                    origin_message: expected
-                        .map_or("Constructor payload inferred here.", |expected| {
-                            expected.origin_message
-                        }),
-                }
-            });
-        if expected.is_none() && needs_completion {
-            arg_expected.ty =
-                Cow::Owned(self.project_completion_context(arg, arg_expected.ty.into_owned()));
-        }
-        if expected.is_none()
-            && matches!(field.ty, AdtPayloadType::TypeParameter(_))
-            && type_args.has_nested_join(field)
-            && !needs_completion
-        {
-            arg_expected.ty = Cow::Owned(Type::Unknown);
-        }
+        let arg_expected = self.constructor_payload_expected(
+            call,
+            arg,
+            field,
+            index,
+            expected,
+            constructor,
+            type_args,
+            needs_completion,
+        );
         let diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(arg, Some(&arg_expected));
         if self.diagnostics.len() != diagnostic_count {
@@ -632,6 +606,48 @@ impl<'a> FunctionChecker<'a> {
                 "call_argument",
             );
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn constructor_payload_expected<'expected>(
+        &mut self,
+        call: &Expr,
+        arg: &Expr,
+        field: &AdtPayloadField,
+        index: usize,
+        expected: Option<&'expected ExpectedType<'_>>,
+        constructor: AdtConstructor,
+        type_args: &ConstructorTypeArgInference,
+        needs_completion: bool,
+    ) -> ExpectedType<'expected> {
+        let mut payload =
+            crate::aggregate_type_join::measure_completion_payload_context(|| ExpectedType {
+                ty: type_args.payload_expected(
+                    expected,
+                    constructor,
+                    index,
+                    field,
+                    &self.environment.adts,
+                ),
+                source: expected.map_or(ExpectedTypeSource::Inferred, |value| value.source),
+                origin_node_id: expected.map_or(call.node_id, |value| value.origin_node_id),
+                origin_span: expected.map_or_else(
+                    || Some(call.span.clone()),
+                    |value| value.origin_span.clone(),
+                ),
+                origin_message: expected.map_or("Constructor payload inferred here.", |value| {
+                    value.origin_message
+                }),
+            });
+        if expected.is_none() && needs_completion {
+            payload.ty = Cow::Owned(self.project_completion_context(arg, payload.ty.into_owned()));
+        } else if expected.is_none()
+            && matches!(field.ty, AdtPayloadType::TypeParameter(_))
+            && type_args.has_nested_join(field)
+        {
+            payload.ty = Cow::Owned(Type::Unknown);
+        }
+        payload
     }
 
     #[allow(clippy::too_many_arguments)]

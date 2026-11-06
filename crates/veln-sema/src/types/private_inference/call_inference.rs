@@ -3,7 +3,7 @@ use crate::adt::descriptors::AdtPayloadField;
 use std::borrow::Cow;
 
 fn private_type_contains_unknown(ty: &Type) -> bool {
-    crate::aggregate_type_join::record_completion_payload_context_type_node();
+    crate::inference_work::record_completion_payload_context_type_node();
     match ty {
         Type::Unknown => true,
         Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
