@@ -1236,6 +1236,7 @@ impl TypeEnvironment {
     }
 
     fn from_module_with_base(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> Self {
+        crate::aggregate_type_join::reset_completion_fact_cache();
         facts::from_module_with_base(module, base)
     }
 

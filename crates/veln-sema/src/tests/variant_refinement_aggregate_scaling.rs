@@ -136,6 +136,84 @@ fn control_flow_join_scaling_source(variant_count: usize) -> String {
     source
 }
 
+fn nested_option_expression(depth: usize, leaf: &str) -> String {
+    let mut expression = "Some(".repeat(depth);
+    expression.push_str(leaf);
+    expression.push_str(&")".repeat(depth));
+    expression
+}
+
+fn measure_completion_work(
+    depth: usize,
+    incomplete_first: bool,
+) -> (
+    crate::aggregate_type_join::CompletionWork,
+    std::time::Duration,
+) {
+    let incomplete = nested_option_expression(depth, "None");
+    let complete = nested_option_expression(depth, "Some(1)");
+    let (first, second) = if incomplete_first {
+        (&incomplete, &complete)
+    } else {
+        (&complete, &incomplete)
+    };
+    let source = SourceFile::new(
+        "main.veln",
+        format!("fn nested()\n  [{first}, {second}]\nend\n"),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::aggregate_type_join::reset_completion_work();
+    let started = std::time::Instant::now();
+    let diagnostics = analyze_surface_module(&module);
+    let elapsed = started.elapsed();
+    let work = crate::aggregate_type_join::take_completion_work();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    let expected = format!(
+        "Vec<{}Int{}>",
+        "Option<".repeat(depth + 1),
+        ">".repeat(depth + 1)
+    );
+    assert_eq!(
+        environment
+            .function("nested")
+            .expect("nested function")
+            .return_type
+            .render(),
+        expected
+    );
+    eprintln!(
+        "{depth}-level nested completion (incomplete first: {incomplete_first}): {elapsed:?}, {work:?}"
+    );
+    (work, elapsed)
+}
+
+#[test]
+fn nested_completion_classification_and_projection_scale_linearly() {
+    let depths = [16, 32, 64, 128];
+    for incomplete_first in [true, false] {
+        let measured = depths.map(|depth| measure_completion_work(depth, incomplete_first));
+        assert!(
+            measured[0].0.classified_expressions > 0 && measured[0].0.projected_expressions > 0,
+            "the metric must observe classification and projection: {measured:?}"
+        );
+        for adjacent in measured.windows(2) {
+            assert!(
+                adjacent[1].0.classified_expressions
+                    <= adjacent[0].0.classified_expressions * 2 + 16,
+                "doubling nesting must add only linear classification work: {measured:?}"
+            );
+            assert!(
+                adjacent[1].0.projected_expressions <= adjacent[0].0.projected_expressions * 2 + 16,
+                "doubling nesting must add only linear projection work: {measured:?}"
+            );
+        }
+    }
+}
+
 fn nested_alias_presentation(depth: usize, alias_prefix: &str) -> Type {
     let mut ty = Type::resolved_variant_refinement(
         format!("{alias_prefix}State"),
