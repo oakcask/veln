@@ -887,13 +887,16 @@ so a later payload is checked against only the constraints that were complete
 before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
-Compiler-owned covariance is not an inference fallback when no concrete
-expected component or result type exists. Unequal covariantly related
-`Option`, `Result`, `List`, `Vec`, or `Dict` arguments in one collection,
-constructor, `if`, or `match` inference report ordinary `type.mismatch` at the
-incompatible contribution. The accumulated type is `expected_type`, and the
-contribution's complete type is `actual_type`. Reversing contribution order
-reverses those rendered roles but does not make the inference succeed.
+Without a concrete expected component or result type, same-constructor
+`Option`, `Result`, `List`, `Vec`, or `Dict` contributions recursively join
+their covariant arguments. A nested argument that has no bounded join reports
+ordinary `type.mismatch` at the incompatible contribution. The accumulated
+type is `expected_type`, and the contribution's complete type is `actual_type`.
+The rejected contribution changes no previously admitted argument, refinement,
+or alias presentation, so a later valid contribution is checked against the
+last admitted state. The checked
+[`compiler-owned covariant inference diagnostic`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/)
+covers that failure and preservation boundary.
 
 Generated schema encode boundaries additionally inspect corresponding fields
 of anonymous records and corresponding arguments of `Option`, `List`, `Vec`,
