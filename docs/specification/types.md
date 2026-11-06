@@ -1956,9 +1956,10 @@ case covers that boundary. Schema predicates do not accept `%`.
   `crates/veln-sema/src/tests/variant_refinement_match_scaling.rs`.
 - Aggregate and alias-presentation join scaling:
   `crates/veln-sema/src/tests/variant_refinement_aggregate_scaling.rs`.
-- Source-ADT covariant inference, checked variance parameter order, and
-  resolved declaration identity:
-  `crates/veln-sema/src/tests/source_adt_variance_inference.rs`.
+- Source-ADT and compiler-owned covariant inference, checked variance parameter
+  order, nested completion context, and resolved declaration identity:
+  `crates/veln-sema/src/tests/source_adt_variance_inference.rs` and
+  `crates/veln-sema/src/tests/compiler_owned_covariant_inference.rs`.
 - Invalid variant-refinement base recovery scaling:
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results.rs`.
 - Direct variant-refinement visibility, union-base comparison and diagnostic
