@@ -2,6 +2,7 @@ use super::*;
 use crate::semantic_model::Type;
 use crate::types::TypeEnvironment;
 
+mod deep_source_adt_scaling;
 mod wide_generic_constructor_scaling;
 
 fn diagnostics_for(source: &str) -> Vec<Diagnostic> {

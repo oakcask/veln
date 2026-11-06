@@ -32,6 +32,7 @@ mod satisfy_negated_require_repairs;
 mod satisfy_require_implication_repairs;
 mod satisfy_tautology_repairs;
 mod schema_decode_field_classification;
+mod source_adt_variance_inference;
 mod standard_library_effects;
 mod standard_reuse;
 mod typechecking_and_match_exhaustiveness;

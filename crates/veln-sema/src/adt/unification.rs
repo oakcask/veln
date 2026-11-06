@@ -96,92 +96,163 @@ pub(super) fn assign_core_type_arg(args: &mut [CoreType], index: usize, actual: 
 }
 
 pub(crate) fn merge_type_slot(slot: &mut Type, actual: &Type) -> bool {
-    if actual == &Type::Unknown {
-        return false;
-    }
-    match (slot, actual) {
-        (slot @ Type::Unknown, _) => {
-            *slot = actual.clone();
-            true
+    let mut changed = false;
+    let mut pending = vec![(slot, actual)];
+    while let Some((slot, actual)) = pending.pop() {
+        if matches!(actual, Type::Unknown) {
+            continue;
         }
-        (
+        match slot {
+            slot @ Type::Unknown => {
+                *slot = actual.clone();
+                changed = true;
+            }
             Type::Named {
                 name: slot_name,
                 identity: slot_identity,
                 args: slot_args,
-            },
-            Type::Named {
-                name: actual_name,
-                identity: actual_identity,
-                args: actual_args,
-            },
-        ) if crate::type_relations::same_type_identity(
-            slot_name,
-            slot_identity,
-            actual_name,
-            actual_identity,
-        ) && slot_args.len() == actual_args.len() =>
-        {
-            merge_type_arguments(slot_args, actual_args)
-        }
-        (
+            } => queue_named_type_merge(slot_name, slot_identity, slot_args, actual, &mut pending),
             Type::VariantRefinement {
                 name: slot_name,
                 identity: slot_identity,
                 args: slot_args,
                 ..
-            },
-            Type::Named {
-                name: actual_name,
-                identity: actual_identity,
-                args: actual_args,
-            }
-            | Type::VariantRefinement {
-                name: actual_name,
-                identity: actual_identity,
-                args: actual_args,
-                ..
-            },
-        ) if slot_args.len() == actual_args.len()
-            && crate::type_relations::same_type_identity(
+            } => queue_refinement_type_merge(
                 slot_name,
                 slot_identity,
-                actual_name,
-                actual_identity,
-            ) =>
-        {
-            merge_type_arguments(slot_args, actual_args)
-        }
-        (Type::Record(slot_fields), Type::Record(actual_fields)) => {
-            merge_record_fields(slot_fields, actual_fields)
-        }
-        (
+                slot_args,
+                actual,
+                &mut pending,
+            ),
+            Type::Record(slot_fields) => queue_record_type_merge(slot_fields, actual, &mut pending),
             Type::Function {
                 params: slot_params,
                 variadic: slot_variadic,
                 return_type: slot_return,
                 effects: _,
-            },
-            Type::Function {
-                params: actual_params,
-                variadic: actual_variadic,
-                return_type: actual_return,
-                effects: _,
-            },
-        ) if slot_params.len() == actual_params.len()
-            && slot_variadic.is_some() == actual_variadic.is_some() =>
-        {
-            merge_function_parts(
+            } => queue_function_type_merge(
                 slot_params,
                 slot_variadic,
                 slot_return,
-                actual_params,
-                actual_variadic.as_deref(),
-                actual_return,
-            )
+                actual,
+                &mut pending,
+            ),
         }
-        _ => false,
     }
+    changed
+}
+
+fn queue_named_type_merge<'slot, 'actual>(
+    slot_name: &str,
+    slot_identity: &str,
+    slot_args: &'slot mut [Type],
+    actual: &'actual Type,
+    pending: &mut Vec<(&'slot mut Type, &'actual Type)>,
+) {
+    let Type::Named {
+        name: actual_name,
+        identity: actual_identity,
+        args: actual_args,
+    } = actual
+    else {
+        return;
+    };
+    queue_matching_type_args(
+        (slot_name, slot_identity, slot_args),
+        (actual_name, actual_identity, actual_args),
+        pending,
+    );
+}
+
+fn queue_refinement_type_merge<'slot, 'actual>(
+    slot_name: &str,
+    slot_identity: &str,
+    slot_args: &'slot mut [Type],
+    actual: &'actual Type,
+    pending: &mut Vec<(&'slot mut Type, &'actual Type)>,
+) {
+    let (actual_name, actual_identity, actual_args) = match actual {
+        Type::Named {
+            name,
+            identity,
+            args,
+        }
+        | Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => (name, identity, args),
+        _ => return,
+    };
+    queue_matching_type_args(
+        (slot_name, slot_identity, slot_args),
+        (actual_name, actual_identity, actual_args),
+        pending,
+    );
+}
+
+fn queue_matching_type_args<'slot, 'actual>(
+    (slot_name, slot_identity, slot_args): (&str, &str, &'slot mut [Type]),
+    (actual_name, actual_identity, actual_args): (&str, &str, &'actual [Type]),
+    pending: &mut Vec<(&'slot mut Type, &'actual Type)>,
+) {
+    if slot_args.len() == actual_args.len()
+        && crate::type_relations::same_type_identity(
+            slot_name,
+            slot_identity,
+            actual_name,
+            actual_identity,
+        )
+    {
+        pending.extend(slot_args.iter_mut().zip(actual_args));
+    }
+}
+
+fn queue_record_type_merge<'slot, 'actual>(
+    slot_fields: &'slot mut [(String, Type)],
+    actual: &'actual Type,
+    pending: &mut Vec<(&'slot mut Type, &'actual Type)>,
+) {
+    let Type::Record(actual_fields) = actual else {
+        return;
+    };
+    for (name, slot) in slot_fields {
+        if let Some((_, actual)) = actual_fields
+            .iter()
+            .find(|(actual_name, _)| actual_name == name)
+        {
+            pending.push((slot, actual));
+        }
+    }
+}
+
+fn queue_function_type_merge<'slot, 'actual>(
+    slot_params: &'slot mut [Type],
+    slot_variadic: &'slot mut Option<Box<Type>>,
+    slot_return: &'slot mut Type,
+    actual: &'actual Type,
+    pending: &mut Vec<(&'slot mut Type, &'actual Type)>,
+) {
+    let Type::Function {
+        params: actual_params,
+        variadic: actual_variadic,
+        return_type: actual_return,
+        effects: _,
+    } = actual
+    else {
+        return;
+    };
+    if slot_params.len() != actual_params.len()
+        || slot_variadic.is_some() != actual_variadic.is_some()
+    {
+        return;
+    }
+    pending.extend(slot_params.iter_mut().zip(actual_params));
+    if let (Some(slot), Some(actual)) = (slot_variadic.as_deref_mut(), actual_variadic.as_deref()) {
+        pending.push((slot, actual));
+    }
+    pending.push((slot_return, actual_return));
 }
 
 #[derive(Debug)]
@@ -255,45 +326,6 @@ pub(crate) fn is_direct_variant_carrier(expected: &Type, actual: &Type) -> bool 
         actual_name,
         actual_identity,
     ) && crate::type_relations::invariant_args_match(expected_args, actual_args)
-}
-
-fn merge_type_arguments(slots: &mut [Type], actuals: &[Type]) -> bool {
-    slots
-        .iter_mut()
-        .zip(actuals)
-        .fold(false, |changed, (slot, actual)| {
-            merge_type_slot(slot, actual) || changed
-        })
-}
-
-fn merge_record_fields(
-    slot_fields: &mut [(String, Type)],
-    actual_fields: &[(String, Type)],
-) -> bool {
-    slot_fields.iter_mut().fold(false, |changed, (name, slot)| {
-        let field_changed = actual_fields
-            .iter()
-            .find(|(actual_name, _)| actual_name == name)
-            .is_some_and(|(_, actual)| merge_type_slot(slot, actual));
-        field_changed || changed
-    })
-}
-
-fn merge_function_parts(
-    slot_params: &mut [Type],
-    slot_variadic: &mut Option<Box<Type>>,
-    slot_return: &mut Box<Type>,
-    actual_params: &[Type],
-    actual_variadic: Option<&Type>,
-    actual_return: &Type,
-) -> bool {
-    let params_changed = merge_type_arguments(slot_params, actual_params);
-    let variadic_changed = slot_variadic
-        .as_deref_mut()
-        .zip(actual_variadic)
-        .is_some_and(|(slot, actual)| merge_type_slot(slot, actual));
-    let return_changed = merge_type_slot(slot_return, actual_return);
-    params_changed || variadic_changed || return_changed
 }
 
 pub(super) fn merge_core_type_slot(slot: &mut CoreType, actual: &CoreType) {

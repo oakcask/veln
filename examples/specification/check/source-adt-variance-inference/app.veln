@@ -1,0 +1,23 @@
+use api as dep
+
+type State
+	Ready
+	Closed
+	Failed
+end
+
+type Positive<T>
+	Present(T)
+end
+
+fn local_join(first: Positive<State::Ready>, second: Positive<State::Closed>) -> ()
+	let inferred = [first, second]
+	let observed: Vec<Positive<State::Ready | State::Closed>> = inferred
+	()
+end
+
+fn imported_join(first: dep::Positive<dep::State::Ready>, second: dep::Positive<dep::State::Closed>) -> ()
+	let inferred = [second, first]
+	let observed: Vec<dep::Positive<dep::State::Ready | dep::State::Closed>> = inferred
+	()
+end

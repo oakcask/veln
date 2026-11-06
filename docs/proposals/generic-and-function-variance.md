@@ -7,43 +7,13 @@ update-when: Checked source-ADT variance classification production, retention, o
 
 ## Summary
 
-This proposal contains the remaining work for named generic variance. The
-compiler computes and retains one checked variance classification per
-source-ADT type parameter, and assignment consumes that metadata for local and
-imported declarations. Bounded inference does not consume it yet. Registry
-construction normalizes wrong-length internal classification metadata to one
-invariant entry per declared parameter before source-ADT composition.
-Composition through another source declaration uses its classifications only
-when owner-aware lookup resolves one accessible constructor with the expected
-arity; unavailable, inaccessible, or ambiguous constructors remain invariant.
-Compiler-owned `Vec` and `Dict` classifications are selected by their compiler
-identity and exact arity. Veln will add no declaration-site variance modifiers.
-The remaining work includes bounded generic inference and its dependency
-metadata consumption, detailed nested incompatibility context, presentation,
-and failure preservation.
-
-Recursive assignment through records and functions is current behavior under
-the [type specification](../specification/types.md#compatibility-and-limits).
-That implemented kernel makes record fields and function results covariant,
-function inputs contravariant, and concrete function effect sets covariant.
-The compiler-owned immutable `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`,
-and `Dict<K, V>` constructors already apply assignment covariance as described
-by the current
-[type specification](../specification/types.md#compatibility-and-limits).
-Current context-free aggregate, control-flow, and constructor inference still
-rejects unequal complete arguments even when assignment covariance relates
-them. The bounded joins proposed below are remaining behavior; they would
-replace that current limitation rather than describe behavior already
-implemented.
-
-## Implemented Assignment Prerequisite
-
-Source-ADT assignment uses the retained checked classifications, resolved
-constructor identity, and refinement-set subset relation. The current
-[type specification](../specification/types.md#compatibility-and-limits) owns
-that implemented behavior and its executable evidence. The remaining inference
-design below uses the same classification vocabulary without changing the
-implemented assignment relation.
+This proposal contains the remaining work for named generic variance. Current
+assignment and source-ADT covariant inference behavior is defined by the
+[type specification](../specification/types.md#compatibility-and-limits) and
+its [inference rules](../specification/types.md#inference-rules). The remaining
+work adds bounded inference beyond source-ADT covariant joins, dependency
+invalidation, detailed nested incompatibility context, presentation, and
+failure preservation. It does not add declaration-site variance modifiers.
 
 ## Related Work For Remaining Inference
 
@@ -90,7 +60,7 @@ Normalize aliases and effect/field ordering before applying this table.
 | --- | --- |
 | All resolved types equal | That type. |
 | Same nominal constructor, with refinements allowed | Join variant sets by union, treating a base as the complete set; compute arguments by the following variance rows. |
-| Covariant argument | `J` of the argument contributions. |
+| Covariant argument beyond the implemented source-ADT case | `J` of the argument contributions. |
 | Contravariant argument | `M` of the argument contributions. |
 | Invariant or irrelevant argument | Require equal arguments for context-free inference. Otherwise require an explicit expected type; do not invent an argument or erase its identity. |
 | Records with identical field names | Join each corresponding field with `J`. |
@@ -124,19 +94,17 @@ explicit context using the existing ambiguity diagnostics. Omitted private
 signatures and local bindings remain monomorphic; variance does not turn a
 single inferred binding into an independently instantiated generic value.
 
-A payload contributes all of its constraints or none. A rejected payload or
-expression must not change previously admitted type facts or alias provenance.
-Successful inference over the same
-contributions has the same resolved type and presentation in every order.
+A remaining structural or meet contribution must be transactional. A rejected
+payload or expression must not change previously admitted type facts or alias
+provenance. Successful inference over the same contributions must have the
+same resolved type and presentation in every order.
 Diagnostic recovery may report errors at their original source locations; it
 must not use a failed contribution to justify another accepted assignment.
 
-## Remaining Metadata Consumption, Presentation, And Failure
+## Remaining Invalidation, Presentation, And Failure
 
 | Surface | Selected behavior |
 | --- | --- |
-| Dependency type metadata | Inference consumes the checked classifications retained for local and imported declarations, keyed by resolved declaration identity and parameter order. No metadata-only package input or serialized interface format is introduced. |
-| Missing or invalid variance metadata | Registry construction already normalizes a wrong-length internal classification vector to one invariant entry per declared parameter. Inference treats other unavailable classifications as invariant and never infers covariance from a displayed signature. Structurally malformed package input still follows the package loader's ordinary rejection policy. |
 | Declaration changes | Recompute affected variance contracts and invalidate dependent analysis before accepting downstream assignments. A stale classification cannot survive a payload change. |
 | Source, formatter, package declaration display | Keep `type Name<T...>`; emit no inferred variance modifiers or replacement type names. |
 | Diagnostics, LSP, MCP | Show ordinary types and existing alias preferences. Equal target identity with differing aliases is not a mismatch. Mixed alias preferences in inferred joins use the canonical target name permanently for that inference. |
@@ -154,8 +122,7 @@ repair context; the primary message remains the specific assignment failure.
 
 ## Acceptance Model
 
-Current semantic tests check the retained source-ADT classifications separately
-from the remaining consumer contracts. The producer performance regression uses
+The producer performance regression uses
 a nested covariant `Pair` comb at depths 128 and 256. When depth doubles, the
 tracked factor-evaluation and dependency-edge counts may grow by at most twice
 the smaller count plus eight. Elapsed time is diagnostic output and is not an
@@ -171,13 +138,12 @@ single-dimension result, and the combined work can at most double the baseline
 plus ten. Elapsed time is diagnostic output and is not an acceptance threshold.
 
 The evidence below is planned, not implemented or passing. The tables above
-remain the independent acceptance oracle for the remaining consumers; current
-inference behavior cannot supply the expected results.
+remain the independent acceptance oracle only for the remaining behavior.
 
 | Contract | Planned evidence and required observation |
 | --- | --- |
-| Bounded inference | Permuted branch, collection, and payload cases cover successful joins, annotation-required meets, irrelevant slots, exact constraints, and transactional exclusion of failed contributions. |
-| Metadata and identity | Package fixtures prove that inference consumes local and imported checked classifications, retains invariant fallback when metadata is absent, and observes invalidation after a variance-changing payload edit. |
+| Bounded inference | Permuted cases cover annotation-required contravariant meets, compiler-owned and structural joins, and transactional exclusion of failures outside the implemented source-ADT join. |
+| Metadata invalidation | Package fixtures prove that a variance-changing payload edit invalidates dependent analysis before subsequent inference. |
 | Presentation and diagnostics | Human and JSON fixtures cover nested paths, reversed input comparison, direct exclusions, aliases, modifier-free declarations, and stable package/LSP/MCP presentations. |
 | Failure preservation | Analysis and language-service regression cases prove no partial signature escapes rejection, retained successful snapshots survive applicable failures, and rejected programs do not run. |
 
@@ -202,5 +168,5 @@ runtime representation changes solely for variance.
 
 The inspected local implementation anchor is
 `crates/veln-sema/src/aggregate_type_join.rs` for current refinement joins.
-It identifies the affected inference boundary; the proposal tables define the
-intended replacement behavior.
+It identifies the shared inference boundary. The proposal tables define only
+the intended behavior that remains beyond the implemented source-ADT join.

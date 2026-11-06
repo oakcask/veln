@@ -1,0 +1,9 @@
+pub type State
+	Ready
+	Closed
+	Failed
+end
+
+pub type Positive<T>
+	Present(T)
+end
