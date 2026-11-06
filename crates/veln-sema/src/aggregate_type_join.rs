@@ -352,9 +352,12 @@ fn join_node<'a>(
     Some((
         JoinNode {
             name: initial.name.to_string(),
-            canonical_name: adts
-                .descriptor_for_type(initial.ty)
-                .map(|descriptor| adts.canonical_type_name_for_descriptor(descriptor))
+            canonical_name: Type::compiler_covariant_name(initial.identity)
+                .map(str::to_string)
+                .or_else(|| {
+                    adts.descriptor_for_type(initial.ty)
+                        .map(|descriptor| adts.canonical_type_name_for_descriptor(descriptor))
+                })
                 .unwrap_or_else(|| initial.name.to_string()),
             presentation_conflicted: false,
             identity: initial.identity.to_string(),

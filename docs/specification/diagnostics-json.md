@@ -866,14 +866,13 @@ resolved compiler-owned identity. A source or imported constructor with the
 same displayed name instead uses its own checked classifications, and its
 aliases retain those classifications. Distinct nominal owners remain
 incompatible. During aggregate inference, an
-incompatible later contribution reports the aggregate position's accumulated
-type as expected and preserves the later contribution's constructor refinement
-as actual. The accumulated expected type contains only successfully typed
-contributions. A contribution that already produced a diagnostic leaves that
-type unchanged, does not produce a derivative aggregate mismatch, and cannot
-change the expected type reported for a later contribution. A rejected call or
-constructor expression follows this rule even when recovery can determine its
-refined result type from the resolved declaration. The current
+incompatible later contribution reports `type.mismatch` at that contribution.
+The rejected contribution changes no admitted aggregate join state. A later
+valid contribution continues from the last admitted state. A contribution that
+already produced a diagnostic also leaves the join state unchanged and does
+not produce a derivative aggregate mismatch. A rejected call or constructor
+expression follows this rule even when recovery can determine its refined
+result type from the resolved declaration. The current
 [type inference rules](types.md#inference-rules) define which direct payload
 contributions can join and which nested payload occurrences remain exact. When
 an exact nested constraint rejects a contribution, the diagnostic reports the
@@ -891,10 +890,9 @@ Without a concrete expected component or result type, same-constructor
 `Option`, `Result`, `List`, `Vec`, or `Dict` contributions recursively join
 their covariant arguments. A nested argument that has no bounded join reports
 ordinary `type.mismatch` at the incompatible contribution. The accumulated
-type is `expected_type`, and the contribution's complete type is `actual_type`.
-The rejected contribution changes no previously admitted argument, refinement,
-or alias presentation, so a later valid contribution is checked against the
-last admitted state. The checked
+join state keeps every previously admitted argument, refinement, and alias
+presentation unchanged. A later valid contribution continues from that state.
+The checked
 [`compiler-owned covariant inference diagnostic`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/)
 covers that failure and preservation boundary.
 

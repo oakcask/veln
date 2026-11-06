@@ -1,0 +1,24 @@
+type State
+	Ready
+	Closed
+end
+
+pub type FirstTable = Dict
+pub type SecondTable = Dict
+
+fn forward(first: FirstTable<String, State::Ready>, second: SecondTable<String, State::Closed>)
+	[first, second]
+end
+
+fn reverse(first: FirstTable<String, State::Ready>, second: SecondTable<String, State::Closed>)
+	[second, first]
+end
+
+fn needs_int(value: Int) -> ()
+	()
+end
+
+fn observe(first: FirstTable<String, State::Ready>, second: SecondTable<String, State::Closed>) -> ()
+	needs_int(forward(first, second))
+	needs_int(reverse(first, second))
+end

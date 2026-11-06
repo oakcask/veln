@@ -13,6 +13,14 @@ fn compiler_owned_covariant_arguments_join_recursively_and_in_any_order() {
             "end\n",
             "pub type First = State\n",
             "pub type Second = State\n",
+            "pub type FirstOption = Option\n",
+            "pub type SecondOption = Option\n",
+            "pub type FirstResult = Result\n",
+            "pub type SecondResult = Result\n",
+            "pub type FirstList = List\n",
+            "pub type SecondList = List\n",
+            "pub type FirstDict = Dict\n",
+            "pub type SecondDict = Dict\n",
             "type Positive<T>\n",
             "  Present(T)\n",
             "end\n",
@@ -62,6 +70,30 @@ fn compiler_owned_covariant_arguments_join_recursively_and_in_any_order() {
             "fn dictionary_forward(first: Dict<Option<State::Ready>, Positive<State::Closed>>, second: Dict<Option<State::Closed>, Positive<State::Failed>>)\n",
             "  [first, second]\n",
             "end\n",
+            "fn option_aliases(first: FirstOption<State::Ready>, second: SecondOption<State::Closed>)\n",
+            "  [first, second]\n",
+            "end\n",
+            "fn option_aliases_reverse(first: FirstOption<State::Ready>, second: SecondOption<State::Closed>)\n",
+            "  [second, first]\n",
+            "end\n",
+            "fn result_aliases(first: FirstResult<State::Ready, State::Closed>, second: SecondResult<State::Closed, State::Failed>)\n",
+            "  [first, second]\n",
+            "end\n",
+            "fn result_aliases_reverse(first: FirstResult<State::Ready, State::Closed>, second: SecondResult<State::Closed, State::Failed>)\n",
+            "  [second, first]\n",
+            "end\n",
+            "fn list_aliases(first: FirstList<State::Ready>, second: SecondList<State::Closed>)\n",
+            "  [first, second]\n",
+            "end\n",
+            "fn list_aliases_reverse(first: FirstList<State::Ready>, second: SecondList<State::Closed>)\n",
+            "  [second, first]\n",
+            "end\n",
+            "fn dict_aliases(first: FirstDict<String, State::Ready>, second: SecondDict<String, State::Closed>)\n",
+            "  [first, second]\n",
+            "end\n",
+            "fn dict_aliases_reverse(first: FirstDict<String, State::Ready>, second: SecondDict<String, State::Closed>)\n",
+            "  [second, first]\n",
+            "end\n",
         ),
     );
     let parsed = parse(&source);
@@ -102,6 +134,35 @@ fn compiler_owned_covariant_arguments_join_recursively_and_in_any_order() {
             "dictionary_forward",
             "Vec<Dict<Option<State::Ready | State::Closed>, Positive<State::Closed | State::Failed>>>",
         ),
+        (
+            "option_aliases",
+            "Vec<Option<State::Ready | State::Closed>>",
+        ),
+        (
+            "option_aliases_reverse",
+            "Vec<Option<State::Ready | State::Closed>>",
+        ),
+        (
+            "result_aliases",
+            "Vec<Result<State::Ready | State::Closed, State::Closed | State::Failed>>",
+        ),
+        (
+            "result_aliases_reverse",
+            "Vec<Result<State::Ready | State::Closed, State::Closed | State::Failed>>",
+        ),
+        ("list_aliases", "Vec<List<State::Ready | State::Closed>>"),
+        (
+            "list_aliases_reverse",
+            "Vec<List<State::Ready | State::Closed>>",
+        ),
+        (
+            "dict_aliases",
+            "Vec<Dict<String, State::Ready | State::Closed>>",
+        ),
+        (
+            "dict_aliases_reverse",
+            "Vec<Dict<String, State::Ready | State::Closed>>",
+        ),
     ] {
         assert_eq!(
             environment
@@ -113,6 +174,59 @@ fn compiler_owned_covariant_arguments_join_recursively_and_in_any_order() {
             "unexpected inferred result for {function}",
         );
     }
+}
+
+#[test]
+fn compiler_owned_outer_alias_conflicts_use_canonical_carrier_names() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "end\n",
+            "pub type FirstTable = Dict\n",
+            "pub type SecondTable = Dict\n",
+            "fn forward(first: FirstTable<String, State::Ready>, second: SecondTable<String, State::Closed>)\n",
+            "  [first, second]\n",
+            "end\n",
+            "fn reverse(first: FirstTable<String, State::Ready>, second: SecondTable<String, State::Closed>)\n",
+            "  [second, first]\n",
+            "end\n",
+            "fn canonical_and_alias(first: Dict<String, State::Ready>, second: FirstTable<String, State::Closed>)\n",
+            "  [first, second]\n",
+            "end\n",
+            "fn sticky(first: FirstTable<String, State::Ready>, second: SecondTable<String, State::Closed>, later: FirstTable<String, State::Ready>)\n",
+            "  [first, second, later]\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["forward", "reverse", "sticky"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            "Vec<Dict<String, State>>",
+            "unexpected inferred result for {function}",
+        );
+    }
+    assert_eq!(
+        environment
+            .function("canonical_and_alias")
+            .expect("canonical_and_alias function")
+            .return_type
+            .render(),
+        "Vec<FirstTable<String, State>>",
+    );
 }
 
 #[test]

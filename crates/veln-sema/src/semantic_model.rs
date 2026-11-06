@@ -453,11 +453,18 @@ impl Type {
     }
 
     pub(crate) fn is_compiler_covariant_identity(identity: &str) -> bool {
-        identity == Self::COMPILER_OPTION_IDENTITY
-            || identity == Self::COMPILER_RESULT_IDENTITY
-            || identity == Self::COMPILER_LIST_IDENTITY
-            || identity == Self::COMPILER_VEC_IDENTITY
-            || Self::is_compiler_dict_identity(identity)
+        Self::compiler_covariant_name(identity).is_some()
+    }
+
+    pub(crate) fn compiler_covariant_name(identity: &str) -> Option<&'static str> {
+        match identity {
+            Self::COMPILER_OPTION_IDENTITY => Some("Option"),
+            Self::COMPILER_RESULT_IDENTITY => Some("Result"),
+            Self::COMPILER_LIST_IDENTITY => Some("List"),
+            Self::COMPILER_VEC_IDENTITY => Some("Vec"),
+            Self::COMPILER_DICT_IDENTITY => Some("Dict"),
+            _ => None,
+        }
     }
 
     pub(crate) fn dict_parts(&self) -> Option<(&Type, &Type)> {
