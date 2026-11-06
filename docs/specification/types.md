@@ -222,13 +222,19 @@ Non-empty `Vec<T>` and `Dict<K, V>` literals infer their element, key, and
 value positions from every successfully typed contribution. Constructor
 refinements of the same resolved ADT and compatible generic arguments join
 into a declaration-ordered variant set, independent of source order. An
-unresolved generic argument can become concrete from another contribution;
-after it is concrete, later contributions must have the same argument. A join
-containing every declared variant, or a join of a refinement and its base ADT,
-becomes the base ADT. A contribution that produces its own diagnostic does not
-change the accumulated type, so a later successful contribution joins with
-only the preceding successful facts. Other conflicting facts remain focused
-`type.mismatch` diagnostics at the incompatible element, key, or value.
+unresolved generic argument can become concrete from another contribution.
+Same-constructor source ADTs recursively join arguments whose checked
+classification is covariant. Same-constructor contributions to the
+compiler-owned immutable `Option`, `Result`, `List`, `Vec`, and `Dict`
+constructors recursively join every argument.
+Arguments classified as invariant, irrelevant, or contravariant, and arguments
+whose classification is unavailable, must match exactly. A join containing
+every declared variant, or a join of a refinement and its base ADT, becomes the
+base ADT. A contribution that produces its own diagnostic or requires an
+unavailable nested join does not change the accumulated type. A later
+successful contribution therefore joins with only the preceding successful
+facts. Other conflicting facts remain focused `type.mismatch` diagnostics at
+the incompatible element, key, or value.
 
 When a private non-exported helper omits parameter or return annotations,
 same-module concrete call sites may constrain the helper's single monomorphic
