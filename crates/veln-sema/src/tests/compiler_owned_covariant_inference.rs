@@ -668,7 +668,7 @@ fn failed_compiler_owned_nested_join_preserves_admitted_state() {
         "end\n",
         "pub type First = State\n",
         "pub type Second = State\n",
-        "fn retained(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>)\n",
+        "fn retained(first: Dict<Option<Int>, Result<First::Ready, First::Ready>>, rejected: Dict<Option<String>, Result<Second::Failed, Second::Closed>>, later: Dict<Option<Int>, Result<First::Closed, First::Ready>>)\n",
         "  [first, rejected, later]\n",
         "end\n",
     );
@@ -689,7 +689,7 @@ fn failed_compiler_owned_nested_join_preserves_admitted_state() {
             .expect("retained function")
             .return_type
             .render(),
-        "Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>>",
+        "Vec<Dict<Option<Int>, Result<First::Ready | First::Closed, First::Ready>>>",
     );
 }
 
