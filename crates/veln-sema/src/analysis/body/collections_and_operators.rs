@@ -370,27 +370,7 @@ impl<'a> FunctionChecker<'a> {
         inner: &Expr,
         expected: Option<&ExpectedType<'_>>,
     ) -> Type {
-        let return_result = self
-            .function
-            .return_type
-            .as_deref()
-            .and_then(|return_type| parse_type_annotation(return_type).ok())
-            .map(|ty| {
-                self.environment.canonicalize_type_annotation_in_owner(
-                    ty,
-                    self.function.module_name.as_deref(),
-                    self.function.package_name.as_deref(),
-                )
-            })
-            .and_then(|return_type| {
-                adt::result_parts(&return_type).map(|(value, error)| (value.clone(), error.clone()))
-            });
-        let (value_type, error_type) = match (expected, return_result) {
-            (Some(expected), Some((_, error_type))) => (expected.ty.as_ref().clone(), error_type),
-            (Some(expected), None) => (expected.ty.as_ref().clone(), Type::Unknown),
-            (None, Some((_, error_type))) => (Type::Unknown, error_type),
-            (None, None) => (Type::Unknown, Type::Unknown),
-        };
+        let (value_type, error_type) = self.try_context_types(expected);
         let mut inner_expected = ExpectedType {
             ty: std::borrow::Cow::Owned(adt::result_type(value_type.clone(), error_type.clone())),
             source: ExpectedTypeSource::Inferred,
@@ -423,6 +403,32 @@ impl<'a> FunctionChecker<'a> {
             },
             |_| value_type,
         )
+    }
+
+    fn try_context_types(&self, expected: Option<&ExpectedType<'_>>) -> (Type, Type) {
+        match (expected, self.declared_result_return_parts()) {
+            (Some(expected), Some((_, error_type))) => (expected.ty.as_ref().clone(), error_type),
+            (Some(expected), None) => (expected.ty.as_ref().clone(), Type::Unknown),
+            (None, Some((_, error_type))) => (Type::Unknown, error_type),
+            (None, None) => (Type::Unknown, Type::Unknown),
+        }
+    }
+
+    fn declared_result_return_parts(&self) -> Option<(Type, Type)> {
+        self.function
+            .return_type
+            .as_deref()
+            .and_then(|return_type| parse_type_annotation(return_type).ok())
+            .map(|ty| {
+                self.environment.canonicalize_type_annotation_in_owner(
+                    ty,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
+            })
+            .and_then(|return_type| {
+                adt::result_parts(&return_type).map(|(value, error)| (value.clone(), error.clone()))
+            })
     }
 
     pub(super) fn infer_prefix(

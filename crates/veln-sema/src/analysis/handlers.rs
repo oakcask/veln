@@ -433,6 +433,36 @@ fn clause_body_diagnostics(
         environment,
         &mut variant_diagnostics,
     );
+    admit_clause_bindings(&mut checker, handler, clause, operation, signature);
+    let expected = ExpectedType {
+        ty: std::borrow::Cow::Owned(operation.return_type.clone()),
+        source: ExpectedTypeSource::DeclaredReturn,
+        origin_node_id: operation.node_id,
+        origin_span: Some(operation.name_span.clone()),
+        origin_message: "Operation result type is declared here.",
+    };
+    let actual = checker.infer_expr(&clause.body, Some(&expected));
+    checker.check_assignable(
+        &clause.body,
+        &operation.return_type,
+        &actual,
+        &expected,
+        "handler_operation_result",
+    );
+    let mut diagnostics = std::mem::take(&mut checker.diagnostics);
+    diagnostics.extend(clause_effect_diagnostics(
+        handler, clause, operation, signature, effect, &checker,
+    ));
+    diagnostics
+}
+
+fn admit_clause_bindings(
+    checker: &mut FunctionChecker<'_>,
+    handler: &HandlerDecl,
+    clause: &HandlerOperationClauseDecl,
+    operation: &EffectOperationSignature,
+    signature: &HandlerSignature,
+) {
     for (index, param) in handler.params.iter().enumerate() {
         checker.admit_value_binding_without_duplicate_diagnostic(
             &param.name,
@@ -453,63 +483,79 @@ fn clause_body_diagnostics(
                 .unwrap_or(Type::Unknown),
         );
     }
-    let expected = ExpectedType {
-        ty: std::borrow::Cow::Owned(operation.return_type.clone()),
-        source: ExpectedTypeSource::DeclaredReturn,
-        origin_node_id: operation.node_id,
-        origin_span: Some(operation.name_span.clone()),
-        origin_message: "Operation result type is declared here.",
-    };
-    let actual = checker.infer_expr(&clause.body, Some(&expected));
-    checker.check_assignable(
-        &clause.body,
-        &operation.return_type,
-        &actual,
-        &expected,
-        "handler_operation_result",
-    );
-    let mut diagnostics = std::mem::take(&mut checker.diagnostics);
-    if checker
+}
+
+fn clause_effect_diagnostics(
+    handler: &HandlerDecl,
+    clause: &HandlerOperationClauseDecl,
+    operation: &EffectOperationSignature,
+    signature: &HandlerSignature,
+    effect: &EffectSignature,
+    checker: &FunctionChecker<'_>,
+) -> Vec<Diagnostic> {
+    recursive_clause_diagnostic_if_needed(clause, signature, effect, checker)
+        .into_iter()
+        .chain(missing_public_effect_diagnostics(
+            handler, clause, operation, signature, effect, checker,
+        ))
+        .collect()
+}
+
+fn recursive_clause_diagnostic_if_needed(
+    clause: &HandlerOperationClauseDecl,
+    signature: &HandlerSignature,
+    effect: &EffectSignature,
+    checker: &FunctionChecker<'_>,
+) -> Option<Diagnostic> {
+    checker
         .inferred_effects
         .iter()
         .any(|effect_use| effect_use.effect == signature.effect)
-    {
-        diagnostics.push(recursive_clause_diagnostic(clause, signature, effect));
+        .then(|| recursive_clause_diagnostic(clause, signature, effect))
+}
+
+fn missing_public_effect_diagnostics(
+    handler: &HandlerDecl,
+    clause: &HandlerOperationClauseDecl,
+    operation: &EffectOperationSignature,
+    signature: &HandlerSignature,
+    effect: &EffectSignature,
+    checker: &FunctionChecker<'_>,
+) -> Vec<Diagnostic> {
+    if handler.visibility != Visibility::Public {
+        return Vec::new();
     }
-    if handler.visibility == Visibility::Public {
-        diagnostics.extend(
-            checker
-                .inferred_effects
-                .iter()
-                .filter(|effect_use| {
-                    effect_use.effect != signature.effect
-                        && !signature
-                            .effects
-                            .iter()
-                            .any(|declared| declared == &effect_use.effect)
-                })
-                .map(|effect_use| {
-                    Diagnostic::new(
-                        "handler.missing_public_effect",
-                        Severity::Error,
-                        DiagnosticKind::Effect,
-                        format!(
-                            "public handler `{}` uses undeclared effect `{}`",
-                            signature.qualified_name, effect_use.effect
-                        ),
-                        Some(clause.body.span.clone()),
-                        clause_details(
-                            clause.node_id.display("clause"),
-                            signature,
-                            effect,
-                            Some(&operation.name),
-                            "missing_public_effect",
-                        ),
-                    )
-                }),
-        );
-    }
-    diagnostics
+
+    checker
+        .inferred_effects
+        .iter()
+        .filter(|effect_use| {
+            effect_use.effect != signature.effect
+                && !signature
+                    .effects
+                    .iter()
+                    .any(|declared| declared == &effect_use.effect)
+        })
+        .map(|effect_use| {
+            Diagnostic::new(
+                "handler.missing_public_effect",
+                Severity::Error,
+                DiagnosticKind::Effect,
+                format!(
+                    "public handler `{}` uses undeclared effect `{}`",
+                    signature.qualified_name, effect_use.effect
+                ),
+                Some(clause.body.span.clone()),
+                clause_details(
+                    clause.node_id.display("clause"),
+                    signature,
+                    effect,
+                    Some(&operation.name),
+                    "missing_public_effect",
+                ),
+            )
+        })
+        .collect()
 }
 
 fn synthetic_clause_function(

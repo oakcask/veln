@@ -924,30 +924,14 @@ impl<'a> FunctionChecker<'a> {
             ty: &scrutinee_type,
             stable_place,
         };
-        let reorder_for_completion = expected.is_none() && refined_coverage.is_none();
-        let completion_passes: &[bool] = if reorder_for_completion {
-            &[false, true]
-        } else {
-            &[false]
-        };
-        for completion_pass in completion_passes {
-            for arm in arms {
-                if reorder_for_completion
-                    && self.expression_needs_aggregate_completion_context(&arm.expr)
-                        != *completion_pass
-                {
-                    continue;
-                }
-                self.infer_match_arm(
-                    expr,
-                    &domain,
-                    arm,
-                    expected,
-                    &mut result,
-                    refined_coverage.as_mut(),
-                );
-            }
-        }
+        self.infer_match_arms(
+            expr,
+            &domain,
+            arms,
+            expected,
+            &mut result,
+            &mut refined_coverage,
+        );
 
         if uses_refined_match_diagnostics && let Some(coverage) = refined_coverage {
             if let Some(missing_case) = coverage.first_missing_case() {
@@ -1470,6 +1454,41 @@ impl<'a> FunctionChecker<'a> {
         self.infer_match_arm_result(match_expr, arm, expected, result);
 
         self.end_match_arm_scope(scope, retained_refinement_variants);
+    }
+
+    fn infer_match_arms(
+        &mut self,
+        match_expr: &Expr,
+        domain: &RefinedMatchDomain<'_>,
+        arms: &[MatchArm],
+        expected: Option<&ExpectedType<'_>>,
+        result: &mut ControlFlowResultJoin,
+        refined_coverage: &mut Option<RefinedMatchCoverage>,
+    ) {
+        let reorder_for_completion = expected.is_none() && refined_coverage.is_none();
+        let completion_passes: &[bool] = if reorder_for_completion {
+            &[false, true]
+        } else {
+            &[false]
+        };
+        for completion_pass in completion_passes {
+            for arm in arms {
+                if reorder_for_completion
+                    && self.expression_needs_aggregate_completion_context(&arm.expr)
+                        != *completion_pass
+                {
+                    continue;
+                }
+                self.infer_match_arm(
+                    match_expr,
+                    domain,
+                    arm,
+                    expected,
+                    result,
+                    refined_coverage.as_mut(),
+                );
+            }
+        }
     }
 
     fn begin_match_arm_scope(&mut self) -> MatchArmScope {

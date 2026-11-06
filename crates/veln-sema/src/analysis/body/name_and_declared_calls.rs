@@ -2,6 +2,13 @@ use super::*;
 use crate::effect_rows::EffectRowSubstitutions;
 use crate::types::ModuleValueLookup;
 
+struct InferredCallArgument<'a> {
+    argument: &'a Expr,
+    expected: ExpectedType<'static>,
+    actual: Type,
+    inference_succeeded: bool,
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn infer_name_path(
         &mut self,
@@ -642,35 +649,38 @@ impl<'a> FunctionChecker<'a> {
         type_origin: Option<&TypeOrigin>,
         call_bound_row: Option<&str>,
     ) -> Option<EffectRowSubstitutions> {
-        let mut inferred = Vec::new();
-        let mut valid = variadic.is_some_and(|_| args.len() >= params.len())
+        let arity_matches = variadic.is_some_and(|_| args.len() >= params.len())
             || (variadic.is_none() && args.len() == params.len());
+        let inferred =
+            self.infer_call_arguments(args, params, variadic, origin, type_origin, call_bound_row);
+        let row_substitutions = solve_call_bound_effect_row(
+            call_bound_row,
+            inferred
+                .iter()
+                .map(|argument| (argument.expected.ty.as_ref(), &argument.actual)),
+        );
+        let arguments_match =
+            self.check_inferred_call_arguments(inferred, &row_substitutions, origin);
+        (arity_matches && arguments_match).then_some(row_substitutions)
+    }
+
+    fn infer_call_arguments<'expr>(
+        &mut self,
+        args: &'expr [Expr],
+        params: &[Type],
+        variadic: Option<&Type>,
+        origin: &CallOrigin,
+        type_origin: Option<&TypeOrigin>,
+        call_bound_row: Option<&str>,
+    ) -> Vec<InferredCallArgument<'expr>> {
+        let mut inferred = Vec::new();
         for (index, arg) in args.iter().enumerate() {
             let param_type = params.get(index).or(variadic);
             let Some(param_type) = param_type else {
                 self.infer_expr(arg, None);
                 continue;
             };
-            let expected = type_origin.map_or_else(
-                || ExpectedType {
-                    ty: std::borrow::Cow::Owned(param_type.clone()),
-                    source: if origin.schema_encode {
-                        ExpectedTypeSource::SchemaEncodeParameter
-                    } else {
-                        ExpectedTypeSource::DeclaredParameter
-                    },
-                    origin_node_id: origin.node_id,
-                    origin_span: Some(origin.span.clone()),
-                    origin_message: "Callee parameter type declared here.",
-                },
-                |type_origin| ExpectedType {
-                    ty: std::borrow::Cow::Owned(param_type.clone()),
-                    source: type_origin.source,
-                    origin_node_id: type_origin.node_id,
-                    origin_span: Some(type_origin.span.clone()),
-                    origin_message: type_origin.message,
-                },
-            );
+            let expected = call_argument_expected_type(param_type, origin, type_origin);
             let inference_expected = call_bound_row.map_or_else(
                 || expected.clone(),
                 |row| ExpectedType {
@@ -683,21 +693,35 @@ impl<'a> FunctionChecker<'a> {
             );
             let diagnostics_before = self.diagnostics.len();
             let actual = self.infer_expr(arg, Some(&inference_expected));
-            let argument_valid = self.diagnostics.len() == diagnostics_before;
-            inferred.push((arg, expected, actual, argument_valid));
+            inferred.push(InferredCallArgument {
+                argument: arg,
+                expected,
+                actual,
+                inference_succeeded: self.diagnostics.len() == diagnostics_before,
+            });
         }
-        let row_substitutions = solve_call_bound_effect_row(
-            call_bound_row,
-            inferred
-                .iter()
-                .map(|(_, expected, actual, _)| (expected.ty.as_ref(), actual)),
-        );
-        for (arg, mut expected, actual, argument_valid) in inferred {
+        inferred
+    }
+
+    fn check_inferred_call_arguments(
+        &mut self,
+        inferred: Vec<InferredCallArgument<'_>>,
+        row_substitutions: &EffectRowSubstitutions,
+        origin: &CallOrigin,
+    ) -> bool {
+        let mut valid = true;
+        for inferred in inferred {
+            let InferredCallArgument {
+                argument,
+                mut expected,
+                actual,
+                inference_succeeded,
+            } = inferred;
             expected.ty = std::borrow::Cow::Owned(instantiate_effect_rows_in_type(
                 expected.ty.as_ref(),
-                &row_substitutions,
+                row_substitutions,
             ));
-            valid &= argument_valid
+            valid &= inference_succeeded
                 && is_assignable_with_registry(
                     expected.ty.as_ref(),
                     &actual,
@@ -705,7 +729,7 @@ impl<'a> FunctionChecker<'a> {
                 );
             if origin.schema_encode {
                 self.check_schema_encode_assignable(
-                    arg,
+                    argument,
                     expected.ty.as_ref(),
                     &actual,
                     &expected,
@@ -713,7 +737,7 @@ impl<'a> FunctionChecker<'a> {
                 );
             } else {
                 self.check_assignable(
-                    arg,
+                    argument,
                     expected.ty.as_ref(),
                     &actual,
                     &expected,
@@ -721,8 +745,35 @@ impl<'a> FunctionChecker<'a> {
                 );
             }
         }
-        valid.then_some(row_substitutions)
+        valid
     }
+}
+
+fn call_argument_expected_type(
+    param_type: &Type,
+    origin: &CallOrigin,
+    type_origin: Option<&TypeOrigin>,
+) -> ExpectedType<'static> {
+    type_origin.map_or_else(
+        || ExpectedType {
+            ty: std::borrow::Cow::Owned(param_type.clone()),
+            source: if origin.schema_encode {
+                ExpectedTypeSource::SchemaEncodeParameter
+            } else {
+                ExpectedTypeSource::DeclaredParameter
+            },
+            origin_node_id: origin.node_id,
+            origin_span: Some(origin.span.clone()),
+            origin_message: "Callee parameter type declared here.",
+        },
+        |type_origin| ExpectedType {
+            ty: std::borrow::Cow::Owned(param_type.clone()),
+            source: type_origin.source,
+            origin_node_id: type_origin.node_id,
+            origin_span: Some(type_origin.span.clone()),
+            origin_message: type_origin.message,
+        },
+    )
 }
 
 fn module_value_not_callable_diagnostic(
