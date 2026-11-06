@@ -2,7 +2,7 @@
   "schema_version": 1,
   "snapshots": [
     {
-      "base_digest": "6377883d033a33da3c0a5129010e1a1437ebc0895aac8b45727654c9106a00b2",
+      "base_digest": "06c09399aef08219d82e46856b0988f93a9f289ad314c6b2dff8f4ef5a76718c",
       "digest": "315923aba7de4513128bc7e3bfe09dbf2fa203ab87f4bdeca003c3f45c1b69f6",
       "topic_overrides": [
         {
@@ -68,7 +68,7 @@
       ]
     },
     {
-      "base_digest": "6377883d033a33da3c0a5129010e1a1437ebc0895aac8b45727654c9106a00b2",
+      "base_digest": "06c09399aef08219d82e46856b0988f93a9f289ad314c6b2dff8f4ef5a76718c",
       "digest": "bee173b6616c613c2f96694380afb6dbeb1223151192c8089287320a98ff53db",
       "topic_overrides": [
         {

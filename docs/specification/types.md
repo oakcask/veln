@@ -634,6 +634,10 @@ Without one, branch results use the same recursive aggregate join as `match`,
 including compiler-owned immutable constructors and checked covariant
 source-ADT parameters. Typed holes in conditions therefore receive `Bool`. A
 hole in a branch receives the enclosing expected result type when one exists.
+A branch or match arm that emits a diagnostic does not contribute its result
+type to an inferred control-flow join. Later successful results continue from
+the last admitted join state, so the inferred result does not retain a nominal
+return type from the failed expression.
 A root-refinement join does not provide that expectation. A join whose root is
 an unrefined named type can provide its materialized type to a later sibling
 only when it has no incomplete nested refinement domain. The join does not

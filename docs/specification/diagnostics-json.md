@@ -872,8 +872,9 @@ valid contribution continues from the last admitted state. A contribution that
 already produced a diagnostic also leaves the join state unchanged and does
 not produce a derivative aggregate mismatch. A rejected call or constructor
 expression follows this rule even when recovery can determine its refined
-result type from the resolved declaration. The current
-[type inference rules](types.md#inference-rules) define which direct payload
+result type from the resolved declaration. An `if` branch or `match` arm that
+produces a diagnostic is likewise excluded from its inferred result join. The
+current [type inference rules](types.md#inference-rules) define which direct payload
 contributions can join and which nested payload occurrences remain exact. When
 an exact nested constraint rejects a contribution, the diagnostic reports the
 constraint established by the other payload rather than applying that named

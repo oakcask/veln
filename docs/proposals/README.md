@@ -19,7 +19,7 @@ also states it.
 - Complete bounded inference beyond implemented source-ADT and compiler-owned
   covariant joins, including contravariant meets and structural joins; add
   stable formatter, package, LSP, and MCP presentation, nested incompatibility
-  diagnostics, and failure preservation:
+  diagnostics, and whole-analysis and language-service failure preservation:
   [generic-and-function-variance.md](generic-and-function-variance.md).
 
 ## Design In Progress
