@@ -458,11 +458,8 @@ fn diagnostic_assertions_select_by_message_file_and_line() {
 }
 
 #[test]
-pub(super) fn reordered_json_objects_compare_equal_through_every_assertion_adapter() {
-    let context = CaseRunContext {
-        case_dir: Path::new("json-equality-adapters"),
-        run_number: 1,
-    };
+pub(super) fn reordered_json_objects_compare_equal_through_json_assertion_adapter() {
+    let context = assertion_adapter_context("json-equality-adapters");
     let actual = parse_json(r#"{"selected":{"outer":{"a":1,"b":2}}}"#)
         .expect("JSON adapter input should parse");
     assert_json_path(
@@ -476,7 +473,11 @@ pub(super) fn reordered_json_objects_compare_equal_through_every_assertion_adapt
             )),
         },
     );
+}
 
+#[test]
+pub(super) fn reordered_json_objects_compare_equal_through_result_value_assertion_adapter() {
+    let context = assertion_adapter_context("json-equality-adapters");
     let rendered = parse_json(r#"{"rendered":"ByteOffset(2)"}"#)
         .expect("result-value adapter input should parse");
     assert_result_value_path(
@@ -491,7 +492,10 @@ pub(super) fn reordered_json_objects_compare_equal_through_every_assertion_adapt
             )),
         },
     );
+}
 
+#[test]
+pub(super) fn reordered_json_objects_compare_equal_through_lsp_assertion_adapter() {
     let lsp_messages = decode_lsp_stdout(&lsp_frame(
         r#"{"jsonrpc":"2.0","id":1,"result":{"outer":{"a":1,"b":2}}}"#,
     ))
@@ -508,7 +512,10 @@ equals = {"outer":{"b":2,"a":1}}
     .remove(0);
     evaluate_lsp_assertion(&lsp_messages, &lsp_assertion)
         .expect("LSP adapter should ignore object member order");
+}
 
+#[test]
+pub(super) fn reordered_json_objects_compare_equal_through_mcp_assertion_adapter() {
     let mcp_messages = decode_mcp_stdout(
         r#"{"jsonrpc":"2.0","id":1,"result":{"outer":{"a":1,"b":2}}}
 "#,
@@ -529,11 +536,8 @@ equals = {"outer":{"b":2,"a":1}}
 }
 
 #[test]
-pub(super) fn reordered_json_arrays_fail_through_every_assertion_adapter() {
-    let context = CaseRunContext {
-        case_dir: Path::new("json-array-order-adapters"),
-        run_number: 1,
-    };
+pub(super) fn reordered_json_arrays_fail_through_json_assertion_adapter() {
+    let context = assertion_adapter_context("json-array-order-adapters");
     let actual = parse_json(r#"{"selected":[1,2]}"#).expect("JSON adapter input should parse");
     let json_assertion = JsonAssertion {
         path: "selected".to_string(),
@@ -544,7 +548,11 @@ pub(super) fn reordered_json_arrays_fail_through_every_assertion_adapter() {
     let panic = std::panic::catch_unwind(|| assert_json_path(&context, &actual, &json_assertion))
         .expect_err("JSON adapter should retain array order");
     assert!(panic_message(panic).contains("JSON path `selected` mismatch"));
+}
 
+#[test]
+pub(super) fn reordered_json_arrays_fail_through_result_value_assertion_adapter() {
+    let context = assertion_adapter_context("json-array-order-adapters");
     let rendered = parse_json(r#"{"rendered":"Cons(1, Cons(2, Nil))"}"#)
         .expect("result-value adapter input should parse");
     let result_assertion = ResultValueAssertion {
@@ -559,7 +567,10 @@ pub(super) fn reordered_json_arrays_fail_through_every_assertion_adapter() {
     })
     .expect_err("result-value adapter should retain array order");
     assert!(panic_message(panic).contains("result value path `value` mismatch"));
+}
 
+#[test]
+pub(super) fn reordered_json_arrays_fail_through_lsp_assertion_adapter() {
     let lsp_messages = decode_lsp_stdout(&lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":[1,2]}"#))
         .expect("LSP adapter input should decode");
     let lsp_assertion = parsed_lsp_assertions(
@@ -575,7 +586,10 @@ equals = [2,1]
     let error = evaluate_lsp_assertion(&lsp_messages, &lsp_assertion)
         .expect_err("LSP adapter should retain array order");
     assert!(error.contains("value mismatch"));
+}
 
+#[test]
+pub(super) fn reordered_json_arrays_fail_through_mcp_assertion_adapter() {
     let mcp_messages = decode_mcp_stdout(
         r#"{"jsonrpc":"2.0","id":1,"result":[1,2]}
 "#,
@@ -596,9 +610,13 @@ equals = [2,1]
     assert!(error.contains("value mismatch"));
 }
 
-pub(super) fn ordered_array_adapter_context() -> CaseRunContext<'static> {
+fn assertion_adapter_context(case_dir: &'static str) -> CaseRunContext<'static> {
     CaseRunContext {
-        case_dir: Path::new("json-array-length-adapters"),
+        case_dir: Path::new(case_dir),
         run_number: 1,
     }
+}
+
+pub(super) fn ordered_array_adapter_context() -> CaseRunContext<'static> {
+    assertion_adapter_context("json-array-length-adapters")
 }
