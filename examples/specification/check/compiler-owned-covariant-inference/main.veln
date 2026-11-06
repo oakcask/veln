@@ -98,6 +98,30 @@ fn nested_constructed_option_reverse()
 	[Some(Some(1)), Some(None)]
 end
 
+fn constructed_list(complete: List<Int>)
+	[complete, Nil]
+end
+
+fn constructed_list_reverse(complete: List<Int>)
+	[Nil, complete]
+end
+
+fn constructed_empty_vector()
+	[[1], []]
+end
+
+fn constructed_empty_vector_reverse()
+	[[], [1]]
+end
+
+fn constructed_empty_dictionary(complete: Dict<Int, String>)
+	[complete, {}]
+end
+
+fn constructed_empty_dictionary_reverse(complete: Dict<Int, String>)
+	[{}, complete]
+end
+
 fn selected_constructed_option(flag: Bool)
 	if flag
 		Some(Ready)
@@ -155,6 +179,12 @@ fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option
 	let constructed_option_reverse_result: Vec<Option<State::Ready>> = constructed_option_reverse()
 	let nested_constructed_option_result: Vec<Option<Option<Int>>> = nested_constructed_option()
 	let nested_constructed_option_reverse_result: Vec<Option<Option<Int>>> = nested_constructed_option_reverse()
+	let constructed_list_result: Vec<List<Int>> = constructed_list(Cons(1, Nil))
+	let constructed_list_reverse_result: Vec<List<Int>> = constructed_list_reverse(Cons(1, Nil))
+	let constructed_empty_vector_result: Vec<Vec<Int>> = constructed_empty_vector()
+	let constructed_empty_vector_reverse_result: Vec<Vec<Int>> = constructed_empty_vector_reverse()
+	let constructed_empty_dictionary_result: Vec<Dict<Int, String>> = constructed_empty_dictionary({1: "one"})
+	let constructed_empty_dictionary_reverse_result: Vec<Dict<Int, String>> = constructed_empty_dictionary_reverse({1: "one"})
 	let selected_constructed_option_result: Option<State::Ready> = selected_constructed_option(flag)
 	let selected_constructed_option_reverse_result: Option<State::Ready> = selected_constructed_option_reverse(flag)
 	let matched_constructed_option_result: Option<State::Ready> = matched_constructed_option(flag)

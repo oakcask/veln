@@ -15,11 +15,16 @@ pub(crate) fn expression_needs_completion_context(
     uses: &[UseDecl],
 ) -> bool {
     match &expr.kind {
-        ExprKind::NamePath { segments, .. } => segments
-            .last()
-            .is_some_and(|name| name == "None" || name == "Nil"),
+        ExprKind::NamePath { segments, .. }
+            if segments
+                .last()
+                .is_some_and(|name| name == "None" || name == "Nil") =>
+        {
+            compiler_owned_constructor(segments, adts, current_module, uses).is_some()
+        }
         ExprKind::List(items) => items.is_empty(),
         ExprKind::Dict(entries) => entries.is_empty(),
+        ExprKind::Record(fields) => fields.is_empty(),
         ExprKind::Call { callee, args }
             if compiler_owned_constructor_callee(callee, adts, current_module, uses) =>
         {
@@ -124,9 +129,28 @@ fn compiler_owned_constructor<'a>(
         {
             Some(constructor)
         }
-        ConstructorLookup::Found(_) | ConstructorLookup::Ambiguous | ConstructorLookup::Missing => {
-            None
-        }
+        ConstructorLookup::Found(_) | ConstructorLookup::Ambiguous => None,
+        ConstructorLookup::Missing => match segments {
+            [name] if name == "None" || name == "Nil" => {
+                let type_name = if name == "None" { "Option" } else { "List" };
+                let qualified = [type_name.to_string(), name.clone()];
+                match adts.constructor(&qualified, current_module, uses) {
+                    ConstructorLookup::Found(constructor)
+                        if constructor
+                            .descriptor
+                            .nominal_identity
+                            .as_deref()
+                            .is_some_and(Type::is_compiler_covariant_identity) =>
+                    {
+                        Some(constructor)
+                    }
+                    ConstructorLookup::Found(_)
+                    | ConstructorLookup::Ambiguous
+                    | ConstructorLookup::Missing => None,
+                }
+            }
+            _ => None,
+        },
     }
 }
 

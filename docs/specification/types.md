@@ -1682,8 +1682,8 @@ case.
 Recursive compiler-owned joins, argument independence, contribution order,
 and control-flow inference are checked by the accepted
 [`compiler-owned-covariant-inference`](../../examples/specification/check/compiler-owned-covariant-inference/)
-case. The same case checks completion context for `None` in collections and
-control-flow results, including a nested compiler-owned constructor, in both
+case. The same case checks completion context for `None`, `Nil`, empty vectors,
+and empty dictionaries, including a nested compiler-owned constructor and both
 source orders. Transactional exclusion of an unavailable nested join is
 checked by its
 [`diagnostic companion`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/).

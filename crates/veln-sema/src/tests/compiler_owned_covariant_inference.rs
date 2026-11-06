@@ -286,7 +286,7 @@ fn body_inference_separates_join_contributions_from_completion_context() {
             "type Pair<T>\n",
             "  Paired(T, T)\n",
             "end\n",
-            "fn verify(flag: Bool) -> ()\n",
+            "fn verify(flag: Bool, complete_list: List<Int>, complete_dictionary: Dict<Int, String>) -> ()\n",
             "  let paired = Paired([Ready], [Closed])\n",
             "  let paired_reverse = Paired([Closed], [Ready])\n",
             "  let option_pair = Paired(Some(Ready), None)\n",
@@ -299,6 +299,12 @@ fn body_inference_separates_join_contributions_from_completion_context() {
             "  let matched_reverse = match flag true => None false => Some(Ready) end\n",
             "  let dictionary = {1: Some(Ready), 2: None}\n",
             "  let dictionary_reverse = {1: None, 2: Some(Ready)}\n",
+            "  let lists = [complete_list, Nil]\n",
+            "  let lists_reverse = [Nil, complete_list]\n",
+            "  let vectors = [[1], []]\n",
+            "  let vectors_reverse = [[], [1]]\n",
+            "  let dictionaries = [complete_dictionary, {}]\n",
+            "  let dictionaries_reverse = [{}, complete_dictionary]\n",
             "  let _: Pair<Vec<State::Ready | State::Closed>>::Paired = paired\n",
             "  let _: Pair<Vec<State::Ready | State::Closed>>::Paired = paired_reverse\n",
             "  let _: Pair<Option<State::Ready>>::Paired = option_pair\n",
@@ -311,6 +317,12 @@ fn body_inference_separates_join_contributions_from_completion_context() {
             "  let _: Option<State::Ready> = matched_reverse\n",
             "  let _: Dict<Int, Option<State::Ready>> = dictionary\n",
             "  let _: Dict<Int, Option<State::Ready>> = dictionary_reverse\n",
+            "  let _: Vec<List<Int>> = lists\n",
+            "  let _: Vec<List<Int>> = lists_reverse\n",
+            "  let _: Vec<Vec<Int>> = vectors\n",
+            "  let _: Vec<Vec<Int>> = vectors_reverse\n",
+            "  let _: Vec<Dict<Int, String>> = dictionaries\n",
+            "  let _: Vec<Dict<Int, String>> = dictionaries_reverse\n",
             "  ()\n",
             "end\n",
         ),
@@ -357,6 +369,55 @@ fn nested_compiler_owned_completion_context_is_order_independent() {
                 .return_type
                 .render(),
             "Vec<Option<Option<Int>>>",
+            "unexpected inferred result for {function}",
+        );
+    }
+}
+
+#[test]
+fn source_variants_named_none_or_nil_remain_join_contributions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  None\n",
+            "  Nil\n",
+            "  Ready\n",
+            "end\n",
+            "fn none_forward()\n",
+            "  [State::None, State::Ready]\n",
+            "end\n",
+            "fn none_reverse()\n",
+            "  [State::Ready, State::None]\n",
+            "end\n",
+            "fn nil_forward()\n",
+            "  [State::Nil, State::Ready]\n",
+            "end\n",
+            "fn nil_reverse()\n",
+            "  [State::Ready, State::Nil]\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for (function, expected) in [
+        ("none_forward", "Vec<State::None | State::Ready>"),
+        ("none_reverse", "Vec<State::None | State::Ready>"),
+        ("nil_forward", "Vec<State::Nil | State::Ready>"),
+        ("nil_reverse", "Vec<State::Nil | State::Ready>"),
+    ] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            expected,
             "unexpected inferred result for {function}",
         );
     }
