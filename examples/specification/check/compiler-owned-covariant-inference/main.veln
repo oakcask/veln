@@ -17,6 +17,10 @@ type Pair<T>
 	Paired(T, T)
 end
 
+type Box<T>
+	Boxed(T)
+end
+
 fn option(first: Option<First::Ready>, second: Option<Second::Closed>)
 	[first, second]
 end
@@ -98,6 +102,16 @@ end
 
 fn nested_constructed_option_reverse()
 	[Some(Some(1)), Some(None)]
+end
+
+# Compiler integration contract: public check accepts compiler-owned completion
+# through a resolved source-ADT payload in either contribution order.
+fn source_nested_constructed_option()
+	[Some(Boxed(None)), Some(Boxed(Some(1)))]
+end
+
+fn source_nested_constructed_option_reverse()
+	[Some(Boxed(Some(1))), Some(Boxed(None))]
 end
 
 fn constructed_list(complete: List<Int>)
@@ -223,6 +237,10 @@ fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option
 	let constructed_option_reverse_result: Vec<Option<State::Ready>> = constructed_option_reverse()
 	let nested_constructed_option_result: Vec<Option<Option<Int>>> = nested_constructed_option()
 	let nested_constructed_option_reverse_result: Vec<Option<Option<Int>>> = nested_constructed_option_reverse()
+	let source_nested_constructed_option_result: Vec<Option<Box<Option<Int>>>> = source_nested_constructed_option()
+	let source_nested_constructed_option_reverse_result: Vec<Option<Box<Option<Int>>>> = source_nested_constructed_option_reverse()
+	let _: Vec<Option<Box<Option<Int>>>> = [Some(Boxed(None)), Some(Boxed(Some(1)))]
+	let _: Vec<Option<Box<Option<Int>>>> = [Some(Boxed(Some(1))), Some(Boxed(None))]
 	let constructed_list_result: Vec<List<Int>> = constructed_list(Cons(1, Nil))
 	let constructed_list_reverse_result: Vec<List<Int>> = constructed_list_reverse(Cons(1, Nil))
 	let constructed_empty_vector_result: Vec<Vec<Int>> = constructed_empty_vector()

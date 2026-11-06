@@ -9,7 +9,7 @@ use super::boundary::{
 };
 use super::repair_reasoning::*;
 use super::*;
-use crate::aggregate_type_join::{completion_context_type, expression_needs_completion_context};
+use crate::aggregate_type_join::CompletionContext;
 use crate::effect_rows::{
     call_bound_effect_row, instantiate_effect_rows, instantiate_effect_rows_in_type,
     mask_call_bound_effect_row, solve_call_bound_effect_row,
@@ -252,6 +252,7 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) annotation_owner_prevalidated: bool,
     pub(super) declaration_types_are_quarantined: bool,
     pub(super) bindings: Vec<Binding>,
+    completion_context: CompletionContext,
     binding_positions: HashMap<String, Vec<usize>>,
     next_stable_record_root: usize,
     next_transparent_alias_group: usize,
@@ -560,7 +561,7 @@ fn resolution_uses_for_function(
 
 impl<'a> FunctionChecker<'a> {
     fn expression_needs_aggregate_completion_context(&self, expr: &Expr) -> bool {
-        expression_needs_completion_context(
+        self.completion_context.expression_needs_completion_context(
             expr,
             &self.environment.adts,
             self.function.module_name.as_deref(),
@@ -583,7 +584,7 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn project_completion_context(&self, expr: &Expr, expected: Type) -> Type {
-        completion_context_type(
+        self.completion_context.completion_context_type(
             expr,
             &expected,
             &self.environment.adts,
@@ -638,6 +639,7 @@ impl<'a> FunctionChecker<'a> {
             annotation_owner_prevalidated,
             declaration_types_are_quarantined,
             bindings: Vec::new(),
+            completion_context: CompletionContext::default(),
             binding_positions: HashMap::new(),
             next_stable_record_root: 0,
             next_transparent_alias_group: 0,

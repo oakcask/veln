@@ -648,6 +648,7 @@ pub(crate) fn private_prelude_callback_call_references_slot(
             returns_by_path: context.returns_by_path,
             adts: context.adts,
             failures: &mut failures,
+            completion_context: crate::aggregate_type_join::CompletionContext::default(),
         },
         context.function_by_path,
     ) else {

@@ -105,25 +105,34 @@ pub(super) fn infer_private_signature_expr_type_with_failures(
         returns_by_path,
         adts,
         failures,
+        completion_context: crate::aggregate_type_join::CompletionContext::default(),
     };
+    infer_private_signature_expr_type_in_context(expr, expected, &mut context)
+}
+
+fn infer_private_signature_expr_type_in_context(
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
+) -> PrivateExprInference {
     if let Some(ty) = infer_private_leaf_type(expr) {
         return PrivateExprInference::successful(ty);
     }
-    if let Some(ty) = infer_private_branch_type(expr, expected, &mut context) {
+    if let Some(ty) = infer_private_branch_type(expr, expected, context) {
         return PrivateExprInference::successful(ty);
     }
-    if let Some(outcome) = infer_private_value_type(expr, expected, &mut context) {
+    if let Some(outcome) = infer_private_value_type(expr, expected, context) {
         return outcome;
     }
-    if let Some(ty) = infer_private_schema_type(expr, expected, &mut context) {
+    if let Some(ty) = infer_private_schema_type(expr, expected, context) {
         return PrivateExprInference::successful(ty);
     }
     match &expr.kind {
         ExprKind::Prefix { op, expr } => PrivateExprInference::successful(
-            infer_private_prefix_type(*op, expr, expected, &mut context),
+            infer_private_prefix_type(*op, expr, expected, context),
         ),
         ExprKind::Binary { op, left, right } => PrivateExprInference::successful(
-            infer_private_binary_type(*op, left, right, expected, &mut context),
+            infer_private_binary_type(*op, left, right, expected, context),
         ),
         _ => unreachable!("delegated expressions return before operator inference"),
     }
@@ -423,12 +432,14 @@ pub(super) fn private_expression_needs_aggregate_completion_context(
     expr: &Expr,
     context: &PrivateSignatureInferContext<'_, '_>,
 ) -> bool {
-    crate::aggregate_type_join::expression_needs_completion_context(
-        expr,
-        context.adts,
-        context.current_module,
-        context.uses,
-    )
+    context
+        .completion_context
+        .expression_needs_completion_context(
+            expr,
+            context.adts,
+            context.current_module,
+            context.uses,
+        )
 }
 
 pub(super) fn private_aggregate_join_context(
@@ -458,7 +469,7 @@ pub(super) fn private_completion_context_type(
     expected: Type,
     context: &PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
-    crate::aggregate_type_join::completion_context_type(
+    context.completion_context.completion_context_type(
         expr,
         &expected,
         context.adts,
@@ -742,6 +753,7 @@ pub(crate) struct PrivateSignatureInferContext<'a, 'f> {
     pub(crate) returns_by_path: &'a BTreeMap<FunctionKey, Type>,
     pub(crate) adts: &'a AdtRegistry,
     pub(crate) failures: &'f mut usize,
+    pub(crate) completion_context: crate::aggregate_type_join::CompletionContext,
 }
 
 impl PrivateSignatureInferContext<'_, '_> {
@@ -755,18 +767,7 @@ impl PrivateSignatureInferContext<'_, '_> {
         expected: Option<&Type>,
     ) -> PrivateExprInference {
         let failure_count = *self.failures;
-        let mut outcome = infer_private_signature_expr_type_with_failures(
-            expr,
-            expected,
-            self.current_module,
-            self.current_package,
-            self.uses,
-            self.bindings,
-            self.signatures_by_path,
-            self.returns_by_path,
-            self.adts,
-            self.failures,
-        );
+        let mut outcome = infer_private_signature_expr_type_in_context(expr, expected, self);
         outcome.may_contribute &= *self.failures == failure_count;
         outcome
     }

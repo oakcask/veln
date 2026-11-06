@@ -375,6 +375,51 @@ fn nested_compiler_owned_completion_context_is_order_independent() {
 }
 
 #[test]
+fn nested_completion_projects_through_source_adt_payloads_in_any_order() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Box<T>\n",
+            "  Boxed(T)\n",
+            "end\n",
+            "fn forward()\n",
+            "  [Some(Boxed(None)), Some(Boxed(Some(1)))]\n",
+            "end\n",
+            "fn reverse()\n",
+            "  [Some(Boxed(Some(1))), Some(Boxed(None))]\n",
+            "end\n",
+            "fn verify() -> ()\n",
+            "  let forward = [Some(Boxed(None)), Some(Boxed(Some(1)))]\n",
+            "  let reverse = [Some(Boxed(Some(1))), Some(Boxed(None))]\n",
+            "  let _: Vec<Option<Box<Option<Int>>>> = forward\n",
+            "  let _: Vec<Option<Box<Option<Int>>>> = reverse\n",
+            "  let _: Vec<Option<Box<Option<Int>>>> = [Some(Boxed(None)), Some(Boxed(Some(1)))]\n",
+            "  let _: Vec<Option<Box<Option<Int>>>> = [Some(Boxed(Some(1))), Some(Boxed(None))]\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["forward", "reverse"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            "Vec<Option<Box<Option<Int>>>>",
+            "unexpected inferred result for {function}",
+        );
+    }
+}
+
+#[test]
 fn non_empty_literals_propagate_nested_completion_context_in_any_order() {
     let source = SourceFile::new(
         "main.veln",

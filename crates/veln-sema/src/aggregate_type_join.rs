@@ -1,4 +1,5 @@
-use std::collections::HashSet;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::adt::descriptors::{AdtConstructor, AdtPayloadType, Variance};
@@ -6,10 +7,124 @@ use crate::adt::registry::{AdtRegistry, ConstructorLookup, VariantDeclarationOrd
 use crate::adt::{type_operations as adt, unification};
 use crate::semantic_model::Type;
 use crate::type_relations::{TypePresentationJoin, invariant_args_match, same_type_identity};
-use veln_ast::{DictEntry, Expr, ExprKind, UseDecl};
+use veln_ast::{Expr, ExprKind, NodeId, UseDecl};
 
-pub(crate) fn expression_needs_completion_context(
+#[derive(Default)]
+pub(crate) struct CompletionContext {
+    needs: RefCell<HashMap<NodeId, bool>>,
+}
+
+impl CompletionContext {
+    pub(crate) fn expression_needs_completion_context(
+        &self,
+        expr: &Expr,
+        adts: &AdtRegistry,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> bool {
+        self.ensure_facts(expr, adts, current_module, uses);
+        self.fact(expr.node_id)
+    }
+
+    pub(crate) fn completion_context_type(
+        &self,
+        expr: &Expr,
+        expected: &Type,
+        adts: &AdtRegistry,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Type {
+        self.ensure_facts(expr, adts, current_module, uses);
+        let plan = ProjectionPlan::collect(expr, expected, self, adts, current_module, uses);
+        plan.apply(expected)
+    }
+
+    fn fact(&self, node_id: NodeId) -> bool {
+        record_completion_fact_lookup();
+        self.needs.borrow().get(&node_id).copied().unwrap_or(false)
+    }
+
+    fn ensure_facts(
+        &self,
+        root: &Expr,
+        adts: &AdtRegistry,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) {
+        if self.needs.borrow().contains_key(&root.node_id) {
+            record_completion_cache_hit();
+            return;
+        }
+        let mut needs = self.needs.borrow_mut();
+        let mut pending = vec![(root, false)];
+        while let Some((expr, visited)) = pending.pop() {
+            record_completion_fact_task();
+            if needs.contains_key(&expr.node_id) {
+                record_completion_cache_hit();
+                continue;
+            }
+            if !visited {
+                pending.push((expr, true));
+                queue_completion_children(expr, adts, current_module, uses, |child| {
+                    if !needs.contains_key(&child.node_id) {
+                        pending.push((child, false));
+                    } else {
+                        record_completion_cache_hit();
+                    }
+                });
+                continue;
+            }
+            record_completion_classification();
+            let fact = classify_completion_expr(expr, &needs, adts, current_module, uses);
+            needs.insert(expr.node_id, fact);
+            record_completion_fact_storage();
+        }
+    }
+}
+
+fn queue_completion_children<'a>(
+    expr: &'a Expr,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    mut queue: impl FnMut(&'a Expr),
+) {
+    match &expr.kind {
+        ExprKind::List(items) => {
+            for item in items.iter().rev() {
+                queue(item);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries.iter().rev() {
+                queue(&entry.value);
+                queue(&entry.key);
+            }
+        }
+        ExprKind::Call { callee, args } => {
+            let ExprKind::NamePath { segments, .. } = &callee.kind else {
+                return;
+            };
+            record_completion_constructor_lookup();
+            let Some(constructor) = resolved_constructor(segments, adts, current_module, uses)
+            else {
+                return;
+            };
+            for (arg, field) in args.iter().zip(&constructor.variant.payload_fields).rev() {
+                if constructor_is_compiler_owned(constructor)
+                    || matches!(field.ty, AdtPayloadType::TypeParameter(_))
+                {
+                    queue(arg);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn classify_completion_expr(
     expr: &Expr,
+    needs: &HashMap<NodeId, bool>,
     adts: &AdtRegistry,
     current_module: Option<&str>,
     uses: &[UseDecl],
@@ -24,172 +139,34 @@ pub(crate) fn expression_needs_completion_context(
         }
         ExprKind::List(items) => {
             items.is_empty()
-                || items.iter().all(|item| {
-                    expression_needs_completion_context(item, adts, current_module, uses)
-                })
+                || items
+                    .iter()
+                    .all(|item| completion_fact(needs, item.node_id))
         }
         ExprKind::Dict(entries) => {
             entries.is_empty()
                 || entries.iter().any(|entry| {
-                    expression_needs_completion_context(&entry.key, adts, current_module, uses)
-                        || expression_needs_completion_context(
-                            &entry.value,
-                            adts,
-                            current_module,
-                            uses,
-                        )
+                    completion_fact(needs, entry.key.node_id)
+                        || completion_fact(needs, entry.value.node_id)
                 })
         }
         ExprKind::Record(fields) => fields.is_empty(),
         ExprKind::Call { callee, args } => {
-            compiler_owned_call_needs_completion_context(callee, args, adts, current_module, uses)
+            call_completion_fact(callee, args, needs, adts, current_module, uses)
         }
         _ => false,
     }
 }
 
-pub(crate) fn completion_context_type(
-    expr: &Expr,
-    expected: &Type,
-    adts: &AdtRegistry,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) -> Type {
-    match &expr.kind {
-        ExprKind::NamePath { segments, .. }
-            if compiler_owned_constructor(segments, adts, current_module, uses)
-                .is_some_and(|constructor| constructor_matches_expected(constructor, expected)) =>
-        {
-            unrefined_type(expected)
-        }
-        ExprKind::List(items) => {
-            list_completion_context_type(items, expected, adts, current_module, uses)
-        }
-        ExprKind::Dict(entries) => {
-            dict_completion_context_type(entries, expected, adts, current_module, uses)
-        }
-        ExprKind::Call { callee, args } => compiler_owned_call_completion_context_type(
-            callee,
-            args,
-            expected,
-            adts,
-            current_module,
-            uses,
-        ),
-        _ => expected.clone(),
-    }
+fn completion_fact(needs: &HashMap<NodeId, bool>, node_id: NodeId) -> bool {
+    record_completion_fact_lookup();
+    needs.get(&node_id).copied().unwrap_or(false)
 }
 
-fn list_completion_context_type(
-    items: &[Expr],
-    expected: &Type,
-    adts: &AdtRegistry,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) -> Type {
-    let mut projected = expected.clone();
-    let Type::Named { identity, args, .. } = &mut projected else {
-        return expected.clone();
-    };
-    if !Type::is_compiler_vec_identity(identity) || args.len() != 1 {
-        return expected.clone();
-    }
-    for item in items {
-        if expression_needs_completion_context(item, adts, current_module, uses) {
-            args[0] = completion_context_type(item, &args[0], adts, current_module, uses);
-        }
-    }
-    projected
-}
-
-fn dict_completion_context_type(
-    entries: &[DictEntry],
-    expected: &Type,
-    adts: &AdtRegistry,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) -> Type {
-    let mut projected = expected.clone();
-    let Type::Named { identity, args, .. } = &mut projected else {
-        return expected.clone();
-    };
-    if !Type::is_compiler_dict_identity(identity) || args.len() != 2 {
-        return expected.clone();
-    }
-    for entry in entries {
-        if expression_needs_completion_context(&entry.key, adts, current_module, uses) {
-            args[0] = completion_context_type(&entry.key, &args[0], adts, current_module, uses);
-        }
-        if expression_needs_completion_context(&entry.value, adts, current_module, uses) {
-            args[1] = completion_context_type(&entry.value, &args[1], adts, current_module, uses);
-        }
-    }
-    projected
-}
-
-fn compiler_owned_call_completion_context_type(
+fn call_completion_fact(
     callee: &Expr,
     args: &[Expr],
-    expected: &Type,
-    adts: &AdtRegistry,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) -> Type {
-    let ExprKind::NamePath { segments, .. } = &callee.kind else {
-        return expected.clone();
-    };
-    let Some(constructor) = compiler_owned_constructor(segments, adts, current_module, uses) else {
-        return expected.clone();
-    };
-    let expected_identity = match expected {
-        Type::Named { identity, .. } | Type::VariantRefinement { identity, .. } => identity,
-        _ => return expected.clone(),
-    };
-    if constructor.descriptor.nominal_identity.as_deref() != Some(expected_identity.as_str()) {
-        return expected.clone();
-    }
-    let mut projected = unrefined_type(expected);
-    let type_args = match &mut projected {
-        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
-        _ => unreachable!("unrefining a named type preserves its shape"),
-    };
-    for (arg, field) in args.iter().zip(&constructor.variant.payload_fields) {
-        let AdtPayloadType::TypeParameter(index) = &field.ty else {
-            continue;
-        };
-        let Some(expected_arg) = type_args.get_mut(*index) else {
-            continue;
-        };
-        if expression_needs_completion_context(arg, adts, current_module, uses) {
-            *expected_arg = completion_context_type(arg, expected_arg, adts, current_module, uses);
-        }
-    }
-    projected
-}
-
-fn constructor_matches_expected(constructor: AdtConstructor<'_>, expected: &Type) -> bool {
-    let expected_identity = match expected {
-        Type::Named { identity, .. } | Type::VariantRefinement { identity, .. } => identity,
-        _ => return false,
-    };
-    constructor.descriptor.nominal_identity.as_deref() == Some(expected_identity.as_str())
-}
-
-fn unrefined_type(ty: &Type) -> Type {
-    match ty {
-        Type::VariantRefinement {
-            name,
-            identity,
-            args,
-            ..
-        } => Type::resolved_named(name, identity, args.clone()),
-        ty => ty.clone(),
-    }
-}
-
-fn compiler_owned_call_needs_completion_context(
-    callee: &Expr,
-    args: &[Expr],
+    needs: &HashMap<NodeId, bool>,
     adts: &AdtRegistry,
     current_module: Option<&str>,
     uses: &[UseDecl],
@@ -197,27 +174,316 @@ fn compiler_owned_call_needs_completion_context(
     let ExprKind::NamePath { segments, .. } = &callee.kind else {
         return false;
     };
-    let Some(constructor) = compiler_owned_constructor(segments, adts, current_module, uses) else {
+    record_completion_constructor_lookup();
+    let Some(constructor) = resolved_constructor(segments, adts, current_module, uses) else {
         return false;
     };
-    let complete_direct_parameters =
-        (0..constructor.descriptor.type_parameters.len()).all(|parameter| {
-            args.iter()
-                .zip(&constructor.variant.payload_fields)
-                .any(|(arg, field)| {
-                    matches!(field.ty, AdtPayloadType::TypeParameter(index) if index == parameter)
-                        && !expression_needs_completion_context(arg, adts, current_module, uses)
-                })
-        });
-    args.iter().enumerate().any(|(index, arg)| {
-        expression_needs_completion_context(arg, adts, current_module, uses)
-            && !(complete_direct_parameters
-                && constructor
-                    .variant
-                    .payload_fields
-                    .get(index)
-                    .is_some_and(|field| matches!(field.ty, AdtPayloadType::SelfType)))
-    })
+    let argument_needs = args
+        .iter()
+        .map(|arg| completion_fact(needs, arg.node_id))
+        .collect::<Vec<_>>();
+    if !constructor_is_compiler_owned(constructor) {
+        return argument_needs
+            .iter()
+            .zip(&constructor.variant.payload_fields)
+            .any(|(needs_completion, field)| {
+                *needs_completion && matches!(field.ty, AdtPayloadType::TypeParameter(_))
+            });
+    }
+    let mut complete_direct_parameters = vec![false; constructor.descriptor.type_parameters.len()];
+    for (field, needs_completion) in constructor
+        .variant
+        .payload_fields
+        .iter()
+        .zip(&argument_needs)
+    {
+        if let AdtPayloadType::TypeParameter(index) = field.ty
+            && !needs_completion
+            && let Some(complete) = complete_direct_parameters.get_mut(index)
+        {
+            *complete = true;
+        }
+    }
+    let complete_direct_parameters = complete_direct_parameters
+        .into_iter()
+        .all(|complete| complete);
+    argument_needs
+        .iter()
+        .enumerate()
+        .any(|(index, needs_completion)| {
+            *needs_completion
+                && !(complete_direct_parameters
+                    && constructor
+                        .variant
+                        .payload_fields
+                        .get(index)
+                        .is_some_and(|field| matches!(field.ty, AdtPayloadType::SelfType)))
+        })
+}
+
+#[derive(Default)]
+struct ProjectionNode {
+    unrefine: bool,
+    children: HashMap<usize, usize>,
+}
+
+struct ProjectionPlan {
+    nodes: Vec<ProjectionNode>,
+}
+
+impl ProjectionPlan {
+    fn collect(
+        root_expr: &Expr,
+        root_expected: &Type,
+        facts: &CompletionContext,
+        adts: &AdtRegistry,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Self {
+        let mut plan = Self {
+            nodes: vec![ProjectionNode::default()],
+        };
+        let mut pending = vec![(root_expr, root_expected, 0)];
+        while let Some((expr, expected, plan_node)) = pending.pop() {
+            record_completion_projection_task();
+            match &expr.kind {
+                ExprKind::NamePath { segments, .. } => {
+                    record_completion_constructor_lookup();
+                    if compiler_owned_constructor(segments, adts, current_module, uses).is_some_and(
+                        |constructor| constructor_matches_expected(constructor, expected),
+                    ) {
+                        plan.nodes[plan_node].unrefine = true;
+                    }
+                }
+                ExprKind::List(items) => {
+                    let Some(args) =
+                        expected_compiler_args(expected, Type::is_compiler_vec_identity, 1)
+                    else {
+                        continue;
+                    };
+                    for item in items {
+                        if facts.fact(item.node_id) {
+                            let child = plan.child(plan_node, 0);
+                            pending.push((item, &args[0], child));
+                        }
+                    }
+                }
+                ExprKind::Dict(entries) => {
+                    let Some(args) =
+                        expected_compiler_args(expected, Type::is_compiler_dict_identity, 2)
+                    else {
+                        continue;
+                    };
+                    for entry in entries {
+                        for (nested, index) in [(&entry.key, 0), (&entry.value, 1)] {
+                            if facts.fact(nested.node_id) {
+                                let child = plan.child(plan_node, index);
+                                pending.push((nested, &args[index], child));
+                            }
+                        }
+                    }
+                }
+                ExprKind::Call { callee, args } => {
+                    let ExprKind::NamePath { segments, .. } = &callee.kind else {
+                        continue;
+                    };
+                    record_completion_constructor_lookup();
+                    let Some(constructor) =
+                        resolved_constructor(segments, adts, current_module, uses)
+                    else {
+                        continue;
+                    };
+                    if !constructor_matches_expected(constructor, expected) {
+                        continue;
+                    }
+                    if constructor_is_compiler_owned(constructor) {
+                        plan.nodes[plan_node].unrefine = true;
+                    }
+                    let Some(type_args) = named_type_args(expected) else {
+                        continue;
+                    };
+                    for (arg, field) in args.iter().zip(&constructor.variant.payload_fields) {
+                        let AdtPayloadType::TypeParameter(index) = field.ty else {
+                            continue;
+                        };
+                        if facts.fact(arg.node_id)
+                            && let Some(expected_arg) = type_args.get(index)
+                        {
+                            let child = plan.child(plan_node, index);
+                            pending.push((arg, expected_arg, child));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        plan
+    }
+
+    fn child(&mut self, parent: usize, argument: usize) -> usize {
+        record_completion_plan_edge();
+        if let Some(child) = self.nodes[parent].children.get(&argument) {
+            return *child;
+        }
+        let child = self.nodes.len();
+        self.nodes.push(ProjectionNode::default());
+        self.nodes[parent].children.insert(argument, child);
+        child
+    }
+
+    fn apply(&self, expected: &Type) -> Type {
+        enum Task<'a> {
+            Visit(&'a Type, usize),
+            Clone(&'a Type),
+            FinishNamed(String, String, usize),
+            FinishVariant(
+                String,
+                String,
+                usize,
+                Arc<[String]>,
+                Vec<(String, Vec<Type>, String)>,
+            ),
+        }
+        let mut tasks = vec![Task::Visit(expected, 0)];
+        let mut projected = Vec::new();
+        while let Some(task) = tasks.pop() {
+            record_completion_application_task();
+            match task {
+                Task::Visit(ty, node_index) => {
+                    let node = &self.nodes[node_index];
+                    match ty {
+                        Type::Named {
+                            name,
+                            identity,
+                            args,
+                        } => {
+                            tasks.push(Task::FinishNamed(
+                                name.clone(),
+                                identity.clone(),
+                                args.len(),
+                            ));
+                            for (index, arg) in args.iter().enumerate().rev() {
+                                if let Some(child) = node.children.get(&index) {
+                                    tasks.push(Task::Visit(arg, *child));
+                                } else {
+                                    tasks.push(Task::Clone(arg));
+                                }
+                            }
+                        }
+                        Type::VariantRefinement {
+                            name,
+                            identity,
+                            args,
+                            variants,
+                            unresolved_alternatives,
+                        } => {
+                            if node.unrefine {
+                                tasks.push(Task::FinishNamed(
+                                    name.clone(),
+                                    identity.clone(),
+                                    args.len(),
+                                ));
+                            } else {
+                                tasks.push(Task::FinishVariant(
+                                    name.clone(),
+                                    identity.clone(),
+                                    args.len(),
+                                    variants.clone(),
+                                    unresolved_alternatives.clone(),
+                                ));
+                            }
+                            for (index, arg) in args.iter().enumerate().rev() {
+                                if let Some(child) = node.children.get(&index) {
+                                    tasks.push(Task::Visit(arg, *child));
+                                } else {
+                                    tasks.push(Task::Clone(arg));
+                                }
+                            }
+                        }
+                        _ => projected.push(clone_completion_type(ty)),
+                    }
+                }
+                Task::Clone(ty) => projected.push(clone_completion_type(ty)),
+                Task::FinishNamed(name, identity, count) => {
+                    let args = projected.split_off(projected.len() - count);
+                    projected.push(Type::resolved_named(name, identity, args));
+                }
+                Task::FinishVariant(name, identity, count, variants, unresolved_alternatives) => {
+                    let args = projected.split_off(projected.len() - count);
+                    projected.push(Type::VariantRefinement {
+                        name,
+                        identity,
+                        args,
+                        variants,
+                        unresolved_alternatives,
+                    });
+                }
+            }
+        }
+        projected
+            .pop()
+            .expect("completion projection produces one type")
+    }
+}
+
+fn named_type_args(ty: &Type) -> Option<&[Type]> {
+    match ty {
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => Some(args),
+        _ => None,
+    }
+}
+
+fn expected_compiler_args(
+    expected: &Type,
+    identity_matches: impl FnOnce(&str) -> bool,
+    arity: usize,
+) -> Option<&[Type]> {
+    match expected {
+        Type::Named { identity, args, .. } if identity_matches(identity) && args.len() == arity => {
+            Some(args)
+        }
+        _ => None,
+    }
+}
+
+fn constructor_matches_expected(constructor: AdtConstructor<'_>, expected: &Type) -> bool {
+    let expected_identity = match expected {
+        Type::Named { identity, .. } | Type::VariantRefinement { identity, .. } => identity,
+        _ => return false,
+    };
+    constructor.descriptor.identity() == *expected_identity
+}
+
+fn resolved_constructor<'a>(
+    segments: &[String],
+    adts: &'a AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> Option<AdtConstructor<'a>> {
+    match adts.constructor(segments, current_module, uses) {
+        ConstructorLookup::Found(constructor) => Some(constructor),
+        ConstructorLookup::Ambiguous | ConstructorLookup::Missing => None,
+    }
+}
+
+#[cfg(test)]
+fn clone_completion_type(ty: &Type) -> Type {
+    let (cloned, nodes) = crate::semantic_model::measure_type_clone_nodes(|| ty.clone());
+    record_completion_type_clone(nodes);
+    cloned
+}
+
+#[cfg(not(test))]
+fn clone_completion_type(ty: &Type) -> Type {
+    ty.clone()
+}
+
+fn constructor_is_compiler_owned(constructor: AdtConstructor<'_>) -> bool {
+    constructor
+        .descriptor
+        .nominal_identity
+        .as_deref()
+        .is_some_and(Type::is_compiler_covariant_identity)
 }
 
 fn compiler_owned_constructor<'a>(
@@ -829,6 +1095,100 @@ pub(crate) fn reset_work() {
 #[cfg(test)]
 pub(crate) fn take_work() -> usize {
     crate::inference_work::take()
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct CompletionWork {
+    pub(crate) fact_tasks: usize,
+    pub(crate) cache_hits: usize,
+    pub(crate) fact_lookups: usize,
+    pub(crate) fact_snapshot_copies: usize,
+    pub(crate) classified_expressions: usize,
+    pub(crate) stored_facts: usize,
+    pub(crate) constructor_lookups: usize,
+    pub(crate) projection_tasks: usize,
+    pub(crate) plan_edges: usize,
+    pub(crate) application_tasks: usize,
+    pub(crate) cloned_type_nodes: usize,
+}
+
+#[cfg(test)]
+impl CompletionWork {
+    pub(crate) fn total(self) -> usize {
+        self.fact_tasks
+            + self.cache_hits
+            + self.fact_lookups
+            + self.fact_snapshot_copies
+            + self.classified_expressions
+            + self.stored_facts
+            + self.constructor_lookups
+            + self.projection_tasks
+            + self.plan_edges
+            + self.application_tasks
+            + self.cloned_type_nodes
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    static COMPLETION_WORK: std::cell::Cell<CompletionWork> = const {
+        std::cell::Cell::new(CompletionWork {
+            fact_tasks: 0,
+            cache_hits: 0,
+            fact_lookups: 0,
+            fact_snapshot_copies: 0,
+            classified_expressions: 0,
+            stored_facts: 0,
+            constructor_lookups: 0,
+            projection_tasks: 0,
+            plan_edges: 0,
+            application_tasks: 0,
+            cloned_type_nodes: 0,
+        })
+    };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_completion_work() {
+    COMPLETION_WORK.set(CompletionWork::default());
+}
+
+#[cfg(test)]
+pub(crate) fn take_completion_work() -> CompletionWork {
+    COMPLETION_WORK.replace(CompletionWork::default())
+}
+
+macro_rules! completion_work_counter {
+    ($name:ident, $field:ident) => {
+        #[inline(always)]
+        fn $name() {
+            #[cfg(test)]
+            COMPLETION_WORK.update(|mut work| {
+                work.$field += 1;
+                work
+            });
+        }
+    };
+}
+
+completion_work_counter!(record_completion_fact_task, fact_tasks);
+completion_work_counter!(record_completion_cache_hit, cache_hits);
+completion_work_counter!(record_completion_fact_lookup, fact_lookups);
+completion_work_counter!(record_completion_classification, classified_expressions);
+completion_work_counter!(record_completion_fact_storage, stored_facts);
+completion_work_counter!(record_completion_constructor_lookup, constructor_lookups);
+completion_work_counter!(record_completion_projection_task, projection_tasks);
+completion_work_counter!(record_completion_plan_edge, plan_edges);
+completion_work_counter!(record_completion_application_task, application_tasks);
+
+#[inline(always)]
+#[cfg(test)]
+fn record_completion_type_clone(nodes: usize) {
+    COMPLETION_WORK.update(|mut work| {
+        work.cloned_type_nodes += nodes;
+        work
+    });
 }
 
 #[cfg(test)]
