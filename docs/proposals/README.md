@@ -18,8 +18,8 @@ also states it.
 
 - Complete bounded inference beyond implemented source-ADT and compiler-owned
   covariant joins, including contravariant meets and structural joins; add
-  modifier-free presentation, nested incompatibility diagnostics, and failure
-  preservation:
+  completion context for incomplete expressions, modifier-free presentation,
+  nested incompatibility diagnostics, and failure preservation:
   [generic-and-function-variance.md](generic-and-function-variance.md).
 
 ## Design In Progress

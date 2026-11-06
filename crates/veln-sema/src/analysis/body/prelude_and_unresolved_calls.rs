@@ -13,7 +13,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         callee: &Expr,
         args: &[Expr],
-        expected: Option<&ExpectedType<'_>>,
+        expected: Option<&ExpectedType>,
     ) -> Option<Type> {
         let ExprKind::NamePath { segments, .. } = &callee.kind else {
             return None;
@@ -29,7 +29,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         segments: &[String],
         args: &[Expr],
-        expected: Option<&ExpectedType<'_>>,
+        expected: Option<&ExpectedType>,
     ) -> Option<ResolvedPreludeCall> {
         let (name, params, return_type) = if let [name] = segments {
             if self.bare_name_is_shadowed(name) || self.bare_prelude_import_is_ambiguous(name) {
@@ -38,7 +38,7 @@ impl<'a> FunctionChecker<'a> {
             let input_type = self.prelude_input_type(args, name);
             let (params, return_type) = prelude_signature_with_input(
                 name,
-                expected.map(|expected| expected.ty.as_ref()),
+                expected.map(|expected| &expected.ty),
                 input_type.as_ref(),
             )?;
             (name.clone(), params, return_type)
@@ -46,7 +46,7 @@ impl<'a> FunctionChecker<'a> {
             let input_type = self.prelude_input_type(args, name);
             qualified_prelude_signature_with_input(
                 segments,
-                expected.map(|expected| expected.ty.as_ref()),
+                expected.map(|expected| &expected.ty),
                 input_type.as_ref(),
             )
         }) {
@@ -56,7 +56,7 @@ impl<'a> FunctionChecker<'a> {
                 let input_type = self.prelude_input_type(args, name);
                 qualified_prelude_builtin_signature_with_input(
                     segments,
-                    expected.map(|expected| expected.ty.as_ref()),
+                    expected.map(|expected| &expected.ty),
                     input_type.as_ref(),
                 )
             })?
@@ -98,7 +98,7 @@ impl<'a> FunctionChecker<'a> {
                 continue;
             };
             let expected = ExpectedType {
-                ty: std::borrow::Cow::Owned(param_type.clone()),
+                ty: param_type.clone(),
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: callee.node_id,
                 origin_span: Some(callee.span.clone()),

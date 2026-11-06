@@ -337,9 +337,9 @@ fn example_rejections_cover_manifest_selection_boundary() {
 
     let mut descriptors = topic_descriptors();
     descriptors[0].examples = &[ExampleSelection {
-        case: "check/source-surface",
+        case: "check/manifest-exports",
         display_name: "not selected",
-        files: &["missing.veln"],
+        files: &["unselected.veln"],
     }];
     assert!(validate_examples(&repo, &descriptors).is_err());
 }

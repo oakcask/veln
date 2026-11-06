@@ -106,13 +106,13 @@ pub(super) fn parameter_annotation_is_omitted(param: &veln_ast::Param) -> bool {
 
 pub(super) fn collection_item_expected(
     ty: Type,
-    expected: Option<&ExpectedType<'_>>,
+    expected: Option<&ExpectedType>,
     origin_node_id: NodeId,
     origin_span: SourceSpan,
     inferred_message: &'static str,
-) -> ExpectedType<'static> {
+) -> ExpectedType {
     ExpectedType {
-        ty: std::borrow::Cow::Owned(ty),
+        ty,
         source: expected.map_or(ExpectedTypeSource::Inferred, |expected| expected.source),
         origin_node_id: expected.map_or(origin_node_id, |expected| expected.origin_node_id),
         origin_span: expected

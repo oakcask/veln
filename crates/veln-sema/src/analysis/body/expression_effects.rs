@@ -117,7 +117,7 @@ impl<'a> FunctionChecker<'a> {
     pub(in crate::analysis) fn infer_expr(
         &mut self,
         expr: &Expr,
-        expected: Option<&ExpectedType<'_>>,
+        expected: Option<&ExpectedType>,
     ) -> Type {
         if let Some(inferred) = self.infer_atomic_expr(expr, expected) {
             return inferred;
@@ -194,11 +194,7 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    fn infer_atomic_expr(
-        &mut self,
-        expr: &Expr,
-        expected: Option<&ExpectedType<'_>>,
-    ) -> Option<Type> {
+    fn infer_atomic_expr(&mut self, expr: &Expr, expected: Option<&ExpectedType>) -> Option<Type> {
         match &expr.kind {
             ExprKind::Missing => Some(Type::Unknown),
             ExprKind::Hole { name, satisfy } => {
@@ -208,7 +204,7 @@ impl<'a> FunctionChecker<'a> {
                 self.push_hole_diagnostic(expr, name.as_deref(), satisfy.as_ref(), expected);
                 Some(
                     expected
-                        .map(|expected| expected.ty.as_ref().clone())
+                        .map(|expected| expected.ty.clone())
                         .unwrap_or(Type::Unknown),
                 )
             }
@@ -230,7 +226,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         inner: &Expr,
         question_span: &SourceSpan,
-        expected: Option<&ExpectedType<'_>>,
+        expected: Option<&ExpectedType>,
     ) -> Type {
         if let Some(block_span) = self.defer_blocks.last().cloned() {
             self.push_defer_restriction_diagnostic(DeferRestrictionDiagnostic {
@@ -344,7 +340,7 @@ impl<'a> FunctionChecker<'a> {
         handler_path: &[String],
         handler_span: &SourceSpan,
         args: &[Expr],
-        expected: Option<&ExpectedType<'_>>,
+        expected: Option<&ExpectedType>,
     ) -> Type {
         let handler = match self.environment.handler_path_in_owner(
             handler_path,
@@ -433,7 +429,7 @@ impl<'a> FunctionChecker<'a> {
         base: &Expr,
     ) -> Type {
         let input_expected = ExpectedType {
-            ty: std::borrow::Cow::Owned(Type::named("ByteView", Vec::new())),
+            ty: Type::named("ByteView", Vec::new()),
             source: ExpectedTypeSource::DeclaredParameter,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
@@ -442,14 +438,14 @@ impl<'a> FunctionChecker<'a> {
         let input_actual = self.infer_expr(input, Some(&input_expected));
         self.check_assignable(
             input,
-            input_expected.ty.as_ref(),
+            &input_expected.ty,
             &input_actual,
             &input_expected,
             "schema_decode_input",
         );
 
         let base_expected = ExpectedType {
-            ty: std::borrow::Cow::Owned(Type::named("ByteOffset", Vec::new())),
+            ty: Type::named("ByteOffset", Vec::new()),
             source: ExpectedTypeSource::DeclaredParameter,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
@@ -458,7 +454,7 @@ impl<'a> FunctionChecker<'a> {
         let base_actual = self.infer_expr(base, Some(&base_expected));
         self.check_assignable(
             base,
-            base_expected.ty.as_ref(),
+            &base_expected.ty,
             &base_actual,
             &base_expected,
             "schema_decode_base_offset",
@@ -513,7 +509,7 @@ impl<'a> FunctionChecker<'a> {
             return Type::Unknown;
         };
         let value_expected = ExpectedType {
-            ty: std::borrow::Cow::Owned(value_type),
+            ty: value_type,
             source: ExpectedTypeSource::SchemaEncodeParameter,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
@@ -522,7 +518,7 @@ impl<'a> FunctionChecker<'a> {
         let value_actual = self.infer_expr(value, Some(&value_expected));
         self.check_schema_encode_assignable(
             value,
-            value_expected.ty.as_ref(),
+            &value_expected.ty,
             &value_actual,
             &value_expected,
             "schema_encode_value",
@@ -576,7 +572,7 @@ impl<'a> FunctionChecker<'a> {
             .and_then(|signature| signature.params.first())
             .cloned()
             .map(|ty| ExpectedType {
-                ty: std::borrow::Cow::Owned(ty),
+                ty,
                 source: ExpectedTypeSource::DeclaredParameter,
                 origin_node_id: expr.node_id,
                 origin_span: Some(expr.span.clone()),
@@ -586,14 +582,14 @@ impl<'a> FunctionChecker<'a> {
         if let Some(expected) = &value_expected {
             self.check_assignable(
                 value,
-                expected.ty.as_ref(),
+                &expected.ty,
                 &value_actual,
                 expected,
                 "schema_validation_value",
             );
         }
         let offset_expected = ExpectedType {
-            ty: std::borrow::Cow::Owned(Type::named("ByteOffset", Vec::new())),
+            ty: Type::named("ByteOffset", Vec::new()),
             source: ExpectedTypeSource::DeclaredParameter,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
@@ -602,7 +598,7 @@ impl<'a> FunctionChecker<'a> {
         let offset_actual = self.infer_expr(base, Some(&offset_expected));
         self.check_assignable(
             base,
-            offset_expected.ty.as_ref(),
+            &offset_expected.ty,
             &offset_actual,
             &offset_expected,
             "schema_validation_offset",

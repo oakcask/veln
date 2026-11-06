@@ -43,7 +43,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: &Type,
         actual: &Type,
-        expected_source: &ExpectedType<'_>,
+        expected_source: &ExpectedType,
         constraint: &'static str,
     ) {
         if matches!(
@@ -67,7 +67,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: &Type,
         actual: &Type,
-        expected_source: &ExpectedType<'_>,
+        expected_source: &ExpectedType,
         constraint: &'static str,
     ) {
         if is_assignable_with_registry(expected, actual, &self.environment.adts) {
@@ -96,7 +96,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: &Type,
         actual: &Type,
-        expected_source: &ExpectedType<'_>,
+        expected_source: &ExpectedType,
         constraint: &'static str,
     ) {
         self.check_assignable_with_widening(
@@ -114,7 +114,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: &Type,
         actual: &Type,
-        expected_source: &ExpectedType<'_>,
+        expected_source: &ExpectedType,
         constraint: &'static str,
     ) {
         self.check_assignable_with_widening(
@@ -132,7 +132,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: &Type,
         actual: &Type,
-        expected_source: &ExpectedType<'_>,
+        expected_source: &ExpectedType,
         constraint: &'static str,
     ) {
         self.push_type_mismatch_diagnostic(expr, expected, actual, expected_source, constraint);
@@ -143,7 +143,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: &Type,
         actual: &Type,
-        expected_source: &ExpectedType<'_>,
+        expected_source: &ExpectedType,
         constraint: &'static str,
         direct: bool,
     ) {
@@ -177,7 +177,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: &Type,
         actual: &Type,
-        expected_source: &ExpectedType<'_>,
+        expected_source: &ExpectedType,
         constraint: &'static str,
         mismatch: VariantMismatchFacts<'_>,
     ) {
@@ -213,7 +213,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: &Type,
         actual: &Type,
-        expected_source: &ExpectedType<'_>,
+        expected_source: &ExpectedType,
         constraint: &'static str,
     ) {
         let diagnostic = Diagnostic::new(

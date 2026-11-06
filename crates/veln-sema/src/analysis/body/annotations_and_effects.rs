@@ -37,9 +37,9 @@ impl<'a> FunctionChecker<'a> {
                 .as_ref()
                 .map(|expected| {
                     if param.is_variadic {
-                        Type::list(expected.ty.as_ref().clone())
+                        Type::list(expected.ty.clone())
                     } else {
-                        expected.ty.as_ref().clone()
+                        expected.ty.clone()
                     }
                 })
                 .or_else(|| signature.and_then(|signature| signature.params.get(index).cloned()))

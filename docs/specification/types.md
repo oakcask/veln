@@ -222,19 +222,13 @@ Non-empty `Vec<T>` and `Dict<K, V>` literals infer their element, key, and
 value positions from every successfully typed contribution. Constructor
 refinements of the same resolved ADT and compatible generic arguments join
 into a declaration-ordered variant set, independent of source order. An
-unresolved generic argument can become concrete from another contribution.
-Same-constructor source ADTs recursively join arguments whose checked
-classification is covariant. Same-constructor contributions to the
-compiler-owned immutable `Option`, `Result`, `List`, `Vec`, and `Dict`
-constructors recursively join every argument.
-Arguments classified as invariant, irrelevant, or contravariant, and arguments
-whose classification is unavailable, must match exactly. A join containing
-every declared variant, or a join of a refinement and its base ADT, becomes the
-base ADT. A contribution that produces its own diagnostic or requires an
-unavailable nested join does not change the accumulated type. A later
-successful contribution therefore joins with only the preceding successful
-facts. Other conflicting facts remain focused `type.mismatch` diagnostics at
-the incompatible element, key, or value.
+unresolved generic argument can become concrete from another contribution;
+after it is concrete, later contributions must have the same argument. A join
+containing every declared variant, or a join of a refinement and its base ADT,
+becomes the base ADT. A contribution that produces its own diagnostic does not
+change the accumulated type, so a later successful contribution joins with
+only the preceding successful facts. Other conflicting facts remain focused
+`type.mismatch` diagnostics at the incompatible element, key, or value.
 
 When a private non-exported helper omits parameter or return annotations,
 same-module concrete call sites may constrain the helper's single monomorphic
@@ -1412,40 +1406,6 @@ collection elements, repeated generic constructor payloads, and unannotated
 constructor or a source-ADT variant refinement. A concrete expected type still
 checks each contribution by ordinary assignment compatibility.
 
-An expression such as `None`, `Nil`, an empty vector, or an empty dictionary
-does not contribute a type argument by itself. During context-free aggregate
-inference, the checker first joins expressions that do contribute arguments.
-It then uses that joined type as the expected type for these incomplete
-expressions. Expected type projection follows incomplete expressions through
-non-empty vector and dictionary literals, through compiler-owned constructors,
-and through a resolved source-ADT constructor's direct payload only when that
-parameter has a usable checked covariant classification. Invariant,
-contravariant, irrelevant, and unavailable source-parameter classifications do
-not receive an argument from the joined type. Their arguments remain subject
-to exact context-free inference, so an incomplete constructor still requires
-explicit context.
-This rule applies to collection and dictionary members, repeated constructor
-payloads, and unannotated `if` or `match` results. Therefore
-`[Some(Ready), None]` and `[None, Some(Ready)]` both infer
-`Vec<Option<State::Ready>>`, both orders of `Some(None)` and `Some(Some(1))`
-infer `Vec<Option<Option<Int>>>`, and both orders of `[None]` and `[Some(1)]`
-infer `Vec<Vec<Option<Int>>>`. Given `type Box<T> Boxed(T) end`, both orders of
-`Some(Boxed(None))` and `Some(Boxed(Some(1)))` infer
-`Vec<Option<Box<Option<Int>>>>`. Incomplete-constructor detection uses
-resolved compiler-owned identity. A resolved source constructor named `None`
-or `Nil` remains an ordinary refinement contribution. If no other expression
-supplies the missing argument, the existing unknown or ambiguity result
-remains unchanged.
-
-Nested completion work is linear in compiler-owned constructor depth for both
-private omitted-result inference and ordinary body checking. The deterministic
-scaling check measures both contribution orders at depths 16, 32, 64, and 128.
-For each tracked task, cache, lookup, classification, stored-fact, plan-edge,
-projection, application, payload-context type-node visit, and analysis-wide
-type-node clone component, doubling depth permits at most twice the preceding
-count plus 128. The projection performs no completion-fact snapshot copies.
-Elapsed time is observational and is not an acceptance threshold.
-
 Presentation reconciliation applies at each joined compiler-owned constructor.
 One alias preference and canonical spelling retain that alias. Different alias
 preferences for the same compiler-owned identity make the inferred node use
@@ -1709,14 +1669,7 @@ case.
 Recursive compiler-owned joins, argument independence, contribution order,
 and control-flow inference are checked by the accepted
 [`compiler-owned-covariant-inference`](../../examples/specification/check/compiler-owned-covariant-inference/)
-case. The same case checks completion context for `None`, `Nil`, empty vectors,
-and empty dictionaries, including nested compiler-owned constructors,
-non-empty vector and dictionary literals, resolved source constructors with
-the same leaf names, checked covariant source-ADT payloads, and both source
-orders. The diagnostic companion checks that invariant, contravariant, and
-irrelevant source parameters retain their context-free boundary in both
-contribution orders. Transactional exclusion of an unavailable nested join is
-also checked by that
+case. Transactional exclusion of an unavailable nested join is checked by its
 [`diagnostic companion`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/).
 
 Variant-refinement semantic-token classifications are specified in
@@ -1987,10 +1940,9 @@ case covers that boundary. Schema predicates do not accept `%`.
   `crates/veln-sema/src/tests/variant_refinement_match_scaling.rs`.
 - Aggregate and alias-presentation join scaling:
   `crates/veln-sema/src/tests/variant_refinement_aggregate_scaling.rs`.
-- Source-ADT and compiler-owned covariant inference, checked variance parameter
-  order, nested completion context, and resolved declaration identity:
-  `crates/veln-sema/src/tests/source_adt_variance_inference.rs` and
-  `crates/veln-sema/src/tests/compiler_owned_covariant_inference.rs`.
+- Source-ADT covariant inference, checked variance parameter order, and
+  resolved declaration identity:
+  `crates/veln-sema/src/tests/source_adt_variance_inference.rs`.
 - Invalid variant-refinement base recovery scaling:
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results.rs`.
 - Direct variant-refinement visibility, union-base comparison and diagnostic

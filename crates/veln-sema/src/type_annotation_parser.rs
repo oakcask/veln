@@ -279,32 +279,12 @@ impl<'a> TypeParser<'a> {
                 args.len()
             ));
         }
-        match (name.as_str(), args.len()) {
-            ("Option", 1) => {
-                let [value] =
-                    <[Type; 1]>::try_from(args).expect("validated Option type argument count");
-                Ok(Type::option(value))
-            }
-            ("Result", 2) => {
-                let [value, error] =
-                    <[Type; 2]>::try_from(args).expect("validated Result type argument count");
-                Ok(Type::result(value, error))
-            }
-            ("List", 1) => {
-                let [item] =
-                    <[Type; 1]>::try_from(args).expect("validated List type argument count");
-                Ok(Type::list(item))
-            }
-            ("Vec", 1) => {
-                let [item] =
-                    <[Type; 1]>::try_from(args).expect("validated Vec type argument count");
-                Ok(Type::vec(item))
-            }
-            ("Dict", 2) => {
-                let [key, value] =
-                    <[Type; 2]>::try_from(args).expect("validated Dict type argument count");
-                Ok(Type::dict(key, value))
-            }
+        match (name.as_str(), args.as_slice()) {
+            ("Option", [value]) => Ok(Type::option(value.clone())),
+            ("Result", [value, error]) => Ok(Type::result(value.clone(), error.clone())),
+            ("List", [item]) => Ok(Type::list(item.clone())),
+            ("Vec", [item]) => Ok(Type::vec(item.clone())),
+            ("Dict", [key, value]) => Ok(Type::dict(key.clone(), value.clone())),
             _ => Ok(Type::named(name, args)),
         }
     }

@@ -186,7 +186,6 @@ pub(super) fn infer_private_body_type(
         returns_by_path,
         adts,
         failures,
-        completion_context: crate::aggregate_type_join::CompletionContext::default(),
     };
     infer_private_body_lines(body, expected, &mut context)
 }

@@ -9,7 +9,6 @@ use super::boundary::{
 };
 use super::repair_reasoning::*;
 use super::*;
-use crate::aggregate_type_join::CompletionContext;
 use crate::effect_rows::{
     call_bound_effect_row, instantiate_effect_rows, instantiate_effect_rows_in_type,
     mask_call_bound_effect_row, solve_call_bound_effect_row,
@@ -217,10 +216,10 @@ fn inferred_aggregate_member_type_with_expected(
     expected: &Type,
     adts: &crate::adt::registry::AdtRegistry,
 ) -> Type {
-    if expected == &Type::Unknown || !is_assignable_with_registry(expected, &ty, adts) {
-        ty
+    if expected != &Type::Unknown && is_assignable_with_registry(expected, &ty, adts) {
+        expected.clone()
     } else {
-        crate::aggregate_type_join::present_completion_payload_context_type(ty, expected)
+        ty
     }
 }
 
@@ -252,7 +251,6 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) annotation_owner_prevalidated: bool,
     pub(super) declaration_types_are_quarantined: bool,
     pub(super) bindings: Vec<Binding>,
-    completion_context: CompletionContext,
     binding_positions: HashMap<String, Vec<usize>>,
     next_stable_record_root: usize,
     next_transparent_alias_group: usize,
@@ -560,39 +558,6 @@ fn resolution_uses_for_function(
 }
 
 impl<'a> FunctionChecker<'a> {
-    fn expression_needs_aggregate_completion_context(&self, expr: &Expr) -> bool {
-        self.completion_context.expression_needs_completion_context(
-            expr,
-            &self.environment.adts,
-            self.function.module_name.as_deref(),
-            &self.resolution_uses,
-        )
-    }
-
-    fn aggregate_join_context(&self, expr: &Expr, joined: &AggregateTypeJoin) -> Option<Type> {
-        let needs_completion = self.expression_needs_aggregate_completion_context(expr);
-        (!joined.has_nested_refinement_domain() || needs_completion)
-            .then(|| self.project_completion_context(expr, joined.inference_type()))
-    }
-
-    fn control_flow_join_context(&self, expr: &Expr, joined: &AggregateTypeJoin) -> Option<Type> {
-        let needs_completion = self.expression_needs_aggregate_completion_context(expr);
-        (joined.has_complete_root_domain()
-            && (!joined.has_nested_refinement_domain() || needs_completion)
-            || joined.has_compiler_owned_root() && needs_completion)
-            .then(|| self.project_completion_context(expr, joined.inference_type()))
-    }
-
-    fn project_completion_context(&self, expr: &Expr, expected: Type) -> Type {
-        self.completion_context.completion_context_type(
-            expr,
-            &expected,
-            &self.environment.adts,
-            self.function.module_name.as_deref(),
-            &self.resolution_uses,
-        )
-    }
-
     pub(super) fn for_source_declaration(
         function: &'a Function,
         environment: &'a TypeEnvironment,
@@ -639,7 +604,6 @@ impl<'a> FunctionChecker<'a> {
             annotation_owner_prevalidated,
             declaration_types_are_quarantined,
             bindings: Vec::new(),
-            completion_context: CompletionContext::default(),
             binding_positions: HashMap::new(),
             next_stable_record_root: 0,
             next_transparent_alias_group: 0,

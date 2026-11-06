@@ -89,9 +89,10 @@ fn selected_sources(manifest: &CaseManifest, case_dir: &Path) -> Result<Vec<Path
             case_dir.display()
         )
     })?;
-    let project = Project::discover(package_root, &[]).map_err(|error| {
+    let inputs = manifest.selected_source_inputs(case_dir, &package_root);
+    let project = Project::discover(package_root, &inputs).map_err(|error| {
         format!(
-            "{}: discover specification project sources before publishing examples: {error}",
+            "{}: discover selected specification source inputs before publishing examples: {error}",
             case_dir.display()
         )
     })?;

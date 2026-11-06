@@ -7,7 +7,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         expr: &Expr,
         fields: &[RecordField],
-        expected: Option<&ExpectedType<'_>>,
+        expected: Option<&ExpectedType>,
     ) -> Type {
         if let Some(empty_dict_type) = self.infer_empty_record_as_dict(expr, fields, expected) {
             return empty_dict_type;
@@ -20,9 +20,9 @@ impl<'a> FunctionChecker<'a> {
         }
         let actual = Type::Record(actual_fields);
         if let Some(expected) = expected
-            && matches!(expected.ty.as_ref(), Type::Record(_))
+            && matches!(expected.ty, Type::Record(_))
         {
-            expected.ty.as_ref().clone()
+            expected.ty.clone()
         } else {
             actual
         }
@@ -32,19 +32,19 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         expr: &Expr,
         fields: &[RecordField],
-        expected: Option<&ExpectedType<'_>>,
+        expected: Option<&ExpectedType>,
     ) -> Option<Type> {
         let expected =
             expected.filter(|expected| fields.is_empty() && expected.ty.dict_parts().is_some())?;
-        if type_contains_unknown(expected.ty.as_ref()) {
+        if type_contains_unknown(&expected.ty) {
             self.push_ambiguous_empty_collection_type(
                 expr.node_id,
                 expr.span.clone(),
                 "Dict",
-                expected.ty.as_ref(),
+                &expected.ty,
             );
         }
-        Some(expected.ty.as_ref().clone())
+        Some(expected.ty.clone())
     }
 
     fn check_duplicate_record_field(
@@ -70,11 +70,7 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    fn infer_record_field(
-        &mut self,
-        field: &RecordField,
-        expected: Option<&ExpectedType<'_>>,
-    ) -> Type {
+    fn infer_record_field(&mut self, field: &RecordField, expected: Option<&ExpectedType>) -> Type {
         let field_expected = record_field_expected(field, expected);
         let actual = self.infer_expr(&field.expr, field_expected.as_ref());
         let aggregate_actual = field_expected.as_ref().map_or_else(
@@ -82,7 +78,7 @@ impl<'a> FunctionChecker<'a> {
             |expected| {
                 inferred_aggregate_member_type_with_expected(
                     actual.clone(),
-                    expected.ty.as_ref(),
+                    &expected.ty,
                     &self.environment.adts,
                 )
             },
@@ -94,7 +90,7 @@ impl<'a> FunctionChecker<'a> {
             ) {
                 self.check_schema_encode_assignable(
                     &field.expr,
-                    field_expected.ty.as_ref(),
+                    &field_expected.ty,
                     &aggregate_actual,
                     field_expected,
                     "record_field",
@@ -102,7 +98,7 @@ impl<'a> FunctionChecker<'a> {
             } else {
                 self.check_assignable_nested(
                     &field.expr,
-                    field_expected.ty.as_ref(),
+                    &field_expected.ty,
                     &aggregate_actual,
                     field_expected,
                     "record_field",
@@ -116,19 +112,19 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         expr: &Expr,
         entries: &[DictEntry],
-        expected: Option<&ExpectedType<'_>>,
+        expected: Option<&ExpectedType>,
     ) -> Type {
         let diagnostic_count = self.diagnostics.len();
         if entries.is_empty()
             && let Some(expected) = expected
             && expected.ty.dict_parts().is_some()
-            && type_contains_unknown(expected.ty.as_ref())
+            && type_contains_unknown(&expected.ty)
         {
             self.push_ambiguous_empty_collection_type(
                 expr.node_id,
                 expr.span.clone(),
                 "Dict",
-                expected.ty.as_ref(),
+                &expected.ty,
             );
         }
         let (expected_key, expected_value) = expected
@@ -142,46 +138,29 @@ impl<'a> FunctionChecker<'a> {
         let mut value_type = expected_value.clone();
         let mut joined_keys = None;
         let mut joined_values = None;
-        let completion_passes: &[bool] = if expected.is_some() {
-            &[false]
-        } else {
-            &[false, true]
-        };
-        for completion_pass in completion_passes {
-            for entry in entries {
-                if expected.is_some()
-                    || self.expression_needs_aggregate_completion_context(&entry.key)
-                        == *completion_pass
-                {
-                    key_type = self.infer_dict_member(
-                        &entry.key,
-                        &key_type,
-                        &mut joined_keys,
-                        &expected_key,
-                        contextual_key,
-                        expected,
-                        expr,
-                        "Dict key type inferred here.",
-                        "dict_key",
-                    );
-                }
-                if expected.is_some()
-                    || self.expression_needs_aggregate_completion_context(&entry.value)
-                        == *completion_pass
-                {
-                    value_type = self.infer_dict_member(
-                        &entry.value,
-                        &value_type,
-                        &mut joined_values,
-                        &expected_value,
-                        contextual_value,
-                        expected,
-                        expr,
-                        "Dict value type inferred here.",
-                        "dict_value",
-                    );
-                }
-            }
+        for entry in entries {
+            key_type = self.infer_dict_member(
+                &entry.key,
+                &key_type,
+                &mut joined_keys,
+                &expected_key,
+                contextual_key,
+                expected,
+                expr,
+                "Dict key type inferred here.",
+                "dict_key",
+            );
+            value_type = self.infer_dict_member(
+                &entry.value,
+                &value_type,
+                &mut joined_values,
+                &expected_value,
+                contextual_value,
+                expected,
+                expr,
+                "Dict value type inferred here.",
+                "dict_value",
+            );
         }
         if let Some(joined) = joined_keys {
             key_type = joined.result_type();
@@ -195,7 +174,7 @@ impl<'a> FunctionChecker<'a> {
             && (self.diagnostics.len() != diagnostic_count
                 || !type_contains_variant_refinement(&actual))
         {
-            expected.ty.as_ref().clone()
+            expected.ty.clone()
         } else {
             actual
         }
@@ -209,13 +188,12 @@ impl<'a> FunctionChecker<'a> {
         joined_type: &mut Option<AggregateTypeJoin>,
         contextual_type: &Type,
         has_contextual_type: bool,
-        expected: Option<&ExpectedType<'_>>,
+        expected: Option<&ExpectedType>,
         dict_expr: &Expr,
         origin_message: &'static str,
         constraint: &'static str,
     ) -> Type {
         let item_expected = self.dict_member_expected(
-            item,
             current_type,
             joined_type.as_ref(),
             contextual_type,
@@ -228,20 +206,12 @@ impl<'a> FunctionChecker<'a> {
         if self.diagnostics.len() != item_diagnostic_count {
             return current_type.clone();
         }
-        let aggregate = if self.expression_needs_aggregate_completion_context(item) {
-            inferred_aggregate_member_type_with_expected(
-                actual.clone(),
-                item_expected.ty.as_ref(),
-                &self.environment.adts,
-            )
-        } else {
-            dict_member_aggregate_type(
-                &actual,
-                contextual_type,
-                has_contextual_type,
-                &self.environment.adts,
-            )
-        };
+        let aggregate = dict_member_aggregate_type(
+            &actual,
+            contextual_type,
+            has_contextual_type,
+            &self.environment.adts,
+        );
         let joined =
             self.join_dict_member(current_type, joined_type, &aggregate, has_contextual_type);
         self.check_dict_member(
@@ -264,19 +234,17 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn dict_member_expected(
         &self,
-        item: &Expr,
         current_type: &Type,
         joined_type: Option<&AggregateTypeJoin>,
         contextual_type: &Type,
-        expected: Option<&ExpectedType<'_>>,
+        expected: Option<&ExpectedType>,
         dict_expr: &Expr,
         origin_message: &'static str,
-    ) -> ExpectedType<'static> {
+    ) -> ExpectedType {
         let inferred_context = joined_type
-            .and_then(|joined| self.aggregate_join_context(item, joined))
+            .map(AggregateTypeJoin::inference_type)
             .unwrap_or_else(|| current_type.clone());
         let item_type = if inferred_context == Type::Unknown {
             contextual_type.clone()
@@ -314,7 +282,7 @@ impl<'a> FunctionChecker<'a> {
     fn check_dict_member(
         &mut self,
         item: &Expr,
-        item_expected: &ExpectedType<'_>,
+        item_expected: &ExpectedType,
         actual: &Type,
         aggregate: &Type,
         joined_type: Option<&AggregateTypeJoin>,
@@ -325,13 +293,13 @@ impl<'a> FunctionChecker<'a> {
         if (!has_contextual_type && joined)
             || (joined_type.is_none()
                 && is_assignable_nested_with_registry(
-                    item_expected.ty.as_ref(),
+                    &item_expected.ty,
                     aggregate,
                     &self.environment.adts,
                 ))
             || (has_contextual_type
                 && is_assignable_nested_with_registry(
-                    item_expected.ty.as_ref(),
+                    &item_expected.ty,
                     aggregate,
                     &self.environment.adts,
                 ))
@@ -340,15 +308,15 @@ impl<'a> FunctionChecker<'a> {
         }
         let mismatch_expected = joined_type
             .map(AggregateTypeJoin::result_type)
-            .unwrap_or_else(|| item_expected.ty.as_ref().clone());
+            .unwrap_or_else(|| item_expected.ty.clone());
         let mismatch_context = ExpectedType {
-            ty: std::borrow::Cow::Owned(mismatch_expected),
+            ty: mismatch_expected,
             ..item_expected.clone()
         };
         if !has_contextual_type && joined_type.is_some() {
             self.push_inferred_type_mismatch(
                 item,
-                mismatch_context.ty.as_ref(),
+                &mismatch_context.ty,
                 actual,
                 &mismatch_context,
                 constraint,
@@ -356,7 +324,7 @@ impl<'a> FunctionChecker<'a> {
         } else {
             self.check_contextual_assignable_nested(
                 item,
-                mismatch_context.ty.as_ref(),
+                &mismatch_context.ty,
                 actual,
                 &mismatch_context,
                 constraint,
@@ -368,11 +336,31 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         expr: &Expr,
         inner: &Expr,
-        expected: Option<&ExpectedType<'_>>,
+        expected: Option<&ExpectedType>,
     ) -> Type {
-        let (value_type, error_type) = self.try_context_types(expected);
+        let return_result = self
+            .function
+            .return_type
+            .as_deref()
+            .and_then(|return_type| parse_type_annotation(return_type).ok())
+            .map(|ty| {
+                self.environment.canonicalize_type_annotation_in_owner(
+                    ty,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
+            })
+            .and_then(|return_type| {
+                adt::result_parts(&return_type).map(|(value, error)| (value.clone(), error.clone()))
+            });
+        let (value_type, error_type) = match (expected, return_result) {
+            (Some(expected), Some((_, error_type))) => (expected.ty.clone(), error_type),
+            (Some(expected), None) => (expected.ty.clone(), Type::Unknown),
+            (None, Some((_, error_type))) => (Type::Unknown, error_type),
+            (None, None) => (Type::Unknown, Type::Unknown),
+        };
         let mut inner_expected = ExpectedType {
-            ty: std::borrow::Cow::Owned(adt::result_type(value_type.clone(), error_type.clone())),
+            ty: adt::result_type(value_type.clone(), error_type.clone()),
             source: ExpectedTypeSource::Inferred,
             origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
             origin_span: expected.and_then(|expected| expected.origin_span.clone()),
@@ -385,12 +373,11 @@ impl<'a> FunctionChecker<'a> {
         if expected.is_none()
             && let Some((actual_value, _)) = adt::result_parts(&actual)
         {
-            inner_expected.ty =
-                std::borrow::Cow::Owned(adt::result_type(actual_value.clone(), error_type));
+            inner_expected.ty = adt::result_type(actual_value.clone(), error_type);
         }
         self.check_assignable(
             inner,
-            inner_expected.ty.as_ref(),
+            &inner_expected.ty,
             &actual,
             &inner_expected,
             "return_value",
@@ -405,37 +392,11 @@ impl<'a> FunctionChecker<'a> {
         )
     }
 
-    fn try_context_types(&self, expected: Option<&ExpectedType<'_>>) -> (Type, Type) {
-        match (expected, self.declared_result_return_parts()) {
-            (Some(expected), Some((_, error_type))) => (expected.ty.as_ref().clone(), error_type),
-            (Some(expected), None) => (expected.ty.as_ref().clone(), Type::Unknown),
-            (None, Some((_, error_type))) => (Type::Unknown, error_type),
-            (None, None) => (Type::Unknown, Type::Unknown),
-        }
-    }
-
-    fn declared_result_return_parts(&self) -> Option<(Type, Type)> {
-        self.function
-            .return_type
-            .as_deref()
-            .and_then(|return_type| parse_type_annotation(return_type).ok())
-            .map(|ty| {
-                self.environment.canonicalize_type_annotation_in_owner(
-                    ty,
-                    self.function.module_name.as_deref(),
-                    self.function.package_name.as_deref(),
-                )
-            })
-            .and_then(|return_type| {
-                adt::result_parts(&return_type).map(|(value, error)| (value.clone(), error.clone()))
-            })
-    }
-
     pub(super) fn infer_prefix(
         &mut self,
         op: veln_ast::PrefixOp,
         expr: &Expr,
-        expected_result: Option<&ExpectedType<'_>>,
+        expected_result: Option<&ExpectedType>,
     ) -> Type {
         let operand_type = match op {
             veln_ast::PrefixOp::Not => Type::bool(),
@@ -448,21 +409,15 @@ impl<'a> FunctionChecker<'a> {
             return self.infer_builtin_unary_call(name, expr);
         }
         let expected = ExpectedType {
-            ty: std::borrow::Cow::Owned(operand_type),
+            ty: operand_type,
             source: ExpectedTypeSource::Inferred,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
             origin_message: "Operator operand type inferred here.",
         };
         let actual = self.infer_expr(expr, Some(&expected));
-        self.check_assignable(
-            expr,
-            expected.ty.as_ref(),
-            &actual,
-            &expected,
-            "operator_operand",
-        );
-        expected.ty.into_owned()
+        self.check_assignable(expr, &expected.ty, &actual, &expected, "operator_operand");
+        expected.ty
     }
 
     pub(super) fn infer_binary(
@@ -470,7 +425,7 @@ impl<'a> FunctionChecker<'a> {
         op: BinaryOp,
         left: &Expr,
         right: &Expr,
-        expected_result: Option<&ExpectedType<'_>>,
+        expected_result: Option<&ExpectedType>,
     ) -> Type {
         if op == BinaryOp::PipeGreater {
             return self.infer_pipeline(left, right, expected_result);
@@ -516,7 +471,7 @@ impl<'a> FunctionChecker<'a> {
             BinaryOp::PipeGreater => unreachable!("pipeline handled before binary operators"),
         };
         let expected = ExpectedType {
-            ty: std::borrow::Cow::Owned(operand_type),
+            ty: operand_type,
             source: ExpectedTypeSource::Inferred,
             origin_node_id: left.node_id,
             origin_span: Some(left.span.clone()),
@@ -525,7 +480,7 @@ impl<'a> FunctionChecker<'a> {
         let actual_left = self.infer_expr(left, Some(&expected));
         self.check_assignable(
             left,
-            expected.ty.as_ref(),
+            &expected.ty,
             &actual_left,
             &expected,
             "operator_operand",
@@ -533,7 +488,7 @@ impl<'a> FunctionChecker<'a> {
         let actual_right = self.infer_expr(right, Some(&expected));
         self.check_assignable(
             right,
-            expected.ty.as_ref(),
+            &expected.ty,
             &actual_right,
             &expected,
             "operator_operand",
@@ -545,7 +500,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         left: &Expr,
         right: &Expr,
-        expected_result: Option<&ExpectedType<'_>>,
+        expected_result: Option<&ExpectedType>,
     ) -> Type {
         let ExprKind::Call { callee, args } = &right.kind else {
             self.infer_expr(left, None);
@@ -600,14 +555,14 @@ impl<'a> FunctionChecker<'a> {
             return return_type;
         };
         let expected = ExpectedType {
-            ty: std::borrow::Cow::Owned(param_type.clone()),
+            ty: param_type.clone(),
             source: ExpectedTypeSource::Inferred,
             origin_node_id: arg.node_id,
             origin_span: Some(arg.span.clone()),
             origin_message: "Builtin operator parameter type inferred here.",
         };
         let actual = self.infer_expr(arg, Some(&expected));
-        self.check_numeric_operator_assignable(arg, expected.ty.as_ref(), &actual, &expected);
+        self.check_numeric_operator_assignable(arg, &expected.ty, &actual, &expected);
         return_type
     }
 
@@ -622,14 +577,14 @@ impl<'a> FunctionChecker<'a> {
         };
         for (arg, param_type) in [left, right].into_iter().zip(params) {
             let expected = ExpectedType {
-                ty: std::borrow::Cow::Owned(param_type),
+                ty: param_type,
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: arg.node_id,
                 origin_span: Some(arg.span.clone()),
                 origin_message: "Builtin operator parameter type inferred here.",
             };
             let actual = self.infer_expr(arg, Some(&expected));
-            self.check_numeric_operator_assignable(arg, expected.ty.as_ref(), &actual, &expected);
+            self.check_numeric_operator_assignable(arg, &expected.ty, &actual, &expected);
         }
         return_type
     }
@@ -639,7 +594,7 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: &Type,
         actual: &Type,
-        expected_context: &ExpectedType<'_>,
+        expected_context: &ExpectedType,
     ) {
         if expected == &Type::float() && actual == &Type::int() {
             return;
@@ -652,17 +607,17 @@ impl<'a> FunctionChecker<'a> {
         helper_name: &str,
         arg_index: usize,
         arg: &Expr,
-        expected: &ExpectedType<'_>,
+        expected: &ExpectedType,
         actual: &Type,
     ) {
         let diagnostic_count = self.diagnostics.len();
-        self.check_assignable(arg, expected.ty.as_ref(), actual, expected, "call_argument");
+        self.check_assignable(arg, &expected.ty, actual, expected, "call_argument");
         let Some(diagnostic) = self.diagnostics.get_mut(diagnostic_count) else {
             return;
         };
         if helper_name == "vec_map"
             && arg_index == 1
-            && function_returns_result(expected.ty.as_ref()).is_none()
+            && function_returns_result(&expected.ty).is_none()
             && function_returns_result(actual).is_some()
         {
             diagnostic.related.push(JsonValue::object([
@@ -678,10 +633,10 @@ impl<'a> FunctionChecker<'a> {
 
     pub(super) fn numeric_operand_type(
         &self,
-        expected_result: Option<&ExpectedType<'_>>,
+        expected_result: Option<&ExpectedType>,
         operands: &[&Expr],
     ) -> Type {
-        if expected_result.is_some_and(|expected| expected.ty.as_ref() == &Type::float()) {
+        if expected_result.is_some_and(|expected| expected.ty == Type::float()) {
             return Type::float();
         }
         if operands.iter().any(|expr| {
@@ -741,13 +696,13 @@ fn dict_member_aggregate_type(
 
 fn record_field_expected(
     field: &RecordField,
-    expected: Option<&ExpectedType<'_>>,
-) -> Option<ExpectedType<'static>> {
+    expected: Option<&ExpectedType>,
+) -> Option<ExpectedType> {
     expected
         .and_then(|expected| expected.ty.record_field(&field.name))
         .cloned()
         .map(|ty| ExpectedType {
-            ty: std::borrow::Cow::Owned(ty),
+            ty,
             source: expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
             origin_node_id: expected.map_or(field.node_id, |expected| expected.origin_node_id),
             origin_span: expected.and_then(|expected| expected.origin_span.clone()),
