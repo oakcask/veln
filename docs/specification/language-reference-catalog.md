@@ -40,7 +40,9 @@ Its topic identifiers are `lexical-structure`, `modules-imports-packages`,
 `effects-handlers`, `contracts`, `schemas`, `holes`, and `tests-docs-doctests`.
 Each topic has validated descriptor text, normalized set-valued fields,
 validated related-topic identifiers, selected executable grammar productions,
-and selected displayed source files from specification case command inputs.
+and selected displayed source files from the specification project discovered
+at each case command root. Command arguments select the project root; they do
+not limit publication to the directly named source file.
 The `modules-imports-packages` topic selects the explicit import-alias
 productions as well as module paths and optional package sources. Its descriptor
 distinguishes the local qualifier from the imported target identity and routes
@@ -145,8 +147,8 @@ canonical artifact bytes
 Canonical artifact JSON has lexicographically ordered object keys, no
 insignificant whitespace, and one terminal LF. Catalog-owned text is NFC with
 LF line endings. Set-valued catalog fields are sorted after normalization.
-Selected source text is copied from selected specification case source inputs
-with newline normalization only.
+Selected source text is copied from descriptor-selected files among the
+discovered specification project sources, with newline normalization only.
 
 ## Generation Gates
 
@@ -155,7 +157,8 @@ invalid or duplicate topic identifier, empty required metadata, duplicate
 normalized set values, a missing or self-referential topic relation, an
 unknown or duplicate grammar production, a non-repository-relative example
 case or file selector, an empty displayed-file set, or an example file that is
-not a source input selected by the example case manifest command.
+not a discovered source in the project selected from the example case command
+root.
 
 The generated bundle excludes repository provenance, proposal material,
 maintenance commands, build paths, timestamps, and compiler binary versions.
