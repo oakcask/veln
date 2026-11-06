@@ -1407,7 +1407,9 @@ constructor or a source-ADT variant refinement. A concrete expected type still
 checks each contribution by ordinary assignment compatibility.
 
 The join applies when repeated constructor payloads use a type parameter
-directly and those direct occurrences contribute complete source-ADT types.
+directly and those direct occurrences contribute complete types supported by
+the bounded join, including source ADTs and compiler-owned immutable
+constructors.
 If the same parameter also occurs inside a named payload, that nested
 occurrence establishes an exact inference constraint independently of the
 named constructor's assignment or inference variance. For example, given
@@ -1732,9 +1734,10 @@ imported declaration with the same displayed name cannot acquire it. This
 separation also applies to a same-spelled source declaration in the root
 module and to aliases of that declaration. Source aliases instead retain their
 target declaration's checked classifications. The rule does not relate distinct
-nominal constructors and does not coerce runtime values. It applies only where
-a concrete expected type exists; it does not widen a context-free generic join
-or constructor inference.
+nominal constructors and does not coerce runtime values. Without a concrete
+expected type, the same covariance recursively joins arguments only for
+same-constructor contributions under the inference rules above. Other
+context-free joins remain unavailable.
 Recovery still lets `unknown` match a complete argument. `Path` and `String` are distinct named types at
 assignment boundaries; the runtime path representation is not source-visible.
 Function assignment checks fixed parameter count, parameter types, variadic

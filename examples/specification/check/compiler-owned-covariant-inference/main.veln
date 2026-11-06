@@ -11,6 +11,10 @@ type Positive<T>
 	Present(T)
 end
 
+type Pair<T>
+	Paired(T, T)
+end
+
 fn option(first: Option<First::Ready>, second: Option<Second::Closed>)
 	[first, second]
 end
@@ -47,6 +51,17 @@ fn selected_vector(flag: Bool, first: Vec<State::Ready>, second: Vec<State::Clos
 	end
 end
 
+fn matched_option(flag: Bool, first: Option<State::Ready>, second: Option<State::Closed>)
+	match flag
+		true => first
+		false => second
+	end
+end
+
+fn paired_option(first: Option<State::Ready>, second: Option<State::Closed>)
+	Paired(first, second)
+end
+
 fn dictionary(first: Dict<Option<State::Ready>, Positive<State::Closed>>, second: Dict<Option<State::Closed>, Positive<State::Failed>>)
 	[second, first]
 end
@@ -64,6 +79,8 @@ fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option
 	let list_result: Vec<List<State::Ready | State::Closed>> = list(first_list, second_list)
 	let vector_result: Vec<Vec<State::Ready | State::Closed>> = vector(first_vector, second_vector)
 	let selected_vector_result: Vec<State::Ready | State::Closed> = selected_vector(flag, first_vector, second_vector)
+	let matched_option_result: Option<State::Ready | State::Closed> = matched_option(flag, first_option, second_option)
+	let paired_option_result: Pair<Option<State::Ready | State::Closed>>::Paired = paired_option(first_option, second_option)
 	let dictionary_result: Vec<Dict<Option<State::Ready | State::Closed>, Positive<State::Closed | State::Failed>>> = dictionary(first_dict, second_dict)
 	let dictionary_forward_result: Vec<Dict<Option<State::Ready | State::Closed>, Positive<State::Closed | State::Failed>>> = dictionary_forward(first_dict, second_dict)
 	()
