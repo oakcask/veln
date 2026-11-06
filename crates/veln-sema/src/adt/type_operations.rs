@@ -57,6 +57,18 @@ pub(crate) fn refined_constructed_type_from_args(
     )
 }
 
+pub(crate) fn refined_constructed_type_from_owned_args(
+    constructor: AdtConstructor<'_>,
+    args: Vec<Type>,
+) -> Type {
+    Type::resolved_variant_refinement(
+        canonical_descriptor_name(constructor.descriptor),
+        constructor.descriptor.identity(),
+        args,
+        vec![constructor.variant.name.clone()],
+    )
+}
+
 pub(crate) fn type_matches_descriptor(ty: &Type, descriptor: &AdtDescriptor) -> bool {
     let (name, identity, args) = match ty {
         Type::Named {

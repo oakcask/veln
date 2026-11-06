@@ -1194,6 +1194,8 @@ pub(crate) struct CompletionWork {
     pub(crate) application_tasks: usize,
     pub(crate) cloned_type_nodes: usize,
     pub(crate) payload_context_cloned_type_nodes: usize,
+    pub(crate) payload_context_visited_type_nodes: usize,
+    pub(crate) analysis_cloned_type_nodes: usize,
 }
 
 #[cfg(test)]
@@ -1211,6 +1213,8 @@ impl CompletionWork {
             + self.application_tasks
             + self.cloned_type_nodes
             + self.payload_context_cloned_type_nodes
+            + self.payload_context_visited_type_nodes
+            + self.analysis_cloned_type_nodes
     }
 }
 
@@ -1230,6 +1234,8 @@ thread_local! {
             application_tasks: 0,
             cloned_type_nodes: 0,
             payload_context_cloned_type_nodes: 0,
+            payload_context_visited_type_nodes: 0,
+            analysis_cloned_type_nodes: 0,
         })
     };
 }
@@ -1252,6 +1258,53 @@ pub(crate) fn measure_completion_payload_context<T>(operation: impl FnOnce() -> 
         work
     });
     result
+}
+
+#[cfg(test)]
+#[inline(always)]
+pub(crate) fn record_completion_payload_context_type_node() {
+    COMPLETION_WORK.update(|mut work| {
+        work.payload_context_visited_type_nodes += 1;
+        work
+    });
+}
+
+#[cfg(not(test))]
+#[inline(always)]
+pub(crate) fn record_completion_payload_context_type_node() {}
+
+#[cfg(test)]
+pub(crate) fn record_completion_analysis_type_clones(nodes: usize) {
+    COMPLETION_WORK.update(|mut work| {
+        work.analysis_cloned_type_nodes += nodes;
+        work
+    });
+}
+
+pub(crate) fn present_validated_completion_payload_context_type(
+    actual: Type,
+    expected: &Type,
+) -> Type {
+    record_completion_payload_context_type_node();
+    match (actual, expected) {
+        (
+            Type::Named { args, identity, .. } | Type::VariantRefinement { args, identity, .. },
+            Type::Named {
+                name,
+                identity: expected_identity,
+                args: expected_args,
+            },
+        ) if crate::type_relations::same_type_identity(
+            name,
+            expected_identity,
+            &identity,
+            &identity,
+        ) && args.len() == expected_args.len() =>
+        {
+            Type::resolved_named(name, expected_identity, args)
+        }
+        (actual, expected) => present_completion_payload_context_type(actual, expected),
+    }
 }
 
 pub(crate) fn present_completion_payload_context_type(actual: Type, expected: &Type) -> Type {

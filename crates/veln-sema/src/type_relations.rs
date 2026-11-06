@@ -142,6 +142,7 @@ impl<'a> Assignability<'a> {
     }
 
     fn is_assignable(self, expected: &Type, actual: &Type) -> bool {
+        crate::aggregate_type_join::record_completion_payload_context_type_node();
         if Self::trivially_assignable(expected, actual) {
             return true;
         }
@@ -212,7 +213,7 @@ impl<'a> Assignability<'a> {
     }
 
     fn trivially_assignable(expected: &Type, actual: &Type) -> bool {
-        expected == &Type::Unknown || actual == &Type::Unknown || expected == actual
+        expected == &Type::Unknown || actual == &Type::Unknown
     }
 
     fn structurally_assignable(self, expected: &Type, actual: &Type) -> bool {

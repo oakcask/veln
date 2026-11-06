@@ -461,26 +461,26 @@ impl<'a> FunctionChecker<'a> {
             unification::adt_args(expected.ty.as_ref(), constructor.descriptor)
         });
         let type_args = if self.diagnostics.len() != diagnostic_count {
-            expected_type_args.unwrap_or(&inferred_type_args)
+            expected_type_args
+                .map(<[Type]>::to_vec)
+                .unwrap_or(inferred_type_args)
         } else {
-            &inferred_type_args
+            inferred_type_args
         };
-        let inferred_base = adt::constructed_type_from_args(constructor, type_args);
         let expected_supplies_or_defers_every_argument = expected.is_some_and(|expected| {
             !matches!(expected.source, ExpectedTypeSource::Inferred)
-                || inferred_type_args
-                    .iter()
-                    .enumerate()
-                    .all(|(index, argument)| {
-                        !type_contains_unknown(argument)
-                            || crate::aggregate_type_join::constructor_parameter_accepts_completion_context(
-                                constructor,
-                                index,
-                                &self.environment.adts,
-                            )
-                    })
+                || type_args.iter().enumerate().all(|(index, argument)| {
+                    crate::aggregate_type_join::constructor_parameter_accepts_completion_context(
+                        constructor,
+                        index,
+                        &self.environment.adts,
+                    ) || !type_contains_unknown(argument)
+                })
         });
-        if type_contains_unknown(&inferred_base) && !expected_supplies_or_defers_every_argument {
+        if !expected_supplies_or_defers_every_argument
+            && type_args.iter().any(type_contains_unknown)
+        {
+            let inferred_base = adt::constructed_type_from_args(constructor, &type_args);
             self.push_ambiguous_constructor_type(
                 expr.node_id,
                 expr.span.clone(),
@@ -488,7 +488,7 @@ impl<'a> FunctionChecker<'a> {
                 &inferred_base,
             );
         }
-        adt::refined_constructed_type_from_args(constructor, type_args)
+        adt::refined_constructed_type_from_owned_args(constructor, type_args)
     }
 
     fn infer_constructor_type_args(
@@ -542,6 +542,7 @@ impl<'a> FunctionChecker<'a> {
         constructor: AdtConstructor,
         type_args: &mut ConstructorTypeArgInference,
     ) {
+        let needs_completion = self.expression_needs_aggregate_completion_context(arg);
         let mut arg_expected =
             crate::aggregate_type_join::measure_completion_payload_context(|| {
                 let payload_expected = type_args.payload_expected(
@@ -567,14 +568,14 @@ impl<'a> FunctionChecker<'a> {
                         }),
                 }
             });
-        if expected.is_none() && self.expression_needs_aggregate_completion_context(arg) {
+        if expected.is_none() && needs_completion {
             arg_expected.ty =
                 Cow::Owned(self.project_completion_context(arg, arg_expected.ty.into_owned()));
         }
         if expected.is_none()
             && matches!(field.ty, AdtPayloadType::TypeParameter(_))
             && type_args.has_nested_join(field)
-            && !self.expression_needs_aggregate_completion_context(arg)
+            && !needs_completion
         {
             arg_expected.ty = Cow::Owned(Type::Unknown);
         }
@@ -586,7 +587,14 @@ impl<'a> FunctionChecker<'a> {
         let has_context = expected.is_some()
             || (!matches!(field.ty, AdtPayloadType::TypeParameter(_))
                 && !type_contains_unknown(arg_expected.ty.as_ref()));
-        let inferred = if has_context || self.expression_needs_aggregate_completion_context(arg) {
+        let validated_completion =
+            needs_completion && matches!(field.ty, AdtPayloadType::TypeParameter(_));
+        let inferred = if validated_completion {
+            crate::aggregate_type_join::present_validated_completion_payload_context_type(
+                actual,
+                arg_expected.ty.as_ref(),
+            )
+        } else if has_context {
             inferred_aggregate_member_type_with_expected(
                 actual,
                 arg_expected.ty.as_ref(),
@@ -603,6 +611,7 @@ impl<'a> FunctionChecker<'a> {
             &inferred,
             has_context,
             joined,
+            validated_completion,
             type_args,
         );
         if self.diagnostics.len() == diagnostic_count
@@ -610,7 +619,7 @@ impl<'a> FunctionChecker<'a> {
                 field,
                 constructor,
                 index,
-                &inferred,
+                inferred,
                 joined,
                 &self.environment.adts,
             )
@@ -634,6 +643,7 @@ impl<'a> FunctionChecker<'a> {
         actual: &Type,
         has_context: bool,
         joined: bool,
+        validated_completion: bool,
         type_args: &ConstructorTypeArgInference,
     ) {
         if matches!(
@@ -655,6 +665,9 @@ impl<'a> FunctionChecker<'a> {
             return;
         }
         let join_failed = !has_context && !joined && type_args.has_join(field);
+        if validated_completion && !join_failed {
+            return;
+        }
         if joined
             || (!join_failed
                 && is_assignable_nested_with_registry(
@@ -2237,7 +2250,7 @@ impl ConstructorTypeArgInference {
         field: &AdtPayloadField,
         constructor: AdtConstructor<'_>,
         index: usize,
-        actual: &Type,
+        actual: Type,
         joined: bool,
         adts: &AdtRegistry,
     ) -> Result<(), unification::TypeParameterContributionConflict> {
@@ -2250,6 +2263,29 @@ impl ConstructorTypeArgInference {
                 .inference_type();
             return Ok(());
         }
+        if let AdtPayloadType::TypeParameter(type_index) = field.ty
+            && self.inferred[type_index] == Type::Unknown
+            && self.joined[type_index].is_none()
+            && !self.invariant[type_index]
+        {
+            self.inferred[type_index] = actual;
+            if constructor
+                .variant
+                .payload_fields
+                .iter()
+                .skip(index + 1)
+                .any(|field| {
+                    matches!(field.ty, AdtPayloadType::TypeParameter(index) if index == type_index)
+                })
+            {
+                self.joined[type_index] =
+                    AggregateTypeJoin::new(adts, &self.inferred[type_index]);
+                if let Some(joined) = &self.joined[type_index] {
+                    self.inferred[type_index] = joined.inference_type();
+                }
+            }
+            return Ok(());
+        }
         if !matches!(field.ty, AdtPayloadType::TypeParameter(_)) {
             return crate::aggregate_type_join::merge_invariant_payload_type_args(
                 &mut self.inferred,
@@ -2258,21 +2294,15 @@ impl ConstructorTypeArgInference {
                 &mut self.presentations,
                 constructor,
                 index,
-                actual,
+                &actual,
             );
         }
         crate::aggregate_type_join::record_work(1);
-        adt::merge_type_args_from_payload(&mut self.inferred, constructor, index, actual);
+        adt::merge_type_args_from_payload(&mut self.inferred, constructor, index, &actual);
         let AdtPayloadType::TypeParameter(type_index) = field.ty else {
             return Ok(());
         };
-        self.presentations[type_index].merge(&mut self.inferred[type_index], actual);
-        if self.joined[type_index].is_none() {
-            self.joined[type_index] = AggregateTypeJoin::new(adts, &self.inferred[type_index]);
-            if let Some(joined) = &self.joined[type_index] {
-                self.inferred[type_index] = joined.inference_type();
-            }
-        }
+        self.presentations[type_index].merge(&mut self.inferred[type_index], &actual);
         Ok(())
     }
 

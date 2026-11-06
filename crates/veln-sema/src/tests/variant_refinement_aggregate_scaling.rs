@@ -188,8 +188,8 @@ fn completion_work_components(work: crate::aggregate_type_join::CompletionWork) 
         work.projection_tasks,
         work.plan_edges,
         work.application_tasks,
-        work.cloned_type_nodes,
-        work.payload_context_cloned_type_nodes,
+        work.payload_context_visited_type_nodes,
+        work.analysis_cloned_type_nodes,
     ]
 }
 
@@ -210,8 +210,10 @@ fn measure_nested_completion_work(
 
     crate::aggregate_type_join::reset_completion_work();
     let private_started = std::time::Instant::now();
-    let environment = TypeEnvironment::from_module(&module);
+    let (environment, private_cloned_type_nodes) =
+        crate::semantic_model::measure_type_clone_nodes(|| TypeEnvironment::from_module(&module));
     let private_elapsed = private_started.elapsed();
+    crate::aggregate_type_join::record_completion_analysis_type_clones(private_cloned_type_nodes);
     let private_work = crate::aggregate_type_join::take_completion_work();
     assert_eq!(
         environment
@@ -230,9 +232,12 @@ fn measure_nested_completion_work(
     let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
     crate::aggregate_type_join::reset_completion_work();
     let ordinary_started = std::time::Instant::now();
-    let diagnostics =
-        crate::analysis::check_function_body(ordinary, &environment, &mut variant_diagnostics);
+    let (diagnostics, ordinary_cloned_type_nodes) =
+        crate::semantic_model::measure_type_clone_nodes(|| {
+            crate::analysis::check_function_body(ordinary, &environment, &mut variant_diagnostics)
+        });
     let ordinary_elapsed = ordinary_started.elapsed();
+    crate::aggregate_type_join::record_completion_analysis_type_clones(ordinary_cloned_type_nodes);
     let ordinary_work = crate::aggregate_type_join::take_completion_work();
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 
@@ -243,7 +248,7 @@ fn measure_nested_completion_work(
 }
 
 #[test]
-fn nested_completion_payload_context_clone_work_is_linear_in_both_pipelines() {
+fn nested_completion_analysis_work_is_linear_in_both_pipelines() {
     let depths = [16, 32, 64, 128];
     for incomplete_first in [true, false] {
         let measured = depths.map(|depth| measure_nested_completion_work(depth, incomplete_first));
@@ -284,7 +289,7 @@ fn nested_completion_payload_context_clone_work_is_linear_in_both_pipelines() {
                 for (previous, next) in previous.into_iter().zip(next) {
                     assert!(
                         next <= previous * 2 + 128,
-                        "doubling depth must add only linear completion and payload-context clone work: {measured:?}",
+                        "doubling depth must add only linear completion and payload-context analysis work: {measured:?}",
                     );
                 }
             }
