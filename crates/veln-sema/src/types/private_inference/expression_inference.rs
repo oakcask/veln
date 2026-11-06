@@ -269,15 +269,27 @@ pub(super) fn infer_private_list_type(
         .cloned()
         .unwrap_or(Type::Unknown);
     let mut joined_items = None;
-    for item in items {
-        let has_context = expected.and_then(Type::vec_part).is_some();
-        infer_private_aggregate_component(
-            item,
-            has_context,
-            &mut item_type,
-            &mut joined_items,
-            context,
-        );
+    let completion_passes: &[bool] = if expected.is_some() {
+        &[false]
+    } else {
+        &[false, true]
+    };
+    for completion_pass in completion_passes {
+        for item in items {
+            if expected.is_none()
+                && private_expression_needs_aggregate_completion_context(item) != *completion_pass
+            {
+                continue;
+            }
+            let has_context = expected.and_then(Type::vec_part).is_some();
+            infer_private_aggregate_component(
+                item,
+                has_context,
+                &mut item_type,
+                &mut joined_items,
+                context,
+            );
+        }
     }
     if let Some(joined) = joined_items {
         item_type = joined.result_type();
@@ -301,22 +313,39 @@ pub(super) fn infer_private_dict_type(
         });
     let mut joined_keys = None;
     let mut joined_values = None;
-    for entry in entries {
-        let has_key_context = expected.and_then(Type::dict_parts).is_some();
-        infer_private_aggregate_component(
-            &entry.key,
-            has_key_context,
-            &mut key_type,
-            &mut joined_keys,
-            context,
-        );
-        infer_private_aggregate_component(
-            &entry.value,
-            has_key_context,
-            &mut value_type,
-            &mut joined_values,
-            context,
-        );
+    let completion_passes: &[bool] = if expected.is_some() {
+        &[false]
+    } else {
+        &[false, true]
+    };
+    for completion_pass in completion_passes {
+        for entry in entries {
+            let has_key_context = expected.and_then(Type::dict_parts).is_some();
+            if expected.is_some()
+                || private_expression_needs_aggregate_completion_context(&entry.key)
+                    == *completion_pass
+            {
+                infer_private_aggregate_component(
+                    &entry.key,
+                    has_key_context,
+                    &mut key_type,
+                    &mut joined_keys,
+                    context,
+                );
+            }
+            if expected.is_some()
+                || private_expression_needs_aggregate_completion_context(&entry.value)
+                    == *completion_pass
+            {
+                infer_private_aggregate_component(
+                    &entry.value,
+                    has_key_context,
+                    &mut value_type,
+                    &mut joined_values,
+                    context,
+                );
+            }
+        }
     }
     if let Some(joined) = joined_keys {
         key_type = joined.result_type();
@@ -338,8 +367,7 @@ fn infer_private_aggregate_component(
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
     let inferred_context = match joined_components {
-        Some(joined) if joined.has_nested_refinement_domain() => Type::Unknown,
-        Some(joined) => joined.inference_type(),
+        Some(joined) => private_aggregate_join_context(expr, joined).unwrap_or(Type::Unknown),
         None => component_type.clone(),
     };
     let actual = context.infer_outcome(expr, item_type_unknown_as_none(&inferred_context));
@@ -385,6 +413,36 @@ fn infer_private_aggregate_component(
             })
             .flatten();
     }
+}
+
+pub(super) fn private_expression_needs_aggregate_completion_context(expr: &Expr) -> bool {
+    match &expr.kind {
+        ExprKind::NamePath { segments, .. } => segments
+            .last()
+            .is_some_and(|name| name == "None" || name == "Nil"),
+        ExprKind::List(items) => items.is_empty(),
+        ExprKind::Dict(entries) => entries.is_empty(),
+        _ => false,
+    }
+}
+
+pub(super) fn private_aggregate_join_context(
+    expr: &Expr,
+    joined: &crate::aggregate_type_join::AggregateTypeJoin,
+) -> Option<Type> {
+    let needs_completion = private_expression_needs_aggregate_completion_context(expr);
+    (!joined.has_nested_refinement_domain() || needs_completion).then(|| joined.inference_type())
+}
+
+pub(super) fn private_control_flow_join_context(
+    expr: &Expr,
+    joined: &crate::aggregate_type_join::AggregateTypeJoin,
+) -> Option<Type> {
+    let needs_completion = private_expression_needs_aggregate_completion_context(expr);
+    (joined.has_complete_root_domain()
+        && (!joined.has_nested_refinement_domain() || needs_completion)
+        || joined.has_compiler_owned_root() && needs_completion)
+        .then(|| joined.inference_type())
 }
 
 pub(crate) fn infer_private_record_type(

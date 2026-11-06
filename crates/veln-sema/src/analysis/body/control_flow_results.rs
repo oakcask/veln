@@ -21,12 +21,7 @@ impl<'a> FunctionChecker<'a> {
         result: &mut ControlFlowResultJoin,
     ) {
         let recovery_type = match result.joined.as_ref() {
-            Some(joined)
-                if joined.has_complete_domain() && !joined.has_nested_refinement_domain() =>
-            {
-                Some(joined.inference_type())
-            }
-            Some(_) => None,
+            Some(joined) => control_flow_join_context(branch_expr, joined),
             None if result.recovery_type != Type::Unknown => Some(result.recovery_type.clone()),
             None => None,
         };

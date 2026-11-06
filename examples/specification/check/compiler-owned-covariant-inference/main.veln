@@ -74,6 +74,52 @@ fn paired_option(first: Option<State::Ready>, second: Option<State::Closed>)
 	Paired(first, second)
 end
 
+fn paired_constructed_vector()
+	Paired([Ready], [Closed])
+end
+
+fn paired_constructed_vector_reverse()
+	Paired([Closed], [Ready])
+end
+
+fn constructed_option()
+	[Some(Ready), None]
+end
+
+fn constructed_option_reverse()
+	[None, Some(Ready)]
+end
+
+fn selected_constructed_option(flag: Bool)
+	if flag
+		Some(Ready)
+	else
+		None
+	end
+end
+
+fn selected_constructed_option_reverse(flag: Bool)
+	if flag
+		None
+	else
+		Some(Ready)
+	end
+end
+
+fn matched_constructed_option(flag: Bool)
+	match flag
+		true => Some(Ready)
+		false => None
+	end
+end
+
+fn matched_constructed_option_reverse(flag: Bool)
+	match flag
+		true => None
+		false => Some(Ready)
+	end
+end
+
 fn dictionary(first: Dict<Option<State::Ready>, Positive<State::Closed>>, second: Dict<Option<State::Closed>, Positive<State::Failed>>)
 	[second, first]
 end
@@ -95,6 +141,14 @@ fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option
 	let selected_constructed_vector_result: Vec<State::Ready | State::Closed> = selected_constructed_vector(flag)
 	let matched_option_result: Option<State::Ready | State::Closed> = matched_option(flag, first_option, second_option)
 	let paired_option_result: Pair<Option<State::Ready | State::Closed>>::Paired = paired_option(first_option, second_option)
+	let paired_constructed_vector_result: Pair<Vec<State::Ready | State::Closed>>::Paired = paired_constructed_vector()
+	let paired_constructed_vector_reverse_result: Pair<Vec<State::Ready | State::Closed>>::Paired = paired_constructed_vector_reverse()
+	let constructed_option_result: Vec<Option<State::Ready>> = constructed_option()
+	let constructed_option_reverse_result: Vec<Option<State::Ready>> = constructed_option_reverse()
+	let selected_constructed_option_result: Option<State::Ready> = selected_constructed_option(flag)
+	let selected_constructed_option_reverse_result: Option<State::Ready> = selected_constructed_option_reverse(flag)
+	let matched_constructed_option_result: Option<State::Ready> = matched_constructed_option(flag)
+	let matched_constructed_option_reverse_result: Option<State::Ready> = matched_constructed_option_reverse(flag)
 	let dictionary_result: Vec<Dict<Option<State::Ready | State::Closed>, Positive<State::Closed | State::Failed>>> = dictionary(first_dict, second_dict)
 	let dictionary_forward_result: Vec<Dict<Option<State::Ready | State::Closed>, Positive<State::Closed | State::Failed>>> = dictionary_forward(first_dict, second_dict)
 	()

@@ -163,15 +163,27 @@ fn infer_private_constructor_call(
         *context.failures += 1;
     }
     let mut type_args = PrivateConstructorTypeArgInference::new(constructor);
-    for (index, arg) in args.iter().enumerate() {
-        infer_private_constructor_payload(
-            constructor,
-            index,
-            arg,
-            expected,
-            &mut type_args,
-            context,
-        );
+    let completion_passes: &[bool] = if expected.is_some() {
+        &[false]
+    } else {
+        &[false, true]
+    };
+    for completion_pass in completion_passes {
+        for (index, arg) in args.iter().enumerate() {
+            if expected.is_none()
+                && private_expression_needs_aggregate_completion_context(arg) != *completion_pass
+            {
+                continue;
+            }
+            infer_private_constructor_payload(
+                constructor,
+                index,
+                arg,
+                expected,
+                &mut type_args,
+                context,
+            );
+        }
     }
     let inferred_type_args = type_args.finish(expected, constructor);
     adt::refined_constructed_type_from_args(constructor, &inferred_type_args)
@@ -186,7 +198,13 @@ fn infer_private_constructor_payload(
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
     let field = constructor.variant.payload_fields.get(index);
-    let payload_expected = type_args.payload_expected(expected, constructor, index, field);
+    let mut payload_expected = type_args.payload_expected(expected, constructor, index, field);
+    if expected.is_none()
+        && type_args.has_nested_join(field)
+        && !private_expression_needs_aggregate_completion_context(arg)
+    {
+        payload_expected = Type::Unknown;
+    }
     let plan = PrivatePayloadInferencePlan::new(expected.is_some(), field, &payload_expected);
     let Some(inferred_actual) = plan.infer(arg, &payload_expected, context) else {
         return;
@@ -368,6 +386,19 @@ impl PrivateConstructorTypeArgInference {
             return false;
         };
         self.joined[*type_index].is_some()
+    }
+
+    fn has_nested_join(&self, field: Option<&AdtPayloadField>) -> bool {
+        let Some(AdtPayloadField {
+            ty: AdtPayloadType::TypeParameter(type_index),
+            ..
+        }) = field
+        else {
+            return false;
+        };
+        self.joined[*type_index].as_ref().is_some_and(
+            crate::aggregate_type_join::AggregateTypeJoin::has_nested_refinement_domain,
+        )
     }
 
     #[allow(clippy::too_many_arguments)]

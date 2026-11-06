@@ -199,6 +199,30 @@ fn type_contains_variant_refinement(ty: &Type) -> bool {
     }
 }
 
+fn expression_needs_aggregate_completion_context(expr: &Expr) -> bool {
+    match &expr.kind {
+        ExprKind::NamePath { segments, .. } => segments
+            .last()
+            .is_some_and(|name| name == "None" || name == "Nil"),
+        ExprKind::List(items) => items.is_empty(),
+        ExprKind::Dict(entries) => entries.is_empty(),
+        _ => false,
+    }
+}
+
+fn aggregate_join_context(expr: &Expr, joined: &AggregateTypeJoin) -> Option<Type> {
+    let needs_completion = expression_needs_aggregate_completion_context(expr);
+    (!joined.has_nested_refinement_domain() || needs_completion).then(|| joined.inference_type())
+}
+
+fn control_flow_join_context(expr: &Expr, joined: &AggregateTypeJoin) -> Option<Type> {
+    let needs_completion = expression_needs_aggregate_completion_context(expr);
+    (joined.has_complete_root_domain()
+        && (!joined.has_nested_refinement_domain() || needs_completion)
+        || joined.has_compiler_owned_root() && needs_completion)
+        .then(|| joined.inference_type())
+}
+
 fn inferred_control_flow_recovery_type(ty: &Type) -> Type {
     match ty {
         Type::VariantRefinement {

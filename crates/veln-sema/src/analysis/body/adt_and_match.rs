@@ -477,19 +477,31 @@ impl<'a> FunctionChecker<'a> {
         constructor: AdtConstructor,
     ) -> Vec<Type> {
         let mut type_args = ConstructorTypeArgInference::new(constructor);
-        for (index, field) in constructor.variant.payload_fields.iter().enumerate() {
-            let Some(arg) = args.get(index) else {
-                continue;
-            };
-            self.infer_constructor_payload(
-                expr,
-                arg,
-                field,
-                index,
-                expected,
-                constructor,
-                &mut type_args,
-            );
+        let completion_passes: &[bool] = if expected.is_some() {
+            &[false]
+        } else {
+            &[false, true]
+        };
+        for completion_pass in completion_passes {
+            for (index, field) in constructor.variant.payload_fields.iter().enumerate() {
+                let Some(arg) = args.get(index) else {
+                    continue;
+                };
+                if expected.is_none()
+                    && expression_needs_aggregate_completion_context(arg) != *completion_pass
+                {
+                    continue;
+                }
+                self.infer_constructor_payload(
+                    expr,
+                    arg,
+                    field,
+                    index,
+                    expected,
+                    constructor,
+                    &mut type_args,
+                );
+            }
         }
         for arg in args.iter().skip(constructor.variant.payload_fields.len()) {
             self.infer_expr(arg, None);
@@ -516,6 +528,13 @@ impl<'a> FunctionChecker<'a> {
             origin_message: "Constructor payload inferred here.",
         });
         arg_expected.ty = type_args.payload_expected(expected, constructor, index, field);
+        if expected.is_none()
+            && matches!(field.ty, AdtPayloadType::TypeParameter(_))
+            && type_args.has_nested_join(field)
+            && !expression_needs_aggregate_completion_context(arg)
+        {
+            arg_expected.ty = Type::Unknown;
+        }
         let diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(arg, Some(&arg_expected));
         if self.diagnostics.len() != diagnostic_count {
@@ -648,16 +667,28 @@ impl<'a> FunctionChecker<'a> {
         let contextual_item = expected_item != Type::Unknown;
         let mut item_type = expected_item.clone();
         let mut joined_items = None;
-        for item in items {
-            self.infer_list_item(
-                expr,
-                item,
-                expected,
-                &expected_item,
-                contextual_item,
-                &mut item_type,
-                &mut joined_items,
-            );
+        let completion_passes: &[bool] = if expected.is_some() {
+            &[false]
+        } else {
+            &[false, true]
+        };
+        for completion_pass in completion_passes {
+            for item in items {
+                if expected.is_none()
+                    && expression_needs_aggregate_completion_context(item) != *completion_pass
+                {
+                    continue;
+                }
+                self.infer_list_item(
+                    expr,
+                    item,
+                    expected,
+                    &expected_item,
+                    contextual_item,
+                    &mut item_type,
+                    &mut joined_items,
+                );
+            }
         }
         if let Some(joined) = joined_items {
             item_type = joined.result_type();
@@ -686,8 +717,7 @@ impl<'a> FunctionChecker<'a> {
         joined_items: &mut Option<AggregateTypeJoin>,
     ) {
         let inferred_context = match joined_items {
-            Some(joined) if joined.has_nested_refinement_domain() => Type::Unknown,
-            Some(joined) => joined.inference_type(),
+            Some(joined) => aggregate_join_context(item, joined).unwrap_or(Type::Unknown),
             None => item_type.clone(),
         };
         let item_expected = collection_item_expected(
@@ -844,15 +874,28 @@ impl<'a> FunctionChecker<'a> {
             ty: &scrutinee_type,
             stable_place,
         };
-        for arm in arms {
-            self.infer_match_arm(
-                expr,
-                &domain,
-                arm,
-                expected,
-                &mut result,
-                refined_coverage.as_mut(),
-            );
+        let reorder_for_completion = expected.is_none() && refined_coverage.is_none();
+        let completion_passes: &[bool] = if reorder_for_completion {
+            &[false, true]
+        } else {
+            &[false]
+        };
+        for completion_pass in completion_passes {
+            for arm in arms {
+                if reorder_for_completion
+                    && expression_needs_aggregate_completion_context(&arm.expr) != *completion_pass
+                {
+                    continue;
+                }
+                self.infer_match_arm(
+                    expr,
+                    &domain,
+                    arm,
+                    expected,
+                    &mut result,
+                    refined_coverage.as_mut(),
+                );
+            }
         }
 
         if uses_refined_match_diagnostics && let Some(coverage) = refined_coverage {
@@ -1830,12 +1873,7 @@ impl<'a> FunctionChecker<'a> {
         result: &mut ControlFlowResultJoin,
     ) {
         let recovery_type = match result.joined.as_ref() {
-            Some(joined)
-                if joined.has_complete_domain() && !joined.has_nested_refinement_domain() =>
-            {
-                Some(joined.inference_type())
-            }
-            Some(_) => None,
+            Some(joined) => control_flow_join_context(&arm.expr, joined),
             None if result.recovery_type != Type::Unknown => Some(result.recovery_type.clone()),
             None => None,
         };
@@ -1902,12 +1940,28 @@ impl<'a> FunctionChecker<'a> {
                 .map(|expected| expected.ty.clone())
                 .unwrap_or(Type::Unknown),
         );
-        self.infer_if_branch(expr, then_branch, expected, &mut result);
         for branch in else_if_branches {
             self.check_if_condition(expr, &branch.condition);
-            self.infer_if_branch(expr, &branch.expr, expected, &mut result);
         }
-        self.infer_if_branch(expr, else_branch, expected, &mut result);
+        let completion_passes: &[bool] = if expected.is_some() {
+            &[false]
+        } else {
+            &[false, true]
+        };
+        for completion_pass in completion_passes {
+            for branch_expr in std::iter::once(then_branch)
+                .chain(else_if_branches.iter().map(|branch| &branch.expr))
+                .chain(std::iter::once(else_branch))
+            {
+                if expected.is_none()
+                    && expression_needs_aggregate_completion_context(branch_expr)
+                        != *completion_pass
+                {
+                    continue;
+                }
+                self.infer_if_branch(expr, branch_expr, expected, &mut result);
+            }
+        }
         result.materialize()
     }
 }
@@ -2037,6 +2091,15 @@ impl ConstructorTypeArgInference {
             return false;
         };
         self.joined[type_index].is_some()
+    }
+
+    fn has_nested_join(&self, field: &AdtPayloadField) -> bool {
+        let AdtPayloadType::TypeParameter(type_index) = field.ty else {
+            return false;
+        };
+        self.joined[type_index]
+            .as_ref()
+            .is_some_and(AggregateTypeJoin::has_nested_refinement_domain)
     }
 
     fn mismatch_expected(&self, field: &AdtPayloadField, fallback: &ExpectedType) -> Type {

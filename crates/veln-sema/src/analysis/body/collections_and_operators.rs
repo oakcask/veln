@@ -138,29 +138,45 @@ impl<'a> FunctionChecker<'a> {
         let mut value_type = expected_value.clone();
         let mut joined_keys = None;
         let mut joined_values = None;
-        for entry in entries {
-            key_type = self.infer_dict_member(
-                &entry.key,
-                &key_type,
-                &mut joined_keys,
-                &expected_key,
-                contextual_key,
-                expected,
-                expr,
-                "Dict key type inferred here.",
-                "dict_key",
-            );
-            value_type = self.infer_dict_member(
-                &entry.value,
-                &value_type,
-                &mut joined_values,
-                &expected_value,
-                contextual_value,
-                expected,
-                expr,
-                "Dict value type inferred here.",
-                "dict_value",
-            );
+        let completion_passes: &[bool] = if expected.is_some() {
+            &[false]
+        } else {
+            &[false, true]
+        };
+        for completion_pass in completion_passes {
+            for entry in entries {
+                if expected.is_some()
+                    || expression_needs_aggregate_completion_context(&entry.key) == *completion_pass
+                {
+                    key_type = self.infer_dict_member(
+                        &entry.key,
+                        &key_type,
+                        &mut joined_keys,
+                        &expected_key,
+                        contextual_key,
+                        expected,
+                        expr,
+                        "Dict key type inferred here.",
+                        "dict_key",
+                    );
+                }
+                if expected.is_some()
+                    || expression_needs_aggregate_completion_context(&entry.value)
+                        == *completion_pass
+                {
+                    value_type = self.infer_dict_member(
+                        &entry.value,
+                        &value_type,
+                        &mut joined_values,
+                        &expected_value,
+                        contextual_value,
+                        expected,
+                        expr,
+                        "Dict value type inferred here.",
+                        "dict_value",
+                    );
+                }
+            }
         }
         if let Some(joined) = joined_keys {
             key_type = joined.result_type();
@@ -194,6 +210,7 @@ impl<'a> FunctionChecker<'a> {
         constraint: &'static str,
     ) -> Type {
         let item_expected = self.dict_member_expected(
+            item,
             current_type,
             joined_type.as_ref(),
             contextual_type,
@@ -234,8 +251,10 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn dict_member_expected(
         &self,
+        item: &Expr,
         current_type: &Type,
         joined_type: Option<&AggregateTypeJoin>,
         contextual_type: &Type,
@@ -244,7 +263,7 @@ impl<'a> FunctionChecker<'a> {
         origin_message: &'static str,
     ) -> ExpectedType {
         let inferred_context = joined_type
-            .map(AggregateTypeJoin::inference_type)
+            .and_then(|joined| aggregate_join_context(item, joined))
             .unwrap_or_else(|| current_type.clone());
         let item_type = if inferred_context == Type::Unknown {
             contextual_type.clone()

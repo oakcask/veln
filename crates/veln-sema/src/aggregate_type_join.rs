@@ -236,8 +236,12 @@ impl AggregateTypeJoin {
         self.try_join(adts, right)
     }
 
-    pub(crate) fn has_complete_domain(&self) -> bool {
+    pub(crate) fn has_complete_root_domain(&self) -> bool {
         self.nodes[self.root].variants.is_none()
+    }
+
+    pub(crate) fn has_compiler_owned_root(&self) -> bool {
+        Type::is_compiler_covariant_identity(&self.nodes[self.root].identity)
     }
 
     pub(crate) fn has_nested_refinement_domain(&self) -> bool {

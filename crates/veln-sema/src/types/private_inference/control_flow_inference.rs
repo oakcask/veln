@@ -20,28 +20,40 @@ pub(crate) fn infer_private_match_type(
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
     let mut joined_result: Option<crate::aggregate_type_join::AggregateTypeJoin> = None;
     let mut join_failed = false;
-    for arm in arms {
-        let joined_context = joined_result
-            .as_ref()
-            .filter(|joined| joined.has_complete_domain() && !joined.has_nested_refinement_domain())
-            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type);
-        let recovery_expected = if joined_result.is_some() {
-            joined_context.as_ref()
-        } else {
-            Some(&result)
-        };
-        let actual = context.infer(
-            &arm.expr,
-            expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none)),
-        );
-        merge_private_control_flow_result(
-            &mut result,
-            &mut joined_result,
-            &mut join_failed,
-            actual,
-            context.adts,
-            expected.is_none(),
-        );
+    let completion_passes: &[bool] = if expected.is_some() {
+        &[false]
+    } else {
+        &[false, true]
+    };
+    for completion_pass in completion_passes {
+        for arm in arms {
+            if expected.is_none()
+                && private_expression_needs_aggregate_completion_context(&arm.expr)
+                    != *completion_pass
+            {
+                continue;
+            }
+            let joined_context = joined_result
+                .as_ref()
+                .and_then(|joined| private_control_flow_join_context(&arm.expr, joined));
+            let recovery_expected = if joined_result.is_some() {
+                joined_context.as_ref()
+            } else {
+                Some(&result)
+            };
+            let actual = context.infer(
+                &arm.expr,
+                expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none)),
+            );
+            merge_private_control_flow_result(
+                &mut result,
+                &mut joined_result,
+                &mut join_failed,
+                actual,
+                context.adts,
+                expected.is_none(),
+            );
+        }
     }
     materialize_private_control_flow_result(result, joined_result, join_failed)
 }
@@ -61,36 +73,48 @@ pub(crate) fn infer_private_if_result_type(
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
     let mut joined_result: Option<crate::aggregate_type_join::AggregateTypeJoin> = None;
     let mut join_failed = false;
-    for branch_expr in std::iter::once(then_branch)
-        .chain(else_if_branches.iter().map(|branch| &branch.expr))
-        .chain(std::iter::once(else_branch))
-    {
-        let joined_context = joined_result
-            .as_ref()
-            .filter(|joined| joined.has_complete_domain() && !joined.has_nested_refinement_domain())
-            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type);
-        let recovery_expected = if joined_result.is_some() {
-            joined_context.as_ref()
-        } else {
-            Some(&result)
-        };
-        let branch_expected =
-            expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none));
-        let actual = match branch_expected {
-            Some(expected) => context.infer_expected_outcome(branch_expr, expected).ty,
-            None => context.infer(branch_expr, None),
-        };
-        let was_join_failed = join_failed;
-        merge_private_control_flow_result(
-            &mut result,
-            &mut joined_result,
-            &mut join_failed,
-            actual,
-            context.adts,
-            expected.is_none(),
-        );
-        if !was_join_failed && join_failed {
-            *context.failures += 1;
+    let completion_passes: &[bool] = if expected.is_some() {
+        &[false]
+    } else {
+        &[false, true]
+    };
+    for completion_pass in completion_passes {
+        for branch_expr in std::iter::once(then_branch)
+            .chain(else_if_branches.iter().map(|branch| &branch.expr))
+            .chain(std::iter::once(else_branch))
+        {
+            if expected.is_none()
+                && private_expression_needs_aggregate_completion_context(branch_expr)
+                    != *completion_pass
+            {
+                continue;
+            }
+            let joined_context = joined_result
+                .as_ref()
+                .and_then(|joined| private_control_flow_join_context(branch_expr, joined));
+            let recovery_expected = if joined_result.is_some() {
+                joined_context.as_ref()
+            } else {
+                Some(&result)
+            };
+            let branch_expected =
+                expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none));
+            let actual = match branch_expected {
+                Some(expected) => context.infer_expected_outcome(branch_expr, expected).ty,
+                None => context.infer(branch_expr, None),
+            };
+            let was_join_failed = join_failed;
+            merge_private_control_flow_result(
+                &mut result,
+                &mut joined_result,
+                &mut join_failed,
+                actual,
+                context.adts,
+                expected.is_none(),
+            );
+            if !was_join_failed && join_failed {
+                *context.failures += 1;
+            }
         }
     }
     materialize_private_control_flow_result(result, joined_result, join_failed)
