@@ -224,7 +224,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 ExampleSelection {
                     case: "check/compiler-owned-covariant-inference",
                     display_name: "Compiler-owned covariant inference",
-                    files: &["main.veln"],
+                    files: &["main.veln", "marker.veln"],
                 },
                 ExampleSelection {
                     case: "check/compiler-owned-covariant-inference-diagnostics",
