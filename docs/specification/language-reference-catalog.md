@@ -68,7 +68,8 @@ covariance for every argument of the compiler-owned immutable `Option<T>`,
 and control-flow joins, recursive context-free joins through checked covariant
 source-ADT arguments for local and imported declarations, recursive joins
 through every argument of same-constructor compiler-owned immutable types,
-joined context for incomplete expressions nested in those types,
+joined context for incomplete expressions nested in those types or in direct
+source-ADT payloads with usable checked covariant classifications,
 transactional exclusion of contributions whose nested argument cannot join,
 and exact inference for other source-ADT classifications or unavailable
 metadata,

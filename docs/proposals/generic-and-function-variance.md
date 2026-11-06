@@ -54,7 +54,10 @@ defines equal-type and same-constructor source-ADT or compiler-owned covariant
 joins. Those implemented joins also supply context to incomplete expressions
 such as `None` or an empty collection after concrete contributions have been
 joined, including through non-empty vector and dictionary literals. Resolved
-source constructors with the same `None` or `Nil` leaf names remain ordinary
+source-ADT constructors receive that context through direct payloads only when
+the parameter has a usable checked covariant classification. Other parameter
+classifications and unavailable metadata remain exact. Resolved source
+constructors with the same `None` or `Nil` leaf names remain ordinary
 contributions. Inference uses the following remaining bounded,
 order-independent rules when a recursive join goes beyond those implemented
 cases. It must inspect all successful contributions before concluding that a

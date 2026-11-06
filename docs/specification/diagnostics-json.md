@@ -895,6 +895,13 @@ presentation unchanged. A later valid contribution continues from that state.
 The checked
 [`compiler-owned covariant inference diagnostic`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/)
 covers that failure and preservation boundary.
+An incomplete constructor nested in a source ADT receives joined context only
+through a direct payload whose parameter has a usable checked covariant
+classification. Invariant, contravariant, irrelevant, and unavailable
+classifications leave that constructor `type.inference_ambiguous`. Complete
+unequal contributions at those exact context-free boundaries instead report
+`type.mismatch`. The same diagnostic companion covers both outcomes in both
+contribution orders.
 When different outer aliases contributed to one compiler-owned join, a later
 diagnostic renders the joined type with the compiler-owned canonical name. The
 checked
