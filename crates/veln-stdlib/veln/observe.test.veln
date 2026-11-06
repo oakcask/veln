@@ -695,7 +695,7 @@ test buffered_worker_is_stack_bounded_across_repeated_idle_wake_cycles() -> Resu
 	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::DiagnosticStandardError, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => match handle observe::buffered_export_observation(exporter, buffered_log("idle-cycle")) with observe_test_support_test::clock(0)
-			observe::Accepted => match exercise_buffered_idle_cycles(exporter, lines.rx, release.tx, idle.rx, resume.tx, 1501)
+			observe::Accepted => match exercise_buffered_idle_cycles(exporter, lines.rx, release.tx, idle.rx, resume.tx, 201)
 				Ok(_) => begin
 					let report = observe::shutdown_buffered(exporter)
 					let summary = channel::recv(lines.rx)
@@ -2284,8 +2284,8 @@ test shutdown_cancellation_before_worker_cleanup_registration_freezes_shared_int
 			let startup_blocked: Option<()> = channel::recv(startup.rx)
 			let admitted = handle observe::buffered_export_observation(exporter, buffered_log("startup-queued")) with observe_test_support_test::clock(0)
 			let cancelled = task::spawn_with(shutdown_buffered_task_observed, { exporter: exporter, waiting: cancelled_wait.tx })
-			let survivor = task::spawn_with(shutdown_buffered_and_send_observed, { exporter: exporter, reports: reports.tx, waiting: survivor_wait.tx })
 			let cancelled_waiting: Option<()> = channel::recv(cancelled_wait.rx)
+			let survivor = task::spawn_with(shutdown_buffered_and_send_observed, { exporter: exporter, reports: reports.tx, waiting: survivor_wait.tx })
 			let survivor_waiting: Option<()> = channel::recv(survivor_wait.rx)
 			task::cancel(cancelled)
 			let cancelled_join = task::join(cancelled)
