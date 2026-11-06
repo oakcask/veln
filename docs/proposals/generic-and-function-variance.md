@@ -13,8 +13,8 @@ assignment and implemented covariant inference behavior is defined by the
 its [inference rules](../specification/types.md#inference-rules). The remaining
 work adds bounded inference beyond source-ADT and compiler-owned covariant
 joins, dependency invalidation, detailed nested incompatibility context,
-presentation, and failure preservation. It does not add declaration-site
-variance modifiers.
+stable formatter, package, LSP, and MCP presentation, and failure preservation.
+It does not add declaration-site variance modifiers.
 
 ## Related Work For Remaining Inference
 
@@ -107,8 +107,7 @@ must not use a failed contribution to justify another accepted assignment.
 | Surface | Selected behavior |
 | --- | --- |
 | Declaration changes | Recompute affected variance contracts and invalidate dependent analysis before accepting downstream assignments. A stale classification cannot survive a payload change. |
-| Source, formatter, package declaration display | Keep `type Name<T...>`; emit no inferred variance modifiers or replacement type names. |
-| Diagnostics, LSP, MCP | Keep ordinary type presentation stable across these surfaces without exposing inferred variance modifiers. |
+| Formatter, package, LSP, MCP | Keep ordinary type presentation stable across these surfaces without exposing inferred variance modifiers or replacement type names. |
 | Nested incompatibility | Use `type.mismatch` at the failed value boundary with the actual and expected outer types. Put the failing nested path, comparison direction, and expected declaration location in related context, with corresponding JSON detail. |
 | Direct refinement exclusion | Retain `type.variant_mismatch` and its existing excluded-variant facts. Do not report a nested incompatibility as a false outer variant exclusion. |
 | Existing schema-specific diagnostics | Retain the generated-encode boundary's more specific refinement diagnostic; variance does not remove boundary provenance. |
@@ -128,7 +127,7 @@ remain the independent acceptance oracle only for the remaining behavior.
 | --- | --- |
 | Bounded inference | Permuted cases cover annotation-required contravariant meets, structural joins, and transactional exclusion of failures outside the implemented source-ADT and compiler-owned joins. |
 | Metadata invalidation | Package fixtures prove that a variance-changing payload edit invalidates dependent analysis before subsequent inference. |
-| Presentation and diagnostics | Human and JSON fixtures cover nested paths, reversed input comparison, direct exclusions, modifier-free declarations, and stable diagnostic, formatter, package, LSP, and MCP presentations. |
+| Presentation and diagnostics | Human and JSON fixtures cover nested paths, reversed input comparison, direct exclusions, and stable formatter, package, LSP, and MCP presentations. |
 | Failure preservation | Analysis and language-service regression cases prove no partial signature escapes rejection, retained successful snapshots survive applicable failures, and rejected programs do not run. |
 
 Compiler evidence belongs in the existing semantic test suites and
