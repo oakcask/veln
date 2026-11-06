@@ -143,10 +143,12 @@ fn classify_completion_expr(
         }
         ExprKind::Dict(entries) => {
             entries.is_empty()
-                || entries.iter().any(|entry| {
-                    completion_fact(needs, entry.key.node_id)
-                        || completion_fact(needs, entry.value.node_id)
-                })
+                || entries
+                    .iter()
+                    .all(|entry| completion_fact(needs, entry.key.node_id))
+                || entries
+                    .iter()
+                    .all(|entry| completion_fact(needs, entry.value.node_id))
         }
         ExprKind::Record(fields) => fields.is_empty(),
         ExprKind::Call { callee, args } => {
@@ -181,11 +183,28 @@ fn call_completion_fact(
         .map(|arg| completion_fact(needs, arg.node_id))
         .collect::<Vec<_>>();
     if !constructor_is_compiler_owned(constructor) {
+        let mut complete_direct_parameters =
+            vec![false; constructor.descriptor.type_parameters.len()];
+        for (field, needs_completion) in constructor
+            .variant
+            .payload_fields
+            .iter()
+            .zip(&argument_needs)
+        {
+            let Some(index) = completion_parameter_index(constructor, field, adts) else {
+                continue;
+            };
+            if !needs_completion && let Some(complete) = complete_direct_parameters.get_mut(index) {
+                *complete = true;
+            }
+        }
         return argument_needs
             .iter()
             .zip(&constructor.variant.payload_fields)
             .any(|(needs_completion, field)| {
-                *needs_completion && completion_parameter_index(constructor, field, adts).is_some()
+                *needs_completion
+                    && completion_parameter_index(constructor, field, adts)
+                        .is_some_and(|index| !complete_direct_parameters[index])
             });
     }
     let mut complete_direct_parameters = vec![false; constructor.descriptor.type_parameters.len()];
