@@ -1440,11 +1440,11 @@ remains unchanged.
 Nested completion work is linear in compiler-owned constructor depth for both
 private omitted-result inference and ordinary body checking. The deterministic
 scaling check measures both contribution orders at depths 16, 32, 64, and 128.
-For each tracked fact, lookup, classification, projection, application,
-completion-type-clone, and payload-context-type-clone component, doubling depth
-permits at most twice the preceding count plus 128. The projection performs no
-completion-fact snapshot copies. Elapsed time is observational and is not an
-acceptance threshold.
+For each tracked task, cache, lookup, classification, stored-fact, plan-edge,
+projection, application, payload-context type-node visit, and analysis-wide
+type-node clone component, doubling depth permits at most twice the preceding
+count plus 128. The projection performs no completion-fact snapshot copies.
+Elapsed time is observational and is not an acceptance threshold.
 
 Presentation reconciliation applies at each joined compiler-owned constructor.
 One alias preference and canonical spelling retain that alias. Different alias
