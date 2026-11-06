@@ -1439,10 +1439,11 @@ case covers the canonical result for both contribution orders.
 
 A same-constructor covariant join is transactional across all arguments. If a
 later nested argument cannot join, the failed contribution reports
-`type.mismatch` against the previously accumulated type and does not change an
-earlier argument, a refinement set, or alias presentation. Permuting successful
-contributions produces the same resolved type and presentation. These rules
-apply to compiler-owned constructors and covariant source-ADT parameters.
+`type.mismatch` at that contribution and does not change any admitted argument,
+refinement set, or alias presentation. A later valid contribution continues
+from the last admitted state. Permuting successful contributions produces the
+same resolved type and presentation. These rules apply to compiler-owned
+constructors and covariant source-ADT parameters.
 
 For a source ADT nested through `D` covariant source-ADT arguments, the join
 retains `D + 1` state nodes. Accepting another equally shaped contribution
