@@ -270,6 +270,134 @@ fn repeated_direct_payloads_join_in_ordinary_and_private_inference() {
 }
 
 #[test]
+fn admitted_payload_context_selects_ambiguous_nullary_constructors() {
+    let source_text = concat!(
+        "type Left\n",
+        "  Ready\n",
+        "  Waiting\n",
+        "end\n",
+        "type Right\n",
+        "  Ready\n",
+        "  Waiting\n",
+        "end\n",
+        "type Pair<T>\n",
+        "  Paired(T, T)\n",
+        "end\n",
+        "fn private_path()\n",
+        "  Paired(Left::Ready, Ready)\n",
+        "end\n",
+        "fn needs_int(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn ordinary_path() -> ()\n",
+        "  needs_int(Paired(Left::Ready, Ready))\n",
+        "end\n",
+        "fn no_context() -> Int\n",
+        "  Ready\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic.message.contains("Pair<Left::Ready>::Paired")
+        }),
+        "{diagnostics:#?}",
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.ambiguous" && diagnostic.message.contains("Ready")
+        }),
+        "{diagnostics:#?}",
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("private_path")
+            .expect("private_path function")
+            .return_type
+            .render(),
+        "Pair<Left::Ready>::Paired",
+    );
+}
+
+#[test]
+fn dictionary_members_use_only_preceding_complete_join_context() {
+    let source_text = concat!(
+        "fn complete_then_incomplete_value()\n",
+        "  {1: [1], 2: []}\n",
+        "end\n",
+        "fn incomplete_then_complete_value()\n",
+        "  {2: [], 1: [1]}\n",
+        "end\n",
+        "fn complete_then_incomplete_key()\n",
+        "  {[1]: 1, []: 2}\n",
+        "end\n",
+        "fn incomplete_then_complete_key()\n",
+        "  {[]: 2, [1]: 1}\n",
+        "end\n",
+        "fn independent_complete_values()\n",
+        "  {1: [1], 2: [2]}\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.private_inference_incomplete"),
+        "{diagnostics:#?}",
+    );
+    let rendered_diagnostics = format!("{diagnostics:#?}");
+    assert!(
+        rendered_diagnostics.contains("Dict<Int, Vec<unknown>>")
+            && rendered_diagnostics.contains("Dict<Vec<unknown>, Int>"),
+        "{diagnostics:#?}",
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    for (function, expected) in [
+        ("complete_then_incomplete_value", "Dict<Int, Vec<Int>>"),
+        ("complete_then_incomplete_key", "Dict<Vec<Int>, Int>"),
+        ("independent_complete_values", "Dict<Int, Vec<Int>>"),
+    ] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            expected,
+            "unexpected inferred result for {function}",
+        );
+    }
+    for function in [
+        "incomplete_then_complete_value",
+        "incomplete_then_complete_key",
+    ] {
+        let actual = environment
+            .function(function)
+            .unwrap_or_else(|| panic!("missing function {function}"))
+            .return_type
+            .render();
+        assert!(
+            actual.contains("unknown"),
+            "{function} unexpectedly received later context: {actual}",
+        );
+    }
+}
+
+#[test]
 fn compiler_owned_outer_alias_conflicts_use_canonical_carrier_names() {
     let source = SourceFile::new(
         "main.veln",

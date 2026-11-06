@@ -268,14 +268,15 @@ pub(super) fn infer_private_list_type(
         .and_then(Type::vec_part)
         .cloned()
         .unwrap_or(Type::Unknown);
+    let has_context = expected.and_then(Type::vec_part).is_some();
     let mut joined_items = None;
     for item in items {
-        let has_context = expected.and_then(Type::vec_part).is_some();
         infer_private_aggregate_component(
             item,
             has_context,
             &mut item_type,
             &mut joined_items,
+            false,
             context,
         );
     }
@@ -301,20 +302,23 @@ pub(super) fn infer_private_dict_type(
         });
     let mut joined_keys = None;
     let mut joined_values = None;
+    let has_key_context = !type_has_unknown(&key_type);
+    let has_value_context = !type_has_unknown(&value_type);
     for entry in entries {
-        let has_key_context = expected.and_then(Type::dict_parts).is_some();
         infer_private_aggregate_component(
             &entry.key,
             has_key_context,
             &mut key_type,
             &mut joined_keys,
+            true,
             context,
         );
         infer_private_aggregate_component(
             &entry.value,
-            has_key_context,
+            has_value_context,
             &mut value_type,
             &mut joined_values,
+            true,
             context,
         );
     }
@@ -335,11 +339,36 @@ fn infer_private_aggregate_component(
     has_context: bool,
     component_type: &mut Type,
     joined_components: &mut Option<crate::aggregate_type_join::AggregateTypeJoin>,
+    context_dependent_only: bool,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
     let inferred_context = match joined_components {
         Some(joined) if joined.has_incomplete_nested_refinement_domain() => Type::Unknown,
+        Some(joined) if context_dependent_only => {
+            if !crate::aggregate_type_join::expression_could_require_direct_payload_context(
+                expr,
+                context.adts,
+                context.current_module,
+                context.uses,
+            ) {
+                joined.inference_type()
+            } else {
+                let admitted_context = joined.inference_type();
+                if crate::aggregate_type_join::expression_requires_direct_payload_context(
+                    expr,
+                    &admitted_context,
+                    context.adts,
+                    context.current_module,
+                    context.uses,
+                ) {
+                    admitted_context
+                } else {
+                    Type::Unknown
+                }
+            }
+        }
         Some(joined) => joined.inference_type(),
+        None if context_dependent_only && type_has_unknown(component_type) => Type::Unknown,
         None => component_type.clone(),
     };
     let actual = context.infer_outcome(expr, item_type_unknown_as_none(&inferred_context));
@@ -352,7 +381,10 @@ fn infer_private_aggregate_component(
     } else {
         actual
     };
-    if !has_context && joined_components.is_none() && *component_type != Type::Unknown {
+    if !has_context
+        && joined_components.is_none()
+        && (!context_dependent_only || !type_has_unknown(component_type))
+    {
         *joined_components =
             crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, component_type);
     }
@@ -379,11 +411,10 @@ fn infer_private_aggregate_component(
     }
     if !joined && *component_type == Type::Unknown {
         *component_type = actual;
-        *joined_components = (!has_context)
-            .then(|| {
-                crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, component_type)
-            })
-            .flatten();
+        *joined_components = (!has_context
+            && (!context_dependent_only || !type_has_unknown(component_type)))
+        .then(|| crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, component_type))
+        .flatten();
     }
 }
 

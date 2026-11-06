@@ -16,6 +16,7 @@ pub(crate) struct AggregateTypeJoin {
 
 pub(crate) fn expression_requires_direct_payload_context(
     expr: &Expr,
+    admitted_context: &Type,
     adts: &AdtRegistry,
     current_module: Option<&str>,
     uses: &[UseDecl],
@@ -24,12 +25,45 @@ pub(crate) fn expression_requires_direct_payload_context(
         ExprKind::List(items) => items.is_empty(),
         ExprKind::Dict(entries) => entries.is_empty(),
         ExprKind::Record(fields) => fields.is_empty(),
-        ExprKind::NamePath { segments, .. } => matches!(
-            adts.constructor(segments, current_module, uses),
-            ConstructorLookup::Found(constructor)
-                if constructor.variant.payload_fields.is_empty()
-                    && !constructor.descriptor.type_parameters.is_empty()
-        ),
+        ExprKind::NamePath { segments, .. } => {
+            match adts.constructor(segments, current_module, uses) {
+                ConstructorLookup::Found(constructor) => {
+                    constructor.variant.payload_fields.is_empty()
+                        && !constructor.descriptor.type_parameters.is_empty()
+                }
+                ConstructorLookup::Ambiguous if !type_contains_unknown(admitted_context) => adts
+                    .descriptor_for_type(admitted_context)
+                    .and_then(|descriptor| {
+                        adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
+                    })
+                    .is_some_and(|constructor| constructor.variant.payload_fields.is_empty()),
+                ConstructorLookup::Ambiguous | ConstructorLookup::Missing => false,
+            }
+        }
+        _ => false,
+    }
+}
+
+pub(crate) fn expression_could_require_direct_payload_context(
+    expr: &Expr,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> bool {
+    match &expr.kind {
+        ExprKind::List(items) => items.is_empty(),
+        ExprKind::Dict(entries) => entries.is_empty(),
+        ExprKind::Record(fields) => fields.is_empty(),
+        ExprKind::NamePath { segments, .. } => {
+            match adts.constructor(segments, current_module, uses) {
+                ConstructorLookup::Found(constructor) => {
+                    constructor.variant.payload_fields.is_empty()
+                        && !constructor.descriptor.type_parameters.is_empty()
+                }
+                ConstructorLookup::Ambiguous => true,
+                ConstructorLookup::Missing => false,
+            }
+        }
         _ => false,
     }
 }

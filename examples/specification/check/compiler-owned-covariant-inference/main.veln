@@ -17,6 +17,16 @@ type Pair<T>
 	Paired(T, T)
 end
 
+type Left
+	Namesake
+	Waiting
+end
+
+type Right
+	Namesake
+	Waiting
+end
+
 fn option(first: Option<First::Ready>, second: Option<Second::Closed>)
 	[first, second]
 end
@@ -76,6 +86,18 @@ fn paired_option(first: Option<State::Ready>, second: Option<State::Closed>)
 	Paired(first, second)
 end
 
+fn selected_namesake()
+	Paired(Left::Namesake, Namesake)
+end
+
+fn dictionary_complete_then_incomplete_value()
+	{1: [1], 2: []}
+end
+
+fn dictionary_complete_then_incomplete_key()
+	{[1]: 1, []: 2}
+end
+
 fn source_none_with_list_tail(ready: List<collision::Marker::Ready>)
 	[ready, Cons(collision::Marker::None, Nil)]
 end
@@ -113,6 +135,9 @@ fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option
 	let selected_constructed_vector_result: Vec<State::Ready | State::Closed> = selected_constructed_vector(flag)
 	let matched_option_result: Option<State::Ready | State::Closed> = matched_option(flag, first_option, second_option)
 	let paired_option_result: Pair<Option<State::Ready | State::Closed>>::Paired = paired_option(first_option, second_option)
+	let selected_namesake_result: Pair<Left::Namesake>::Paired = selected_namesake()
+	let dictionary_complete_then_incomplete_value_result: Dict<Int, Vec<Int>> = dictionary_complete_then_incomplete_value()
+	let dictionary_complete_then_incomplete_key_result: Dict<Vec<Int>, Int> = dictionary_complete_then_incomplete_key()
 	let marker_ready: List<collision::Marker::Ready> = Cons(collision::Marker::Ready, Nil)
 	let source_none_with_list_tail_result: Vec<List<collision::Marker::None | collision::Marker::Ready>> = source_none_with_list_tail(marker_ready)
 	let source_none_with_list_tail_reverse_result: Vec<List<collision::Marker::None | collision::Marker::Ready>> = source_none_with_list_tail_reverse(marker_ready)

@@ -7,12 +7,34 @@ end
 pub type First = State
 pub type Second = State
 
+type Left
+	Namesake
+	Waiting
+end
+
+type Right
+	Namesake
+	Waiting
+end
+
 fn dictionary_forward()
 	{1: [Ready], 2: [Closed]}
 end
 
 fn dictionary_reverse()
 	{2: [Closed], 1: [Ready]}
+end
+
+fn incomplete_then_complete_value()
+	{2: [], 1: [1]}
+end
+
+fn incomplete_then_complete_key()
+	{[]: 2, [1]: 1}
+end
+
+fn ambiguous_namesake() -> Int
+	Namesake
 end
 
 fn retained(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>)
@@ -36,6 +58,9 @@ end
 fn observe_dictionaries() -> ()
 	needs_int(dictionary_forward())
 	needs_int(dictionary_reverse())
+	needs_int(incomplete_then_complete_value())
+	needs_int(incomplete_then_complete_key())
+	needs_int(ambiguous_namesake())
 end
 
 fn observe(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>) -> ()

@@ -515,14 +515,25 @@ impl<'a> FunctionChecker<'a> {
             origin_span: Some(call.span.clone()),
             origin_message: "Constructor payload inferred here.",
         });
-        let direct_payload_joins_independently = type_args
-            .direct_payload_joins_independently(field)
-            && !crate::aggregate_type_join::expression_requires_direct_payload_context(
+        let requires_admitted_context =
+            crate::aggregate_type_join::expression_could_require_direct_payload_context(
                 arg,
                 &self.environment.adts,
                 self.function.module_name.as_deref(),
                 &self.resolution_uses,
-            );
+            ) && {
+                let admitted_payload_context =
+                    type_args.payload_expected(expected, constructor, index, false);
+                crate::aggregate_type_join::expression_requires_direct_payload_context(
+                    arg,
+                    &admitted_payload_context,
+                    &self.environment.adts,
+                    self.function.module_name.as_deref(),
+                    &self.resolution_uses,
+                )
+            };
+        let direct_payload_joins_independently =
+            type_args.direct_payload_joins_independently(field) && !requires_admitted_context;
         arg_expected.ty = type_args.payload_expected(
             expected,
             constructor,

@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["type.mismatch", "Dict<Int, Vec<State::Ready | State::Closed>>", "Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>>"]
+contains = ["type.mismatch", "name.ambiguous", "Dict<Int, Vec<unknown>>", "Dict<Vec<unknown>, Int>", "Dict<Int, Vec<State::Ready | State::Closed>>", "Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>>"]
 
 [stderr]
 format = "empty"
@@ -14,22 +14,22 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 6
+equals = 11
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "Dict<Int, Vec<unknown>>"
 
 [[json_assert]]
 path = "diagnostics.2.details.actual_type"
-equals = "Dict<Int, Vec<State::Ready | State::Closed>>"
+equals = "Dict<Vec<unknown>, Int>"
 
 [[json_assert]]
-path = "diagnostics.3.details.actual_type"
-equals = "Dict<Int, Vec<State::Ready | State::Closed>>"
-
-[[json_assert]]
-path = "diagnostics.4.details.actual_type"
+path = "diagnostics.9.details.actual_type"
 equals = "Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>>"
 
 [[json_assert]]
-path = "diagnostics.5.details.actual_type"
+path = "diagnostics.10.details.actual_type"
 equals = "Option<State::Ready | State::Closed>"
 
 [[diagnostics]]
@@ -39,7 +39,7 @@ kind = "type"
 
 [diagnostics.span]
 file = "main.veln"
-line = 19
+line = 41
 column = 10
 
 [[diagnostics]]
@@ -49,5 +49,5 @@ kind = "type"
 
 [diagnostics.span]
 file = "main.veln"
-line = 26
+line = 48
 column = 3

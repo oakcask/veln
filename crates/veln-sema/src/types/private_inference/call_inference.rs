@@ -186,14 +186,25 @@ fn infer_private_constructor_payload(
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
     let field = constructor.variant.payload_fields.get(index);
-    let direct_payload_joins_independently = field.is_some_and(|field| {
-        type_args.direct_payload_joins_independently(field)
-            && !crate::aggregate_type_join::expression_requires_direct_payload_context(
+    let requires_admitted_context =
+        crate::aggregate_type_join::expression_could_require_direct_payload_context(
+            arg,
+            context.adts,
+            context.current_module,
+            context.uses,
+        ) && {
+            let admitted_payload_context =
+                type_args.payload_expected(expected, constructor, index, false);
+            crate::aggregate_type_join::expression_requires_direct_payload_context(
                 arg,
+                &admitted_payload_context,
                 context.adts,
                 context.current_module,
                 context.uses,
             )
+        };
+    let direct_payload_joins_independently = field.is_some_and(|field| {
+        type_args.direct_payload_joins_independently(field) && !requires_admitted_context
     });
     let payload_expected = type_args.payload_expected(
         expected,

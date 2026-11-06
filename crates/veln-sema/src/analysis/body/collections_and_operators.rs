@@ -194,6 +194,7 @@ impl<'a> FunctionChecker<'a> {
         constraint: &'static str,
     ) -> Type {
         let item_expected = self.dict_member_expected(
+            item,
             current_type,
             joined_type.as_ref(),
             contextual_type,
@@ -225,7 +226,7 @@ impl<'a> FunctionChecker<'a> {
             constraint,
         );
         if current_type == &Type::Unknown {
-            if !has_contextual_type {
+            if !has_contextual_type && !type_contains_unknown(&aggregate) {
                 *joined_type = AggregateTypeJoin::new(&self.environment.adts, &aggregate);
             }
             aggregate
@@ -234,8 +235,10 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn dict_member_expected(
         &self,
+        item: &Expr,
         current_type: &Type,
         joined_type: Option<&AggregateTypeJoin>,
         contextual_type: &Type,
@@ -245,7 +248,31 @@ impl<'a> FunctionChecker<'a> {
     ) -> ExpectedType {
         let item_type = if contextual_type != &Type::Unknown {
             contextual_type.clone()
-        } else if joined_type.is_some() {
+        } else if let Some(joined) = joined_type {
+            if joined.has_incomplete_nested_refinement_domain()
+                || !crate::aggregate_type_join::expression_could_require_direct_payload_context(
+                    item,
+                    &self.environment.adts,
+                    self.function.module_name.as_deref(),
+                    &self.resolution_uses,
+                )
+            {
+                Type::Unknown
+            } else {
+                let admitted_context = joined.inference_type();
+                if crate::aggregate_type_join::expression_requires_direct_payload_context(
+                    item,
+                    &admitted_context,
+                    &self.environment.adts,
+                    self.function.module_name.as_deref(),
+                    &self.resolution_uses,
+                ) {
+                    admitted_context
+                } else {
+                    Type::Unknown
+                }
+            }
+        } else if type_contains_unknown(current_type) {
             Type::Unknown
         } else {
             current_type.clone()
@@ -269,7 +296,7 @@ impl<'a> FunctionChecker<'a> {
         if has_contextual_type {
             return false;
         }
-        if joined_type.is_none() && current_type != &Type::Unknown {
+        if joined_type.is_none() && !type_contains_unknown(current_type) {
             *joined_type = AggregateTypeJoin::new(&self.environment.adts, current_type);
         }
         joined_type
