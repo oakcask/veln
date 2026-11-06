@@ -895,6 +895,11 @@ presentation unchanged. A later valid contribution continues from that state.
 The checked
 [`compiler-owned covariant inference diagnostic`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/)
 covers that failure and preservation boundary.
+When different outer aliases contributed to one compiler-owned join, a later
+diagnostic renders the joined type with the compiler-owned canonical name. The
+checked
+[`compiler-owned alias presentation diagnostic`](../../examples/specification/check/compiler-owned-covariant-alias-presentation/)
+covers `actual_type` rendering for both contribution orders.
 
 Generated schema encode boundaries additionally inspect corresponding fields
 of anonymous records and corresponding arguments of `Option`, `List`, `Vec`,

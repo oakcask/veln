@@ -1406,6 +1406,15 @@ collection elements, repeated generic constructor payloads, and unannotated
 constructor or a source-ADT variant refinement. A concrete expected type still
 checks each contribution by ordinary assignment compatibility.
 
+Presentation reconciliation applies at each joined compiler-owned constructor.
+One alias preference and canonical spelling retain that alias. Different alias
+preferences for the same compiler-owned identity make the inferred node use
+the canonical `Option`, `Result`, `List`, `Vec`, or `Dict` spelling. The result
+is independent of contribution order, and the presentation choice does not
+change the joined arguments or resolved identity. The checked
+[`compiler-owned alias presentation`](../../examples/specification/check/compiler-owned-covariant-alias-presentation/)
+case covers the conflicting-alias result in both contribution orders.
+
 The join applies when repeated constructor payloads use a type parameter
 directly and those direct occurrences contribute complete types supported by
 the bounded join, including source ADTs and compiler-owned immutable
