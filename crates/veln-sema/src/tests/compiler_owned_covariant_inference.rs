@@ -11,6 +11,10 @@ fn compiler_owned_covariant_arguments_join_recursively_and_in_any_order() {
             "  Closed\n",
             "  Failed\n",
             "end\n",
+            "type BinaryState\n",
+            "  On\n",
+            "  Off\n",
+            "end\n",
             "pub type First = State\n",
             "pub type Second = State\n",
             "pub type FirstOption = Option\n",
@@ -73,6 +77,18 @@ fn compiler_owned_covariant_arguments_join_recursively_and_in_any_order() {
             "end\n",
             "fn paired_option(first: Option<State::Ready>, second: Option<State::Closed>)\n",
             "  Paired(first, second)\n",
+            "end\n",
+            "fn private_paired_vectors()\n",
+            "  Paired([Ready], [Closed])\n",
+            "end\n",
+            "fn dictionary_literal_forward()\n",
+            "  {1: [Ready], 2: [Closed]}\n",
+            "end\n",
+            "fn dictionary_literal_reverse()\n",
+            "  {2: [Closed], 1: [Ready]}\n",
+            "end\n",
+            "fn completed_nested_domain(first: Option<BinaryState::On>, second: Option<BinaryState::Off>)\n",
+            "  [first, second, None]\n",
             "end\n",
             "fn dictionary(first: Dict<Option<State::Ready>, Positive<State::Closed>>, second: Dict<Option<State::Closed>, Positive<State::Failed>>)\n",
             "  [second, first]\n",
@@ -145,6 +161,19 @@ fn compiler_owned_covariant_arguments_join_recursively_and_in_any_order() {
             "Pair<Option<State::Ready | State::Closed>>::Paired",
         ),
         (
+            "private_paired_vectors",
+            "Pair<Vec<State::Ready | State::Closed>>::Paired",
+        ),
+        (
+            "dictionary_literal_forward",
+            "Dict<Int, Vec<State::Ready | State::Closed>>",
+        ),
+        (
+            "dictionary_literal_reverse",
+            "Dict<Int, Vec<State::Ready | State::Closed>>",
+        ),
+        ("completed_nested_domain", "Vec<Option<BinaryState>>"),
+        (
             "dictionary",
             "Vec<Dict<Option<State::Ready | State::Closed>, Positive<State::Closed | State::Failed>>>",
         ),
@@ -192,6 +221,52 @@ fn compiler_owned_covariant_arguments_join_recursively_and_in_any_order() {
             "unexpected inferred result for {function}",
         );
     }
+}
+
+#[test]
+fn repeated_direct_payloads_join_in_ordinary_and_private_inference() {
+    let source_text = concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Failed\n",
+        "end\n",
+        "type Pair<T>\n",
+        "  Paired(T, T)\n",
+        "end\n",
+        "fn private_path()\n",
+        "  Paired([Ready], [Closed])\n",
+        "end\n",
+        "fn needs_int(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn ordinary_path() -> ()\n",
+        "  needs_int(Paired([Ready], [Closed]))\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+    assert!(
+        diagnostics[0]
+            .message
+            .contains("Pair<Vec<State::Ready | State::Closed>>::Paired"),
+        "{diagnostics:#?}",
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("private_path")
+            .expect("private_path function")
+            .return_type
+            .render(),
+        "Pair<Vec<State::Ready | State::Closed>>::Paired",
+    );
 }
 
 #[test]

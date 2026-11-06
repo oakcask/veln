@@ -22,7 +22,8 @@ impl<'a> FunctionChecker<'a> {
     ) {
         let recovery_type = match result.joined.as_ref() {
             Some(joined)
-                if joined.has_complete_domain() && !joined.has_nested_refinement_domain() =>
+                if joined.has_complete_domain()
+                    && !joined.has_incomplete_nested_refinement_domain() =>
             {
                 Some(joined.inference_type())
             }

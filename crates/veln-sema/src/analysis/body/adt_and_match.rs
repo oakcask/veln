@@ -515,7 +515,20 @@ impl<'a> FunctionChecker<'a> {
             origin_span: Some(call.span.clone()),
             origin_message: "Constructor payload inferred here.",
         });
-        arg_expected.ty = type_args.payload_expected(expected, constructor, index, field);
+        let direct_payload_joins_independently = type_args
+            .direct_payload_joins_independently(field)
+            && !crate::aggregate_type_join::expression_requires_direct_payload_context(
+                arg,
+                &self.environment.adts,
+                self.function.module_name.as_deref(),
+                &self.resolution_uses,
+            );
+        arg_expected.ty = type_args.payload_expected(
+            expected,
+            constructor,
+            index,
+            direct_payload_joins_independently,
+        );
         let diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(arg, Some(&arg_expected));
         if self.diagnostics.len() != diagnostic_count {
@@ -686,7 +699,7 @@ impl<'a> FunctionChecker<'a> {
         joined_items: &mut Option<AggregateTypeJoin>,
     ) {
         let inferred_context = match joined_items {
-            Some(joined) if joined.has_nested_refinement_domain() => Type::Unknown,
+            Some(joined) if joined.has_incomplete_nested_refinement_domain() => Type::Unknown,
             Some(joined) => joined.inference_type(),
             None => item_type.clone(),
         };
@@ -1831,7 +1844,8 @@ impl<'a> FunctionChecker<'a> {
     ) {
         let recovery_type = match result.joined.as_ref() {
             Some(joined)
-                if joined.has_complete_domain() && !joined.has_nested_refinement_domain() =>
+                if joined.has_complete_domain()
+                    && !joined.has_incomplete_nested_refinement_domain() =>
             {
                 Some(joined.inference_type())
             }
@@ -1980,7 +1994,7 @@ impl ConstructorTypeArgInference {
         expected: Option<&ExpectedType>,
         constructor: AdtConstructor<'_>,
         index: usize,
-        field: &AdtPayloadField,
+        direct_payload_joins_independently: bool,
     ) -> Type {
         expected
             .and_then(|expected| {
@@ -1990,8 +2004,10 @@ impl ConstructorTypeArgInference {
                     expected_args[type_index].clone()
                 })
             })
-            .or_else(|| self.direct_payload_context(field))
             .or_else(|| {
+                if direct_payload_joins_independently {
+                    return None;
+                }
                 adt::payload_type_with_resolved_args(constructor, index, |type_index| {
                     crate::aggregate_type_join::record_work(1);
                     self.joined[type_index]
@@ -2003,14 +2019,11 @@ impl ConstructorTypeArgInference {
             .unwrap_or(Type::Unknown)
     }
 
-    fn direct_payload_context(&self, field: &AdtPayloadField) -> Option<Type> {
+    fn direct_payload_joins_independently(&self, field: &AdtPayloadField) -> bool {
         let AdtPayloadType::TypeParameter(type_index) = field.ty else {
-            return None;
+            return false;
         };
-        (!self.invariant[type_index])
-            .then(|| self.joined[type_index].as_ref())
-            .flatten()
-            .map(AggregateTypeJoin::inference_type)
+        !self.invariant[type_index]
     }
 
     fn try_join(&mut self, field: &AdtPayloadField, actual: &Type, adts: &AdtRegistry) -> bool {

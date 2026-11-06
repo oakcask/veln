@@ -23,7 +23,9 @@ pub(crate) fn infer_private_match_type(
     for arm in arms {
         let joined_context = joined_result
             .as_ref()
-            .filter(|joined| joined.has_complete_domain() && !joined.has_nested_refinement_domain())
+            .filter(|joined| {
+                joined.has_complete_domain() && !joined.has_incomplete_nested_refinement_domain()
+            })
             .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type);
         let recovery_expected = if joined_result.is_some() {
             joined_context.as_ref()
@@ -67,7 +69,9 @@ pub(crate) fn infer_private_if_result_type(
     {
         let joined_context = joined_result
             .as_ref()
-            .filter(|joined| joined.has_complete_domain() && !joined.has_nested_refinement_domain())
+            .filter(|joined| {
+                joined.has_complete_domain() && !joined.has_incomplete_nested_refinement_domain()
+            })
             .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type);
         let recovery_expected = if joined_result.is_some() {
             joined_context.as_ref()

@@ -243,13 +243,12 @@ impl<'a> FunctionChecker<'a> {
         dict_expr: &Expr,
         origin_message: &'static str,
     ) -> ExpectedType {
-        let inferred_context = joined_type
-            .map(AggregateTypeJoin::inference_type)
-            .unwrap_or_else(|| current_type.clone());
-        let item_type = if inferred_context == Type::Unknown {
+        let item_type = if contextual_type != &Type::Unknown {
             contextual_type.clone()
+        } else if joined_type.is_some() {
+            Type::Unknown
         } else {
-            inferred_context
+            current_type.clone()
         };
         collection_item_expected(
             item_type,

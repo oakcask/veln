@@ -1,8 +1,10 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use veln_ast::{Expr, ExprKind, UseDecl};
+
 use crate::adt::descriptors::{AdtConstructor, Variance};
-use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
+use crate::adt::registry::{AdtRegistry, ConstructorLookup, VariantDeclarationOrder};
 use crate::adt::{type_operations as adt, unification};
 use crate::semantic_model::Type;
 use crate::type_relations::{TypePresentationJoin, invariant_args_match, same_type_identity};
@@ -10,6 +12,26 @@ use crate::type_relations::{TypePresentationJoin, invariant_args_match, same_typ
 pub(crate) struct AggregateTypeJoin {
     nodes: Vec<JoinNode>,
     root: usize,
+}
+
+pub(crate) fn expression_requires_direct_payload_context(
+    expr: &Expr,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> bool {
+    match &expr.kind {
+        ExprKind::List(items) => items.is_empty(),
+        ExprKind::Dict(entries) => entries.is_empty(),
+        ExprKind::Record(fields) => fields.is_empty(),
+        ExprKind::NamePath { segments, .. } => matches!(
+            adts.constructor(segments, current_module, uses),
+            ConstructorLookup::Found(constructor)
+                if constructor.variant.payload_fields.is_empty()
+                    && !constructor.descriptor.type_parameters.is_empty()
+        ),
+        _ => false,
+    }
 }
 
 struct JoinNode {
@@ -240,11 +262,18 @@ impl AggregateTypeJoin {
         self.nodes[self.root].variants.is_none()
     }
 
-    pub(crate) fn has_nested_refinement_domain(&self) -> bool {
-        self.nodes
-            .iter()
-            .enumerate()
-            .any(|(index, node)| index != self.root && node.variants.is_some())
+    pub(crate) fn has_incomplete_nested_refinement_domain(&self) -> bool {
+        self.nodes.iter().enumerate().any(|(index, node)| {
+            index != self.root
+                && node.variants.as_ref().is_some_and(|variants| {
+                    variants.len()
+                        != node
+                            .declaration_order
+                            .as_ref()
+                            .expect("a refinement join retains declaration order")
+                            .len()
+                })
+        })
     }
 
     pub(crate) fn has_same_root(&self, right: &Type) -> bool {

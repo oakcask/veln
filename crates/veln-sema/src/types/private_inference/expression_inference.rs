@@ -338,7 +338,7 @@ fn infer_private_aggregate_component(
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
     let inferred_context = match joined_components {
-        Some(joined) if joined.has_nested_refinement_domain() => Type::Unknown,
+        Some(joined) if joined.has_incomplete_nested_refinement_domain() => Type::Unknown,
         Some(joined) => joined.inference_type(),
         None => component_type.clone(),
     };

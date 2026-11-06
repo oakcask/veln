@@ -186,7 +186,21 @@ fn infer_private_constructor_payload(
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
     let field = constructor.variant.payload_fields.get(index);
-    let payload_expected = type_args.payload_expected(expected, constructor, index, field);
+    let direct_payload_joins_independently = field.is_some_and(|field| {
+        type_args.direct_payload_joins_independently(field)
+            && !crate::aggregate_type_join::expression_requires_direct_payload_context(
+                arg,
+                context.adts,
+                context.current_module,
+                context.uses,
+            )
+    });
+    let payload_expected = type_args.payload_expected(
+        expected,
+        constructor,
+        index,
+        direct_payload_joins_independently,
+    );
     let plan = PrivatePayloadInferencePlan::new(expected.is_some(), field, &payload_expected);
     let Some(inferred_actual) = plan.infer(arg, &payload_expected, context) else {
         return;
@@ -295,7 +309,7 @@ impl PrivateConstructorTypeArgInference {
         expected: Option<&Type>,
         constructor: AdtConstructor<'_>,
         index: usize,
-        field: Option<&AdtPayloadField>,
+        direct_payload_joins_independently: bool,
     ) -> Type {
         expected
             .and_then(|expected| {
@@ -305,8 +319,10 @@ impl PrivateConstructorTypeArgInference {
                     expected_args[type_index].clone()
                 })
             })
-            .or_else(|| field.and_then(|field| self.direct_payload_context(field)))
             .or_else(|| {
+                if direct_payload_joins_independently {
+                    return None;
+                }
                 adt::payload_type_with_resolved_args(constructor, index, |type_index| {
                     crate::aggregate_type_join::record_work(1);
                     self.joined[type_index]
@@ -318,14 +334,11 @@ impl PrivateConstructorTypeArgInference {
             .unwrap_or(Type::Unknown)
     }
 
-    fn direct_payload_context(&self, field: &AdtPayloadField) -> Option<Type> {
+    fn direct_payload_joins_independently(&self, field: &AdtPayloadField) -> bool {
         let AdtPayloadType::TypeParameter(type_index) = field.ty else {
-            return None;
+            return false;
         };
-        (!self.invariant[type_index])
-            .then(|| self.joined[type_index].as_ref())
-            .flatten()
-            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
+        !self.invariant[type_index]
     }
 
     fn try_join(

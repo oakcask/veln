@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["type.mismatch"]
+contains = ["type.mismatch", "Dict<Int, Vec<State::Ready | State::Closed>>", "Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>>"]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,23 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 2
+equals = 6
+
+[[json_assert]]
+path = "diagnostics.2.details.actual_type"
+equals = "Dict<Int, Vec<State::Ready | State::Closed>>"
+
+[[json_assert]]
+path = "diagnostics.3.details.actual_type"
+equals = "Dict<Int, Vec<State::Ready | State::Closed>>"
+
+[[json_assert]]
+path = "diagnostics.4.details.actual_type"
+equals = "Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>>"
+
+[[json_assert]]
+path = "diagnostics.5.details.actual_type"
+equals = "Option<State::Ready | State::Closed>"
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -23,7 +39,7 @@ kind = "type"
 
 [diagnostics.span]
 file = "main.veln"
-line = 11
+line = 19
 column = 10
 
 [[diagnostics]]
@@ -33,5 +49,5 @@ kind = "type"
 
 [diagnostics.span]
 file = "main.veln"
-line = 18
+line = 26
 column = 3

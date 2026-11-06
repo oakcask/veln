@@ -7,6 +7,14 @@ end
 pub type First = State
 pub type Second = State
 
+fn dictionary_forward()
+	{1: [Ready], 2: [Closed]}
+end
+
+fn dictionary_reverse()
+	{2: [Closed], 1: [Ready]}
+end
+
 fn retained(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>)
 	[first, rejected, later]
 end
@@ -21,12 +29,19 @@ fn retained_control_flow(first: Bool, second: Bool, accepted: Option<State::Read
 	end
 end
 
-fn observe(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>) -> ()
-	let preserved: Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>> = retained(first, rejected, later)
+fn needs_int(value: Int) -> ()
 	()
 end
 
+fn observe_dictionaries() -> ()
+	needs_int(dictionary_forward())
+	needs_int(dictionary_reverse())
+end
+
+fn observe(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>) -> ()
+	needs_int(retained(first, rejected, later))
+end
+
 fn observe_control_flow(first: Bool, second: Bool, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>) -> ()
-	let preserved: Option<State::Ready | State::Closed> = retained_control_flow(first, second, accepted, rejected, later)
-	()
+	needs_int(retained_control_flow(first, second, accepted, rejected, later))
 end
