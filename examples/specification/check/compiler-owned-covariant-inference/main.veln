@@ -134,6 +134,14 @@ fn nested_nonempty_vector_reverse()
 	[[Some(1)], [None]]
 end
 
+fn nested_mixed_vector()
+	[[None, Some(Ready)], [Some(Closed)]]
+end
+
+fn nested_mixed_vector_reverse()
+	[[Some(Closed)], [None, Some(Ready)]]
+end
+
 fn nested_nonempty_dictionary()
 	[{1: None}, {1: Some(1)}]
 end
@@ -223,6 +231,8 @@ fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option
 	let constructed_empty_dictionary_reverse_result: Vec<Dict<Int, String>> = constructed_empty_dictionary_reverse({1: "one"})
 	let nested_nonempty_vector_result: Vec<Vec<Option<Int>>> = nested_nonempty_vector()
 	let nested_nonempty_vector_reverse_result: Vec<Vec<Option<Int>>> = nested_nonempty_vector_reverse()
+	let nested_mixed_vector_result: Vec<Vec<Option<State>>> = nested_mixed_vector()
+	let nested_mixed_vector_reverse_result: Vec<Vec<Option<State>>> = nested_mixed_vector_reverse()
 	let nested_nonempty_dictionary_result: Vec<Dict<Int, Option<Int>>> = nested_nonempty_dictionary()
 	let nested_nonempty_dictionary_reverse_result: Vec<Dict<Int, Option<Int>>> = nested_nonempty_dictionary_reverse()
 	let marker_ready: List<collision::Marker::Ready> = Cons(collision::Marker::Ready, Nil)

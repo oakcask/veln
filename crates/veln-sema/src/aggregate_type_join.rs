@@ -24,7 +24,7 @@ pub(crate) fn expression_needs_completion_context(
         }
         ExprKind::List(items) => {
             items.is_empty()
-                || items.iter().any(|item| {
+                || items.iter().all(|item| {
                     expression_needs_completion_context(item, adts, current_module, uses)
                 })
         }
