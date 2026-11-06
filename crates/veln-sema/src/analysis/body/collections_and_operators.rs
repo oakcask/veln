@@ -171,6 +171,7 @@ impl<'a> FunctionChecker<'a> {
         let actual = Type::dict(key_type, value_type);
         if let Some(expected) = expected
             && expected.ty.dict_parts().is_some()
+            && !type_contains_unknown(&expected.ty)
             && (self.diagnostics.len() != diagnostic_count
                 || !type_contains_variant_refinement(&actual))
         {
@@ -249,29 +250,13 @@ impl<'a> FunctionChecker<'a> {
         let item_type = if contextual_type != &Type::Unknown {
             contextual_type.clone()
         } else if let Some(joined) = joined_type {
-            if joined.has_incomplete_nested_refinement_domain()
-                || !crate::aggregate_type_join::expression_could_require_direct_payload_context(
-                    item,
-                    &self.environment.adts,
-                    self.function.module_name.as_deref(),
-                    &self.resolution_uses,
-                )
-            {
-                Type::Unknown
-            } else {
-                let admitted_context = joined.inference_type();
-                if crate::aggregate_type_join::expression_requires_direct_payload_context(
-                    item,
-                    &admitted_context,
-                    &self.environment.adts,
-                    self.function.module_name.as_deref(),
-                    &self.resolution_uses,
-                ) {
-                    admitted_context
-                } else {
-                    Type::Unknown
-                }
-            }
+            crate::aggregate_type_join::expression_admitted_context(
+                item,
+                &joined.inference_type(),
+                &self.environment.adts,
+                self.function.module_name.as_deref(),
+                &self.resolution_uses,
+            )
         } else if type_contains_unknown(current_type) {
             Type::Unknown
         } else {

@@ -99,3 +99,11 @@ fn observe_failed_recovery(first: Bool, second: Bool, state: State, accepted: Op
 	let match_result: Option<State::Ready | State::Closed> = retained_after_failed_match(state, accepted, later)
 	()
 end
+
+fn projected_rollback(first: Result<First::Ready, String>, closed: Second::Closed)
+	[first, Err(1), Ok(closed)]
+end
+
+fn observe_projected_rollback(first: Result<First::Ready, String>, closed: Second::Closed) -> ()
+	needs_int(projected_rollback(first, closed))
+end

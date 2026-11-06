@@ -8,6 +8,15 @@ pub type SecondTable = Dict
 pub type First = State
 pub type Second = State
 
+type ConcreteWrap<T>
+	Built(Vec<T>)
+end
+
+type SelfWrap<T>
+	Nested(SelfWrap<T>)
+	Leaf(T)
+end
+
 fn forward(first: FirstTable<String, State::Ready>, second: SecondTable<String, State::Closed>)
 	[first, second]
 end
@@ -24,13 +33,33 @@ fn constructed_reverse(first: Option<First>, second: Second::Closed)
 	[Some(second), first]
 end
 
+fn concrete_forward(first: ConcreteWrap<First>, second: Second::Closed)
+	[first, Built([second])]
+end
+
+fn concrete_reverse(first: ConcreteWrap<First>, second: Second::Closed)
+	[Built([second]), first]
+end
+
+fn self_forward(first: SelfWrap<First>, second: Second::Closed)
+	[first, Nested(Leaf(second))]
+end
+
+fn self_reverse(first: SelfWrap<First>, second: Second::Closed)
+	[Nested(Leaf(second)), first]
+end
+
 fn needs_int(value: Int) -> ()
 	()
 end
 
-fn observe(first: FirstTable<String, State::Ready>, second: SecondTable<String, State::Closed>, first_option: Option<First>, closed: Second::Closed) -> ()
+fn observe(first: FirstTable<String, State::Ready>, second: SecondTable<String, State::Closed>, first_option: Option<First>, concrete: ConcreteWrap<First>, recursive: SelfWrap<First>, closed: Second::Closed) -> ()
 	needs_int(forward(first, second))
 	needs_int(reverse(first, second))
 	needs_int(constructed_forward(first_option, closed))
 	needs_int(constructed_reverse(first_option, closed))
+	needs_int(concrete_forward(concrete, closed))
+	needs_int(concrete_reverse(concrete, closed))
+	needs_int(self_forward(recursive, closed))
+	needs_int(self_reverse(recursive, closed))
 end

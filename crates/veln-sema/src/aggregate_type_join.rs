@@ -14,160 +14,296 @@ pub(crate) struct AggregateTypeJoin {
     root: usize,
 }
 
-pub(crate) fn expression_requires_direct_payload_context(
-    expr: &Expr,
-    admitted_context: &Type,
-    adts: &AdtRegistry,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) -> bool {
-    match &expr.kind {
-        ExprKind::List(items) => items.is_empty(),
-        ExprKind::Dict(entries) => entries.is_empty(),
-        ExprKind::Record(fields) => fields.is_empty(),
-        ExprKind::NamePath { segments, .. } => {
-            match adts.constructor(segments, current_module, uses) {
-                ConstructorLookup::Found(constructor) => {
-                    constructor.variant.payload_fields.is_empty()
-                        && !constructor.descriptor.type_parameters.is_empty()
-                }
-                ConstructorLookup::Ambiguous if !type_contains_unknown(admitted_context) => adts
-                    .descriptor_for_type(admitted_context)
-                    .and_then(|descriptor| {
-                        adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
-                    })
-                    .is_some_and(|constructor| constructor.variant.payload_fields.is_empty()),
-                ConstructorLookup::Ambiguous | ConstructorLookup::Missing => false,
-            }
-        }
-        ExprKind::Call { callee, args } => constructor_call_requires_context(
-            callee,
-            args,
-            admitted_context,
-            adts,
-            current_module,
-            uses,
-        ),
-        _ => false,
-    }
-}
-
-pub(crate) fn expression_could_require_direct_payload_context(
+pub(crate) fn expression_is_immediately_context_free(
     expr: &Expr,
     adts: &AdtRegistry,
     current_module: Option<&str>,
     uses: &[UseDecl],
 ) -> bool {
     match &expr.kind {
-        ExprKind::List(items) => items.is_empty(),
-        ExprKind::Dict(entries) => entries.is_empty(),
-        ExprKind::Record(fields) => fields.is_empty(),
+        ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => true,
         ExprKind::NamePath { segments, .. } => {
-            match adts.constructor(segments, current_module, uses) {
-                ConstructorLookup::Found(constructor) => {
-                    constructor.variant.payload_fields.is_empty()
-                        && !constructor.descriptor.type_parameters.is_empty()
-                }
-                ConstructorLookup::Ambiguous => true,
-                ConstructorLookup::Missing => false,
-            }
+            matches!(
+                adts.constructor(segments, current_module, uses),
+                ConstructorLookup::Found(constructor)
+                    if constructor.descriptor.type_parameters.is_empty()
+            )
         }
-        ExprKind::Call { callee, args } => {
+        ExprKind::Call { callee, .. } => {
             let ExprKind::NamePath { segments, .. } = &callee.kind else {
                 return false;
             };
-            match adts.constructor(segments, current_module, uses) {
-                ConstructorLookup::Found(constructor) => {
-                    constructor_has_uninferred_parameter(constructor, args.len())
-                        || args.iter().any(|arg| {
-                            expression_could_require_direct_payload_context(
-                                arg,
-                                adts,
-                                current_module,
-                                uses,
-                            )
-                        })
-                }
-                ConstructorLookup::Ambiguous => true,
-                ConstructorLookup::Missing => false,
-            }
+            matches!(
+                adts.constructor(segments, current_module, uses),
+                ConstructorLookup::Missing
+            )
         }
         _ => false,
     }
 }
 
-fn constructor_call_requires_context(
-    callee: &Expr,
-    args: &[Expr],
+pub(crate) fn expression_admitted_context<'expr, 'registry>(
+    expr: &'expr Expr,
     admitted_context: &Type,
-    adts: &AdtRegistry,
+    adts: &'registry AdtRegistry,
     current_module: Option<&str>,
     uses: &[UseDecl],
-) -> bool {
-    let ExprKind::NamePath { segments, .. } = &callee.kind else {
-        return false;
-    };
-    let constructor = match adts.constructor(segments, current_module, uses) {
-        ConstructorLookup::Found(constructor) => constructor,
-        ConstructorLookup::Ambiguous => {
-            let Some(descriptor) = adts.descriptor_for_type(admitted_context) else {
-                return false;
-            };
-            let Some(constructor) =
-                adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
-            else {
-                return false;
-            };
-            constructor
-        }
-        ConstructorLookup::Missing => return false,
-    };
-    if constructor_has_uninferred_parameter(constructor, args.len()) {
-        return true;
+) -> Type {
+    enum ProjectionTask<'expr, 'registry> {
+        Evaluate(&'expr Expr, Type),
+        FinishList(Type, usize),
+        FinishDict(usize),
+        FinishCall {
+            admitted: Type,
+            constructor: AdtConstructor<'registry>,
+            expected_args: Vec<Type>,
+            affected: Vec<Vec<usize>>,
+        },
     }
-    let Some(expected_args) = unification::adt_args(admitted_context, constructor.descriptor)
-    else {
-        return false;
-    };
-    args.iter().enumerate().any(|(index, arg)| {
-        let Some(payload_context) =
-            adt::payload_type_with_resolved_args(constructor, index, |type_index| {
-                expected_args[type_index].clone()
-            })
-        else {
-            return false;
-        };
-        expression_requires_direct_payload_context(
-            arg,
-            &payload_context,
-            adts,
-            current_module,
-            uses,
-        )
-    })
+
+    let mut tasks = vec![ProjectionTask::Evaluate(expr, admitted_context.clone())];
+    let mut results = Vec::new();
+    while let Some(task) = tasks.pop() {
+        match task {
+            ProjectionTask::Evaluate(expr, admitted) => {
+                record_context_classification_work(1);
+                if type_contains_unknown(&admitted) {
+                    results.push(admitted);
+                    continue;
+                }
+                match &expr.kind {
+                    ExprKind::List(items) => {
+                        let Some(item_context) = adt_type_parts(&admitted)
+                            .and_then(|parts| parts.args.first())
+                            .cloned()
+                        else {
+                            results.push(Type::Unknown);
+                            continue;
+                        };
+                        if items.is_empty() {
+                            results.push(admitted);
+                            continue;
+                        }
+                        tasks.push(ProjectionTask::FinishList(admitted, items.len()));
+                        for item in items.iter().rev() {
+                            tasks.push(ProjectionTask::Evaluate(item, item_context.clone()));
+                        }
+                    }
+                    ExprKind::Dict(entries) => {
+                        let Some((key_context, value_context)) = admitted.dict_parts() else {
+                            results.push(Type::Unknown);
+                            continue;
+                        };
+                        let key_context = key_context.clone();
+                        let value_context = value_context.clone();
+                        if entries.is_empty() {
+                            results.push(admitted);
+                            continue;
+                        }
+                        tasks.push(ProjectionTask::FinishDict(entries.len()));
+                        for entry in entries.iter().rev() {
+                            tasks.push(ProjectionTask::Evaluate(
+                                &entry.value,
+                                value_context.clone(),
+                            ));
+                            tasks.push(ProjectionTask::Evaluate(&entry.key, key_context.clone()));
+                        }
+                    }
+                    ExprKind::Record(fields) => results.push(
+                        fields
+                            .is_empty()
+                            .then_some(admitted)
+                            .unwrap_or(Type::Unknown),
+                    ),
+                    ExprKind::NamePath { segments, .. } => {
+                        let requires = match adts.constructor(segments, current_module, uses) {
+                            ConstructorLookup::Found(constructor) => {
+                                constructor.variant.payload_fields.is_empty()
+                                    && !constructor.descriptor.type_parameters.is_empty()
+                            }
+                            ConstructorLookup::Ambiguous => adts
+                                .descriptor_for_type(&admitted)
+                                .and_then(|descriptor| {
+                                    adts.constructor_for_descriptor(
+                                        segments,
+                                        descriptor,
+                                        current_module,
+                                        uses,
+                                    )
+                                })
+                                .is_some_and(|constructor| {
+                                    constructor.variant.payload_fields.is_empty()
+                                }),
+                            ConstructorLookup::Missing => false,
+                        };
+                        results.push(if requires { admitted } else { Type::Unknown });
+                    }
+                    ExprKind::Call { callee, args } => {
+                        let ExprKind::NamePath { segments, .. } = &callee.kind else {
+                            results.push(Type::Unknown);
+                            continue;
+                        };
+                        let constructor = match adts.constructor(segments, current_module, uses) {
+                            ConstructorLookup::Found(constructor) => constructor,
+                            ConstructorLookup::Ambiguous => {
+                                let Some(constructor) =
+                                    adts.descriptor_for_type(&admitted).and_then(|descriptor| {
+                                        adts.constructor_for_descriptor(
+                                            segments,
+                                            descriptor,
+                                            current_module,
+                                            uses,
+                                        )
+                                    })
+                                else {
+                                    results.push(Type::Unknown);
+                                    continue;
+                                };
+                                constructor
+                            }
+                            ConstructorLookup::Missing => {
+                                results.push(Type::Unknown);
+                                continue;
+                            }
+                        };
+                        let Some(expected_args) =
+                            unification::adt_args(&admitted, constructor.descriptor)
+                                .map(<[Type]>::to_vec)
+                        else {
+                            results.push(Type::Unknown);
+                            continue;
+                        };
+                        let mut affected = Vec::with_capacity(args.len());
+                        let mut payload_contexts = Vec::with_capacity(args.len());
+                        for index in 0..args.len() {
+                            let mut indices = Vec::new();
+                            adt::visit_type_arg_indices_from_payload(
+                                constructor,
+                                index,
+                                |type_index| {
+                                    record_context_classification_work(1);
+                                    if !indices.contains(&type_index) {
+                                        indices.push(type_index);
+                                    }
+                                },
+                            );
+                            affected.push(indices);
+                            payload_contexts.push(
+                                adt::payload_type_with_resolved_args(
+                                    constructor,
+                                    index,
+                                    |type_index| expected_args[type_index].clone(),
+                                )
+                                .unwrap_or(Type::Unknown),
+                            );
+                        }
+                        tasks.push(ProjectionTask::FinishCall {
+                            admitted,
+                            constructor,
+                            expected_args,
+                            affected,
+                        });
+                        for (arg, context) in args.iter().zip(payload_contexts).rev() {
+                            tasks.push(ProjectionTask::Evaluate(arg, context));
+                        }
+                    }
+                    _ => results.push(Type::Unknown),
+                }
+            }
+            ProjectionTask::FinishList(admitted, count) => {
+                let projected = results.split_off(results.len() - count);
+                let mut required = Type::Unknown;
+                for projected in projected {
+                    adt::merge_type_holes(&mut required, &projected);
+                }
+                results.push(
+                    (required != Type::Unknown)
+                        .then(|| replace_adt_args(&admitted, vec![required]))
+                        .unwrap_or(Type::Unknown),
+                );
+            }
+            ProjectionTask::FinishDict(count) => {
+                let projected = results.split_off(results.len() - count * 2);
+                let mut required_key = Type::Unknown;
+                let mut required_value = Type::Unknown;
+                for pair in projected.chunks_exact(2) {
+                    adt::merge_type_holes(&mut required_key, &pair[0]);
+                    adt::merge_type_holes(&mut required_value, &pair[1]);
+                }
+                results.push(
+                    (required_key != Type::Unknown || required_value != Type::Unknown)
+                        .then(|| Type::dict(required_key, required_value))
+                        .unwrap_or(Type::Unknown),
+                );
+            }
+            ProjectionTask::FinishCall {
+                admitted,
+                constructor,
+                expected_args,
+                affected,
+            } => {
+                let projected = results.split_off(results.len() - affected.len());
+                let mut required_args = expected_args.clone();
+                let mut provided = vec![false; expected_args.len()];
+                for (index, (projected, affected)) in
+                    projected.into_iter().zip(affected).enumerate()
+                {
+                    for type_index in &affected {
+                        provided[*type_index] = true;
+                    }
+                    if projected == Type::Unknown {
+                        for type_index in affected {
+                            required_args[type_index] = Type::Unknown;
+                        }
+                        continue;
+                    }
+                    adt::visit_type_arg_contributions_from_payload(
+                        constructor,
+                        index,
+                        &projected,
+                        |type_index, required| {
+                            if required_args[type_index] != Type::Unknown {
+                                required_args[type_index] = required.clone();
+                            }
+                        },
+                    );
+                }
+                for (index, was_provided) in provided.into_iter().enumerate() {
+                    if !was_provided {
+                        required_args[index] = expected_args[index].clone();
+                    }
+                }
+                results.push(replace_adt_args(&admitted, required_args));
+            }
+        }
+    }
+    results.pop().unwrap_or(Type::Unknown)
 }
 
-fn constructor_has_uninferred_parameter(
-    constructor: AdtConstructor<'_>,
-    argument_count: usize,
-) -> bool {
-    if constructor.descriptor.type_parameters.is_empty() {
-        return false;
-    }
-    let mut inferred = vec![false; constructor.descriptor.type_parameters.len()];
-    for field in constructor
-        .variant
-        .payload_fields
-        .iter()
-        .take(argument_count)
-    {
-        if let crate::adt::descriptors::AdtPayloadType::TypeParameter(index) = field.ty
-            && let Some(inferred) = inferred.get_mut(index)
-        {
-            *inferred = true;
+fn replace_adt_args(ty: &Type, args: Vec<Type>) -> Type {
+    match ty {
+        Type::Named { name, identity, .. } => {
+            Type::resolved_named(name.clone(), identity.clone(), args)
         }
+        Type::VariantRefinement {
+            name,
+            identity,
+            variants,
+            unresolved_alternatives,
+            ..
+        } => Type::VariantRefinement {
+            name: name.clone(),
+            identity: identity.clone(),
+            args,
+            variants: variants.clone(),
+            unresolved_alternatives: unresolved_alternatives.clone(),
+        },
+        _ => Type::Unknown,
     }
-    inferred.iter().any(|inferred| !inferred)
 }
 
 struct JoinNode {
@@ -736,6 +872,29 @@ pub(crate) fn reset_work() {
 #[cfg(test)]
 pub(crate) fn take_work() -> usize {
     crate::inference_work::take()
+}
+
+#[cfg(test)]
+thread_local! {
+    static CONTEXT_CLASSIFICATION_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_context_classification_work(units: usize) {
+    CONTEXT_CLASSIFICATION_WORK.with(|work| work.set(work.get().saturating_add(units)));
+}
+
+#[cfg(not(test))]
+fn record_context_classification_work(_units: usize) {}
+
+#[cfg(test)]
+pub(crate) fn reset_context_classification_work() {
+    CONTEXT_CLASSIFICATION_WORK.with(|work| work.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_context_classification_work() -> usize {
+    CONTEXT_CLASSIFICATION_WORK.with(|work| work.replace(0))
 }
 
 #[cfg(test)]

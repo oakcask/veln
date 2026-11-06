@@ -615,6 +615,34 @@ pub(super) fn visit_type_parameter_contributions(
     }
 }
 
+pub(super) fn visit_type_parameter_indices(template: &Type, visit: &mut impl FnMut(usize)) {
+    let mut pending = vec![template];
+    while let Some(ty) = pending.pop() {
+        match ty {
+            Type::Named { name, args, .. } if name.starts_with("$param") && args.is_empty() => {
+                if let Ok(index) = name.trim_start_matches("$param").parse::<usize>() {
+                    visit(index);
+                }
+            }
+            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+                pending.extend(args);
+            }
+            Type::Record(fields) => pending.extend(fields.iter().map(|(_, field)| field)),
+            Type::Function {
+                params,
+                variadic,
+                return_type,
+                ..
+            } => {
+                pending.extend(params);
+                pending.extend(variadic.as_deref());
+                pending.push(return_type);
+            }
+            Type::Unknown => {}
+        }
+    }
+}
+
 pub(super) fn substitute_core_type_parameters(template: &CoreType, args: &[CoreType]) -> CoreType {
     match template {
         CoreType::Named { name, args: nested }

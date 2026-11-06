@@ -639,9 +639,10 @@ type to an inferred control-flow join. Later successful results continue from
 the last admitted join state, so the inferred result does not retain a nominal
 return type from the failed expression.
 A root-refinement join does not provide that expectation. A join whose root is
-an unrefined named type can provide its materialized type to a later sibling
-only when it has no incomplete nested refinement domain. The join does not
-revisit an earlier branch that lacked that context. The checked control-flow
+an unrefined named type can provide its materialized type to a later sibling.
+An incomplete nested refinement blocks context only for its affected type
+argument; complete sibling arguments remain available independently. The join
+does not revisit an earlier branch that lacked that context. The checked control-flow
 cases are in
 [`adt-variant-refinement-control-flow-result-joins`](../../examples/specification/check/adt-variant-refinement-control-flow-result-joins/)
 and its
@@ -1420,15 +1421,16 @@ checks each contribution once in source order. Repeated direct constructor
 payloads and dictionary members that have complete types are inferred without
 using the partial join as their expected type. They can therefore widen the
 join instead of being forced to equal its current refinement. When the join
-root is an unrefined named type and every nested refinement domain is complete,
-the accumulated type can provide context to a later context-dependent
-expression. This includes a nullary generic constructor or a payload-carrying
-constructor whose payloads do not determine every generic argument, such as
+root is an unrefined named type, the accumulated type can provide
+argument-specific context to a later context-dependent expression. This includes
+a nullary generic constructor or a payload-carrying constructor whose payloads
+do not determine every generic argument, such as
 `Ok(1)` without an independently known error type. Independently inferred
 generic arguments keep their own presentation; the admitted context fills only
-the arguments that remain unknown. An incomplete nested
-refinement domain provides no such context. Dictionary keys and values maintain
-separate joins, so a complete earlier member can contextualize a later empty
+the arguments that remain unknown. An incomplete nested refinement domain blocks
+context only for its affected argument. Complete sibling arguments are inferred
+or completed independently. Dictionary keys and values maintain separate joins,
+so a complete earlier member can contextualize a later empty
 collection in the same position. An earlier empty member remains incomplete
 when only a later member is complete because the checker does not revisit it.
 For repeated direct constructor payloads, an admitted concrete payload type can

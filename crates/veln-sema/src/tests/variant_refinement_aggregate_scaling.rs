@@ -12,6 +12,51 @@ fn diagnostics_for(source: &str) -> Vec<Diagnostic> {
     analyze_surface_module(&lower_surface_ast(&parsed.tree))
 }
 
+fn nested_context_classification_source(depth: usize) -> String {
+    let nested_type = (0..depth).fold("Result<Int, String>".to_string(), |ty, _| {
+        format!("Option<{ty}>")
+    });
+    let nested_value = (0..depth).fold("Ok(1)".to_string(), |value, _| format!("Some({value})"));
+    format!(
+        "fn inferred(first: {nested_type})\n  [first, {nested_value}]\nend\n\
+         fn needs_int(value: Int) -> ()\n  ()\nend\n\
+         fn checked(first: {nested_type}) -> ()\n  needs_int([first, {nested_value}])\nend\n"
+    )
+}
+
+#[test]
+fn aggregate_context_classification_grows_linearly_with_adjacent_depths() {
+    let measurements = [32, 64, 128].map(|depth| {
+        let source = SourceFile::new("main.veln", nested_context_classification_source(depth));
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::aggregate_type_join::reset_context_classification_work();
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        let elapsed = started.elapsed();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.mismatch")
+                .count(),
+            1,
+            "{diagnostics:#?}",
+        );
+        let work = crate::aggregate_type_join::take_context_classification_work();
+        eprintln!("depth-{depth} projected aggregate context: {elapsed:?}, {work} visits");
+        work
+    });
+    assert!(
+        measurements[0] > 32 * 2,
+        "the metric must observe ordinary and omitted-private classification: {measurements:?}",
+    );
+    assert!(
+        measurements[1] <= measurements[0] * 2 + 32 && measurements[2] <= measurements[1] * 2 + 32,
+        "adjacent constructor depths must add only linear classification work: {measurements:?}",
+    );
+}
+
 fn aggregate_join_scaling_source(variant_count: usize) -> String {
     let variants = (0..variant_count)
         .map(|index| format!("Variant{index:04}"))

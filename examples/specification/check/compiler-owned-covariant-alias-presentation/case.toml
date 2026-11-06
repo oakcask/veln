@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["type.mismatch", "Vec<Dict<String, State>>", "Vec<Option<State>>"]
+contains = ["type.mismatch", "Vec<Dict<String, State>>", "Vec<Option<State>>", "Vec<ConcreteWrap<State>>", "Vec<SelfWrap<State>>"]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 4
+equals = 8
 
 [[json_assert]]
 path = "diagnostics.0.details.actual_type"
@@ -32,6 +32,22 @@ equals = "Vec<Option<State>>"
 path = "diagnostics.3.details.actual_type"
 equals = "Vec<Option<State>>"
 
+[[json_assert]]
+path = "diagnostics.4.details.actual_type"
+equals = "Vec<ConcreteWrap<State>>"
+
+[[json_assert]]
+path = "diagnostics.5.details.actual_type"
+equals = "Vec<ConcreteWrap<State>>"
+
+[[json_assert]]
+path = "diagnostics.6.details.actual_type"
+equals = "Vec<SelfWrap<State>>"
+
+[[json_assert]]
+path = "diagnostics.7.details.actual_type"
+equals = "Vec<SelfWrap<State>>"
+
 [[diagnostics]]
 id = "type.mismatch"
 severity = "error"
@@ -39,7 +55,7 @@ kind = "type"
 
 [diagnostics.span]
 file = "main.veln"
-line = 32
+line = 57
 column = 12
 
 [[diagnostics]]
@@ -49,7 +65,7 @@ kind = "type"
 
 [diagnostics.span]
 file = "main.veln"
-line = 33
+line = 58
 column = 12
 
 [[diagnostics]]
@@ -59,7 +75,7 @@ kind = "type"
 
 [diagnostics.span]
 file = "main.veln"
-line = 34
+line = 59
 column = 12
 
 [[diagnostics]]
@@ -69,5 +85,45 @@ kind = "type"
 
 [diagnostics.span]
 file = "main.veln"
-line = 35
+line = 60
+column = 12
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 61
+column = 12
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 62
+column = 12
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 63
+column = 12
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 64
 column = 12

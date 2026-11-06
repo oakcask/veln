@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["type.mismatch", "name.ambiguous", "Dict<Int, Vec<unknown>>", "Dict<Vec<unknown>, Int>", "Dict<Int, Vec<State::Ready | State::Closed>>", "Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>>"]
+contains = ["type.mismatch", "name.ambiguous", "Dict<Int, Vec<unknown>>", "Dict<Vec<unknown>, Int>", "Dict<Int, Vec<State::Ready | State::Closed>>", "Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>>", "expected `String`, but found `Int`", "Vec<Result<State::Ready | State::Closed, String>>"]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 13
+equals = 15
 
 [[json_assert]]
 path = "diagnostics.0.details.actual_type"
@@ -31,6 +31,10 @@ equals = "Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>>"
 [[json_assert]]
 path = "diagnostics.10.details.actual_type"
 equals = "Option<State::Ready | State::Closed>"
+
+[[json_assert]]
+path = "diagnostics.14.details.actual_type"
+equals = "Vec<Result<State::Ready | State::Closed, String>>"
 
 [[diagnostics]]
 id = "type.mismatch"

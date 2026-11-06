@@ -343,29 +343,14 @@ fn infer_private_aggregate_component(
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
     let inferred_context = match joined_components {
-        Some(joined) if joined.has_incomplete_nested_refinement_domain() => Type::Unknown,
         Some(joined) if context_dependent_only => {
-            if !crate::aggregate_type_join::expression_could_require_direct_payload_context(
+            crate::aggregate_type_join::expression_admitted_context(
                 expr,
+                &joined.inference_type(),
                 context.adts,
                 context.current_module,
                 context.uses,
-            ) {
-                Type::Unknown
-            } else {
-                let admitted_context = joined.inference_type();
-                if crate::aggregate_type_join::expression_requires_direct_payload_context(
-                    expr,
-                    &admitted_context,
-                    context.adts,
-                    context.current_module,
-                    context.uses,
-                ) {
-                    admitted_context
-                } else {
-                    Type::Unknown
-                }
-            }
+            )
         }
         Some(joined) => joined.inference_type(),
         None if context_dependent_only && type_has_unknown(component_type) => Type::Unknown,
@@ -453,6 +438,7 @@ pub(super) fn inferred_private_aggregate_member_type(
     adts: &AdtRegistry,
 ) -> Type {
     if expected != &Type::Unknown
+        && !type_has_unknown(expected)
         && crate::type_relations::is_assignable_with_registry(expected, &ty, adts)
     {
         expected.clone()

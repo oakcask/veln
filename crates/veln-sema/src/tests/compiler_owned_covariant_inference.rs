@@ -745,3 +745,118 @@ fn diagnostically_failed_control_flow_results_do_not_contribute() {
         );
     }
 }
+
+#[test]
+fn projected_context_is_per_argument_and_template_complete() {
+    let source_text = concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n",
+        "pub type First = State\n",
+        "pub type Second = State\n",
+        "type ConcreteWrap<T>\n",
+        "  Built(Vec<T>)\n",
+        "end\n",
+        "type SelfWrap<T>\n",
+        "  Nested(SelfWrap<T>)\n",
+        "  Leaf(T)\n",
+        "end\n",
+        "fn concrete_forward(first: ConcreteWrap<First>, closed: Second::Closed)\n",
+        "  [first, Built([closed])]\n",
+        "end\n",
+        "fn concrete_reverse(first: ConcreteWrap<First>, closed: Second::Closed)\n",
+        "  [Built([closed]), first]\n",
+        "end\n",
+        "fn self_forward(first: SelfWrap<First>, closed: Second::Closed)\n",
+        "  [first, Nested(Leaf(closed))]\n",
+        "end\n",
+        "fn self_reverse(first: SelfWrap<First>, closed: Second::Closed)\n",
+        "  [Nested(Leaf(closed)), first]\n",
+        "end\n",
+        "fn result_private(first: Result<First::Ready, String>, closed: Second::Closed)\n",
+        "  [first, Ok(closed)]\n",
+        "end\n",
+        "fn complementary_result(first: Result<First::Ready, String>, closed: Second::Closed)\n",
+        "  [first, Ok(closed), Err(\"failed\")]\n",
+        "end\n",
+        "fn dict_private(first: Dict<First::Ready, Vec<Int>>, closed: Second::Closed)\n",
+        "  [first, {(closed): []}]\n",
+        "end\n",
+        "fn rollback(first: Result<First::Ready, String>, closed: Second::Closed)\n",
+        "  [first, Err(1), Ok(closed)]\n",
+        "end\n",
+        "fn needs_int(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn result_ordinary(first: Result<First::Ready, String>, closed: Second::Closed) -> ()\n",
+        "  needs_int([first, Ok(closed)])\n",
+        "end\n",
+        "fn dict_ordinary(first: Dict<First::Ready, Vec<Int>>, closed: Second::Closed) -> ()\n",
+        "  needs_int([first, {(closed): []}])\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    let rendered = format!("{diagnostics:#?}");
+    assert!(
+        rendered.contains("Vec<Result<State, String>>")
+            && rendered.contains("Vec<Dict<State, Vec<Int>>>")
+            && rendered.contains("expected `String`, but found `Int`"),
+        "{diagnostics:#?}",
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["concrete_forward", "concrete_reverse"] {
+        assert_eq!(
+            environment.function(function).unwrap().return_type.render(),
+            "Vec<ConcreteWrap<State>>",
+            "{function} must preserve order-independent Concrete payload inference",
+        );
+    }
+    for function in ["self_forward", "self_reverse"] {
+        assert_eq!(
+            environment.function(function).unwrap().return_type.render(),
+            "Vec<SelfWrap<State>>",
+            "{function} must preserve order-independent SelfType payload inference",
+        );
+    }
+    assert_eq!(
+        environment
+            .function("result_private")
+            .unwrap()
+            .return_type
+            .render(),
+        "Vec<Result<State, String>>",
+    );
+    assert_eq!(
+        environment
+            .function("complementary_result")
+            .unwrap()
+            .return_type
+            .render(),
+        "Vec<Result<State, String>>",
+        "context required by separate elements must combine per type argument",
+    );
+    assert_eq!(
+        environment
+            .function("dict_private")
+            .unwrap()
+            .return_type
+            .render(),
+        "Vec<Dict<State, Vec<Int>>>",
+    );
+    assert_eq!(
+        environment
+            .function("rollback")
+            .unwrap()
+            .return_type
+            .render(),
+        "Vec<Result<State, String>>",
+        "the rejected completed contribution must not change type or alias state",
+    );
+}

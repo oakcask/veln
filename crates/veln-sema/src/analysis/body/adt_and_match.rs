@@ -515,31 +515,38 @@ impl<'a> FunctionChecker<'a> {
             origin_span: Some(call.span.clone()),
             origin_message: "Constructor payload inferred here.",
         });
-        let requires_admitted_context =
-            crate::aggregate_type_join::expression_could_require_direct_payload_context(
+        let immediately_independent = expected.is_none()
+            && type_args.direct_payload_joins_independently(field)
+            && crate::aggregate_type_join::expression_is_immediately_context_free(
                 arg,
                 &self.environment.adts,
                 self.function.module_name.as_deref(),
                 &self.resolution_uses,
-            ) && {
-                let admitted_payload_context =
-                    type_args.payload_expected(expected, constructor, index, false);
-                crate::aggregate_type_join::expression_requires_direct_payload_context(
-                    arg,
-                    &admitted_payload_context,
-                    &self.environment.adts,
-                    self.function.module_name.as_deref(),
-                    &self.resolution_uses,
-                )
-            };
-        let direct_payload_joins_independently =
-            type_args.direct_payload_joins_independently(field) && !requires_admitted_context;
-        arg_expected.ty = type_args.payload_expected(
-            expected,
-            constructor,
-            index,
-            direct_payload_joins_independently,
-        );
+            );
+        let admitted_payload_context = immediately_independent
+            .then_some(Type::Unknown)
+            .unwrap_or_else(|| type_args.payload_expected(expected, constructor, index, false));
+        let projected_payload_context = if expected.is_some() {
+            admitted_payload_context.clone()
+        } else {
+            crate::aggregate_type_join::expression_admitted_context(
+                arg,
+                &admitted_payload_context,
+                &self.environment.adts,
+                self.function.module_name.as_deref(),
+                &self.resolution_uses,
+            )
+        };
+        let direct_payload_joins_independently = immediately_independent
+            || (type_args.direct_payload_joins_independently(field)
+                && projected_payload_context == Type::Unknown);
+        arg_expected.ty = if direct_payload_joins_independently {
+            Type::Unknown
+        } else if projected_payload_context == Type::Unknown {
+            admitted_payload_context
+        } else {
+            projected_payload_context
+        };
         let diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(arg, Some(&arg_expected));
         if self.diagnostics.len() != diagnostic_count {
@@ -710,19 +717,13 @@ impl<'a> FunctionChecker<'a> {
         joined_items: &mut Option<AggregateTypeJoin>,
     ) {
         let inferred_context = match joined_items {
-            Some(joined) if joined.has_incomplete_nested_refinement_domain() => Type::Unknown,
-            Some(joined)
-                if crate::aggregate_type_join::expression_requires_direct_payload_context(
-                    item,
-                    &joined.inference_type(),
-                    &self.environment.adts,
-                    self.function.module_name.as_deref(),
-                    &self.resolution_uses,
-                ) =>
-            {
-                joined.inference_type()
-            }
-            Some(_) => Type::Unknown,
+            Some(joined) => crate::aggregate_type_join::expression_admitted_context(
+                item,
+                &joined.inference_type(),
+                &self.environment.adts,
+                self.function.module_name.as_deref(),
+                &self.resolution_uses,
+            ),
             None => item_type.clone(),
         };
         let item_expected = collection_item_expected(

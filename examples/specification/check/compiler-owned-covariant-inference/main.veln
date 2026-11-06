@@ -17,6 +17,15 @@ type Pair<T>
 	Paired(T, T)
 end
 
+type ConcreteWrap<T>
+	Built(Vec<T>)
+end
+
+type SelfWrap<T>
+	Nested(SelfWrap<T>)
+	Leaf(T)
+end
+
 type Left
 	Namesake
 	Waiting
@@ -134,7 +143,15 @@ fn nested_completed_result_dictionary(first: Option<Result<Int, String>>)
 	{1: first, 2: Some(Ok(1))}
 end
 
-fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option<Second::Closed>, wide_option: Option<State>, first_result: Result<Option<State::Ready>, List<State::Closed>>, second_result: Result<Option<State::Closed>, List<State::Failed>>, first_list: List<State::Ready>, second_list: List<State::Closed>, first_vector: Vec<State::Ready>, second_vector: Vec<State::Closed>, first_dict: Dict<Option<State::Ready>, Positive<State::Closed>>, second_dict: Dict<Option<State::Closed>, Positive<State::Failed>>, scalar_result: Result<Int, String>) -> ()
+fn mixed_result(first: Result<First::Ready, String>, closed: Second::Closed)
+	[first, Ok(closed)]
+end
+
+fn mixed_dict(first: Dict<First::Ready, Vec<Int>>, closed: Second::Closed)
+	[first, {(closed): []}]
+end
+
+fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option<Second::Closed>, wide_option: Option<State>, first_result: Result<Option<State::Ready>, List<State::Closed>>, second_result: Result<Option<State::Closed>, List<State::Failed>>, first_list: List<State::Ready>, second_list: List<State::Closed>, first_vector: Vec<State::Ready>, second_vector: Vec<State::Closed>, first_dict: Dict<Option<State::Ready>, Positive<State::Closed>>, second_dict: Dict<Option<State::Closed>, Positive<State::Failed>>, scalar_result: Result<Int, String>, mixed_dict_first: Dict<First::Ready, Vec<Int>>) -> ()
 	let option_result: Vec<Option<State::Ready | State::Closed>> = option(first_option, second_option)
 	let option_reverse_result: Vec<Option<State::Ready | State::Closed>> = option_reverse(first_option, second_option)
 	let option_base_result: Vec<Option<State>> = option_base(first_option, wide_option)
@@ -160,5 +177,7 @@ fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option
 	let completed_result_dictionary_result: Dict<Int, Result<Int, String>> = completed_result_dictionary(scalar_result)
 	let completed_result_payload_result: Pair<Result<Int, String>>::Paired = completed_result_payload(scalar_result)
 	let nested_completed_result_dictionary_result: Dict<Int, Option<Result<Int, String>>> = nested_completed_result_dictionary(Some(scalar_result))
+	let mixed_result_result: Vec<Result<State, String>> = mixed_result(Ok(Ready), Closed)
+	let mixed_dict_result: Vec<Dict<State, Vec<Int>>> = mixed_dict(mixed_dict_first, Closed)
 	()
 end

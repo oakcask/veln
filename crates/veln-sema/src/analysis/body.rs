@@ -216,7 +216,10 @@ fn inferred_aggregate_member_type_with_expected(
     expected: &Type,
     adts: &crate::adt::registry::AdtRegistry,
 ) -> Type {
-    if expected != &Type::Unknown && is_assignable_with_registry(expected, &ty, adts) {
+    if expected != &Type::Unknown
+        && !type_contains_unknown(expected)
+        && is_assignable_with_registry(expected, &ty, adts)
+    {
         expected.clone()
     } else {
         ty
