@@ -1406,6 +1406,16 @@ collection elements, repeated generic constructor payloads, and unannotated
 constructor or a source-ADT variant refinement. A concrete expected type still
 checks each contribution by ordinary assignment compatibility.
 
+Context-free aggregate inference does not run a separate completion pass. It
+checks each contribution once in source order with the expected type available
+at that position. A partial type admitted without a diagnostic can still have
+an `unknown` argument made concrete by a later contribution under the ordinary
+inference rule above. If the original check instead reports an ambiguity or a
+mismatch, later facts do not cause that expression to be checked again. The
+failed expression leaves the accumulated join unchanged under the
+transactional rule below. An independently available concrete expected type
+still checks the contribution by ordinary assignment compatibility.
+
 Presentation reconciliation applies at each joined compiler-owned constructor.
 One alias preference and canonical spelling retain that alias. Different alias
 preferences for the same compiler-owned identity make the inferred node use
