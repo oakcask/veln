@@ -231,6 +231,19 @@ struct ProjectionPlan {
     nodes: Vec<ProjectionNode>,
 }
 
+enum ProjectionApplicationTask<'a> {
+    Visit(&'a Type, usize),
+    Clone(&'a Type),
+    FinishNamed(String, String, usize),
+    FinishVariant(
+        String,
+        String,
+        usize,
+        Arc<[String]>,
+        Vec<(String, Vec<Type>, String)>,
+    ),
+}
+
 impl ProjectionPlan {
     fn collect(
         root_expr: &Expr,
@@ -332,98 +345,119 @@ impl ProjectionPlan {
     }
 
     fn apply(&self, expected: &Type) -> Type {
-        enum Task<'a> {
-            Visit(&'a Type, usize),
-            Clone(&'a Type),
-            FinishNamed(String, String, usize),
-            FinishVariant(
-                String,
-                String,
-                usize,
-                Arc<[String]>,
-                Vec<(String, Vec<Type>, String)>,
-            ),
-        }
-        let mut tasks = vec![Task::Visit(expected, 0)];
+        let mut tasks = vec![ProjectionApplicationTask::Visit(expected, 0)];
         let mut projected = Vec::new();
         while let Some(task) = tasks.pop() {
             record_completion_application_task();
-            match task {
-                Task::Visit(ty, node_index) => {
-                    let node = &self.nodes[node_index];
-                    match ty {
-                        Type::Named {
-                            name,
-                            identity,
-                            args,
-                        } => {
-                            tasks.push(Task::FinishNamed(
-                                name.clone(),
-                                identity.clone(),
-                                args.len(),
-                            ));
-                            for (index, arg) in args.iter().enumerate().rev() {
-                                if let Some(child) = node.children.get(&index) {
-                                    tasks.push(Task::Visit(arg, *child));
-                                } else {
-                                    tasks.push(Task::Clone(arg));
-                                }
-                            }
-                        }
-                        Type::VariantRefinement {
-                            name,
-                            identity,
-                            args,
-                            variants,
-                            unresolved_alternatives,
-                        } => {
-                            if node.unrefine {
-                                tasks.push(Task::FinishNamed(
-                                    name.clone(),
-                                    identity.clone(),
-                                    args.len(),
-                                ));
-                            } else {
-                                tasks.push(Task::FinishVariant(
-                                    name.clone(),
-                                    identity.clone(),
-                                    args.len(),
-                                    variants.clone(),
-                                    unresolved_alternatives.clone(),
-                                ));
-                            }
-                            for (index, arg) in args.iter().enumerate().rev() {
-                                if let Some(child) = node.children.get(&index) {
-                                    tasks.push(Task::Visit(arg, *child));
-                                } else {
-                                    tasks.push(Task::Clone(arg));
-                                }
-                            }
-                        }
-                        _ => projected.push(clone_completion_type(ty)),
-                    }
-                }
-                Task::Clone(ty) => projected.push(clone_completion_type(ty)),
-                Task::FinishNamed(name, identity, count) => {
-                    let args = projected.split_off(projected.len() - count);
-                    projected.push(Type::resolved_named(name, identity, args));
-                }
-                Task::FinishVariant(name, identity, count, variants, unresolved_alternatives) => {
-                    let args = projected.split_off(projected.len() - count);
-                    projected.push(Type::VariantRefinement {
-                        name,
-                        identity,
-                        args,
-                        variants,
-                        unresolved_alternatives,
-                    });
-                }
-            }
+            self.apply_task(task, &mut tasks, &mut projected);
         }
         projected
             .pop()
             .expect("completion projection produces one type")
     }
+
+    fn apply_task<'a>(
+        &self,
+        task: ProjectionApplicationTask<'a>,
+        tasks: &mut Vec<ProjectionApplicationTask<'a>>,
+        projected: &mut Vec<Type>,
+    ) {
+        match task {
+            ProjectionApplicationTask::Visit(ty, node_index) => {
+                self.visit_application_type(ty, node_index, tasks, projected);
+            }
+            ProjectionApplicationTask::Clone(ty) => {
+                projected.push(clone_completion_type(ty));
+            }
+            ProjectionApplicationTask::FinishNamed(name, identity, count) => {
+                let args = take_projected_args(projected, count);
+                projected.push(Type::resolved_named(name, identity, args));
+            }
+            ProjectionApplicationTask::FinishVariant(
+                name,
+                identity,
+                count,
+                variants,
+                unresolved_alternatives,
+            ) => {
+                let args = take_projected_args(projected, count);
+                projected.push(Type::VariantRefinement {
+                    name,
+                    identity,
+                    args,
+                    variants,
+                    unresolved_alternatives,
+                });
+            }
+        }
+    }
+
+    fn visit_application_type<'a>(
+        &self,
+        ty: &'a Type,
+        node_index: usize,
+        tasks: &mut Vec<ProjectionApplicationTask<'a>>,
+        projected: &mut Vec<Type>,
+    ) {
+        let node = &self.nodes[node_index];
+        match ty {
+            Type::Named {
+                name,
+                identity,
+                args,
+            } => {
+                tasks.push(ProjectionApplicationTask::FinishNamed(
+                    name.clone(),
+                    identity.clone(),
+                    args.len(),
+                ));
+                queue_projected_args(args, node, tasks);
+            }
+            Type::VariantRefinement {
+                name,
+                identity,
+                args,
+                variants,
+                unresolved_alternatives,
+            } => {
+                tasks.push(if node.unrefine {
+                    ProjectionApplicationTask::FinishNamed(
+                        name.clone(),
+                        identity.clone(),
+                        args.len(),
+                    )
+                } else {
+                    ProjectionApplicationTask::FinishVariant(
+                        name.clone(),
+                        identity.clone(),
+                        args.len(),
+                        variants.clone(),
+                        unresolved_alternatives.clone(),
+                    )
+                });
+                queue_projected_args(args, node, tasks);
+            }
+            _ => projected.push(clone_completion_type(ty)),
+        }
+    }
+}
+
+fn queue_projected_args<'a>(
+    args: &'a [Type],
+    node: &ProjectionNode,
+    tasks: &mut Vec<ProjectionApplicationTask<'a>>,
+) {
+    for (index, arg) in args.iter().enumerate().rev() {
+        if let Some(child) = node.children.get(&index) {
+            tasks.push(ProjectionApplicationTask::Visit(arg, *child));
+        } else {
+            tasks.push(ProjectionApplicationTask::Clone(arg));
+        }
+    }
+}
+
+fn take_projected_args(projected: &mut Vec<Type>, count: usize) -> Vec<Type> {
+    projected.split_off(projected.len() - count)
 }
 
 fn named_type_args(ty: &Type) -> Option<&[Type]> {
