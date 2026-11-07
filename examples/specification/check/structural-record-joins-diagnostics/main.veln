@@ -1,5 +1,5 @@
 # A failed nested field join does not mutate the admitted record join in any
-# shared inference route. A different shape still cannot use record width.
+# shared inference route. A different shape can use contributed record width.
 type State
 	Ready
 	Closed
