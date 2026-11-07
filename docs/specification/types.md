@@ -620,8 +620,12 @@ to it. The join does not resolve an ambiguous constructor, infer a missing or
 nested unknown generic argument, or supply an expected type to a sibling arm.
 An explicit enclosing expected type continues to flow to every arm. A later
 result that cannot join reports the ordinary compatibility diagnostic against
-the base ADT. That failure abandons the finite join: recovery uses the base ADT,
-and a later compatible refinement does not resume the partial join.
+the base ADT. A failed compiler-owned contribution with the same root, or a
+fully resolved same-root source-ADT contribution, leaves the finite join
+unchanged so a later compatible result can continue it. A result with a
+different root or an incomplete source-ADT type abandons the finite join:
+recovery uses the base ADT, and a later compatible refinement does not resume
+it.
 When the first typed arm cannot start an ADT-refinement join, it supplies the
 initial result type for the existing compatibility and mismatch rules. When
 that type is a concrete base ADT, it supplies context to later arms, including
@@ -639,10 +643,12 @@ type to an inferred control-flow join. Later successful results continue from
 the last admitted join state, so the inferred result does not retain a nominal
 return type from the failed expression.
 A root-refinement join does not provide that expectation. A join whose root is
-an unrefined named type can provide its materialized type to a later sibling.
-An incomplete nested refinement blocks context only for its affected type
-argument; complete sibling arguments remain available independently. The join
-does not revisit an earlier branch that lacked that context. The checked control-flow
+an unrefined compiler-owned immutable type can provide argument-specific
+context to a later sibling. An incomplete nested refinement blocks context
+only for its affected type argument; complete sibling arguments remain
+available independently. Other unrefined named roots provide sibling context
+only when their complete joined type is available. The join does not revisit
+an earlier branch that lacked that context. The checked control-flow
 cases are in
 [`adt-variant-refinement-control-flow-result-joins`](../../examples/specification/check/adt-variant-refinement-control-flow-result-joins/)
 and its
@@ -1422,10 +1428,10 @@ arguments while sibling arguments are pending. Repeated direct constructor
 payloads and dictionary members that have complete types are inferred without
 using the partial join as their expected type. They can therefore widen the
 join instead of being forced to equal its current refinement. When the join
-root is an unrefined named type, the accumulated type can provide
-argument-specific context to a later context-dependent expression. This includes
-a nullary generic constructor or a payload-carrying constructor whose payloads
-do not determine every generic argument, such as
+root is an unrefined compiler-owned immutable type, the accumulated type can
+provide argument-specific context to a later context-dependent expression.
+This includes a nullary generic constructor or a payload-carrying constructor
+whose payloads do not determine every generic argument, such as
 `Ok(1)` without an independently known error type. Independently inferred
 generic arguments keep their own presentation; the admitted context fills only
 the arguments that remain unknown. An incomplete nested refinement domain blocks
