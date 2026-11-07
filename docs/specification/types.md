@@ -1512,14 +1512,18 @@ a presentation conflict. The checked
 case covers the canonical result for both contribution orders.
 
 A same-constructor covariant join is transactional across all arguments. If a
-later nested argument cannot join, the failed contribution reports
-`type.mismatch` at that contribution and does not change any admitted argument,
-refinement set, or alias presentation. It also does not constrain a
+later nested argument cannot join, the join validates the complete contribution
+before changing any admitted argument, refinement set, alias presentation, or
 still-unknown argument of an omitted local, including through a direct local
-alias. A later valid contribution can complete that argument from the last
-admitted state. Permuting successful contributions produces the same resolved
-type and presentation. These rules apply to compiler-owned constructors and
-covariant source-ADT parameters.
+alias. The aggregate surface then applies its recovery rule. Collections,
+dictionaries, and repeated constructor payloads retain the last admitted state,
+so a later valid contribution can continue the join. An unannotated `if` or
+`match` retains that state after a failed same-root compiler-owned contribution,
+but a failed source-ADT contribution abandons its finite control-flow join as
+described above. Permuting successful contributions produces the same resolved
+type and presentation. Atomic validation applies to compiler-owned constructors
+and covariant source-ADT parameters; continuation after failure applies only
+when the aggregate surface retains the join.
 
 Projecting an admitted aggregate context through nested compiler-owned
 constructors has bounded linear total work and retained state. The deterministic
