@@ -612,12 +612,14 @@ independently.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved
-and identical. The union is independent of arm order and renders in ADT
-declaration order. A refinement joined with its base ADT, or a union containing
-every declared variant, produces the base ADT. Once the first refinement starts
-such a join, later arm results are resolved independently before they contribute
-to it. The join does not resolve an ambiguous constructor, infer a missing or
-nested unknown generic argument, or supply an expected type to a sibling arm.
+and the corresponding arguments can recursively join under the
+same-constructor rules below. The union is independent of arm order and renders
+in ADT declaration order. A refinement joined with its base ADT, or a union
+containing every declared variant, produces the base ADT. Once the first
+refinement starts such a join, later arm results are resolved independently
+before they contribute to it. The root-refinement join does not resolve an
+ambiguous constructor, complete a missing or nested unknown generic argument,
+or supply an expected type to a sibling arm.
 An explicit enclosing expected type continues to flow to every arm. A later
 result that cannot join reports the ordinary compatibility diagnostic against
 the base ADT. A failed compiler-owned contribution with the same root leaves
