@@ -11,12 +11,12 @@ This proposal contains the remaining work for named generic variance. Current
 assignment and implemented covariant inference behavior is defined by the
 [type specification](../specification/types.md#compatibility-and-limits) and
 its [inference rules](../specification/types.md#inference-rules). The remaining
-work adds bounded inference beyond source-ADT and compiler-owned covariant
-joins, dependency invalidation, detailed nested incompatibility context,
-stable formatter, package, LSP, and MCP presentation, and whole-analysis and
-language-service failure preservation. Diagnostically failed covariant-join
-contributions are already excluded transactionally. This proposal does not add
-declaration-site variance modifiers.
+work adds bounded inference beyond source-ADT, compiler-owned covariant, and
+identical-field structural record joins, dependency invalidation, detailed
+nested incompatibility context, stable formatter, package, LSP, and MCP
+presentation, and whole-analysis and language-service failure preservation.
+Diagnostically failed covariant-join contributions are already excluded
+transactionally. This proposal does not add declaration-site variance modifiers.
 
 ## Related Work For Remaining Inference
 
@@ -52,10 +52,11 @@ ownership, union, intersection, or bottom-type relation from Rust.
 Assignment compatibility does not promise unrestricted subtype inference.
 A concrete expected type supplies the target; every contribution must satisfy
 it under the rules above. Without that context, the current type specification
-defines equal-type and same-constructor source-ADT or compiler-owned covariant
-joins. Inference uses the following remaining bounded, order-independent rules
-when a recursive join goes beyond those implemented cases. It must inspect all
-successful contributions before concluding that a required join is unavailable.
+defines equal-type, same-constructor source-ADT or compiler-owned covariant,
+and identical-field structural record joins. Inference uses the following
+remaining bounded, order-independent rules when a recursive join goes beyond
+those implemented cases. It must inspect all successful contributions before
+concluding that a required join is unavailable.
 
 Write `J(S)` for the selected common supertype of a nonempty collection of
 complete contributing types. Write `M(S)` for its bounded common subtype.
@@ -66,15 +67,14 @@ Normalize aliases and effect/field ordering before applying this table.
 | Covariant argument beyond the implemented source-ADT and compiler-owned cases | `J` of the argument contributions. |
 | Contravariant argument | `M` of the argument contributions. |
 | Invariant or irrelevant argument | Require equal arguments for context-free inference. Otherwise require an explicit expected type; do not invent an argument or erase its identity. |
-| Records with identical field names | Join each corresponding field with `J`. |
 | Functions with identical fixed count and variadic presence | Use `M` for each input, `J` for results, and set union for concrete effects. |
 | Other positive contributions, including differently shaped records | Use a contributed type that all contributions satisfy and that satisfies every other such contributed candidate. Require a unique resolved identity. Otherwise the join is unavailable. |
 | `M(S)` | Use a contributed type that satisfies every contribution and that every other such contributed candidate satisfies. Require a unique resolved identity. Otherwise the meet is unavailable. |
 | A required recursive `J` or `M` is unavailable | Require a concrete annotation; do not synthesize a general union, intersection, or bottom type. |
 
-The structural rows take precedence over the fallback candidate row. They
-must succeed in every required component; failure does not silently discard a
-field or replace a component by `unknown`. This is intentionally bounded
+The structural function row takes precedence over the fallback candidate row.
+It must succeed in every required component; failure does not silently replace
+a component by `unknown`. This is intentionally bounded
 inference, not a claim to compute every representable least upper bound.
 Record width remains valid for assignment even when context-free joining of
 incomparable record shapes requires an annotation.
@@ -97,10 +97,10 @@ explicit context using the existing ambiguity diagnostics. Omitted private
 signatures and local bindings remain monomorphic; variance does not turn a
 single inferred binding into an independently instantiated generic value.
 
-A remaining structural or meet contribution must be transactional. A rejected
-payload or expression must not change previously admitted type facts or alias
-provenance. Successful inference over the same contributions must have the
-same resolved type and presentation in every order.
+A remaining function, contributed-candidate, or meet contribution must be
+transactional. A rejected payload or expression must not change previously
+admitted type facts or alias provenance. Successful inference over the same
+contributions must have the same resolved type and presentation in every order.
 Diagnostic recovery may report errors at their original source locations; it
 must not use a failed contribution to justify another accepted assignment.
 
@@ -127,7 +127,7 @@ remain the independent acceptance oracle only for the remaining behavior.
 
 | Contract | Planned evidence and required observation |
 | --- | --- |
-| Bounded inference | Permuted cases cover annotation-required contravariant meets, structural joins, and transactional exclusion of failures outside the implemented source-ADT and compiler-owned joins. |
+| Bounded inference | Permuted cases cover annotation-required contravariant meets, structural function joins, contributed-candidate fallback, and transactional exclusion of failures outside the implemented source-ADT, compiler-owned, and structural-record joins. |
 | Metadata invalidation | Package fixtures prove that a variance-changing payload edit invalidates dependent analysis before subsequent inference. |
 | Presentation and diagnostics | Human and JSON fixtures cover nested paths, reversed input comparison, direct exclusions, and stable formatter, package, LSP, and MCP presentations. |
 | Failure preservation | Whole-analysis and language-service regression cases prove no partial signature escapes rejection, retained successful snapshots survive applicable failures, and rejected programs do not run. Local covariant-join contribution exclusion is already implemented. |
@@ -145,8 +145,9 @@ Then retire this proposal and its catalog entry.
 
 This proposal is independently ready. It does not depend on the remaining
 refinement-flow, repair, or handler proposals. The current structural
-record/function assignment kernel, compiler-owned immutable constructor joins,
-and source-ADT covariant joins are its implemented prerequisites.
+record/function assignment kernel, identical-field record joins, compiler-owned
+immutable constructor joins, and source-ADT covariant joins are its implemented
+prerequisites.
 It excludes mutable references, declaration-site variance syntax, general
 unions/intersections, higher-kinded types, predicate-based subtyping, and
 runtime representation changes solely for variance.
@@ -155,4 +156,4 @@ The inspected local implementation anchor is
 `crates/veln-sema/src/aggregate_type_join.rs` for current refinement and
 compiler-owned constructor joins. It identifies the shared inference boundary.
 The proposal tables define only the intended behavior that remains beyond the
-implemented covariant joins.
+implemented covariant and structural-record joins.

@@ -33,6 +33,7 @@ struct JoinNode {
     args: Vec<JoinArg>,
     declaration_order: Option<Arc<VariantDeclarationOrder>>,
     variants: Option<HashSet<usize>>,
+    record_field_names: Option<Vec<String>>,
 }
 
 enum JoinArg {
@@ -46,8 +47,13 @@ enum JoinArg {
 
 struct PreparedContribution<'a> {
     node: usize,
-    right: AdtTypeParts<'a>,
+    right: PreparedTypeParts<'a>,
     variant_ranks: Option<Vec<usize>>,
+}
+
+enum PreparedTypeParts<'a> {
+    Adt(AdtTypeParts<'a>),
+    Record(Vec<&'a Type>),
 }
 
 struct InitialVariantState {
@@ -83,6 +89,9 @@ impl AggregateTypeJoin {
     }
 
     pub(crate) fn new_resolved_refinement(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
+        if matches!(initial, Type::Record(_)) {
+            return Self::new(adts, initial);
+        }
         let (identity, args) = match initial {
             Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
                 (identity, args)
@@ -128,6 +137,34 @@ impl AggregateTypeJoin {
         right: &'a Type,
         pending: &mut Vec<(usize, &'a Type)>,
     ) -> Option<PreparedContribution<'a>> {
+        if let Some(field_names) = &self.nodes[node_index].record_field_names {
+            let Type::Record(fields) = right else {
+                return None;
+            };
+            if fields.len() != field_names.len() {
+                return None;
+            }
+            let mut fields = fields.iter().collect::<Vec<_>>();
+            fields.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+            if fields
+                .iter()
+                .zip(field_names)
+                .any(|((actual, _), expected)| actual != expected)
+            {
+                return None;
+            }
+            let right_fields = fields.into_iter().map(|(_, ty)| ty).collect::<Vec<_>>();
+            queue_covariant_contributions(
+                &self.nodes[node_index],
+                right_fields.iter().copied(),
+                pending,
+            )?;
+            return Some(PreparedContribution {
+                node: node_index,
+                right: PreparedTypeParts::Record(right_fields),
+                variant_ranks: None,
+            });
+        }
         let right = adt_type_parts(right)?;
         let node = &self.nodes[node_index];
         (same_type_identity(&node.name, &node.identity, right.name, right.identity)
@@ -136,7 +173,7 @@ impl AggregateTypeJoin {
         queue_covariant_contributions(node, right.args, pending)?;
         Some(PreparedContribution {
             node: node_index,
-            right,
+            right: PreparedTypeParts::Adt(right),
             variant_ranks: joined_variant_ranks(node, right.variants)?,
         })
     }
@@ -145,18 +182,24 @@ impl AggregateTypeJoin {
         let mut changed = false;
         for contribution in prepared {
             let node = &mut self.nodes[contribution.node];
-            record_presentation_work(1);
-            if !node.presentation_conflicted && contribution.right.name != node.canonical_name {
-                if node.name == node.canonical_name {
-                    node.name = contribution.right.name.to_string();
-                    changed = true;
-                } else if node.name != contribution.right.name {
-                    node.name.clone_from(&node.canonical_name);
-                    node.presentation_conflicted = true;
-                    changed = true;
+            let right_args = match &contribution.right {
+                PreparedTypeParts::Adt(right) => {
+                    record_presentation_work(1);
+                    if !node.presentation_conflicted && right.name != node.canonical_name {
+                        if node.name == node.canonical_name {
+                            node.name = right.name.to_string();
+                            changed = true;
+                        } else if node.name != right.name {
+                            node.name.clone_from(&node.canonical_name);
+                            node.presentation_conflicted = true;
+                            changed = true;
+                        }
+                    }
+                    right.args.iter().collect::<Vec<_>>()
                 }
-            }
-            for (joined, right) in node.args.iter_mut().zip(contribution.right.args) {
+                PreparedTypeParts::Record(fields) => fields.clone(),
+            };
+            for (joined, right) in node.args.iter_mut().zip(right_args) {
                 let JoinArg::Exact {
                     ty,
                     presentation,
@@ -174,7 +217,11 @@ impl AggregateTypeJoin {
                 changed |= unification::merge_type_slot(ty, right);
                 changed |= presentation.merge(ty, right);
             }
-            match (&mut node.variants, contribution.right.variants) {
+            let right_variants = match contribution.right {
+                PreparedTypeParts::Adt(right) => right.variants,
+                PreparedTypeParts::Record(_) => None,
+            };
+            match (&mut node.variants, right_variants) {
                 (Some(joined), Some(_)) => {
                     let ranks = contribution
                         .variant_ranks
@@ -204,7 +251,7 @@ impl AggregateTypeJoin {
                         ty,
                         covariant: true,
                         ..
-                    } if adt_type_parts(ty).is_some()
+                    } if join_node(adts, ty).is_some()
                 );
                 if !should_expand {
                     continue;
@@ -242,14 +289,15 @@ impl AggregateTypeJoin {
     }
 
     pub(crate) fn try_join_resolved(&mut self, adts: &AdtRegistry, right: &Type) -> bool {
-        if adt_type_parts(right).is_none() {
+        if join_type_parts(right).is_none() {
             return false;
         }
         self.try_join(adts, right)
     }
 
     pub(crate) fn has_compiler_covariant_root(&self) -> bool {
-        Type::is_compiler_covariant_identity(&self.nodes[self.root].identity)
+        self.nodes[self.root].record_field_names.is_none()
+            && Type::is_compiler_covariant_identity(&self.nodes[self.root].identity)
     }
 
     pub(crate) fn has_complete_domain(&self) -> bool {
@@ -309,6 +357,9 @@ impl AggregateTypeJoin {
         args: Vec<Type>,
         include_root_refinement: bool,
     ) -> Type {
+        if let Some(field_names) = &node.record_field_names {
+            return Type::Record(field_names.iter().cloned().zip(args).collect());
+        }
         let variants = (index != self.root || include_root_refinement)
             .then_some(node.variants.as_ref())
             .flatten();
@@ -330,7 +381,7 @@ impl AggregateTypeJoin {
 
 fn queue_covariant_contributions<'a>(
     node: &JoinNode,
-    right_args: &'a [Type],
+    right_args: impl IntoIterator<Item = &'a Type>,
     pending: &mut Vec<(usize, &'a Type)>,
 ) -> Option<()> {
     let compiler_covariant = Type::is_compiler_covariant_identity(&node.identity);
@@ -433,6 +484,51 @@ fn join_node<'a>(
     adts: &AdtRegistry,
     initial: &'a Type,
 ) -> Option<(JoinNode, Vec<(usize, &'a Type)>)> {
+    if let Type::Record(fields) = initial {
+        let mut fields = fields.iter().collect::<Vec<_>>();
+        fields.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+        if fields.windows(2).any(|pair| pair[0].0 == pair[1].0) {
+            return None;
+        }
+        let record_field_names = fields
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect::<Vec<_>>();
+        if fields.iter().any(|(_, ty)| type_shape(ty).1) {
+            return None;
+        }
+        let mut pending = Vec::new();
+        let args = fields
+            .iter()
+            .enumerate()
+            .map(|(index, _)| {
+                let ty: &'a Type = &fields[index].1;
+                if join_type_parts(ty).is_some() {
+                    pending.push((index, ty));
+                    JoinArg::Covariant(usize::MAX)
+                } else {
+                    JoinArg::Exact {
+                        ty: ty.clone(),
+                        presentation: TypePresentationJoin::default(),
+                        covariant: false,
+                    }
+                }
+            })
+            .collect();
+        return Some((
+            JoinNode {
+                name: String::new(),
+                canonical_name: String::new(),
+                presentation_conflicted: false,
+                identity: String::new(),
+                args,
+                declaration_order: None,
+                variants: None,
+                record_field_names: Some(record_field_names),
+            },
+            pending,
+        ));
+    }
     let initial = adt_type_parts(initial)?;
     let variant_state = initial_variant_state(adts, initial)?;
     let (args, pending) = initial_argument_state(adts, initial);
@@ -451,6 +547,7 @@ fn join_node<'a>(
             args,
             declaration_order: variant_state.declaration_order,
             variants: variant_state.variants,
+            record_field_names: None,
         },
         pending,
     ))
@@ -501,7 +598,7 @@ fn initial_argument_state<'a>(
                     .and_then(|variances| variances.get(index).copied())
                     .unwrap_or(Variance::Invariant)
             };
-            if variance == Variance::Covariant && adt_type_parts(ty).is_some() {
+            if variance == Variance::Covariant && join_type_parts(ty).is_some() {
                 pending.push((index, ty));
                 JoinArg::Covariant(usize::MAX)
             } else {
@@ -623,6 +720,14 @@ fn adt_type_parts(ty: &Type) -> Option<AdtTypeParts<'_>> {
         }),
         _ => None,
     }
+}
+
+fn join_type_parts(ty: &Type) -> Option<()> {
+    matches!(
+        ty,
+        Type::Named { .. } | Type::VariantRefinement { .. } | Type::Record(_)
+    )
+    .then_some(())
 }
 
 #[cfg(test)]

@@ -134,6 +134,9 @@ impl super::AggregateTypeJoin {
         uses: &[UseDecl],
         local_context: &dyn Fn(&str) -> Option<LocalContext>,
     ) -> Type {
+        if self.nodes[self.root].record_field_names.is_some() {
+            return Type::Unknown;
+        }
         let mut cache = self.projection_cache.borrow_mut();
         let admitted = Rc::clone(
             cache

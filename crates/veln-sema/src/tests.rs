@@ -36,6 +36,7 @@ mod schema_decode_field_classification;
 mod source_adt_variance_inference;
 mod standard_library_effects;
 mod standard_reuse;
+mod structural_record_joins;
 mod typechecking_and_match_exhaustiveness;
 mod variant_refinement_aggregate_inference;
 mod variant_refinement_aggregate_scaling;

@@ -1,0 +1,18 @@
+# A failed recursive field join and a different record shape do not mutate the
+# accumulated record type or reuse record-width assignment as inference.
+type State
+	Ready
+	Closed
+	Other
+end
+
+pub type First = State
+pub type Second = State
+
+fn transactional(first: {guard: Option<Int>, state: First::Ready}, rejected: {state: Second::Other, guard: Option<String>}, later: {state: First::Closed, guard: Option<Int>})
+	[first, rejected, later]
+end
+
+fn different_shape(first: {id: Int, label: String}, rejected: {id: Int}, later: {label: String, id: Int})
+	[first, rejected, later]
+end

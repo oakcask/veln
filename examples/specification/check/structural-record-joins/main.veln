@@ -1,0 +1,61 @@
+# Complete records with the same field names join by field across every shared
+# context-free inference route, independent of field and contribution order.
+type State
+	Ready
+	Closed
+	Other
+end
+
+type Pair<T>
+	Paired(T, T)
+end
+
+fn collection_forward(first: {label: String, state: State::Ready}, second: {state: State::Closed, label: String})
+	[first, second]
+end
+
+fn collection_reverse(first: {label: String, state: State::Ready}, second: {state: State::Closed, label: String})
+	[second, first]
+end
+
+fn collection_nested(first: {outer: {state: State::Ready}, label: String}, second: {label: String, outer: {state: State::Closed}})
+	[first, second]
+end
+
+fn payload(first: {label: String, state: State::Ready}, second: {state: State::Closed, label: String})
+	Paired(second, first)
+end
+
+fn selected(flag: Bool, first: {label: String, state: State::Ready}, second: {state: State::Closed, label: String})
+	if flag
+		second
+	else
+		first
+	end
+end
+
+fn matched(flag: Bool, first: {label: String, state: State::Ready}, second: {state: State::Closed, label: String})
+	match flag
+		true => first
+		false => second
+	end
+end
+
+fn private_result(flag: Bool)
+	if flag
+		{state: Ready, label: "ready"}
+	else
+		{label: "closed", state: Closed}
+	end
+end
+
+fn verify(flag: Bool, first: {label: String, state: State::Ready}, second: {state: State::Closed, label: String}, nested_first: {outer: {state: State::Ready}, label: String}, nested_second: {label: String, outer: {state: State::Closed}}) -> ()
+	let forward: Vec<{label: String, state: State::Ready | State::Closed}> = collection_forward(first, second)
+	let reverse: Vec<{label: String, state: State::Ready | State::Closed}> = collection_reverse(first, second)
+	let nested: Vec<{label: String, outer: {state: State::Ready | State::Closed}}> = collection_nested(nested_first, nested_second)
+	let paired: Pair<{label: String, state: State::Ready | State::Closed}>::Paired = payload(first, second)
+	let branch: {label: String, state: State::Ready | State::Closed} = selected(flag, first, second)
+	let arms: {label: String, state: State::Ready | State::Closed} = matched(flag, first, second)
+	let private: {label: String, state: State::Ready | State::Closed} = private_result(flag)
+	()
+end

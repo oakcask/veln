@@ -17,7 +17,8 @@ also states it.
 ## Ready
 
 - Complete bounded inference beyond implemented source-ADT and compiler-owned
-  covariant joins, including contravariant meets and structural joins; add
+  covariant and structural-record joins, including contravariant meets,
+  structural function joins, and contributed-candidate fallback; add
   dependency variance-metadata invalidation, stable formatter, package, LSP,
   and MCP presentation, nested incompatibility diagnostics, and whole-analysis
   and language-service failure preservation:

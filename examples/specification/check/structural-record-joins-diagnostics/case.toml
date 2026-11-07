@@ -1,0 +1,42 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "expected `{guard: Option<Int>, state: First::Ready | First::Closed}`, but found `{state: Second::Other, guard: Option<String>}`",
+  "expected `{id: Int, label: String}`, but found `{id: Int}`",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{guard: Option<Int>, state: First::Ready | First::Closed}`, but found `{state: Second::Other, guard: Option<String>}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 13
+column = 10
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{id: Int, label: String}`, but found `{id: Int}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 17
+column = 10

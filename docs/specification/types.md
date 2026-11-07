@@ -231,6 +231,15 @@ type, so a later successful contribution joins with only the preceding
 successful facts. Other conflicting facts remain focused `type.mismatch`
 diagnostics at the incompatible element, key, or value.
 
+Complete record contributions join structurally only when they have identical
+field-name sets. In that case, inference matches fields by name and recursively
+applies the same bounded join to every corresponding field. Field declaration
+order and contribution order do not change the resolved type or its
+presentation. The contribution is committed only when every field joins. A
+different field-name set or an unavailable recursive field join leaves the
+accumulated type, presentation, and alias provenance unchanged. Record-width
+assignment does not permit context-free inference to drop fields.
+
 When a private non-exported helper omits parameter or return annotations,
 same-module concrete call sites may constrain the helper's single monomorphic
 signature. Concrete argument expressions constrain omitted parameters. A
@@ -1610,7 +1619,8 @@ corresponding inferred `Box<State::Ready>` also widens to `Box<State>`. A
 parameter used in both input and output positions is invariant and rejects the
 same widening. Context-free aggregate inference consumes checked source-ADT
 covariance and the covariance of compiler-owned immutable constructors. It
-does not infer a contravariant meet or structural record or function join.
+also joins complete records with identical field-name sets as described above.
+It does not infer a contravariant meet or structural function join.
 
 ### Source ADT parameter classifications
 
@@ -1798,6 +1808,13 @@ and control-flow inference are checked by the accepted
 [`compiler-owned-covariant-inference`](../../examples/specification/check/compiler-owned-covariant-inference/)
 case. Transactional exclusion of an unavailable nested join is checked by its
 [`diagnostic companion`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/).
+Structural record joins across aggregate, generic payload, control-flow, and
+private-result inference are checked by the accepted
+[`structural-record-joins`](../../examples/specification/check/structural-record-joins/)
+case. Its
+[`diagnostic companion`](../../examples/specification/check/structural-record-joins-diagnostics/)
+checks exact-shape rejection and transactional preservation after a recursive
+field join fails.
 
 Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and
