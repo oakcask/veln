@@ -883,7 +883,10 @@ declaration. An `if` branch or `match` arm that produces a diagnostic is
 likewise excluded from its inferred result join. If that control-flow
 expression contributes to an enclosing aggregate, its recovered result type is
 excluded from the enclosing join too. The current
-[type inference rules](types.md#inference-rules) define which direct payload
+[`bounded-inference diagnostic companion`](../../examples/specification/check/bounded-function-inference-diagnostics/)
+checks the local and private incomplete-inference forms and the ordinary
+incompatibility diagnostics produced by an unusable explicit context. The
+current [type inference rules](types.md#inference-rules) define which direct payload
 contributions can join and which nested payload occurrences remain exact. When
 an exact nested constraint rejects a contribution, the diagnostic reports the
 constraint established by the other payload rather than applying that named
