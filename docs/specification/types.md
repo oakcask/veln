@@ -1417,7 +1417,8 @@ constructor or a source-ADT variant refinement. A concrete expected type still
 checks each contribution by ordinary assignment compatibility.
 
 Context-free aggregate inference does not run a separate completion pass. It
-checks each contribution once in source order. Repeated direct constructor
+checks each contribution once and retains independently known covariant
+arguments while sibling arguments are pending. Repeated direct constructor
 payloads and dictionary members that have complete types are inferred without
 using the partial join as their expected type. They can therefore widen the
 join instead of being forced to equal its current refinement. When the join
@@ -1429,10 +1430,12 @@ do not determine every generic argument, such as
 generic arguments keep their own presentation; the admitted context fills only
 the arguments that remain unknown. An incomplete nested refinement domain blocks
 context only for its affected argument. Complete sibling arguments are inferred
-or completed independently. Dictionary keys and values maintain separate joins,
-so a complete earlier member can contextualize a later empty
-collection in the same position. An earlier empty member remains incomplete
-when only a later member is complete because the checker does not revisit it.
+or completed independently. Dictionary keys and values maintain separate joins.
+A partial dictionary contribution can therefore retain a known key while its
+value is pending, or a known value while its key is pending. A later
+contribution can complete the pending argument without rechecking the earlier
+expression. The same argument-level progress applies when a partial `Result`
+precedes the contribution that supplies its other argument.
 For repeated direct constructor payloads, an admitted concrete payload type can
 select an unqualified nullary constructor that is otherwise ambiguous between
 ADTs when one candidate belongs to that admitted type. Without that admitted or
@@ -1496,15 +1499,18 @@ same resolved type and presentation. These rules apply to compiler-owned
 constructors and covariant source-ADT parameters.
 
 Projecting an admitted aggregate context through nested compiler-owned
-constructors has bounded linear classification work. The deterministic
+constructors has bounded linear total work and retained state. The deterministic
 workload nests `Result<Int, String>` inside `D` `Option` arguments, then joins
 an independently typed value with `D` nested `Some` calls around `Ok(1)`. It
 measures both ordinary body inference and omitted private-result inference at
-depths 32, 64, and 128. The work counter records each projected expression and
-each constructor-payload edge that is classified for an affected type
-argument. For adjacent measurements `W(D)` and `W(2D)`, the check requires
-`W(2D) <= 2 * W(D) + 32`. Elapsed time is observational and is not an
-acceptance threshold.
+depths 32, 64, and 128. The counter includes input type scans, expression and
+payload-parameter edges, cloned type nodes, and materialized type nodes. It
+also records maximum retained projection state. For adjacent measurements
+`W(D)` and `W(2D)`, the check requires total work to remain within a constant
+allowance of `2 * W(D)` and retained state to grow at most linearly. A separate
+16, 32, and 64 parameter workload places every distinct parameter in one
+constructor payload and applies the same adjacent-size rule. Elapsed time is
+observational and is not an acceptance threshold.
 
 For a source ADT nested through `D` covariant source-ADT arguments, the join
 retains `D + 1` state nodes. Accepting another equally shaped contribution

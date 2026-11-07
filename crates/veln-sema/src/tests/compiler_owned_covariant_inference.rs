@@ -328,7 +328,7 @@ fn admitted_payload_context_selects_ambiguous_nullary_constructors() {
 }
 
 #[test]
-fn dictionary_members_use_only_preceding_complete_join_context() {
+fn dictionary_members_complete_pending_join_arguments_in_any_order() {
     let source_text = concat!(
         "fn complete_then_incomplete_value()\n",
         "  {1: [1], 2: []}\n",
@@ -351,24 +351,14 @@ fn dictionary_members_use_only_preceding_complete_join_context() {
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
     let diagnostics = analyze_surface_module(&module);
-    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id == "type.private_inference_incomplete"),
-        "{diagnostics:#?}",
-    );
-    let rendered_diagnostics = format!("{diagnostics:#?}");
-    assert!(
-        rendered_diagnostics.contains("Dict<Int, Vec<unknown>>")
-            && rendered_diagnostics.contains("Dict<Vec<unknown>, Int>"),
-        "{diagnostics:#?}",
-    );
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 
     let environment = TypeEnvironment::from_module(&module);
     for (function, expected) in [
         ("complete_then_incomplete_value", "Dict<Int, Vec<Int>>"),
+        ("incomplete_then_complete_value", "Dict<Int, Vec<Int>>"),
         ("complete_then_incomplete_key", "Dict<Vec<Int>, Int>"),
+        ("incomplete_then_complete_key", "Dict<Vec<Int>, Int>"),
         ("independent_complete_values", "Dict<Int, Vec<Int>>"),
     ] {
         assert_eq!(
@@ -379,20 +369,6 @@ fn dictionary_members_use_only_preceding_complete_join_context() {
                 .render(),
             expected,
             "unexpected inferred result for {function}",
-        );
-    }
-    for function in [
-        "incomplete_then_complete_value",
-        "incomplete_then_complete_key",
-    ] {
-        let actual = environment
-            .function(function)
-            .unwrap_or_else(|| panic!("missing function {function}"))
-            .return_type
-            .render();
-        assert!(
-            actual.contains("unknown"),
-            "{function} unexpectedly received later context: {actual}",
         );
     }
 }
@@ -859,4 +835,144 @@ fn projected_context_is_per_argument_and_template_complete() {
         "Vec<Result<State, String>>",
         "the rejected completed contribution must not change type or alias state",
     );
+}
+
+#[test]
+fn partial_compiler_owned_arguments_join_in_both_orders() {
+    let mut source_text = concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n",
+        "pub type First = State\n",
+        "pub type Second = State\n",
+        "pub type Third = State\n",
+        "type Choice\n",
+        "  One\n",
+        "  Two\n",
+        "end\n",
+        "type Pair<T>\n",
+        "  Paired(T, T)\n",
+        "end\n",
+        "fn needs_int(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+    )
+    .to_string();
+    let shapes = [
+        ("collection", "[{partial}, first]", "[{first}, {partial}]"),
+        (
+            "payload",
+            "Paired({partial}, first)",
+            "Paired(first, {partial})",
+        ),
+        (
+            "if_result",
+            "if flag\n    {partial}\n  else\n    first\n  end",
+            "if flag\n    first\n  else\n    {partial}\n  end",
+        ),
+        (
+            "match_result",
+            "match choice\n    One => {partial}\n    Two => first\n  end",
+            "match choice\n    One => first\n    Two => {partial}\n  end",
+        ),
+    ];
+    let kinds = [
+        (
+            "result",
+            "Result<Option<First::Ready>, List<String>>",
+            "Ok(Some(closed))",
+            "Vec<Result<Option<State>, List<String>>>",
+            "Pair<Result<Option<State>, List<String>>>::Paired",
+            "Result<Option<State>, List<String>>",
+        ),
+        (
+            "dict",
+            "Dict<First::Ready, Vec<Int>>",
+            "{(closed): []}",
+            "Vec<Dict<State, Vec<Int>>>",
+            "Pair<Dict<State, Vec<Int>>>::Paired",
+            "Dict<State, Vec<Int>>",
+        ),
+    ];
+    let mut expected_private = Vec::new();
+    let mut ordinary_checks = 0;
+    for (kind, first_type, partial, collection_type, payload_type, control_flow_type) in kinds {
+        for (shape, partial_first, complete_first) in shapes {
+            for (order, expression) in [
+                ("partial_first", partial_first),
+                ("complete_first", complete_first),
+            ] {
+                let expression = expression
+                    .replace("{partial}", partial)
+                    .replace("{first}", "first");
+                let parameters = if shape == "if_result" {
+                    format!("flag: Bool, first: {first_type}, closed: Second::Closed")
+                } else if shape == "match_result" {
+                    format!("choice: Choice, first: {first_type}, closed: Second::Closed")
+                } else {
+                    format!("first: {first_type}, closed: Second::Closed")
+                };
+                let private_name = format!("{kind}_{shape}_{order}");
+                source_text.push_str(&format!(
+                    "fn {private_name}({parameters})\n  {expression}\nend\n"
+                ));
+                let expected = match shape {
+                    "collection" => collection_type,
+                    "payload" => payload_type,
+                    _ => control_flow_type,
+                };
+                expected_private.push((private_name, expected));
+
+                let check_name = format!("check_{kind}_{shape}_{order}");
+                if matches!(shape, "if_result" | "match_result") {
+                    source_text.push_str(&format!(
+                        "fn {check_name}({parameters}) -> ()\n  let joined = {expression}\n  needs_int(joined)\nend\n"
+                    ));
+                } else {
+                    source_text.push_str(&format!(
+                        "fn {check_name}({parameters}) -> ()\n  needs_int({expression})\nend\n"
+                    ));
+                }
+                ordinary_checks += 1;
+            }
+        }
+    }
+    source_text.push_str(concat!(
+        "fn partial_rollback(first: Result<Option<Second::Ready>, List<String>>, rejected: Result<Option<Third::Ready>, Int>, closed: Second::Closed)\n",
+        "  [Ok(Some(closed)), first, rejected]\n",
+        "end\n",
+    ));
+    expected_private.push((
+        "partial_rollback".to_string(),
+        "Vec<Result<Option<Second>, List<String>>>",
+    ));
+    ordinary_checks += 1;
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .count(),
+        ordinary_checks,
+        "{diagnostics:#?}",
+    );
+    assert_eq!(diagnostics.len(), ordinary_checks, "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for (function, expected) in expected_private {
+        assert_eq!(
+            environment
+                .function(&function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            expected,
+            "unexpected inferred result for {function}",
+        );
+    }
 }

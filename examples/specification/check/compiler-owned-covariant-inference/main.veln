@@ -103,8 +103,16 @@ fn dictionary_complete_then_incomplete_value()
 	{1: [1], 2: []}
 end
 
+fn dictionary_incomplete_then_complete_value()
+	{2: [], 1: [1]}
+end
+
 fn dictionary_complete_then_incomplete_key()
 	{[1]: 1, []: 2}
+end
+
+fn dictionary_incomplete_then_complete_key()
+	{[]: 2, [1]: 1}
 end
 
 fn source_none_with_list_tail(ready: List<collision::Marker::Ready>)
@@ -147,8 +155,35 @@ fn mixed_result(first: Result<First::Ready, String>, closed: Second::Closed)
 	[first, Ok(closed)]
 end
 
+fn mixed_result_reverse(first: Result<First::Ready, String>, closed: Second::Closed)
+	[Ok(closed), first]
+end
+
 fn mixed_dict(first: Dict<First::Ready, Vec<Int>>, closed: Second::Closed)
 	[first, {(closed): []}]
+end
+
+fn mixed_dict_reverse(first: Dict<First::Ready, Vec<Int>>, closed: Second::Closed)
+	[{(closed): []}, first]
+end
+
+fn mixed_result_payload(first: Result<First::Ready, String>, closed: Second::Closed)
+	Paired(Ok(closed), first)
+end
+
+fn mixed_result_selected(flag: Bool, first: Result<First::Ready, String>, closed: Second::Closed)
+	if flag
+		Ok(closed)
+	else
+		first
+	end
+end
+
+fn mixed_result_matched(flag: Bool, first: Result<First::Ready, String>, closed: Second::Closed)
+	match flag
+		true => Ok(closed)
+		false => first
+	end
 end
 
 fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option<Second::Closed>, wide_option: Option<State>, first_result: Result<Option<State::Ready>, List<State::Closed>>, second_result: Result<Option<State::Closed>, List<State::Failed>>, first_list: List<State::Ready>, second_list: List<State::Closed>, first_vector: Vec<State::Ready>, second_vector: Vec<State::Closed>, first_dict: Dict<Option<State::Ready>, Positive<State::Closed>>, second_dict: Dict<Option<State::Closed>, Positive<State::Failed>>, scalar_result: Result<Int, String>, mixed_dict_first: Dict<First::Ready, Vec<Int>>) -> ()
@@ -166,7 +201,9 @@ fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option
 	let paired_option_result: Pair<Option<State::Ready | State::Closed>>::Paired = paired_option(first_option, second_option)
 	let selected_namesake_result: Pair<Left::Namesake>::Paired = selected_namesake()
 	let dictionary_complete_then_incomplete_value_result: Dict<Int, Vec<Int>> = dictionary_complete_then_incomplete_value()
+	let dictionary_incomplete_then_complete_value_result: Dict<Int, Vec<Int>> = dictionary_incomplete_then_complete_value()
 	let dictionary_complete_then_incomplete_key_result: Dict<Vec<Int>, Int> = dictionary_complete_then_incomplete_key()
+	let dictionary_incomplete_then_complete_key_result: Dict<Vec<Int>, Int> = dictionary_incomplete_then_complete_key()
 	let marker_ready: List<collision::Marker::Ready> = Cons(collision::Marker::Ready, Nil)
 	let source_none_with_list_tail_result: Vec<List<collision::Marker::None | collision::Marker::Ready>> = source_none_with_list_tail(marker_ready)
 	let source_none_with_list_tail_reverse_result: Vec<List<collision::Marker::None | collision::Marker::Ready>> = source_none_with_list_tail_reverse(marker_ready)
@@ -178,6 +215,11 @@ fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option
 	let completed_result_payload_result: Pair<Result<Int, String>>::Paired = completed_result_payload(scalar_result)
 	let nested_completed_result_dictionary_result: Dict<Int, Option<Result<Int, String>>> = nested_completed_result_dictionary(Some(scalar_result))
 	let mixed_result_result: Vec<Result<State, String>> = mixed_result(Ok(Ready), Closed)
+	let mixed_result_reverse_result: Vec<Result<State, String>> = mixed_result_reverse(Ok(Ready), Closed)
 	let mixed_dict_result: Vec<Dict<State, Vec<Int>>> = mixed_dict(mixed_dict_first, Closed)
+	let mixed_dict_reverse_result: Vec<Dict<State, Vec<Int>>> = mixed_dict_reverse(mixed_dict_first, Closed)
+	let mixed_result_payload_result: Pair<Result<State, String>>::Paired = mixed_result_payload(Ok(Ready), Closed)
+	let mixed_result_selected_result: Result<State, String> = mixed_result_selected(flag, Ok(Ready), Closed)
+	let mixed_result_matched_result: Result<State, String> = mixed_result_matched(flag, Ok(Ready), Closed)
 	()
 end

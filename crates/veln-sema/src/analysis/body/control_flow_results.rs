@@ -21,6 +21,15 @@ impl<'a> FunctionChecker<'a> {
         result: &mut ControlFlowResultJoin,
     ) {
         let recovery_type = match result.joined.as_ref() {
+            Some(joined) if joined.has_compiler_covariant_root() => {
+                Some(crate::aggregate_type_join::expression_admitted_context(
+                    branch_expr,
+                    &joined.inference_type(),
+                    &self.environment.adts,
+                    self.function.module_name.as_deref(),
+                    &self.resolution_uses,
+                ))
+            }
             Some(joined)
                 if joined.has_complete_domain()
                     && !joined.has_incomplete_nested_refinement_domain() =>
@@ -31,11 +40,16 @@ impl<'a> FunctionChecker<'a> {
             None if result.recovery_type != Type::Unknown => Some(result.recovery_type.clone()),
             None => None,
         };
-        let recovery_expected = if expected.is_none()
-            && let Some(recovery_type) = recovery_type
-        {
+        let needs_pending_context = recovery_type.is_some()
+            || crate::aggregate_type_join::expression_has_compiler_covariant_root(
+                branch_expr,
+                &self.environment.adts,
+                self.function.module_name.as_deref(),
+                &self.resolution_uses,
+            );
+        let recovery_expected = if expected.is_none() && needs_pending_context {
             Some(ExpectedType {
-                ty: recovery_type,
+                ty: recovery_type.unwrap_or(Type::Unknown),
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: if_expr.node_id,
                 origin_span: Some(if_expr.span.clone()),

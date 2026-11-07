@@ -445,6 +445,8 @@ impl<'a> FunctionChecker<'a> {
         constructor: AdtConstructor,
     ) -> Type {
         let diagnostic_count = self.diagnostics.len();
+        let has_aggregate_context = expected.is_some()
+            && Type::is_compiler_covariant_identity(&constructor.descriptor.identity());
         let expected = expected
             .filter(|expected| adt::type_matches_descriptor(&expected.ty, constructor.descriptor));
         let mut inferred_type_args =
@@ -458,7 +460,7 @@ impl<'a> FunctionChecker<'a> {
             &inferred_type_args
         };
         let inferred_base = adt::constructed_type_from_args(constructor, type_args);
-        if type_contains_unknown(&inferred_base) && expected.is_none() {
+        if type_contains_unknown(&inferred_base) && expected.is_none() && !has_aggregate_context {
             self.push_ambiguous_constructor_type(
                 expr.node_id,
                 expr.span.clone(),
@@ -1868,6 +1870,15 @@ impl<'a> FunctionChecker<'a> {
         result: &mut ControlFlowResultJoin,
     ) {
         let recovery_type = match result.joined.as_ref() {
+            Some(joined) if joined.has_compiler_covariant_root() => {
+                Some(crate::aggregate_type_join::expression_admitted_context(
+                    &arm.expr,
+                    &joined.inference_type(),
+                    &self.environment.adts,
+                    self.function.module_name.as_deref(),
+                    &self.resolution_uses,
+                ))
+            }
             Some(joined)
                 if joined.has_complete_domain()
                     && !joined.has_incomplete_nested_refinement_domain() =>
@@ -1878,11 +1889,16 @@ impl<'a> FunctionChecker<'a> {
             None if result.recovery_type != Type::Unknown => Some(result.recovery_type.clone()),
             None => None,
         };
-        let recovery_expected = if expected.is_none()
-            && let Some(recovery_type) = recovery_type
-        {
+        let needs_pending_context = recovery_type.is_some()
+            || crate::aggregate_type_join::expression_has_compiler_covariant_root(
+                &arm.expr,
+                &self.environment.adts,
+                self.function.module_name.as_deref(),
+                &self.resolution_uses,
+            );
+        let recovery_expected = if expected.is_none() && needs_pending_context {
             Some(ExpectedType {
-                ty: recovery_type,
+                ty: recovery_type.unwrap_or(Type::Unknown),
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: match_expr.node_id,
                 origin_span: Some(match_expr.span.clone()),

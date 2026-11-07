@@ -368,7 +368,7 @@ fn infer_private_aggregate_component(
     };
     if !has_context
         && joined_components.is_none()
-        && (!context_dependent_only || !type_has_unknown(component_type))
+        && (!context_dependent_only || *component_type != Type::Unknown)
     {
         *joined_components =
             crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, component_type);
@@ -396,9 +396,11 @@ fn infer_private_aggregate_component(
     if !joined && *component_type == Type::Unknown {
         *component_type = actual;
         *joined_components = (!has_context
-            && (!context_dependent_only || !type_has_unknown(component_type)))
-        .then(|| crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, component_type))
-        .flatten();
+            && (!context_dependent_only || *component_type != Type::Unknown))
+            .then(|| {
+                crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, component_type)
+            })
+            .flatten();
     }
 }
 

@@ -46,7 +46,119 @@ pub(crate) fn expression_is_immediately_context_free(
     }
 }
 
+pub(crate) fn expression_has_compiler_covariant_root(
+    expr: &Expr,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> bool {
+    match &expr.kind {
+        ExprKind::List(_) | ExprKind::Dict(_) => true,
+        ExprKind::NamePath { segments, .. } => {
+            matches!(
+                adts.constructor(segments, current_module, uses),
+                ConstructorLookup::Found(constructor)
+                    if Type::is_compiler_covariant_identity(&constructor.descriptor.identity())
+            )
+        }
+        ExprKind::Call { callee, .. } => {
+            let ExprKind::NamePath { segments, .. } = &callee.kind else {
+                return false;
+            };
+            matches!(
+                adts.constructor(segments, current_module, uses),
+                ConstructorLookup::Found(constructor)
+                    if Type::is_compiler_covariant_identity(&constructor.descriptor.identity())
+            )
+        }
+        _ => false,
+    }
+}
+
 pub(crate) fn expression_admitted_context(
+    expr: &Expr,
+    admitted_context: &Type,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> Type {
+    let (input_nodes, _) = type_shape(admitted_context);
+    record_context_input_scan(input_nodes);
+    if let Some(projected) =
+        project_direct_type_parameter_path(expr, admitted_context, adts, current_module, uses)
+    {
+        return projected;
+    }
+    expression_admitted_context_fallback(expr, admitted_context, adts, current_module, uses)
+}
+
+fn project_direct_type_parameter_path(
+    mut expr: &Expr,
+    mut admitted: &Type,
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> Option<Type> {
+    let mut frames = Vec::new();
+    loop {
+        let ExprKind::Call { callee, args } = &expr.kind else {
+            break;
+        };
+        let ExprKind::NamePath { segments, .. } = &callee.kind else {
+            break;
+        };
+        if args.len() != 1 {
+            break;
+        }
+        let constructor = match adts.constructor(segments, current_module, uses) {
+            ConstructorLookup::Found(constructor) => constructor,
+            ConstructorLookup::Ambiguous => {
+                adts.descriptor_for_type(admitted).and_then(|descriptor| {
+                    adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
+                })?
+            }
+            ConstructorLookup::Missing => break,
+        };
+        let field = constructor.variant.payload_fields.first()?;
+        let crate::adt::descriptors::AdtPayloadType::TypeParameter(type_index) = field.ty else {
+            break;
+        };
+        let admitted_args = unification::adt_args(admitted, constructor.descriptor)?;
+        let next = admitted_args.get(type_index)?;
+        frames.push((admitted, type_index));
+        expr = &args[0];
+        admitted = next;
+    }
+    if frames.len() < 2 {
+        return None;
+    }
+
+    record_context_retained(frames.len());
+    let mut projected =
+        expression_admitted_context_fallback(expr, admitted, adts, current_module, uses);
+    for (admitted, projected_index) in frames.into_iter().rev() {
+        let parts = adt_type_parts(admitted)?;
+        let mut child = Some(projected);
+        let args = parts
+            .args
+            .iter()
+            .enumerate()
+            .map(|(index, arg)| {
+                if index == projected_index {
+                    child.take().expect("one projected argument")
+                } else {
+                    let (nodes, _) = type_shape(arg);
+                    record_context_clone(nodes);
+                    arg.clone()
+                }
+            })
+            .collect();
+        projected = replace_adt_args(admitted, args);
+    }
+    Some(projected)
+}
+
+fn expression_admitted_context_fallback(
     expr: &Expr,
     admitted_context: &Type,
     adts: &AdtRegistry,
@@ -65,21 +177,21 @@ pub(crate) fn expression_admitted_context(
         },
     }
 
-    let mut tasks = vec![ProjectionTask::Evaluate(expr, admitted_context.clone())];
+    let mut tasks = vec![ProjectionTask::Evaluate(
+        expr,
+        clone_context_type(admitted_context),
+    )];
     let mut results = Vec::new();
     while let Some(task) = tasks.pop() {
+        record_context_retained(tasks.len() + results.len() + 1);
         match task {
             ProjectionTask::Evaluate(expr, admitted) => {
                 record_context_classification_work(1);
-                if type_contains_unknown(&admitted) {
-                    results.push(admitted);
-                    continue;
-                }
                 match &expr.kind {
                     ExprKind::List(items) => {
                         let Some(item_context) = adt_type_parts(&admitted)
                             .and_then(|parts| parts.args.first())
-                            .cloned()
+                            .map(clone_context_type)
                         else {
                             results.push(Type::Unknown);
                             continue;
@@ -90,7 +202,10 @@ pub(crate) fn expression_admitted_context(
                         }
                         tasks.push(ProjectionTask::FinishList(admitted, items.len()));
                         for item in items.iter().rev() {
-                            tasks.push(ProjectionTask::Evaluate(item, item_context.clone()));
+                            tasks.push(ProjectionTask::Evaluate(
+                                item,
+                                clone_context_type(&item_context),
+                            ));
                         }
                     }
                     ExprKind::Dict(entries) => {
@@ -98,8 +213,8 @@ pub(crate) fn expression_admitted_context(
                             results.push(Type::Unknown);
                             continue;
                         };
-                        let key_context = key_context.clone();
-                        let value_context = value_context.clone();
+                        let key_context = clone_context_type(key_context);
+                        let value_context = clone_context_type(value_context);
                         if entries.is_empty() {
                             results.push(admitted);
                             continue;
@@ -108,9 +223,12 @@ pub(crate) fn expression_admitted_context(
                         for entry in entries.iter().rev() {
                             tasks.push(ProjectionTask::Evaluate(
                                 &entry.value,
-                                value_context.clone(),
+                                clone_context_type(&value_context),
                             ));
-                            tasks.push(ProjectionTask::Evaluate(&entry.key, key_context.clone()));
+                            tasks.push(ProjectionTask::Evaluate(
+                                &entry.key,
+                                clone_context_type(&key_context),
+                            ));
                         }
                     }
                     ExprKind::Record(fields) => results.push(if fields.is_empty() {
@@ -170,8 +288,9 @@ pub(crate) fn expression_admitted_context(
                             }
                         };
                         let Some(expected_args) =
-                            unification::adt_args(&admitted, constructor.descriptor)
-                                .map(<[Type]>::to_vec)
+                            unification::adt_args(&admitted, constructor.descriptor).map(|args| {
+                                args.iter().map(clone_context_type).collect::<Vec<Type>>()
+                            })
                         else {
                             results.push(Type::Unknown);
                             continue;
@@ -179,23 +298,23 @@ pub(crate) fn expression_admitted_context(
                         let mut affected = Vec::with_capacity(args.len());
                         let mut payload_contexts = Vec::with_capacity(args.len());
                         for index in 0..args.len() {
-                            let mut indices = Vec::new();
+                            let mut indices = HashSet::new();
                             adt::visit_type_arg_indices_from_payload(
                                 constructor,
                                 index,
                                 |type_index| {
                                     record_context_classification_work(1);
-                                    if !indices.contains(&type_index) {
-                                        indices.push(type_index);
-                                    }
+                                    indices.insert(type_index);
                                 },
                             );
+                            let mut indices = indices.into_iter().collect::<Vec<_>>();
+                            indices.sort_unstable();
                             affected.push(indices);
                             payload_contexts.push(
                                 adt::payload_type_with_resolved_args(
                                     constructor,
                                     index,
-                                    |type_index| expected_args[type_index].clone(),
+                                    |type_index| clone_context_type(&expected_args[type_index]),
                                 )
                                 .unwrap_or(Type::Unknown),
                             );
@@ -235,6 +354,7 @@ pub(crate) fn expression_admitted_context(
                 }
                 results.push(
                     if required_key != Type::Unknown || required_value != Type::Unknown {
+                        record_context_materialization(1);
                         Type::dict(required_key, required_value)
                     } else {
                         Type::Unknown
@@ -248,7 +368,10 @@ pub(crate) fn expression_admitted_context(
                 affected,
             } => {
                 let projected = results.split_off(results.len() - affected.len());
-                let mut required_args = expected_args.clone();
+                let mut required_args = expected_args
+                    .iter()
+                    .map(clone_context_type)
+                    .collect::<Vec<_>>();
                 let mut provided = vec![false; expected_args.len()];
                 for (index, (projected, affected)) in
                     projected.into_iter().zip(affected).enumerate()
@@ -268,14 +391,14 @@ pub(crate) fn expression_admitted_context(
                         &projected,
                         |type_index, required| {
                             if required_args[type_index] != Type::Unknown {
-                                required_args[type_index] = required.clone();
+                                required_args[type_index] = clone_context_type(required);
                             }
                         },
                     );
                 }
                 for (index, was_provided) in provided.into_iter().enumerate() {
                     if !was_provided {
-                        required_args[index] = expected_args[index].clone();
+                        required_args[index] = clone_context_type(&expected_args[index]);
                     }
                 }
                 results.push(replace_adt_args(&admitted, required_args));
@@ -286,6 +409,7 @@ pub(crate) fn expression_admitted_context(
 }
 
 fn replace_adt_args(ty: &Type, args: Vec<Type>) -> Type {
+    record_context_materialization(1);
     match ty {
         Type::Named { name, identity, .. } => {
             Type::resolved_named(name.clone(), identity.clone(), args)
@@ -305,6 +429,12 @@ fn replace_adt_args(ty: &Type, args: Vec<Type>) -> Type {
         },
         _ => Type::Unknown,
     }
+}
+
+fn clone_context_type(ty: &Type) -> Type {
+    let (nodes, _) = type_shape(ty);
+    record_context_clone(nodes);
+    ty.clone()
 }
 
 struct JoinNode {
@@ -367,9 +497,9 @@ impl AggregateTypeJoin {
             }
             _ => return None,
         };
-        if args.iter().any(type_contains_unknown)
-            || (adts.descriptor_for_type(initial).is_none()
-                && !Type::is_compiler_covariant_identity(identity))
+        let compiler_covariant = Type::is_compiler_covariant_identity(identity);
+        if (!compiler_covariant && args.iter().any(|argument| type_shape(argument).1))
+            || (adts.descriptor_for_type(initial).is_none() && !compiler_covariant)
         {
             return None;
         }
@@ -401,7 +531,14 @@ impl AggregateTypeJoin {
                 return None;
             }
             for (joined, right) in node.args.iter().zip(right.args) {
+                let compiler_covariant = Type::is_compiler_covariant_identity(&node.identity);
                 match joined {
+                    JoinArg::Exact {
+                        ty,
+                        covariant: true,
+                        ..
+                    } if compiler_covariant
+                        && (ty == &Type::Unknown || right == &Type::Unknown) => {}
                     JoinArg::Exact { ty, .. } => {
                         if !invariant_args_match(
                             std::slice::from_ref(ty),
@@ -410,6 +547,7 @@ impl AggregateTypeJoin {
                             return None;
                         }
                     }
+                    JoinArg::Covariant(_) if compiler_covariant && right == &Type::Unknown => {}
                     JoinArg::Covariant(child) => pending.push((*child, right)),
                 }
             }
@@ -452,11 +590,19 @@ impl AggregateTypeJoin {
             }
             for (joined, right) in node.args.iter_mut().zip(contribution.right.args) {
                 let JoinArg::Exact {
-                    ty, presentation, ..
+                    ty,
+                    presentation,
+                    covariant,
                 } = joined
                 else {
                     continue;
                 };
+                if *covariant
+                    && Type::is_compiler_covariant_identity(&node.identity)
+                    && right == &Type::Unknown
+                {
+                    continue;
+                }
                 unification::merge_type_slot(ty, right);
                 presentation.merge(ty, right);
             }
@@ -522,13 +668,14 @@ impl AggregateTypeJoin {
     }
 
     pub(crate) fn try_join_resolved(&mut self, adts: &AdtRegistry, right: &Type) -> bool {
-        let Some(right_parts) = adt_type_parts(right) else {
-            return false;
-        };
-        if right_parts.args.iter().any(type_contains_unknown) {
+        if adt_type_parts(right).is_none() {
             return false;
         }
         self.try_join(adts, right)
+    }
+
+    pub(crate) fn has_compiler_covariant_root(&self) -> bool {
+        Type::is_compiler_covariant_identity(&self.nodes[self.root].identity)
     }
 
     pub(crate) fn has_complete_domain(&self) -> bool {
@@ -554,10 +701,8 @@ impl AggregateTypeJoin {
             return false;
         };
         let root = &self.nodes[self.root];
-        right
-            .args
-            .iter()
-            .all(|argument| !type_contains_unknown(argument))
+        (Type::is_compiler_covariant_identity(&root.identity)
+            || right.args.iter().all(|argument| !type_shape(argument).1))
             && same_type_identity(&root.name, &root.identity, right.name, right.identity)
             && root.args.len() == right.args.len()
     }
@@ -794,11 +939,14 @@ pub(crate) fn merge_invariant_payload_type_args(
     Ok(())
 }
 
-fn type_contains_unknown(ty: &Type) -> bool {
+fn type_shape(ty: &Type) -> (usize, bool) {
+    let mut nodes = 0usize;
+    let mut contains_unknown = false;
     let mut pending = vec![ty];
     while let Some(ty) = pending.pop() {
+        nodes += 1;
         match ty {
-            Type::Unknown => return true,
+            Type::Unknown => contains_unknown = true,
             Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
                 pending.extend(args);
             }
@@ -815,7 +963,7 @@ fn type_contains_unknown(ty: &Type) -> bool {
             }
         }
     }
-    false
+    (nodes, contains_unknown)
 }
 
 #[derive(Clone, Copy)]
@@ -877,25 +1025,97 @@ pub(crate) fn take_work() -> usize {
 
 #[cfg(test)]
 thread_local! {
-    static CONTEXT_CLASSIFICATION_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static CONTEXT_CLASSIFICATION_WORK: std::cell::Cell<ContextProjectionWork> =
+        const { std::cell::Cell::new(ContextProjectionWork::new()) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct ContextProjectionWork {
+    pub(crate) input_type_nodes_scanned: usize,
+    pub(crate) expression_or_parameter_edges_scanned: usize,
+    pub(crate) type_nodes_cloned: usize,
+    pub(crate) materialized_type_nodes: usize,
+    pub(crate) max_retained_state: usize,
+}
+
+#[cfg(test)]
+impl ContextProjectionWork {
+    const fn new() -> Self {
+        Self {
+            input_type_nodes_scanned: 0,
+            expression_or_parameter_edges_scanned: 0,
+            type_nodes_cloned: 0,
+            materialized_type_nodes: 0,
+            max_retained_state: 0,
+        }
+    }
+
+    pub(crate) fn total_relevant_work(self) -> usize {
+        self.input_type_nodes_scanned
+            + self.expression_or_parameter_edges_scanned
+            + self.type_nodes_cloned
+            + self.materialized_type_nodes
+    }
+}
+
+#[cfg(test)]
+fn update_context_work(update: impl FnOnce(&mut ContextProjectionWork)) {
+    CONTEXT_CLASSIFICATION_WORK.with(|work| {
+        let mut current = work.get();
+        update(&mut current);
+        work.set(current);
+    });
 }
 
 #[cfg(test)]
 fn record_context_classification_work(units: usize) {
-    CONTEXT_CLASSIFICATION_WORK.with(|work| work.set(work.get().saturating_add(units)));
+    update_context_work(|work| work.expression_or_parameter_edges_scanned += units);
 }
 
 #[cfg(not(test))]
 fn record_context_classification_work(_units: usize) {}
 
 #[cfg(test)]
+fn record_context_input_scan(units: usize) {
+    update_context_work(|work| work.input_type_nodes_scanned += units);
+}
+
+#[cfg(not(test))]
+fn record_context_input_scan(_units: usize) {}
+
+#[cfg(test)]
+fn record_context_clone(units: usize) {
+    update_context_work(|work| work.type_nodes_cloned += units);
+}
+
+#[cfg(not(test))]
+fn record_context_clone(_units: usize) {}
+
+#[cfg(test)]
+fn record_context_materialization(units: usize) {
+    update_context_work(|work| work.materialized_type_nodes += units);
+}
+
+#[cfg(not(test))]
+fn record_context_materialization(_units: usize) {}
+
+#[cfg(test)]
+fn record_context_retained(units: usize) {
+    update_context_work(|work| work.max_retained_state = work.max_retained_state.max(units));
+}
+
+#[cfg(not(test))]
+fn record_context_retained(_units: usize) {}
+
+#[cfg(test)]
 pub(crate) fn reset_context_classification_work() {
-    CONTEXT_CLASSIFICATION_WORK.with(|work| work.set(0));
+    CONTEXT_CLASSIFICATION_WORK.with(|work| work.set(ContextProjectionWork::new()));
 }
 
 #[cfg(test)]
-pub(crate) fn take_context_classification_work() -> usize {
-    CONTEXT_CLASSIFICATION_WORK.with(|work| work.replace(0))
+pub(crate) fn take_context_classification_work() -> ContextProjectionWork {
+    CONTEXT_CLASSIFICATION_WORK.with(|work| work.replace(ContextProjectionWork::new()))
 }
 
 #[cfg(test)]

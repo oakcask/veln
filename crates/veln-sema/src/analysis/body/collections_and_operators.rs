@@ -227,7 +227,7 @@ impl<'a> FunctionChecker<'a> {
             constraint,
         );
         if current_type == &Type::Unknown {
-            if !has_contextual_type && !type_contains_unknown(&aggregate) {
+            if !has_contextual_type {
                 *joined_type = AggregateTypeJoin::new(&self.environment.adts, &aggregate);
             }
             aggregate
@@ -281,7 +281,7 @@ impl<'a> FunctionChecker<'a> {
         if has_contextual_type {
             return false;
         }
-        if joined_type.is_none() && !type_contains_unknown(current_type) {
+        if joined_type.is_none() && current_type != &Type::Unknown {
             *joined_type = AggregateTypeJoin::new(&self.environment.adts, current_type);
         }
         joined_type

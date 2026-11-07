@@ -6,6 +6,7 @@ pub(crate) fn infer_private_match_type(
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
+    let expected = expected.filter(|expected| !is_incomplete_compiler_covariant(expected));
     let scrutinee_expected = match infer_match_scrutinee_type_from_constructor_patterns(
         arms,
         context.current_module,
@@ -21,12 +22,23 @@ pub(crate) fn infer_private_match_type(
     let mut joined_result: Option<crate::aggregate_type_join::AggregateTypeJoin> = None;
     let mut join_failed = false;
     for arm in arms {
-        let joined_context = joined_result
-            .as_ref()
-            .filter(|joined| {
-                joined.has_complete_domain() && !joined.has_incomplete_nested_refinement_domain()
-            })
-            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type);
+        let joined_context = joined_result.as_ref().and_then(|joined| {
+            if joined.has_compiler_covariant_root() {
+                Some(crate::aggregate_type_join::expression_admitted_context(
+                    &arm.expr,
+                    &joined.inference_type(),
+                    context.adts,
+                    context.current_module,
+                    context.uses,
+                ))
+            } else if joined.has_complete_domain()
+                && !joined.has_incomplete_nested_refinement_domain()
+            {
+                Some(joined.inference_type())
+            } else {
+                None
+            }
+        });
         let recovery_expected = if joined_result.is_some() {
             joined_context.as_ref()
         } else {
@@ -59,6 +71,7 @@ pub(crate) fn infer_private_if_result_type(
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
+    let expected = expected.filter(|expected| !is_incomplete_compiler_covariant(expected));
     context.infer_expected_outcome(condition, &Type::bool());
     for branch in else_if_branches {
         context.infer_expected_outcome(&branch.condition, &Type::bool());
@@ -70,12 +83,23 @@ pub(crate) fn infer_private_if_result_type(
         .chain(else_if_branches.iter().map(|branch| &branch.expr))
         .chain(std::iter::once(else_branch))
     {
-        let joined_context = joined_result
-            .as_ref()
-            .filter(|joined| {
-                joined.has_complete_domain() && !joined.has_incomplete_nested_refinement_domain()
-            })
-            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type);
+        let joined_context = joined_result.as_ref().and_then(|joined| {
+            if joined.has_compiler_covariant_root() {
+                Some(crate::aggregate_type_join::expression_admitted_context(
+                    branch_expr,
+                    &joined.inference_type(),
+                    context.adts,
+                    context.current_module,
+                    context.uses,
+                ))
+            } else if joined.has_complete_domain()
+                && !joined.has_incomplete_nested_refinement_domain()
+            {
+                Some(joined.inference_type())
+            } else {
+                None
+            }
+        });
         let recovery_expected = if joined_result.is_some() {
             joined_context.as_ref()
         } else {
@@ -104,6 +128,14 @@ pub(crate) fn infer_private_if_result_type(
         }
     }
     materialize_private_control_flow_result(result, joined_result, join_failed)
+}
+
+fn is_incomplete_compiler_covariant(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Named { identity, .. } | Type::VariantRefinement { identity, .. }
+            if Type::is_compiler_covariant_identity(identity) && type_has_unknown(ty)
+    )
 }
 
 fn merge_private_control_flow_result(
