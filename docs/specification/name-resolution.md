@@ -55,6 +55,17 @@ that position admits both namespaces. Namespace selection is therefore fixed
 by the syntactic role, while same-namespace duplicates remain errors and
 unrelated namespaces may share a spelling.
 
+An unqualified source-ADT constructor with more than one visible owner is
+normally ambiguous. A concrete expected ADT selects the constructor owned by
+that ADT. Aggregate inference can supply that expected ADT to a later payload
+after an earlier payload makes the shared argument concrete. For example,
+`Paired(Left::Ready, Ready)` resolves the second `Ready` as `Left::Ready` and
+infers `Pair<Left::Ready>::Paired`. Without a concrete expected ADT, the
+unqualified constructor remains `name.ambiguous`. A contribution that has
+already failed resolution is not rechecked when a later contribution supplies
+context. The [type inference rules](types.md#inference-rules) define when an
+aggregate context is admitted and preserved.
+
 ### Explicit import aliases
 
 `use a::b as local` binds `local` in the importing module's import namespace.
@@ -1001,6 +1012,10 @@ not become fallback targets.
   `crates/veln-sema/src/name_recovery.rs`.
 - Unqualified ADT import lookup:
   `crates/veln-sema/src/adt/tests/variant_lookup.rs`.
+- Expected-type selection of an unqualified namesake constructor:
+  `repeated_direct_payloads_preserve_expected_type_constructor_resolution` and
+  `nested_payloads_preserve_expected_type_constructor_resolution` in
+  `crates/veln-sema/src/tests/variant_refinement_aggregate_inference.rs`.
 - Explicit-import-alias behavior evidence:
 
   | Behavior | Evidence |
