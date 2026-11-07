@@ -20,6 +20,8 @@ material.
 
 - Documentation structure, metadata, presentation, and specification writing:
   [documentation-authoring.md](documentation-authoring.md).
+- Standard-library ADT type names, variant names, and constructor qualification:
+  [standard-library-adt-naming.md](standard-library-adt-naming.md).
 - Implemented behavior: [specification/topic-map.md](../specification/topic-map.md).
 - Legacy grammar route: [grammar.md](grammar.md).
 - Human diagnostics:
