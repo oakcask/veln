@@ -68,7 +68,9 @@ covariance for every argument of the compiler-owned immutable `Option<T>`,
 and control-flow joins, recursive context-free joins through checked covariant
 source-ADT arguments for local and imported declarations, recursive joins
 through every argument of same-constructor compiler-owned immutable types,
-transactional exclusion of contributions whose nested argument cannot join,
+complete identical-field record joins that recursively join corresponding
+fields, transactional exclusion of contributions whose nested argument cannot
+join,
 and describes how an unrefined compiler-owned immutable join supplies
 argument-specific context to a later context-dependent expression without
 re-resolving an earlier expression that emitted a diagnostic. It also covers
@@ -104,7 +106,8 @@ Calls, indexing, constructed records, and other computed expressions do not
 become module-value field roots.
 The selected examples demonstrate refined call typing, complete structural and
 source-ADT variance assignment, source-ADT and compiler-owned covariant
-inference, control-flow result joins, alias-qualified identity and
+inference, identical-field structural record inference and failed-contribution
+preservation, control-flow result joins, alias-qualified identity and
 presentation, generic alias boundaries, structural visibility, publication
 quarantine, and qualified module-value match refinement. The
 current type and source specifications remain authoritative for those

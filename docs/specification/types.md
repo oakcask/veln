@@ -242,6 +242,10 @@ assignment does not permit context-free inference to drop fields. This
 state-preservation rule also applies to unannotated `if` and `match` results
 and to omitted private results: a rejected record branch reports its mismatch,
 and later compatible branches continue from the last admitted record type.
+For a complete single-field record nested to depth `D`, deterministic work
+counters visit `D + 1` type nodes during join setup, contribution acceptance,
+and result materialization. Rejecting an incompatible leaf visits the same
+number of nodes without materializing a result or changing the admitted join.
 
 When a private non-exported helper omits parameter or return annotations,
 same-module concrete call sites may constrain the helper's single monomorphic
@@ -2089,6 +2093,9 @@ case covers that boundary. Schema predicates do not accept `%`.
   `crates/veln-sema/src/tests/variant_refinement_match_scaling.rs`.
 - Aggregate and alias-presentation join scaling:
   `crates/veln-sema/src/tests/variant_refinement_aggregate_scaling.rs`.
+- Deep structural-record join setup, acceptance, rejection, and materialization
+  scaling:
+  `crates/veln-sema/src/tests/variant_refinement_aggregate_scaling/deep_record_join_scaling.rs`.
 - Source-ADT covariant inference, checked variance parameter order, and
   resolved declaration identity:
   `crates/veln-sema/src/tests/source_adt_variance_inference.rs`.
