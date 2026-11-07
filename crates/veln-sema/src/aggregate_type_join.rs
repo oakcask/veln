@@ -393,61 +393,7 @@ impl AggregateTypeJoin {
         let mut changed = false;
         for contribution in prepared {
             let node = &mut self.nodes[contribution.node];
-            let right_args = match &contribution.right {
-                PreparedTypeParts::Adt(right) => {
-                    record_presentation_work(1);
-                    if !node.presentation_conflicted && right.name != node.canonical_name {
-                        if node.name == node.canonical_name {
-                            node.name = right.name.to_string();
-                            changed = true;
-                        } else if node.name != right.name {
-                            node.name.clone_from(&node.canonical_name);
-                            node.presentation_conflicted = true;
-                            changed = true;
-                        }
-                    }
-                    right.args.iter().collect::<Vec<_>>()
-                }
-                PreparedTypeParts::Record(fields) => fields.clone(),
-            };
-            for (joined, right) in node.args.iter_mut().zip(right_args) {
-                let JoinArg::Exact {
-                    ty,
-                    presentation,
-                    covariant,
-                } = joined
-                else {
-                    continue;
-                };
-                if *covariant
-                    && Type::is_compiler_covariant_identity(&node.identity)
-                    && right == &Type::Unknown
-                {
-                    continue;
-                }
-                changed |= unification::merge_type_slot(ty, right);
-                changed |= presentation.merge(ty, right);
-            }
-            let right_variants = match contribution.right {
-                PreparedTypeParts::Adt(right) => right.variants,
-                PreparedTypeParts::Record(_) => None,
-            };
-            match (&mut node.variants, right_variants) {
-                (Some(joined), Some(_)) => {
-                    let ranks = contribution
-                        .variant_ranks
-                        .expect("validated refinement ranks");
-                    record_work(ranks.len());
-                    let previous_len = joined.len();
-                    joined.extend(ranks);
-                    changed |= joined.len() != previous_len;
-                }
-                (variants @ Some(_), None) => {
-                    *variants = None;
-                    changed = true;
-                }
-                (None, _) => {}
-            }
+            changed |= commit_prepared_contribution(node, contribution);
         }
         changed | self.expand_covariant_nodes(adts)
     }
@@ -623,6 +569,90 @@ impl AggregateTypeJoin {
     }
 }
 
+fn commit_prepared_contribution(
+    node: &mut JoinNode,
+    contribution: PreparedContribution<'_>,
+) -> bool {
+    let mut changed = update_node_presentation(node, &contribution.right);
+    changed |= merge_prepared_arguments(node, &contribution.right);
+    let right_variants = match contribution.right {
+        PreparedTypeParts::Adt(right) => right.variants,
+        PreparedTypeParts::Record(_) => None,
+    };
+    changed | merge_prepared_variants(node, right_variants, contribution.variant_ranks)
+}
+
+fn update_node_presentation(node: &mut JoinNode, right: &PreparedTypeParts<'_>) -> bool {
+    let PreparedTypeParts::Adt(right) = right else {
+        return false;
+    };
+    record_presentation_work(1);
+    if node.presentation_conflicted || right.name == node.canonical_name {
+        return false;
+    }
+    if node.name == node.canonical_name {
+        node.name = right.name.to_string();
+    } else if node.name != right.name {
+        node.name.clone_from(&node.canonical_name);
+        node.presentation_conflicted = true;
+    } else {
+        return false;
+    }
+    true
+}
+
+fn merge_prepared_arguments(node: &mut JoinNode, right: &PreparedTypeParts<'_>) -> bool {
+    match right {
+        PreparedTypeParts::Adt(right) => merge_join_arguments(node, right.args.iter()),
+        PreparedTypeParts::Record(fields) => merge_join_arguments(node, fields.iter().copied()),
+    }
+}
+
+fn merge_join_arguments<'a>(
+    node: &mut JoinNode,
+    right_args: impl IntoIterator<Item = &'a Type>,
+) -> bool {
+    let compiler_covariant = Type::is_compiler_covariant_identity(&node.identity);
+    let mut changed = false;
+    for (joined, right) in node.args.iter_mut().zip(right_args) {
+        let JoinArg::Exact {
+            ty,
+            presentation,
+            covariant,
+        } = joined
+        else {
+            continue;
+        };
+        if *covariant && compiler_covariant && right == &Type::Unknown {
+            continue;
+        }
+        changed |= unification::merge_type_slot(ty, right);
+        changed |= presentation.merge(ty, right);
+    }
+    changed
+}
+
+fn merge_prepared_variants(
+    node: &mut JoinNode,
+    right_variants: Option<&[String]>,
+    variant_ranks: Option<Vec<usize>>,
+) -> bool {
+    match (&mut node.variants, right_variants) {
+        (Some(joined), Some(_)) => {
+            let ranks = variant_ranks.expect("validated refinement ranks");
+            record_work(ranks.len());
+            let previous_len = joined.len();
+            joined.extend(ranks);
+            joined.len() != previous_len
+        }
+        (variants @ Some(_), None) => {
+            *variants = None;
+            true
+        }
+        (None, _) => false,
+    }
+}
+
 fn optimized_join_retains_contributions(adts: &AdtRegistry, initial: &Type) -> bool {
     let mut pending = vec![initial];
     while let Some(ty) = pending.pop() {
@@ -655,91 +685,117 @@ fn can_retain_unresolved_contributions(adts: &AdtRegistry, contributions: &[Type
     let mut pending = vec![contributions.iter().collect::<Vec<_>>()];
     let mut retainable = false;
     while let Some(group) = pending.pop() {
-        let Some(first) = group.first().copied() else {
+        let Some(group_retainable) = queue_retainable_contribution_group(adts, group, &mut pending)
+        else {
             return false;
         };
-        match first {
-            Type::Function { .. } => retainable = true,
-            Type::Record(first_fields) => {
-                let mut records = Vec::with_capacity(group.len());
-                for contribution in group {
-                    let Type::Record(fields) = contribution else {
-                        return false;
-                    };
-                    records.push(fields);
-                }
-                if records.iter().skip(1).any(|fields| {
-                    fields.len() != first_fields.len()
-                        || first_fields
-                            .iter()
-                            .any(|(name, _)| !fields.iter().any(|(other, _)| other == name))
-                }) {
-                    retainable = true;
-                    continue;
-                }
-                for (name, _) in first_fields {
-                    pending.push(
-                        records
-                            .iter()
-                            .map(|fields| {
-                                &fields
-                                    .iter()
-                                    .find(|(other, _)| other == name)
-                                    .expect("validated record field set")
-                                    .1
-                            })
-                            .collect(),
-                    );
-                }
-            }
-            Type::Named { .. } | Type::VariantRefinement { .. } => {
-                let first = adt_type_parts(first).expect("named contribution parts");
-                let mut parts = Vec::with_capacity(group.len());
-                for contribution in group {
-                    let Some(contribution) = adt_type_parts(contribution) else {
-                        return false;
-                    };
-                    if !same_type_identity(
-                        first.name,
-                        first.identity,
-                        contribution.name,
-                        contribution.identity,
-                    ) || contribution.args.len() != first.args.len()
-                    {
-                        return false;
-                    }
-                    parts.push(contribution);
-                }
-                if Type::is_compiler_covariant_identity(first.identity) {
-                    for argument in 0..first.args.len() {
-                        pending.push(parts.iter().map(|part| &part.args[argument]).collect());
-                    }
-                    continue;
-                }
-                let Some(variances) =
-                    adts.parameter_variances_for_identity(first.identity, first.args.len())
-                else {
-                    if parts
-                        .iter()
-                        .skip(1)
-                        .any(|part| !invariant_args_match(first.args, part.args))
-                    {
-                        return false;
-                    }
-                    continue;
-                };
-                for (argument, variance) in variances.iter().enumerate() {
-                    if *variance == Variance::Covariant {
-                        pending.push(parts.iter().map(|part| &part.args[argument]).collect());
-                    } else {
-                        retainable = true;
-                    }
-                }
-            }
-            Type::Unknown => return false,
-        }
+        retainable |= group_retainable;
     }
     retainable
+}
+
+fn queue_retainable_contribution_group<'a>(
+    adts: &AdtRegistry,
+    group: Vec<&'a Type>,
+    pending: &mut Vec<Vec<&'a Type>>,
+) -> Option<bool> {
+    match group.first().copied()? {
+        Type::Function { .. } => Some(true),
+        Type::Record(first_fields) => queue_retainable_record_group(first_fields, group, pending),
+        Type::Named { .. } | Type::VariantRefinement { .. } => {
+            queue_retainable_named_group(adts, group, pending)
+        }
+        Type::Unknown => None,
+    }
+}
+
+fn queue_retainable_record_group<'a>(
+    first_fields: &[(String, Type)],
+    group: Vec<&'a Type>,
+    pending: &mut Vec<Vec<&'a Type>>,
+) -> Option<bool> {
+    let records = group
+        .into_iter()
+        .map(|contribution| match contribution {
+            Type::Record(fields) => Some(fields.as_slice()),
+            _ => None,
+        })
+        .collect::<Option<Vec<_>>>()?;
+    if records.iter().skip(1).any(|fields| {
+        fields.len() != first_fields.len()
+            || first_fields
+                .iter()
+                .any(|(name, _)| !fields.iter().any(|(other, _)| other == name))
+    }) {
+        return Some(true);
+    }
+    for (name, _) in first_fields {
+        pending.push(
+            records
+                .iter()
+                .map(|fields| {
+                    &fields
+                        .iter()
+                        .find(|(other, _)| other == name)
+                        .expect("validated record field set")
+                        .1
+                })
+                .collect(),
+        );
+    }
+    Some(false)
+}
+
+fn queue_retainable_named_group<'a>(
+    adts: &AdtRegistry,
+    group: Vec<&'a Type>,
+    pending: &mut Vec<Vec<&'a Type>>,
+) -> Option<bool> {
+    let first = adt_type_parts(group.first().copied()?).expect("named contribution parts");
+    let parts = group
+        .into_iter()
+        .map(adt_type_parts)
+        .collect::<Option<Vec<_>>>()?;
+    if parts.iter().any(|part| !same_adt_shape(first, *part)) {
+        return None;
+    }
+    if Type::is_compiler_covariant_identity(first.identity) {
+        queue_named_argument_groups(&parts, 0..first.args.len(), pending);
+        return Some(false);
+    }
+    let Some(variances) = adts.parameter_variances_for_identity(first.identity, first.args.len())
+    else {
+        return parts
+            .iter()
+            .skip(1)
+            .all(|part| invariant_args_match(first.args, part.args))
+            .then_some(false);
+    };
+    let covariant = variances
+        .iter()
+        .enumerate()
+        .filter_map(|(argument, variance)| (*variance == Variance::Covariant).then_some(argument));
+    queue_named_argument_groups(&parts, covariant, pending);
+    Some(
+        variances
+            .iter()
+            .any(|variance| *variance != Variance::Covariant),
+    )
+}
+
+fn same_adt_shape(first: AdtTypeParts<'_>, other: AdtTypeParts<'_>) -> bool {
+    same_type_identity(first.name, first.identity, other.name, other.identity)
+        && first.args.len() == other.args.len()
+}
+
+fn queue_named_argument_groups<'a>(
+    parts: &[AdtTypeParts<'a>],
+    arguments: impl IntoIterator<Item = usize>,
+    pending: &mut Vec<Vec<&'a Type>>,
+) {
+    for argument in arguments {
+        pending.push(parts.iter().map(|part| &part.args[argument]).collect());
+    }
 }
 
 fn queue_covariant_contributions<'a>(
@@ -1156,91 +1212,101 @@ fn bounded_join_iterative(
             BoundTask::Evaluate {
                 contributions,
                 direction,
-            } => {
-                record_bounded_frame();
-                if contributions.len() == 1 {
-                    results.push(contributions.first().map(|ty| (*ty).clone()));
-                    continue;
-                }
-                if matches!(direction, BoundDirection::Meet) {
-                    results.push(contributed_candidate_refs(
-                        adts,
-                        &contributions,
-                        direction,
-                        relation_cache,
-                    ));
-                    continue;
-                }
-                if contributions
-                    .iter()
-                    .any(|contribution| matches!(contribution, Type::Function { .. }))
-                {
-                    schedule_function_bound(&mut tasks, &mut results, contributions);
-                    continue;
-                }
-                if refs_require_composite_bound(adts, &contributions) {
-                    schedule_composite_bound(
-                        adts,
-                        &mut tasks,
-                        &mut results,
-                        contributions,
-                        relation_cache,
-                    );
-                    continue;
-                }
-                let owned = contributions
-                    .iter()
-                    .map(|contribution| (*contribution).clone())
-                    .collect::<Vec<_>>();
-                results.push(optimized_join(adts, &owned).or_else(|| {
-                    contributed_candidate_refs(adts, &contributions, direction, relation_cache)
-                }));
-            }
-            BoundTask::BuildRecord { names } => {
-                let children = take_bound_results(&mut results, names.len());
-                results.push(
-                    children
-                        .map(|children| Type::Record(names.into_iter().zip(children).collect())),
-                );
-            }
+            } => evaluate_bound_task(
+                adts,
+                &mut tasks,
+                &mut results,
+                contributions,
+                direction,
+                relation_cache,
+            ),
+            BoundTask::BuildRecord { names } => build_record_bound(&mut results, names),
             BoundTask::BuildNamed {
                 name,
                 identity,
                 variants,
                 argument_count,
-            } => {
-                let children = take_bound_results(&mut results, argument_count);
-                results.push(children.map(|children| match variants {
-                    Some(variants) => {
-                        Type::resolved_variant_refinement(name, identity, children, variants)
-                    }
-                    None => Type::resolved_named(name, identity, children),
-                }));
-            }
+            } => build_named_bound(&mut results, name, identity, variants, argument_count),
             BoundTask::BuildFunction {
                 parameter_count,
                 has_variadic,
                 effects,
-            } => {
-                let child_count = parameter_count + usize::from(has_variadic) + 1;
-                let Some(mut children) = take_bound_results(&mut results, child_count) else {
-                    results.push(None);
-                    continue;
-                };
-                let return_type = Box::new(children.pop().expect("function result child"));
-                let variadic =
-                    has_variadic.then(|| Box::new(children.pop().expect("variadic child")));
-                results.push(Some(Type::Function {
-                    params: children,
-                    variadic,
-                    return_type,
-                    effects,
-                }));
-            }
+            } => build_function_bound(&mut results, parameter_count, has_variadic, effects),
         }
     }
     debug_assert_eq!(results.len(), 1);
     results.pop().flatten()
+}
+
+fn evaluate_bound_task<'a>(
+    adts: &AdtRegistry,
+    tasks: &mut Vec<BoundTask<'a>>,
+    results: &mut Vec<Option<Type>>,
+    contributions: Vec<&'a Type>,
+    direction: BoundDirection,
+    relation_cache: &mut HashMap<(String, String), bool>,
+) {
+    record_bounded_frame();
+    if contributions.len() == 1 {
+        results.push(contributions.first().map(|ty| (*ty).clone()));
+    } else if matches!(direction, BoundDirection::Meet) {
+        push_contributed_bound(adts, results, &contributions, direction, relation_cache);
+    } else if contributions
+        .iter()
+        .any(|contribution| matches!(contribution, Type::Function { .. }))
+    {
+        schedule_function_bound(tasks, results, contributions);
+    } else if refs_require_composite_bound(adts, &contributions) {
+        schedule_composite_bound(adts, tasks, results, contributions, relation_cache);
+    } else {
+        let owned = contributions
+            .iter()
+            .map(|contribution| (*contribution).clone())
+            .collect::<Vec<_>>();
+        results.push(optimized_join(adts, &owned).or_else(|| {
+            contributed_candidate_refs(adts, &contributions, direction, relation_cache)
+        }));
+    }
+}
+
+fn build_record_bound(results: &mut Vec<Option<Type>>, names: Vec<String>) {
+    let children = take_bound_results(results, names.len());
+    results.push(children.map(|children| Type::Record(names.into_iter().zip(children).collect())));
+}
+
+fn build_named_bound(
+    results: &mut Vec<Option<Type>>,
+    name: String,
+    identity: String,
+    variants: Option<Vec<String>>,
+    argument_count: usize,
+) {
+    let children = take_bound_results(results, argument_count);
+    results.push(children.map(|children| match variants {
+        Some(variants) => Type::resolved_variant_refinement(name, identity, children, variants),
+        None => Type::resolved_named(name, identity, children),
+    }));
+}
+
+fn build_function_bound(
+    results: &mut Vec<Option<Type>>,
+    parameter_count: usize,
+    has_variadic: bool,
+    effects: Vec<String>,
+) {
+    let child_count = parameter_count + usize::from(has_variadic) + 1;
+    let Some(mut children) = take_bound_results(results, child_count) else {
+        results.push(None);
+        return;
+    };
+    let return_type = Box::new(children.pop().expect("function result child"));
+    let variadic = has_variadic.then(|| Box::new(children.pop().expect("variadic child")));
+    results.push(Some(Type::Function {
+        params: children,
+        variadic,
+        return_type,
+        effects,
+    }));
 }
 
 fn take_bound_results(results: &mut Vec<Option<Type>>, count: usize) -> Option<Vec<Type>> {
@@ -1275,52 +1341,8 @@ fn schedule_composite_bound<'a>(
     relation_cache: &mut HashMap<(String, String), bool>,
 ) {
     match contributions.first().copied() {
-        Some(Type::Record(first_fields)) => {
-            let mut names = first_fields
-                .iter()
-                .map(|(name, _)| name.clone())
-                .collect::<Vec<_>>();
-            names.sort_unstable();
-            let same_fields = contributions.iter().all(|contribution| {
-                let Type::Record(fields) = contribution else {
-                    return false;
-                };
-                fields.len() == names.len()
-                    && names
-                        .iter()
-                        .all(|name| fields.iter().any(|(field, _)| field == name))
-            });
-            if !same_fields {
-                results.push(contributed_candidate_refs(
-                    adts,
-                    &contributions,
-                    BoundDirection::Join,
-                    relation_cache,
-                ));
-                return;
-            }
-            tasks.push(BoundTask::BuildRecord {
-                names: names.clone(),
-            });
-            for name in names.into_iter().rev() {
-                let fields = contributions
-                    .iter()
-                    .map(|contribution| {
-                        let Type::Record(fields) = contribution else {
-                            unreachable!("record shape was checked");
-                        };
-                        fields
-                            .iter()
-                            .find(|(field, _)| field == &name)
-                            .map(|(_, ty)| ty)
-                            .expect("record field was checked")
-                    })
-                    .collect();
-                tasks.push(BoundTask::Evaluate {
-                    contributions: fields,
-                    direction: BoundDirection::Join,
-                });
-            }
+        Some(Type::Record(_)) => {
+            schedule_record_bound(adts, tasks, results, contributions, relation_cache)
         }
         Some(Type::Named { .. } | Type::VariantRefinement { .. }) => {
             schedule_named_bound(adts, tasks, results, contributions, relation_cache);
@@ -1328,6 +1350,70 @@ fn schedule_composite_bound<'a>(
         Some(Type::Function { .. }) => schedule_function_bound(tasks, results, contributions),
         Some(Type::Unknown) | None => results.push(None),
     }
+}
+
+fn schedule_record_bound<'a>(
+    adts: &AdtRegistry,
+    tasks: &mut Vec<BoundTask<'a>>,
+    results: &mut Vec<Option<Type>>,
+    contributions: Vec<&'a Type>,
+    relation_cache: &mut HashMap<(String, String), bool>,
+) {
+    let Some(Type::Record(first_fields)) = contributions.first().copied() else {
+        unreachable!("record bound was selected");
+    };
+    let mut names = first_fields
+        .iter()
+        .map(|(name, _)| name.clone())
+        .collect::<Vec<_>>();
+    names.sort_unstable();
+    if !record_bounds_have_fields(&contributions, &names) {
+        push_contributed_bound(
+            adts,
+            results,
+            &contributions,
+            BoundDirection::Join,
+            relation_cache,
+        );
+        return;
+    }
+    tasks.push(BoundTask::BuildRecord {
+        names: names.clone(),
+    });
+    for name in names.into_iter().rev() {
+        tasks.push(BoundTask::Evaluate {
+            contributions: record_bound_fields(&contributions, &name),
+            direction: BoundDirection::Join,
+        });
+    }
+}
+
+fn record_bounds_have_fields(contributions: &[&Type], names: &[String]) -> bool {
+    contributions.iter().all(|contribution| {
+        let Type::Record(fields) = contribution else {
+            return false;
+        };
+        fields.len() == names.len()
+            && names
+                .iter()
+                .all(|name| fields.iter().any(|(field, _)| field == name))
+    })
+}
+
+fn record_bound_fields<'a>(contributions: &[&'a Type], name: &str) -> Vec<&'a Type> {
+    contributions
+        .iter()
+        .map(|contribution| {
+            let Type::Record(fields) = contribution else {
+                unreachable!("record shape was checked");
+            };
+            fields
+                .iter()
+                .find(|(field, _)| field == name)
+                .map(|(_, ty)| ty)
+                .expect("record field was checked")
+        })
+        .collect()
 }
 
 fn schedule_named_bound<'a>(
@@ -1346,38 +1432,26 @@ fn schedule_named_bound<'a>(
         .map(|ty| adt_type_parts(ty))
         .collect::<Option<Vec<_>>>()
     else {
-        results.push(contributed_candidate_refs(
+        push_contributed_bound(
             adts,
+            results,
             &contributions,
             BoundDirection::Join,
             relation_cache,
-        ));
+        );
         return;
     };
-    if parts.iter().any(|part| {
-        !same_type_identity(first.name, first.identity, part.name, part.identity)
-            || first.args.len() != part.args.len()
-    }) {
-        results.push(contributed_candidate_refs(
+    if parts.iter().any(|part| !same_adt_shape(first, *part)) {
+        push_contributed_bound(
             adts,
+            results,
             &contributions,
             BoundDirection::Join,
             relation_cache,
-        ));
+        );
         return;
     }
-    let canonical_name = Type::compiler_covariant_name(first.identity)
-        .map(str::to_string)
-        .or_else(|| {
-            adts.descriptor_for_type(first.ty)
-                .map(|descriptor| adts.canonical_type_name_for_descriptor(descriptor))
-        })
-        .unwrap_or_else(|| first.name.to_string());
-    let name = if parts.iter().all(|part| part.name == first.name) {
-        first.name.to_string()
-    } else {
-        canonical_name
-    };
+    let name = named_bound_name(adts, first, &parts);
     let Some(variants) = joined_named_variants(adts, first, &parts) else {
         results.push(None);
         return;
@@ -1392,6 +1466,48 @@ fn schedule_named_bound<'a>(
         variants,
         argument_count: first.args.len(),
     });
+    schedule_named_bound_arguments(tasks, first, &parts, compiler_covariant, variances);
+}
+
+fn push_contributed_bound(
+    adts: &AdtRegistry,
+    results: &mut Vec<Option<Type>>,
+    contributions: &[&Type],
+    direction: BoundDirection,
+    relation_cache: &mut HashMap<(String, String), bool>,
+) {
+    results.push(contributed_candidate_refs(
+        adts,
+        contributions,
+        direction,
+        relation_cache,
+    ));
+}
+
+fn named_bound_name(
+    adts: &AdtRegistry,
+    first: AdtTypeParts<'_>,
+    parts: &[AdtTypeParts<'_>],
+) -> String {
+    if parts.iter().all(|part| part.name == first.name) {
+        return first.name.to_string();
+    }
+    Type::compiler_covariant_name(first.identity)
+        .map(str::to_string)
+        .or_else(|| {
+            adts.descriptor_for_type(first.ty)
+                .map(|descriptor| adts.canonical_type_name_for_descriptor(descriptor))
+        })
+        .unwrap_or_else(|| first.name.to_string())
+}
+
+fn schedule_named_bound_arguments<'a>(
+    tasks: &mut Vec<BoundTask<'a>>,
+    first: AdtTypeParts<'a>,
+    parts: &[AdtTypeParts<'a>],
+    compiler_covariant: bool,
+    variances: Option<&[Variance]>,
+) {
     for index in (0..first.args.len()).rev() {
         let arguments = parts
             .iter()
@@ -1404,30 +1520,38 @@ fn schedule_named_bound<'a>(
                 .and_then(|items| items.get(index).copied())
                 .unwrap_or(Variance::Invariant)
         };
-        match variance {
-            Variance::Covariant => tasks.push(BoundTask::Evaluate {
-                contributions: arguments,
-                direction: BoundDirection::Join,
-            }),
-            Variance::Contravariant => tasks.push(BoundTask::Evaluate {
-                contributions: arguments,
-                direction: BoundDirection::Meet,
-            }),
-            Variance::Invariant | Variance::Irrelevant => {
-                let exact = arguments
-                    .iter()
-                    .skip(1)
-                    .all(|argument| {
-                        invariant_args_match(
-                            std::slice::from_ref(arguments[0]),
-                            std::slice::from_ref(argument),
-                        )
-                    })
-                    .then(|| arguments[0].clone());
-                tasks.push(BoundTask::Ready(exact));
-            }
-        }
+        schedule_named_argument(tasks, arguments, variance);
     }
+}
+
+fn schedule_named_argument<'a>(
+    tasks: &mut Vec<BoundTask<'a>>,
+    arguments: Vec<&'a Type>,
+    variance: Variance,
+) {
+    let direction = match variance {
+        Variance::Covariant => Some(BoundDirection::Join),
+        Variance::Contravariant => Some(BoundDirection::Meet),
+        Variance::Invariant | Variance::Irrelevant => None,
+    };
+    if let Some(direction) = direction {
+        tasks.push(BoundTask::Evaluate {
+            contributions: arguments,
+            direction,
+        });
+        return;
+    }
+    let exact = arguments
+        .iter()
+        .skip(1)
+        .all(|argument| {
+            invariant_args_match(
+                std::slice::from_ref(arguments[0]),
+                std::slice::from_ref(argument),
+            )
+        })
+        .then(|| arguments[0].clone());
+    tasks.push(BoundTask::Ready(exact));
 }
 
 fn joined_named_variants(
@@ -1462,18 +1586,45 @@ fn schedule_function_bound<'a>(
     results: &mut Vec<Option<Type>>,
     contributions: Vec<&'a Type>,
 ) {
-    let Some(Type::Function {
-        params: first_params,
-        variadic: first_variadic,
-        ..
-    }) = contributions.first().copied()
-    else {
+    let Some(bound) = collect_function_bound_parts(&contributions) else {
         results.push(None);
         return;
     };
+    tasks.push(BoundTask::BuildFunction {
+        parameter_count: bound.parameter_count,
+        has_variadic: bound.has_variadic,
+        effects: bound.effects,
+    });
+    schedule_function_bound_children(tasks, &bound.functions, bound.has_variadic);
+}
+
+struct FunctionBoundParts<'a> {
+    params: &'a [Type],
+    variadic: Option<&'a Type>,
+    return_type: &'a Type,
+}
+
+struct CollectedFunctionBound<'a> {
+    functions: Vec<FunctionBoundParts<'a>>,
+    effects: Vec<String>,
+    parameter_count: usize,
+    has_variadic: bool,
+}
+
+fn collect_function_bound_parts<'a>(
+    contributions: &[&'a Type],
+) -> Option<CollectedFunctionBound<'a>> {
+    let Type::Function {
+        params: first_params,
+        variadic: first_variadic,
+        ..
+    } = contributions.first().copied()?
+    else {
+        return None;
+    };
     let mut functions = Vec::with_capacity(contributions.len());
     let mut effects = HashSet::new();
-    for contribution in &contributions {
+    for contribution in contributions {
         let Type::Function {
             params,
             variadic,
@@ -1481,41 +1632,57 @@ fn schedule_function_bound<'a>(
             effects: contribution_effects,
         } = contribution
         else {
-            results.push(None);
-            return;
+            return None;
         };
         if params.len() != first_params.len() || variadic.is_some() != first_variadic.is_some() {
-            results.push(None);
-            return;
+            return None;
         }
         effects.extend(contribution_effects.iter().cloned());
-        functions.push((params, variadic, return_type.as_ref()));
+        functions.push(FunctionBoundParts {
+            params,
+            variadic: variadic.as_deref(),
+            return_type,
+        });
     }
     let mut effects = effects.into_iter().collect::<Vec<_>>();
     effects.sort_unstable();
-    tasks.push(BoundTask::BuildFunction {
+    Some(CollectedFunctionBound {
+        functions,
+        effects,
         parameter_count: first_params.len(),
         has_variadic: first_variadic.is_some(),
-        effects,
-    });
+    })
+}
+
+fn schedule_function_bound_children<'a>(
+    tasks: &mut Vec<BoundTask<'a>>,
+    functions: &[FunctionBoundParts<'a>],
+    has_variadic: bool,
+) {
     tasks.push(BoundTask::Evaluate {
-        contributions: functions.iter().map(|(_, _, result)| *result).collect(),
+        contributions: functions
+            .iter()
+            .map(|function| function.return_type)
+            .collect(),
         direction: BoundDirection::Join,
     });
-    if first_variadic.is_some() {
+    if has_variadic {
         tasks.push(BoundTask::Evaluate {
             contributions: functions
                 .iter()
-                .map(|(_, variadic, _)| variadic.as_deref().expect("variadic shape was checked"))
+                .map(|function| function.variadic.expect("variadic shape was checked"))
                 .collect(),
             direction: BoundDirection::Meet,
         });
     }
-    for index in (0..first_params.len()).rev() {
+    let parameter_count = functions
+        .first()
+        .map_or(0, |function| function.params.len());
+    for index in (0..parameter_count).rev() {
         tasks.push(BoundTask::Evaluate {
             contributions: functions
                 .iter()
-                .map(|(params, _, _)| &params[index])
+                .map(|function| &function.params[index])
                 .collect(),
             direction: BoundDirection::Meet,
         });
@@ -1532,44 +1699,84 @@ fn contributed_candidate_refs(
         .iter()
         .copied()
         .filter(|candidate| {
-            contributions.iter().all(|contribution| match direction {
-                BoundDirection::Join => {
-                    candidate_assignable_cached(candidate, contribution, adts, relation_cache)
-                }
-                BoundDirection::Meet => {
-                    candidate_assignable_cached(contribution, candidate, adts, relation_cache)
-                }
-            })
+            contributed_candidate_is_valid(
+                candidate,
+                contributions,
+                direction,
+                adts,
+                relation_cache,
+            )
         })
         .collect::<Vec<_>>();
     let mut selected = valid
         .iter()
         .copied()
         .filter(|candidate| {
-            valid.iter().all(|other| match direction {
-                BoundDirection::Join => {
-                    candidate_assignable_cached(other, candidate, adts, relation_cache)
-                }
-                BoundDirection::Meet => {
-                    candidate_assignable_cached(candidate, other, adts, relation_cache)
-                }
-            })
+            contributed_candidate_is_selected(candidate, &valid, direction, adts, relation_cache)
         })
         .collect::<Vec<_>>();
-    let first = *selected.first()?;
-    if selected.iter().skip(1).any(|candidate| {
-        !candidate_assignable_cached(first, candidate, adts, relation_cache)
-            || !candidate_assignable_cached(candidate, first, adts, relation_cache)
-    }) {
+    if !selected_candidates_are_equivalent(&selected, adts, relation_cache) {
         return None;
     }
     selected.sort_unstable_by_key(|candidate| candidate.render());
-    let mut result = selected[0].clone();
+    Some(merge_candidate_presentations(selected))
+}
+
+fn contributed_candidate_is_valid(
+    candidate: &Type,
+    contributions: &[&Type],
+    direction: BoundDirection,
+    adts: &AdtRegistry,
+    relation_cache: &mut HashMap<(String, String), bool>,
+) -> bool {
+    contributions.iter().all(|contribution| match direction {
+        BoundDirection::Join => {
+            candidate_assignable_cached(candidate, contribution, adts, relation_cache)
+        }
+        BoundDirection::Meet => {
+            candidate_assignable_cached(contribution, candidate, adts, relation_cache)
+        }
+    })
+}
+
+fn contributed_candidate_is_selected(
+    candidate: &Type,
+    valid: &[&Type],
+    direction: BoundDirection,
+    adts: &AdtRegistry,
+    relation_cache: &mut HashMap<(String, String), bool>,
+) -> bool {
+    valid.iter().all(|other| match direction {
+        BoundDirection::Join => candidate_assignable_cached(other, candidate, adts, relation_cache),
+        BoundDirection::Meet => candidate_assignable_cached(candidate, other, adts, relation_cache),
+    })
+}
+
+fn selected_candidates_are_equivalent(
+    selected: &[&Type],
+    adts: &AdtRegistry,
+    relation_cache: &mut HashMap<(String, String), bool>,
+) -> bool {
+    let Some(first) = selected.first().copied() else {
+        return false;
+    };
+    selected.iter().skip(1).all(|candidate| {
+        candidate_assignable_cached(first, candidate, adts, relation_cache)
+            && candidate_assignable_cached(candidate, first, adts, relation_cache)
+    })
+}
+
+fn merge_candidate_presentations(selected: Vec<&Type>) -> Type {
+    let mut candidates = selected.into_iter();
+    let mut result = candidates
+        .next()
+        .expect("selected candidates are nonempty")
+        .clone();
     let mut presentation = TypePresentationJoin::default();
-    for candidate in selected.into_iter().skip(1) {
+    for candidate in candidates {
         presentation.merge(&mut result, candidate);
     }
-    Some(result)
+    result
 }
 
 fn bounded_shapes_are_admissible(contributions: &[Type], right: &Type) -> bool {
@@ -1582,86 +1789,104 @@ fn bounded_shapes_are_admissible(contributions: &[Type], right: &Type) -> bool {
 fn structurally_compatible_function_shapes(left: &Type, right: &Type) -> bool {
     let mut pending = vec![(left, right)];
     while let Some((left, right)) = pending.pop() {
-        match (left, right) {
-            (
-                Type::Function {
-                    params: left_params,
-                    variadic: left_variadic,
-                    return_type: left_return,
-                    ..
-                },
-                Type::Function {
-                    params: right_params,
-                    variadic: right_variadic,
-                    return_type: right_return,
-                    ..
-                },
-            ) => {
-                if left_params.len() != right_params.len()
-                    || left_variadic.is_some() != right_variadic.is_some()
-                {
-                    return false;
-                }
-                pending.extend(left_params.iter().zip(right_params));
-                if let (Some(left), Some(right)) = (left_variadic, right_variadic) {
-                    pending.push((left, right));
-                }
-                pending.push((left_return, right_return));
-            }
-            (Type::Function { .. }, _) | (_, Type::Function { .. }) => return false,
-            (Type::Record(left), Type::Record(right)) => {
-                if left.len() != right.len()
-                    || left
-                        .iter()
-                        .any(|(name, _)| !right.iter().any(|(other, _)| other == name))
-                {
-                    continue;
-                }
-                for (name, left) in left {
-                    let Some((_, right)) = right.iter().find(|(right_name, _)| right_name == name)
-                    else {
-                        return false;
-                    };
-                    pending.push((left, right));
-                }
-            }
-            (
-                Type::Named {
-                    name: left_name,
-                    identity: left_identity,
-                    args: left_args,
-                    ..
-                }
-                | Type::VariantRefinement {
-                    name: left_name,
-                    identity: left_identity,
-                    args: left_args,
-                    ..
-                },
-                Type::Named {
-                    name: right_name,
-                    identity: right_identity,
-                    args: right_args,
-                    ..
-                }
-                | Type::VariantRefinement {
-                    name: right_name,
-                    identity: right_identity,
-                    args: right_args,
-                    ..
-                },
-            ) => {
-                if !same_type_identity(left_name, left_identity, right_name, right_identity)
-                    || left_args.len() != right_args.len()
-                {
-                    return false;
-                }
-                pending.extend(left_args.iter().zip(right_args));
-            }
-            (Type::Record(_), _) | (_, Type::Record(_)) => return false,
-            _ => {}
+        if !queue_compatible_shape_pair(left, right, &mut pending) {
+            return false;
         }
     }
+    true
+}
+
+fn queue_compatible_shape_pair<'a>(
+    left: &'a Type,
+    right: &'a Type,
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    match (left, right) {
+        (Type::Function { .. }, Type::Function { .. }) => {
+            queue_compatible_function_shape(left, right, pending)
+        }
+        (Type::Function { .. }, _) | (_, Type::Function { .. }) => false,
+        (Type::Record(left), Type::Record(right)) => {
+            queue_compatible_record_shape(left, right, pending)
+        }
+        (Type::Record(_), _) | (_, Type::Record(_)) => false,
+        (
+            left @ (Type::Named { .. } | Type::VariantRefinement { .. }),
+            right @ (Type::Named { .. } | Type::VariantRefinement { .. }),
+        ) => queue_compatible_named_shape(left, right, pending),
+        _ => true,
+    }
+}
+
+fn queue_compatible_function_shape<'a>(
+    left: &'a Type,
+    right: &'a Type,
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    let (
+        Type::Function {
+            params: left_params,
+            variadic: left_variadic,
+            return_type: left_return,
+            ..
+        },
+        Type::Function {
+            params: right_params,
+            variadic: right_variadic,
+            return_type: right_return,
+            ..
+        },
+    ) = (left, right)
+    else {
+        unreachable!("function shapes were selected");
+    };
+    if left_params.len() != right_params.len()
+        || left_variadic.is_some() != right_variadic.is_some()
+    {
+        return false;
+    }
+    pending.extend(left_params.iter().zip(right_params));
+    if let (Some(left), Some(right)) = (left_variadic, right_variadic) {
+        pending.push((left, right));
+    }
+    pending.push((left_return, right_return));
+    true
+}
+
+fn queue_compatible_record_shape<'a>(
+    left: &'a [(String, Type)],
+    right: &'a [(String, Type)],
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    if left.len() != right.len()
+        || left
+            .iter()
+            .any(|(name, _)| !right.iter().any(|(other, _)| other == name))
+    {
+        return true;
+    }
+    for (name, left) in left {
+        let Some((_, right)) = right.iter().find(|(right_name, _)| right_name == name) else {
+            return false;
+        };
+        pending.push((left, right));
+    }
+    true
+}
+
+fn queue_compatible_named_shape<'a>(
+    left: &'a Type,
+    right: &'a Type,
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    let first = adt_type_parts(left).expect("named shape was selected");
+    let Some(other) = adt_type_parts(right) else {
+        return false;
+    };
+    if !same_adt_shape(first, other) {
+        return false;
+    }
+    pending.extend(first.args.iter().zip(other.args));
     true
 }
 
@@ -1750,83 +1975,134 @@ fn candidate_assignable_cached(
     assignable
 }
 
+enum RelationKeyPart<'a> {
+    Type(&'a Type),
+    Text(&'a str),
+    End,
+}
+
 fn canonical_relation_key(ty: &Type) -> String {
-    enum Part<'a> {
-        Type(&'a Type),
-        Text(&'a str),
-        End,
-    }
     let mut key = String::new();
-    let mut pending = vec![Part::Type(ty)];
+    let mut pending = vec![RelationKeyPart::Type(ty)];
     while let Some(part) = pending.pop() {
         match part {
-            Part::Text(text) => {
-                let _ = write!(key, "{}:{text};", text.len());
-            }
-            Part::End => key.push(']'),
-            Part::Type(Type::Unknown) => key.push('U'),
-            Part::Type(Type::Named { identity, args, .. }) => {
-                let _ = write!(key, "N{}[", args.len());
-                pending.push(Part::End);
-                for argument in args.iter().rev() {
-                    pending.push(Part::Type(argument));
-                }
-                pending.push(Part::Text(identity));
-            }
-            Part::Type(Type::VariantRefinement {
-                identity,
-                args,
-                variants,
-                ..
-            }) => {
-                let _ = write!(key, "V{}:{}[", args.len(), variants.len());
-                pending.push(Part::End);
-                for variant in variants.iter().rev() {
-                    pending.push(Part::Text(variant));
-                }
-                for argument in args.iter().rev() {
-                    pending.push(Part::Type(argument));
-                }
-                pending.push(Part::Text(identity));
-            }
-            Part::Type(Type::Record(fields)) => {
-                let _ = write!(key, "R{}[", fields.len());
-                pending.push(Part::End);
-                for (name, field) in fields.iter().rev() {
-                    pending.push(Part::Type(field));
-                    pending.push(Part::Text(name));
-                }
-            }
-            Part::Type(Type::Function {
-                params,
-                variadic,
-                return_type,
-                effects,
-            }) => {
-                let _ = write!(
-                    key,
-                    "F{}:{}:{}[",
-                    params.len(),
-                    usize::from(variadic.is_some()),
-                    effects.len()
-                );
-                pending.push(Part::End);
-                for effect in effects.iter().rev() {
-                    pending.push(Part::Text(effect));
-                }
-                pending.push(Part::Type(return_type));
-                if let Some(variadic) = variadic {
-                    pending.push(Part::Type(variadic));
-                } else {
-                    pending.push(Part::Text("no-variadic"));
-                }
-                for parameter in params.iter().rev() {
-                    pending.push(Part::Type(parameter));
-                }
-            }
+            RelationKeyPart::Text(text) => append_relation_key_text(&mut key, text),
+            RelationKeyPart::End => key.push(']'),
+            RelationKeyPart::Type(ty) => append_relation_type_key(&mut key, &mut pending, ty),
         }
     }
     key
+}
+
+fn append_relation_key_text(key: &mut String, text: &str) {
+    let _ = write!(key, "{}:{text};", text.len());
+}
+
+fn append_relation_type_key<'a>(
+    key: &mut String,
+    pending: &mut Vec<RelationKeyPart<'a>>,
+    ty: &'a Type,
+) {
+    match ty {
+        Type::Unknown => key.push('U'),
+        Type::Named { identity, args, .. } => {
+            append_relation_named_key(key, pending, identity, args)
+        }
+        Type::VariantRefinement {
+            identity,
+            args,
+            variants,
+            ..
+        } => append_relation_variant_key(key, pending, identity, args, variants),
+        Type::Record(fields) => append_relation_record_key(key, pending, fields),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            effects,
+        } => append_relation_function_key(
+            key,
+            pending,
+            params,
+            variadic.as_ref(),
+            return_type,
+            effects,
+        ),
+    }
+}
+
+fn append_relation_named_key<'a>(
+    key: &mut String,
+    pending: &mut Vec<RelationKeyPart<'a>>,
+    identity: &'a str,
+    args: &'a [Type],
+) {
+    let _ = write!(key, "N{}[", args.len());
+    pending.push(RelationKeyPart::End);
+    pending.extend(args.iter().rev().map(RelationKeyPart::Type));
+    pending.push(RelationKeyPart::Text(identity));
+}
+
+fn append_relation_variant_key<'a>(
+    key: &mut String,
+    pending: &mut Vec<RelationKeyPart<'a>>,
+    identity: &'a str,
+    args: &'a [Type],
+    variants: &'a [String],
+) {
+    let _ = write!(key, "V{}:{}[", args.len(), variants.len());
+    pending.push(RelationKeyPart::End);
+    pending.extend(
+        variants
+            .iter()
+            .rev()
+            .map(|variant| RelationKeyPart::Text(variant)),
+    );
+    pending.extend(args.iter().rev().map(RelationKeyPart::Type));
+    pending.push(RelationKeyPart::Text(identity));
+}
+
+fn append_relation_record_key<'a>(
+    key: &mut String,
+    pending: &mut Vec<RelationKeyPart<'a>>,
+    fields: &'a [(String, Type)],
+) {
+    let _ = write!(key, "R{}[", fields.len());
+    pending.push(RelationKeyPart::End);
+    for (name, field) in fields.iter().rev() {
+        pending.push(RelationKeyPart::Type(field));
+        pending.push(RelationKeyPart::Text(name));
+    }
+}
+
+fn append_relation_function_key<'a>(
+    key: &mut String,
+    pending: &mut Vec<RelationKeyPart<'a>>,
+    params: &'a [Type],
+    variadic: Option<&'a Box<Type>>,
+    return_type: &'a Type,
+    effects: &'a [String],
+) {
+    let _ = write!(
+        key,
+        "F{}:{}:{}[",
+        params.len(),
+        usize::from(variadic.is_some()),
+        effects.len()
+    );
+    pending.push(RelationKeyPart::End);
+    pending.extend(
+        effects
+            .iter()
+            .rev()
+            .map(|effect| RelationKeyPart::Text(effect)),
+    );
+    pending.push(RelationKeyPart::Type(return_type));
+    pending.push(match variadic {
+        Some(variadic) => RelationKeyPart::Type(variadic),
+        None => RelationKeyPart::Text("no-variadic"),
+    });
+    pending.extend(params.iter().rev().map(RelationKeyPart::Type));
 }
 
 #[cfg(test)]

@@ -66,6 +66,33 @@ fn structural_function_joins_are_order_independent_across_bounded_components() {
 }
 
 #[test]
+fn function_input_meets_keep_irrelevant_arguments_exact() {
+    let source = SourceFile::new("main.veln", "type Ignored<T>\n  Empty\nend\n");
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let environment = TypeEnvironment::from_module(&lower_surface_ast(&parsed.tree));
+    let identity = environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "Ignored")
+        .expect("Ignored descriptor")
+        .identity();
+    let function = |argument| Type::Function {
+        params: vec![Type::resolved_named("Ignored", &identity, vec![argument])],
+        variadic: None,
+        return_type: Box::new(Type::int()),
+        effects: Vec::new(),
+    };
+    let initial = function(Type::int());
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("bounded function join");
+    assert!(!joined.try_join(&environment.adts, &function(Type::string())));
+    assert_eq!(joined.result_type(), initial);
+}
+
+#[test]
 fn fallback_retains_every_contribution_until_a_unique_candidate_exists() {
     let permutations = [
         ["first", "second", "fallback"],
