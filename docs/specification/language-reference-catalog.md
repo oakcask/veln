@@ -66,9 +66,19 @@ complete record and function assignment, checked source-ADT parameter variance,
 covariance for every argument of the compiler-owned immutable `Option<T>`,
 `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>` constructors, aggregate
 and control-flow joins, recursive context-free joins through checked covariant
-source-ADT arguments for local and imported declarations, exact inference for
-other classifications, unavailable metadata, and compiler-owned generic
-arguments,
+source-ADT arguments for local and imported declarations, recursive joins
+through every argument of same-constructor compiler-owned immutable types,
+transactional exclusion of contributions whose nested argument cannot join,
+and describes how an unrefined compiler-owned immutable join supplies
+argument-specific context to a later context-dependent expression without
+re-resolving an earlier expression that emitted a diagnostic. It also covers
+rejected contributions leaving still-unknown arguments of omitted locals and
+their direct aliases unconstrained, and
+incomplete nested refinements blocking only their affected arguments,
+including an empty collection used as a later dictionary key or value, or a
+payload-carrying constructor whose payloads leave a generic argument
+unknown, and exact inference for other source-ADT classifications or
+unavailable metadata,
 stable match-path narrowing, runtime erasure,
 transitive alias-qualified identity and presentation, complete-domain alias
 reconciliation, generic payload propagation across alias-qualified constructor
@@ -93,10 +103,10 @@ Different owner packages, roots, and field sequences remain independent.
 Calls, indexing, constructed records, and other computed expressions do not
 become module-value field roots.
 The selected examples demonstrate refined call typing, complete structural and
-source-ADT variance assignment, source-ADT covariant inference, control-flow
-result joins, alias-qualified identity and presentation, generic alias
-boundaries, structural visibility, publication quarantine, and qualified
-module-value match refinement. The
+source-ADT variance assignment, source-ADT and compiler-owned covariant
+inference, control-flow result joins, alias-qualified identity and
+presentation, generic alias boundaries, structural visibility, publication
+quarantine, and qualified module-value match refinement. The
 current type and source specifications remain authoritative for those
 behaviors and the accepted source forms, including malformed-form boundaries.
 The `contracts` topic selects the function-contract, schema-validation, and

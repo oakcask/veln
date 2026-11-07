@@ -1,0 +1,165 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+pub type First = State
+pub type Second = State
+
+type Left
+	Namesake
+	Waiting
+end
+
+type Right
+	Namesake
+	Waiting
+end
+
+fn dictionary_forward()
+	{1: [Ready], 2: [Closed]}
+end
+
+fn dictionary_reverse()
+	{2: [Closed], 1: [Ready]}
+end
+
+fn incomplete_then_complete_value()
+	{2: [], 1: [1]}
+end
+
+fn incomplete_then_complete_key()
+	{[]: 2, [1]: 1}
+end
+
+fn ambiguous_namesake() -> Int
+	Namesake
+end
+
+fn retained(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>)
+	[first, rejected, later]
+end
+
+fn retained_control_flow(first: Bool, second: Bool, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>)
+	if first
+		accepted
+	else if second
+		rejected
+	else
+		later
+	end
+end
+
+fn needs_int(value: Int) -> ()
+	()
+end
+
+fn observe_dictionaries() -> ()
+	needs_int(dictionary_forward())
+	needs_int(dictionary_reverse())
+	needs_int(incomplete_then_complete_value())
+	needs_int(incomplete_then_complete_key())
+	needs_int(ambiguous_namesake())
+end
+
+fn observe(first: Dict<Int, Result<First::Ready, First::Ready>>, rejected: Dict<String, Result<Second::Failed, Second::Closed>>, later: Dict<Int, Result<First::Closed, First::Ready>>) -> ()
+	needs_int(retained(first, rejected, later))
+end
+
+fn observe_control_flow(first: Bool, second: Bool, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>) -> ()
+	needs_int(retained_control_flow(first, second, accepted, rejected, later))
+end
+
+
+fn failed_result(value: Int) -> Option<State::Failed>
+	Some(Failed)
+end
+
+fn retained_after_failed_if(first: Bool, second: Bool, accepted: Option<State::Ready>, later: Option<State::Closed>)
+	if first
+		accepted
+	else if second
+		failed_result("bad")
+	else
+		later
+	end
+end
+
+fn retained_after_failed_match(state: State, accepted: Option<State::Ready>, later: Option<State::Closed>)
+	match state
+		Ready => accepted
+		Failed => failed_result("bad")
+		Closed => later
+	end
+end
+
+fn observe_failed_recovery(first: Bool, second: Bool, state: State, accepted: Option<State::Ready>, later: Option<State::Closed>) -> ()
+	let if_result: Option<State::Ready | State::Closed> = retained_after_failed_if(first, second, accepted, later)
+	let match_result: Option<State::Ready | State::Closed> = retained_after_failed_match(state, accepted, later)
+	()
+end
+
+fn projected_rollback(first: Result<First::Ready, String>, closed: Second::Closed)
+	[first, Err(1), Ok(closed)]
+end
+
+fn observe_projected_rollback(first: Result<First::Ready, String>, closed: Second::Closed) -> ()
+	needs_int(projected_rollback(first, closed))
+end
+
+fn nested_failed_if(first: Bool, second: Bool, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>)
+	[if first
+		accepted
+	else if second
+		rejected
+	else
+		later
+	end, later]
+end
+
+fn nested_failed_match(state: State, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>)
+	[match state
+		Ready => accepted
+		Failed => rejected
+		Closed => later
+	end, later]
+end
+
+fn observe_nested_failure(first: Bool, second: Bool, state: State, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>) -> ()
+	needs_int(nested_failed_if(first, second, accepted, rejected, later))
+	needs_int(nested_failed_match(state, accepted, rejected, later))
+end
+
+type Pair<T>
+	Paired(T, T)
+end
+
+fn projected_local_forward(first: Option<Pair<Result<Int, String>>::Paired>, bad: Int) -> ()
+	let partial = Ok(1)
+	let values = [first, Some(Paired(partial, bad))]
+	let checked: Result<Int, Bool> = partial
+	()
+end
+
+fn projected_local_reverse(first: Option<Pair<Result<Int, String>>::Paired>, bad: Int) -> ()
+	let partial = Ok(1)
+	let values = [first, Some(Paired(bad, partial))]
+	let checked: Result<Int, Bool> = partial
+	()
+end
+
+fn projected_alias_rollback(first: Option<Pair<Result<Int, String>>::Paired>, bad: Int) -> ()
+	let partial = Ok(1)
+	let forwarded = partial
+	let values = [first, Some(Paired(forwarded, bad))]
+	let checked: Result<Int, Bool> = partial
+	()
+end
+
+fn projected_local_commit(first: Option<Pair<Result<Int, String>>::Paired>) -> ()
+	let partial = Ok(1)
+	let values = [first, Some(Paired(partial, partial))]
+	let checked: Result<Int, String> = partial
+	()
+end

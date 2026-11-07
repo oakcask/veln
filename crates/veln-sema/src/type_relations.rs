@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::semantic_model::Type;
+use crate::semantic_model::TypeArgs;
 
 #[cfg(test)]
 thread_local! {
@@ -279,10 +280,10 @@ impl<'a> Assignability<'a> {
         self,
         expected_name: &str,
         expected_identity: &str,
-        expected_args: &[Type],
+        expected_args: &TypeArgs,
         actual_name: &str,
         actual_identity: &str,
-        actual_args: &[Type],
+        actual_args: &TypeArgs,
     ) -> bool {
         if !same_type_identity(
             expected_name,
@@ -305,9 +306,9 @@ impl<'a> Assignability<'a> {
     fn named_args_are_assignable(
         self,
         expected_identity: &str,
-        expected_args: &[Type],
+        expected_args: &TypeArgs,
         actual_identity: &str,
-        actual_args: &[Type],
+        actual_args: &TypeArgs,
     ) -> bool {
         let compiler_variance = match (
             Type::is_compiler_covariant_identity(expected_identity),
@@ -319,6 +320,9 @@ impl<'a> Assignability<'a> {
         };
         if expected_args.len() != actual_args.len() {
             return false;
+        }
+        if expected_args.ptr_eq(actual_args) {
+            return true;
         }
         if expected_identity != actual_identity {
             return invariant_args_match(expected_args, actual_args);
@@ -368,9 +372,9 @@ impl<'a> Assignability<'a> {
 
 pub(crate) fn named_args_are_assignable_with_registry(
     expected_identity: &str,
-    expected_args: &[Type],
+    expected_args: &TypeArgs,
     actual_identity: &str,
-    actual_args: &[Type],
+    actual_args: &TypeArgs,
     adts: &dyn ParameterVarianceLookup,
 ) -> bool {
     Assignability::with_registry(adts).named_args_are_assignable(

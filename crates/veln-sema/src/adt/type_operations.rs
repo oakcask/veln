@@ -160,6 +160,27 @@ pub(crate) fn visit_type_arg_contributions_from_payload(
     }
 }
 
+pub(crate) fn visit_type_arg_indices_from_payload(
+    constructor: AdtConstructor<'_>,
+    payload_index: usize,
+    mut visit: impl FnMut(usize),
+) {
+    let Some(field) = constructor.variant.payload_fields.get(payload_index) else {
+        return;
+    };
+    match &field.ty {
+        super::descriptors::AdtPayloadType::TypeParameter(index) => visit(*index),
+        super::descriptors::AdtPayloadType::SelfType => {
+            for index in 0..constructor.descriptor.type_parameters.len() {
+                visit(index);
+            }
+        }
+        super::descriptors::AdtPayloadType::Concrete(template) => {
+            super::unification::visit_type_parameter_indices(template, &mut visit);
+        }
+    }
+}
+
 pub(crate) fn merge_type_holes(current: &mut Type, expected: &Type) {
     super::unification::merge_type_slot(current, expected);
 }

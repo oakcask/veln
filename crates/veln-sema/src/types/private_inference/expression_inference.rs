@@ -96,6 +96,35 @@ pub(super) fn infer_private_signature_expr_type_with_failures(
     adts: &AdtRegistry,
     failures: &mut usize,
 ) -> PrivateExprInference {
+    infer_private_signature_expr_type_with_expected_kind(
+        expr,
+        expected,
+        current_module,
+        current_package,
+        uses,
+        bindings,
+        signatures_by_path,
+        returns_by_path,
+        adts,
+        failures,
+        false,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn infer_private_signature_expr_type_with_expected_kind(
+    expr: &Expr,
+    expected: Option<&Type>,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    uses: &[UseDecl],
+    bindings: &mut PrivateBindings,
+    signatures_by_path: Option<&FunctionSignatureMap>,
+    returns_by_path: &BTreeMap<FunctionKey, Type>,
+    adts: &AdtRegistry,
+    failures: &mut usize,
+    expected_is_admitted: bool,
+) -> PrivateExprInference {
     let mut context = PrivateSignatureInferContext {
         current_module,
         current_package,
@@ -105,6 +134,7 @@ pub(super) fn infer_private_signature_expr_type_with_failures(
         returns_by_path,
         adts,
         failures,
+        expected_is_admitted,
     };
     if let Some(ty) = infer_private_leaf_type(expr) {
         return PrivateExprInference::successful(ty);
@@ -268,14 +298,15 @@ pub(super) fn infer_private_list_type(
         .and_then(Type::vec_part)
         .cloned()
         .unwrap_or(Type::Unknown);
+    let has_context = expected.and_then(Type::vec_part).is_some();
     let mut joined_items = None;
     for item in items {
-        let has_context = expected.and_then(Type::vec_part).is_some();
         infer_private_aggregate_component(
             item,
             has_context,
             &mut item_type,
             &mut joined_items,
+            true,
             context,
         );
     }
@@ -301,20 +332,23 @@ pub(super) fn infer_private_dict_type(
         });
     let mut joined_keys = None;
     let mut joined_values = None;
+    let has_key_context = !type_has_unknown(&key_type);
+    let has_value_context = !type_has_unknown(&value_type);
     for entry in entries {
-        let has_key_context = expected.and_then(Type::dict_parts).is_some();
         infer_private_aggregate_component(
             &entry.key,
             has_key_context,
             &mut key_type,
             &mut joined_keys,
+            true,
             context,
         );
         infer_private_aggregate_component(
             &entry.value,
-            has_key_context,
+            has_value_context,
             &mut value_type,
             &mut joined_values,
+            true,
             context,
         );
     }
@@ -335,14 +369,28 @@ fn infer_private_aggregate_component(
     has_context: bool,
     component_type: &mut Type,
     joined_components: &mut Option<crate::aggregate_type_join::AggregateTypeJoin>,
+    context_dependent_only: bool,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
-    let inferred_context = joined_components
-        .as_ref()
-        .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
-        .unwrap_or_else(|| component_type.clone());
-    let actual = context.infer_outcome(expr, item_type_unknown_as_none(&inferred_context));
+    context.bindings.begin_inference_transaction();
+    let inferred_context = private_aggregate_component_context(
+        expr,
+        component_type,
+        joined_components.as_ref(),
+        context_dependent_only,
+        context,
+    );
+    let admitted_context = !has_context
+        && context_dependent_only
+        && joined_components.is_some()
+        && inferred_context != Type::Unknown;
+    let actual = if admitted_context {
+        context.infer_admitted_outcome(expr, &inferred_context)
+    } else {
+        context.infer_outcome(expr, item_type_unknown_as_none(&inferred_context))
+    };
     if !actual.may_contribute {
+        context.bindings.rollback_inference_transaction();
         return;
     }
     let actual = actual.ty;
@@ -351,39 +399,96 @@ fn infer_private_aggregate_component(
     } else {
         actual
     };
-    if !has_context && joined_components.is_none() && *component_type != Type::Unknown {
-        *joined_components =
-            crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, component_type);
-    }
+    initialize_private_aggregate_join(
+        has_context,
+        component_type,
+        joined_components,
+        context_dependent_only,
+        context.adts,
+    );
     let joined = !has_context
         && joined_components
             .as_mut()
             .is_some_and(|joined| joined.try_join(context.adts, &actual));
-    let assignable = crate::type_relations::is_assignable_nested_with_registry(
+    if private_aggregate_component_rejected(
+        has_context,
+        joined_components.is_some(),
+        joined,
         &inferred_context,
         &actual,
         context.adts,
-    );
-    let rejected_here = inferred_context != Type::Unknown
-        && if has_context {
-            !assignable
-        } else if joined_components.is_some() {
-            !joined
-        } else {
-            !assignable
-        };
-    if rejected_here {
+    ) {
         *context.failures += 1;
+        context.bindings.rollback_inference_transaction();
         return;
     }
     if !joined && *component_type == Type::Unknown {
         *component_type = actual;
-        *joined_components = (!has_context)
-            .then(|| {
-                crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, component_type)
-            })
-            .flatten();
+        initialize_private_aggregate_join(
+            has_context,
+            component_type,
+            joined_components,
+            context_dependent_only,
+            context.adts,
+        );
     }
+    context.bindings.commit_inference_transaction();
+}
+
+fn private_aggregate_component_context(
+    expr: &Expr,
+    component_type: &Type,
+    joined_components: Option<&crate::aggregate_type_join::AggregateTypeJoin>,
+    context_dependent_only: bool,
+    context: &PrivateSignatureInferContext<'_, '_>,
+) -> Type {
+    match joined_components {
+        Some(joined) if context_dependent_only => joined.expression_admitted_context(
+            expr,
+            context.adts,
+            context.current_module,
+            context.uses,
+            &|name| context.projection_local_context(name),
+        ),
+        Some(joined) => joined.inference_type(),
+        None if context_dependent_only && type_has_unknown(component_type) => Type::Unknown,
+        None => component_type.clone(),
+    }
+}
+
+fn initialize_private_aggregate_join(
+    has_context: bool,
+    component_type: &Type,
+    joined_components: &mut Option<crate::aggregate_type_join::AggregateTypeJoin>,
+    context_dependent_only: bool,
+    adts: &AdtRegistry,
+) {
+    if !has_context
+        && joined_components.is_none()
+        && (!context_dependent_only || component_type != &Type::Unknown)
+    {
+        *joined_components =
+            crate::aggregate_type_join::AggregateTypeJoin::new(adts, component_type);
+    }
+}
+
+fn private_aggregate_component_rejected(
+    has_context: bool,
+    has_join: bool,
+    joined: bool,
+    inferred_context: &Type,
+    actual: &Type,
+    adts: &AdtRegistry,
+) -> bool {
+    if !has_context && has_join {
+        return !joined;
+    }
+    inferred_context != &Type::Unknown
+        && !crate::type_relations::is_assignable_nested_with_registry(
+            inferred_context,
+            actual,
+            adts,
+        )
 }
 
 pub(crate) fn infer_private_record_type(
@@ -422,6 +527,7 @@ pub(super) fn inferred_private_aggregate_member_type(
     adts: &AdtRegistry,
 ) -> Type {
     if expected != &Type::Unknown
+        && !type_has_unknown(expected)
         && crate::type_relations::is_assignable_with_registry(expected, &ty, adts)
     {
         expected.clone()
@@ -547,10 +653,33 @@ pub(crate) fn infer_private_signature_name_type(
     current_module: Option<&str>,
     current_package: Option<&str>,
     uses: &[UseDecl],
-    bindings: &[Binding],
+    bindings: &mut PrivateBindings,
     returns_by_path: &BTreeMap<FunctionKey, Type>,
     adts: &AdtRegistry,
 ) -> Type {
+    if let [name] = segments
+        && let Some(index) = bindings.iter().rposition(|binding| binding.name == *name)
+    {
+        let current = bindings[index].ty.clone();
+        if matches!(current, Type::Record(ref fields) if fields.is_empty())
+            && let Some(expected) = expected
+            && expected.dict_parts().is_some()
+            && !type_has_unknown(expected)
+        {
+            bindings.set_inferred_type(index, expected.clone());
+            return expected.clone();
+        }
+        if type_has_unknown(&current)
+            && let Some(expected) = expected
+            && !type_has_unknown(expected)
+        {
+            let mut constrained = current;
+            adt::merge_type_holes(&mut constrained, expected);
+            bindings.set_inferred_type(index, constrained.clone());
+            return constrained;
+        }
+        return current;
+    }
     if let Some(constructor) = private_nullary_constructor(
         segments,
         expected,
@@ -661,9 +790,31 @@ pub(crate) struct PrivateSignatureInferContext<'a, 'f> {
     pub(crate) returns_by_path: &'a BTreeMap<FunctionKey, Type>,
     pub(crate) adts: &'a AdtRegistry,
     pub(crate) failures: &'f mut usize,
+    pub(crate) expected_is_admitted: bool,
 }
 
 impl PrivateSignatureInferContext<'_, '_> {
+    pub(crate) fn projection_local_context(
+        &self,
+        name: &str,
+    ) -> Option<crate::aggregate_type_join::LocalContext> {
+        let current = &self
+            .bindings
+            .iter()
+            .rev()
+            .find(|binding| binding.name == name)?
+            .ty;
+        Some(
+            if matches!(current, Type::Record(fields) if fields.is_empty()) {
+                crate::aggregate_type_join::LocalContext::EmptyRecord
+            } else if type_has_unknown(current) {
+                crate::aggregate_type_join::LocalContext::UnknownBearing
+            } else {
+                crate::aggregate_type_join::LocalContext::Complete
+            },
+        )
+    }
+
     pub(crate) fn infer(&mut self, expr: &Expr, expected: Option<&Type>) -> Type {
         self.infer_outcome(expr, expected).ty
     }
@@ -674,7 +825,7 @@ impl PrivateSignatureInferContext<'_, '_> {
         expected: Option<&Type>,
     ) -> PrivateExprInference {
         let failure_count = *self.failures;
-        let mut outcome = infer_private_signature_expr_type_with_failures(
+        let mut outcome = infer_private_signature_expr_type_with_expected_kind(
             expr,
             expected,
             self.current_module,
@@ -685,6 +836,30 @@ impl PrivateSignatureInferContext<'_, '_> {
             self.returns_by_path,
             self.adts,
             self.failures,
+            false,
+        );
+        outcome.may_contribute &= *self.failures == failure_count;
+        outcome
+    }
+
+    pub(super) fn infer_admitted_outcome(
+        &mut self,
+        expr: &Expr,
+        expected: &Type,
+    ) -> PrivateExprInference {
+        let failure_count = *self.failures;
+        let mut outcome = infer_private_signature_expr_type_with_expected_kind(
+            expr,
+            Some(expected),
+            self.current_module,
+            self.current_package,
+            self.uses,
+            self.bindings,
+            self.signatures_by_path,
+            self.returns_by_path,
+            self.adts,
+            self.failures,
+            true,
         );
         outcome.may_contribute &= *self.failures == failure_count;
         outcome
@@ -695,7 +870,10 @@ impl PrivateSignatureInferContext<'_, '_> {
         expr: &Expr,
         expected: &Type,
     ) -> PrivateExprInference {
+        let expected_is_admitted = self.expected_is_admitted;
+        self.expected_is_admitted = false;
         let mut outcome = self.infer_outcome(expr, Some(expected));
+        self.expected_is_admitted = expected_is_admitted;
         let rejected_here = outcome.ty != Type::Unknown
             && !crate::type_relations::is_assignable_with_registry(
                 expected,
@@ -714,7 +892,10 @@ impl PrivateSignatureInferContext<'_, '_> {
         expr: &Expr,
         expected: &Type,
     ) -> PrivateExprInference {
+        let expected_is_admitted = self.expected_is_admitted;
+        self.expected_is_admitted = false;
         let mut outcome = self.infer_outcome(expr, Some(expected));
+        self.expected_is_admitted = expected_is_admitted;
         let rejected_here = outcome.ty != Type::Unknown
             && !crate::type_relations::is_assignable_nested_with_registry(
                 expected,

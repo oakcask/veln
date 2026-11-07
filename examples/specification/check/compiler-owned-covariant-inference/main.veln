@@ -1,0 +1,266 @@
+use marker as collision
+
+type State
+	Ready
+	Closed
+	Failed
+end
+
+pub type First = State
+pub type Second = State
+
+type Positive<T>
+	Present(T)
+end
+
+type Pair<T>
+	Paired(T, T)
+end
+
+type ConcreteWrap<T>
+	Built(Vec<T>)
+end
+
+type SelfWrap<T>
+	Nested(SelfWrap<T>)
+	Leaf(T)
+end
+
+fn option(first: Option<First::Ready>, second: Option<Second::Closed>)
+	[first, second]
+end
+
+fn option_reverse(first: Option<First::Ready>, second: Option<Second::Closed>)
+	[second, first]
+end
+
+fn option_base(narrow: Option<State::Ready>, wide: Option<State>)
+	[wide, narrow]
+end
+
+fn result(first: Result<Option<State::Ready>, List<State::Closed>>, second: Result<Option<State::Closed>, List<State::Failed>>)
+	[first, second]
+end
+
+fn result_reverse(first: Result<Option<State::Ready>, List<State::Closed>>, second: Result<Option<State::Closed>, List<State::Failed>>)
+	[second, first]
+end
+
+fn list(first: List<State::Ready>, second: List<State::Closed>)
+	[first, second]
+end
+
+fn vector(first: Vec<State::Ready>, second: Vec<State::Closed>)
+	[first, second]
+end
+
+fn constructed_vector()
+	[[Ready], [Closed]]
+end
+
+fn selected_vector(flag: Bool, first: Vec<State::Ready>, second: Vec<State::Closed>)
+	if flag
+		first
+	else
+		second
+	end
+end
+
+fn selected_constructed_vector(flag: Bool)
+	if flag
+		[Ready]
+	else
+		[Closed]
+	end
+end
+
+fn matched_option(flag: Bool, first: Option<State::Ready>, second: Option<State::Closed>)
+	match flag
+		true => first
+		false => second
+	end
+end
+
+fn paired_option(first: Option<State::Ready>, second: Option<State::Closed>)
+	Paired(first, second)
+end
+
+fn dictionary_complete_then_incomplete_value()
+	{1: [1], 2: []}
+end
+
+fn dictionary_incomplete_then_complete_value()
+	{2: [], 1: [1]}
+end
+
+fn dictionary_complete_then_incomplete_key()
+	{[1]: 1, []: 2}
+end
+
+fn dictionary_incomplete_then_complete_key()
+	{[]: 2, [1]: 1}
+end
+
+fn source_none_with_list_tail(ready: List<collision::Marker::Ready>)
+	[ready, Cons(collision::Marker::None, Nil)]
+end
+
+fn source_none_with_list_tail_reverse(ready: List<collision::Marker::Ready>)
+	[Cons(collision::Marker::None, Nil), ready]
+end
+
+fn source_nil_with_list_tail(ready: List<collision::Marker::Ready>)
+	[ready, Cons(collision::Marker::Nil, Nil)]
+end
+
+fn source_nil_with_list_tail_reverse(ready: List<collision::Marker::Ready>)
+	[Cons(collision::Marker::Nil, Nil), ready]
+end
+
+fn dictionary(first: Dict<Option<State::Ready>, Positive<State::Closed>>, second: Dict<Option<State::Closed>, Positive<State::Failed>>)
+	[second, first]
+end
+
+fn dictionary_forward(first: Dict<Option<State::Ready>, Positive<State::Closed>>, second: Dict<Option<State::Closed>, Positive<State::Failed>>)
+	[first, second]
+end
+
+fn completed_result_dictionary(first: Result<Int, String>)
+	{1: first, 2: Ok(1)}
+end
+
+fn completed_result_payload(first: Result<Int, String>)
+	Paired(first, Ok(1))
+end
+
+fn nested_completed_result_dictionary(first: Option<Result<Int, String>>)
+	{1: first, 2: Some(Ok(1))}
+end
+
+fn mixed_result(first: Result<First::Ready, String>, closed: Second::Closed)
+	[first, Ok(closed)]
+end
+
+fn mixed_result_reverse(first: Result<First::Ready, String>, closed: Second::Closed)
+	[Ok(closed), first]
+end
+
+fn mixed_dict(first: Dict<First::Ready, Vec<Int>>, closed: Second::Closed)
+	[first, {(closed): []}]
+end
+
+fn mixed_dict_reverse(first: Dict<First::Ready, Vec<Int>>, closed: Second::Closed)
+	[{(closed): []}, first]
+end
+
+fn mixed_result_payload(first: Result<First::Ready, String>, closed: Second::Closed)
+	Paired(Ok(closed), first)
+end
+
+fn mixed_result_selected(flag: Bool, first: Result<First::Ready, String>, closed: Second::Closed)
+	if flag
+		Ok(closed)
+	else
+		first
+	end
+end
+
+fn mixed_result_matched(flag: Bool, first: Result<First::Ready, String>, closed: Second::Closed)
+	match flag
+		true => Ok(closed)
+		false => first
+	end
+end
+
+fn nested_cons_without_annotation()
+	Cons(1, Cons(2, Nil))
+end
+
+fn collection_with_omitted_local()
+	let empty = []
+	[[1], empty]
+end
+
+fn option_with_omitted_local()
+	let empty = None
+	[Some(1), empty]
+end
+
+fn payload_with_omitted_local()
+	let empty = []
+	Paired([1], empty)
+end
+
+fn completed_collection_payload_forward(first: Pair<Vec<State::Ready>>)
+	[first, Paired([Closed], [])]
+end
+
+fn completed_collection_payload_reverse(first: Pair<Vec<State::Ready>>)
+	[Paired([Closed], []), first]
+end
+
+fn dictionary_with_omitted_local()
+	let empty = []
+	{1: [1], 2: empty}
+end
+
+fn empty_dictionary_with_omitted_local()
+	let empty = {}
+	[{1: 1}, empty]
+end
+
+fn selected_with_omitted_local(flag: Bool)
+	let empty = []
+	if flag
+		[1]
+	else
+		empty
+	end
+end
+
+fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option<Second::Closed>, wide_option: Option<State>, first_result: Result<Option<State::Ready>, List<State::Closed>>, second_result: Result<Option<State::Closed>, List<State::Failed>>, first_list: List<State::Ready>, second_list: List<State::Closed>, first_vector: Vec<State::Ready>, second_vector: Vec<State::Closed>, first_dict: Dict<Option<State::Ready>, Positive<State::Closed>>, second_dict: Dict<Option<State::Closed>, Positive<State::Failed>>, scalar_result: Result<Int, String>, mixed_dict_first: Dict<First::Ready, Vec<Int>>) -> ()
+	let option_result: Vec<Option<State::Ready | State::Closed>> = option(first_option, second_option)
+	let option_reverse_result: Vec<Option<State::Ready | State::Closed>> = option_reverse(first_option, second_option)
+	let option_base_result: Vec<Option<State>> = option_base(first_option, wide_option)
+	let result_result: Vec<Result<Option<State::Ready | State::Closed>, List<State::Closed | State::Failed>>> = result(first_result, second_result)
+	let result_reverse_result: Vec<Result<Option<State::Ready | State::Closed>, List<State::Closed | State::Failed>>> = result_reverse(first_result, second_result)
+	let list_result: Vec<List<State::Ready | State::Closed>> = list(first_list, second_list)
+	let vector_result: Vec<Vec<State::Ready | State::Closed>> = vector(first_vector, second_vector)
+	let constructed_vector_result: Vec<Vec<State::Ready | State::Closed>> = constructed_vector()
+	let selected_vector_result: Vec<State::Ready | State::Closed> = selected_vector(flag, first_vector, second_vector)
+	let selected_constructed_vector_result: Vec<State::Ready | State::Closed> = selected_constructed_vector(flag)
+	let matched_option_result: Option<State::Ready | State::Closed> = matched_option(flag, first_option, second_option)
+	let paired_option_result: Pair<Option<State::Ready | State::Closed>>::Paired = paired_option(first_option, second_option)
+	let dictionary_complete_then_incomplete_value_result: Dict<Int, Vec<Int>> = dictionary_complete_then_incomplete_value()
+	let dictionary_incomplete_then_complete_value_result: Dict<Int, Vec<Int>> = dictionary_incomplete_then_complete_value()
+	let dictionary_complete_then_incomplete_key_result: Dict<Vec<Int>, Int> = dictionary_complete_then_incomplete_key()
+	let dictionary_incomplete_then_complete_key_result: Dict<Vec<Int>, Int> = dictionary_incomplete_then_complete_key()
+	let marker_ready: List<collision::Marker::Ready> = Cons(collision::Marker::Ready, Nil)
+	let source_none_with_list_tail_result: Vec<List<collision::Marker::None | collision::Marker::Ready>> = source_none_with_list_tail(marker_ready)
+	let source_none_with_list_tail_reverse_result: Vec<List<collision::Marker::None | collision::Marker::Ready>> = source_none_with_list_tail_reverse(marker_ready)
+	let source_nil_with_list_tail_result: Vec<List<collision::Marker::Nil | collision::Marker::Ready>> = source_nil_with_list_tail(marker_ready)
+	let source_nil_with_list_tail_reverse_result: Vec<List<collision::Marker::Nil | collision::Marker::Ready>> = source_nil_with_list_tail_reverse(marker_ready)
+	let dictionary_result: Vec<Dict<Option<State::Ready | State::Closed>, Positive<State::Closed | State::Failed>>> = dictionary(first_dict, second_dict)
+	let dictionary_forward_result: Vec<Dict<Option<State::Ready | State::Closed>, Positive<State::Closed | State::Failed>>> = dictionary_forward(first_dict, second_dict)
+	let completed_result_dictionary_result: Dict<Int, Result<Int, String>> = completed_result_dictionary(scalar_result)
+	let completed_result_payload_result: Pair<Result<Int, String>>::Paired = completed_result_payload(scalar_result)
+	let nested_completed_result_dictionary_result: Dict<Int, Option<Result<Int, String>>> = nested_completed_result_dictionary(Some(scalar_result))
+	let mixed_result_result: Vec<Result<State, String>> = mixed_result(Ok(Ready), Closed)
+	let mixed_result_reverse_result: Vec<Result<State, String>> = mixed_result_reverse(Ok(Ready), Closed)
+	let mixed_dict_result: Vec<Dict<State, Vec<Int>>> = mixed_dict(mixed_dict_first, Closed)
+	let mixed_dict_reverse_result: Vec<Dict<State, Vec<Int>>> = mixed_dict_reverse(mixed_dict_first, Closed)
+	let mixed_result_payload_result: Pair<Result<State, String>>::Paired = mixed_result_payload(Ok(Ready), Closed)
+	let mixed_result_selected_result: Result<State, String> = mixed_result_selected(flag, Ok(Ready), Closed)
+	let mixed_result_matched_result: Result<State, String> = mixed_result_matched(flag, Ok(Ready), Closed)
+	let nested_cons_result: List<Int> = nested_cons_without_annotation()
+	let collection_with_omitted_local_result: Vec<Vec<Int>> = collection_with_omitted_local()
+	let option_with_omitted_local_result: Vec<Option<Int>> = option_with_omitted_local()
+	let payload_with_omitted_local_result: Pair<Vec<Int>>::Paired = payload_with_omitted_local()
+	let first_pair: Pair<Vec<State::Ready>> = Paired(first_vector, first_vector)
+	let completed_collection_payload_forward_result: Vec<Pair<Vec<State::Ready | State::Closed>>> = completed_collection_payload_forward(first_pair)
+	let completed_collection_payload_reverse_result: Vec<Pair<Vec<State::Ready | State::Closed>>> = completed_collection_payload_reverse(first_pair)
+	let dictionary_with_omitted_local_result: Dict<Int, Vec<Int>> = dictionary_with_omitted_local()
+	let empty_dictionary_with_omitted_local_result: Vec<Dict<Int, Int>> = empty_dictionary_with_omitted_local()
+	let selected_with_omitted_local_result: Vec<Int> = selected_with_omitted_local(flag)
+	()
+end

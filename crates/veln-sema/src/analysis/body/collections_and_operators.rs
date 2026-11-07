@@ -115,18 +115,7 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
     ) -> Type {
         let diagnostic_count = self.diagnostics.len();
-        if entries.is_empty()
-            && let Some(expected) = expected
-            && expected.ty.dict_parts().is_some()
-            && type_contains_unknown(&expected.ty)
-        {
-            self.push_ambiguous_empty_collection_type(
-                expr.node_id,
-                expr.span.clone(),
-                "Dict",
-                &expected.ty,
-            );
-        }
+        self.check_ambiguous_empty_dict(expr, entries, expected);
         let (expected_key, expected_value) = expected
             .and_then(|expected| expected.ty.dict_parts())
             .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
@@ -162,22 +151,51 @@ impl<'a> FunctionChecker<'a> {
                 "dict_value",
             );
         }
-        if let Some(joined) = joined_keys {
-            key_type = joined.result_type();
-        }
-        if let Some(joined) = joined_values {
-            value_type = joined.result_type();
-        }
-        let actual = Type::dict(key_type, value_type);
+        key_type = joined_keys.map_or(key_type, |joined| joined.result_type());
+        value_type = joined_values.map_or(value_type, |joined| joined.result_type());
+        self.materialize_dict_type(
+            key_type,
+            value_type,
+            expected,
+            self.diagnostics.len() != diagnostic_count,
+        )
+    }
+
+    fn check_ambiguous_empty_dict(
+        &mut self,
+        expr: &Expr,
+        entries: &[DictEntry],
+        expected: Option<&ExpectedType>,
+    ) {
         if let Some(expected) = expected
+            && entries.is_empty()
             && expected.ty.dict_parts().is_some()
-            && (self.diagnostics.len() != diagnostic_count
-                || !type_contains_variant_refinement(&actual))
+            && type_contains_unknown(&expected.ty)
         {
-            expected.ty.clone()
-        } else {
-            actual
+            self.push_ambiguous_empty_collection_type(
+                expr.node_id,
+                expr.span.clone(),
+                "Dict",
+                &expected.ty,
+            );
         }
+    }
+
+    fn materialize_dict_type(
+        &self,
+        key_type: Type,
+        value_type: Type,
+        expected: Option<&ExpectedType>,
+        diagnostics_changed: bool,
+    ) -> Type {
+        let actual = Type::dict(key_type, value_type);
+        expected
+            .filter(|expected| {
+                expected.ty.dict_parts().is_some()
+                    && !type_contains_unknown(&expected.ty)
+                    && (diagnostics_changed || !type_contains_variant_refinement(&actual))
+            })
+            .map_or(actual, |expected| expected.ty.clone())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -194,6 +212,7 @@ impl<'a> FunctionChecker<'a> {
         constraint: &'static str,
     ) -> Type {
         let item_expected = self.dict_member_expected(
+            item,
             current_type,
             joined_type.as_ref(),
             contextual_type,
@@ -202,8 +221,10 @@ impl<'a> FunctionChecker<'a> {
             origin_message,
         );
         let item_diagnostic_count = self.diagnostics.len();
+        self.begin_binding_inference_transaction();
         let actual = self.infer_expr(item, Some(&item_expected));
         if self.diagnostics.len() != item_diagnostic_count {
+            self.rollback_binding_inference_transaction();
             return current_type.clone();
         }
         let aggregate = dict_member_aggregate_type(
@@ -224,6 +245,11 @@ impl<'a> FunctionChecker<'a> {
             joined,
             constraint,
         );
+        if self.diagnostics.len() != item_diagnostic_count {
+            self.rollback_binding_inference_transaction();
+            return current_type.clone();
+        }
+        self.commit_binding_inference_transaction();
         if current_type == &Type::Unknown {
             if !has_contextual_type {
                 *joined_type = AggregateTypeJoin::new(&self.environment.adts, &aggregate);
@@ -234,8 +260,10 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn dict_member_expected(
         &self,
+        item: &Expr,
         current_type: &Type,
         joined_type: Option<&AggregateTypeJoin>,
         contextual_type: &Type,
@@ -243,21 +271,35 @@ impl<'a> FunctionChecker<'a> {
         dict_expr: &Expr,
         origin_message: &'static str,
     ) -> ExpectedType {
-        let inferred_context = joined_type
-            .map(AggregateTypeJoin::inference_type)
-            .unwrap_or_else(|| current_type.clone());
-        let item_type = if inferred_context == Type::Unknown {
+        let item_type = if contextual_type != &Type::Unknown {
             contextual_type.clone()
+        } else if let Some(joined) = joined_type {
+            joined.expression_admitted_context(
+                item,
+                &self.environment.adts,
+                self.function.module_name.as_deref(),
+                &self.resolution_uses,
+                &|name| self.projection_local_context(name),
+            )
+        } else if type_contains_unknown(current_type) {
+            Type::Unknown
         } else {
-            inferred_context
+            current_type.clone()
         };
-        collection_item_expected(
+        let admitted = contextual_type == &Type::Unknown
+            && joined_type.is_some()
+            && item_type != Type::Unknown;
+        let mut expected = collection_item_expected(
             item_type,
             expected,
             dict_expr.node_id,
             dict_expr.span.clone(),
             origin_message,
-        )
+        );
+        if admitted {
+            expected.source = ExpectedTypeSource::AdmittedAggregate;
+        }
+        expected
     }
 
     fn join_dict_member(

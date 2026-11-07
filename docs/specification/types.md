@@ -219,16 +219,17 @@ checking. An explicitly annotated member keeps its own declared presentation
 while the group retains one feasible match domain.
 
 Non-empty `Vec<T>` and `Dict<K, V>` literals infer their element, key, and
-value positions from every successfully typed contribution. Constructor
-refinements of the same resolved ADT and compatible generic arguments join
-into a declaration-ordered variant set, independent of source order. An
-unresolved generic argument can become concrete from another contribution;
-after it is concrete, later contributions must have the same argument. A join
-containing every declared variant, or a join of a refinement and its base ADT,
-becomes the base ADT. A contribution that produces its own diagnostic does not
-change the accumulated type, so a later successful contribution joins with
-only the preceding successful facts. Other conflicting facts remain focused
-`type.mismatch` diagnostics at the incompatible element, key, or value.
+value positions from every successfully typed contribution. Same-constructor
+compiler-owned immutable types recursively join every argument. Source-ADT
+arguments recursively join only where checked variance metadata marks the
+parameter covariant; other classifications and unavailable metadata require
+exact arguments. Constructor refinements join into a declaration-ordered
+variant set, independent of source order. A join containing every declared
+variant, or a join of a refinement and its base ADT, becomes the base ADT. A
+contribution that produces its own diagnostic does not change the accumulated
+type, so a later successful contribution joins with only the preceding
+successful facts. Other conflicting facts remain focused `type.mismatch`
+diagnostics at the incompatible element, key, or value.
 
 When a private non-exported helper omits parameter or return annotations,
 same-module concrete call sites may constrain the helper's single monomorphic
@@ -611,16 +612,21 @@ independently.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved
-and identical. The union is independent of arm order and renders in ADT
-declaration order. A refinement joined with its base ADT, or a union containing
-every declared variant, produces the base ADT. Once the first refinement starts
-such a join, later arm results are resolved independently before they contribute
-to it. The join does not resolve an ambiguous constructor, infer a missing or
-nested unknown generic argument, or supply an expected type to a sibling arm.
+and the corresponding arguments can recursively join under the
+same-constructor rules below. The union is independent of arm order and renders
+in ADT declaration order. A refinement joined with its base ADT, or a union
+containing every declared variant, produces the base ADT. Once the first
+refinement starts such a join, later arm results are resolved independently
+before they contribute to it. The root-refinement join does not resolve an
+ambiguous constructor, complete a missing or nested unknown generic argument,
+or supply an expected type to a sibling arm.
 An explicit enclosing expected type continues to flow to every arm. A later
 result that cannot join reports the ordinary compatibility diagnostic against
-the base ADT. That failure abandons the finite join: recovery uses the base ADT,
-and a later compatible refinement does not resume the partial join.
+the base ADT. A failed compiler-owned contribution with the same root leaves
+the finite join unchanged so a later compatible result can continue it. A
+result with a different root or a source-ADT type that cannot join abandons the
+finite join: recovery uses the base ADT, and a later compatible refinement does
+not resume it.
 When the first typed arm cannot start an ADT-refinement join, it supplies the
 initial result type for the existing compatibility and mismatch rules. When
 that type is a concrete base ADT, it supplies context to later arms, including
@@ -629,11 +635,22 @@ an otherwise ambiguous generic constructor. The result remains the base ADT.
 `if` and `else if` conditions are checked with expected type `Bool`. A
 non-`Bool` condition reports `type.mismatch` at the condition expression.
 Branch body expressions share the expected result type when one is available.
-Without one, branch results use the same symmetric ADT-refinement join as
-`match`; all other combinations retain the compatibility behavior described
-above. Typed holes in conditions therefore receive `Bool`. A hole in a branch
-receives the enclosing expected result type when one exists. A result join does
-not itself provide that expectation. The checked control-flow cases are in
+Without one, branch results use the same recursive aggregate join as `match`,
+including compiler-owned immutable constructors and checked covariant
+source-ADT parameters. Typed holes in conditions therefore receive `Bool`. A
+hole in a branch receives the enclosing expected result type when one exists.
+A branch or match arm that emits a diagnostic does not contribute its result
+type to an inferred control-flow join. Later successful results continue from
+the last admitted join state, so the inferred result does not retain a nominal
+return type from the failed expression.
+A root-refinement join does not provide that expectation. A join whose root is
+an unrefined compiler-owned immutable type can provide argument-specific
+context to a later sibling. An incomplete nested refinement blocks context
+only for its affected type argument; complete sibling arguments remain
+available independently. Other unrefined named roots provide sibling context
+only when their complete joined type is available. The join does not revisit
+an earlier branch that lacked that context. The checked control-flow
+cases are in
 [`adt-variant-refinement-control-flow-result-joins`](../../examples/specification/check/adt-variant-refinement-control-flow-result-joins/)
 and its
 [`diagnostic companion`](../../examples/specification/check/adt-variant-refinement-control-flow-result-joins-diagnostics/).
@@ -1387,29 +1404,88 @@ failed expression leaves the previously accumulated join unchanged for later
 successful contributions and for an inferred private result. This exclusion
 also applies when a call argument or constructor payload fails but recovery can
 still identify the call or constructor's refined result type.
+It also applies when an `if` or `match` has an incompatible branch or arm: the
+control-flow expression's recovery type does not contribute to an enclosing
+aggregate or omitted private result.
 
 When contributions have the same resolved source-ADT constructor and arity,
 context-free inference reads that declaration's checked classifications in
 parameter order. A covariant argument recursively uses the same bounded join,
-including through another source ADT. Invariant, irrelevant, and contravariant
-arguments must match exactly. Missing, invalid, inaccessible, or ambiguous
-classification metadata also requires exact arguments. Local and imported
-declarations use the same rule because lookup uses resolved nominal identity
-rather than displayed spelling.
+including through source ADTs and compiler-owned immutable constructors.
+Invariant, irrelevant, and contravariant arguments must match exactly.
+Missing, invalid, inaccessible, or ambiguous classification metadata also
+requires exact arguments. Local and imported declarations use the same rule
+because lookup uses resolved nominal identity rather than displayed spelling.
 
-Without a concrete expected component or result type, assignment covariance
-does not join unequal arguments of compiler-owned immutable constructors. For
-example, `Option<State::Ready>` and `Option<State>` are incompatible
-contributions to one inferred collection position in either source order. The
-same boundary applies to `Result`, `List`, `Vec`, and `Dict` arguments, repeated
-generic constructor payloads, and unannotated `if` or `match` results. The
-incompatible contribution reports `type.mismatch` against the type accumulated
-from preceding successful contributions. A concrete expected type instead
-checks every contribution by ordinary assignment compatibility and can accept
-the covariant widening.
+Same-constructor contributions to compiler-owned immutable `Option<T>`,
+`Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>` recursively join every
+argument. `Result` joins its value and error arguments independently, and
+`Dict` joins its key and value arguments independently. The rule applies to
+collection elements, repeated generic constructor payloads, and unannotated
+`if` or `match` results. Each recursive join can include another compiler-owned
+constructor or a source-ADT variant refinement. A concrete expected type still
+checks each contribution by ordinary assignment compatibility.
+
+Later successful contributions can complete still-unknown slots in an earlier
+admitted expression. Later context does not re-resolve an earlier expression
+that emitted a diagnostic. Independently known covariant arguments remain
+available while sibling arguments are pending. An independently inferred payload
+does not erase an argument required by another payload. For example,
+`Cons(1, Cons(2, Nil))` retains the integer argument while the nested `Nil`
+receives `List<Int>` context. Repeated direct constructor payloads and
+dictionary members that have complete types are inferred without using the
+partial join as their expected type. A complete local reference follows the
+same rule. These contributions can therefore widen the join instead of being
+forced to equal its current refinement. When the join root is an unrefined
+compiler-owned immutable type, the accumulated type can provide
+argument-specific context to a later context-dependent expression.
+This includes a nullary generic constructor or a payload-carrying constructor
+whose payloads do not determine every generic argument, such as
+`Ok(1)` without an independently known error type. Independently inferred
+generic arguments keep their own presentation; the admitted context fills only
+the arguments that remain unknown. An incomplete nested refinement domain blocks
+context only for its affected argument. Complete sibling arguments are inferred
+or completed independently. Dictionary keys and values maintain separate joins.
+A partial dictionary contribution can therefore retain a known key while its
+value is pending, or a known value while its key is pending. A later
+contribution can complete the pending argument without rechecking the earlier
+expression. The same argument-level progress applies when a partial `Result`
+precedes the contribution that supplies its other argument.
+For `Paired([Closed], [])` under an admitted `Pair<Vec<State::Ready>>`, the
+complete `[Closed]` payload widens the argument independently. The empty
+sibling then receives `Vec<State::Closed>` context from that payload. An outer
+aggregate can join the resulting pair with the admitted pair in either order.
+For repeated direct constructor payloads, a partial type admitted without a
+diagnostic can still have an `unknown` argument made
+concrete by a later contribution under the ordinary inference rule above. An
+omitted local reference receives this admitted context only when its type still
+has an `unknown` part. The context fills those parts without replacing its
+known arguments. Thus `let xs = []` followed by `[[1], xs]` fixes `xs` as
+`Vec<Int>` and infers `Vec<Vec<Int>>`; the same rule applies in dictionary
+members, control-flow results, and repeated constructor payloads. An omitted
+`{}` local receives admitted context only when that context is a complete
+`Dict<K, V>`; otherwise the initializer remains an empty record. If
+the original check instead reports an ambiguity or a mismatch, later facts do
+not cause that expression to be checked again. The failed expression leaves the
+accumulated join unchanged under the transactional rule below. An independently
+available concrete expected type still checks the contribution by ordinary
+assignment compatibility.
+
+Presentation reconciliation applies at each joined compiler-owned constructor.
+One alias preference and canonical spelling retain that alias. Different alias
+preferences for the same compiler-owned identity make the inferred node use
+the canonical `Option`, `Result`, `List`, `Vec`, or `Dict` spelling. The result
+is independent of contribution order, and the presentation choice does not
+change the joined arguments or resolved identity. The checked
+[`compiler-owned alias presentation`](../../examples/specification/check/compiler-owned-covariant-alias-presentation/)
+case covers the conflicting-alias result in both contribution orders.
 
 The join applies when repeated constructor payloads use a type parameter
-directly and those direct occurrences contribute complete source-ADT types.
+directly and those direct occurrences contribute complete types supported by
+the bounded join, including source ADTs and compiler-owned immutable
+constructors. Each complete direct occurrence is inferred independently before
+it contributes. A later direct context-dependent expression instead uses the
+accumulated concrete argument as its expected type when one is available.
 If the same parameter also occurs inside a named payload, that nested
 occurrence establishes an exact inference constraint independently of the
 named constructor's assignment or inference variance. For example, given
@@ -1437,10 +1513,57 @@ a presentation conflict. The checked
 [`invariant alias presentation diagnostic`](../../examples/specification/check/adt-variant-refinement-invariant-alias-presentation-diagnostics-human/)
 case covers the canonical result for both contribution orders.
 
-A source-ADT covariant join is transactional across all arguments. If a later
-nested argument cannot join, the failed contribution does not change an
-earlier argument, a refinement set, or alias presentation. Permuting successful
-contributions produces the same resolved type and presentation.
+A same-constructor covariant join is transactional across all arguments. If a
+later nested argument cannot join, the join validates the complete contribution
+before changing any admitted argument, refinement set, alias presentation, or
+still-unknown argument of an omitted local, including through a direct local
+alias. The aggregate surface then applies its recovery rule. Collections,
+dictionaries, and repeated constructor payloads retain the last admitted state,
+so a later valid contribution can continue the join. An unannotated `if` or
+`match` retains that state after a failed same-root compiler-owned contribution,
+but a failed source-ADT contribution abandons its finite control-flow join as
+described above. Permuting successful contributions produces the same resolved
+type and presentation. Atomic validation applies to compiler-owned constructors
+and covariant source-ADT parameters; continuation after failure applies only
+when the aggregate surface retains the join.
+
+Projecting an admitted aggregate context through nested compiler-owned
+constructors has bounded linear total work and retained state. The deterministic
+workload nests `Result<Int, String>` inside `D` `Option` arguments, then joins
+an independently typed value with `D` nested `Some` calls around `Ok(1)`. It
+measures both ordinary body inference and omitted private-result inference at
+depths 32, 64, and 128. The counter includes input type scans, expression and
+payload-parameter edges, cloned type nodes, and materialized type nodes,
+including inference-template materialization. It also records maximum retained
+projection state. For adjacent measurements `W(D)` and `W(2D)`, the check
+requires total work to remain within a constant allowance of `2 * W(D)` and
+retained state to grow at most linearly. A separate 16, 32, and 64 parameter
+workload places every distinct parameter in one constructor payload and applies
+the same adjacent-size rule. Another workload places `T` below 16, 32, and 64
+nested `Option` arguments in a source-ADT payload, then projects the concrete
+`Int` argument through that payload in both inference pipelines. Its total work
+and retained type nodes obey the same adjacent-size linear bound. Elapsed time
+is observational and is not an acceptance threshold.
+
+Complementary workloads project repeated list and dictionary members through
+wide record and function contexts. Wrapped workloads put each structural
+context behind one direct source-ADT payload and repeat `Boxed({})` or
+`Boxed(None)`. Outer-sibling workloads instead place one wide admitted value
+before separate `Boxed({})` or `Boxed(None)` contributions to exercise every
+aggregate projection call. Each workload compares 4, 8, and 16 members or
+siblings at a fixed context width, context widths 4, 8, and 16 at a fixed count,
+and both axes growing together. Input-scan accounting classifies shared named
+argument storage once, matching production reuse instead of traversing the
+same context for every sibling. The retained-state metric also counts that
+shared storage once. In both inference pipelines, each adjacent size may at
+most double each prior metric, with allowances of 128 for total work and 16
+each for retained state and structural merge probes. The wrapped cases also
+require repeated results to reuse their shared context. A direct structural-
+merge workload compares record and function widths 16, 32, and 64; its first
+measurement performs at least 16 probes, and each adjacent measurement permits
+at most twice the prior probe count plus 2. These checks bound projection
+growth by the sum of contribution count and context width instead of their
+product. Elapsed time is observational and is not an acceptance threshold.
 
 For a source ADT nested through `D` covariant source-ADT arguments, the join
 retains `D + 1` state nodes. Accepting another equally shaped contribution
@@ -1486,8 +1609,8 @@ classification. A direct payload such as `Box<A>` makes `A` covariant, so the
 corresponding inferred `Box<State::Ready>` also widens to `Box<State>`. A
 parameter used in both input and output positions is invariant and rejects the
 same widening. Context-free aggregate inference consumes checked source-ADT
-covariance only; it does not infer a contravariant meet or structural
-record/function join, and compiler-owned constructor arguments remain exact.
+covariance and the covariance of compiler-owned immutable constructors. It
+does not infer a contravariant meet or structural record or function join.
 
 ### Source ADT parameter classifications
 
@@ -1532,6 +1655,22 @@ contravariant, `Fixed<T>` with both payloads is invariant, and a parameter not
 used by any variant of `Ignored<T>` is irrelevant. Nesting any of those types
 composes its classification with the enclosing record, function, or named
 constructor position.
+
+Variance production for a nested covariant `Pair` comb has bounded linear
+instrumented work. The scaling check compares nesting depths 128 and 256.
+When the depth doubles, the factor-evaluation count and dependency-edge count
+may each grow by at most twice the smaller count plus eight. Elapsed time is
+observational and is not an acceptance threshold.
+
+Assignment variance lookup keeps declaration construction and nested
+comparison work additive. The scaling check combines 256 and 512 public aliases
+with source-ADT nesting depths 256 and 512. Doubling only the alias count may at
+most double registry-construction candidate scans plus eight and does not
+increase assignment index lookups. Doubling only the nesting depth may at most
+double assignment index lookups plus two and does not increase construction
+scans. With both dimensions doubled, each count equals its corresponding
+single-dimension result, and their sum may at most double the baseline sum plus
+ten. Elapsed time is observational and is not an acceptance threshold.
 
 At a direct assignment, argument, or result boundary, variant assignability is
 defined as follows:
@@ -1654,6 +1793,11 @@ Context-free covariant joins for local and imported source ADTs are checked by
 the accepted
 [`source-adt-variance-inference`](../../examples/specification/check/source-adt-variance-inference/)
 case.
+Recursive compiler-owned joins, argument independence, contribution order,
+and control-flow inference are checked by the accepted
+[`compiler-owned-covariant-inference`](../../examples/specification/check/compiler-owned-covariant-inference/)
+case. Transactional exclusion of an unavailable nested join is checked by its
+[`diagnostic companion`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/).
 
 Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and
@@ -1727,9 +1871,10 @@ imported declaration with the same displayed name cannot acquire it. This
 separation also applies to a same-spelled source declaration in the root
 module and to aliases of that declaration. Source aliases instead retain their
 target declaration's checked classifications. The rule does not relate distinct
-nominal constructors and does not coerce runtime values. It applies only where
-a concrete expected type exists; it does not widen a context-free generic join
-or constructor inference.
+nominal constructors and does not coerce runtime values. Without a concrete
+expected type, the same covariance recursively joins arguments only for
+same-constructor contributions under the inference rules above. Other
+context-free joins remain unavailable.
 Recovery still lets `unknown` match a complete argument. `Path` and `String` are distinct named types at
 assignment boundaries; the runtime path representation is not source-visible.
 Function assignment checks fixed parameter count, parameter types, variadic
@@ -1823,10 +1968,11 @@ Dictionary literals infer `Dict<K, V>` from their expected type when available.
 An empty `{}` expression becomes an empty dictionary only when the expected type
 is `Dict<K, V>`. Without an expected dictionary type, the first entry supplies
 the initial key and value contributions. Each later entry contributes to the
-same positions. Compatible same-ADT refinements join as described above;
-otherwise, an incompatible key or value reports `type.mismatch`. A dictionary
-key may be any implemented expression; the parser only reserves a first bare
-`name: value` entry for record literals.
+same positions. Key and value positions independently use the recursive
+same-constructor covariant join described above. When that bounded join and
+ordinary compatibility are both unavailable, an incompatible key or value
+reports `type.mismatch`. A dictionary key may be any implemented expression;
+the parser only reserves a first bare `name: value` entry for record literals.
 
 Record field access `expr.name` requires the base expression to have a record
 type containing `name`. The access has the declared field type. Accessing a
@@ -1925,6 +2071,10 @@ case covers that boundary. Schema predicates do not accept `%`.
 - Source-ADT covariant inference, checked variance parameter order, and
   resolved declaration identity:
   `crates/veln-sema/src/tests/source_adt_variance_inference.rs`.
+- Source-ADT variance production and assignment lookup scaling:
+  `crates/veln-sema/src/adt/tests/variance.rs`, in
+  `nested_pair_comb_has_linear_factor_and_dependency_work` and
+  `assignment_variance_lookup_work_is_additive_in_aliases_and_nesting`.
 - Invalid variant-refinement base recovery scaling:
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results.rs`.
 - Direct variant-refinement visibility, union-base comparison and diagnostic

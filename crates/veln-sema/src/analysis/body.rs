@@ -206,7 +206,7 @@ fn inferred_control_flow_recovery_type(ty: &Type) -> Type {
             identity,
             args,
             ..
-        } => Type::resolved_named(name, identity, args.clone()),
+        } => Type::resolved_named(name, identity, args.to_vec()),
         ty => ty.clone(),
     }
 }
@@ -216,7 +216,10 @@ fn inferred_aggregate_member_type_with_expected(
     expected: &Type,
     adts: &crate::adt::registry::AdtRegistry,
 ) -> Type {
-    if expected != &Type::Unknown && is_assignable_with_registry(expected, &ty, adts) {
+    if expected != &Type::Unknown
+        && !type_contains_unknown(expected)
+        && is_assignable_with_registry(expected, &ty, adts)
+    {
         expected.clone()
     } else {
         ty
@@ -251,6 +254,8 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) annotation_owner_prevalidated: bool,
     pub(super) declaration_types_are_quarantined: bool,
     pub(super) bindings: Vec<Binding>,
+    binding_inference_transactions: Vec<(usize, usize)>,
+    binding_inference_changes: Vec<BindingInferenceChange>,
     binding_positions: HashMap<String, Vec<usize>>,
     next_stable_record_root: usize,
     next_transparent_alias_group: usize,
@@ -281,6 +286,12 @@ struct TransparentAliasGroup {
     feasible_type: Type,
     active_refinements: Vec<Type>,
     member_count: usize,
+}
+
+struct BindingInferenceChange {
+    binding_index: usize,
+    binding_type: Type,
+    alias_group: Option<(usize, Type)>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -604,6 +615,8 @@ impl<'a> FunctionChecker<'a> {
             annotation_owner_prevalidated,
             declaration_types_are_quarantined,
             bindings: Vec::new(),
+            binding_inference_transactions: Vec::new(),
+            binding_inference_changes: Vec::new(),
             binding_positions: HashMap::new(),
             next_stable_record_root: 0,
             next_transparent_alias_group: 0,
@@ -755,11 +768,64 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn set_binding_type(&mut self, index: usize, ty: Type) {
+        if self
+            .binding_inference_transactions
+            .last()
+            .is_some_and(|(_, binding_count)| index < *binding_count)
+        {
+            let alias_group = self.bindings[index].transparent_alias_group.map(|group| {
+                (
+                    group,
+                    self.transparent_alias_groups[group].feasible_type.clone(),
+                )
+            });
+            self.binding_inference_changes.push(BindingInferenceChange {
+                binding_index: index,
+                binding_type: self.bindings[index].ty.clone(),
+                alias_group,
+            });
+        }
         self.bindings[index].ty = ty.clone();
         if let Some(group) = self.bindings[index].transparent_alias_group {
             let feasible_type = &mut self.transparent_alias_groups[group].feasible_type;
             if is_assignable_with_registry(&ty, feasible_type, &self.environment.adts) {
                 adt::merge_type_holes(feasible_type, &ty);
+            }
+        }
+    }
+
+    pub(super) fn begin_binding_inference_transaction(&mut self) {
+        self.binding_inference_transactions
+            .push((self.binding_inference_changes.len(), self.bindings.len()));
+    }
+
+    pub(super) fn commit_binding_inference_transaction(&mut self) {
+        let (start, _) = self
+            .binding_inference_transactions
+            .pop()
+            .expect("binding inference transaction");
+        if let Some((_, parent_binding_count)) = self.binding_inference_transactions.last() {
+            let changes = self.binding_inference_changes.split_off(start);
+            self.binding_inference_changes.extend(
+                changes
+                    .into_iter()
+                    .filter(|change| change.binding_index < *parent_binding_count),
+            );
+        } else {
+            self.binding_inference_changes.clear();
+        }
+    }
+
+    pub(super) fn rollback_binding_inference_transaction(&mut self) {
+        let (start, _) = self
+            .binding_inference_transactions
+            .pop()
+            .expect("binding inference transaction");
+        let changes = self.binding_inference_changes.split_off(start);
+        for change in changes.into_iter().rev() {
+            self.bindings[change.binding_index].ty = change.binding_type;
+            if let Some((group, feasible_type)) = change.alias_group {
+                self.transparent_alias_groups[group].feasible_type = feasible_type;
             }
         }
     }
@@ -1101,7 +1167,7 @@ fn transparent_alias_presented_type(presentation: &Type, fact: &Type) -> Type {
             Type::resolved_variant_refinement_shared(
                 name,
                 identity,
-                args.clone(),
+                args.to_vec(),
                 std::sync::Arc::clone(fact_variants),
             )
         }
@@ -1118,7 +1184,7 @@ fn transparent_alias_presented_type(presentation: &Type, fact: &Type) -> Type {
             Type::resolved_variant_refinement_shared(
                 name,
                 identity,
-                args.clone(),
+                args.to_vec(),
                 std::sync::Arc::clone(fact_variants),
             )
         }

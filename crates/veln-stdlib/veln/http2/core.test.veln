@@ -1896,7 +1896,8 @@ end
 
 test local_settings_send_empty_batch_emits_frame_and_records_ack() -> Result<(), String>
 	let initial_policy = http2::core::local_settings_policy_with_enable_push(http2::core::empty_local_settings_policy(), 0, 12)
-	let decision = require_local_settings_sent(http2::core::send_local_settings_batch(Nil, "server", initial_policy, http2::core::empty_settings_ack_state())?)?
+	let items: List<http2::core::LocalSettingsItem> = Nil
+	let decision = require_local_settings_sent(http2::core::send_local_settings_batch(items, "server", initial_policy, http2::core::empty_settings_ack_state())?)?
 	let ack_state = http2::core::local_settings_send_ack_state(decision)
 	if http2::core::local_settings_send_identifier(decision) == 0 and http2::core::local_settings_send_value(decision) == 0 and chunks_equal(http2::core::local_settings_send_bytes(decision), byte_chunk_from_hex("000000040000000000")?)? and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(ack_state)) == 0 and http2::core::outstanding_settings_count(http2::core::settings_ack_outstanding(ack_state)) == 0 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(ack_state)) == 1 and http2::core::local_settings_policy_has_enable_push(http2::core::local_settings_send_policy(decision)) and http2::core::local_settings_policy_enable_push_value(http2::core::local_settings_send_policy(decision)) == 0 and http2::core::local_settings_policy_enable_push_offset(http2::core::local_settings_send_policy(decision)) == 12
 		Ok(())

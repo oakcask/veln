@@ -159,6 +159,8 @@ fn infer_private_constructor_call(
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
+    let failure_count = *context.failures;
+    context.bindings.begin_inference_transaction();
     if args.len() != constructor.variant.payload_fields.len() {
         *context.failures += 1;
     }
@@ -174,6 +176,11 @@ fn infer_private_constructor_call(
         );
     }
     let inferred_type_args = type_args.finish(expected, constructor);
+    if *context.failures == failure_count {
+        context.bindings.commit_inference_transaction();
+    } else {
+        context.bindings.rollback_inference_transaction();
+    }
     adt::refined_constructed_type_from_args(constructor, &inferred_type_args)
 }
 
@@ -185,12 +192,25 @@ fn infer_private_constructor_payload(
     type_args: &mut PrivateConstructorTypeArgInference,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
-    let field = constructor.variant.payload_fields.get(index);
-    let payload_expected = type_args.payload_expected(expected, constructor, index, field);
-    let plan = PrivatePayloadInferencePlan::new(expected.is_some(), field, &payload_expected);
-    let Some(inferred_actual) = plan.infer(arg, &payload_expected, context) else {
+    let payload_context =
+        private_constructor_payload_context(constructor, index, arg, expected, type_args, context);
+    let field = payload_context.field;
+    let plan = PrivatePayloadInferencePlan::new(
+        expected.is_some() && !context.expected_is_admitted,
+        field,
+        &payload_context.expected,
+    );
+    let Some(inferred_actual) = plan.infer(arg, &payload_context.expected, context) else {
         return;
     };
+    if !admitted_payload_accepts_inferred(
+        payload_context.admitted_direct.as_ref(),
+        &inferred_actual,
+        context.adts,
+    ) {
+        *context.failures += 1;
+        return;
+    }
     let joined = type_args.try_join(field, &inferred_actual, context.adts);
     if expected.is_none() && !joined && type_args.has_join(field) {
         *context.failures += 1;
@@ -198,10 +218,10 @@ fn infer_private_constructor_payload(
     }
     let merge_invariant =
         crate::type_relations::is_assignable_nested_with_registry(
-            &payload_expected,
+            &payload_context.expected,
             &inferred_actual,
             context.adts,
-        ) || unification::is_direct_variant_carrier(&payload_expected, &inferred_actual);
+        ) || unification::is_direct_variant_carrier(&payload_context.expected, &inferred_actual);
     if plan.unresolved_concrete_carrier && !merge_invariant {
         *context.failures += 1;
         return;
@@ -220,6 +240,97 @@ fn infer_private_constructor_payload(
     {
         *context.failures += 1;
     }
+}
+
+struct PrivatePayloadContext<'a> {
+    field: Option<&'a AdtPayloadField>,
+    expected: Type,
+    admitted_direct: Option<Type>,
+}
+
+fn private_constructor_payload_context<'a>(
+    constructor: AdtConstructor<'a>,
+    index: usize,
+    arg: &Expr,
+    expected: Option<&Type>,
+    type_args: &PrivateConstructorTypeArgInference,
+    context: &PrivateSignatureInferContext<'_, '_>,
+) -> PrivatePayloadContext<'a> {
+    let field = constructor.variant.payload_fields.get(index);
+    let immediately_independent = (expected.is_none() || context.expected_is_admitted)
+        && field.is_some_and(|field| type_args.direct_payload_joins_independently(field))
+        && crate::aggregate_type_join::expression_is_immediately_context_free(
+            arg,
+            context.adts,
+            context.current_module,
+            context.uses,
+            &|name| context.projection_local_context(name),
+        );
+    let admitted_payload_context = if immediately_independent {
+        Type::Unknown
+    } else if context.expected_is_admitted {
+        let mut local = type_args.payload_expected(None, constructor, index, false);
+        if type_has_unknown(&local) {
+            let admitted = type_args.payload_expected(expected, constructor, index, false);
+            adt::merge_type_holes(&mut local, &admitted);
+        }
+        local
+    } else {
+        type_args.payload_expected(expected, constructor, index, false)
+    };
+    let sole_direct_payload = index == 0
+        && constructor.variant.payload_fields.len() == 1
+        && field.is_some_and(|field| matches!(field.ty, AdtPayloadType::TypeParameter(_)));
+    let projected_payload_context =
+        if expected.is_some() && (!context.expected_is_admitted || sole_direct_payload) {
+            admitted_payload_context.clone()
+        } else {
+            crate::aggregate_type_join::expression_admitted_context(
+                arg,
+                &admitted_payload_context,
+                context.adts,
+                context.current_module,
+                context.uses,
+                &|name| context.projection_local_context(name),
+            )
+        };
+    let direct_payload_joins_independently = immediately_independent
+        || field.is_some_and(|field| {
+            type_args.direct_payload_joins_independently(field)
+                && projected_payload_context == Type::Unknown
+        });
+    let admitted_direct = (context.expected_is_admitted
+        && matches!(
+            field.map(|field| &field.ty),
+            Some(AdtPayloadType::TypeParameter(_))
+        )
+        && projected_payload_context == Type::Unknown
+        && admitted_payload_context != Type::Unknown)
+        .then(|| admitted_payload_context.clone());
+    let expected = if direct_payload_joins_independently {
+        Type::Unknown
+    } else if projected_payload_context == Type::Unknown {
+        admitted_payload_context
+    } else {
+        projected_payload_context
+    };
+    PrivatePayloadContext {
+        field,
+        expected,
+        admitted_direct,
+    }
+}
+
+fn admitted_payload_accepts_inferred(
+    admitted: Option<&Type>,
+    inferred: &Type,
+    adts: &AdtRegistry,
+) -> bool {
+    admitted.is_none_or(|admitted| {
+        inferred == admitted
+            || crate::aggregate_type_join::AggregateTypeJoin::new(adts, admitted)
+                .is_some_and(|mut joined| joined.try_join(adts, inferred))
+    })
 }
 
 struct PrivatePayloadInferencePlan {
@@ -295,7 +406,7 @@ impl PrivateConstructorTypeArgInference {
         expected: Option<&Type>,
         constructor: AdtConstructor<'_>,
         index: usize,
-        field: Option<&AdtPayloadField>,
+        direct_payload_joins_independently: bool,
     ) -> Type {
         expected
             .and_then(|expected| {
@@ -305,8 +416,10 @@ impl PrivateConstructorTypeArgInference {
                     expected_args[type_index].clone()
                 })
             })
-            .or_else(|| field.and_then(|field| self.direct_payload_context(field)))
             .or_else(|| {
+                if direct_payload_joins_independently {
+                    return None;
+                }
                 adt::payload_type_with_resolved_args(constructor, index, |type_index| {
                     crate::aggregate_type_join::record_work(1);
                     self.joined[type_index]
@@ -318,14 +431,11 @@ impl PrivateConstructorTypeArgInference {
             .unwrap_or(Type::Unknown)
     }
 
-    fn direct_payload_context(&self, field: &AdtPayloadField) -> Option<Type> {
+    fn direct_payload_joins_independently(&self, field: &AdtPayloadField) -> bool {
         let AdtPayloadType::TypeParameter(type_index) = field.ty else {
-            return None;
+            return false;
         };
-        (!self.invariant[type_index])
-            .then(|| self.joined[type_index].as_ref())
-            .flatten()
-            .map(crate::aggregate_type_join::AggregateTypeJoin::inference_type)
+        !self.invariant[type_index]
     }
 
     fn try_join(

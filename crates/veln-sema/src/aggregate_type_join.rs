@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -10,7 +11,19 @@ use crate::type_relations::{TypePresentationJoin, invariant_args_match, same_typ
 pub(crate) struct AggregateTypeJoin {
     nodes: Vec<JoinNode>,
     root: usize,
+    projection_cache: RefCell<context_projection::ProjectionCache>,
 }
+
+mod context_projection;
+
+#[cfg(test)]
+pub(crate) use context_projection::{
+    ContextProjectionWork, reset_context_classification_work, take_context_classification_work,
+};
+pub(crate) use context_projection::{
+    LocalContext, expression_admitted_context, expression_has_compiler_covariant_root,
+    expression_is_immediately_context_free,
+};
 
 struct JoinNode {
     name: String,
@@ -62,15 +75,24 @@ impl AggregateTypeJoin {
             );
         }
         record_retained_nodes(nodes.len());
-        Some(Self { nodes, root: 0 })
+        Some(Self {
+            nodes,
+            root: 0,
+            projection_cache: RefCell::new(context_projection::ProjectionCache::default()),
+        })
     }
 
     pub(crate) fn new_resolved_refinement(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
-        let args = match initial {
-            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
+        let (identity, args) = match initial {
+            Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
+                (identity, args)
+            }
             _ => return None,
         };
-        if args.iter().any(type_contains_unknown) || adts.descriptor_for_type(initial).is_none() {
+        let compiler_covariant = Type::is_compiler_covariant_identity(identity);
+        if (!compiler_covariant && args.iter().any(|argument| type_shape(argument).1))
+            || (adts.descriptor_for_type(initial).is_none() && !compiler_covariant)
+        {
             return None;
         }
         Self::new(adts, initial)
@@ -80,7 +102,9 @@ impl AggregateTypeJoin {
         let Some(prepared) = self.prepare(adts, right) else {
             return false;
         };
-        self.commit(prepared, adts);
+        if self.commit(prepared, adts) {
+            self.projection_cache.get_mut().clear();
+        }
         true
     }
 
@@ -93,72 +117,62 @@ impl AggregateTypeJoin {
         let mut prepared = Vec::new();
         while let Some((node_index, right)) = pending.pop() {
             record_node_visit();
-            let right = adt_type_parts(right)?;
-            let node = &self.nodes[node_index];
-            if !same_type_identity(&node.name, &node.identity, right.name, right.identity)
-                || node.args.len() != right.args.len()
-            {
-                return None;
-            }
-            for (joined, right) in node.args.iter().zip(right.args) {
-                match joined {
-                    JoinArg::Exact { ty, .. } => {
-                        if !invariant_args_match(
-                            std::slice::from_ref(ty),
-                            std::slice::from_ref(right),
-                        ) {
-                            return None;
-                        }
-                    }
-                    JoinArg::Covariant(child) => pending.push((*child, right)),
-                }
-            }
-            let variant_ranks = match (&node.variants, right.variants) {
-                (Some(_), Some(right_variants)) => {
-                    let declaration_order = node
-                        .declaration_order
-                        .as_ref()
-                        .expect("a refinement join retains declaration order");
-                    Some(
-                        right_variants
-                            .iter()
-                            .map(|variant| declaration_order.rank(variant))
-                            .collect::<Option<Vec<_>>>()?,
-                    )
-                }
-                (Some(_), None) => None,
-                (None, _) => Some(Vec::new()),
-            };
-            prepared.push(PreparedContribution {
-                node: node_index,
-                right,
-                variant_ranks,
-            });
+            prepared.push(self.prepare_contribution(node_index, right, &mut pending)?);
         }
         Some(prepared)
     }
 
-    fn commit(&mut self, prepared: Vec<PreparedContribution<'_>>, adts: &AdtRegistry) {
+    fn prepare_contribution<'a>(
+        &self,
+        node_index: usize,
+        right: &'a Type,
+        pending: &mut Vec<(usize, &'a Type)>,
+    ) -> Option<PreparedContribution<'a>> {
+        let right = adt_type_parts(right)?;
+        let node = &self.nodes[node_index];
+        (same_type_identity(&node.name, &node.identity, right.name, right.identity)
+            && node.args.len() == right.args.len())
+        .then_some(())?;
+        queue_covariant_contributions(node, right.args, pending)?;
+        Some(PreparedContribution {
+            node: node_index,
+            right,
+            variant_ranks: joined_variant_ranks(node, right.variants)?,
+        })
+    }
+
+    fn commit(&mut self, prepared: Vec<PreparedContribution<'_>>, adts: &AdtRegistry) -> bool {
+        let mut changed = false;
         for contribution in prepared {
             let node = &mut self.nodes[contribution.node];
             record_presentation_work(1);
             if !node.presentation_conflicted && contribution.right.name != node.canonical_name {
                 if node.name == node.canonical_name {
                     node.name = contribution.right.name.to_string();
+                    changed = true;
                 } else if node.name != contribution.right.name {
                     node.name.clone_from(&node.canonical_name);
                     node.presentation_conflicted = true;
+                    changed = true;
                 }
             }
             for (joined, right) in node.args.iter_mut().zip(contribution.right.args) {
                 let JoinArg::Exact {
-                    ty, presentation, ..
+                    ty,
+                    presentation,
+                    covariant,
                 } = joined
                 else {
                     continue;
                 };
-                unification::merge_type_slot(ty, right);
-                presentation.merge(ty, right);
+                if *covariant
+                    && Type::is_compiler_covariant_identity(&node.identity)
+                    && right == &Type::Unknown
+                {
+                    continue;
+                }
+                changed |= unification::merge_type_slot(ty, right);
+                changed |= presentation.merge(ty, right);
             }
             match (&mut node.variants, contribution.right.variants) {
                 (Some(joined), Some(_)) => {
@@ -166,16 +180,21 @@ impl AggregateTypeJoin {
                         .variant_ranks
                         .expect("validated refinement ranks");
                     record_work(ranks.len());
+                    let previous_len = joined.len();
                     joined.extend(ranks);
+                    changed |= joined.len() != previous_len;
                 }
-                (variants @ Some(_), None) => *variants = None,
+                (variants @ Some(_), None) => {
+                    *variants = None;
+                    changed = true;
+                }
                 (None, _) => {}
             }
         }
-        self.expand_covariant_nodes(adts);
+        changed | self.expand_covariant_nodes(adts)
     }
 
-    fn expand_covariant_nodes(&mut self, adts: &AdtRegistry) {
+    fn expand_covariant_nodes(&mut self, adts: &AdtRegistry) -> bool {
         let original_nodes = self.nodes.len();
         for parent in 0..original_nodes {
             for argument in 0..self.nodes[parent].args.len() {
@@ -219,20 +238,47 @@ impl AggregateTypeJoin {
             }
         }
         record_retained_nodes(self.nodes.len());
+        self.nodes.len() != original_nodes
     }
 
     pub(crate) fn try_join_resolved(&mut self, adts: &AdtRegistry, right: &Type) -> bool {
-        let Some(right_parts) = adt_type_parts(right) else {
-            return false;
-        };
-        if right_parts.args.iter().any(type_contains_unknown) {
+        if adt_type_parts(right).is_none() {
             return false;
         }
         self.try_join(adts, right)
     }
 
+    pub(crate) fn has_compiler_covariant_root(&self) -> bool {
+        Type::is_compiler_covariant_identity(&self.nodes[self.root].identity)
+    }
+
     pub(crate) fn has_complete_domain(&self) -> bool {
         self.nodes[self.root].variants.is_none()
+    }
+
+    pub(crate) fn has_incomplete_nested_refinement_domain(&self) -> bool {
+        self.nodes.iter().enumerate().any(|(index, node)| {
+            index != self.root
+                && node.variants.as_ref().is_some_and(|variants| {
+                    variants.len()
+                        != node
+                            .declaration_order
+                            .as_ref()
+                            .expect("a refinement join retains declaration order")
+                            .len()
+                })
+        })
+    }
+
+    pub(crate) fn has_same_root(&self, right: &Type) -> bool {
+        let Some(right) = adt_type_parts(right) else {
+            return false;
+        };
+        let root = &self.nodes[self.root];
+        (Type::is_compiler_covariant_identity(&root.identity)
+            || right.args.iter().all(|argument| !type_shape(argument).1))
+            && same_type_identity(&root.name, &root.identity, right.name, right.identity)
+            && root.args.len() == right.args.len()
     }
 
     pub(crate) fn inference_type(&self) -> Type {
@@ -279,6 +325,52 @@ impl AggregateTypeJoin {
             return materialize_named_node(node, args);
         }
         materialize_refined_node(node, args, variants)
+    }
+}
+
+fn queue_covariant_contributions<'a>(
+    node: &JoinNode,
+    right_args: &'a [Type],
+    pending: &mut Vec<(usize, &'a Type)>,
+) -> Option<()> {
+    let compiler_covariant = Type::is_compiler_covariant_identity(&node.identity);
+    for (joined, right) in node.args.iter().zip(right_args) {
+        match joined {
+            JoinArg::Exact {
+                ty,
+                covariant: true,
+                ..
+            } if compiler_covariant && (ty == &Type::Unknown || right == &Type::Unknown) => {}
+            JoinArg::Exact { ty, .. } => {
+                invariant_args_match(std::slice::from_ref(ty), std::slice::from_ref(right))
+                    .then_some(())?
+            }
+            JoinArg::Covariant(_) if compiler_covariant && right == &Type::Unknown => {}
+            JoinArg::Covariant(child) => pending.push((*child, right)),
+        }
+    }
+    Some(())
+}
+
+fn joined_variant_ranks(
+    node: &JoinNode,
+    right_variants: Option<&[String]>,
+) -> Option<Option<Vec<usize>>> {
+    match (&node.variants, right_variants) {
+        (Some(_), Some(right_variants)) => {
+            let declaration_order = node
+                .declaration_order
+                .as_ref()
+                .expect("a refinement join retains declaration order");
+            Some(Some(
+                right_variants
+                    .iter()
+                    .map(|variant| declaration_order.rank(variant))
+                    .collect::<Option<Vec<_>>>()?,
+            ))
+        }
+        (Some(_), None) => Some(None),
+        (None, _) => Some(Some(Vec::new())),
     }
 }
 
@@ -347,9 +439,12 @@ fn join_node<'a>(
     Some((
         JoinNode {
             name: initial.name.to_string(),
-            canonical_name: adts
-                .descriptor_for_type(initial.ty)
-                .map(|descriptor| adts.canonical_type_name_for_descriptor(descriptor))
+            canonical_name: Type::compiler_covariant_name(initial.identity)
+                .map(str::to_string)
+                .or_else(|| {
+                    adts.descriptor_for_type(initial.ty)
+                        .map(|descriptor| adts.canonical_type_name_for_descriptor(descriptor))
+                })
                 .unwrap_or_else(|| initial.name.to_string()),
             presentation_conflicted: false,
             identity: initial.identity.to_string(),
@@ -389,7 +484,8 @@ fn initial_argument_state<'a>(
     adts: &AdtRegistry,
     initial: AdtTypeParts<'a>,
 ) -> (Vec<JoinArg>, Vec<(usize, &'a Type)>) {
-    let variances = (!Type::is_compiler_covariant_identity(initial.identity))
+    let compiler_covariant = Type::is_compiler_covariant_identity(initial.identity);
+    let variances = (!compiler_covariant)
         .then(|| adts.parameter_variances_for_identity(initial.identity, initial.args.len()))
         .flatten();
     let mut pending = Vec::new();
@@ -398,9 +494,13 @@ fn initial_argument_state<'a>(
         .iter()
         .enumerate()
         .map(|(index, ty)| {
-            let variance = variances
-                .and_then(|variances| variances.get(index).copied())
-                .unwrap_or(Variance::Invariant);
+            let variance = if compiler_covariant {
+                Variance::Covariant
+            } else {
+                variances
+                    .and_then(|variances| variances.get(index).copied())
+                    .unwrap_or(Variance::Invariant)
+            };
             if variance == Variance::Covariant && adt_type_parts(ty).is_some() {
                 pending.push((index, ty));
                 JoinArg::Covariant(usize::MAX)
@@ -459,11 +559,14 @@ pub(crate) fn merge_invariant_payload_type_args(
     Ok(())
 }
 
-fn type_contains_unknown(ty: &Type) -> bool {
+fn type_shape(ty: &Type) -> (usize, bool) {
+    let mut nodes = 0usize;
+    let mut contains_unknown = false;
     let mut pending = vec![ty];
     while let Some(ty) = pending.pop() {
+        nodes += 1;
         match ty {
-            Type::Unknown => return true,
+            Type::Unknown => contains_unknown = true,
             Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
                 pending.extend(args);
             }
@@ -480,7 +583,7 @@ fn type_contains_unknown(ty: &Type) -> bool {
             }
         }
     }
-    false
+    (nodes, contains_unknown)
 }
 
 #[derive(Clone, Copy)]

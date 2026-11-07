@@ -1,0 +1,129 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["type.mismatch", "Vec<Dict<String, State>>", "Vec<Option<State>>", "Vec<ConcreteWrap<State>>", "Vec<SelfWrap<State>>"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 8
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "Vec<Dict<String, State>>"
+
+[[json_assert]]
+path = "diagnostics.1.details.actual_type"
+equals = "Vec<Dict<String, State>>"
+
+[[json_assert]]
+path = "diagnostics.2.details.actual_type"
+equals = "Vec<Option<State>>"
+
+[[json_assert]]
+path = "diagnostics.3.details.actual_type"
+equals = "Vec<Option<State>>"
+
+[[json_assert]]
+path = "diagnostics.4.details.actual_type"
+equals = "Vec<ConcreteWrap<State>>"
+
+[[json_assert]]
+path = "diagnostics.5.details.actual_type"
+equals = "Vec<ConcreteWrap<State>>"
+
+[[json_assert]]
+path = "diagnostics.6.details.actual_type"
+equals = "Vec<SelfWrap<State>>"
+
+[[json_assert]]
+path = "diagnostics.7.details.actual_type"
+equals = "Vec<SelfWrap<State>>"
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 57
+column = 12
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 58
+column = 12
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 59
+column = 12
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 60
+column = 12
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 61
+column = 12
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 62
+column = 12
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 63
+column = 12
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 64
+column = 12

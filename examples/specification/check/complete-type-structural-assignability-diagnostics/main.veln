@@ -86,8 +86,3 @@ fn main(value: State, record: {state: State}, state_values: Vec<State>, optional
 	let distinct_dict: Dict<String, State> = source_dict
 	let invariant_source_alias: source_vec::Table<String, State> = source_table
 end
-
-fn reject_context_free_option(wide: Option<State>, narrow: Option<State::Ready>) -> ()
-	# This compiler-inference check rejects covariance without a concrete expected element type.
-	let values = [wide, narrow]
-end

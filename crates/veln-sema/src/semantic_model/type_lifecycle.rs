@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::Type;
+use super::{Type, TypeArgs};
 
 #[cfg(test)]
 thread_local! {
@@ -10,11 +10,11 @@ thread_local! {
 
 enum TypeCloneTask<'a> {
     Visit(&'a Type),
-    Named(String, String, usize),
+    Named(String, String, TypeArgs),
     Variant(
         String,
         String,
-        usize,
+        TypeArgs,
         Arc<[String]>,
         Vec<(String, Vec<Type>, String)>,
     ),
@@ -40,19 +40,19 @@ fn process_type_clone_task<'a>(
 ) {
     match task {
         TypeCloneTask::Visit(ty) => queue_type_clone(ty, tasks, cloned),
-        TypeCloneTask::Named(name, identity, count) => {
-            finish_named_type_clone(name, identity, count, cloned)
-        }
-        TypeCloneTask::Variant(name, identity, count, variants, unresolved_alternatives) => {
-            finish_variant_type_clone(
+        TypeCloneTask::Named(name, identity, args) => cloned.push(Type::Named {
+            name,
+            identity,
+            args,
+        }),
+        TypeCloneTask::Variant(name, identity, args, variants, unresolved_alternatives) => cloned
+            .push(Type::VariantRefinement {
                 name,
                 identity,
-                count,
+                args,
                 variants,
                 unresolved_alternatives,
-                cloned,
-            )
-        }
+            }),
         TypeCloneTask::Record(names) => finish_record_type_clone(names, cloned),
         TypeCloneTask::Function(param_count, has_variadic, effects) => {
             finish_function_type_clone(param_count, has_variadic, effects, cloned)
@@ -101,21 +101,20 @@ fn queue_type_clone<'a>(ty: &'a Type, tasks: &mut Vec<TypeCloneTask<'a>>, cloned
 fn queue_named_type_clone<'a>(
     name: &str,
     identity: &str,
-    args: &'a [Type],
+    args: &TypeArgs,
     tasks: &mut Vec<TypeCloneTask<'a>>,
 ) {
     tasks.push(TypeCloneTask::Named(
         name.to_owned(),
         identity.to_owned(),
-        args.len(),
+        args.clone(),
     ));
-    tasks.extend(args.iter().rev().map(TypeCloneTask::Visit));
 }
 
 fn queue_variant_type_clone<'a>(
     name: &str,
     identity: &str,
-    args: &'a [Type],
+    args: &TypeArgs,
     variants: &Arc<[String]>,
     unresolved_alternatives: &[(String, Vec<Type>, String)],
     tasks: &mut Vec<TypeCloneTask<'a>>,
@@ -123,11 +122,10 @@ fn queue_variant_type_clone<'a>(
     tasks.push(TypeCloneTask::Variant(
         name.to_owned(),
         identity.to_owned(),
-        args.len(),
+        args.clone(),
         variants.clone(),
         unresolved_alternatives.to_vec(),
     ));
-    tasks.extend(args.iter().rev().map(TypeCloneTask::Visit));
 }
 
 fn queue_record_type_clone<'a>(fields: &'a [(String, Type)], tasks: &mut Vec<TypeCloneTask<'a>>) {
@@ -154,33 +152,6 @@ fn queue_function_type_clone<'a>(
         tasks.push(TypeCloneTask::Visit(variadic));
     }
     tasks.extend(params.iter().rev().map(TypeCloneTask::Visit));
-}
-
-fn finish_named_type_clone(name: String, identity: String, count: usize, cloned: &mut Vec<Type>) {
-    let args = cloned.split_off(cloned.len() - count);
-    cloned.push(Type::Named {
-        name,
-        identity,
-        args,
-    });
-}
-
-fn finish_variant_type_clone(
-    name: String,
-    identity: String,
-    count: usize,
-    variants: Arc<[String]>,
-    unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
-    cloned: &mut Vec<Type>,
-) {
-    let args = cloned.split_off(cloned.len() - count);
-    cloned.push(Type::VariantRefinement {
-        name,
-        identity,
-        args,
-        variants,
-        unresolved_alternatives,
-    });
 }
 
 fn finish_record_type_clone(names: Vec<String>, cloned: &mut Vec<Type>) {
@@ -242,32 +213,32 @@ pub(crate) fn measure_type_clone_nodes<T>(operation: impl FnOnce() -> T) -> (T, 
 
 pub(crate) fn drop_type_iteratively(root: Type) {
     let mut pending = vec![root];
-    while let Some(mut ty) = pending.pop() {
-        match &mut ty {
+    while let Some(ty) = pending.pop() {
+        match ty {
             Type::Unknown => {}
-            Type::Named { args, .. } => pending.append(args),
+            Type::Named { args, .. } => pending.extend(args),
             Type::VariantRefinement {
                 args,
-                unresolved_alternatives,
+                mut unresolved_alternatives,
                 ..
             } => {
-                pending.append(args);
-                for (_, mut alternatives, _) in std::mem::take(unresolved_alternatives) {
+                pending.extend(args);
+                for (_, mut alternatives, _) in unresolved_alternatives.drain(..) {
                     pending.append(&mut alternatives);
                 }
             }
             Type::Record(fields) => {
-                pending.extend(std::mem::take(fields).into_iter().map(|(_, ty)| ty));
+                pending.extend(fields.into_iter().map(|(_, ty)| ty));
             }
             Type::Function {
-                params,
+                mut params,
                 variadic,
                 return_type,
                 ..
             } => {
-                pending.append(params);
-                pending.extend(variadic.take().map(|ty| *ty));
-                pending.push(*std::mem::replace(return_type, Box::new(Type::Unknown)));
+                pending.append(&mut params);
+                pending.extend(variadic.map(|ty| *ty));
+                pending.push(*return_type);
             }
         }
     }
@@ -278,7 +249,7 @@ mod tests {
     use super::{Type, measure_type_clone_nodes};
 
     #[test]
-    fn type_clone_measurement_counts_container_children() {
+    fn type_clone_measurement_counts_owned_nodes_and_skips_shared_type_arguments() {
         let ty = Type::Function {
             params: vec![Type::Record(vec![(
                 "field".to_string(),
@@ -287,7 +258,7 @@ mod tests {
             variadic: Some(Box::new(Type::VariantRefinement {
                 name: "State".to_string(),
                 identity: "State".to_string(),
-                args: vec![Type::named("Int", Vec::new())],
+                args: vec![Type::named("Int", Vec::new())].into(),
                 variants: vec!["Ready".to_string()].into(),
                 unresolved_alternatives: vec![(
                     "Other".to_string(),
@@ -305,14 +276,14 @@ mod tests {
         let (cloned, measured_nodes) = measure_type_clone_nodes(|| ty.clone());
 
         assert_eq!(cloned, ty);
-        assert_eq!(measured_nodes, 10);
+        assert_eq!(measured_nodes, 6);
 
         let (_, container_nodes) = measure_type_clone_nodes(|| vec![ty.clone()]);
-        assert_eq!(container_nodes, 10);
+        assert_eq!(container_nodes, 6);
 
         let (_, temporary_nodes) = measure_type_clone_nodes(|| {
             let _temporary = ty.clone();
         });
-        assert_eq!(temporary_nodes, 10);
+        assert_eq!(temporary_nodes, 6);
     }
 }

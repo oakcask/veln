@@ -1294,7 +1294,7 @@ fn refinement_alternative_identity(
         parse_type_annotation(&candidate.written_type)
             .ok()
             .and_then(|ty| match ty {
-                Type::VariantRefinement { args, .. } => Some(args),
+                Type::VariantRefinement { args, .. } => Some(args.into_vec()),
                 _ => None,
             })
     });
@@ -1321,7 +1321,7 @@ fn refinement_alternative_identity(
 
 fn canonical_type_identity(ty: Type) -> Option<Type> {
     match ty {
-        Type::Named { identity, args, .. } => canonical_named_identity(identity, args),
+        Type::Named { identity, args, .. } => canonical_named_identity(identity, args.into_vec()),
         Type::VariantRefinement {
             identity,
             args,
@@ -1329,7 +1329,7 @@ fn canonical_type_identity(ty: Type) -> Option<Type> {
             unresolved_alternatives,
             ..
         } if unresolved_alternatives.is_empty() => {
-            canonical_refinement_identity(identity, args, variants)
+            canonical_refinement_identity(identity, args.into_vec(), variants)
         }
         Type::VariantRefinement { .. } => None,
         Type::Record(fields) => canonical_record_identity(fields),
@@ -1359,7 +1359,7 @@ fn canonical_refinement_identity(
     Some(Type::VariantRefinement {
         name: identity.clone(),
         identity,
-        args: canonical_type_identities(args)?,
+        args: canonical_type_identities(args)?.into(),
         variants,
         unresolved_alternatives: Vec::new(),
     })

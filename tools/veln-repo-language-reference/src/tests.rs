@@ -337,9 +337,9 @@ fn example_rejections_cover_manifest_selection_boundary() {
 
     let mut descriptors = topic_descriptors();
     descriptors[0].examples = &[ExampleSelection {
-        case: "check/source-surface",
+        case: "check/manifest-exports",
         display_name: "not selected",
-        files: &["missing.veln"],
+        files: &["unselected.veln"],
     }];
     assert!(validate_examples(&repo, &descriptors).is_err());
 }
@@ -425,6 +425,8 @@ fn checked_types_topic_renders_the_variant_refinement_contract_and_examples() {
         "identifies the singleton set",
         "whose variant set is a superset",
         "Control-flow result inference applies the same join",
+        "Same-constructor contributions to the compiler-owned immutable",
+        "does not constrain a still-unknown argument of an omitted local or its direct local alias",
         "residual catch-all",
         "erased at runtime",
         "A public type-alias chain whose resolved target is an ADT can qualify a refinement",
@@ -434,6 +436,11 @@ fn checked_types_topic_renders_the_variant_refinement_contract_and_examples() {
         "Publication quarantine propagates through public ADT payload dependencies",
         "ADT variant-refinement call typing",
         "ADT variant-refinement control-flow result joins",
+        "Compiler-owned covariant inference",
+        "#### main.veln",
+        "#### marker.veln",
+        "pub type Marker",
+        "Compiler-owned covariant inference diagnostics",
         "ADT variant-refinement alias identity and presentation",
         "ADT variant-refinement structural visibility",
         "ADT variant-refinement publication quarantine",

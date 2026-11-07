@@ -1,4 +1,4 @@
-use super::control_flow_results::{ControlFlowResultJoin, contribute_control_flow_result};
+use super::control_flow_results::ControlFlowResultJoin;
 use super::*;
 use crate::adt::descriptors::AdtPayloadField;
 use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
@@ -445,6 +445,8 @@ impl<'a> FunctionChecker<'a> {
         constructor: AdtConstructor,
     ) -> Type {
         let diagnostic_count = self.diagnostics.len();
+        let has_aggregate_context = expected.is_some()
+            && Type::is_compiler_covariant_identity(&constructor.descriptor.identity());
         let expected = expected
             .filter(|expected| adt::type_matches_descriptor(&expected.ty, constructor.descriptor));
         let mut inferred_type_args =
@@ -458,7 +460,7 @@ impl<'a> FunctionChecker<'a> {
             &inferred_type_args
         };
         let inferred_base = adt::constructed_type_from_args(constructor, type_args);
-        if type_contains_unknown(&inferred_base) && expected.is_none() {
+        if type_contains_unknown(&inferred_base) && expected.is_none() && !has_aggregate_context {
             self.push_ambiguous_constructor_type(
                 expr.node_id,
                 expr.span.clone(),
@@ -476,6 +478,8 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         constructor: AdtConstructor,
     ) -> Vec<Type> {
+        let diagnostic_count = self.diagnostics.len();
+        self.begin_binding_inference_transaction();
         let mut type_args = ConstructorTypeArgInference::new(constructor);
         for (index, field) in constructor.variant.payload_fields.iter().enumerate() {
             let Some(arg) = args.get(index) else {
@@ -494,7 +498,13 @@ impl<'a> FunctionChecker<'a> {
         for arg in args.iter().skip(constructor.variant.payload_fields.len()) {
             self.infer_expr(arg, None);
         }
-        type_args.finish()
+        let result = type_args.finish(expected.map(|expected| &expected.ty), constructor);
+        if self.diagnostics.len() == diagnostic_count {
+            self.commit_binding_inference_transaction();
+        } else {
+            self.rollback_binding_inference_transaction();
+        }
+        result
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -508,20 +518,44 @@ impl<'a> FunctionChecker<'a> {
         constructor: AdtConstructor,
         type_args: &mut ConstructorTypeArgInference,
     ) {
-        let mut arg_expected = expected.cloned().unwrap_or_else(|| ExpectedType {
-            ty: Type::Unknown,
-            source: ExpectedTypeSource::Inferred,
-            origin_node_id: call.node_id,
-            origin_span: Some(call.span.clone()),
-            origin_message: "Constructor payload inferred here.",
-        });
-        arg_expected.ty = type_args.payload_expected(expected, constructor, index, field);
+        let arg_expected = self.constructor_payload_expected(
+            call,
+            arg,
+            field,
+            index,
+            expected,
+            constructor,
+            type_args,
+        );
         let diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(arg, Some(&arg_expected));
         if self.diagnostics.len() != diagnostic_count {
             return;
         }
-        let has_context = expected.is_some()
+        let admitted_expected = expected.is_some_and(|expected| {
+            matches!(expected.source, ExpectedTypeSource::AdmittedAggregate)
+        });
+        if admitted_expected
+            && matches!(field.ty, AdtPayloadType::TypeParameter(_))
+            && arg_expected.ty == Type::Unknown
+            && let Some(expected_payload) = expected.map(|expected| {
+                type_args.payload_expected(Some(expected), constructor, index, false)
+            })
+            && expected_payload != Type::Unknown
+            && actual != expected_payload
+            && !AggregateTypeJoin::new(&self.environment.adts, &expected_payload)
+                .is_some_and(|mut joined| joined.try_join(&self.environment.adts, &actual))
+        {
+            self.check_assignable_nested(
+                arg,
+                &expected_payload,
+                &actual,
+                &arg_expected,
+                "call_argument",
+            );
+            return;
+        }
+        let has_context = (expected.is_some() && !admitted_expected)
             || (!matches!(field.ty, AdtPayloadType::TypeParameter(_))
                 && !type_contains_unknown(&arg_expected.ty));
         let inferred = if has_context {
@@ -543,12 +577,112 @@ impl<'a> FunctionChecker<'a> {
             joined,
             type_args,
         );
+        self.commit_constructor_payload(
+            arg,
+            field,
+            index,
+            constructor,
+            type_args,
+            &arg_expected,
+            &inferred,
+            joined,
+            diagnostic_count,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn constructor_payload_expected(
+        &self,
+        call: &Expr,
+        arg: &Expr,
+        field: &AdtPayloadField,
+        index: usize,
+        expected: Option<&ExpectedType>,
+        constructor: AdtConstructor,
+        type_args: &ConstructorTypeArgInference,
+    ) -> ExpectedType {
+        let mut arg_expected = expected.cloned().unwrap_or_else(|| ExpectedType {
+            ty: Type::Unknown,
+            source: ExpectedTypeSource::Inferred,
+            origin_node_id: call.node_id,
+            origin_span: Some(call.span.clone()),
+            origin_message: "Constructor payload inferred here.",
+        });
+        let admitted_expected = expected.is_some_and(|expected| {
+            matches!(expected.source, ExpectedTypeSource::AdmittedAggregate)
+        });
+        let immediately_independent = (expected.is_none() || admitted_expected)
+            && type_args.direct_payload_joins_independently(field)
+            && crate::aggregate_type_join::expression_is_immediately_context_free(
+                arg,
+                &self.environment.adts,
+                self.function.module_name.as_deref(),
+                &self.resolution_uses,
+                &|name| self.projection_local_context(name),
+            );
+        let admitted_payload_context = if immediately_independent {
+            Type::Unknown
+        } else if admitted_expected {
+            let mut local = type_args.payload_expected(None, constructor, index, false);
+            if type_contains_unknown(&local) {
+                let admitted = type_args.payload_expected(expected, constructor, index, false);
+                adt::merge_type_holes(&mut local, &admitted);
+            }
+            local
+        } else {
+            type_args.payload_expected(expected, constructor, index, false)
+        };
+        let sole_direct_payload = index == 0
+            && constructor.variant.payload_fields.len() == 1
+            && matches!(field.ty, AdtPayloadType::TypeParameter(_));
+        let projected_payload_context =
+            if expected.is_some() && (!admitted_expected || sole_direct_payload) {
+                admitted_payload_context.clone()
+            } else {
+                crate::aggregate_type_join::expression_admitted_context(
+                    arg,
+                    &admitted_payload_context,
+                    &self.environment.adts,
+                    self.function.module_name.as_deref(),
+                    &self.resolution_uses,
+                    &|name| self.projection_local_context(name),
+                )
+            };
+        let direct_payload_joins_independently = immediately_independent
+            || (type_args.direct_payload_joins_independently(field)
+                && projected_payload_context == Type::Unknown);
+        if expected.is_none() && projected_payload_context != Type::Unknown {
+            arg_expected.source = ExpectedTypeSource::AdmittedAggregate;
+        }
+        arg_expected.ty = if direct_payload_joins_independently {
+            Type::Unknown
+        } else if projected_payload_context == Type::Unknown {
+            admitted_payload_context
+        } else {
+            projected_payload_context
+        };
+        arg_expected
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn commit_constructor_payload(
+        &mut self,
+        arg: &Expr,
+        field: &AdtPayloadField,
+        index: usize,
+        constructor: AdtConstructor,
+        type_args: &mut ConstructorTypeArgInference,
+        arg_expected: &ExpectedType,
+        inferred: &Type,
+        joined: bool,
+        diagnostic_count: usize,
+    ) {
         if self.diagnostics.len() == diagnostic_count
             && let Err(conflict) = type_args.commit(
                 field,
                 constructor,
                 index,
-                &inferred,
+                inferred,
                 joined,
                 &self.environment.adts,
             )
@@ -557,7 +691,7 @@ impl<'a> FunctionChecker<'a> {
                 arg,
                 &conflict.expected,
                 &conflict.actual,
-                &arg_expected,
+                arg_expected,
                 "call_argument",
             );
         }
@@ -685,11 +819,17 @@ impl<'a> FunctionChecker<'a> {
         item_type: &mut Type,
         joined_items: &mut Option<AggregateTypeJoin>,
     ) {
-        let inferred_context = joined_items
-            .as_ref()
-            .map(AggregateTypeJoin::inference_type)
-            .unwrap_or_else(|| item_type.clone());
-        let item_expected = collection_item_expected(
+        let inferred_context = match joined_items {
+            Some(joined) => joined.expression_admitted_context(
+                item,
+                &self.environment.adts,
+                self.function.module_name.as_deref(),
+                &self.resolution_uses,
+                &|name| self.projection_local_context(name),
+            ),
+            None => item_type.clone(),
+        };
+        let mut item_expected = collection_item_expected(
             if inferred_context == Type::Unknown {
                 expected_item.clone()
             } else {
@@ -700,9 +840,14 @@ impl<'a> FunctionChecker<'a> {
             list.span.clone(),
             "Vec element type inferred here.",
         );
+        if joined_items.is_some() && item_expected.ty != Type::Unknown {
+            item_expected.source = ExpectedTypeSource::AdmittedAggregate;
+        }
         let diagnostic_count = self.diagnostics.len();
+        self.begin_binding_inference_transaction();
         let actual = self.infer_expr(item, Some(&item_expected));
         if self.diagnostics.len() != diagnostic_count {
+            self.rollback_binding_inference_transaction();
             return;
         }
         let aggregate_actual = if contextual_item {
@@ -716,36 +861,62 @@ impl<'a> FunctionChecker<'a> {
         };
         let joined =
             self.join_list_item(contextual_item, item_type, joined_items, &aggregate_actual);
-        let join_failed = !contextual_item && !joined && joined_items.is_some();
-        if join_failed {
-            let mismatch_expected = joined_items
-                .as_ref()
-                .map(AggregateTypeJoin::result_type)
-                .unwrap_or_else(|| item_expected.ty.clone());
-            let mismatch_context = ExpectedType {
-                ty: mismatch_expected,
-                ..item_expected.clone()
-            };
-            self.push_inferred_type_mismatch(
-                item,
-                &mismatch_context.ty,
-                &actual,
-                &mismatch_context,
-                "list_element",
-            );
-        } else if !is_assignable_nested_with_registry(
-            &item_expected.ty,
+        self.check_inferred_list_item(
+            item,
+            &item_expected,
+            &actual,
             &aggregate_actual,
-            &self.environment.adts,
-        ) && (contextual_item || !joined)
-        {
-            self.push_list_item_mismatch(item, &item_expected, &actual, joined_items);
+            contextual_item,
+            joined,
+            joined_items,
+        );
+        if self.diagnostics.len() != diagnostic_count {
+            self.rollback_binding_inference_transaction();
+            return;
         }
+        self.commit_binding_inference_transaction();
         if *item_type == Type::Unknown {
             *item_type = aggregate_actual;
             *joined_items = (!contextual_item)
                 .then(|| AggregateTypeJoin::new(&self.environment.adts, item_type))
                 .flatten();
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn check_inferred_list_item(
+        &mut self,
+        item: &Expr,
+        item_expected: &ExpectedType,
+        actual: &Type,
+        aggregate_actual: &Type,
+        contextual_item: bool,
+        joined: bool,
+        joined_items: &Option<AggregateTypeJoin>,
+    ) {
+        let join_failed = !contextual_item && !joined && joined_items.is_some();
+        if join_failed {
+            let mismatch_context = ExpectedType {
+                ty: joined_items
+                    .as_ref()
+                    .map(AggregateTypeJoin::result_type)
+                    .unwrap_or_else(|| item_expected.ty.clone()),
+                ..item_expected.clone()
+            };
+            self.push_inferred_type_mismatch(
+                item,
+                &mismatch_context.ty,
+                actual,
+                &mismatch_context,
+                "list_element",
+            );
+        } else if !is_assignable_nested_with_registry(
+            &item_expected.ty,
+            aggregate_actual,
+            &self.environment.adts,
+        ) && (contextual_item || !joined)
+        {
+            self.push_list_item_mismatch(item, item_expected, actual, joined_items);
         }
     }
 
@@ -1067,7 +1238,7 @@ impl<'a> FunctionChecker<'a> {
                     Type::resolved_variant_refinement(
                         name,
                         identity,
-                        type_args.clone(),
+                        type_args.to_vec(),
                         vec![variant.clone()],
                     ),
                     1,
@@ -1121,7 +1292,7 @@ impl<'a> FunctionChecker<'a> {
                 Type::resolved_variant_refinement(
                     name,
                     identity,
-                    type_args.clone(),
+                    type_args.to_vec(),
                     remaining_variants,
                 ),
                 materialized,
@@ -1707,7 +1878,7 @@ impl<'a> FunctionChecker<'a> {
         Some(Type::resolved_variant_refinement(
             type_name,
             identity,
-            type_args.clone(),
+            type_args.to_vec(),
             vec![constructor.variant.name.clone()],
         ))
     }
@@ -1828,55 +1999,14 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         result: &mut ControlFlowResultJoin,
     ) {
-        let recovery_expected = if expected.is_none()
-            && result
-                .joined
-                .as_ref()
-                .is_none_or(AggregateTypeJoin::has_complete_domain)
-            && result.recovery_type != Type::Unknown
-        {
-            Some(ExpectedType {
-                ty: result.recovery_type.clone(),
-                source: ExpectedTypeSource::Inferred,
-                origin_node_id: match_expr.node_id,
-                origin_span: Some(match_expr.span.clone()),
-                origin_message: "Match result type inferred here.",
-            })
-        } else {
-            None
-        };
-        let actual = self.infer_expr(&arm.expr, expected.or(recovery_expected.as_ref()));
-        if let Some(expected) = expected {
-            self.check_assignable(&arm.expr, &expected.ty, &actual, expected, "match_arm");
-            return;
-        }
-        let recovering_from_failed_join = result.failed();
-        if !contribute_control_flow_result(&self.environment.adts, result, &actual) {
-            let mismatch_expected = ExpectedType {
-                ty: result.recovery_type.clone(),
-                source: ExpectedTypeSource::Inferred,
-                origin_node_id: match_expr.node_id,
-                origin_span: Some(match_expr.span.clone()),
-                origin_message: "Match result type inferred here.",
-            };
-            if recovering_from_failed_join || type_contains_unknown(&actual) {
-                self.check_assignable(
-                    &arm.expr,
-                    &mismatch_expected.ty,
-                    &actual,
-                    &mismatch_expected,
-                    "match_arm",
-                );
-            } else {
-                self.push_inferred_type_mismatch(
-                    &arm.expr,
-                    &mismatch_expected.ty,
-                    &actual,
-                    &mismatch_expected,
-                    "match_arm",
-                );
-            }
-        }
+        self.infer_control_flow_result(
+            match_expr,
+            &arm.expr,
+            expected,
+            result,
+            "Match result type inferred here.",
+            "match_arm",
+        );
     }
 
     pub(super) fn infer_if(
@@ -1973,7 +2103,7 @@ impl ConstructorTypeArgInference {
         expected: Option<&ExpectedType>,
         constructor: AdtConstructor<'_>,
         index: usize,
-        field: &AdtPayloadField,
+        direct_payload_joins_independently: bool,
     ) -> Type {
         expected
             .and_then(|expected| {
@@ -1983,8 +2113,10 @@ impl ConstructorTypeArgInference {
                     expected_args[type_index].clone()
                 })
             })
-            .or_else(|| self.direct_payload_context(field))
             .or_else(|| {
+                if direct_payload_joins_independently {
+                    return None;
+                }
                 adt::payload_type_with_resolved_args(constructor, index, |type_index| {
                     crate::aggregate_type_join::record_work(1);
                     self.joined[type_index]
@@ -1996,14 +2128,11 @@ impl ConstructorTypeArgInference {
             .unwrap_or(Type::Unknown)
     }
 
-    fn direct_payload_context(&self, field: &AdtPayloadField) -> Option<Type> {
+    fn direct_payload_joins_independently(&self, field: &AdtPayloadField) -> bool {
         let AdtPayloadType::TypeParameter(type_index) = field.ty else {
-            return None;
+            return false;
         };
-        (!self.invariant[type_index])
-            .then(|| self.joined[type_index].as_ref())
-            .flatten()
-            .map(AggregateTypeJoin::inference_type)
+        !self.invariant[type_index]
     }
 
     fn try_join(&mut self, field: &AdtPayloadField, actual: &Type, adts: &AdtRegistry) -> bool {
@@ -2086,11 +2215,20 @@ impl ConstructorTypeArgInference {
         Ok(())
     }
 
-    fn finish(mut self) -> Vec<Type> {
+    fn finish(mut self, expected: Option<&Type>, constructor: AdtConstructor<'_>) -> Vec<Type> {
         crate::aggregate_type_join::record_work(self.inferred.len());
         for (inferred, joined) in self.inferred.iter_mut().zip(self.joined) {
             if let Some(joined) = joined {
                 *inferred = joined.result_type();
+            }
+        }
+        if let Some(expected_args) =
+            expected.and_then(|expected| unification::adt_args(expected, constructor.descriptor))
+        {
+            for (inferred, expected) in self.inferred.iter_mut().zip(expected_args) {
+                if *inferred == Type::Unknown {
+                    *inferred = expected.clone();
+                }
             }
         }
         self.inferred

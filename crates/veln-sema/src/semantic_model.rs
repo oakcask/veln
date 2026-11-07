@@ -1,3 +1,4 @@
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use veln_ast::NodeId;
 use veln_source::SourceSpan;
@@ -173,6 +174,7 @@ pub(crate) enum ExpectedTypeSource {
     SchemaEncodeParameter,
     LocalAnnotation,
     Inferred,
+    AdmittedAggregate,
     Unknown,
 }
 
@@ -183,7 +185,7 @@ impl ExpectedTypeSource {
             Self::DeclaredParameter => "declared_parameter",
             Self::SchemaEncodeParameter => "declared_parameter",
             Self::LocalAnnotation => "local_annotation",
-            Self::Inferred => "inferred_expression",
+            Self::Inferred | Self::AdmittedAggregate => "inferred_expression",
             Self::Unknown => "unknown",
         }
     }
@@ -194,9 +196,114 @@ impl ExpectedTypeSource {
             | Self::DeclaredParameter
             | Self::SchemaEncodeParameter
             | Self::LocalAnnotation => "declared",
-            Self::Inferred => "inferred",
+            Self::Inferred | Self::AdmittedAggregate => "inferred",
             Self::Unknown => "unknown",
         }
+    }
+}
+
+// Deep admitted inference contexts repeatedly retain suffixes of named types.
+// Share those immutable argument trees and detach only when unification writes.
+#[derive(Clone, Debug)]
+pub(crate) struct TypeArgs(Arc<Vec<Type>>);
+
+impl PartialEq for TypeArgs {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0) || self.0 == other.0
+    }
+}
+
+impl Eq for TypeArgs {}
+
+impl std::hash::Hash for TypeArgs {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
+
+impl TypeArgs {
+    pub(crate) fn into_vec(self) -> Vec<Type> {
+        Arc::try_unwrap(self.0).unwrap_or_else(|args| (*args).clone())
+    }
+
+    pub(crate) fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn allocation_ptr(&self) -> *const Vec<Type> {
+        Arc::as_ptr(&self.0)
+    }
+}
+
+impl From<Vec<Type>> for TypeArgs {
+    fn from(args: Vec<Type>) -> Self {
+        Self(Arc::new(args))
+    }
+}
+
+impl FromIterator<Type> for TypeArgs {
+    fn from_iter<T: IntoIterator<Item = Type>>(iter: T) -> Self {
+        iter.into_iter().collect::<Vec<_>>().into()
+    }
+}
+
+impl From<TypeArgs> for Vec<Type> {
+    fn from(args: TypeArgs) -> Self {
+        args.into_vec()
+    }
+}
+
+impl PartialEq<Vec<Type>> for TypeArgs {
+    fn eq(&self, other: &Vec<Type>) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+
+impl PartialEq<TypeArgs> for Vec<Type> {
+    fn eq(&self, other: &TypeArgs) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+
+impl Deref for TypeArgs {
+    type Target = Vec<Type>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for TypeArgs {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        Arc::make_mut(&mut self.0)
+    }
+}
+
+impl IntoIterator for TypeArgs {
+    type Item = Type;
+    type IntoIter = std::vec::IntoIter<Type>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.into_vec().into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a TypeArgs {
+    type Item = &'a Type;
+    type IntoIter = std::slice::Iter<'a, Type>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut TypeArgs {
+    type Item = &'a mut Type;
+    type IntoIter = std::slice::IterMut<'a, Type>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
     }
 }
 
@@ -206,12 +313,12 @@ pub(crate) enum Type {
     Named {
         name: String,
         identity: String,
-        args: Vec<Type>,
+        args: TypeArgs,
     },
     VariantRefinement {
         name: String,
         identity: String,
-        args: Vec<Type>,
+        args: TypeArgs,
         variants: Arc<[String]>,
         unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
     },
@@ -252,7 +359,7 @@ impl Type {
         Self::Named {
             identity: name.clone(),
             name,
-            args,
+            args: args.into(),
         }
     }
 
@@ -264,7 +371,7 @@ impl Type {
         Self::Named {
             name: name.into(),
             identity: identity.into(),
-            args,
+            args: args.into(),
         }
     }
 
@@ -277,7 +384,7 @@ impl Type {
         Self::VariantRefinement {
             identity: name.clone(),
             name,
-            args,
+            args: args.into(),
             variants: variants.into(),
             unresolved_alternatives: Vec::new(),
         }
@@ -292,7 +399,7 @@ impl Type {
         Self::VariantRefinement {
             name: name.into(),
             identity: identity.into(),
-            args,
+            args: args.into(),
             variants: variants.into(),
             unresolved_alternatives: Vec::new(),
         }
@@ -307,7 +414,7 @@ impl Type {
         Self::VariantRefinement {
             name: name.into(),
             identity: identity.into(),
-            args,
+            args: args.into(),
             variants,
             unresolved_alternatives: Vec::new(),
         }
@@ -322,7 +429,7 @@ impl Type {
         Self::VariantRefinement {
             identity: name.clone(),
             name,
-            args,
+            args: args.into(),
             variants: variants.into(),
             unresolved_alternatives,
         }
@@ -453,11 +560,18 @@ impl Type {
     }
 
     pub(crate) fn is_compiler_covariant_identity(identity: &str) -> bool {
-        identity == Self::COMPILER_OPTION_IDENTITY
-            || identity == Self::COMPILER_RESULT_IDENTITY
-            || identity == Self::COMPILER_LIST_IDENTITY
-            || identity == Self::COMPILER_VEC_IDENTITY
-            || Self::is_compiler_dict_identity(identity)
+        Self::compiler_covariant_name(identity).is_some()
+    }
+
+    pub(crate) fn compiler_covariant_name(identity: &str) -> Option<&'static str> {
+        match identity {
+            Self::COMPILER_OPTION_IDENTITY => Some("Option"),
+            Self::COMPILER_RESULT_IDENTITY => Some("Result"),
+            Self::COMPILER_LIST_IDENTITY => Some("List"),
+            Self::COMPILER_VEC_IDENTITY => Some("Vec"),
+            Self::COMPILER_DICT_IDENTITY => Some("Dict"),
+            _ => None,
+        }
     }
 
     pub(crate) fn dict_parts(&self) -> Option<(&Type, &Type)> {

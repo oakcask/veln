@@ -866,14 +866,16 @@ resolved compiler-owned identity. A source or imported constructor with the
 same displayed name instead uses its own checked classifications, and its
 aliases retain those classifications. Distinct nominal owners remain
 incompatible. During aggregate inference, an
-incompatible later contribution reports the aggregate position's accumulated
-type as expected and preserves the later contribution's constructor refinement
-as actual. The accumulated expected type contains only successfully typed
-contributions. A contribution that already produced a diagnostic leaves that
-type unchanged, does not produce a derivative aggregate mismatch, and cannot
-change the expected type reported for a later contribution. A rejected call or
-constructor expression follows this rule even when recovery can determine its
-refined result type from the resolved declaration. The current
+incompatible later contribution reports `type.mismatch` at that contribution.
+The rejected contribution changes no admitted aggregate join state. A later
+valid contribution continues from the last admitted state. A contribution that
+already produced a diagnostic also leaves the join state unchanged and does
+not produce a derivative aggregate mismatch. A rejected call or constructor
+expression follows this rule even when recovery can determine its refined
+result type from the resolved declaration. An `if` branch or `match` arm that
+produces a diagnostic is likewise excluded from its inferred result join. If
+that control-flow expression contributes to an enclosing aggregate, its
+recovered result type is excluded from the enclosing join too. The current
 [type inference rules](types.md#inference-rules) define which direct payload
 contributions can join and which nested payload occurrences remain exact. When
 an exact nested constraint rejects a contribution, the diagnostic reports the
@@ -887,13 +889,20 @@ so a later payload is checked against only the constraints that were complete
 before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
-Compiler-owned covariance is not an inference fallback when no concrete
-expected component or result type exists. Unequal covariantly related
-`Option`, `Result`, `List`, `Vec`, or `Dict` arguments in one collection,
-constructor, `if`, or `match` inference report ordinary `type.mismatch` at the
-incompatible contribution. The accumulated type is `expected_type`, and the
-contribution's complete type is `actual_type`. Reversing contribution order
-reverses those rendered roles but does not make the inference succeed.
+Without a concrete expected component or result type, same-constructor
+`Option`, `Result`, `List`, `Vec`, or `Dict` contributions recursively join
+their covariant arguments. A nested argument that has no bounded join reports
+ordinary `type.mismatch` at the incompatible contribution. The accumulated
+join state keeps every previously admitted argument, refinement, and alias
+presentation unchanged. A later valid contribution continues from that state.
+The checked
+[`compiler-owned covariant inference diagnostic`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/)
+covers that failure and preservation boundary.
+When different outer aliases contributed to one compiler-owned join, a later
+diagnostic renders the joined type with the compiler-owned canonical name. The
+checked
+[`compiler-owned alias presentation diagnostic`](../../examples/specification/check/compiler-owned-covariant-alias-presentation/)
+covers `actual_type` rendering for both contribution orders.
 
 Generated schema encode boundaries additionally inspect corresponding fields
 of anonymous records and corresponding arguments of `Option`, `List`, `Vec`,
@@ -1104,11 +1113,14 @@ An unannotated `if` or `match` whose result refinements can join under the
 [type inference rules](types.md#inference-rules) emits no diagnostic. After a
 finite refinement join has started, a resolved branch or arm result that cannot
 join retains the ordinary `type.mismatch` contract against the base ADT rather
-than introducing a control-flow-specific diagnostic. Recovery abandons the
-partial finite join and remains at the base ADT; later compatible refinements
-do not resume it. When the first typed result cannot start a finite refinement
-join, later results retain the existing first-result expectation, mismatch,
-and recovery behavior.
+than introducing a control-flow-specific diagnostic. A failed contribution
+with the same compiler-owned root leaves the admitted finite join unchanged. A
+later compatible result continues from that state. A failed source-ADT
+contribution or a different root abandons the finite join and recovers to the
+base ADT; later compatible refinements do not resume it. This source-ADT rule
+also applies when the rejected type is complete and has the same root. When the
+first typed result cannot start a finite refinement join, later results retain
+the existing first-result expectation, mismatch, and recovery behavior.
 
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and
