@@ -185,6 +185,70 @@ fn infer_private_constructor_payload(
     type_args: &mut PrivateConstructorTypeArgInference,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
+    let payload_context =
+        private_constructor_payload_context(constructor, index, arg, expected, type_args, context);
+    let field = payload_context.field;
+    let plan = PrivatePayloadInferencePlan::new(
+        expected.is_some() && !context.expected_is_admitted,
+        field,
+        &payload_context.expected,
+    );
+    let Some(inferred_actual) = plan.infer(arg, &payload_context.expected, context) else {
+        return;
+    };
+    if !admitted_payload_accepts_inferred(
+        payload_context.admitted_direct.as_ref(),
+        &inferred_actual,
+        context.adts,
+    ) {
+        *context.failures += 1;
+        return;
+    }
+    let joined = type_args.try_join(field, &inferred_actual, context.adts);
+    if expected.is_none() && !joined && type_args.has_join(field) {
+        *context.failures += 1;
+        return;
+    }
+    let merge_invariant =
+        crate::type_relations::is_assignable_nested_with_registry(
+            &payload_context.expected,
+            &inferred_actual,
+            context.adts,
+        ) || unification::is_direct_variant_carrier(&payload_context.expected, &inferred_actual);
+    if plan.unresolved_concrete_carrier && !merge_invariant {
+        *context.failures += 1;
+        return;
+    }
+    if type_args
+        .commit(
+            field,
+            constructor,
+            index,
+            &inferred_actual,
+            joined,
+            merge_invariant,
+            context.adts,
+        )
+        .is_err()
+    {
+        *context.failures += 1;
+    }
+}
+
+struct PrivatePayloadContext<'a> {
+    field: Option<&'a AdtPayloadField>,
+    expected: Type,
+    admitted_direct: Option<Type>,
+}
+
+fn private_constructor_payload_context<'a>(
+    constructor: AdtConstructor<'a>,
+    index: usize,
+    arg: &Expr,
+    expected: Option<&Type>,
+    type_args: &PrivateConstructorTypeArgInference,
+    context: &PrivateSignatureInferContext<'_, '_>,
+) -> PrivatePayloadContext<'a> {
     let field = constructor.variant.payload_fields.get(index);
     let immediately_independent = (expected.is_none() || context.expected_is_admitted)
         && field.is_some_and(|field| type_args.direct_payload_joins_independently(field))
@@ -224,7 +288,7 @@ fn infer_private_constructor_payload(
             type_args.direct_payload_joins_independently(field)
                 && projected_payload_context == Type::Unknown
         });
-    let admitted_direct_payload = (context.expected_is_admitted
+    let admitted_direct = (context.expected_is_admitted
         && matches!(
             field.map(|field| &field.ty),
             Some(AdtPayloadType::TypeParameter(_))
@@ -232,58 +296,30 @@ fn infer_private_constructor_payload(
         && projected_payload_context == Type::Unknown
         && admitted_payload_context != Type::Unknown)
         .then(|| admitted_payload_context.clone());
-    let payload_expected = if direct_payload_joins_independently {
+    let expected = if direct_payload_joins_independently {
         Type::Unknown
     } else if projected_payload_context == Type::Unknown {
         admitted_payload_context
     } else {
         projected_payload_context
     };
-    let plan = PrivatePayloadInferencePlan::new(
-        expected.is_some() && !context.expected_is_admitted,
+    PrivatePayloadContext {
         field,
-        &payload_expected,
-    );
-    let Some(inferred_actual) = plan.infer(arg, &payload_expected, context) else {
-        return;
-    };
-    if let Some(admitted_payload) = admitted_direct_payload
-        && inferred_actual != admitted_payload
-        && !crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, &admitted_payload)
-            .is_some_and(|mut joined| joined.try_join(context.adts, &inferred_actual))
-    {
-        *context.failures += 1;
-        return;
+        expected,
+        admitted_direct,
     }
-    let joined = type_args.try_join(field, &inferred_actual, context.adts);
-    if expected.is_none() && !joined && type_args.has_join(field) {
-        *context.failures += 1;
-        return;
-    }
-    let merge_invariant =
-        crate::type_relations::is_assignable_nested_with_registry(
-            &payload_expected,
-            &inferred_actual,
-            context.adts,
-        ) || unification::is_direct_variant_carrier(&payload_expected, &inferred_actual);
-    if plan.unresolved_concrete_carrier && !merge_invariant {
-        *context.failures += 1;
-        return;
-    }
-    if type_args
-        .commit(
-            field,
-            constructor,
-            index,
-            &inferred_actual,
-            joined,
-            merge_invariant,
-            context.adts,
-        )
-        .is_err()
-    {
-        *context.failures += 1;
-    }
+}
+
+fn admitted_payload_accepts_inferred(
+    admitted: Option<&Type>,
+    inferred: &Type,
+    adts: &AdtRegistry,
+) -> bool {
+    admitted.is_none_or(|admitted| {
+        inferred == admitted
+            || crate::aggregate_type_join::AggregateTypeJoin::new(adts, admitted)
+                .is_some_and(|mut joined| joined.try_join(adts, inferred))
+    })
 }
 
 struct PrivatePayloadInferencePlan {
