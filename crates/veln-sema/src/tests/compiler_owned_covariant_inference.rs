@@ -478,26 +478,120 @@ fn failed_compiler_owned_control_flow_join_preserves_admitted_state() {
         "    later\n",
         "  end\n",
         "end\n",
+        "fn retained_match(state: State, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>)\n",
+        "  match state\n",
+        "    Ready => accepted\n",
+        "    Failed => rejected\n",
+        "    Closed => later\n",
+        "  end\n",
+        "end\n",
     );
     let source = SourceFile::new("main.veln", source_text);
     let parsed = parse(&source);
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
     let diagnostics = analyze_surface_module(&module);
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
-    let span = diagnostics[0].span.as_ref().expect("mismatch span");
-    assert_eq!(&source_text[span.start.offset..span.end.offset], "rejected");
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}",
+    );
+    for diagnostic in &diagnostics {
+        let span = diagnostic.span.as_ref().expect("mismatch span");
+        assert_eq!(&source_text[span.start.offset..span.end.offset], "rejected");
+    }
 
     let environment = TypeEnvironment::from_module(&module);
-    assert_eq!(
-        environment
-            .function("retained")
-            .expect("retained function")
-            .return_type
-            .render(),
-        "Option<State::Ready | State::Closed>",
+    for function in ["retained", "retained_match"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            "Option<State::Ready | State::Closed>",
+        );
+    }
+}
+
+#[test]
+fn failed_private_control_flow_does_not_contribute_to_parent_aggregate() {
+    let source_text = concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Failed\n",
+        "  Closed\n",
+        "end\n",
+        "fn needs_int(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn private_if(first: Bool, second: Bool, ready: Option<State::Ready>, rejected: Option<String>, closed: Option<State::Closed>)\n",
+        "  [if first\n",
+        "    ready\n",
+        "  else if second\n",
+        "    rejected\n",
+        "  else\n",
+        "    closed\n",
+        "  end, closed]\n",
+        "end\n",
+        "fn private_match(state: State, ready: Option<State::Ready>, rejected: Option<String>, closed: Option<State::Closed>)\n",
+        "  [match state\n",
+        "    Ready => ready\n",
+        "    Failed => rejected\n",
+        "    Closed => closed\n",
+        "  end, closed]\n",
+        "end\n",
+        "fn ordinary_if(first: Bool, second: Bool, ready: Option<State::Ready>, rejected: Option<String>, closed: Option<State::Closed>) -> ()\n",
+        "  let values = [if first\n",
+        "    ready\n",
+        "  else if second\n",
+        "    rejected\n",
+        "  else\n",
+        "    closed\n",
+        "  end, closed]\n",
+        "  needs_int(values)\n",
+        "end\n",
+        "fn ordinary_match(state: State, ready: Option<State::Ready>, rejected: Option<String>, closed: Option<State::Closed>) -> ()\n",
+        "  let values = [match state\n",
+        "    Ready => ready\n",
+        "    Failed => rejected\n",
+        "    Closed => closed\n",
+        "  end, closed]\n",
+        "  needs_int(values)\n",
+        "end\n",
     );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    let aggregate_mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains("\"actual_type\":\"Vec<Option<State::Closed>>\"")
+        })
+        .count();
+    assert_eq!(aggregate_mismatches, 2, "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["private_if", "private_match"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            "Vec<Option<State::Closed>>",
+            "{function}",
+        );
+    }
 }
 
 mod completion_context;

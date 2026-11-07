@@ -18,13 +18,7 @@ pub(crate) fn infer_private_match_type(
         | MatchScrutineePatternInference::Ambiguous(_) => None,
     };
     context.infer(scrutinee, scrutinee_expected.as_ref());
-    infer_private_control_flow_results(
-        arms.iter().map(|arm| &arm.expr),
-        expected,
-        context,
-        false,
-        false,
-    )
+    infer_private_control_flow_results(arms.iter().map(|arm| &arm.expr), expected, context, false)
 }
 
 pub(crate) fn infer_private_if_result_type(
@@ -47,7 +41,6 @@ pub(crate) fn infer_private_if_result_type(
         expected,
         context,
         true,
-        true,
     )
 }
 
@@ -56,7 +49,6 @@ fn infer_private_control_flow_results<'a>(
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
     check_expected: bool,
-    report_join_failure: bool,
 ) -> Type {
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
     let mut joined_result = None;
@@ -76,16 +68,14 @@ fn infer_private_control_flow_results<'a>(
         if !outcome.may_contribute {
             continue;
         }
-        let was_join_failed = join_failed;
-        merge_private_control_flow_result(
+        if !merge_private_control_flow_result(
             &mut result,
             &mut joined_result,
             &mut join_failed,
             outcome.ty,
             context.adts,
             expected.is_none(),
-        );
-        if report_join_failure && !was_join_failed && join_failed {
+        ) {
             *context.failures += 1;
         }
     }
@@ -135,39 +125,40 @@ fn merge_private_control_flow_result(
     actual: Type,
     adts: &AdtRegistry,
     allow_join: bool,
-) {
+) -> bool {
     if *result == Type::Unknown {
         *joined_result =
             crate::aggregate_type_join::AggregateTypeJoin::new_resolved_refinement(adts, &actual);
         *result = private_control_flow_recovery_type(&actual);
-        return;
+        return true;
     }
     if actual == Type::Unknown {
-        return;
+        return true;
     }
     if !allow_join {
         merge_expected_private_control_flow_result(result, &actual);
-        return;
+        return true;
     }
     if *join_failed {
-        return;
+        return true;
     }
     if joined_result.is_none() && *result == actual {
-        return;
+        return true;
     }
     if let Some(joined) = joined_result.as_mut()
         && joined.try_join_resolved(adts, &actual)
     {
-        return;
+        return true;
     }
     if joined_result
         .as_ref()
         .is_some_and(|joined| joined.has_same_root(&actual))
     {
-        return;
+        return false;
     }
     *join_failed = true;
     *joined_result = None;
+    false
 }
 
 fn private_control_flow_recovery_type(ty: &Type) -> Type {

@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["type.mismatch", "name.ambiguous", "Dict<Int, Vec<Int>>", "Dict<Vec<Int>, Int>", "Dict<Int, Vec<State::Ready | State::Closed>>", "Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>>", "expected `String`, but found `Int`", "Vec<Result<State::Ready | State::Closed, String>>"]
+contains = ["type.mismatch", "name.ambiguous", "Dict<Int, Vec<Int>>", "Dict<Vec<Int>, Int>", "Dict<Int, Vec<State::Ready | State::Closed>>", "Vec<Dict<Int, Result<First::Ready | First::Closed, First::Ready>>>", "expected `String`, but found `Int`", "Vec<Result<State::Ready | State::Closed, String>>", "Vec<Option<State::Closed>>"]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 13
+equals = 19
 
 [[json_assert]]
 path = "diagnostics.5.details.actual_type"
@@ -35,6 +35,14 @@ equals = "Option<State::Ready | State::Closed>"
 [[json_assert]]
 path = "diagnostics.12.details.actual_type"
 equals = "Vec<Result<State::Ready | State::Closed, String>>"
+
+[[json_assert]]
+path = "diagnostics.17.details.actual_type"
+equals = "Vec<Option<State::Closed>>"
+
+[[json_assert]]
+path = "diagnostics.18.details.actual_type"
+equals = "Vec<Option<State::Closed>>"
 
 [[diagnostics]]
 id = "type.mismatch"

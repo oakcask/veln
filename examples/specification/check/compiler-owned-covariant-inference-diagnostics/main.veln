@@ -107,3 +107,26 @@ end
 fn observe_projected_rollback(first: Result<First::Ready, String>, closed: Second::Closed) -> ()
 	needs_int(projected_rollback(first, closed))
 end
+
+fn nested_failed_if(first: Bool, second: Bool, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>)
+	[if first
+		accepted
+	else if second
+		rejected
+	else
+		later
+	end, later]
+end
+
+fn nested_failed_match(state: State, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>)
+	[match state
+		Ready => accepted
+		Failed => rejected
+		Closed => later
+	end, later]
+end
+
+fn observe_nested_failure(first: Bool, second: Bool, state: State, accepted: Option<State::Ready>, rejected: Option<String>, later: Option<State::Closed>) -> ()
+	needs_int(nested_failed_if(first, second, accepted, rejected, later))
+	needs_int(nested_failed_match(state, accepted, rejected, later))
+end
