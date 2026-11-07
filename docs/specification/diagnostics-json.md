@@ -873,8 +873,10 @@ already produced a diagnostic also leaves the join state unchanged and does
 not produce a derivative aggregate mismatch. A rejected call or constructor
 expression follows this rule even when recovery can determine its refined
 result type from the resolved declaration. An `if` branch or `match` arm that
-produces a diagnostic is likewise excluded from its inferred result join. The
-current [type inference rules](types.md#inference-rules) define which direct payload
+produces a diagnostic is likewise excluded from its inferred result join. If
+that control-flow expression contributes to an enclosing aggregate, its
+recovered result type is excluded from the enclosing join too. The current
+[type inference rules](types.md#inference-rules) define which direct payload
 contributions can join and which nested payload occurrences remain exact. When
 an exact nested constraint rejects a contribution, the diagnostic reports the
 constraint established by the other payload rather than applying that named
@@ -1111,11 +1113,14 @@ An unannotated `if` or `match` whose result refinements can join under the
 [type inference rules](types.md#inference-rules) emits no diagnostic. After a
 finite refinement join has started, a resolved branch or arm result that cannot
 join retains the ordinary `type.mismatch` contract against the base ADT rather
-than introducing a control-flow-specific diagnostic. Recovery abandons the
-partial finite join and remains at the base ADT; later compatible refinements
-do not resume it. When the first typed result cannot start a finite refinement
-join, later results retain the existing first-result expectation, mismatch,
-and recovery behavior.
+than introducing a control-flow-specific diagnostic. A failed contribution
+with the same compiler-owned root, or a fully resolved contribution with the
+same source-ADT root, leaves the admitted finite join unchanged. A later
+compatible result continues from that state. A different root or an incomplete
+source-ADT type abandons the finite join and recovers to the base ADT; later
+compatible refinements do not resume it. When the first typed result cannot
+start a finite refinement join, later results retain the existing first-result
+expectation, mismatch, and recovery behavior.
 
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and

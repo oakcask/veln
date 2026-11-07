@@ -1403,6 +1403,9 @@ failed expression leaves the previously accumulated join unchanged for later
 successful contributions and for an inferred private result. This exclusion
 also applies when a call argument or constructor payload fails but recovery can
 still identify the call or constructor's refined result type.
+It also applies when an `if` or `match` has an incompatible branch or arm: the
+control-flow expression's recovery type does not contribute to an enclosing
+aggregate or omitted private result.
 
 When contributions have the same resolved source-ADT constructor and arity,
 context-free inference reads that declaration's checked classifications in
