@@ -296,6 +296,11 @@ interface, destructor protocol, or automatic resource-management convention.
 `begin` defines a cleanup region; it does not add rescue, ensure, or exception
 syntax.
 
+An uncaught JVM exception or error from the selected run or test entry is
+reported on standard error and terminates the process with a nonzero status,
+even when spawned tasks are still waiting. A fatal host error such as stack
+exhaustion does not guarantee completion of task cleanup.
+
 The JVM backend emits classfile artifacts and invokes the selected entry. Java
 source generation and Java source compilation are outside the command contract.
 If one generated class cannot represent its constant pool, a constant-pool
@@ -824,6 +829,9 @@ selected entry result, command reporting observes the transport failure rather
 than degrading it to a generic rendered result value.
 
 ## References
+
+- Host stack exhaustion with a waiting child task is checked for both run and
+  reusable test entries in `crates/veln-backend-jvm/src/tests/concurrency.rs`.
 
 - Cross-package function and handler selection through reachability, lowering,
   and JVM linkage, together with validation operand evaluation order, are
