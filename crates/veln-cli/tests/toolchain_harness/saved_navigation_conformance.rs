@@ -27,9 +27,16 @@ struct SavedWorkspace {
 
 #[test]
 fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
-    let workspace = saved_workspace();
-    let lsp_output = run_lsp(&workspace);
-    let mcp_output = run_mcp(&workspace);
+    let lsp_workspace = saved_workspace("saved-navigation-lsp");
+    let mcp_workspace = saved_workspace("saved-navigation-mcp");
+    let (lsp_output, mcp_output) = std::thread::scope(|scope| {
+        let lsp = scope.spawn(|| run_lsp(&lsp_workspace));
+        let mcp = scope.spawn(|| run_mcp(&mcp_workspace));
+        (
+            lsp.join().expect("LSP fixture thread should finish"),
+            mcp.join().expect("MCP fixture thread should finish"),
+        )
+    });
     assert_success("saved navigation LSP", &lsp_output);
     assert_success("saved navigation MCP", &mcp_output);
 
@@ -42,13 +49,27 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
     )
     .expect("MCP output should decode");
 
-    assert_definition_conformance(&workspace, &lsp, &mcp);
-    assert_reference_conformance(&workspace, &lsp, &mcp);
-    assert_failure_conformance(&workspace, &lsp, &mcp);
-    assert_recovery_conformance(&workspace, &lsp, &mcp);
+    assert_definition_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
+    assert_reference_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
+    assert_failure_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
+    assert_recovery_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
 }
 
-fn assert_definition_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mcp: &[JsonValue]) {
+#[test]
+fn saved_navigation_adapters_can_use_independent_fixture_roots() {
+    let lsp = saved_workspace("saved-navigation-lsp");
+    let mcp = saved_workspace("saved-navigation-mcp");
+
+    assert_ne!(lsp.project.root, mcp.project.root);
+    assert_ne!(lsp.main_uri, mcp.main_uri);
+}
+
+fn assert_definition_conformance(
+    lsp_workspace: &SavedWorkspace,
+    mcp_workspace: &SavedWorkspace,
+    lsp: &[JsonValue],
+    mcp: &[JsonValue],
+) {
     let expected_workspace_definition = NormalizedLocation {
         source: "main.veln".to_string(),
         range: NormalizedRange {
@@ -59,22 +80,22 @@ fn assert_definition_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], 
             },
         },
     };
-    let workspace_definition = normalize_lsp_definition(workspace, response(lsp, 2));
+    let workspace_definition = normalize_lsp_definition(lsp_workspace, response(lsp, 2));
     assert_eq!(
         workspace_definition,
         Some(expected_workspace_definition.clone()),
         "LSP workspace definition should retain the expected declaration"
     );
     assert_eq!(
-        normalize_mcp_definition(workspace, response(mcp, 2)),
+        normalize_mcp_definition(mcp_workspace, response(mcp, 2)),
         Some(expected_workspace_definition.clone()),
         "MCP workspace definition should retain the expected declaration"
     );
 
-    let package_definition = normalize_lsp_definition(workspace, response(lsp, 3));
+    let package_definition = normalize_lsp_definition(lsp_workspace, response(lsp, 3));
     assert_eq!(
         package_definition,
-        normalize_mcp_definition(workspace, response(mcp, 3))
+        normalize_mcp_definition(mcp_workspace, response(mcp, 3))
     );
     assert!(
         package_definition
@@ -85,37 +106,42 @@ fn assert_definition_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], 
     let coordinate_pairs = [(4, 4), (6, 6), (7, 7)];
     for (lsp_id, mcp_id) in coordinate_pairs {
         assert_eq!(
-            normalize_lsp_definition(workspace, response(lsp, lsp_id)),
+            normalize_lsp_definition(lsp_workspace, response(lsp, lsp_id)),
             Some(expected_workspace_definition.clone()),
             "LSP coordinate case {lsp_id} changed the definition"
         );
         assert_eq!(
-            normalize_mcp_definition(workspace, response(mcp, mcp_id)),
+            normalize_mcp_definition(mcp_workspace, response(mcp, mcp_id)),
             Some(expected_workspace_definition.clone()),
             "MCP coordinate case {mcp_id} changed the definition"
         );
     }
     assert_eq!(
-        normalize_lsp_definition(workspace, response(lsp, 5)),
+        normalize_lsp_definition(lsp_workspace, response(lsp, 5)),
         None,
         "a half-open token-end LSP position should be empty"
     );
     assert_eq!(
-        normalize_mcp_definition(workspace, response(mcp, 5)),
+        normalize_mcp_definition(mcp_workspace, response(mcp, 5)),
         None,
         "a half-open token-end MCP position should be empty"
     );
 }
 
-fn assert_reference_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mcp: &[JsonValue]) {
-    let lsp_without_declaration = normalize_lsp_references(workspace, response(lsp, 8));
-    let mcp_without_declaration = normalize_mcp_reference_pages(workspace, &[response(mcp, 8)]);
+fn assert_reference_conformance(
+    lsp_workspace: &SavedWorkspace,
+    mcp_workspace: &SavedWorkspace,
+    lsp: &[JsonValue],
+    mcp: &[JsonValue],
+) {
+    let lsp_without_declaration = normalize_lsp_references(lsp_workspace, response(lsp, 8));
+    let mcp_without_declaration = normalize_mcp_reference_pages(mcp_workspace, &[response(mcp, 8)]);
     assert_eq!(lsp_without_declaration, mcp_without_declaration);
     assert_eq!(lsp_without_declaration.len(), 3);
 
-    let lsp_with_declaration = normalize_lsp_references(workspace, response(lsp, 9));
+    let lsp_with_declaration = normalize_lsp_references(lsp_workspace, response(lsp, 9));
     let mcp_with_declaration =
-        normalize_mcp_reference_pages(workspace, &[response(mcp, 9), response(mcp, 11)]);
+        normalize_mcp_reference_pages(mcp_workspace, &[response(mcp, 9), response(mcp, 11)]);
     assert_eq!(lsp_with_declaration, mcp_with_declaration);
     assert_eq!(lsp_with_declaration.len(), 4);
     let without_declaration = lsp_without_declaration.iter().collect::<BTreeSet<_>>();
@@ -158,11 +184,22 @@ fn assert_reference_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], m
     );
 }
 
-fn assert_failure_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mcp: &[JsonValue]) {
-    assert_eq!(normalize_lsp_definition(workspace, response(lsp, 10)), None);
-    assert!(normalize_lsp_references(workspace, response(lsp, 11)).is_empty());
-    assert_eq!(normalize_mcp_definition(workspace, response(mcp, 12)), None);
-    assert!(normalize_mcp_reference_pages(workspace, &[response(mcp, 13)]).is_empty());
+fn assert_failure_conformance(
+    lsp_workspace: &SavedWorkspace,
+    mcp_workspace: &SavedWorkspace,
+    lsp: &[JsonValue],
+    mcp: &[JsonValue],
+) {
+    assert_eq!(
+        normalize_lsp_definition(lsp_workspace, response(lsp, 10)),
+        None
+    );
+    assert!(normalize_lsp_references(lsp_workspace, response(lsp, 11)).is_empty());
+    assert_eq!(
+        normalize_mcp_definition(mcp_workspace, response(mcp, 12)),
+        None
+    );
+    assert!(normalize_mcp_reference_pages(mcp_workspace, &[response(mcp, 13)]).is_empty());
 
     assert_lsp_invalid_position(response(lsp, 12));
     assert_lsp_invalid_position(response(lsp, 13));
@@ -177,25 +214,30 @@ fn assert_failure_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mcp
         "an invalid MCP selection must not create a continuation cursor"
     );
 
-    let workspace_definition = normalize_lsp_definition(workspace, response(lsp, 2));
+    let workspace_definition = normalize_lsp_definition(lsp_workspace, response(lsp, 2));
     assert_eq!(
         workspace_definition,
-        normalize_lsp_definition(workspace, response(lsp, 14))
+        normalize_lsp_definition(lsp_workspace, response(lsp, 14))
     );
     assert_eq!(
         workspace_definition,
-        normalize_mcp_definition(workspace, response(mcp, 14))
+        normalize_mcp_definition(mcp_workspace, response(mcp, 14))
     );
 
-    assert!(normalize_lsp_references(workspace, response(lsp, 15)).is_empty());
-    assert!(normalize_mcp_reference_pages(workspace, &[response(mcp, 15)]).is_empty());
+    assert!(normalize_lsp_references(lsp_workspace, response(lsp, 15)).is_empty());
+    assert!(normalize_mcp_reference_pages(mcp_workspace, &[response(mcp, 15)]).is_empty());
 }
 
-fn assert_recovery_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mcp: &[JsonValue]) {
-    let recovery_definition = normalize_lsp_definition(workspace, response(lsp, 32));
+fn assert_recovery_conformance(
+    lsp_workspace: &SavedWorkspace,
+    mcp_workspace: &SavedWorkspace,
+    lsp: &[JsonValue],
+    mcp: &[JsonValue],
+) {
+    let recovery_definition = normalize_lsp_definition(lsp_workspace, response(lsp, 32));
     assert_eq!(
         recovery_definition,
-        normalize_mcp_definition(workspace, response(mcp, 16)),
+        normalize_mcp_definition(mcp_workspace, response(mcp, 16)),
         "LSP and MCP should retain the same recovery declaration"
     );
     assert_eq!(
@@ -214,22 +256,19 @@ fn assert_recovery_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mc
             },
         })
     );
-    let lsp_recovery_without = normalize_lsp_references(workspace, response(lsp, 33));
-    let mcp_recovery_without = normalize_mcp_reference_pages(workspace, &[response(mcp, 17)]);
+    let lsp_recovery_without = normalize_lsp_references(lsp_workspace, response(lsp, 33));
+    let mcp_recovery_without = normalize_mcp_reference_pages(mcp_workspace, &[response(mcp, 17)]);
     assert_eq!(lsp_recovery_without, mcp_recovery_without);
     assert_eq!(lsp_recovery_without.len(), 2);
-    let lsp_recovery_with = normalize_lsp_references(workspace, response(lsp, 34));
+    let lsp_recovery_with = normalize_lsp_references(lsp_workspace, response(lsp, 34));
     let mcp_recovery_with =
-        normalize_mcp_reference_pages(workspace, &[response(mcp, 18), response(mcp, 19)]);
+        normalize_mcp_reference_pages(mcp_workspace, &[response(mcp, 18), response(mcp, 19)]);
     assert_eq!(lsp_recovery_with, mcp_recovery_with);
     assert_eq!(lsp_recovery_with.len(), 3);
 }
 
-fn saved_workspace() -> SavedWorkspace {
-    let project = TestProject::new(
-        "saved-navigation-cross-adapter".to_string(),
-        &ToolSetup::default(),
-    );
+fn saved_workspace(name: &str) -> SavedWorkspace {
+    let project = TestProject::new(name.to_string(), &ToolSetup::default());
     let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/specification/lsp/saved-navigation-cross-adapter");
     project.copy_fixtures(&fixture);
