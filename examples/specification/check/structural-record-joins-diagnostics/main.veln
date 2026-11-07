@@ -3,6 +3,7 @@
 type State
 	Ready
 	Closed
+	Last
 	Other
 end
 
@@ -15,4 +16,46 @@ end
 
 fn different_shape(first: {id: Int, label: String}, rejected: {id: Int}, later: {label: String, id: Int})
 	[first, rejected, later]
+end
+
+fn ordinary_if(first: Bool, second: Bool, third: Bool, ready: {guard: Option<Int>, state: First::Ready}, closed: {guard: Option<Int>, state: First::Closed}, rejected: {guard: Option<String>, state: Second::Last}, later: {guard: Option<Int>, state: First::Other}) -> ()
+	let selected = if first
+		ready
+	else if second
+		closed
+	else if third
+		rejected
+	else
+		later
+	end
+	let exact: {guard: Option<Int>, state: First::Ready | First::Closed | First::Other} = selected
+	()
+end
+
+fn ordinary_match(state: State, ready: {guard: Option<Int>, state: First::Ready}, closed: {guard: Option<Int>, state: First::Closed}, rejected: {guard: Option<String>, state: Second::Last}, later: {guard: Option<Int>, state: First::Other}) -> ()
+	let selected = match state
+		Ready => ready
+		Closed => closed
+		Last => rejected
+		Other => later
+	end
+	let exact: {guard: Option<Int>, state: First::Ready | First::Closed | First::Other} = selected
+	()
+end
+
+fn private_result(first: Bool, second: Bool, third: Bool, ready: {guard: Option<Int>, state: First::Ready}, closed: {guard: Option<Int>, state: First::Closed}, rejected: {guard: Option<String>, state: Second::Last}, later: {guard: Option<Int>, state: First::Other})
+	if first
+		ready
+	else if second
+		closed
+	else if third
+		rejected
+	else
+		later
+	end
+end
+
+fn observe_private(first: Bool, second: Bool, third: Bool, ready: {guard: Option<Int>, state: First::Ready}, closed: {guard: Option<Int>, state: First::Closed}, rejected: {guard: Option<String>, state: Second::Last}, later: {guard: Option<Int>, state: First::Other}) -> ()
+	let exact: {guard: Option<Int>, state: First::Ready | First::Closed | First::Other} = private_result(first, second, third, ready, closed, rejected, later)
+	()
 end

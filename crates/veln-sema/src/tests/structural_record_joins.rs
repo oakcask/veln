@@ -141,3 +141,93 @@ fn failed_record_join_preserves_fields_refinements_and_alias_presentation() {
         "Vec<{id: Int, label: String}>",
     );
 }
+
+#[test]
+fn failed_record_control_flow_contributions_preserve_the_admitted_join() {
+    let source_text = concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Last\n",
+        "  Other\n",
+        "end\n",
+        "pub type First = State\n",
+        "pub type Second = State\n",
+        "fn needs_int(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn ordinary_if(first: Bool, second: Bool, third: Bool, ready: {guard: Option<Int>, state: First::Ready}, closed: {guard: Option<Int>, state: First::Closed}, rejected: {guard: Option<String>, state: Second::Last}, later: {guard: Option<Int>, state: First::Other}) -> ()\n",
+        "  let selected = if first\n",
+        "    ready\n",
+        "  else if second\n",
+        "    closed\n",
+        "  else if third\n",
+        "    rejected\n",
+        "  else\n",
+        "    later\n",
+        "  end\n",
+        "  needs_int(selected)\n",
+        "end\n",
+        "fn ordinary_match(state: State, ready: {guard: Option<Int>, state: First::Ready}, closed: {guard: Option<Int>, state: First::Closed}, rejected: {guard: Option<String>, state: Second::Last}, later: {guard: Option<Int>, state: First::Other}) -> ()\n",
+        "  let selected = match state\n",
+        "    Ready => ready\n",
+        "    Closed => closed\n",
+        "    Last => rejected\n",
+        "    Other => later\n",
+        "  end\n",
+        "  needs_int(selected)\n",
+        "end\n",
+        "fn private_result(first: Bool, second: Bool, third: Bool, ready: {guard: Option<Int>, state: First::Ready}, closed: {guard: Option<Int>, state: First::Closed}, rejected: {guard: Option<String>, state: Second::Last}, later: {guard: Option<Int>, state: First::Other})\n",
+        "  if first\n",
+        "    ready\n",
+        "  else if second\n",
+        "    closed\n",
+        "  else if third\n",
+        "    rejected\n",
+        "  else\n",
+        "    later\n",
+        "  end\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 5, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}",
+    );
+    let rejected_spans = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let span = diagnostic.span.as_ref().expect("mismatch span");
+            &source_text[span.start.offset..span.end.offset] == "rejected"
+        })
+        .count();
+    assert_eq!(rejected_spans, 3, "{diagnostics:#?}");
+    let final_type = "{guard: Option<Int>, state: First::Ready | First::Closed | First::Other}";
+    let observed_final_types = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains(&format!("\"actual_type\":\"{final_type}\""))
+        })
+        .count();
+    assert_eq!(observed_final_types, 2, "{diagnostics:#?}");
+
+    assert_eq!(
+        TypeEnvironment::from_module(&module)
+            .function("private_result")
+            .expect("private_result function")
+            .return_type
+            .render(),
+        final_type,
+    );
+}

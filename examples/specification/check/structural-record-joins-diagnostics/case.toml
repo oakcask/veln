@@ -6,6 +6,8 @@ format = "json"
 contains = [
   "expected `{guard: Option<Int>, state: First::Ready | First::Closed}`, but found `{state: Second::Other, guard: Option<String>}`",
   "expected `{id: Int, label: String}`, but found `{id: Int}`",
+  "expected `{guard: Option<Int>, state: First::Ready}`, but found `{guard: Option<String>, state: Second::Last}`",
+  "expected `{guard: Option<Int>, state: First::Ready | First::Closed | First::Other}`, but found `{guard: Option<String>, state: Second::Last}`",
 ]
 
 [stderr]
@@ -17,7 +19,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 2
+equals = 5
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -27,7 +29,7 @@ message = "expected `{guard: Option<Int>, state: First::Ready | First::Closed}`,
 
 [diagnostics.span]
 file = "main.veln"
-line = 13
+line = 14
 column = 10
 
 [[diagnostics]]
@@ -38,5 +40,38 @@ message = "expected `{id: Int, label: String}`, but found `{id: Int}`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 17
+line = 18
 column = 10
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{guard: Option<Int>, state: First::Ready}`, but found `{guard: Option<String>, state: Second::Last}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 27
+column = 3
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{guard: Option<Int>, state: First::Ready}`, but found `{guard: Option<String>, state: Second::Last}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 39
+column = 11
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{guard: Option<Int>, state: First::Ready | First::Closed | First::Other}`, but found `{guard: Option<String>, state: Second::Last}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 52
+column = 3

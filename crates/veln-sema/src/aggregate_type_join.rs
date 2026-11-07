@@ -63,22 +63,24 @@ struct InitialVariantState {
 
 impl AggregateTypeJoin {
     pub(crate) fn new(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
-        let (root, pending) = join_node(adts, initial)?;
+        let (root, pending) = join_node(adts, initial, false)?;
         let mut nodes = vec![root];
         let mut pending = pending
             .into_iter()
-            .map(|(argument, ty)| (0, argument, ty))
+            .map(|(argument, ty, record_subtree_is_complete)| {
+                (0, argument, ty, record_subtree_is_complete)
+            })
             .collect::<Vec<_>>();
-        while let Some((parent, argument, ty)) = pending.pop() {
-            let (node, children) = join_node(adts, ty)?;
+        while let Some((parent, argument, ty, record_subtree_is_complete)) = pending.pop() {
+            let (node, children) = join_node(adts, ty, record_subtree_is_complete)?;
             let child = nodes.len();
             nodes.push(node);
             nodes[parent].args[argument] = JoinArg::Covariant(child);
-            pending.extend(
-                children
-                    .into_iter()
-                    .map(|(argument, ty)| (child, argument, ty)),
-            );
+            pending.extend(children.into_iter().map(
+                |(argument, ty, record_subtree_is_complete)| {
+                    (child, argument, ty, record_subtree_is_complete)
+                },
+            ));
         }
         record_retained_nodes(nodes.len());
         Some(Self {
@@ -251,7 +253,7 @@ impl AggregateTypeJoin {
                         ty,
                         covariant: true,
                         ..
-                    } if join_node(adts, ty).is_some()
+                    } if join_node(adts, ty, false).is_some()
                 );
                 if !should_expand {
                     continue;
@@ -260,26 +262,28 @@ impl AggregateTypeJoin {
                     unreachable!();
                 };
                 let source = std::mem::replace(ty, Type::Unknown);
-                let (root, children) = join_node(adts, &source)
+                let (root, children) = join_node(adts, &source, false)
                     .expect("a concrete covariant source argument has join state");
                 let child = self.nodes.len();
                 self.nodes.push(root);
                 self.nodes[parent].args[argument] = JoinArg::Covariant(child);
                 let mut pending = children
                     .into_iter()
-                    .map(|(argument, ty)| (child, argument, ty))
+                    .map(|(argument, ty, record_subtree_is_complete)| {
+                        (child, argument, ty, record_subtree_is_complete)
+                    })
                     .collect::<Vec<_>>();
-                while let Some((parent, argument, ty)) = pending.pop() {
-                    let (node, children) = join_node(adts, ty)
+                while let Some((parent, argument, ty, record_subtree_is_complete)) = pending.pop() {
+                    let (node, children) = join_node(adts, ty, record_subtree_is_complete)
                         .expect("a nested covariant source argument has join state");
                     let child = self.nodes.len();
                     self.nodes.push(node);
                     self.nodes[parent].args[argument] = JoinArg::Covariant(child);
-                    pending.extend(
-                        children
-                            .into_iter()
-                            .map(|(argument, ty)| (child, argument, ty)),
-                    );
+                    pending.extend(children.into_iter().map(
+                        |(argument, ty, record_subtree_is_complete)| {
+                            (child, argument, ty, record_subtree_is_complete)
+                        },
+                    ));
                 }
                 crate::semantic_model::drop_type_iteratively(source);
             }
@@ -298,6 +302,12 @@ impl AggregateTypeJoin {
     pub(crate) fn has_compiler_covariant_root(&self) -> bool {
         self.nodes[self.root].record_field_names.is_none()
             && Type::is_compiler_covariant_identity(&self.nodes[self.root].identity)
+    }
+
+    pub(crate) fn preserves_failed_control_flow_contribution(&self, right: &Type) -> bool {
+        (self.has_compiler_covariant_root() && self.has_same_root(right))
+            || (self.nodes[self.root].record_field_names.is_some()
+                && matches!(right, Type::Record(_)))
     }
 
     pub(crate) fn has_complete_domain(&self) -> bool {
@@ -483,13 +493,17 @@ impl Drop for AggregateTypeJoin {
 fn join_node<'a>(
     adts: &AdtRegistry,
     initial: &'a Type,
-) -> Option<(JoinNode, Vec<(usize, &'a Type)>)> {
+    record_subtree_is_complete: bool,
+) -> Option<(JoinNode, Vec<(usize, &'a Type, bool)>)> {
     if let Type::Record(fields) = initial {
+        if !record_subtree_is_complete && setup_type_shape(initial).1 {
+            return None;
+        }
         return record_join_node(fields);
     }
     let initial = adt_type_parts(initial)?;
     let variant_state = initial_variant_state(adts, initial)?;
-    let (args, pending) = initial_argument_state(adts, initial);
+    let (args, pending) = initial_argument_state(adts, initial, record_subtree_is_complete);
     Some((
         JoinNode {
             name: initial.name.to_string(),
@@ -513,7 +527,7 @@ fn join_node<'a>(
 
 fn record_join_node<'a>(
     record_fields: &'a [(String, Type)],
-) -> Option<(JoinNode, Vec<(usize, &'a Type)>)> {
+) -> Option<(JoinNode, Vec<(usize, &'a Type, bool)>)> {
     let mut fields = record_fields.iter().collect::<Vec<_>>();
     fields.sort_unstable_by(|left, right| left.0.cmp(&right.0));
     if fields.windows(2).any(|pair| pair[0].0 == pair[1].0) {
@@ -523,9 +537,6 @@ fn record_join_node<'a>(
         .iter()
         .map(|(name, _)| name.clone())
         .collect::<Vec<_>>();
-    if fields.iter().any(|(_, ty)| type_shape(ty).1) {
-        return None;
-    }
     let mut pending = Vec::new();
     let args = fields
         .iter()
@@ -533,7 +544,7 @@ fn record_join_node<'a>(
         .map(|(index, _)| {
             let ty: &'a Type = &fields[index].1;
             if join_type_parts(ty).is_some() {
-                pending.push((index, ty));
+                pending.push((index, ty, true));
                 JoinArg::Covariant(usize::MAX)
             } else {
                 JoinArg::Exact {
@@ -586,7 +597,8 @@ fn initial_variant_state(
 fn initial_argument_state<'a>(
     adts: &AdtRegistry,
     initial: AdtTypeParts<'a>,
-) -> (Vec<JoinArg>, Vec<(usize, &'a Type)>) {
+    record_subtree_is_complete: bool,
+) -> (Vec<JoinArg>, Vec<(usize, &'a Type, bool)>) {
     let compiler_covariant = Type::is_compiler_covariant_identity(initial.identity);
     let variances = (!compiler_covariant)
         .then(|| adts.parameter_variances_for_identity(initial.identity, initial.args.len()))
@@ -605,7 +617,7 @@ fn initial_argument_state<'a>(
                     .unwrap_or(Variance::Invariant)
             };
             if variance == Variance::Covariant && join_type_parts(ty).is_some() {
-                pending.push((index, ty));
+                pending.push((index, ty, record_subtree_is_complete));
                 JoinArg::Covariant(usize::MAX)
             } else {
                 JoinArg::Exact {
@@ -663,11 +675,22 @@ pub(crate) fn merge_invariant_payload_type_args(
 }
 
 fn type_shape(ty: &Type) -> (usize, bool) {
+    type_shape_with_setup_work(ty, false)
+}
+
+fn setup_type_shape(ty: &Type) -> (usize, bool) {
+    type_shape_with_setup_work(ty, true)
+}
+
+fn type_shape_with_setup_work(ty: &Type, setup_work: bool) -> (usize, bool) {
     let mut nodes = 0usize;
     let mut contains_unknown = false;
     let mut pending = vec![ty];
     while let Some(ty) = pending.pop() {
         nodes += 1;
+        if setup_work {
+            record_setup_type_node();
+        }
         match ty {
             Type::Unknown => contains_unknown = true,
             Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
@@ -757,6 +780,7 @@ pub(crate) fn take_work() -> usize {
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct DeepJoinWork {
+    pub(crate) setup_type_nodes: usize,
     pub(crate) node_visits: usize,
     pub(crate) retained_nodes: usize,
     pub(crate) presentation_nodes: usize,
@@ -767,6 +791,7 @@ pub(crate) struct DeepJoinWork {
 thread_local! {
     static DEEP_JOIN_WORK: std::cell::Cell<DeepJoinWork> = const {
         std::cell::Cell::new(DeepJoinWork {
+            setup_type_nodes: 0,
             node_visits: 0,
             retained_nodes: 0,
             presentation_nodes: 0,
@@ -783,6 +808,15 @@ pub(crate) fn reset_deep_work() {
 #[cfg(test)]
 pub(crate) fn take_deep_work() -> DeepJoinWork {
     DEEP_JOIN_WORK.replace(DeepJoinWork::default())
+}
+
+#[inline(always)]
+fn record_setup_type_node() {
+    #[cfg(test)]
+    DEEP_JOIN_WORK.update(|mut work| {
+        work.setup_type_nodes += 1;
+        work
+    });
 }
 
 #[inline(always)]

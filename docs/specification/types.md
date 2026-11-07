@@ -238,7 +238,10 @@ order and contribution order do not change the resolved type or its
 presentation. The contribution is committed only when every field joins. A
 different field-name set or an unavailable recursive field join leaves the
 accumulated type, presentation, and alias provenance unchanged. Record-width
-assignment does not permit context-free inference to drop fields.
+assignment does not permit context-free inference to drop fields. This
+state-preservation rule also applies to unannotated `if` and `match` results
+and to omitted private results: a rejected record branch reports its mismatch,
+and later compatible branches continue from the last admitted record type.
 
 When a private non-exported helper omits parameter or return annotations,
 same-module concrete call sites may constrain the helper's single monomorphic
@@ -1814,7 +1817,8 @@ private-result inference are checked by the accepted
 case. Its
 [`diagnostic companion`](../../examples/specification/check/structural-record-joins-diagnostics/)
 checks exact-shape rejection and transactional preservation after a recursive
-field join fails.
+field join fails in collection, control-flow, and omitted-private-result
+inference.
 
 Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and
