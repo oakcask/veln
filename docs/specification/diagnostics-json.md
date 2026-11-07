@@ -1114,13 +1114,13 @@ An unannotated `if` or `match` whose result refinements can join under the
 finite refinement join has started, a resolved branch or arm result that cannot
 join retains the ordinary `type.mismatch` contract against the base ADT rather
 than introducing a control-flow-specific diagnostic. A failed contribution
-with the same compiler-owned root, or a fully resolved contribution with the
-same source-ADT root, leaves the admitted finite join unchanged. A later
-compatible result continues from that state. A different root or an incomplete
-source-ADT type abandons the finite join and recovers to the base ADT; later
-compatible refinements do not resume it. When the first typed result cannot
-start a finite refinement join, later results retain the existing first-result
-expectation, mismatch, and recovery behavior.
+with the same compiler-owned root leaves the admitted finite join unchanged. A
+later compatible result continues from that state. A failed source-ADT
+contribution or a different root abandons the finite join and recovers to the
+base ADT; later compatible refinements do not resume it. This source-ADT rule
+also applies when the rejected type is complete and has the same root. When the
+first typed result cannot start a finite refinement join, later results retain
+the existing first-result expectation, mismatch, and recovery behavior.
 
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and
