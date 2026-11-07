@@ -642,9 +642,16 @@ An explicit enclosing expected type continues to flow to every arm. A later
 result that cannot join reports the ordinary compatibility diagnostic against
 the base ADT. A failed compiler-owned contribution with the same root leaves
 the finite join unchanged so a later compatible result can continue it. A
-result with a different root or a source-ADT type that cannot join abandons the
-finite join: recovery uses the base ADT, and a later compatible refinement does
-not resume it.
+result with a different root, or a source-ADT result whose outer shape or exact
+argument constraint is incompatible, abandons the finite join. Recovery uses
+the base ADT, and a later compatible refinement does not resume it. A
+diagnostically failed source-ADT result uses the same recovery after exclusion
+from the admitted join. A compatible-shape, same-root source-ADT result whose
+recursive bounded join or meet is not yet unique does not abandon the join.
+Inference retains that result with the other bounded candidates so a later
+contribution can resolve it. If the control-flow aggregate ends without a
+unique result, its omitted local or private result is `unknown` and reports the
+applicable incomplete-inference diagnostic.
 When the first typed arm cannot start an ADT-refinement join, it supplies the
 initial result type for the existing compatibility and mismatch rules. When
 that type is a concrete base ADT, it supplies context to later arms, including
@@ -1567,12 +1574,15 @@ still-unknown argument of an omitted local, including through a direct local
 alias. The aggregate surface then applies its recovery rule. Collections,
 dictionaries, and repeated constructor payloads retain the last admitted state,
 so a later valid contribution can continue the join. An unannotated `if` or
-`match` retains that state after a failed same-root compiler-owned contribution,
-but a failed source-ADT contribution abandons its finite control-flow join as
-described above. Permuting successful contributions produces the same resolved
-type and presentation. Atomic validation applies to compiler-owned constructors
-and covariant source-ADT parameters; continuation after failure applies only
-when the aggregate surface retains the join.
+`match` retains that state after a failed same-root compiler-owned contribution.
+A structurally inadmissible or diagnostically failed source-ADT contribution
+abandons its finite control-flow join as described above. A compatible-shape,
+same-root source-ADT contribution with a recursively unresolved bounded result
+remains admitted and can be completed by a later candidate. Permuting
+successful contributions produces the same resolved type and presentation.
+Atomic validation applies to compiler-owned constructors and source-ADT
+parameters; continuation after an inadmissible contribution applies only when
+the aggregate surface retains the join.
 
 Projecting an admitted aggregate context through nested compiler-owned
 constructors has bounded linear total work and retained state. The deterministic

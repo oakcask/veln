@@ -306,10 +306,7 @@ impl AggregateTypeJoin {
             if !bounded_shapes_are_admissible(retained, right) {
                 return false;
             }
-            let mut contributions = self
-                .optimized_contributions
-                .take()
-                .expect("transition-capable optimized join retains contributions");
+            let mut contributions = retained.to_vec();
             contributions.push(right.clone());
             let bounded = BoundedJoin::from_contributions(adts, contributions);
             if bounded.resolved.is_none()
@@ -317,6 +314,7 @@ impl AggregateTypeJoin {
             {
                 return false;
             }
+            self.optimized_contributions = None;
             self.bounded = Some(bounded);
             self.projection_cache.get_mut().clear();
             return true;
@@ -626,49 +624,122 @@ impl AggregateTypeJoin {
 }
 
 fn optimized_join_retains_contributions(adts: &AdtRegistry, initial: &Type) -> bool {
-    if matches!(initial, Type::Record(_)) {
-        return true;
+    let mut pending = vec![initial];
+    while let Some(ty) = pending.pop() {
+        match ty {
+            Type::Record(_) | Type::Function { .. } => return true,
+            Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
+                if Type::is_compiler_covariant_identity(identity) {
+                    pending.extend(args);
+                    continue;
+                }
+                let Some(variances) = adts.parameter_variances_for_identity(identity, args.len())
+                else {
+                    continue;
+                };
+                for (argument, variance) in args.iter().zip(variances) {
+                    if *variance == Variance::Covariant {
+                        pending.push(argument);
+                    } else {
+                        return true;
+                    }
+                }
+            }
+            Type::Unknown => {}
+        }
     }
-    if type_contains_function(initial) {
-        return true;
-    }
-    let Some(parts) = adt_type_parts(initial) else {
-        return false;
-    };
-    !Type::is_compiler_covariant_identity(parts.identity)
-        && adts
-            .parameter_variances_for_identity(parts.identity, parts.args.len())
-            .is_some_and(|variances| {
-                variances
-                    .iter()
-                    .any(|variance| *variance != Variance::Covariant)
-            })
+    false
 }
 
 fn can_retain_unresolved_contributions(adts: &AdtRegistry, contributions: &[Type]) -> bool {
-    if contributions.iter().any(type_contains_function) {
-        return true;
+    let mut pending = vec![contributions.iter().collect::<Vec<_>>()];
+    let mut retainable = false;
+    while let Some(group) = pending.pop() {
+        let Some(first) = group.first().copied() else {
+            return false;
+        };
+        match first {
+            Type::Function { .. } => retainable = true,
+            Type::Record(first_fields) => {
+                let mut records = Vec::with_capacity(group.len());
+                for contribution in group {
+                    let Type::Record(fields) = contribution else {
+                        return false;
+                    };
+                    records.push(fields);
+                }
+                if records.iter().skip(1).any(|fields| {
+                    fields.len() != first_fields.len()
+                        || first_fields
+                            .iter()
+                            .any(|(name, _)| !fields.iter().any(|(other, _)| other == name))
+                }) {
+                    retainable = true;
+                    continue;
+                }
+                for (name, _) in first_fields {
+                    pending.push(
+                        records
+                            .iter()
+                            .map(|fields| {
+                                &fields
+                                    .iter()
+                                    .find(|(other, _)| other == name)
+                                    .expect("validated record field set")
+                                    .1
+                            })
+                            .collect(),
+                    );
+                }
+            }
+            Type::Named { .. } | Type::VariantRefinement { .. } => {
+                let first = adt_type_parts(first).expect("named contribution parts");
+                let mut parts = Vec::with_capacity(group.len());
+                for contribution in group {
+                    let Some(contribution) = adt_type_parts(contribution) else {
+                        return false;
+                    };
+                    if !same_type_identity(
+                        first.name,
+                        first.identity,
+                        contribution.name,
+                        contribution.identity,
+                    ) || contribution.args.len() != first.args.len()
+                    {
+                        return false;
+                    }
+                    parts.push(contribution);
+                }
+                if Type::is_compiler_covariant_identity(first.identity) {
+                    for argument in 0..first.args.len() {
+                        pending.push(parts.iter().map(|part| &part.args[argument]).collect());
+                    }
+                    continue;
+                }
+                let Some(variances) =
+                    adts.parameter_variances_for_identity(first.identity, first.args.len())
+                else {
+                    if parts
+                        .iter()
+                        .skip(1)
+                        .any(|part| !invariant_args_match(first.args, part.args))
+                    {
+                        return false;
+                    }
+                    continue;
+                };
+                for (argument, variance) in variances.iter().enumerate() {
+                    if *variance == Variance::Covariant {
+                        pending.push(parts.iter().map(|part| &part.args[argument]).collect());
+                    } else {
+                        retainable = true;
+                    }
+                }
+            }
+            Type::Unknown => return false,
+        }
     }
-    match contributions.first() {
-        Some(Type::Record(first)) => contributions.iter().any(|contribution| {
-            let Type::Record(fields) = contribution else {
-                return false;
-            };
-            fields.len() != first.len()
-                || first
-                    .iter()
-                    .any(|(name, _)| !fields.iter().any(|(other, _)| other == name))
-        }),
-        Some(Type::Named { identity, args, .. })
-        | Some(Type::VariantRefinement { identity, args, .. }) => adts
-            .parameter_variances_for_identity(identity, args.len())
-            .is_some_and(|variances| {
-                variances
-                    .iter()
-                    .any(|variance| *variance != Variance::Covariant)
-            }),
-        _ => false,
-    }
+    retainable
 }
 
 fn queue_covariant_contributions<'a>(

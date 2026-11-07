@@ -94,6 +94,67 @@ fn fallback_retains_every_contribution_until_a_unique_candidate_exists() {
 }
 
 #[test]
+fn covariant_wrappers_retain_nested_fallback_candidates_in_every_order() {
+    let permutations = [
+        ["first", "second", "fallback"],
+        ["first", "fallback", "second"],
+        ["second", "first", "fallback"],
+        ["second", "fallback", "first"],
+        ["fallback", "first", "second"],
+        ["fallback", "second", "first"],
+    ];
+    let mut source = String::from("type Positive<A>\n  Present(A)\nend\n");
+    for (index, order) in permutations.iter().enumerate() {
+        source.push_str(&format!(
+            "fn option_{index}(first: Option<{{id: Int, left: String}}>, second: Option<{{id: Int, right: Bool}}>, fallback: Option<{{id: Int}}>)\n  [{}, {}, {}]\nend\n",
+            order[0], order[1], order[2]
+        ));
+        source.push_str(&format!(
+            "fn source_{index}(first: Positive<{{id: Int, left: String}}>, second: Positive<{{id: Int, right: Bool}}>, fallback: Positive<{{id: Int}}>)\n  [{}, {}, {}]\nend\n",
+            order[0], order[1], order[2]
+        ));
+    }
+    let (module, diagnostics) = analyze(&source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    for index in 0..permutations.len() {
+        assert_eq!(
+            result(&environment, &format!("option_{index}")),
+            "Vec<Option<{id: Int}>>"
+        );
+        assert_eq!(
+            result(&environment, &format!("source_{index}")),
+            "Vec<Positive<{id: Int}>>"
+        );
+    }
+}
+
+#[test]
+fn rejected_optimized_transition_preserves_the_aggregate_for_later_fallback() {
+    let environment = TypeEnvironment::from_module(&lower_surface_ast(
+        &parse(&SourceFile::new("main.veln", "")).tree,
+    ));
+    let initial = Type::Record(vec![
+        ("id".to_string(), Type::int()),
+        ("extra".to_string(), Type::string()),
+    ]);
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("record aggregate");
+    let before_rejection = joined.result_type();
+    let rejected = Type::Record(vec![
+        ("id".to_string(), Type::string()),
+        ("extra".to_string(), Type::string()),
+    ]);
+    assert!(!joined.try_join(&environment.adts, &rejected));
+    assert_eq!(joined.result_type(), before_rejection);
+
+    let fallback = Type::Record(vec![("id".to_string(), Type::int())]);
+    assert!(joined.try_join(&environment.adts, &fallback));
+    assert_eq!(joined.result_type(), fallback);
+}
+
+#[test]
 fn record_width_fallback_with_function_fields_is_order_independent() {
     let source = concat!(
         "fn forward(narrow: {callback: fn(Int) -> Int}, wide: {callback: fn(Int) -> Int, label: String})\n  [narrow, wide]\nend\n",

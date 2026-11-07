@@ -1131,12 +1131,19 @@ finite refinement join has started, a resolved branch or arm result that cannot
 join retains the ordinary `type.mismatch` contract against the base ADT rather
 than introducing a control-flow-specific diagnostic. A failed contribution
 with the same compiler-owned root leaves the admitted finite join unchanged. A
-later compatible result continues from that state. A failed source-ADT
-contribution or a different root abandons the finite join and recovers to the
-base ADT; later compatible refinements do not resume it. This source-ADT rule
-also applies when the rejected type is complete and has the same root. When the
-first typed result cannot start a finite refinement join, later results retain
-the existing first-result expectation, mismatch, and recovery behavior.
+later compatible result continues from that state. A different root, or a
+source-ADT contribution whose outer shape or exact argument constraint is
+incompatible, abandons the finite join and recovers to the base ADT; later
+compatible refinements do not resume it. A diagnostically failed source-ADT
+result uses the same recovery after exclusion from the admitted join. This
+source-ADT recovery can apply when the rejected type is complete and has the
+same root. It does not apply to a compatible-shape, same-root contribution
+whose recursive bounded join or meet is not yet unique. Inference retains such
+contributions so a later candidate can resolve them. If the control-flow
+aggregate ends unresolved, the result is `unknown` and the omitted local or
+private result reports its applicable incomplete-inference diagnostic. When
+the first typed result cannot start a finite refinement join, later results
+retain the existing first-result expectation, mismatch, and recovery behavior.
 
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and
