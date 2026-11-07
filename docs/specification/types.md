@@ -1471,6 +1471,22 @@ contributed record. The checked
 case covers refinement inputs, effect union, order independence, and delayed
 candidate selection.
 
+The contributed-candidate fallback performs at most quadratic assignment
+comparisons in the number of retained contributions. The deterministic
+workload contributes 8, 16, and 32 records with one common field and one
+distinct field, both with and without a final contributed record that resolves
+the join. For `N` contributions, the comparison count must not exceed `N * N`;
+after doubling the input, it must not exceed four times the preceding count
+plus the larger input size. Elapsed time is observational and is not an
+acceptance threshold.
+
+Recursive bounded function inference uses explicit linear work frames. The
+deterministic workload joins two functions whose result contains a function
+below 512, 1024, and 2048 covariant source-ADT wrappers. At depth `D`, the
+join visits exactly `D + 4` bounded frames. Each doubled depth permits at most
+twice the preceding frame count plus one. Elapsed time is observational and is
+not an acceptance threshold.
+
 Same-constructor contributions to compiler-owned immutable `Option<T>`,
 `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>` recursively join every
 argument. `Result` joins its value and error arguments independently, and
@@ -2140,6 +2156,9 @@ case covers that boundary. Schema predicates do not accept `%`.
 - Source-ADT covariant inference, checked variance parameter order, and
   resolved declaration identity:
   `crates/veln-sema/src/tests/source_adt_variance_inference.rs`.
+- Bounded function inference, contributed-candidate comparison scaling, and
+  deep recursive frame scaling:
+  `crates/veln-sema/src/tests/bounded_function_inference.rs`.
 - Source-ADT variance production and assignment lookup scaling:
   `crates/veln-sema/src/adt/tests/variance.rs`, in
   `nested_pair_comb_has_linear_factor_and_dependency_work` and
