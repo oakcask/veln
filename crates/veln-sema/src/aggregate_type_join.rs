@@ -100,10 +100,7 @@ fn project_direct_type_parameter_path(
     uses: &[UseDecl],
 ) -> Option<Type> {
     let mut frames = Vec::new();
-    loop {
-        let ExprKind::Call { callee, args } = &expr.kind else {
-            break;
-        };
+    while let ExprKind::Call { callee, args } = &expr.kind {
         let ExprKind::NamePath { segments, .. } = &callee.kind else {
             break;
         };
