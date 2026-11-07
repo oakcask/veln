@@ -164,7 +164,7 @@ fn merge_private_control_flow_result(
     }
     if joined_result
         .as_ref()
-        .is_some_and(|joined| joined.has_compiler_covariant_root() && joined.has_same_root(&actual))
+        .is_some_and(|joined| joined.preserves_failed_control_flow_contribution(&actual))
     {
         return false;
     }

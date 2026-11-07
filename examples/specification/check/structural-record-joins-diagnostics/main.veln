@@ -1,0 +1,69 @@
+# A failed nested field join does not mutate the admitted record join in any
+# shared inference route. A different shape still cannot use record width.
+type State
+	Ready
+	Closed
+	Last
+	Other
+end
+
+pub type First = State
+pub type Second = State
+
+type Triple<T>
+	Grouped(T, T, T)
+end
+
+fn collection_transactional(first: {detail: {guard: Option<Int>}, state: First::Ready}, rejected: {state: Second::Last, detail: {guard: Option<String>}}, later: {state: First::Closed, detail: {guard: Option<Int>}})
+	[first, rejected, later]
+end
+
+fn payload_transactional(first: {detail: {guard: Option<Int>}, state: First::Ready}, rejected: {state: Second::Last, detail: {guard: Option<String>}}, later: {state: First::Closed, detail: {guard: Option<Int>}})
+	Grouped(first, rejected, later)
+end
+
+fn different_shape(first: {id: Int, label: String}, rejected: {id: Int}, later: {label: String, id: Int})
+	[first, rejected, later]
+end
+
+fn if_transactional(first: Bool, second: Bool, ready: {detail: {guard: Option<Int>}, state: First::Ready}, rejected: {detail: {guard: Option<String>}, state: Second::Last}, later: {detail: {guard: Option<Int>}, state: First::Closed}) -> ()
+	let selected = if first
+		ready
+	else if second
+		rejected
+	else
+		later
+	end
+	let exact: {detail: {guard: Option<Int>}, state: First::Ready | First::Closed} = selected
+	()
+end
+
+fn match_transactional(state: State, ready: {detail: {guard: Option<Int>}, state: First::Ready}, rejected: {detail: {guard: Option<String>}, state: Second::Last}, later: {detail: {guard: Option<Int>}, state: First::Closed}) -> ()
+	let selected = match state
+		Ready => ready
+		Last => rejected
+		Closed => later
+		Other => later
+	end
+	let exact: {detail: {guard: Option<Int>}, state: First::Ready | First::Closed} = selected
+	()
+end
+
+fn private_transactional(first: Bool, second: Bool, ready: {detail: {guard: Option<Int>}, state: First::Ready}, rejected: {detail: {guard: Option<String>}, state: Second::Last}, later: {detail: {guard: Option<Int>}, state: First::Closed})
+	if first
+		ready
+	else if second
+		rejected
+	else
+		later
+	end
+end
+
+fn observe_transactional(first: Bool, second: Bool, state: State, ready: {detail: {guard: Option<Int>}, state: First::Ready}, rejected: {detail: {guard: Option<String>}, state: Second::Last}, later: {detail: {guard: Option<Int>}, state: First::Closed}) -> ()
+	let collection: Vec<{detail: {guard: Option<Int>}, state: First::Ready | First::Closed}> = collection_transactional(ready, rejected, later)
+	let payload: Triple<{detail: {guard: Option<Int>}, state: First::Ready | First::Closed}>::Grouped = payload_transactional(ready, rejected, later)
+	if_transactional(first, second, ready, rejected, later)
+	match_transactional(state, ready, rejected, later)
+	let private: {detail: {guard: Option<Int>}, state: First::Ready | First::Closed} = private_transactional(first, second, ready, rejected, later)
+	()
+end

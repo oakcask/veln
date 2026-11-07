@@ -3,6 +3,7 @@ use crate::semantic_model::Type;
 use crate::types::TypeEnvironment;
 
 mod context_projection_scaling;
+mod deep_record_join_scaling;
 mod deep_source_adt_scaling;
 mod wide_generic_constructor_scaling;
 
