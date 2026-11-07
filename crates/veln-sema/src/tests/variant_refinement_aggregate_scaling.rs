@@ -44,6 +44,17 @@ fn distinct_payload_parameter_context_source(width: usize) -> String {
     )
 }
 
+fn concrete_payload_wrapper_context_source(depth: usize) -> String {
+    let nested_type = (0..depth).fold("T".to_string(), |ty, _| format!("Option<{ty}>"));
+    let nested_value = (0..depth).fold("1".to_string(), |value, _| format!("Some({value})"));
+    format!(
+        "type Wrap<T>\n  Built({nested_type})\nend\n\
+         fn inferred(first: Wrap<Int>)\n  [first, Built({nested_value})]\nend\n\
+         fn needs_int(value: Int) -> ()\n  ()\nend\n\
+         fn checked(first: Wrap<Int>) -> ()\n  needs_int([first, Built({nested_value})])\nend\n"
+    )
+}
+
 #[test]
 fn aggregate_context_classification_grows_linearly_with_adjacent_depths() {
     let measurements = [32, 64, 128].map(|depth| {
@@ -149,6 +160,70 @@ fn aggregate_context_projection_grows_linearly_with_distinct_payload_parameters(
                 adjacent[1][pipeline].max_retained_state
                     <= adjacent[0][pipeline].max_retained_state * 2 + 4,
                 "adjacent distinct-parameter widths must retain only linear state: {measurements:?}",
+            );
+        }
+    }
+}
+
+#[test]
+fn concrete_payload_wrapper_projection_grows_linearly_in_both_pipelines() {
+    let measurements = [16, 32, 64].map(|depth| {
+        let source = SourceFile::new(
+            "main.veln",
+            concrete_payload_wrapper_context_source(depth),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+
+        crate::aggregate_type_join::reset_context_classification_work();
+        let private_started = std::time::Instant::now();
+        let environment = TypeEnvironment::from_module(&module);
+        let private_elapsed = private_started.elapsed();
+        let private_work = crate::aggregate_type_join::take_context_classification_work();
+
+        let checked = module
+            .functions
+            .iter()
+            .find(|function| function.name.as_deref() == Some("checked"))
+            .expect("checked function");
+        crate::aggregate_type_join::reset_context_classification_work();
+        let ordinary_started = std::time::Instant::now();
+        let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+        let diagnostics =
+            crate::analysis::check_function_body(checked, &environment, &mut variant_diagnostics);
+        let ordinary_elapsed = ordinary_started.elapsed();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.mismatch")
+                .count(),
+            1,
+            "{diagnostics:#?}",
+        );
+        let ordinary_work = crate::aggregate_type_join::take_context_classification_work();
+        eprintln!(
+            "concrete wrapper depth-{depth}: private {private_elapsed:?} {private_work:?}, ordinary {ordinary_elapsed:?} {ordinary_work:?}"
+        );
+        [private_work, ordinary_work]
+    });
+
+    for pipeline in 0..2 {
+        assert!(
+            measurements[0][pipeline].expression_or_parameter_edges_scanned >= 16,
+            "the fallback metric must observe the concrete payload chain: {measurements:?}",
+        );
+        for adjacent in measurements.windows(2) {
+            let previous = adjacent[0][pipeline].total_relevant_work();
+            let next = adjacent[1][pipeline].total_relevant_work();
+            assert!(
+                next <= previous * 2 + 128,
+                "concrete payload projection work must grow linearly: {measurements:?}",
+            );
+            assert!(
+                adjacent[1][pipeline].max_retained_state
+                    <= adjacent[0][pipeline].max_retained_state * 2 + 4,
+                "concrete payload retained type nodes must grow linearly: {measurements:?}",
             );
         }
     }

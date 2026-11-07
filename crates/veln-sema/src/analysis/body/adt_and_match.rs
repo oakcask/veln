@@ -1108,7 +1108,7 @@ impl<'a> FunctionChecker<'a> {
                     Type::resolved_variant_refinement(
                         name,
                         identity,
-                        type_args.clone(),
+                        type_args.to_vec(),
                         vec![variant.clone()],
                     ),
                     1,
@@ -1162,7 +1162,7 @@ impl<'a> FunctionChecker<'a> {
                 Type::resolved_variant_refinement(
                     name,
                     identity,
-                    type_args.clone(),
+                    type_args.to_vec(),
                     remaining_variants,
                 ),
                 materialized,
@@ -1748,7 +1748,7 @@ impl<'a> FunctionChecker<'a> {
         Some(Type::resolved_variant_refinement(
             type_name,
             identity,
-            type_args.clone(),
+            type_args.to_vec(),
             vec![constructor.variant.name.clone()],
         ))
     }

@@ -1588,7 +1588,7 @@ fn refinement_with_arguments(ty: Type, arguments: Vec<Type>) -> Option<Type> {
         Type::Named { name, identity, .. } => Some(Type::Named {
             name,
             identity,
-            args: arguments,
+            args: arguments.into(),
         }),
         Type::VariantRefinement {
             name,
@@ -1599,7 +1599,7 @@ fn refinement_with_arguments(ty: Type, arguments: Vec<Type>) -> Option<Type> {
         } => Some(Type::VariantRefinement {
             name,
             identity,
-            args: arguments,
+            args: arguments.into(),
             variants,
             unresolved_alternatives,
         }),

@@ -598,7 +598,7 @@ fn assert_compiler_constructor_slot_covariance(
                 constructor_name,
                 format!("source::{constructor_name}"),
                 match &wide_constructor {
-                    Type::Named { args, .. } => args.clone(),
+                    Type::Named { args, .. } => args.to_vec(),
                     _ => unreachable!(),
                 },
             ),
@@ -611,7 +611,7 @@ fn assert_compiler_constructor_slot_covariance(
             &Type::named(
                 constructor_name,
                 match &wide_constructor {
-                    Type::Named { args, .. } => args.clone(),
+                    Type::Named { args, .. } => args.to_vec(),
                     _ => unreachable!(),
                 }
             ),

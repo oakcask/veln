@@ -186,7 +186,7 @@ fn format_neutral_runtime_validation_type(
                 .all(|arg| !format_neutral_type_contains_refinement(arg))
                 .then(|| {
                     (
-                        Type::resolved_named(name.clone(), identity.clone(), args.clone()),
+                        Type::resolved_named(name.clone(), identity.clone(), args.to_vec()),
                         true,
                     )
                 })
@@ -1145,7 +1145,7 @@ fn format_neutral_schema_source_adt_type(
         package_name: descriptor.package_name.clone(),
         module_name: descriptor.module_name.clone(),
         type_name: descriptor.type_name.clone(),
-        type_arguments: type_arguments.clone(),
+        type_arguments: type_arguments.to_vec(),
     };
     if let Some(result) = format_neutral_schema_prior_adt_traversal_result(
         (module, current_module, current_package, adts, traversal),
@@ -1286,7 +1286,7 @@ fn format_neutral_schema_descriptor_type(ty: &Type, descriptor: &AdtDescriptor) 
         Type::Named { args, .. } => Type::resolved_named(
             descriptor.type_name.clone(),
             descriptor.identity(),
-            args.clone(),
+            args.to_vec(),
         ),
         Type::VariantRefinement {
             args,
@@ -1296,7 +1296,7 @@ fn format_neutral_schema_descriptor_type(ty: &Type, descriptor: &AdtDescriptor) 
         } if unresolved_alternatives.is_empty() => Type::resolved_variant_refinement_shared(
             descriptor.type_name.clone(),
             descriptor.identity(),
-            args.clone(),
+            args.to_vec(),
             Arc::clone(variants),
         ),
         _ => ty.clone(),

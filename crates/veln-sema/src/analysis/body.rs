@@ -206,7 +206,7 @@ fn inferred_control_flow_recovery_type(ty: &Type) -> Type {
             identity,
             args,
             ..
-        } => Type::resolved_named(name, identity, args.clone()),
+        } => Type::resolved_named(name, identity, args.to_vec()),
         ty => ty.clone(),
     }
 }
@@ -1104,7 +1104,7 @@ fn transparent_alias_presented_type(presentation: &Type, fact: &Type) -> Type {
             Type::resolved_variant_refinement_shared(
                 name,
                 identity,
-                args.clone(),
+                args.to_vec(),
                 std::sync::Arc::clone(fact_variants),
             )
         }
@@ -1121,7 +1121,7 @@ fn transparent_alias_presented_type(presentation: &Type, fact: &Type) -> Type {
             Type::resolved_variant_refinement_shared(
                 name,
                 identity,
-                args.clone(),
+                args.to_vec(),
                 std::sync::Arc::clone(fact_variants),
             )
         }

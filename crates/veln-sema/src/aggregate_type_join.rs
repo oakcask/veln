@@ -84,6 +84,7 @@ pub(crate) fn expression_admitted_context(
 ) -> Type {
     let (input_nodes, _) = type_shape(admitted_context);
     record_context_input_scan(input_nodes);
+    record_context_retained(input_nodes);
     if let Some(projected) =
         project_direct_type_parameter_path(expr, admitted_context, adts, current_module, uses)
     {
@@ -420,7 +421,7 @@ fn replace_adt_args(ty: &Type, args: Vec<Type>) -> Type {
         } => Type::VariantRefinement {
             name: name.clone(),
             identity: identity.clone(),
-            args,
+            args: args.into(),
             variants: variants.clone(),
             unresolved_alternatives: unresolved_alternatives.clone(),
         },
@@ -429,8 +430,10 @@ fn replace_adt_args(ty: &Type, args: Vec<Type>) -> Type {
 }
 
 fn clone_context_type(ty: &Type) -> Type {
-    let (nodes, _) = type_shape(ty);
-    record_context_clone(nodes);
+    // Named type arguments are copy-on-write shared. Count the retained root
+    // handle here; walking the shared suffix would make accounting itself
+    // quadratic and would no longer describe owned state.
+    record_context_clone(1);
     ty.clone()
 }
 
@@ -1096,6 +1099,15 @@ fn record_context_materialization(units: usize) {
 
 #[cfg(not(test))]
 fn record_context_materialization(_units: usize) {}
+
+#[cfg(test)]
+pub(crate) fn record_context_template_materialization(ty: &Type) {
+    let (nodes, _) = type_shape(ty);
+    record_context_materialization(nodes);
+}
+
+#[cfg(not(test))]
+pub(crate) fn record_context_template_materialization(_ty: &Type) {}
 
 #[cfg(test)]
 fn record_context_retained(units: usize) {

@@ -106,11 +106,12 @@ pub(crate) fn payload_type_with_resolved_args(
                 .map(resolve)
                 .collect(),
         )),
-        super::descriptors::AdtPayloadType::Concrete(template) => Some(
+        super::descriptors::AdtPayloadType::Concrete(template) => Some({
+            crate::aggregate_type_join::record_context_template_materialization(template);
             super::unification::substitute_type_parameters_with(template, &mut |index| {
                 Some(resolve(index))
-            }),
-        ),
+            })
+        }),
     }
 }
 

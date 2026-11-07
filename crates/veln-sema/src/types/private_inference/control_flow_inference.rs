@@ -187,7 +187,7 @@ fn private_control_flow_recovery_type(ty: &Type) -> Type {
             identity,
             args,
             ..
-        } => Type::resolved_named(name, identity, args.clone()),
+        } => Type::resolved_named(name, identity, args.to_vec()),
         ty => ty.clone(),
     }
 }
@@ -227,7 +227,7 @@ fn merge_expected_private_control_flow_result(result: &mut Type, actual: &Type) 
                 ..
             },
         ) if identity == actual_identity && args == actual_args => {
-            Some(Type::resolved_named(name, identity, args.clone()))
+            Some(Type::resolved_named(name, identity, args.to_vec()))
         }
         (
             Type::Named {
@@ -241,7 +241,7 @@ fn merge_expected_private_control_flow_result(result: &mut Type, actual: &Type) 
                 ..
             },
         ) if identity == actual_identity && args == actual_args => {
-            Some(Type::resolved_named(name, identity, args.clone()))
+            Some(Type::resolved_named(name, identity, args.to_vec()))
         }
         _ => None,
     };

@@ -25,7 +25,7 @@ pub(super) fn payload_type_from_args(
                 identity,
                 args,
                 ..
-            } => Type::resolved_named(name.clone(), identity.clone(), args.clone()),
+            } => Type::resolved_named(name.clone(), identity.clone(), args.to_vec()),
             _ => ty.clone(),
         }),
         AdtPayloadType::Concrete(template) => {
