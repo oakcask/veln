@@ -1452,8 +1452,11 @@ contributed-candidate fallback selects the unique contributed type that accepts
 every contribution and is assignable to every other valid candidate. A bounded
 meet applies the dual candidate rule: the selected contributed type is accepted
 by every contribution and accepts every other valid candidate. Resolved
-identity, rather than alias spelling, determines candidate equality. Conflicting
-alias preferences use deterministic canonical presentation. A rejected or
+identity, rather than alias spelling, determines candidate equality.
+Successfully admitted exact arguments and bounded candidates reconcile alias
+preferences across all retained contributions, including while a sibling bound
+remains unresolved. Conflicting preferences use the canonical presentation,
+and contribution order does not change that presentation. A rejected or
 diagnostically failed contribution does not change the retained contributions
 or presentation state.
 
