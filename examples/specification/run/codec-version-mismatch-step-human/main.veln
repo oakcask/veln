@@ -2,7 +2,7 @@
 
 pub fn main() -> DecodeStep<Int>
 	match byte_offset(3)
-		Ok(offset) => Invalid(DecodeErrorWithReason("codec.version_mismatch", offset, "ManualPacketWire.version", "expected_version=2; actual_version=1; reason=codec version is not supported"))
+		Ok(offset) => Invalid(WithReason("codec.version_mismatch", offset, "ManualPacketWire.version", "expected_version=2; actual_version=1; reason=codec version is not supported"))
 		Err(_) => NeedMore(NeedEnd)
 	end
 end

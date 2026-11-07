@@ -76,7 +76,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_frame_kind",
 		error,
-		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(0, 0, 1, 1, "idle-stream", "idle_streams_require_headers", byte_chunk([])))
+		RuntimeDiagnosticDetail::Http2Diagnostic(Http2DiagnosticDetail::ProtocolInvalidFrameKindDiagnostic(0, 0, 1, 1, "idle-stream", "idle_streams_require_headers", byte_chunk([])))
 	)
 end
 

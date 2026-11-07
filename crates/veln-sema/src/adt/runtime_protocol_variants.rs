@@ -6,7 +6,7 @@ use super::runtime_variant_builders::{
 pub(super) fn runtime_protocol_variants() -> Vec<AdtVariantDescriptor> {
     vec![
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolContentLengthMismatchDiagnostic",
+            "ProtocolContentLengthMismatchDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("frame_kind"),
@@ -19,7 +19,7 @@ pub(super) fn runtime_protocol_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic",
+            "ProtocolInvalidRequestHeaderListDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("frame_kind"),
@@ -33,7 +33,7 @@ pub(super) fn runtime_protocol_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic",
+            "ProtocolInvalidResponseHeaderListDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("frame_kind"),
@@ -47,7 +47,7 @@ pub(super) fn runtime_protocol_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic",
+            "ProtocolInvalidWindowUpdateIncrementDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("stream_id"),
@@ -60,7 +60,7 @@ pub(super) fn runtime_protocol_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic",
+            "ProtocolUnexpectedSettingsAckDiagnostic",
             vec![
                 int_field("byte_offset"),
                 string_field("active_state"),
@@ -69,7 +69,7 @@ pub(super) fn runtime_protocol_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic",
+            "ProtocolSettingsNotAllowedForEndpointDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("setting_identifier"),
@@ -82,7 +82,7 @@ pub(super) fn runtime_protocol_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolPriorityDependencyDiagnostic",
+            "ProtocolPriorityDependencyDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("stream_id"),
@@ -93,7 +93,7 @@ pub(super) fn runtime_protocol_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic",
+            "ProtocolStreamAfterGoawayDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("stream_id"),

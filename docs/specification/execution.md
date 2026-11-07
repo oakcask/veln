@@ -452,11 +452,11 @@ install that production client boundary.
   when set. When bounded input ends at a field boundary before the next field
   starts, explicit decode returns `NeedMore(NeedBytes(total_schema_width))`;
   when bounded input ends after at least one byte of the current field has
-  been consumed, explicit decode returns `Invalid(DecodeError(...))` with
+  been consumed, explicit decode returns `Invalid(WithoutReason(...))` with
   `schema.truncated_field`, the field path, and the explicit base offset.
   Hand-written decode boundaries validate `Decoded(value, consumed)` against
   the supplied `ByteView`; a negative consumed count or a count larger than the
-  view length returns `Invalid(DecodeErrorWithReason(...))` with
+  view length returns `Invalid(WithReason(...))` with
   `codec.consumed_count_invalid`, the supplied view length, the actual
   consumed count, and no retryable readiness.
 - Explicit schema encode expressions lower to the generated encode boundary
@@ -493,7 +493,7 @@ install that production client boundary.
   visited. Each refinement accepts constructors in its source-ADT declaration
   order. Success returns the identical root record value in `Ok` with the
   recursively refined static type. The first excluded constructor returns
-  `Err(DecodeErrorWithReason(...))` with
+  `Err(WithReason(...))` with
   `schema.variant_refinement_mismatch`, the exact supplied offset, and a JSON
   Pointer formed from the terminal schema declaration followed by every
   containing composed or anonymous-record field, decimal collection index, or
@@ -745,7 +745,7 @@ declaration form.
 
 Byte decoders may return `codec.trailing_input` when a caller explicitly
 requires full consumption. Decoders do not reject trailing bytes by default.
-`DecodeErrorWithReason` and `DecodeStep::Invalid` preserve consumed,
+`WithReason` and `DecodeStep::Invalid` preserve consumed,
 available, and remaining byte counts when those counts are known. A rejected
 decode or encode returns no committed value or bytes; a `DecodeStep` readiness
 result may instead request more input as part of its public partial-read

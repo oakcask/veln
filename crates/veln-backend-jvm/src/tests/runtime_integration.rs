@@ -103,7 +103,7 @@ public final class SchemaRefinementNegativeOffsetHarness {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "Err(DecodeErrorWithReason(schema.validation_offset_invalid, ByteOffset(-1), /ConnectedPacket, offset=-1; expected a non-negative ByteOffset))\n"
+        "Err(WithReason(schema.validation_offset_invalid, ByteOffset(-1), /ConnectedPacket, offset=-1; expected a non-negative ByteOffset))\n"
     );
 }
 
@@ -186,7 +186,7 @@ public final class SchemaRefinementSuccessIdentityHarness {
         String::from_utf8_lossy(&output.stdout),
         concat!(
             "validation preserved record identity\n",
-            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
+            "Err(WithReason(schema.variant_refinement_mismatch, ",
             "ByteOffset(31), /Parent~1Schema~0/child/a~1b~0c, ",
             "actual variant `Closed`; expected one of `Connected`))\n"
         )
@@ -266,16 +266,16 @@ public final class SchemaPredicatePrecedenceHarness {
         stdout,
         concat!(
             "Ok({value=1})\n",
-            "Err(DecodeErrorWithReason(schema.validation_failed, ByteOffset(19), /Packet/value, ",
+            "Err(WithReason(schema.validation_failed, ByteOffset(19), /Packet/value, ",
             "predicate `(value & 1) == 1` failed; supplied_values=value=2))\n",
-            "Err(DecodeErrorWithReason(schema.validation_failed, ByteOffset(19), /Packet/value, ",
+            "Err(WithReason(schema.validation_failed, ByteOffset(19), /Packet/value, ",
             "predicate `value & 1 == 1` evaluation failed: schema predicate operator `&` ",
             "expects Int operands; supplied_values=value=2))\n",
-            "Err(DecodeErrorWithReason(schema.validation_failed, ByteOffset(19), /Packet/value, ",
+            "Err(WithReason(schema.validation_failed, ByteOffset(19), /Packet/value, ",
             "predicate `10 / value > 0` evaluation failed: schema predicate division by zero; ",
             "supplied_values=value=0))\n",
             "Ok({flag=true})\n",
-            "Err(DecodeErrorWithReason(schema.validation_failed, ByteOffset(19), /Flagged/flag, ",
+            "Err(WithReason(schema.validation_failed, ByteOffset(19), /Flagged/flag, ",
             "predicate `flag` failed; supplied_values=flag=false))\n",
         )
     );
@@ -794,7 +794,7 @@ public final class SchemaRefinementBoundedVectorHarness {
 
     private static void requireFailure(Object value, String path) {
         String rendered = validate(value).toString();
-        String expected = "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, "
+        String expected = "Err(WithReason(schema.variant_refinement_mismatch, "
             + "ByteOffset(79), " + path + ", actual variant `Closed`; "
             + "expected one of `Connected`))";
         if (!rendered.equals(expected)) {
@@ -964,16 +964,16 @@ public final class SchemaRefinementSourceAdtHarness {
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         concat!(
-            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
+            "Err(WithReason(schema.variant_refinement_mismatch, ",
             "ByteOffset(43), /Packet/item/Boxed/0, actual variant `Closed`; ",
             "expected one of `Connected`))\n",
-            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
+            "Err(WithReason(schema.variant_refinement_mismatch, ",
             "ByteOffset(43), /Packet/item/Named/a~1b~0c, actual variant `Closed`; ",
             "expected one of `Connected`))\n",
-            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
+            "Err(WithReason(schema.variant_refinement_mismatch, ",
             "ByteOffset(43), /Packet/item/Pair/second, actual variant `Closed`; ",
             "expected one of `Connected`))\n",
-            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
+            "Err(WithReason(schema.variant_refinement_mismatch, ",
             "ByteOffset(43), /Packet/item/Nested/child/Boxed/0, actual variant `Closed`; ",
             "expected one of `Connected`))\n",
             "source ADT success preserved input identity\n"
@@ -1103,7 +1103,7 @@ public final class SchemaRefinementDeepRecursiveSourceAdtHarness {
             path.append("/Next/next~1value~0");
         }
         path.append("/Next/state~1value~0");
-        String expected = "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, "
+        String expected = "Err(WithReason(schema.variant_refinement_mismatch, "
             + "ByteOffset(71), " + path + ", actual variant `Closed`; "
             + "expected one of `Connected`))";
         String actual = validate(value(failureDepth, "Closed")).toString();
@@ -1115,7 +1115,7 @@ public final class SchemaRefinementDeepRecursiveSourceAdtHarness {
             expectedConstructorPath += "/Next/next~1value~0";
         }
         String expectedConstructorFailure =
-            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, "
+            "Err(WithReason(schema.variant_refinement_mismatch, "
             + "ByteOffset(71), " + expectedConstructorPath + ", actual variant `End`; "
             + "expected one of `Next`))";
         String actualConstructorFailure = validate(constructorFailure(failureDepth)).toString();
@@ -1374,7 +1374,7 @@ fn jvm_runtime_rechecks_partial_socket_write_deadline_and_cancellation_when_java
     assert!(output.status.success(), "{stderr}");
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "WriteDeadlineExpired\nWriteCancelled\n"
+        "DeadlineExpired\nCancelled\n"
     );
 }
 

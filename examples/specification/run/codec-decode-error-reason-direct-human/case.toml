@@ -8,4 +8,4 @@ jdk = true
 format = "empty"
 
 [stderr]
-contains = ["error[codec.invalid_input]: decode error at byte offset 62", "note: Field path: schema `ManualPacketWire` / field `kind`.", "note: Decode failure reason: kind value exceeds declared length.", "note: DecodeError value: DecodeErrorWithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.kind, kind value exceeds declared length)."]
+contains = ["error[codec.invalid_input]: decode error at byte offset 62", "note: Field path: schema `ManualPacketWire` / field `kind`.", "note: Decode failure reason: kind value exceeds declared length.", "note: DecodeError value: WithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.kind, kind value exceeds declared length)."]

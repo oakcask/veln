@@ -451,7 +451,7 @@ public final class NetworkSystemLifecycleHarness {
             reading.set(false);
             requireResultContains(
                 VelnRuntime.netSystemRead(stream, null, null),
-                "ReadEnd",
+                "End",
                 "peer-ended read after direction release"
             );
 

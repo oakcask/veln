@@ -521,9 +521,9 @@ end
 
 fn clock_wait_outcome(state: Dict<String, String>) -> Result<Int, String>
 	let outcome: String = option_unwrap_or(part(get(state, "cancellable_outcomes"), ",", number(state, "wait_index")), "")
-	if outcome == "cancelled" or outcome == "WaitCancelled"
+	if outcome == "cancelled" or outcome == "Cancelled"
 		Ok(2)
-	else if outcome == "deadline" or outcome == "deadline-expired" or outcome == "WaitDeadlineExpired" or enabled(state, "deadline_expired")
+	else if outcome == "deadline" or outcome == "deadline-expired" or outcome == "DeadlineExpired" or enabled(state, "deadline_expired")
 		Ok(1)
 	else
 		Ok(0)

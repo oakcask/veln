@@ -6,8 +6,8 @@ use stdio
 
 fn handle_input(input: StreamInput) -> List<StreamAdapterAction>
 	match input
-		Chunk(bytes) => list_cons(SendBytes(bytes), list_cons(Ignore, list_nil()))
-		End => list_cons(EndStream, list_nil())
+		StreamInput::Chunk(bytes) => list_cons(SendBytes(bytes), list_cons(Ignore, list_nil()))
+		StreamInput::End => list_cons(EndStream, list_nil())
 	end
 end
 

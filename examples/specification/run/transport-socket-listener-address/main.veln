@@ -12,8 +12,8 @@ end
 
 fn read_count(outcome: net::ReadOutcome) -> Int
 	match outcome
-		net::ReadChunk(bytes) => byte_count_to_int(byte_chunk_count(bytes))
-		net::ReadEnd => 0
+		net::ReadOutcome::Chunk(bytes) => byte_count_to_int(byte_chunk_count(bytes))
+		net::ReadOutcome::End => 0
 	end
 end
 

@@ -39,7 +39,7 @@ fn byte_result_failure_diagnostic_projects_decode_error_reason() {
         ("byte_preview", byte_preview("aa")),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.kind, kind value exceeds declared length)".to_string(),
+        "WithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.kind, kind value exceeds declared length)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -69,7 +69,7 @@ fn byte_result_failure_diagnostic_projects_decode_error_reason() {
     );
     assert_eq!(
         diagnostic.related[5].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.kind, kind value exceeds declared length).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.kind, kind value exceeds declared length).\"}"
     );
 }
 
@@ -110,7 +110,7 @@ fn byte_result_failure_diagnostic_projects_checksum_mismatch_reason() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.checksum_mismatch, ByteOffset(12), ManualPacketWire.checksum, expected_checksum=0xabcd; actual_checksum=0x1234; reason=payload checksum did not match header checksum)".to_string(),
+        "WithReason(codec.checksum_mismatch, ByteOffset(12), ManualPacketWire.checksum, expected_checksum=0xabcd; actual_checksum=0x1234; reason=payload checksum did not match header checksum)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -132,7 +132,7 @@ fn byte_result_failure_diagnostic_projects_checksum_mismatch_reason() {
     );
     assert_eq!(
         diagnostic.related[3].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.checksum_mismatch, ByteOffset(12), ManualPacketWire.checksum, expected_checksum=0xabcd; actual_checksum=0x1234; reason=payload checksum did not match header checksum).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.checksum_mismatch, ByteOffset(12), ManualPacketWire.checksum, expected_checksum=0xabcd; actual_checksum=0x1234; reason=payload checksum did not match header checksum).\"}"
     );
 }
 
@@ -173,7 +173,7 @@ fn byte_result_failure_diagnostic_projects_length_mismatch_reason() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.length_mismatch, ByteOffset(9), ManualPacketWire.payload, expected_length=4; actual_length=3; reason=payload length did not match header length)".to_string(),
+        "WithReason(codec.length_mismatch, ByteOffset(9), ManualPacketWire.payload, expected_length=4; actual_length=3; reason=payload length did not match header length)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -195,7 +195,7 @@ fn byte_result_failure_diagnostic_projects_length_mismatch_reason() {
     );
     assert_eq!(
         diagnostic.related[3].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.length_mismatch, ByteOffset(9), ManualPacketWire.payload, expected_length=4; actual_length=3; reason=payload length did not match header length).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.length_mismatch, ByteOffset(9), ManualPacketWire.payload, expected_length=4; actual_length=3; reason=payload length did not match header length).\"}"
     );
 }
 
@@ -236,7 +236,7 @@ fn byte_result_failure_diagnostic_projects_payload_length_mismatch_reason() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.payload_length_mismatch, ByteOffset(21), ManualPacketWire.payload, expected_payload_length=8; actual_payload_length=5; reason=payload length did not match frame header)".to_string(),
+        "WithReason(codec.payload_length_mismatch, ByteOffset(21), ManualPacketWire.payload, expected_payload_length=8; actual_payload_length=5; reason=payload length did not match frame header)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -261,7 +261,7 @@ fn byte_result_failure_diagnostic_projects_payload_length_mismatch_reason() {
     );
     assert_eq!(
         diagnostic.related[3].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.payload_length_mismatch, ByteOffset(21), ManualPacketWire.payload, expected_payload_length=8; actual_payload_length=5; reason=payload length did not match frame header).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.payload_length_mismatch, ByteOffset(21), ManualPacketWire.payload, expected_payload_length=8; actual_payload_length=5; reason=payload length did not match frame header).\"}"
     );
 }
 
@@ -302,7 +302,7 @@ fn byte_result_failure_diagnostic_projects_padding_mismatch_reason() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.padding_mismatch, ByteOffset(24), ManualPacketWire.padding, expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary)".to_string(),
+        "WithReason(codec.padding_mismatch, ByteOffset(24), ManualPacketWire.padding, expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -324,7 +324,7 @@ fn byte_result_failure_diagnostic_projects_padding_mismatch_reason() {
     );
     assert_eq!(
         diagnostic.related[3].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.padding_mismatch, ByteOffset(24), ManualPacketWire.padding, expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.padding_mismatch, ByteOffset(24), ManualPacketWire.padding, expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary).\"}"
     );
 }
 
@@ -367,7 +367,7 @@ fn byte_result_failure_diagnostic_projects_integer_out_of_range_reason() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.integer_out_of_range, ByteOffset(17), ManualPacketWire.stream_id, byte_width=4; min_value=0; max_value=2147483647; actual_value=2147483648; reason=decoded value exceeds signed integer range)".to_string(),
+        "WithReason(codec.integer_out_of_range, ByteOffset(17), ManualPacketWire.stream_id, byte_width=4; min_value=0; max_value=2147483647; actual_value=2147483648; reason=decoded value exceeds signed integer range)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -389,7 +389,7 @@ fn byte_result_failure_diagnostic_projects_integer_out_of_range_reason() {
     );
     assert_eq!(
         diagnostic.related[3].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.integer_out_of_range, ByteOffset(17), ManualPacketWire.stream_id, byte_width=4; min_value=0; max_value=2147483647; actual_value=2147483648; reason=decoded value exceeds signed integer range).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.integer_out_of_range, ByteOffset(17), ManualPacketWire.stream_id, byte_width=4; min_value=0; max_value=2147483647; actual_value=2147483648; reason=decoded value exceeds signed integer range).\"}"
     );
 }
 
@@ -433,7 +433,7 @@ fn byte_result_failure_diagnostic_projects_sequence_mismatch_reason() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.sequence_mismatch, ByteOffset(13), ManualPacketWire.sequence, expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state)".to_string(),
+        "WithReason(codec.sequence_mismatch, ByteOffset(13), ManualPacketWire.sequence, expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -455,7 +455,7 @@ fn byte_result_failure_diagnostic_projects_sequence_mismatch_reason() {
     );
     assert_eq!(
         diagnostic.related[3].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.sequence_mismatch, ByteOffset(13), ManualPacketWire.sequence, expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.sequence_mismatch, ByteOffset(13), ManualPacketWire.sequence, expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state).\"}"
     );
 }
 
@@ -496,7 +496,7 @@ fn byte_result_failure_diagnostic_projects_tag_mismatch_reason() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.tag_mismatch, ByteOffset(14), ManualPacketWire.kind, expected_tag=DATA; actual_tag=HEADERS; reason=dispatch tag did not match selected payload)".to_string(),
+        "WithReason(codec.tag_mismatch, ByteOffset(14), ManualPacketWire.kind, expected_tag=DATA; actual_tag=HEADERS; reason=dispatch tag did not match selected payload)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -518,7 +518,7 @@ fn byte_result_failure_diagnostic_projects_tag_mismatch_reason() {
     );
     assert_eq!(
         diagnostic.related[3].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.tag_mismatch, ByteOffset(14), ManualPacketWire.kind, expected_tag=DATA; actual_tag=HEADERS; reason=dispatch tag did not match selected payload).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.tag_mismatch, ByteOffset(14), ManualPacketWire.kind, expected_tag=DATA; actual_tag=HEADERS; reason=dispatch tag did not match selected payload).\"}"
     );
 }
 
@@ -559,7 +559,7 @@ fn byte_result_failure_diagnostic_projects_magic_mismatch_reason() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.magic_mismatch, ByteOffset(18), ManualPacketWire.magic, expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature)".to_string(),
+        "WithReason(codec.magic_mismatch, ByteOffset(18), ManualPacketWire.magic, expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -581,7 +581,7 @@ fn byte_result_failure_diagnostic_projects_magic_mismatch_reason() {
     );
     assert_eq!(
         diagnostic.related[3].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.magic_mismatch, ByteOffset(18), ManualPacketWire.magic, expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.magic_mismatch, ByteOffset(18), ManualPacketWire.magic, expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature).\"}"
     );
 }
 
@@ -619,7 +619,7 @@ fn byte_result_failure_diagnostic_projects_schema_variant_refinement_result() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(schema.variant_refinement_mismatch, ByteOffset(19), /ConnectedPacket/state, actual variant `Closed`; expected one of `Connected`)".to_string(),
+        "WithReason(schema.variant_refinement_mismatch, ByteOffset(19), /ConnectedPacket/state, actual variant `Closed`; expected one of `Connected`)".to_string(),
         None,
         Some(byte_diagnostic.clone()),
         None,
@@ -669,7 +669,7 @@ fn byte_result_failure_diagnostic_projects_schema_validation_offset_result() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(schema.validation_offset_invalid, ByteOffset(-1), /ConnectedPacket, offset=-1; expected a non-negative ByteOffset)".to_string(),
+        "WithReason(schema.validation_offset_invalid, ByteOffset(-1), /ConnectedPacket, offset=-1; expected a non-negative ByteOffset)".to_string(),
         None,
         Some(byte_diagnostic.clone()),
         None,

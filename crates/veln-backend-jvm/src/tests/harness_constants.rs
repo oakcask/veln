@@ -91,7 +91,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(codecEncodeError));
 
         Object decodeError = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.decode_failed",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(7) }),
@@ -102,7 +102,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(decodeError));
 
         Object lengthMismatch = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.length_mismatch",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(9) }),
@@ -113,7 +113,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(lengthMismatch));
 
         Object plainLengthMismatch = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.length_mismatch",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(10) }),
@@ -124,7 +124,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainLengthMismatch));
 
         Object payloadLengthMismatch = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.payload_length_mismatch",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(21) }),
@@ -135,7 +135,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(payloadLengthMismatch));
 
         Object plainPayloadLengthMismatch = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.payload_length_mismatch",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(22) }),
@@ -146,7 +146,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainPayloadLengthMismatch));
 
         Object paddingMismatch = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.padding_mismatch",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(24) }),
@@ -157,7 +157,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(paddingMismatch));
 
         Object plainPaddingMismatch = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.padding_mismatch",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(25) }),
@@ -168,7 +168,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainPaddingMismatch));
 
         Object integerOutOfRange = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.integer_out_of_range",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(17) }),
@@ -179,7 +179,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(integerOutOfRange));
 
         Object plainIntegerOutOfRange = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.integer_out_of_range",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(18) }),
@@ -190,7 +190,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainIntegerOutOfRange));
 
         Object sequenceMismatch = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.sequence_mismatch",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(13) }),
@@ -201,7 +201,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(sequenceMismatch));
 
         Object versionMismatch = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.version_mismatch",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(3) }),
@@ -212,7 +212,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(versionMismatch));
 
         Object tagMismatch = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.tag_mismatch",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(14) }),
@@ -223,7 +223,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(tagMismatch));
 
         Object plainTagMismatch = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.tag_mismatch",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(15) }),
@@ -234,7 +234,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainTagMismatch));
 
         Object magicMismatch = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.magic_mismatch",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(18) }),
@@ -245,7 +245,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(magicMismatch));
 
         Object plainMagicMismatch = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.magic_mismatch",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(19) }),
@@ -256,7 +256,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainMagicMismatch));
 
         Object unsupportedFeature = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.unsupported_feature",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(27) }),
@@ -267,7 +267,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(unsupportedFeature));
 
         Object plainUnsupportedFeature = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.unsupported_feature",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(28) }),
@@ -278,7 +278,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainUnsupportedFeature));
 
         Object trailingInput = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.trailing_input",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(5) }),
@@ -289,7 +289,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(trailingInput));
 
         Object malformedTrailingInput = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.trailing_input",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(6) }),
@@ -307,7 +307,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         )).value();
         Object byteReadReason = ((VelnRuntime.Result) VelnRuntime.byteReadU32Be(view)).value();
         Object contextualDecodeError = VelnRuntime.adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "codec.invalid_input",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(42) }),
@@ -318,7 +318,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(contextualDecodeError));
 
         Object plainDecodeError = VelnRuntime.adt(
-            "DecodeError::DecodeError",
+            "DecodeError::WithoutReason",
             new Object[] {
                 "codec.consumed_count_invalid",
                 VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(11) }),

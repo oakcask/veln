@@ -431,9 +431,9 @@ pub fn output_buffer_append_priority(output: CoreOutputBuffer, decision: CorePri
 end
 
 pub type LocalSettingsSendDecision
-	LocalSettingsSent(Int, Int, LocalSettingsPolicy, SettingsAckState, ByteChunk)
-	LocalSettingsRejected(LocalSettingsFailure)
-	LocalSettingsEncodeFailed(LocalSettingsPolicy, SettingsAckState, String)
+	Sent(Int, Int, LocalSettingsPolicy, SettingsAckState, ByteChunk)
+	Rejected(LocalSettingsFailure)
+	EncodeFailed(LocalSettingsPolicy, SettingsAckState, String)
 end
 
 pub type StreamId
@@ -2188,9 +2188,9 @@ end
 
 fn local_settings_transition_to_decision(input_policy: LocalSettingsPolicy, input_ack_state: SettingsAckState, transition: LocalSettingsTransition) -> Result<LocalSettingsSendDecision, String>
 	match http2::core::local_settings::status(transition)
-		"accepted" => Ok(LocalSettingsSent(http2::core::local_settings::first_identifier(transition), http2::core::local_settings::first_value(transition), http2::core::local_settings::policy(transition), http2::core::settings_ack::record_local_batch(input_ack_state, http2::core::local_settings::first_identifier(transition), http2::core::local_settings::item_count(transition)), http2::core::local_settings::bytes(transition)))
-		"rejected" => Ok(LocalSettingsRejected(http2::core::local_settings::transition_failure(transition)?))
-		_ => Ok(LocalSettingsEncodeFailed(input_policy, input_ack_state, http2::core::local_settings::encode_reason(transition)))
+		"accepted" => Ok(LocalSettingsSendDecision::Sent(http2::core::local_settings::first_identifier(transition), http2::core::local_settings::first_value(transition), http2::core::local_settings::policy(transition), http2::core::settings_ack::record_local_batch(input_ack_state, http2::core::local_settings::first_identifier(transition), http2::core::local_settings::item_count(transition)), http2::core::local_settings::bytes(transition)))
+		"rejected" => Ok(LocalSettingsSendDecision::Rejected(http2::core::local_settings::transition_failure(transition)?))
+		_ => Ok(LocalSettingsSendDecision::EncodeFailed(input_policy, input_ack_state, http2::core::local_settings::encode_reason(transition)))
 	end
 end
 
@@ -2228,65 +2228,65 @@ end
 
 pub fn local_settings_send_status(decision: LocalSettingsSendDecision) -> String
 	match decision
-		LocalSettingsSent(_, _, _, _, _) => "accepted"
-		LocalSettingsRejected(_) => "rejected"
-		LocalSettingsEncodeFailed(_, _, _) => "encode_error"
+		LocalSettingsSendDecision::Sent(_, _, _, _, _) => "accepted"
+		LocalSettingsSendDecision::Rejected(_) => "rejected"
+		LocalSettingsSendDecision::EncodeFailed(_, _, _) => "encode_error"
 	end
 end
 
 pub fn local_settings_send_identifier(decision: LocalSettingsSendDecision) -> Int
 	match decision
-		LocalSettingsSent(identifier, _, _, _, _) => identifier
-		LocalSettingsRejected(failure) => http2::core::local_settings::failure_setting_identifier(failure)
-		LocalSettingsEncodeFailed(_, _, _) => 0
+		LocalSettingsSendDecision::Sent(identifier, _, _, _, _) => identifier
+		LocalSettingsSendDecision::Rejected(failure) => http2::core::local_settings::failure_setting_identifier(failure)
+		LocalSettingsSendDecision::EncodeFailed(_, _, _) => 0
 	end
 end
 
 pub fn local_settings_send_value(decision: LocalSettingsSendDecision) -> Int
 	match decision
-		LocalSettingsSent(_, value, _, _, _) => value
-		LocalSettingsRejected(failure) => http2::core::local_settings::failure_observed_value(failure)
-		LocalSettingsEncodeFailed(_, _, _) => 0
+		LocalSettingsSendDecision::Sent(_, value, _, _, _) => value
+		LocalSettingsSendDecision::Rejected(failure) => http2::core::local_settings::failure_observed_value(failure)
+		LocalSettingsSendDecision::EncodeFailed(_, _, _) => 0
 	end
 end
 
 pub fn local_settings_send_policy(decision: LocalSettingsSendDecision) -> LocalSettingsPolicy
 	match decision
-		LocalSettingsSent(_, _, policy, _, _) => policy
-		LocalSettingsRejected(_) => http2::core::local_settings::empty_policy()
-		LocalSettingsEncodeFailed(policy, _, _) => policy
+		LocalSettingsSendDecision::Sent(_, _, policy, _, _) => policy
+		LocalSettingsSendDecision::Rejected(_) => http2::core::local_settings::empty_policy()
+		LocalSettingsSendDecision::EncodeFailed(policy, _, _) => policy
 	end
 end
 
 pub fn local_settings_send_ack_state(decision: LocalSettingsSendDecision) -> SettingsAckState
 	match decision
-		LocalSettingsSent(_, _, _, ack_state, _) => ack_state
-		LocalSettingsRejected(_) => http2::core::settings_ack::empty()
-		LocalSettingsEncodeFailed(_, ack_state, _) => ack_state
+		LocalSettingsSendDecision::Sent(_, _, _, ack_state, _) => ack_state
+		LocalSettingsSendDecision::Rejected(_) => http2::core::settings_ack::empty()
+		LocalSettingsSendDecision::EncodeFailed(_, ack_state, _) => ack_state
 	end
 end
 
 pub fn local_settings_send_bytes(decision: LocalSettingsSendDecision) -> ByteChunk
 	match decision
-		LocalSettingsSent(_, _, _, _, bytes) => bytes
-		LocalSettingsRejected(_) => byte_chunk([])
-		LocalSettingsEncodeFailed(_, _, _) => byte_chunk([])
+		LocalSettingsSendDecision::Sent(_, _, _, _, bytes) => bytes
+		LocalSettingsSendDecision::Rejected(_) => byte_chunk([])
+		LocalSettingsSendDecision::EncodeFailed(_, _, _) => byte_chunk([])
 	end
 end
 
 pub fn local_settings_send_encode_reason(decision: LocalSettingsSendDecision) -> String
 	match decision
-		LocalSettingsSent(_, _, _, _, _) => "none"
-		LocalSettingsRejected(_) => "none"
-		LocalSettingsEncodeFailed(_, _, reason) => reason
+		LocalSettingsSendDecision::Sent(_, _, _, _, _) => "none"
+		LocalSettingsSendDecision::Rejected(_) => "none"
+		LocalSettingsSendDecision::EncodeFailed(_, _, reason) => reason
 	end
 end
 
 pub fn local_settings_send_failure(decision: LocalSettingsSendDecision) -> Result<LocalSettingsFailure, String>
 	match decision
-		LocalSettingsSent(_, _, _, _, _) => Err("accepted local SETTINGS send has no failure")
-		LocalSettingsRejected(failure) => Ok(failure)
-		LocalSettingsEncodeFailed(_, _, _) => Err("encoded local SETTINGS send has no protocol failure")
+		LocalSettingsSendDecision::Sent(_, _, _, _, _) => Err("accepted local SETTINGS send has no failure")
+		LocalSettingsSendDecision::Rejected(failure) => Ok(failure)
+		LocalSettingsSendDecision::EncodeFailed(_, _, _) => Err("encoded local SETTINGS send has no protocol failure")
 	end
 end
 

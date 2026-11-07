@@ -39,7 +39,7 @@ fn byte_result_failure_diagnostic_projects_decode_error_byte_context() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.payload, byte view range exceeds view length)".to_string(),
+        "WithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.payload, byte view range exceeds view length)".to_string(),
         None,
         Some(byte_diagnostic),
         None,

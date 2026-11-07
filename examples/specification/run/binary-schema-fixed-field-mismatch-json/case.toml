@@ -28,7 +28,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(schema.fixed_field_mismatch, fixed field mismatch at byte offset 0, RuntimeByteDiagnostic(ByteOffset(0), Cons(RuntimeDiagnosticFieldPathSegment(schema, DemoPacket), Cons(RuntimeDiagnosticFieldPathSegment(field, kind), Nil)), RuntimeByteFixedValueFacts(1, 255), RuntimeBytePreview(ff0001, ByteCount(3), ByteCount(3), false)))"
+equals = "RuntimeDiagnostic(schema.fixed_field_mismatch, fixed field mismatch at byte offset 0, ByteDiagnostic(ByteOffset(0), Cons(RuntimeDiagnosticFieldPathSegment(schema, DemoPacket), Cons(RuntimeDiagnosticFieldPathSegment(field, kind), Nil)), FixedValueFacts(1, 255), RuntimeBytePreview(ff0001, ByteCount(3), ByteCount(3), false)))"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.kind"
@@ -105,7 +105,7 @@ equals = "fixed field mismatch at byte offset 0"
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.constructor"
-equals = "RuntimeByteDiagnostic"
+equals = "ByteDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
@@ -145,7 +145,7 @@ missing = true
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.facts.constructor"
-equals = "RuntimeByteFixedValueFacts"
+equals = "FixedValueFacts"
 
 [[result_value_assert]]
 value_path = "error.details.value"

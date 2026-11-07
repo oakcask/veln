@@ -2,7 +2,7 @@
 
 pub fn main() -> DecodeStep<Int>
 	match byte_offset(18)
-		Ok(offset) => Invalid(DecodeErrorWithReason("codec.integer_out_of_range", offset, "ManualPacketWire.signed_byte", "byte_width=1; min_value=-128; max_value=127; actual_value=128; reason=decoded value exceeds signed byte range"))
+		Ok(offset) => Invalid(WithReason("codec.integer_out_of_range", offset, "ManualPacketWire.signed_byte", "byte_width=1; min_value=-128; max_value=127; actual_value=128; reason=decoded value exceeds signed byte range"))
 		Err(_) => NeedMore(NeedEnd)
 	end
 end

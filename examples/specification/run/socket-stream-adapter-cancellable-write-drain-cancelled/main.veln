@@ -20,8 +20,8 @@ end
 
 fn read_chunks(stream: net::Stream, deadline: Deadline, token: CancelToken, chunks: List<ByteChunk>) -> List<ByteChunk> effects [net::IO]
 	match net::read(stream)
-		Ok(net::ReadChunk(bytes)) => read_chunks(stream, deadline, token, list_cons(bytes, chunks))
-		Ok(net::ReadEnd) => list_reverse(chunks)
+		Ok(net::ReadOutcome::Chunk(bytes)) => read_chunks(stream, deadline, token, list_cons(bytes, chunks))
+		Ok(net::ReadOutcome::End) => list_reverse(chunks)
 		Err(_) => list_reverse(chunks)
 	end
 end

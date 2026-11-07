@@ -10,8 +10,8 @@ end
 
 fn handle_stream_input(input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match input
-		Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
-		End => { actions: list_cons(EndStream, list_nil()), next_state: { chunks: state.chunks, ended: true } }
+		StreamInput::Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		StreamInput::End => { actions: list_cons(EndStream, list_nil()), next_state: { chunks: state.chunks, ended: true } }
 	end
 end
 
@@ -19,14 +19,14 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	let _ = channel::send(route.tx, input)
 	match channel::recv(route.rx)
 		Some(value) => value
-		None => End
+		None => StreamInput::End
 	end
 end
 
 fn read_response(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, outcome: Result<net::ReadOutcome, net::NetError>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
 	match outcome
-		Ok(net::ReadChunk(bytes)) => handle_stream_input(route_input(route, Chunk(bytes)), state)
-		Ok(net::ReadEnd) => handle_stream_input(route_input(route, End), state)
+		Ok(net::ReadOutcome::Chunk(bytes)) => handle_stream_input(route_input(route, StreamInput::Chunk(bytes)), state)
+		Ok(net::ReadOutcome::End) => handle_stream_input(route_input(route, StreamInput::End), state)
 		Err(net::NetError(_, _, _, net::TimedOut, _)) => { actions: list_cons(RetryAfterDeadline, list_nil()), next_state: state }
 		Err(net::NetError(_, _, _, net::Cancelled, _)) => { actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
 	end

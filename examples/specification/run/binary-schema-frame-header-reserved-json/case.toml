@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "DecodeError(schema.reserved_bits_mismatch, ByteOffset(5), Http2FrameHeaderWire.stream_reserved)"
+equals = "WithoutReason(schema.reserved_bits_mismatch, ByteOffset(5), Http2FrameHeaderWire.stream_reserved)"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.id"

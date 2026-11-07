@@ -4,11 +4,11 @@ use http2::hpack::header_codec
 use http2::hpack::table_size_update
 
 pub type HeaderBlockCodecFailure
-	HeaderBlockCodecUnsupportedRepresentation(first_octet: Int)
-	HeaderBlockCodecMisplacedTableSizeUpdate
-	HeaderBlockCodecIndexedFailure(failure: HeaderCodecFailure)
-	HeaderBlockCodecLiteralFailure(failure: HeaderCodecFailure)
-	HeaderBlockCodecTableSizeUpdateFailure(failure: TableSizeUpdateCodecFailure)
+	UnsupportedRepresentation(first_octet: Int)
+	MisplacedTableSizeUpdate
+	IndexedFailure(failure: HeaderCodecFailure)
+	LiteralFailure(failure: HeaderCodecFailure)
+	TableSizeUpdateFailure(failure: TableSizeUpdateCodecFailure)
 end
 
 pub type HeaderBlockCodecTransition
@@ -17,10 +17,10 @@ end
 
 fn remaining_input(input: ByteView, consumed: Int, first: Int) -> Result<ByteView, HeaderBlockCodecFailure>
 	match byte_count(consumed)
-		Err(_) => Err(HeaderBlockCodecUnsupportedRepresentation(first))
+		Err(_) => Err(HeaderBlockCodecFailure::UnsupportedRepresentation(first))
 		Ok(count) => match byte_view_drop(input, count)
 			Ok(remaining) => Ok(remaining)
-			Err(_) => Err(HeaderBlockCodecUnsupportedRepresentation(first))
+			Err(_) => Err(HeaderBlockCodecFailure::UnsupportedRepresentation(first))
 		end
 	end
 end
@@ -42,10 +42,10 @@ fn decode_remaining(input: ByteView, table: DynamicTable, peer_maximum: Int, fie
 		Ok(HeaderBlockCodecTransition(Nil, 0, table))
 	else
 		match byte_read_u8_be(input)
-			Err(_) => Err(HeaderBlockCodecUnsupportedRepresentation(0))
+			Err(_) => Err(HeaderBlockCodecFailure::UnsupportedRepresentation(0))
 			Ok(first) => if (first & 128) == 128
 				match http2::hpack::header_codec::decode_indexed(input, table)
-					Err(failure) => Err(HeaderBlockCodecIndexedFailure(failure))
+					Err(failure) => Err(HeaderBlockCodecFailure::IndexedFailure(failure))
 					Ok(transition) => match decode_remaining(remaining_input(input, http2::hpack::header_codec::transition_consumed(transition), first)?, http2::hpack::header_codec::transition_table(transition), peer_maximum, true)
 						Err(failure) => Err(failure)
 						Ok(tail) => Ok(prepend_header(http2::hpack::header_codec::transition_header(transition), http2::hpack::header_codec::transition_consumed(transition), tail))
@@ -53,10 +53,10 @@ fn decode_remaining(input: ByteView, table: DynamicTable, peer_maximum: Int, fie
 				end
 			else if (first & 224) == 32
 				if fields_started
-					Err(HeaderBlockCodecMisplacedTableSizeUpdate)
+					Err(HeaderBlockCodecFailure::MisplacedTableSizeUpdate)
 				else
 					match http2::hpack::table_size_update::decode(input, table, peer_maximum)
-						Err(failure) => Err(HeaderBlockCodecTableSizeUpdateFailure(failure))
+						Err(failure) => Err(HeaderBlockCodecFailure::TableSizeUpdateFailure(failure))
 						Ok(transition) => match decode_remaining(remaining_input(input, http2::hpack::table_size_update::transition_consumed(transition), first)?, http2::hpack::table_size_update::transition_table(transition), peer_maximum, false)
 							Err(failure) => Err(failure)
 							Ok(tail) => Ok(prepend_update(http2::hpack::table_size_update::transition_consumed(transition), tail))
@@ -65,14 +65,14 @@ fn decode_remaining(input: ByteView, table: DynamicTable, peer_maximum: Int, fie
 				end
 			else if (first & 192) == 64 or (first & 240) == 0 or (first & 240) == 16
 				match http2::hpack::header_codec::decode_literal(input, table)
-					Err(failure) => Err(HeaderBlockCodecLiteralFailure(failure))
+					Err(failure) => Err(HeaderBlockCodecFailure::LiteralFailure(failure))
 					Ok(decoded) => match decode_remaining(remaining_input(input, http2::hpack::header_codec::transition_consumed(decoded.transition), first)?, http2::hpack::header_codec::transition_table(decoded.transition), peer_maximum, true)
 						Err(failure) => Err(failure)
 						Ok(tail) => Ok(prepend_header(http2::hpack::header_codec::transition_header(decoded.transition), http2::hpack::header_codec::transition_consumed(decoded.transition), tail))
 					end
 				end
 			else
-				Err(HeaderBlockCodecUnsupportedRepresentation(first))
+				Err(HeaderBlockCodecFailure::UnsupportedRepresentation(first))
 			end
 		end
 	end

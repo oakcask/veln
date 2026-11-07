@@ -662,6 +662,10 @@ same bare, type-qualified, prelude-qualified, and prelude-type-qualified
 forms.
 The `AcceptOutcome` standard ADT constructors are available through the same
 bare, type-qualified, prelude-qualified, and prelude-type-qualified forms.
+Bare and prelude-qualified leaves still require unambiguous lookup or
+sufficient type context to select their owning ADT. When leaves overlap, use
+the type-qualified form, such as `StreamInput::Chunk(bytes)` or
+`StreamReadOutcome::Chunk(bytes)`.
 
 In type annotations, bare `WallTime` selects the implicit public
 `std::prelude` type when no source type or type alias with that spelling wins.

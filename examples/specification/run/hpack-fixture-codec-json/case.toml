@@ -24,7 +24,7 @@ equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(hpack.fixture.unsupported_header_block, HPACK fixture unsupported header block at byte offset 27, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(27, 1, 255, fixture header block, hpack_fixture, ByteChunk([Byte(255)]))))"
+equals = "RuntimeDiagnostic(hpack.fixture.unsupported_header_block, HPACK fixture unsupported header block at byte offset 27, Http2HpackDiagnostic(Diagnostic(27, 1, 255, fixture header block, hpack_fixture, ByteChunk([Byte(255)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.id"
@@ -85,7 +85,7 @@ equals = "HPACK fixture unsupported header block at byte offset 27"
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.detail.constructor"
-equals = "RuntimeHpackFixtureDiagnostic"
+equals = "Diagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"

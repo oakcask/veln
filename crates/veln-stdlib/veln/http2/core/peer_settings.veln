@@ -1,13 +1,13 @@
 use prelude
 
 pub type PeerSettingsValidation
-	PeerSettingsValidated(Int)
-	PeerSettingsRejected(PeerSettingsFailure)
+	Validated(Int)
+	Rejected(PeerSettingsFailure)
 end
 
 pub type PeerSettingsFailure
-	PeerSettingsValueOutOfRange(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView)
-	PeerSettingsNotAllowedForEndpoint(offset: Int, setting_identifier: Int, setting_name: String, endpoint_role: String, frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteView)
+	ValueOutOfRange(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView)
+	NotAllowedForEndpoint(offset: Int, setting_identifier: Int, setting_name: String, endpoint_role: String, frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteView)
 end
 
 pub fn validate_payload(payload_offset: Int, endpoint_role: String, payload: ByteChunk) -> Result<PeerSettingsValidation, String>
@@ -16,123 +16,123 @@ end
 
 pub fn accepted_item_count(validation: PeerSettingsValidation) -> Int
 	match validation
-		PeerSettingsValidated(count) => count
-		PeerSettingsRejected(_) => 0
+		PeerSettingsValidation::Validated(count) => count
+		PeerSettingsValidation::Rejected(_) => 0
 	end
 end
 
 pub fn status(validation: PeerSettingsValidation) -> String
 	match validation
-		PeerSettingsValidated(_) => "accepted"
-		PeerSettingsRejected(_) => "rejected"
+		PeerSettingsValidation::Validated(_) => "accepted"
+		PeerSettingsValidation::Rejected(_) => "rejected"
 	end
 end
 
 pub fn validation_failure(validation: PeerSettingsValidation) -> Result<PeerSettingsFailure, String>
 	match validation
-		PeerSettingsValidated(_) => Err("accepted peer SETTINGS validation has no failure")
-		PeerSettingsRejected(failure) => Ok(failure)
+		PeerSettingsValidation::Validated(_) => Err("accepted peer SETTINGS validation has no failure")
+		PeerSettingsValidation::Rejected(failure) => Ok(failure)
 	end
 end
 
 pub fn failure_id(failure: PeerSettingsFailure) -> String
 	match failure
-		PeerSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "http2.peer_limit.settings_value_out_of_range"
-		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => "http2.protocol.settings_not_allowed_for_endpoint"
+		PeerSettingsFailure::ValueOutOfRange(_, _, _, _, _, _, _, _) => "http2.peer_limit.settings_value_out_of_range"
+		PeerSettingsFailure::NotAllowedForEndpoint(_, _, _, _, _, _, _, _) => "http2.protocol.settings_not_allowed_for_endpoint"
 	end
 end
 
 pub fn failure_offset(failure: PeerSettingsFailure) -> Int
 	match failure
-		PeerSettingsValueOutOfRange(offset, _, _, _, _, _, _, _) => offset
-		PeerSettingsNotAllowedForEndpoint(offset, _, _, _, _, _, _, _) => offset
+		PeerSettingsFailure::ValueOutOfRange(offset, _, _, _, _, _, _, _) => offset
+		PeerSettingsFailure::NotAllowedForEndpoint(offset, _, _, _, _, _, _, _) => offset
 	end
 end
 
 pub fn failure_setting_identifier(failure: PeerSettingsFailure) -> Int
 	match failure
-		PeerSettingsValueOutOfRange(_, setting_identifier, _, _, _, _, _, _) => setting_identifier
-		PeerSettingsNotAllowedForEndpoint(_, setting_identifier, _, _, _, _, _, _) => setting_identifier
+		PeerSettingsFailure::ValueOutOfRange(_, setting_identifier, _, _, _, _, _, _) => setting_identifier
+		PeerSettingsFailure::NotAllowedForEndpoint(_, setting_identifier, _, _, _, _, _, _) => setting_identifier
 	end
 end
 
 pub fn failure_setting_name(failure: PeerSettingsFailure) -> String
 	match failure
-		PeerSettingsValueOutOfRange(_, _, setting_name, _, _, _, _, _) => setting_name
-		PeerSettingsNotAllowedForEndpoint(_, _, setting_name, _, _, _, _, _) => setting_name
+		PeerSettingsFailure::ValueOutOfRange(_, _, setting_name, _, _, _, _, _) => setting_name
+		PeerSettingsFailure::NotAllowedForEndpoint(_, _, setting_name, _, _, _, _, _) => setting_name
 	end
 end
 
 pub fn failure_observed_value(failure: PeerSettingsFailure) -> Int
 	match failure
-		PeerSettingsValueOutOfRange(_, _, _, observed_value, _, _, _, _) => observed_value
-		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
+		PeerSettingsFailure::ValueOutOfRange(_, _, _, observed_value, _, _, _, _) => observed_value
+		PeerSettingsFailure::NotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 	end
 end
 
 pub fn failure_accepted_min_value(failure: PeerSettingsFailure) -> Int
 	match failure
-		PeerSettingsValueOutOfRange(_, _, _, _, accepted_min_value, _, _, _) => accepted_min_value
-		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
+		PeerSettingsFailure::ValueOutOfRange(_, _, _, _, accepted_min_value, _, _, _) => accepted_min_value
+		PeerSettingsFailure::NotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 	end
 end
 
 pub fn failure_accepted_max_value(failure: PeerSettingsFailure) -> Int
 	match failure
-		PeerSettingsValueOutOfRange(_, _, _, _, _, accepted_max_value, _, _) => accepted_max_value
-		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
+		PeerSettingsFailure::ValueOutOfRange(_, _, _, _, _, accepted_max_value, _, _) => accepted_max_value
+		PeerSettingsFailure::NotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 	end
 end
 
 pub fn failure_peer_limit_provenance(failure: PeerSettingsFailure) -> String
 	match failure
-		PeerSettingsValueOutOfRange(_, _, _, _, _, _, peer_limit_provenance, _) => peer_limit_provenance
-		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => "none"
+		PeerSettingsFailure::ValueOutOfRange(_, _, _, _, _, _, peer_limit_provenance, _) => peer_limit_provenance
+		PeerSettingsFailure::NotAllowedForEndpoint(_, _, _, _, _, _, _, _) => "none"
 	end
 end
 
 pub fn failure_endpoint_role(failure: PeerSettingsFailure) -> String
 	match failure
-		PeerSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "none"
-		PeerSettingsNotAllowedForEndpoint(_, _, _, endpoint_role, _, _, _, _) => endpoint_role
+		PeerSettingsFailure::ValueOutOfRange(_, _, _, _, _, _, _, _) => "none"
+		PeerSettingsFailure::NotAllowedForEndpoint(_, _, _, endpoint_role, _, _, _, _) => endpoint_role
 	end
 end
 
 pub fn failure_frame_kind(failure: PeerSettingsFailure) -> Int
 	match failure
-		PeerSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => 4
-		PeerSettingsNotAllowedForEndpoint(_, _, _, _, frame_kind, _, _, _) => frame_kind
+		PeerSettingsFailure::ValueOutOfRange(_, _, _, _, _, _, _, _) => 4
+		PeerSettingsFailure::NotAllowedForEndpoint(_, _, _, _, frame_kind, _, _, _) => frame_kind
 	end
 end
 
 pub fn failure_active_state(failure: PeerSettingsFailure) -> String
 	match failure
-		PeerSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "peer-settings"
-		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, active_state, _, _) => active_state
+		PeerSettingsFailure::ValueOutOfRange(_, _, _, _, _, _, _, _) => "peer-settings"
+		PeerSettingsFailure::NotAllowedForEndpoint(_, _, _, _, _, active_state, _, _) => active_state
 	end
 end
 
 pub fn failure_rule_provenance(failure: PeerSettingsFailure) -> String
 	match failure
-		PeerSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "http2_settings_value_range"
-		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+		PeerSettingsFailure::ValueOutOfRange(_, _, _, _, _, _, _, _) => "http2_settings_value_range"
+		PeerSettingsFailure::NotAllowedForEndpoint(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 	end
 end
 
 pub fn failure_preview(failure: PeerSettingsFailure) -> ByteView
 	match failure
-		PeerSettingsValueOutOfRange(_, _, _, _, _, _, _, preview) => preview
-		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, preview) => preview
+		PeerSettingsFailure::ValueOutOfRange(_, _, _, _, _, _, _, preview) => preview
+		PeerSettingsFailure::NotAllowedForEndpoint(_, _, _, _, _, _, _, preview) => preview
 	end
 end
 
 fn validate_items(payload: ByteChunk, payload_offset: Int, item_offset: Int, payload_count: Int, endpoint_role: String) -> Result<PeerSettingsValidation, String>
 	if item_offset == payload_count
-		Ok(PeerSettingsValidated(payload_count / 6))
+		Ok(PeerSettingsValidation::Validated(payload_count / 6))
 	else
 		match validate_item(payload, payload_offset, item_offset, endpoint_role)?
 			Ok(()) => validate_items(payload, payload_offset, item_offset + 6, payload_count, endpoint_role)
-			Err(failure) => Ok(PeerSettingsRejected(failure))
+			Err(failure) => Ok(PeerSettingsValidation::Rejected(failure))
 		end
 	end
 end
@@ -157,9 +157,9 @@ end
 
 fn validate_enable_push_setting(offset: Int, value: Int, preview: ByteView, endpoint_role: String) -> Result<Result<(), PeerSettingsFailure>, String>
 	if endpoint_role == "client"
-		Ok(Err(PeerSettingsNotAllowedForEndpoint(offset, 2, "SETTINGS_ENABLE_PUSH", "client", 4, "peer-settings", "rfc9113_client_must_not_receive_settings_enable_push", preview)))
+		Ok(Err(PeerSettingsFailure::NotAllowedForEndpoint(offset, 2, "SETTINGS_ENABLE_PUSH", "client", 4, "peer-settings", "rfc9113_client_must_not_receive_settings_enable_push", preview)))
 	else if value > 1
-		Ok(Err(PeerSettingsValueOutOfRange(offset, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "peer_settings", preview)))
+		Ok(Err(PeerSettingsFailure::ValueOutOfRange(offset, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "peer_settings", preview)))
 	else
 		Ok(Ok(()))
 	end
@@ -167,9 +167,9 @@ end
 
 fn validate_enable_connect_protocol_setting(offset: Int, value: Int, preview: ByteView, endpoint_role: String) -> Result<Result<(), PeerSettingsFailure>, String>
 	if endpoint_role == "server"
-		Ok(Err(PeerSettingsNotAllowedForEndpoint(offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", "server", 4, "peer-settings", "rfc8441_client_must_not_send_settings_enable_connect_protocol", preview)))
+		Ok(Err(PeerSettingsFailure::NotAllowedForEndpoint(offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", "server", 4, "peer-settings", "rfc8441_client_must_not_send_settings_enable_connect_protocol", preview)))
 	else if value > 1
-		Ok(Err(PeerSettingsValueOutOfRange(offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", value, 0, 1, "peer_settings", preview)))
+		Ok(Err(PeerSettingsFailure::ValueOutOfRange(offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", value, 0, 1, "peer_settings", preview)))
 	else
 		Ok(Ok(()))
 	end
@@ -177,7 +177,7 @@ end
 
 fn validate_initial_window_size_setting(offset: Int, value: Int, preview: ByteView) -> Result<Result<(), PeerSettingsFailure>, String>
 	if value > 2147483647
-		Ok(Err(PeerSettingsValueOutOfRange(offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, 2147483647, "peer_settings", preview)))
+		Ok(Err(PeerSettingsFailure::ValueOutOfRange(offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, 2147483647, "peer_settings", preview)))
 	else
 		Ok(Ok(()))
 	end
@@ -185,9 +185,9 @@ end
 
 fn validate_max_frame_size_setting(offset: Int, value: Int, preview: ByteView) -> Result<Result<(), PeerSettingsFailure>, String>
 	if value < 16384
-		Ok(Err(PeerSettingsValueOutOfRange(offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings", preview)))
+		Ok(Err(PeerSettingsFailure::ValueOutOfRange(offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings", preview)))
 	else if value > 16777215
-		Ok(Err(PeerSettingsValueOutOfRange(offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings", preview)))
+		Ok(Err(PeerSettingsFailure::ValueOutOfRange(offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings", preview)))
 	else
 		Ok(Ok(()))
 	end

@@ -651,14 +651,14 @@
 
     private static Object http2DiagnosticDetail(String name, Object[] payloads) {
         return adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2Diagnostic",
+            "RuntimeDiagnosticDetail::Http2Diagnostic",
             new Object[] { adt(name, payloads) }
         );
     }
 
     private static Object http2HpackDiagnosticDetail(String name, Object[] payloads) {
         return adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2HpackDiagnostic",
+            "RuntimeDiagnosticDetail::Http2HpackDiagnostic",
             new Object[] { adt(name, payloads) }
         );
     }

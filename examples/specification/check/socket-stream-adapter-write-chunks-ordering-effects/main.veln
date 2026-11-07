@@ -9,15 +9,15 @@ end
 
 fn body_handler(input: StreamInput, state: { body_chunks : Int, trailer_chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { body_chunks : Int, trailer_chunks : Int, ended : Bool } }
 	match input
-		Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { body_chunks: state.body_chunks + 1, trailer_chunks: state.trailer_chunks, ended: state.ended } }
-		End => { actions: list_cons(EndStream, list_nil()), next_state: { body_chunks: state.body_chunks, trailer_chunks: state.trailer_chunks, ended: true } }
+		StreamInput::Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { body_chunks: state.body_chunks + 1, trailer_chunks: state.trailer_chunks, ended: state.ended } }
+		StreamInput::End => { actions: list_cons(EndStream, list_nil()), next_state: { body_chunks: state.body_chunks, trailer_chunks: state.trailer_chunks, ended: true } }
 	end
 end
 
 fn trailer_handler(input: StreamInput, trailer: ByteChunk, state: { body_chunks : Int, trailer_chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { body_chunks : Int, trailer_chunks : Int, ended : Bool } }
 	match input
-		Chunk(_) => { actions: list_cons(HandlerMarker("trailer"), list_cons(SendBytes(trailer), list_nil())), next_state: { body_chunks: state.body_chunks, trailer_chunks: state.trailer_chunks + 1, ended: state.ended } }
-		End => { actions: list_cons(HandlerMarker("clean-end"), list_cons(EndStream, list_nil())), next_state: { body_chunks: state.body_chunks, trailer_chunks: state.trailer_chunks, ended: true } }
+		StreamInput::Chunk(_) => { actions: list_cons(HandlerMarker("trailer"), list_cons(SendBytes(trailer), list_nil())), next_state: { body_chunks: state.body_chunks, trailer_chunks: state.trailer_chunks + 1, ended: state.ended } }
+		StreamInput::End => { actions: list_cons(HandlerMarker("clean-end"), list_cons(EndStream, list_nil())), next_state: { body_chunks: state.body_chunks, trailer_chunks: state.trailer_chunks, ended: true } }
 	end
 end
 
@@ -41,8 +41,8 @@ end
 
 fn read_stream_input(stream: net::Stream) -> StreamInput effects [net::IO]
 	match read_stream_chunk_or_end(stream)
-		Some(bytes) => Chunk(bytes)
-		None => End
+		Some(bytes) => StreamInput::Chunk(bytes)
+		None => StreamInput::End
 	end
 end
 
@@ -50,7 +50,7 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	let _ = channel::send(route.tx, input)
 	match channel::recv(route.rx)
 		Some(value) => value
-		None => End
+		None => StreamInput::End
 	end
 end
 
@@ -82,7 +82,7 @@ end
 
 fn read_stream_chunk_or_end(stream: net::Stream) -> Option<ByteChunk> effects [net::IO]
 	match net::read(stream)
-		Ok(net::ReadChunk(bytes)) => Some(bytes)
+		Ok(net::ReadOutcome::Chunk(bytes)) => Some(bytes)
 		_ => None
 	end
 end

@@ -43,13 +43,13 @@ fn report(label: String, result: Result<{before: Int, child: {state: State::Conn
 			stdio::println("accepted")
 			stdio::println(int_to_string(value.before + value.child.value + value.after))
 		end
-		Err(DecodeErrorWithReason(id, offset, path, reason)) => begin
+		Err(WithReason(id, offset, path, reason)) => begin
 			stdio::println(id)
 			stdio::println(int_to_string(byte_offset_to_int(offset)))
 			stdio::println(path)
 			stdio::println(reason)
 		end
-		Err(DecodeError(id, offset, path)) => begin
+		Err(WithoutReason(id, offset, path)) => begin
 			stdio::println(id)
 			stdio::println(int_to_string(byte_offset_to_int(offset)))
 			stdio::println(path)
@@ -64,13 +64,13 @@ fn report_bitwise(label: String, result: Result<{value: Int}, DecodeError>) -> (
 			stdio::println("accepted")
 			stdio::println(int_to_string(value.value))
 		end
-		Err(DecodeErrorWithReason(id, offset, path, reason)) => begin
+		Err(WithReason(id, offset, path, reason)) => begin
 			stdio::println(id)
 			stdio::println(int_to_string(byte_offset_to_int(offset)))
 			stdio::println(path)
 			stdio::println(reason)
 		end
-		Err(DecodeError(id, offset, path)) => begin
+		Err(WithoutReason(id, offset, path)) => begin
 			stdio::println(id)
 			stdio::println(int_to_string(byte_offset_to_int(offset)))
 			stdio::println(path)
@@ -85,13 +85,13 @@ fn report_flag(label: String, result: Result<{flag: Bool}, DecodeError>) -> () e
 			true => stdio::println("accepted-true")
 			false => stdio::println("accepted-false")
 		end
-		Err(DecodeErrorWithReason(id, offset, path, reason)) => begin
+		Err(WithReason(id, offset, path, reason)) => begin
 			stdio::println(id)
 			stdio::println(int_to_string(byte_offset_to_int(offset)))
 			stdio::println(path)
 			stdio::println(reason)
 		end
-		Err(DecodeError(id, offset, path)) => begin
+		Err(WithoutReason(id, offset, path)) => begin
 			stdio::println(id)
 			stdio::println(int_to_string(byte_offset_to_int(offset)))
 			stdio::println(path)

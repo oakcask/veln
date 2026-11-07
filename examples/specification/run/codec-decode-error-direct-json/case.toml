@@ -40,7 +40,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "DecodeError(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind)"
+equals = "WithoutReason(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind)"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.kind"

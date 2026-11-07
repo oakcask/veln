@@ -49,7 +49,7 @@ end
 
 fn read_chunk_optional(stream: net::Stream) -> Option<ByteChunk> effects [net::IO]
 	match net::read(stream)
-		Ok(net::ReadChunk(bytes)) => Some(bytes)
+		Ok(net::ReadOutcome::Chunk(bytes)) => Some(bytes)
 		_ => None
 	end
 end

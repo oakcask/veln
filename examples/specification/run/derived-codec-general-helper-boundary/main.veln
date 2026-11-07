@@ -202,8 +202,8 @@ pub fn main() -> Result<(), String> effects [stdio]
 		NeedMore(NeedBytes(count)) => emit_need_bytes(count)
 		NeedMore(NeedEnd) => stdio::println("need_more need_end 0 consumed 0")
 		Decoded(_, _) => stdio::println("unexpected short decode")
-		Invalid(DecodeError(id, offset, path)) => emit_invalid_decode(id, offset, path)
-		Invalid(DecodeErrorWithReason(id, offset, path, _)) => emit_invalid_decode(id, offset, path)
+		Invalid(WithoutReason(id, offset, path)) => emit_invalid_decode(id, offset, path)
+		Invalid(WithReason(id, offset, path, _)) => emit_invalid_decode(id, offset, path)
 	end
 
 	let samples = list_cons(258, list_cons(772, list_nil()))

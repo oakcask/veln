@@ -82,7 +82,7 @@ pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), RuntimeDiagno
 	Err(RuntimeDiagnostic(
 		"hpack.fixture.unsupported_header_block",
 		"HPACK fixture unsupported header block at byte offset 27",
-		RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(
+		RuntimeDiagnosticDetail::Http2HpackDiagnostic(HpackDiagnosticDetail::Diagnostic(
 			failure_offset(failure),
 			failure_observed_size(failure),
 			failure_observed_first_byte(failure),

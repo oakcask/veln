@@ -13,16 +13,16 @@ end
 
 fn handle_stream_input(input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match input
-		Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
-		End => { actions: list_cons(EndStream, list_nil()), next_state: { chunks: state.chunks, ended: true } }
+		StreamInput::Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		StreamInput::End => { actions: list_cons(EndStream, list_nil()), next_state: { chunks: state.chunks, ended: true } }
 	end
 end
 
 fn prepend_wait_action(outcome: CancellableWaitOutcome, handled: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }) -> { outcome : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match outcome
-		WaitCompleted => { outcome: "completed", actions: handled.actions, next_state: handled.next_state }
-		WaitDeadlineExpired => { outcome: "deadline-expired", actions: list_cons(RetryAfterDeadline, handled.actions), next_state: handled.next_state }
-		WaitCancelled => { outcome: "cancelled", actions: list_cons(CleanupAfterCancel, handled.actions), next_state: handled.next_state }
+		CancellableWaitOutcome::Completed => { outcome: "completed", actions: handled.actions, next_state: handled.next_state }
+		CancellableWaitOutcome::DeadlineExpired => { outcome: "deadline-expired", actions: list_cons(RetryAfterDeadline, handled.actions), next_state: handled.next_state }
+		CancellableWaitOutcome::Cancelled => { outcome: "cancelled", actions: list_cons(CleanupAfterCancel, handled.actions), next_state: handled.next_state }
 	end
 end
 
@@ -61,13 +61,13 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	let _ = channel::send(route.tx, input)
 	match channel::recv(route.rx)
 		Some(value) => value
-		None => End
+		None => StreamInput::End
 	end
 end
 
 fn collect_cancellable_actions(stream: net::Stream, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { outcome : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, time, concurrency]
 	let route = channel::bounded<StreamInput>(1)
-	let input = route_input(route, Chunk(read_chunk_value(stream)))
+	let input = route_input(route, StreamInput::Chunk(read_chunk_value(stream)))
 	let handled = handle_stream_input(input, state)
 	prepend_wait_action(time::wait_until_cancellable_outcome(deadline, token), handled)
 end
@@ -165,7 +165,7 @@ end
 
 fn read_chunk_value(stream: net::Stream) -> ByteChunk effects [net::IO]
 	match net::read(stream)
-		Ok(net::ReadChunk(bytes)) => bytes
+		Ok(net::ReadOutcome::Chunk(bytes)) => bytes
 		_ => byte_chunk([])
 	end
 end

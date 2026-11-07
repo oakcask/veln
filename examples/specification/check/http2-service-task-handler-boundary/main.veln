@@ -14,7 +14,7 @@ fn response_headers() -> Result<HeaderList, String>
 end
 
 fn handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
-	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
+	Ok(list_cons(Http2ApplicationAction::Headers(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
 end
 
 pub fn outer_duplex_handler_does_not_handle_network_io(listener: NetListener, stream: net::Stream) -> Result<(), Http2ServiceFailure> effects [concurrency]

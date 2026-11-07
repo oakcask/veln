@@ -161,12 +161,12 @@ write was accepted. A disabled diagnostic destination makes that call a
 successful no-op. A rejected summary leaves the previously reported exporter
 health unchanged, so reporting cannot recursively add its own failure.
 
-`observe::StandardError` writes and flushes the process standard error stream.
+`observe::ExportDestination::StandardError` writes and flushes the process standard error stream.
 `observe::FileDestination(path)` creates the file when needed and appends
 UTF-8 bytes without truncating prior records.
-Diagnostic summaries use the separate `observe::DiagnosticStandardError`,
-`observe::DiagnosticFileDestination(path)`, and
-`observe::NoDiagnosticDestination` choices. The disabled choice accepts a
+Diagnostic summaries use the separate `observe::DiagnosticDestination::StandardError`,
+`observe::DiagnosticDestination::File(path)`, and
+`observe::DiagnosticDestination::Disabled` choices. The disabled choice accepts a
 summary without producing output and cannot be selected for observation
 records.
 The default constructor uses standard error for records and the disabled
@@ -418,7 +418,7 @@ one object followed by one `\n`. The object has no fields beyond this table:
 | `dropped_metric_observations` | The cumulative metric observations rejected by cardinality admission. |
 
 Every counter is a non-negative Veln `Int` and can reach the maximum signed
-64-bit value. `NoDiagnosticDestination` accepts the call without output. A
+64-bit value. `Disabled` accepts the call without output. A
 diagnostic write rejection returns `false`, leaves these health values
 unchanged, and does not retry through `Observe`.
 
@@ -573,23 +573,23 @@ the destination received no bytes, that it received no complete record, or that
 any bytes were lost.
 
 After all record attempts, shutdown handles the diagnostic destination once.
-The disabled destination performs no write and reports `SummaryDisabled`. An
-enabled destination reports `SummaryAccepted` when it accepts the summary and
-`SummaryRejected` when it rejects the write or raises an ordinary Veln runtime
+The disabled destination performs no write and reports `Disabled`. An
+enabled destination reports `Accepted` when it accepts the summary and
+`Rejected` when it rejects the write or raises an ordinary Veln runtime
 failure. The summary attempt follows every record attempt, including when the
 record and diagnostic destinations identify the same output. A rejected
 summary does not change exporter health. A contract-failing summary attempt is
 a rejected unconfirmed attempt: shutdown freezes `Interrupted` with
-`SummaryRejected` and does not retry.
+`Rejected` and does not retry.
 
 If interruption wins after the worker prepares an enabled summary call but
 before destination invocation begins, the destination is not invoked and the
-frozen outcome is `SummaryNotAttempted`.
+frozen outcome is `NotAttempted`.
 
 | Interruption point | Frozen summary outcome |
 | --- | --- |
-| Before an enabled summary call starts | `SummaryNotAttempted` |
-| During a summary call whose completion is not confirmed | `SummaryRejected` |
+| Before an enabled summary call starts | `NotAttempted` |
+| During a summary call whose completion is not confirmed | `Rejected` |
 | After the exporter is closed | The already frozen outcome is unchanged. |
 
 An already-started summary call can complete after interrupted shutdown

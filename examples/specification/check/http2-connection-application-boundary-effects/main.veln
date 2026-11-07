@@ -13,7 +13,7 @@ fn response_headers() -> Result<HeaderList, String>
 end
 
 fn pure_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
-	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
+	Ok(list_cons(Http2ApplicationAction::Headers(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
 end
 
 pub fn unhandled_application_driver(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure>

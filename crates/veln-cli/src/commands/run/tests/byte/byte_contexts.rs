@@ -132,7 +132,7 @@ fn byte_result_failure_diagnostic_projects_decode_error_context() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeError(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind)".to_string(),
+        "WithoutReason(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -150,6 +150,6 @@ fn byte_result_failure_diagnostic_projects_decode_error_context() {
     );
     assert_eq!(
         diagnostic.related[1].to_json(),
-        "{\"message\":\"DecodeError value: DecodeError(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind).\"}"
+        "{\"message\":\"DecodeError value: WithoutReason(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind).\"}"
     );
 }

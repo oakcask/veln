@@ -1,1 +1,1 @@
-Err(DecodeError(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind))
+Err(WithoutReason(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind))

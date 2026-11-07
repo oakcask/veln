@@ -12,8 +12,8 @@ end
 
 fn handle_stream_input(input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match input
-		Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
-		End => { actions: list_cons(EndStream, list_nil()), next_state: { chunks: state.chunks, ended: true } }
+		StreamInput::Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		StreamInput::End => { actions: list_cons(EndStream, list_nil()), next_state: { chunks: state.chunks, ended: true } }
 	end
 end
 
@@ -66,8 +66,8 @@ end
 
 fn read_stream_input(stream: net::Stream) -> StreamInput effects [net::IO]
 	match read_chunk_optional(stream)
-		Some(bytes) => Chunk(bytes)
-		None => End
+		Some(bytes) => StreamInput::Chunk(bytes)
+		None => StreamInput::End
 	end
 end
 
@@ -75,7 +75,7 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	let _ = channel::send(route.tx, input)
 	match channel::recv(route.rx)
 		Some(value) => value
-		None => End
+		None => StreamInput::End
 	end
 end
 
@@ -87,8 +87,8 @@ fn collect_stream_actions_until_end(stream: net::Stream, route: { tx : Sender<St
 	let input = route_input(route, read_stream_input(stream))
 	let handled = handle_stream_input(input, state)
 	match input
-		Chunk(_) => append_collected_actions(handled, collect_stream_actions_until_end(stream, route, handled.next_state))
-		End => handled
+		StreamInput::Chunk(_) => append_collected_actions(handled, collect_stream_actions_until_end(stream, route, handled.next_state))
+		StreamInput::End => handled
 	end
 end
 
@@ -186,7 +186,7 @@ end
 
 fn read_chunk_optional(stream: net::Stream) -> Option<ByteChunk> effects [net::IO]
 	match net::read(stream)
-		Ok(net::ReadChunk(bytes)) => Some(bytes)
+		Ok(net::ReadOutcome::Chunk(bytes)) => Some(bytes)
 		_ => None
 	end
 end

@@ -128,8 +128,8 @@ fn add_decode_error_id(step: DecodeStep<{left_count: Int, right_count: Int, item
 	match step
 		Decoded(_, _) => "none"
 		NeedMore(_) => "none"
-		Invalid(DecodeError(id, _, _)) => id
-		Invalid(DecodeErrorWithReason(id, _, _, _)) => id
+		Invalid(WithoutReason(id, _, _)) => id
+		Invalid(WithReason(id, _, _, _)) => id
 	end
 end
 
@@ -137,8 +137,8 @@ fn add_decode_error_offset(step: DecodeStep<{left_count: Int, right_count: Int, 
 	match step
 		Decoded(_, _) => -1
 		NeedMore(_) => -1
-		Invalid(DecodeError(_, offset, _)) => byte_offset_to_int(offset)
-		Invalid(DecodeErrorWithReason(_, offset, _, _)) => byte_offset_to_int(offset)
+		Invalid(WithoutReason(_, offset, _)) => byte_offset_to_int(offset)
+		Invalid(WithReason(_, offset, _, _)) => byte_offset_to_int(offset)
 	end
 end
 
@@ -146,8 +146,8 @@ fn add_decode_error_path(step: DecodeStep<{left_count: Int, right_count: Int, it
 	match step
 		Decoded(_, _) => "none"
 		NeedMore(_) => "none"
-		Invalid(DecodeError(_, _, path)) => path
-		Invalid(DecodeErrorWithReason(_, _, path, _)) => path
+		Invalid(WithoutReason(_, _, path)) => path
+		Invalid(WithReason(_, _, path, _)) => path
 	end
 end
 

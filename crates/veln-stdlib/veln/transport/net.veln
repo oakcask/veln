@@ -4,8 +4,8 @@ use net
 
 pub fn read_stream_chunk(stream: net::Stream) -> Result<Option<ByteChunk>, net::NetError> effects [net::IO]
 	match net::read(stream)
-		Ok(net::ReadChunk(bytes)) => read_nonempty_chunk(bytes)
-		Ok(net::ReadEnd) => Ok(None)
+		Ok(net::ReadOutcome::Chunk(bytes)) => read_nonempty_chunk(bytes)
+		Ok(net::ReadOutcome::End) => Ok(None)
 		Err(error) => Err(error)
 	end
 end

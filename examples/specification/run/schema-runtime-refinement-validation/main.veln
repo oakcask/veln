@@ -56,13 +56,13 @@ fn report(result: Result<{metadata: {detail: {phase: State::Connected}, version:
 				stdio::println("states:preserved")
 			end
 		end
-		Err(DecodeErrorWithReason(id, offset, path, reason)) => begin
+		Err(WithReason(id, offset, path, reason)) => begin
 			stdio::println(id)
 			stdio::println(int_to_string(byte_offset_to_int(offset)))
 			stdio::println(path)
 			stdio::println(reason)
 		end
-		Err(DecodeError(id, offset, path)) => begin
+		Err(WithoutReason(id, offset, path)) => begin
 			stdio::println(id)
 			stdio::println(int_to_string(byte_offset_to_int(offset)))
 			stdio::println(path)

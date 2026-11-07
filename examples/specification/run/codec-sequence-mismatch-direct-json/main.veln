@@ -12,5 +12,5 @@ fn offset(value: Int) -> ByteOffset
 end
 
 pub fn main() -> Result<(), DecodeError>
-	Err(DecodeErrorWithReason("codec.sequence_mismatch", offset(13), "ManualPacketWire.sequence", "expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state"))
+	Err(WithReason("codec.sequence_mismatch", offset(13), "ManualPacketWire.sequence", "expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state"))
 end

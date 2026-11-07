@@ -913,7 +913,7 @@ fn system_write_contention_body(ready: Receiver<()>, release: Sender<()>) -> Res
 	let _ = net::close_stream(stream)
 	match second
 		net::WriteFailed(net::ByteCount(0), net::NetError(_, _, _, net::Busy, _)) => match simultaneous
-			Ok(net::ReadChunk(_)) => match joined
+			Ok(net::ReadOutcome::Chunk(_)) => match joined
 				Ok(net::Written(net::ByteCount(1))) => Ok(())
 				_ => Err("first contended write did not complete unchanged")
 			end
@@ -933,7 +933,7 @@ fn system_read_contention_body(ready: Receiver<()>, release: Sender<()>) -> Resu
 	let _ = net::close_stream(stream)
 	match second
 		Err(net::NetError(_, _, _, net::Busy, _)) => match joined
-			Ok(Ok(net::ReadChunk(_))) => Ok(())
+			Ok(Ok(net::ReadOutcome::Chunk(_))) => Ok(())
 			_ => Err("first contended read did not complete unchanged")
 		end
 		_ => Err("second concurrent read did not return Busy")
@@ -1083,7 +1083,7 @@ fn system_uncommitted_read_shutdown_failure_body(io_ready: Receiver<()>, io_rele
 	match shutdown_result
 		Ok(Err(_)) => match retry
 			Ok(()) => match io_result
-				Ok(Ok(net::ReadChunk(_))) => Ok(())
+				Ok(Ok(net::ReadOutcome::Chunk(_))) => Ok(())
 				_ => Err("uncommitted read shutdown discarded successful bytes")
 			end
 			Err(_) => Err("uncommitted shutdown did not leave the half retryable")
@@ -1282,14 +1282,14 @@ end
 test io_outcome_values_are_constructible_and_inspectable() -> Result<(), String>
 	let bytes = byte_chunk_from_visible_ascii_string("ok")?
 	let failure = observed_failure("write", "partial")
-	let chunk = net::ReadChunk(bytes)
-	let ended = net::ReadEnd
+	let chunk = net::ReadOutcome::Chunk(bytes)
+	let ended = net::ReadOutcome::End
 	let written = net::Written(net::ByteCount(2))
 	let failed = net::WriteFailed(net::ByteCount(1), failure)
 	match chunk
-		net::ReadChunk(observed_bytes) => if byte_chunk_to_visible_ascii_string(observed_bytes)? == "ok"
+		net::ReadOutcome::Chunk(observed_bytes) => if byte_chunk_to_visible_ascii_string(observed_bytes)? == "ok"
 			match ended
-				net::ReadEnd => match written
+				net::ReadOutcome::End => match written
 					net::Written(net::ByteCount(2)) => match failed
 						net::WriteFailed(net::ByteCount(1), error) => expect_observed_error(error, "write", "partial")
 					end

@@ -18,11 +18,11 @@ fn emit_accepted_stream(stream: net::Stream) -> Result<(), net::NetError> effect
 	let incoming = net::read(stream)?
 	stdio::print("accepted ")
 	match incoming
-		net::ReadChunk(bytes) => begin
+		net::ReadOutcome::Chunk(bytes) => begin
 			stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(bytes))))
 			Ok(())
 		end
-		net::ReadEnd => begin
+		net::ReadOutcome::End => begin
 			stdio::println("0")
 			Ok(())
 		end

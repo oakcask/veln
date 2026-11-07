@@ -22,13 +22,13 @@ end
 fn report(result: Result<{optional: Option<State::Connected>, outcome: Result<State::Connected, State::Closed>, linked: List<State::Connected>, vector: Vec<State::Connected>, table: Dict<String, State::Connected>, mixed: Option<Vec<Dict<String, Result<State::Connected, State::Closed>>>>}, DecodeError>) -> () effects [stdio]
 	match result
 		Ok(_) => stdio::println("accepted")
-		Err(DecodeErrorWithReason(id, offset, path, reason)) => begin
+		Err(WithReason(id, offset, path, reason)) => begin
 			stdio::println(id)
 			stdio::println(int_to_string(byte_offset_to_int(offset)))
 			stdio::println(path)
 			stdio::println(reason)
 		end
-		Err(DecodeError(id, offset, path)) => begin
+		Err(WithoutReason(id, offset, path)) => begin
 			stdio::println(id)
 			stdio::println(int_to_string(byte_offset_to_int(offset)))
 			stdio::println(path)

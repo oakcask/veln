@@ -75,12 +75,12 @@ decisions, `StreamReadOutcome` for adapter-owned stream read decisions,
 boundary values. `StreamInput` is a public ADT with `Chunk(bytes: ByteChunk)`
 and `End` variants. A zero-length `ByteChunk` inside `Chunk` remains a chunk
 arrival and is not equivalent to `End`. `AcceptOutcome` is a public ADT with
-`AcceptStream(stream: NetStream)`, `AcceptEnd`, `AcceptDeadlineExpired`, and
-`AcceptCancelled` variants.
-`StreamReadOutcome` is a public ADT with `ReadChunk(bytes: ByteChunk)`,
-`ReadEnd`, `ReadDeadlineExpired`, and `ReadCancelled` variants.
-`StreamWriteOutcome` is a public ADT with `WriteCompleted`,
-`WriteDeadlineExpired`, and `WriteCancelled` variants.
+`Stream(stream: NetStream)`, `End`, `DeadlineExpired`, and
+`Cancelled` variants.
+`StreamReadOutcome` is a public ADT with `Chunk(bytes: ByteChunk)`,
+`End`, `DeadlineExpired`, and `Cancelled` variants.
+`StreamWriteOutcome` is a public ADT with `Completed`,
+`DeadlineExpired`, and `Cancelled` variants.
 `EncodeStep<TState>` is a public ADT with `Encoded`, `Partial`, and `Invalid`
 variants; its output payloads use `List<ByteChunk>` and its `Partial` variant
 carries the encoder state as `TState`. Prelude helpers also construct and

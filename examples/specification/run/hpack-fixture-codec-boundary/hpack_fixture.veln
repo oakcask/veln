@@ -2848,7 +2848,7 @@ fn project_failure_fallback_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"hpack.fixture.unsupported_header_block",
 		error,
-		RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture header block", "hpack_fixture", byte_chunk([])))
+		RuntimeDiagnosticDetail::Http2HpackDiagnostic(HpackDiagnosticDetail::Diagnostic(0, 0, -1, "fixture header block", "hpack_fixture", byte_chunk([])))
 	)
 end
 

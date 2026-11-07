@@ -20,8 +20,8 @@ end
 
 fn spawn_pending(stream: net::Stream, tail: PendingWork) -> PendingWork effects [net::IO, concurrency]
 	let input = match read_stream_chunk_or_end(stream)
-		Some(bytes) => Chunk(bytes)
-		None => End
+		Some(bytes) => StreamInput::Chunk(bytes)
+		None => StreamInput::End
 	end
 	let worker = task::spawn_with<Result<HandlerOutput, String>, { input: StreamInput, accepted: Int }>(run_handler_task, { input: input, accepted: 1 })
 	Pending(stream, worker, tail)
@@ -54,7 +54,7 @@ end
 
 fn read_stream_chunk_or_end(stream: net::Stream) -> Option<ByteChunk> effects [net::IO]
 	match net::read(stream)
-		Ok(net::ReadChunk(bytes)) => Some(bytes)
+		Ok(net::ReadOutcome::Chunk(bytes)) => Some(bytes)
 		_ => None
 	end
 end

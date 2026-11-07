@@ -1,1 +1,1 @@
-Err(DecodeErrorWithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.kind, kind value exceeds declared length))
+Err(WithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.kind, kind value exceeds declared length))

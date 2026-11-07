@@ -10,8 +10,8 @@ end
 
 fn read_bytes(outcome: net::ReadOutcome) -> ByteChunk
 	match outcome
-		net::ReadChunk(bytes) => bytes
-		net::ReadEnd => byte_chunk([])
+		net::ReadOutcome::Chunk(bytes) => bytes
+		net::ReadOutcome::End => byte_chunk([])
 	end
 end
 

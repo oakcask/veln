@@ -484,34 +484,34 @@
 
     private static boolean observationPayloadValid(Object payload) {
         Adt exportPayload = (Adt) payload;
-        if (isAdt(exportPayload, "ExportLog")) {
+        if (isAdt(exportPayload, "Log")) {
             Adt record = asAdt(exportPayload.payloads[0], "LogRecord");
             return observationOptionalTraceValid(record.payloads[4])
                 && observationSourceValid(record.payloads[5]);
         }
-        if (isAdt(exportPayload, "ExportEvent")) {
+        if (isAdt(exportPayload, "Event")) {
             Adt record = asAdt(exportPayload.payloads[0], "EventRecord");
             return observationOptionalTraceValid(record.payloads[2])
                 && observationSourceValid(record.payloads[3]);
         }
-        if (isAdt(exportPayload, "ExportCounter")) {
+        if (isAdt(exportPayload, "Counter")) {
             Adt record = asAdt(exportPayload.payloads[0], "CounterIncrementRecord");
             return observationOptionalTraceValid(record.payloads[3])
                 && observationSourceValid(record.payloads[4]);
         }
-        if (isAdt(exportPayload, "ExportHistogram")) {
+        if (isAdt(exportPayload, "Histogram")) {
             Adt record = asAdt(exportPayload.payloads[0], "HistogramSampleRecord");
             return observationOptionalTraceValid(record.payloads[3])
                 && observationSourceValid(record.payloads[4]);
         }
-        if (isAdt(exportPayload, "ExportSpanStart")) {
+        if (isAdt(exportPayload, "SpanStart")) {
             return !asString(exportPayload.payloads[1]).isEmpty()
                 && !asString(exportPayload.payloads[2]).isEmpty()
                 && observationOptionalIdentityValid(exportPayload.payloads[3])
                 && observationLinksValid(exportPayload.payloads[4])
                 && observationOptionalSourceValid(exportPayload.payloads[5]);
         }
-        if (isAdt(exportPayload, "ExportSpanFinish")) {
+        if (isAdt(exportPayload, "SpanFinish")) {
             return !asString(exportPayload.payloads[1]).isEmpty()
                 && !asString(exportPayload.payloads[2]).isEmpty()
                 && observationOptionalIdentityValid(exportPayload.payloads[3])
@@ -562,7 +562,7 @@
         String source;
         String attributes;
         String data = "";
-        if (isAdt(exportPayload, "ExportLog")) {
+        if (isAdt(exportPayload, "Log")) {
             Adt record = asAdt(exportPayload.payloads[0], "LogRecord");
             kind = "log";
             name = asString(record.payloads[0]);
@@ -574,14 +574,14 @@
             attributes = observationAttributes(record.payloads[3], maximumCount, maximumStringSize, maximumRedacted, redactedNames, facts);
             trace = observationContext(record.payloads[4]);
             source = observationSource(record.payloads[5]);
-        } else if (isAdt(exportPayload, "ExportEvent")) {
+        } else if (isAdt(exportPayload, "Event")) {
             Adt record = asAdt(exportPayload.payloads[0], "EventRecord");
             kind = "event";
             name = asString(record.payloads[0]);
             attributes = observationAttributes(record.payloads[1], maximumCount, maximumStringSize, maximumRedacted, redactedNames, facts);
             trace = observationContext(record.payloads[2]);
             source = observationSource(record.payloads[3]);
-        } else if (isAdt(exportPayload, "ExportCounter")) {
+        } else if (isAdt(exportPayload, "Counter")) {
             Adt record = asAdt(exportPayload.payloads[0], "CounterIncrementRecord");
             kind = "counter";
             name = asString(record.payloads[0]);
@@ -589,7 +589,7 @@
             attributes = observationAttributes(record.payloads[2], maximumCount, maximumStringSize, maximumRedacted, redactedNames, facts);
             trace = observationContext(record.payloads[3]);
             source = observationSource(record.payloads[4]);
-        } else if (isAdt(exportPayload, "ExportHistogram")) {
+        } else if (isAdt(exportPayload, "Histogram")) {
             Adt record = asAdt(exportPayload.payloads[0], "HistogramSampleRecord");
             kind = "histogram";
             name = asString(record.payloads[0]);
@@ -597,7 +597,7 @@
             attributes = observationAttributes(record.payloads[2], maximumCount, maximumStringSize, maximumRedacted, redactedNames, facts);
             trace = observationContext(record.payloads[3]);
             source = observationSource(record.payloads[4]);
-        } else if (isAdt(exportPayload, "ExportSpanStart")) {
+        } else if (isAdt(exportPayload, "SpanStart")) {
             kind = "span_start";
             name = asString(exportPayload.payloads[0]);
             String traceId = asString(exportPayload.payloads[1]);
@@ -608,7 +608,7 @@
             links = observationLinks(exportPayload.payloads[4]);
             source = observationOptionalSource(exportPayload.payloads[5]);
             attributes = "[]";
-        } else if (isAdt(exportPayload, "ExportSpanFinish")) {
+        } else if (isAdt(exportPayload, "SpanFinish")) {
             kind = "span_finish";
             name = asString(exportPayload.payloads[0]);
             span = "{\"trace_id\":" + observationJsonString(asString(exportPayload.payloads[1]))
@@ -654,9 +654,9 @@
     public static Object observationExportWrite(Object destination, Object line, Object diagnostic) {
         Adt configured = (Adt) destination;
         String target;
-        if (isAdt(configured, "StandardError") || isAdt(configured, "DiagnosticStandardError")) target = "stderr";
-        else if (isAdt(configured, "FileDestination") || isAdt(configured, "DiagnosticFileDestination")) target = "file:" + asString(configured.payloads[0]);
-        else if (isAdt(configured, "NoDiagnosticDestination")) return Boolean.TRUE;
+        if (isAdt(configured, "StandardError") || isAdt(configured, "StandardError")) target = "stderr";
+        else if (isAdt(configured, "FileDestination") || isAdt(configured, "File")) target = "file:" + asString(configured.payloads[0]);
+        else if (isAdt(configured, "Disabled")) return Boolean.TRUE;
         else throw new IllegalStateException("expected observation export destination");
         HandlerFrame adapter = findHandler(OBSERVATION_EXPORTER_EFFECT);
         if (adapter != null) {

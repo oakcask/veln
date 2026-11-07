@@ -42,34 +42,34 @@ pub fn stream_adapter_accept_loop(listener: NetListener, handler: fn(StreamInput
 end
 
 pub type AcceptOutcome
-	AcceptStream(stream: NetStream)
-	AcceptEnd
-	AcceptDeadlineExpired
-	AcceptCancelled
+	Stream(stream: NetStream)
+	End
+	DeadlineExpired
+	Cancelled
 end
 
 pub type StreamReadOutcome
-	ReadChunk(bytes: ByteChunk)
-	ReadEnd
-	ReadDeadlineExpired
-	ReadCancelled
+	Chunk(bytes: ByteChunk)
+	End
+	DeadlineExpired
+	Cancelled
 end
 
 pub type StreamWriteOutcome
-	WriteCompleted
-	WriteDeadlineExpired
-	WriteCancelled
+	Completed
+	DeadlineExpired
+	Cancelled
 end
 
 pub type CancellableWaitOutcome
-	WaitCompleted
-	WaitDeadlineExpired
-	WaitCancelled
+	Completed
+	DeadlineExpired
+	Cancelled
 end
 
 pub type DecodeError
-	DecodeError(id: String, offset: ByteOffset, field_path: String)
-	DecodeErrorWithReason(id: String, offset: ByteOffset, field_path: String, reason: String)
+	WithoutReason(id: String, offset: ByteOffset, field_path: String)
+	WithReason(id: String, offset: ByteOffset, field_path: String, reason: String)
 end
 
 pub type DecodeReadiness

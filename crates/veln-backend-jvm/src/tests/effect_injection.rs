@@ -275,8 +275,8 @@ fn injected_network_handles_retain_their_creating_scope() {
         r#"
 fn read_count(result: Result<net::ReadOutcome, net::NetError>) -> Result<Int, String>
     match result
-        Ok(net::ReadChunk(bytes)) => Ok(byte_count_to_int(byte_chunk_count(bytes)))
-        Ok(net::ReadEnd) => Ok(0)
+        Ok(net::Chunk(bytes)) => Ok(byte_count_to_int(byte_chunk_count(bytes)))
+        Ok(net::End) => Ok(0)
         Err(_) => Err("retained network read failed")
     end
 end

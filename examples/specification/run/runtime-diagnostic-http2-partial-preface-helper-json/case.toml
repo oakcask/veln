@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.partial_preface, HTTP/2 input ended with partial client connection preface at byte offset 0, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPartialPrefaceDiagnostic(0, 12, 24, connection-preface, rfc9113_client_connection_preface, ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(42), Byte(32), Byte(72), Byte(84), Byte(84), Byte(80), Byte(47), Byte(50)]))))"
+equals = "RuntimeDiagnostic(http2.protocol.partial_preface, HTTP/2 input ended with partial client connection preface at byte offset 0, Http2Diagnostic(ProtocolPartialPrefaceDiagnostic(0, 12, 24, connection-preface, rfc9113_client_connection_preface, ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(42), Byte(32), Byte(72), Byte(84), Byte(84), Byte(80), Byte(47), Byte(50)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -73,7 +73,7 @@ equals = "rfc9113_client_connection_preface"
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.detail.constructor"
-equals = "RuntimeHttp2ProtocolPartialPrefaceDiagnostic"
+equals = "ProtocolPartialPrefaceDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"

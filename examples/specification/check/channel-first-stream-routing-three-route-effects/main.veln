@@ -9,8 +9,8 @@ end
 
 fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match input
-		Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
-		End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+		StreamInput::Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		StreamInput::End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
 	end
 end
 
@@ -38,7 +38,7 @@ fn route_selected_stream_input(first_input: StreamInput, second_input: StreamInp
 	channel::close(closed.tx)
 	let selected: { index : Int, value : StreamInput } = match select_three_priority(first.rx, second.rx, third.rx, closed.rx)
 		Some(value) => value
-		None => { index: 0, value: End }
+		None => { index: 0, value: StreamInput::End }
 	end
 	match selected.index
 		0 => handle_stream_input(1, selected.value, state)
@@ -52,14 +52,14 @@ fn read_socket_then_route(stream: net::Stream, state: { chunks : Int, ended : Bo
 	let second: Option<ByteChunk> = read_stream_chunk_or_end(stream)
 	let third: Option<ByteChunk> = read_stream_chunk_or_end(stream)
 	let second_input = match second
-		Some(bytes) => Chunk(bytes)
-		None => End
+		Some(bytes) => StreamInput::Chunk(bytes)
+		None => StreamInput::End
 	end
 	let third_input = match third
-		Some(bytes) => Chunk(bytes)
-		None => End
+		Some(bytes) => StreamInput::Chunk(bytes)
+		None => StreamInput::End
 	end
-	route_selected_stream_input(Chunk(first), second_input, third_input, state)
+	route_selected_stream_input(StreamInput::Chunk(first), second_input, third_input, state)
 end
 
 fn write_response_actions(stream: net::Stream, actions: List<ResponseAction>) -> () effects [net::IO]
@@ -97,14 +97,14 @@ end
 
 fn read_stream_chunk(stream: net::Stream) -> ByteChunk effects [net::IO]
 	match net::read(stream)
-		Ok(net::ReadChunk(bytes)) => bytes
+		Ok(net::ReadOutcome::Chunk(bytes)) => bytes
 		_ => byte_chunk([])
 	end
 end
 
 fn read_stream_chunk_or_end(stream: net::Stream) -> Option<ByteChunk> effects [net::IO]
 	match net::read(stream)
-		Ok(net::ReadChunk(bytes)) => Some(bytes)
+		Ok(net::ReadOutcome::Chunk(bytes)) => Some(bytes)
 		_ => None
 	end
 end

@@ -97,7 +97,7 @@
         String rootPath = "/" + jsonPointerToken(schemaName);
         if (byteOffset < 0L) {
             return err(adt(
-                "DecodeError::DecodeErrorWithReason",
+                "DecodeError::WithReason",
                 new Object[] {
                     "schema.validation_offset_invalid",
                     baseOffset,
@@ -276,7 +276,7 @@
         java.util.Map<String, ?> supplied
     ) {
         return err(adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "schema.validation_failed",
                 baseOffset,
@@ -295,7 +295,7 @@
         java.util.Map<String, ?> supplied
     ) {
         return err(adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "schema.validation_failed",
                 baseOffset,
@@ -319,7 +319,7 @@
         String rootPath = "/" + jsonPointerToken(schemaName);
         if (byteOffset < 0L) {
             return err(adt(
-                "DecodeError::DecodeErrorWithReason",
+                "DecodeError::WithReason",
                 new Object[] {
                     "schema.validation_offset_invalid",
                     baseOffset,
@@ -687,7 +687,7 @@
             expectedText.append(asString(expected.get(index)));
         }
         return err(adt(
-            "DecodeError::DecodeErrorWithReason",
+            "DecodeError::WithReason",
             new Object[] {
                 "schema.variant_refinement_mismatch",
                 baseOffset,
@@ -4068,7 +4068,7 @@
         String message = "HTTP/2 input ended with " + pending
             + " pending byte(s) at byte offset " + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolClosedWithPendingDiagnostic",
+            "Http2DiagnosticDetail::ProtocolClosedWithPendingDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(pending),
@@ -4101,7 +4101,7 @@
         String message = "HTTP/2 input ended with partial client connection preface at byte offset "
             + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolPartialPrefaceDiagnostic",
+            "Http2DiagnosticDetail::ProtocolPartialPrefaceDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(pending),
@@ -4135,7 +4135,7 @@
         String message = "HTTP/2 invalid client connection preface at byte offset "
             + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidPrefaceDiagnostic",
+            "Http2DiagnosticDetail::ProtocolInvalidPrefaceDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(expected),
@@ -4177,7 +4177,7 @@
         String message = "HTTP/2 initial peer frame must be non-ACK SETTINGS at byte offset "
             + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic",
+            "Http2DiagnosticDetail::ProtocolInitialPeerSettingsRequiredDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(frameKind),
@@ -4222,7 +4222,7 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 expected CONTINUATION frame at byte offset " + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolContinuationExpectedDiagnostic",
+            "Http2DiagnosticDetail::ProtocolContinuationExpectedDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(frameKind),
@@ -4263,7 +4263,7 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid frame kind at byte offset " + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidFrameKindDiagnostic",
+            "Http2DiagnosticDetail::ProtocolInvalidFrameKindDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(frameKind),
@@ -4303,7 +4303,7 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid stream id at byte offset " + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidStreamIdDiagnostic",
+            "Http2DiagnosticDetail::ProtocolInvalidStreamIdDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(kind),
@@ -4344,7 +4344,7 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid payload length at byte offset " + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic",
+            "Http2DiagnosticDetail::ProtocolInvalidPayloadLengthDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(kind),
@@ -4385,7 +4385,7 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid payload length at byte offset " + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic",
+            "Http2DiagnosticDetail::ProtocolInvalidPayloadLengthDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(kind),
@@ -4426,7 +4426,7 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid WINDOW_UPDATE increment at byte offset " + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic",
+            "Http2DiagnosticDetail::ProtocolInvalidWindowUpdateIncrementDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(stream),
@@ -4465,7 +4465,7 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid DATA padding at byte offset " + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic",
+            "Http2DiagnosticDetail::ProtocolInvalidDataPaddingDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(stream),
@@ -4505,7 +4505,7 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 content-length body length mismatch at byte offset " + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolContentLengthMismatchDiagnostic",
+            "Http2DiagnosticDetail::ProtocolContentLengthMismatchDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(kind),
@@ -4538,7 +4538,7 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 unexpected SETTINGS ACK at byte offset " + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic",
+            "Http2DiagnosticDetail::ProtocolUnexpectedSettingsAckDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 state,
@@ -4575,7 +4575,7 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 SETTINGS item is not allowed for endpoint role at byte offset " + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic",
+            "Http2DiagnosticDetail::ProtocolSettingsNotAllowedForEndpointDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(identifier),
@@ -4663,7 +4663,7 @@
             message = "HTTP/2 invalid request header list at byte offset " + byteOffset;
         }
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic",
+            "Http2DiagnosticDetail::ProtocolInvalidRequestHeaderListDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(kind),
@@ -4743,7 +4743,7 @@
             message = "HTTP/2 invalid response header list at byte offset " + byteOffset;
         }
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic",
+            "Http2DiagnosticDetail::ProtocolInvalidResponseHeaderListDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(kind),
@@ -4781,7 +4781,7 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid PRIORITY dependency at byte offset " + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolPriorityDependencyDiagnostic",
+            "Http2DiagnosticDetail::ProtocolPriorityDependencyDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(stream),
@@ -4819,7 +4819,7 @@
         String message = "HTTP/2 stream opened after graceful shutdown at byte offset "
             + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic",
+            "Http2DiagnosticDetail::ProtocolStreamAfterGoawayDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(stream),
@@ -4857,7 +4857,7 @@
         String message = "HTTP/2 frame payload length exceeds receive maximum at byte offset "
             + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2PeerLimitFrameSizeDiagnostic",
+            "Http2DiagnosticDetail::PeerLimitFrameSizeDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(observed),
@@ -4900,7 +4900,7 @@
                 + byteOffset
             : "HTTP/2 header list size exceeds receive maximum at byte offset " + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2PeerLimitHeaderListSizeDiagnostic",
+            "Http2DiagnosticDetail::PeerLimitHeaderListSizeDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(observed),
@@ -4942,7 +4942,7 @@
         String message = "HTTP/2 header table size exceeds receive maximum at byte offset "
             + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic",
+            "Http2DiagnosticDetail::PeerLimitHeaderTableSizeDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(observed),
@@ -4984,7 +4984,7 @@
         String message = "HTTP/2 flow-control window exceeded at byte offset "
             + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2PeerLimitFlowControlWindowDiagnostic",
+            "Http2DiagnosticDetail::PeerLimitFlowControlWindowDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(observed),
@@ -5028,7 +5028,7 @@
         String message = "HTTP/2 concurrent stream receive limit exceeded at byte offset "
             + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic",
+            "Http2DiagnosticDetail::PeerLimitConcurrentStreamsDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(stream),
@@ -5071,7 +5071,7 @@
         String message = "HTTP/2 SETTINGS value outside accepted range at byte offset "
             + byteOffset;
         Object detail = http2DiagnosticDetail(
-            "Http2DiagnosticDetail::RuntimeHttp2PeerLimitSettingsValueDiagnostic",
+            "Http2DiagnosticDetail::PeerLimitSettingsValueDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(identifier),
@@ -5329,7 +5329,7 @@
         String message = "HPACK dynamic index out of range at byte offset "
             + byteOffset;
         Object detail = http2HpackDiagnosticDetail(
-            "HpackDiagnosticDetail::RuntimeHpackFixtureDynamicIndexDiagnostic",
+            "HpackDiagnosticDetail::DynamicIndexDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(size),
@@ -5451,7 +5451,7 @@
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
         Object detail = http2HpackDiagnosticDetail(
-            "HpackDiagnosticDetail::RuntimeHpackFixtureDynamicNameDiagnostic",
+            "HpackDiagnosticDetail::DynamicNameDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(size),
@@ -5484,7 +5484,7 @@
         Object preview
     ) {
         Object detail = http2HpackDiagnosticDetail(
-            "HpackDiagnosticDetail::RuntimeHpackFixtureDiagnostic",
+            "HpackDiagnosticDetail::Diagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(observedSize),
@@ -5528,7 +5528,7 @@
         String message = "HPACK fixture table-size update after header field at byte offset "
             + byteOffset;
         Object detail = http2HpackDiagnosticDetail(
-            "HpackDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic",
+            "HpackDiagnosticDetail::TableSizeUpdateDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(size),
@@ -5607,7 +5607,7 @@
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
         Object detail = http2HpackDiagnosticDetail(
-            "HpackDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic",
+            "HpackDiagnosticDetail::TableSizeUpdateDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(size),
@@ -7976,7 +7976,7 @@
             "DecodeStep::Invalid",
             new Object[] {
                 adt(
-                    "DecodeError::DecodeError",
+                    "DecodeError::WithoutReason",
                     new Object[] { id, baseOffset, fieldPath }
                 )
             }
@@ -7993,7 +7993,7 @@
             "DecodeStep::Invalid",
             new Object[] {
                 adt(
-                    "DecodeError::DecodeErrorWithReason",
+                    "DecodeError::WithReason",
                     new Object[] { id, baseOffset, fieldPath, reason }
                 )
             }
@@ -8026,12 +8026,12 @@
         String nearbyContext
     ) {
         Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeByteDiagnostic",
+            "RuntimeDiagnosticDetail::ByteDiagnostic",
             new Object[] {
                 byteOffsetObject(byteOffset),
                 runtimeDiagnosticFieldPathObject(fieldPath),
                 adt(
-                    "RuntimeByteDiagnosticFacts::RuntimeByteFixedValueFacts",
+                    "RuntimeByteDiagnosticFacts::FixedValueFacts",
                     new Object[] { Long.valueOf(expectedValue), Long.valueOf(actualValue) }
                 ),
                 runtimeBytePreviewObject(nearbyContext)

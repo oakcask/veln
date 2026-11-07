@@ -49,7 +49,7 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
             parameter_variances: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
-                    name: "RuntimeByteCountFacts".to_string(),
+                    name: "CountFacts".to_string(),
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
@@ -66,11 +66,11 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
                     ],
-                    coverage_case: "RuntimeByteCountFacts(_)".to_string(),
+                    coverage_case: "CountFacts(_)".to_string(),
                     visibility: Visibility::Public,
                 },
                 AdtVariantDescriptor {
-                    name: "RuntimeByteRangeFacts".to_string(),
+                    name: "RangeFacts".to_string(),
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
@@ -83,11 +83,11 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                             ty: AdtPayloadType::Concrete(Type::named("ByteCount", Vec::new())),
                         },
                     ],
-                    coverage_case: "RuntimeByteRangeFacts(_)".to_string(),
+                    coverage_case: "RangeFacts(_)".to_string(),
                     visibility: Visibility::Public,
                 },
                 AdtVariantDescriptor {
-                    name: "RuntimeByteFixedValueFacts".to_string(),
+                    name: "FixedValueFacts".to_string(),
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
@@ -100,18 +100,18 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                             ty: AdtPayloadType::Concrete(Type::int()),
                         },
                     ],
-                    coverage_case: "RuntimeByteFixedValueFacts(_)".to_string(),
+                    coverage_case: "FixedValueFacts(_)".to_string(),
                     visibility: Visibility::Public,
                 },
                 AdtVariantDescriptor {
-                    name: "RuntimeByteReasonFacts".to_string(),
+                    name: "ReasonFacts".to_string(),
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
                         name: "reason".to_string(),
                         ty: AdtPayloadType::Concrete(Type::string()),
                     }],
-                    coverage_case: "RuntimeByteReasonFacts(_)".to_string(),
+                    coverage_case: "ReasonFacts(_)".to_string(),
                     visibility: Visibility::Public,
                 },
             ],

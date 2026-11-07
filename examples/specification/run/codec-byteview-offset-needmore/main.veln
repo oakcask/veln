@@ -23,14 +23,14 @@ fn decode_manual_offset_packet(input: ByteView, base: ByteOffset) -> DecodeStep<
 		else
 			decode_ready_packet(input, base, required)
 		end
-		Err(message) => Invalid(DecodeError(message, base, "ManualOffsetPacketWire"))
+		Err(message) => Invalid(WithoutReason(message, base, "ManualOffsetPacketWire"))
 	end
 end
 
 fn decode_ready_packet(input: ByteView, base: ByteOffset, consumed: ByteCount) -> DecodeStep<{length: Int, kind: Int}>
 	match byte_read_u16_be(input)
 		Ok(length) => decode_ready_kind(input, base, consumed, length)
-		Err(message) => Invalid(DecodeError(message, base, "ManualOffsetPacketWire.length"))
+		Err(message) => Invalid(WithoutReason(message, base, "ManualOffsetPacketWire.length"))
 	end
 end
 
@@ -38,9 +38,9 @@ fn decode_ready_kind(input: ByteView, base: ByteOffset, consumed: ByteCount, len
 	match byte_count(2)
 		Ok(local_kind) => match byte_view_drop(input, local_kind)
 			Ok(kind_view) => decode_validated_kind(base, consumed, length, kind_view)
-			Err(message) => Invalid(DecodeError(message, absolute_offset(base, 2), "ManualOffsetPacketWire.kind"))
+			Err(message) => Invalid(WithoutReason(message, absolute_offset(base, 2), "ManualOffsetPacketWire.kind"))
 		end
-		Err(message) => Invalid(DecodeError(message, base, "ManualOffsetPacketWire.kind"))
+		Err(message) => Invalid(WithoutReason(message, base, "ManualOffsetPacketWire.kind"))
 	end
 end
 
@@ -49,9 +49,9 @@ fn decode_validated_kind(base: ByteOffset, consumed: ByteCount, length: Int, kin
 		Ok(kind) => if kind <= length
 			Decoded({length: length, kind: kind}, consumed)
 		else
-			Invalid(DecodeError("codec.invalid_input", absolute_offset(base, 2), "ManualOffsetPacketWire.kind"))
+			Invalid(WithoutReason("codec.invalid_input", absolute_offset(base, 2), "ManualOffsetPacketWire.kind"))
 		end
-		Err(message) => Invalid(DecodeError(message, absolute_offset(base, 2), "ManualOffsetPacketWire.kind"))
+		Err(message) => Invalid(WithoutReason(message, absolute_offset(base, 2), "ManualOffsetPacketWire.kind"))
 	end
 end
 
@@ -109,8 +109,8 @@ fn error_id(step: DecodeStep<{length: Int, kind: Int}>) -> String
 	match step
 		Decoded(_, _) => "none"
 		NeedMore(_) => "none"
-		Invalid(DecodeError(id, _, _)) => id
-		Invalid(DecodeErrorWithReason(id, _, _, _)) => id
+		Invalid(WithoutReason(id, _, _)) => id
+		Invalid(WithReason(id, _, _, _)) => id
 	end
 end
 
@@ -118,8 +118,8 @@ fn error_offset(step: DecodeStep<{length: Int, kind: Int}>) -> Int
 	match step
 		Decoded(_, _) => -1
 		NeedMore(_) => -1
-		Invalid(DecodeError(_, offset, _)) => byte_offset_to_int(offset)
-		Invalid(DecodeErrorWithReason(_, offset, _, _)) => byte_offset_to_int(offset)
+		Invalid(WithoutReason(_, offset, _)) => byte_offset_to_int(offset)
+		Invalid(WithReason(_, offset, _, _)) => byte_offset_to_int(offset)
 	end
 end
 
@@ -127,8 +127,8 @@ fn error_path(step: DecodeStep<{length: Int, kind: Int}>) -> String
 	match step
 		Decoded(_, _) => "none"
 		NeedMore(_) => "none"
-		Invalid(DecodeError(_, _, path)) => path
-		Invalid(DecodeErrorWithReason(_, _, path, _)) => path
+		Invalid(WithoutReason(_, _, path)) => path
+		Invalid(WithReason(_, _, path, _)) => path
 	end
 end
 

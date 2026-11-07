@@ -4,7 +4,7 @@ use fake_effects
 
 # Adapter transport context does not replace a pure HTTP/2 protocol failure.
 fn protocol_failure() -> Result<(), RuntimeDiagnostic>
-	Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", "HTTP/2 extended CONNECT contains empty :protocol at byte offset 12", RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, "protocol_value_empty", ":protocol", ":method,:protocol,:scheme,:path,:authority", "request-headers", "rfc8441_extended_connect_pseudo_headers", byte_chunk([])))))
+	Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", "HTTP/2 extended CONNECT contains empty :protocol at byte offset 12", RuntimeDiagnosticDetail::Http2Diagnostic(Http2DiagnosticDetail::ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, "protocol_value_empty", ":protocol", ":method,:protocol,:scheme,:path,:authority", "request-headers", "rfc8441_extended_connect_pseudo_headers", byte_chunk([])))))
 end
 
 fn fixture_body() -> Result<(), RuntimeDiagnostic> effects [net::IO]

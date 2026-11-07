@@ -64,18 +64,18 @@ pub type ExportDestination
 end
 
 pub type DiagnosticDestination
-	pub DiagnosticStandardError
-	pub DiagnosticFileDestination(path: String)
-	pub NoDiagnosticDestination
+	pub StandardError
+	pub File(path: String)
+	pub Disabled
 end
 
 type ExportPayload
-	ExportLog(record: LogRecord)
-	ExportEvent(record: EventRecord)
-	ExportCounter(record: CounterIncrementRecord)
-	ExportHistogram(record: HistogramSampleRecord)
-	ExportSpanStart(name: String, trace_id: String, span_id: String, parent_span_id: Option<String>, links: List<TraceContext>, source: Option<SourceLocation>)
-	ExportSpanFinish(name: String, trace_id: String, span_id: String, parent_span_id: Option<String>, source: Option<SourceLocation>)
+	Log(record: LogRecord)
+	Event(record: EventRecord)
+	Counter(record: CounterIncrementRecord)
+	Histogram(record: HistogramSampleRecord)
+	SpanStart(name: String, trace_id: String, span_id: String, parent_span_id: Option<String>, links: List<TraceContext>, source: Option<SourceLocation>)
+	SpanFinish(name: String, trace_id: String, span_id: String, parent_span_id: Option<String>, source: Option<SourceLocation>)
 end
 
 type ExportStateBoundaryHook
@@ -124,21 +124,21 @@ type BufferedCallEntryHook
 end
 
 type BufferedCallState
-	BufferedNoCall
-	BufferedRecordCall(permit: Int)
-	BufferedSummaryCall(health: ExporterHealth, permit: Int)
-	BufferedCallsRevoked
+	NoCall
+	RecordCall(permit: Int)
+	SummaryCall(health: ExporterHealth, permit: Int)
+	CallsRevoked
 end
 
 type BufferedHostCallOutcome
-	BufferedCallSkipped
-	BufferedCallCompleted(written: Bool)
+	Skipped
+	Completed(written: Bool)
 end
 
 type BufferedLifecycle
-	BufferedOpen
-	BufferedClosing
-	BufferedClosed(report: BufferedShutdownReport)
+	Open
+	Closing
+	Closed(report: BufferedShutdownReport)
 end
 
 type BufferedSpanAllocator
@@ -169,10 +169,10 @@ pub type BufferedSpanStart
 end
 
 pub type BufferedSummaryOutcome
-	pub SummaryAccepted
-	pub SummaryRejected
-	pub SummaryDisabled
-	pub SummaryNotAttempted
+	pub Accepted
+	pub Rejected
+	pub Disabled
+	pub NotAttempted
 end
 
 pub type BufferedShutdownState
@@ -320,7 +320,7 @@ fn start_json_lines(resource: Resource, scope: InstrumentationScope, metric_seri
 end
 
 pub fn new_json_lines_default(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, identity_prefix: String) -> JsonLinesExporter effects [concurrency]
-	new_json_lines(resource, scope, metric_series_limit, limits, StandardError, NoDiagnosticDestination, identity_prefix)
+	new_json_lines(resource, scope, metric_series_limit, limits, StandardError, DiagnosticDestination::Disabled, identity_prefix)
 end
 
 pub fn new_buffered_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int) -> BufferedJsonLinesConstruction effects [concurrency]
@@ -383,9 +383,9 @@ fn start_buffered_json_lines(resource: Resource, scope: InstrumentationScope, me
 			let _ = channel::send(identity_state.tx, 1)
 			let span_allocator = BufferedSpanAllocator(identity_prefix, identity_state)
 			let state = channel::bounded<BufferedExporterState>(1)
-			let _ = channel::send(state.tx, BufferedExporterState(1, failed_exports, 0, 0, 0, 0, list_nil(), false, BufferedOpen))
+			let _ = channel::send(state.tx, BufferedExporterState(1, failed_exports, 0, 0, 0, 0, list_nil(), false, BufferedLifecycle::Open))
 			let calls = channel::bounded<BufferedCallState>(1)
-			let _ = channel::send(calls.tx, BufferedNoCall)
+			let _ = channel::send(calls.tx, BufferedCallState::NoCall)
 			let ready = channel::bounded<()>(1)
 			let worker = task::spawn_with(start_buffered_export_worker, { state: state, calls: calls, ready: ready.rx, destination: destination, diagnostic_destination: diagnostic_destination, production: production, idle_hook: idle_hook, completion_hook: completion_hook, queue_hook: queue_hook, health_hook: health_hook, call_entry_hook: call_entry_hook, interruption_hook: interruption_hook, startup_hook: startup_hook })
 			BufferedJsonLines(BufferedJsonLinesExporter(capacity, resource, scope, normalize_exporter_limits(limits), production, span_allocator, state, calls, ready.tx, worker))
@@ -785,7 +785,7 @@ pub fn start_export_span(exporter: JsonLinesExporter, request: SpanRequest) -> S
 						let span_id = prelude_builtin::observation_export_identity(identity_prefix, "span", next_identity)
 						commit_exporter_state(state.tx, ExporterState(sequence, bounded_increment(next_identity), failed, dropped, truncated, redacted), committed.tx)
 						let name = request_name(request)
-						export_payload(exporter, ExportSpanStart(name, trace_id, span_id, parent_span_id, request_links(request), request_source(request)))
+						export_payload(exporter, ExportPayload::SpanStart(name, trace_id, span_id, parent_span_id, request_links(request), request_source(request)))
 						ExportSpan(name, trace_id, span_id, parent_span_id, sampled, request_source(request))
 					end
 				end
@@ -797,7 +797,7 @@ end
 
 pub fn finish_export_span(exporter: JsonLinesExporter, request: SpanFinish) -> () effects [time, concurrency]
 	match request
-		SpanFinish(ExportSpan(name, trace_id, span_id, parent_span_id, _, source)) => export_payload(exporter, ExportSpanFinish(name, trace_id, span_id, parent_span_id, source))
+		SpanFinish(ExportSpan(name, trace_id, span_id, parent_span_id, _, source)) => export_payload(exporter, ExportPayload::SpanFinish(name, trace_id, span_id, parent_span_id, source))
 		_ => ()
 	end
 end
@@ -808,10 +808,10 @@ end
 
 fn observation_export_payload(record: Observation) -> ExportPayload
 	match record
-		Log(value) => ExportLog(value)
-		Event(value) => ExportEvent(value)
-		CounterIncrement(value) => ExportCounter(value)
-		HistogramSample(value) => ExportHistogram(value)
+		Log(value) => ExportPayload::Log(value)
+		Event(value) => ExportPayload::Event(value)
+		CounterIncrement(value) => ExportPayload::Counter(value)
+		HistogramSample(value) => ExportPayload::Histogram(value)
 	end
 end
 
@@ -835,7 +835,7 @@ pub fn buffered_start_export_span(exporter: BufferedJsonLinesExporter, request: 
 	match exporter
 		BufferedJsonLinesExporter(_, _, _, _, _, span_allocator, _, _, _, _) => match allocate_buffered_span(span_allocator, request)
 			span => match span
-				ExportSpan(name, trace_id, span_id, parent_span_id, _, source) => BufferedSpanStart(span, buffered_export_payload(exporter, ExportSpanStart(name, trace_id, span_id, parent_span_id, request_links(request), source)))
+				ExportSpan(name, trace_id, span_id, parent_span_id, _, source) => BufferedSpanStart(span, buffered_export_payload(exporter, ExportPayload::SpanStart(name, trace_id, span_id, parent_span_id, request_links(request), source)))
 				_ => BufferedSpanStart(span, InvalidRecord)
 			end
 		end
@@ -844,7 +844,7 @@ end
 
 pub fn buffered_finish_export_span(exporter: BufferedJsonLinesExporter, request: SpanFinish) -> BufferedAdmissionOutcome effects [time, concurrency]
 	match request
-		SpanFinish(ExportSpan(name, trace_id, span_id, parent_span_id, _, source)) => buffered_export_payload(exporter, ExportSpanFinish(name, trace_id, span_id, parent_span_id, source))
+		SpanFinish(ExportSpan(name, trace_id, span_id, parent_span_id, _, source)) => buffered_export_payload(exporter, ExportPayload::SpanFinish(name, trace_id, span_id, parent_span_id, source))
 		_ => InvalidRecord
 	end
 end
@@ -910,7 +910,7 @@ fn buffered_export_payload_with_hooks(exporter: BufferedJsonLinesExporter, paylo
 						restore_uncommitted_buffered_state(state.tx, current, committed.rx)
 					end
 					match current
-						BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, worker_active, BufferedOpen) => begin
+						BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, worker_active, BufferedLifecycle::Open) => begin
 							notify_buffered_admission_boundary(boundary_hook)
 							let cardinality_admitted = match cardinality_record
 								Some(record) => apply_metric_cardinality(production, record)
@@ -927,18 +927,18 @@ fn buffered_export_payload_with_hooks(exporter: BufferedJsonLinesExporter, paylo
 									let encoded: { valid : Bool, line : String, dropped : Int, truncated : Int, redacted : Int } = prelude_builtin::observation_json_line(payload, wall_time, sequence, resource, scope, limits, failed, admitted_metrics, dropped_metrics)
 									if not encoded.valid
 										begin
-											commit_buffered_state(state.tx, BufferedExporterState(bounded_increment(sequence), bounded_increment(failed), dropped, truncated, redacted, outstanding, queued, worker_active, BufferedOpen), committed.tx)
+											commit_buffered_state(state.tx, BufferedExporterState(bounded_increment(sequence), bounded_increment(failed), dropped, truncated, redacted, outstanding, queued, worker_active, BufferedLifecycle::Open), committed.tx)
 											InvalidRecord
 										end
 									else if outstanding >= capacity
 										begin
-											commit_buffered_state(state.tx, BufferedExporterState(bounded_increment(sequence), bounded_increment(failed), dropped, truncated, redacted, outstanding, queued, worker_active, BufferedOpen), committed.tx)
+											commit_buffered_state(state.tx, BufferedExporterState(bounded_increment(sequence), bounded_increment(failed), dropped, truncated, redacted, outstanding, queued, worker_active, BufferedLifecycle::Open), committed.tx)
 											Full
 										end
 									else
 										begin
 											let next_queued = list_cons(BufferedExportWork(encoded.line, encoded.dropped, encoded.truncated, encoded.redacted), queued)
-											commit_buffered_state(state.tx, BufferedExporterState(bounded_increment(sequence), failed, bounded_add(dropped, encoded.dropped), bounded_add(truncated, encoded.truncated), bounded_add(redacted, encoded.redacted), outstanding + 1, next_queued, true, BufferedOpen), committed.tx)
+											commit_buffered_state(state.tx, BufferedExporterState(bounded_increment(sequence), failed, bounded_add(dropped, encoded.dropped), bounded_add(truncated, encoded.truncated), bounded_add(redacted, encoded.redacted), outstanding + 1, next_queued, true, BufferedLifecycle::Open), committed.tx)
 											if not worker_active
 												begin
 													let _ = channel::send(ready, ())
@@ -989,7 +989,7 @@ pub fn buffered_exporter_health(exporter: BufferedJsonLinesExporter) -> Exporter
 					restore_uncommitted_buffered_state(state.tx, current, committed.rx)
 				end
 				let health = match current
-					BufferedExporterState(_, _, _, _, _, _, _, _, BufferedClosed(BufferedShutdownReport(_, frozen, _))) => frozen
+					BufferedExporterState(_, _, _, _, _, _, _, _, BufferedLifecycle::Closed(BufferedShutdownReport(_, frozen, _))) => frozen
 					BufferedExporterState(_, failed, dropped, truncated, redacted, _, _, _, _) => ExporterHealth(failed, dropped, truncated, redacted, production_health(production))
 				end
 				commit_buffered_state(state.tx, current, committed.tx)
@@ -1080,12 +1080,12 @@ fn begin_buffered_shutdown(state: { tx : Sender<BufferedExporterState>, rx : Rec
 				restore_uncommitted_buffered_state(state.tx, current, committed.rx)
 			end
 			match current
-				BufferedExporterState(_, _, _, _, _, _, _, _, BufferedClosed(report)) => begin
+				BufferedExporterState(_, _, _, _, _, _, _, _, BufferedLifecycle::Closed(report)) => begin
 					commit_buffered_state(state.tx, current, committed.tx)
 					Some(report)
 				end
-				BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, worker_active, BufferedOpen) => begin
-					commit_buffered_state(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, true, BufferedClosing), committed.tx)
+				BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, worker_active, BufferedLifecycle::Open) => begin
+					commit_buffered_state(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, true, BufferedLifecycle::Closing), committed.tx)
 					if not worker_active
 						begin
 							let _ = channel::send(ready, ())
@@ -1096,7 +1096,7 @@ fn begin_buffered_shutdown(state: { tx : Sender<BufferedExporterState>, rx : Rec
 					end
 					None
 				end
-				BufferedExporterState(_, _, _, _, _, _, _, _, BufferedClosing) => begin
+				BufferedExporterState(_, _, _, _, _, _, _, _, BufferedLifecycle::Closing) => begin
 					commit_buffered_state(state.tx, current, committed.tx)
 					None
 				end
@@ -1114,13 +1114,13 @@ fn read_buffered_shutdown_report(state: { tx : Sender<BufferedExporterState>, rx
 				restore_uncommitted_buffered_state(state.tx, current, committed.rx)
 			end
 			let report = match current
-				BufferedExporterState(_, _, _, _, _, _, _, _, BufferedClosed(frozen)) => frozen
-				BufferedExporterState(_, failed, dropped, truncated, redacted, _, _, _, _) => BufferedShutdownReport(Interrupted, ExporterHealth(failed, dropped, truncated, redacted, production_health(production)), SummaryNotAttempted)
+				BufferedExporterState(_, _, _, _, _, _, _, _, BufferedLifecycle::Closed(frozen)) => frozen
+				BufferedExporterState(_, failed, dropped, truncated, redacted, _, _, _, _) => BufferedShutdownReport(Interrupted, ExporterHealth(failed, dropped, truncated, redacted, production_health(production)), BufferedSummaryOutcome::NotAttempted)
 			end
 			commit_buffered_state(state.tx, current, committed.tx)
 			report
 		end
-		None => BufferedShutdownReport(Interrupted, ExporterHealth(0, 0, 0, 0, ProductionHealth(0, 0, 0)), SummaryNotAttempted)
+		None => BufferedShutdownReport(Interrupted, ExporterHealth(0, 0, 0, 0, ProductionHealth(0, 0, 0)), BufferedSummaryOutcome::NotAttempted)
 	end
 end
 
@@ -1169,10 +1169,10 @@ fn interrupt_buffered_transition_with_boundary_hook(state: { tx : Sender<Buffere
 				restore_uncommitted_buffered_call_state(calls.tx, active_call, call_committed.rx)
 			end
 			let call_phase = match active_call
-				BufferedRecordCall(permit) => prelude_builtin::observation_export_permit_revoke(permit)
-				BufferedSummaryCall(_, permit) => prelude_builtin::observation_export_permit_revoke(permit)
-				BufferedNoCall => 4
-				BufferedCallsRevoked => 4
+				BufferedCallState::RecordCall(permit) => prelude_builtin::observation_export_permit_revoke(permit)
+				BufferedCallState::SummaryCall(_, permit) => prelude_builtin::observation_export_permit_revoke(permit)
+				BufferedCallState::NoCall => 4
+				BufferedCallState::CallsRevoked => 4
 			end
 			notify_buffered_worker_boundary(boundary_hook)
 			match channel::recv(state.rx)
@@ -1183,10 +1183,10 @@ fn interrupt_buffered_transition_with_boundary_hook(state: { tx : Sender<Buffere
 					end
 					let cardinality = production_health(production)
 					let next = interrupted_buffered_state(current, active_call, call_phase, cardinality)
-					commit_buffered_transition(state.tx, next, state_committed.tx, calls.tx, BufferedCallsRevoked, call_committed.tx)
+					commit_buffered_transition(state.tx, next, state_committed.tx, calls.tx, BufferedCallState::CallsRevoked, call_committed.tx)
 					discard_buffered_call_permit(active_call)
 				end
-				None => commit_buffered_call_state(calls.tx, BufferedCallsRevoked, call_committed.tx)
+				None => commit_buffered_call_state(calls.tx, BufferedCallState::CallsRevoked, call_committed.tx)
 			end
 		end
 		None => ()
@@ -1195,17 +1195,17 @@ end
 
 fn discard_buffered_call_permit(active_call: BufferedCallState) -> ()
 	match active_call
-		BufferedRecordCall(permit) => prelude_builtin::observation_export_permit_discard(permit)
-		BufferedSummaryCall(_, permit) => prelude_builtin::observation_export_permit_discard(permit)
+		BufferedCallState::RecordCall(permit) => prelude_builtin::observation_export_permit_discard(permit)
+		BufferedCallState::SummaryCall(_, permit) => prelude_builtin::observation_export_permit_discard(permit)
 		_ => ()
 	end
 end
 
 fn interrupted_buffered_state(current: BufferedExporterState, active_call: BufferedCallState, call_phase: Int, cardinality: ProductionHealth) -> BufferedExporterState
 	match current
-		BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, _, _, BufferedClosed(report)) => BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, list_nil(), false, BufferedClosed(report))
+		BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, _, _, BufferedLifecycle::Closed(report)) => BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, list_nil(), false, BufferedLifecycle::Closed(report))
 		BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, _, _, _) => match active_call
-			BufferedRecordCall(_) => if call_phase == 2 or call_phase == 3
+			BufferedCallState::RecordCall(_) => if call_phase == 2 or call_phase == 3
 				begin
 					let confirmed_failed = if call_phase == 2
 						bounded_increment(failed)
@@ -1214,34 +1214,34 @@ fn interrupted_buffered_state(current: BufferedExporterState, active_call: Buffe
 					end
 					let interrupted_failed = bounded_add(confirmed_failed, outstanding - 1)
 					let health = ExporterHealth(interrupted_failed, dropped, truncated, redacted, cardinality)
-					let report = BufferedShutdownReport(Interrupted, health, SummaryNotAttempted)
-					BufferedExporterState(sequence, interrupted_failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report))
+					let report = BufferedShutdownReport(Interrupted, health, BufferedSummaryOutcome::NotAttempted)
+					BufferedExporterState(sequence, interrupted_failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedLifecycle::Closed(report))
 				end
 			else
-				freeze_unsettled_buffered_state(sequence, failed, dropped, truncated, redacted, outstanding, cardinality, SummaryNotAttempted)
+				freeze_unsettled_buffered_state(sequence, failed, dropped, truncated, redacted, outstanding, cardinality, BufferedSummaryOutcome::NotAttempted)
 			end
-			BufferedSummaryCall(health, _) => if call_phase == 2 or call_phase == 3
+			BufferedCallState::SummaryCall(health, _) => if call_phase == 2 or call_phase == 3
 				begin
 					let summary = if call_phase == 3
-						SummaryAccepted
+						BufferedSummaryOutcome::Accepted
 					else
-						SummaryRejected
+						BufferedSummaryOutcome::Rejected
 					end
 					let report = BufferedShutdownReport(Completed, health, summary)
-					BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report))
+					BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedLifecycle::Closed(report))
 				end
 			else if call_phase == 1
 				begin
-					let report = BufferedShutdownReport(Interrupted, health, SummaryRejected)
-					BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report))
+					let report = BufferedShutdownReport(Interrupted, health, BufferedSummaryOutcome::Rejected)
+					BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedLifecycle::Closed(report))
 				end
 			else
 				begin
-					let report = BufferedShutdownReport(Interrupted, health, SummaryNotAttempted)
-					BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report))
+					let report = BufferedShutdownReport(Interrupted, health, BufferedSummaryOutcome::NotAttempted)
+					BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedLifecycle::Closed(report))
 				end
 			end
-			_ => freeze_unsettled_buffered_state(sequence, failed, dropped, truncated, redacted, outstanding, cardinality, SummaryNotAttempted)
+			_ => freeze_unsettled_buffered_state(sequence, failed, dropped, truncated, redacted, outstanding, cardinality, BufferedSummaryOutcome::NotAttempted)
 		end
 	end
 end
@@ -1250,7 +1250,7 @@ fn freeze_unsettled_buffered_state(sequence: Int, failed: Int, dropped: Int, tru
 	let interrupted_failed = bounded_add(failed, outstanding)
 	let health = ExporterHealth(interrupted_failed, dropped, truncated, redacted, cardinality)
 	let report = BufferedShutdownReport(Interrupted, health, summary)
-	BufferedExporterState(sequence, interrupted_failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedClosed(report))
+	BufferedExporterState(sequence, interrupted_failed, dropped, truncated, redacted, 0, list_nil(), false, BufferedLifecycle::Closed(report))
 end
 
 fn drain_buffered_exports(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls : { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook, completion_hook : BufferedCompletionHook, queue_hook : BufferedWorkerBoundaryHook, health_hook : BufferedWorkerBoundaryHook, call_entry_hook : BufferedCallEntryHook }) -> Bool effects [concurrency]
@@ -1279,17 +1279,17 @@ fn drain_buffered_export_batch(context: { state : { tx : Sender<BufferedExporter
 					end
 					Nil => begin
 						match lifecycle
-							BufferedOpen => begin
+							BufferedLifecycle::Open => begin
 								commit_buffered_state(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, false, lifecycle), committed.tx)
 								notify_buffered_idle(context.idle_hook)
 								1
 							end
-							BufferedClosing => begin
+							BufferedLifecycle::Closing => begin
 								commit_buffered_state(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, true, lifecycle), committed.tx)
 								complete_buffered_export(context)
 								0
 							end
-							BufferedClosed(_) => begin
+							BufferedLifecycle::Closed(_) => begin
 								commit_buffered_state(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, false, lifecycle), committed.tx)
 								0
 							end
@@ -1309,11 +1309,11 @@ fn export_buffered_batch(context: { state : { tx : Sender<BufferedExporterState>
 				Some(permit) => begin
 					let call = task::spawn_with(buffered_record_host_call, { destination: context.destination, line: line, permit: permit, entry_hook: context.call_entry_hook })
 					match task::join(call)
-						Ok(BufferedCallCompleted(written)) => begin
+						Ok(BufferedHostCallOutcome::Completed(written)) => begin
 							settle_buffered_export(context.state, context.calls, permit, written, context.completion_hook)
 							export_buffered_batch(context, tail)
 						end
-						Ok(BufferedCallSkipped) => ()
+						Ok(BufferedHostCallOutcome::Skipped) => ()
 						Err(_) => interrupt_buffered_transition(context.state, context.calls, context.production)
 					end
 				end
@@ -1328,14 +1328,14 @@ fn prepare_buffered_record_call(calls: { tx : Sender<BufferedCallState>, rx : Re
 	match channel::recv(calls.rx)
 		Some(current) => begin
 			match current
-				BufferedNoCall => begin
+				BufferedCallState::NoCall => begin
 					let permit = prelude_builtin::observation_export_permit_create()
 					let committed = channel::bounded<()>(1)
 					defer
 						restore_uncommitted_buffered_call_permit_state(calls.tx, current, permit, committed.rx)
 					end
 					notify_buffered_permit_publication(hook)
-					commit_buffered_call_state(calls.tx, BufferedRecordCall(permit), committed.tx)
+					commit_buffered_call_state(calls.tx, BufferedCallState::RecordCall(permit), committed.tx)
 					Some(permit)
 				end
 				_ => begin
@@ -1356,9 +1356,9 @@ fn buffered_record_host_call(context: { destination : ExportDestination, line : 
 	notify_buffered_call_entry(context.entry_hook)
 	let result = prelude_builtin::observation_export_write_coordinated(context.destination, context.line, false, context.permit, buffered_call_return_sender(context.entry_hook))
 	if result < 0
-		BufferedCallSkipped
+		BufferedHostCallOutcome::Skipped
 	else
-		BufferedCallCompleted(result > 0)
+		BufferedHostCallOutcome::Completed(result > 0)
 	end
 end
 
@@ -1370,7 +1370,7 @@ fn settle_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Rece
 				restore_uncommitted_buffered_call_state(calls.tx, active_call, call_committed.rx)
 			end
 			match active_call
-				BufferedRecordCall(active_permit) => if active_permit == permit
+				BufferedCallState::RecordCall(active_permit) => if active_permit == permit
 					match channel::recv(state.rx)
 						Some(current) => begin
 							let state_committed = channel::bounded<()>(1)
@@ -1386,7 +1386,7 @@ fn settle_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Rece
 										bounded_increment(failed)
 									end
 									let next = BufferedExporterState(sequence, next_failed, dropped, truncated, redacted, outstanding - 1, queued, worker_active, lifecycle)
-									commit_buffered_transition(state.tx, next, state_committed.tx, calls.tx, BufferedNoCall, call_committed.tx)
+									commit_buffered_transition(state.tx, next, state_committed.tx, calls.tx, BufferedCallState::NoCall, call_committed.tx)
 									prelude_builtin::observation_export_permit_discard(permit)
 								end
 							end
@@ -1460,16 +1460,16 @@ fn complete_buffered_export(context: { state : { tx : Sender<BufferedExporterSta
 			end
 			match current
 				BufferedExporterState(sequence, failed, dropped, truncated, redacted, _, queued, _, lifecycle) => match lifecycle
-					BufferedClosed(_) => begin
+					BufferedLifecycle::Closed(_) => begin
 						commit_buffered_state(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, lifecycle), state_committed.tx)
 						()
 					end
 					_ => match diagnostic_destination
-						NoDiagnosticDestination => begin
+						DiagnosticDestination::Disabled => begin
 							notify_buffered_worker_boundary(context.health_hook)
 							let health = ExporterHealth(failed, dropped, truncated, redacted, production_health(production))
-							let report = BufferedShutdownReport(Completed, health, SummaryDisabled)
-							commit_buffered_state(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedClosed(report)), state_committed.tx)
+							let report = BufferedShutdownReport(Completed, health, BufferedSummaryOutcome::Disabled)
+							commit_buffered_state(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedLifecycle::Closed(report)), state_committed.tx)
 							()
 						end
 						_ => begin
@@ -1480,8 +1480,8 @@ fn complete_buffered_export(context: { state : { tx : Sender<BufferedExporterSta
 								Some(permit) => begin
 									let call = task::spawn_with(buffered_summary_host_call, { destination: diagnostic_destination, line: exporter_health_line(health), permit: permit, entry_hook: context.call_entry_hook })
 									match task::join(call)
-										Ok(BufferedCallCompleted(written)) => finish_buffered_summary(state, context.calls, health, permit, written, completion_hook)
-										Ok(BufferedCallSkipped) => ()
+										Ok(BufferedHostCallOutcome::Completed(written)) => finish_buffered_summary(state, context.calls, health, permit, written, completion_hook)
+										Ok(BufferedHostCallOutcome::Skipped) => ()
 										Err(_) => interrupt_buffered_transition(state, context.calls, production)
 									end
 								end
@@ -1500,14 +1500,14 @@ fn prepare_buffered_summary_call(calls: { tx : Sender<BufferedCallState>, rx : R
 	match channel::recv(calls.rx)
 		Some(current) => begin
 			match current
-				BufferedNoCall => begin
+				BufferedCallState::NoCall => begin
 					let permit = prelude_builtin::observation_export_permit_create()
 					let committed = channel::bounded<()>(1)
 					defer
 						restore_uncommitted_buffered_call_permit_state(calls.tx, current, permit, committed.rx)
 					end
 					notify_buffered_permit_publication(hook)
-					commit_buffered_call_state(calls.tx, BufferedSummaryCall(health, permit), committed.tx)
+					commit_buffered_call_state(calls.tx, BufferedCallState::SummaryCall(health, permit), committed.tx)
 					Some(permit)
 				end
 				_ => begin
@@ -1528,9 +1528,9 @@ fn buffered_summary_host_call(context: { destination : DiagnosticDestination, li
 	notify_buffered_call_entry(context.entry_hook)
 	let result = prelude_builtin::observation_export_write_coordinated(context.destination, context.line, true, context.permit, buffered_call_return_sender(context.entry_hook))
 	if result < 0
-		BufferedCallSkipped
+		BufferedHostCallOutcome::Skipped
 	else
-		BufferedCallCompleted(result > 0)
+		BufferedHostCallOutcome::Completed(result > 0)
 	end
 end
 
@@ -1542,7 +1542,7 @@ fn finish_buffered_summary(state: { tx : Sender<BufferedExporterState>, rx : Rec
 				restore_uncommitted_buffered_call_state(calls.tx, active_call, call_committed.rx)
 			end
 			match active_call
-				BufferedSummaryCall(_, active_permit) => if active_permit == permit
+				BufferedCallState::SummaryCall(_, active_permit) => if active_permit == permit
 					match channel::recv(state.rx)
 						Some(current) => begin
 							let state_committed = channel::bounded<()>(1)
@@ -1551,16 +1551,16 @@ fn finish_buffered_summary(state: { tx : Sender<BufferedExporterState>, rx : Rec
 							end
 							notify_buffered_completion(completion_hook)
 							match current
-								BufferedExporterState(_, _, _, _, _, _, _, _, BufferedClosed(_)) => commit_buffered_transition(state.tx, current, state_committed.tx, calls.tx, BufferedNoCall, call_committed.tx)
+								BufferedExporterState(_, _, _, _, _, _, _, _, BufferedLifecycle::Closed(_)) => commit_buffered_transition(state.tx, current, state_committed.tx, calls.tx, BufferedCallState::NoCall, call_committed.tx)
 								BufferedExporterState(sequence, failed, dropped, truncated, redacted, _, queued, _, _) => begin
 									let summary = if written
-										SummaryAccepted
+										BufferedSummaryOutcome::Accepted
 									else
-										SummaryRejected
+										BufferedSummaryOutcome::Rejected
 									end
 									let report = BufferedShutdownReport(Completed, health, summary)
-									let next = BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedClosed(report))
-									commit_buffered_transition(state.tx, next, state_committed.tx, calls.tx, BufferedNoCall, call_committed.tx)
+									let next = BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, queued, false, BufferedLifecycle::Closed(report))
+									commit_buffered_transition(state.tx, next, state_committed.tx, calls.tx, BufferedCallState::NoCall, call_committed.tx)
 									prelude_builtin::observation_export_permit_discard(permit)
 								end
 							end
@@ -1686,8 +1686,8 @@ fn export_metric_with_boundary_hook_for_test(exporter: JsonLinesExporter, record
 	match exporter
 		JsonLinesExporter(_, _, _, _, _, _, production, _) => if apply_metric_cardinality(production, record)
 			match record
-				CounterIncrement(value) => export_payload_with_boundary_hook(exporter, ExportCounter(value), TestExportStateBoundaryHook(callback, entered, release))
-				HistogramSample(value) => export_payload_with_boundary_hook(exporter, ExportHistogram(value), TestExportStateBoundaryHook(callback, entered, release))
+				CounterIncrement(value) => export_payload_with_boundary_hook(exporter, ExportPayload::Counter(value), TestExportStateBoundaryHook(callback, entered, release))
+				HistogramSample(value) => export_payload_with_boundary_hook(exporter, ExportPayload::Histogram(value), TestExportStateBoundaryHook(callback, entered, release))
 				_ => ()
 			end
 		else

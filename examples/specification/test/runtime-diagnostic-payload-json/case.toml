@@ -56,7 +56,7 @@ equals = "runtime"
 
 [[json_assert]]
 path = "cases.0.failure.details.value"
-equals = "RuntimeDiagnostic(codec.incomplete_input, byte read requires 3 bytes but view has 2, RuntimeByteDiagnostic(ByteOffset(2), Cons(RuntimeDiagnosticFieldPathSegment(schema, Payload), Cons(RuntimeDiagnosticFieldPathSegment(field, body), Nil)), RuntimeByteCountFacts(ByteCount(3), ByteCount(2), need_bytes), RuntimeBytePreview(0001, ByteCount(2), ByteCount(2), false)))"
+equals = "RuntimeDiagnostic(codec.incomplete_input, byte read requires 3 bytes but view has 2, ByteDiagnostic(ByteOffset(2), Cons(RuntimeDiagnosticFieldPathSegment(schema, Payload), Cons(RuntimeDiagnosticFieldPathSegment(field, body), Nil)), CountFacts(ByteCount(3), ByteCount(2), need_bytes), RuntimeBytePreview(0001, ByteCount(2), ByteCount(2), false)))"
 
 [[json_assert]]
 path = "cases.0.failure.details.byte_diagnostic.kind"
@@ -133,7 +133,7 @@ contains = "incomplete"
 [[result_value_assert]]
 value_path = "cases.0.failure.details.value"
 path = "value.detail.constructor"
-equals = "RuntimeByteDiagnostic"
+equals = "ByteDiagnostic"
 
 [[result_value_assert]]
 value_path = "cases.0.failure.details.value"
@@ -158,7 +158,7 @@ length = 2
 [[result_value_assert]]
 value_path = "cases.0.failure.details.value"
 path = "value.detail.facts.constructor"
-equals = "RuntimeByteCountFacts"
+equals = "CountFacts"
 
 [[result_value_assert]]
 value_path = "cases.0.failure.details.value"
@@ -200,7 +200,7 @@ equals = "runtime"
 
 [[json_assert]]
 path = "cases.1.failure.details.value"
-equals = "RuntimeDiagnostic(schema.encode_value_unrepresentable, encode value is unrepresentable, RuntimeValueDiagnostic(Cons(RuntimeDiagnosticFieldPathSegment(schema, RuntimeValuePacket), Cons(RuntimeDiagnosticFieldPathSegment(field, value), Nil)), value must be between 0 and 255))"
+equals = "RuntimeDiagnostic(schema.encode_value_unrepresentable, encode value is unrepresentable, ValueDiagnostic(Cons(RuntimeDiagnosticFieldPathSegment(schema, RuntimeValuePacket), Cons(RuntimeDiagnosticFieldPathSegment(field, value), Nil)), value must be between 0 and 255))"
 
 [[json_assert]]
 path = "cases.1.failure.details.value_diagnostic.kind"
@@ -240,7 +240,7 @@ equals = "schema.encode_value_unrepresentable"
 [[result_value_assert]]
 value_path = "cases.1.failure.details.value"
 path = "value.detail.constructor"
-equals = "RuntimeValueDiagnostic"
+equals = "ValueDiagnostic"
 
 [[result_value_assert]]
 value_path = "cases.1.failure.details.value"

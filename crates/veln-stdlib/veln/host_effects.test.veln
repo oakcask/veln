@@ -43,15 +43,15 @@ end
 
 test cancellable_wait_distinguishes_completion_deadline_and_cancellation() -> Result<(), String> effects [time]
 	let completed = match handle wait_outcome() with test_clock::clock(0, 0, 0, 0, 0)
-		WaitCompleted => true
+		CancellableWaitOutcome::Completed => true
 		_ => false
 	end
 	let expired = match handle wait_outcome() with test_clock::clock(0, 1, 0, 0, 0)
-		WaitDeadlineExpired => true
+		CancellableWaitOutcome::DeadlineExpired => true
 		_ => false
 	end
 	let cancelled = match handle wait_outcome() with test_clock::clock(0, 2, 0, 0, 0)
-		WaitCancelled => true
+		CancellableWaitOutcome::Cancelled => true
 		_ => false
 	end
 	expect_clock(completed and expired and cancelled)

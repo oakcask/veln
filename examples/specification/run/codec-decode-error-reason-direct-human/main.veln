@@ -1,4 +1,4 @@
-# Direct DecodeErrorWithReason result failures render reason notes.
+# Direct WithReason result failures render reason notes.
 
 schema ManualPacketWire
 	format binary
@@ -12,5 +12,5 @@ fn offset(value: Int) -> ByteOffset
 end
 
 pub fn main() -> Result<(), DecodeError>
-	Err(DecodeErrorWithReason("codec.invalid_input", offset(62), "ManualPacketWire.kind", "kind value exceeds declared length"))
+	Err(WithReason("codec.invalid_input", offset(62), "ManualPacketWire.kind", "kind value exceeds declared length"))
 end

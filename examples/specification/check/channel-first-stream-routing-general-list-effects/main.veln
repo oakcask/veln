@@ -2,14 +2,14 @@
 fn route_ready_stream_input(receivers: List<Receiver<StreamInput>>) -> { index : Int, value : StreamInput } effects [concurrency]
 	match channel::select_many_priority(receivers)
 		Some(selected) => selected
-		None => { index: -1, value: End }
+		None => { index: -1, value: StreamInput::End }
 	end
 end
 
 fn handle_selected(selected: { index : Int, value : StreamInput }, state: { chunks : Int, ended : Bool }) -> { actions : Int, next_state : { chunks : Int, ended : Bool } }
 	match selected.value
-		Chunk(_) => { actions: selected.index + 1, next_state: { chunks: state.chunks + 1, ended: state.ended } }
-		End => { actions: selected.index, next_state: { chunks: state.chunks, ended: true } }
+		StreamInput::Chunk(_) => { actions: selected.index + 1, next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		StreamInput::End => { actions: selected.index, next_state: { chunks: state.chunks, ended: true } }
 	end
 end
 

@@ -61,9 +61,9 @@ fn scripted_read(stream: net::Stream, expected: net::Stream, mode: String, reque
 	else if mode == "read-failure"
 		Err(http2_service_failure("read", "fixture read failure"))
 	else if http2_service_trace_count(observed, "read") == http2_service_trace_count(observed, "close-stream") * 2
-		Ok(net::ReadChunk(request))
+		Ok(net::ReadOutcome::Chunk(request))
 	else
-		Ok(net::ReadEnd)
+		Ok(net::ReadOutcome::End)
 	end
 end
 

@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "DecodeError(schema.truncated_field, ByteOffset(6), Http2FrameHeaderWire.stream_id)"
+equals = "WithoutReason(schema.truncated_field, ByteOffset(6), Http2FrameHeaderWire.stream_id)"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.id"

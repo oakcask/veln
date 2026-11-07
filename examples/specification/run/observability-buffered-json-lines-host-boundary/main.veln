@@ -11,7 +11,7 @@ pub fn main() -> () effects [stdio, time, concurrency]
 		observe::BufferedJsonLines(exporter) => begin
 			let result = handle handle emit_records() with observe::buffered_json_lines(exporter) with clock::fixed()
 			match observe::shutdown_buffered(exporter)
-				observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => if result == 2
+				observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Accepted) => if result == 2
 					stdio::println("buffered-worker-shutdown-complete")
 				else
 					stdio::println("buffered-handler-result-changed")
@@ -40,7 +40,7 @@ fn configured() -> BufferedJsonLinesConstruction effects [concurrency]
 		4,
 		observe::ExporterLimits(8, 64, 4, list_nil()),
 		observe::FileDestination("records.jsonl"),
-		observe::DiagnosticFileDestination("records.jsonl"),
+		observe::DiagnosticDestination::File("records.jsonl"),
 		"host",
 		2,
 	)

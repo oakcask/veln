@@ -7,8 +7,8 @@ fn fixture_body() -> Result<(), net::NetError> effects [net::IO]
 	let listener: net::Listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
 	let stream: net::Stream = net::accept(listener)?
 	match net::read(stream)?
-		net::ReadChunk(chunk) => net::write_all(stream, chunk, None, None)
-		net::ReadEnd => Ok(())
+		net::ReadOutcome::Chunk(chunk) => net::write_all(stream, chunk, None, None)
+		net::ReadOutcome::End => Ok(())
 	end
 end
 

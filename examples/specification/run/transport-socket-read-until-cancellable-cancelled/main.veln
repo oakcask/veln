@@ -5,8 +5,8 @@ use fake_effects
 # Cancellable deadline-aware socket read reports token cancellation as a value.
 fn emit_read_outcome(outcome: Result<net::ReadOutcome, net::NetError>) -> Result<(), net::NetError> effects [stdio]
 	match outcome
-		Ok(net::ReadChunk(_)) => printed("chunk")
-		Ok(net::ReadEnd) => printed("end")
+		Ok(net::ReadOutcome::Chunk(_)) => printed("chunk")
+		Ok(net::ReadOutcome::End) => printed("end")
 		Err(net::NetError(_, _, _, net::TimedOut, _)) => printed("deadline")
 		Err(net::NetError(_, _, _, net::Cancelled, _)) => printed("cancelled")
 		Err(error) => Err(error)

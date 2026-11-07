@@ -291,8 +291,11 @@ fn recovery_facts(module: &SurfaceModule, environment: &TypeEnvironment) -> Reco
         facts.constructors = constructor_recovery_facts(module);
     }
     if invalid_module_path {
-        record_recovery_fact_declaration_visits(module.uses.len() + module.types.len());
-        facts.import_constructors = import_constructor_recovery_facts(module);
+        let recovery_uses = crate::name_recovery::quarantined_use_decls(module);
+        if !recovery_uses.is_empty() {
+            record_recovery_fact_declaration_visits(module.uses.len() + module.types.len());
+            facts.import_constructors = import_constructor_recovery_facts(module, &recovery_uses);
+        }
     }
     facts
 }
@@ -426,9 +429,10 @@ fn constructor_recovery_facts(module: &SurfaceModule) -> BTreeMap<ConstructorRec
 
 fn import_constructor_recovery_facts(
     module: &SurfaceModule,
+    recovery_uses: &[UseDecl],
 ) -> BTreeMap<ImportConstructorRecoveryKey, usize> {
     let mut candidates = BTreeMap::new();
-    for use_decl in crate::name_recovery::quarantined_use_decls(module) {
+    for use_decl in recovery_uses {
         let target = use_decl.resolved_target();
         for type_decl in module.types.iter().filter(|type_decl| {
             type_decl.package_name == target.package

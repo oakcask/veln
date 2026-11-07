@@ -3,8 +3,8 @@ use http2::core::connection_state
 use http2::core::stream_state
 
 pub type CoreStreamLifecycleTransitionDecision
-	CoreStreamLifecycleTransitionAccepted(CoreConnectionState)
-	CoreStreamLifecycleTransitionRejected(CoreStreamLifecycleTransitionFailure)
+	Accepted(CoreConnectionState)
+	Rejected(CoreStreamLifecycleTransitionFailure)
 end
 
 pub type CoreStreamLifecycleTransitionFailure
@@ -29,7 +29,7 @@ fn accept_remote_end_stream(state: CoreConnectionState, stream_id: Int, end_stre
 	if end_stream
 		accept_lifecycle(state, stream_id, remote_end_lifecycle(lifecycle))
 	else
-		CoreStreamLifecycleTransitionAccepted(state)
+		CoreStreamLifecycleTransitionDecision::Accepted(state)
 	end
 end
 
@@ -47,31 +47,31 @@ fn remote_end_lifecycle(lifecycle: CoreStreamLifecycle) -> CoreStreamLifecycle
 end
 
 fn accept_lifecycle(state: CoreConnectionState, stream_id: Int, lifecycle: CoreStreamLifecycle) -> CoreStreamLifecycleTransitionDecision
-	CoreStreamLifecycleTransitionAccepted(http2::core::connection_state::with_streams(state, http2::core::stream_state::with_lifecycle(http2::core::connection_state::streams(state), stream_id, lifecycle)))
+	CoreStreamLifecycleTransitionDecision::Accepted(http2::core::connection_state::with_streams(state, http2::core::stream_state::with_lifecycle(http2::core::connection_state::streams(state), stream_id, lifecycle)))
 end
 
 fn rejected_missing(offset: Int, frame_kind: Int, stream_id: Int, preview: ByteChunk) -> CoreStreamLifecycleTransitionDecision
-	CoreStreamLifecycleTransitionRejected(CoreStreamLifecycleTransitionMissingStream(offset, frame_kind, stream_id, "idle-stream", "idle_streams_require_headers", preview))
+	CoreStreamLifecycleTransitionDecision::Rejected(CoreStreamLifecycleTransitionMissingStream(offset, frame_kind, stream_id, "idle-stream", "idle_streams_require_headers", preview))
 end
 
 pub fn decision_status(decision: CoreStreamLifecycleTransitionDecision) -> String
 	match decision
-		CoreStreamLifecycleTransitionAccepted(_) => "accepted"
-		CoreStreamLifecycleTransitionRejected(_) => "rejected"
+		CoreStreamLifecycleTransitionDecision::Accepted(_) => "accepted"
+		CoreStreamLifecycleTransitionDecision::Rejected(_) => "rejected"
 	end
 end
 
 pub fn decision_state(decision: CoreStreamLifecycleTransitionDecision) -> Result<CoreConnectionState, String>
 	match decision
-		CoreStreamLifecycleTransitionAccepted(state) => Ok(state)
-		CoreStreamLifecycleTransitionRejected(_) => Err("rejected stream lifecycle transition has no state")
+		CoreStreamLifecycleTransitionDecision::Accepted(state) => Ok(state)
+		CoreStreamLifecycleTransitionDecision::Rejected(_) => Err("rejected stream lifecycle transition has no state")
 	end
 end
 
 pub fn decision_failure(decision: CoreStreamLifecycleTransitionDecision) -> Result<CoreStreamLifecycleTransitionFailure, String>
 	match decision
-		CoreStreamLifecycleTransitionAccepted(_) => Err("accepted stream lifecycle transition has no failure")
-		CoreStreamLifecycleTransitionRejected(failure) => Ok(failure)
+		CoreStreamLifecycleTransitionDecision::Accepted(_) => Err("accepted stream lifecycle transition has no failure")
+		CoreStreamLifecycleTransitionDecision::Rejected(failure) => Ok(failure)
 	end
 end
 

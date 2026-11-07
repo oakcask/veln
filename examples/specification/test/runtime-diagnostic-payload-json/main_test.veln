@@ -7,10 +7,10 @@ fn byte_diagnostic() -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"codec.incomplete_input",
 		"byte read requires 3 bytes but view has 2",
-		RuntimeByteDiagnostic(
+		RuntimeDiagnosticDetail::ByteDiagnostic(
 			byte_offset(2)?,
 			field_path,
-			RuntimeByteCountFacts(byte_count(3)?, byte_count(2)?, "need_bytes"),
+			RuntimeByteDiagnosticFacts::CountFacts(byte_count(3)?, byte_count(2)?, "need_bytes"),
 			RuntimeBytePreview("0001", byte_count(2)?, byte_count(2)?, false)
 		)
 	)
@@ -28,7 +28,7 @@ fn value_diagnostic() -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"schema.encode_value_unrepresentable",
 		"encode value is unrepresentable",
-		RuntimeValueDiagnostic(field_path, "value must be between 0 and 255")
+		RuntimeDiagnosticDetail::ValueDiagnostic(field_path, "value must be between 0 and 255")
 	)
 end
 

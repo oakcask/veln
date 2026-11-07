@@ -32,7 +32,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.message"
-equals = "runtime result failure: Err(DecodeErrorWithReason(codec.packet_kind_invalid, ByteOffset(62), ManualPacketWire.kind, packet kind 7 is not accepted))"
+equals = "runtime result failure: Err(WithReason(codec.packet_kind_invalid, ByteOffset(62), ManualPacketWire.kind, packet kind 7 is not accepted))"
 
 [[json_assert]]
 path = "error.details.phase"
@@ -44,7 +44,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "DecodeErrorWithReason(codec.packet_kind_invalid, ByteOffset(62), ManualPacketWire.kind, packet kind 7 is not accepted)"
+equals = "WithReason(codec.packet_kind_invalid, ByteOffset(62), ManualPacketWire.kind, packet kind 7 is not accepted)"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.kind"

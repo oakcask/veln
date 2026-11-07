@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(hpack.fixture.dynamic_index_out_of_range, HPACK dynamic index out of range at byte offset 29, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDynamicIndexDiagnostic(29, 1, 190, 0, 0, fixture dynamic indexed header, hpack_fixture, ByteChunk([Byte(190)]))))"
+equals = "RuntimeDiagnostic(hpack.fixture.dynamic_index_out_of_range, HPACK dynamic index out of range at byte offset 29, Http2HpackDiagnostic(DynamicIndexDiagnostic(29, 1, 190, 0, 0, fixture dynamic indexed header, hpack_fixture, ByteChunk([Byte(190)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -96,7 +96,7 @@ equals = "hpack.fixture.dynamic_index_out_of_range"
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.detail.constructor"
-equals = "RuntimeHpackFixtureDynamicIndexDiagnostic"
+equals = "DynamicIndexDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"

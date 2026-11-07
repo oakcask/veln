@@ -19,8 +19,8 @@ end
 
 fn fixture_read_with(stream: net::Stream, deadline: Deadline, token: CancelToken) -> FixtureReadOutcome effects [net::IO]
 	match net::read_with(stream, Some(deadline), Some(token))
-		Ok(net::ReadChunk(bytes)) => FixtureReadChunk(bytes)
-		Ok(net::ReadEnd) => FixtureReadEnd
+		Ok(net::ReadOutcome::Chunk(bytes)) => FixtureReadChunk(bytes)
+		Ok(net::ReadOutcome::End) => FixtureReadEnd
 		Err(net::NetError(_, _, _, net::TimedOut, _)) => FixtureReadDeadlineExpired
 		Err(net::NetError(_, _, _, net::Cancelled, _)) => FixtureReadCancelled
 		Err(_) => FixtureReadEnd

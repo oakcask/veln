@@ -6,7 +6,7 @@ use super::runtime_variant_builders::{
 pub(super) fn runtime_base_variants() -> Vec<AdtVariantDescriptor> {
     vec![
         runtime_diagnostic_variant(
-            "RuntimeByteDiagnostic",
+            "ByteDiagnostic",
             vec![
                 named_field("byte_offset", "ByteOffset"),
                 diagnostic_path_field(),
@@ -15,7 +15,7 @@ pub(super) fn runtime_base_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeValueDiagnostic",
+            "ValueDiagnostic",
             vec![diagnostic_path_field(), string_field("reason")],
         ),
     ]

@@ -57,7 +57,7 @@ equals = "rfc9113_continuation_sequence"
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.detail.constructor"
-equals = "RuntimeHttp2ProtocolClosedWithPendingDiagnostic"
+equals = "ProtocolClosedWithPendingDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"

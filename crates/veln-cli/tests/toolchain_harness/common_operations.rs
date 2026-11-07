@@ -604,7 +604,7 @@ pub(super) fn result_value_common_operation_failures_keep_full_adapter_context()
     for (operation, rendered_value, selected_path, fragments) in [
         (
             "length = 1",
-            "RuntimeDiagnostic(id, msg, RuntimeValueDiagnostic(Nil, reason))",
+            "RuntimeDiagnostic(id, msg, ValueDiagnostic(Nil, reason))",
             "value.id",
             vec![
                 "common-operation-wrapper-context run 1",
@@ -615,7 +615,7 @@ pub(super) fn result_value_common_operation_failures_keep_full_adapter_context()
         ),
         (
             "length = 2",
-            "RuntimeDiagnostic(id, msg, RuntimeByteDiagnostic(ByteOffset(1), Cons(RuntimeDiagnosticFieldPathSegment(schema, body), Nil), RuntimeByteCountFacts(ByteCount(2), ByteCount(1), partial), NoRuntimeBytePreview))",
+            "RuntimeDiagnostic(id, msg, ByteDiagnostic(ByteOffset(1), Cons(RuntimeDiagnosticFieldPathSegment(schema, body), Nil), CountFacts(ByteCount(2), ByteCount(1), partial), NoRuntimeBytePreview))",
             "value.detail.field_path",
             vec![
                 "common-operation-wrapper-context run 1",
@@ -637,7 +637,7 @@ pub(super) fn result_value_common_operation_failures_keep_full_adapter_context()
         ),
         (
             "workspace_file_uri = \"main.veln\"",
-            "RuntimeDiagnostic(id, msg, RuntimeValueDiagnostic(Nil, reason))",
+            "RuntimeDiagnostic(id, msg, ValueDiagnostic(Nil, reason))",
             "value.id",
             vec![
                 "common-operation-wrapper-context run 1",
