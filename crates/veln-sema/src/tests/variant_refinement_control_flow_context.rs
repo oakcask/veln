@@ -348,7 +348,7 @@ fn failed_control_flow_joins_recover_to_the_base_and_do_not_resume() {
 }
 
 #[test]
-fn failed_same_root_source_adt_join_does_not_resume() {
+fn unavailable_invariant_source_adt_join_requires_context() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -395,16 +395,12 @@ fn failed_same_root_source_adt_join_does_not_resume() {
             .expect("private_path function")
             .return_type
             .render(),
-        "Choice<State::Ready>",
+        "unknown",
     );
     assert!(
-        diagnostics.iter().any(|diagnostic| {
-            diagnostic.id == "type.variant_mismatch"
-                && diagnostic
-                    .details
-                    .to_json()
-                    .contains("\"actual_type\":\"Choice<State::Ready>\"")
-        }),
+        diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.id == "type.private_inference_incomplete" }),
         "{diagnostics:#?}",
     );
 }

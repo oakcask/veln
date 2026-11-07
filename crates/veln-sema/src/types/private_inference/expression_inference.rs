@@ -311,7 +311,13 @@ pub(super) fn infer_private_list_type(
         );
     }
     if let Some(joined) = joined_items {
-        item_type = joined.result_type();
+        let Some(resolved) = joined.resolved_result_type() else {
+            return PrivateExprInference {
+                ty: Type::Unknown,
+                may_contribute: false,
+            };
+        };
+        item_type = resolved;
     }
     PrivateExprInference {
         ty: Type::vec(item_type),
@@ -353,10 +359,22 @@ pub(super) fn infer_private_dict_type(
         );
     }
     if let Some(joined) = joined_keys {
-        key_type = joined.result_type();
+        let Some(resolved) = joined.resolved_result_type() else {
+            return PrivateExprInference {
+                ty: Type::Unknown,
+                may_contribute: false,
+            };
+        };
+        key_type = resolved;
     }
     if let Some(joined) = joined_values {
-        value_type = joined.result_type();
+        let Some(resolved) = joined.resolved_result_type() else {
+            return PrivateExprInference {
+                ty: Type::Unknown,
+                may_contribute: false,
+            };
+        };
+        value_type = resolved;
     }
     PrivateExprInference {
         ty: Type::dict(key_type, value_type),

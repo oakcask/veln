@@ -543,8 +543,11 @@ impl<'a> FunctionChecker<'a> {
             })
             && expected_payload != Type::Unknown
             && actual != expected_payload
-            && !AggregateTypeJoin::new(&self.environment.adts, &expected_payload)
-                .is_some_and(|mut joined| joined.try_join(&self.environment.adts, &actual))
+            && !AggregateTypeJoin::new(&self.environment.adts, &expected_payload).is_some_and(
+                |mut joined| {
+                    joined.try_join(&self.environment.adts, &actual) && joined.has_resolved_result()
+                },
+            )
         {
             self.check_assignable_nested(
                 arg,
@@ -794,7 +797,10 @@ impl<'a> FunctionChecker<'a> {
             );
         }
         if let Some(joined) = joined_items {
-            item_type = joined.result_type();
+            let Some(resolved) = joined.resolved_result_type() else {
+                return Type::Unknown;
+            };
+            item_type = resolved;
         }
         let actual = Type::vec(item_type);
         if let Some(expected) = expected

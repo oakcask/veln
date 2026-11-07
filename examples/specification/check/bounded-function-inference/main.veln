@@ -1,0 +1,39 @@
+# Structural function joins meet inputs, join results, and union effects. The
+# contributed-candidate fallback keeps unresolved earlier contributions until
+# a unique contributed result is available.
+type State
+	Ready
+	Closed
+end
+
+pub type First = State
+pub type Second = State
+
+fn refinement_forward(first: fn(State) -> Int, second: fn(State::Ready) -> Int effects [stdio])
+	[first, second]
+end
+
+fn refinement_reverse(first: fn(State) -> Int, second: fn(State::Ready) -> Int effects [stdio])
+	[second, first]
+end
+
+fn fallback(first: fn() -> {id: Int, left: String}, second: fn() -> {id: Int, right: Bool}, candidate: fn() -> {id: Int})
+	[first, second, candidate]
+end
+
+fn aliases_forward(first: fn(First::Ready) -> Int, second: fn(Second::Ready) -> Int)
+	[first, second]
+end
+
+fn aliases_reverse(first: fn(First::Ready) -> Int, second: fn(Second::Ready) -> Int)
+	[second, first]
+end
+
+fn verify(first: fn(State) -> Int, second: fn(State::Ready) -> Int effects [stdio], left: fn() -> {id: Int, left: String}, right: fn() -> {id: Int, right: Bool}, candidate: fn() -> {id: Int}, alias_first: fn(First::Ready) -> Int, alias_second: fn(Second::Ready) -> Int) -> ()
+	let joined_forward: Vec<fn(State::Ready) -> Int effects [stdio]> = refinement_forward(first, second)
+	let joined_reverse: Vec<fn(State::Ready) -> Int effects [stdio]> = refinement_reverse(first, second)
+	let selected: Vec<fn() -> {id: Int}> = fallback(left, right, candidate)
+	let alias_forward: Vec<fn(State::Ready) -> Int> = aliases_forward(alias_first, alias_second)
+	let alias_reverse: Vec<fn(State::Ready) -> Int> = aliases_reverse(alias_first, alias_second)
+	()
+end

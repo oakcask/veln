@@ -6,12 +6,21 @@ use crate::adt::descriptors::{AdtConstructor, Variance};
 use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
 use crate::adt::{type_operations as adt, unification};
 use crate::semantic_model::Type;
-use crate::type_relations::{TypePresentationJoin, invariant_args_match, same_type_identity};
+use crate::type_relations::{
+    TypePresentationJoin, invariant_args_match, is_assignable_with_registry, same_type_identity,
+};
 
 pub(crate) struct AggregateTypeJoin {
     nodes: Vec<JoinNode>,
     root: usize,
+    contributions: Vec<Type>,
+    bounded: Option<BoundedJoin>,
     projection_cache: RefCell<context_projection::ProjectionCache>,
+}
+
+struct BoundedJoin {
+    contributions: Vec<Type>,
+    resolved: Option<Type>,
 }
 
 mod context_projection;
@@ -65,6 +74,21 @@ struct InitialVariantState {
 
 impl AggregateTypeJoin {
     pub(crate) fn new(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
+        Self::new_optimized(adts, initial).or_else(|| {
+            matches!(initial, Type::Function { .. }).then(|| Self {
+                nodes: Vec::new(),
+                root: 0,
+                contributions: Vec::new(),
+                bounded: Some(BoundedJoin {
+                    contributions: vec![initial.clone()],
+                    resolved: Some(initial.clone()),
+                }),
+                projection_cache: RefCell::new(context_projection::ProjectionCache::default()),
+            })
+        })
+    }
+
+    fn new_optimized(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
         let (root, pending) = join_node(adts, initial, false)?;
         let mut nodes = vec![root];
         let mut pending = pending
@@ -88,11 +112,16 @@ impl AggregateTypeJoin {
         Some(Self {
             nodes,
             root: 0,
+            contributions: vec![initial.clone()],
+            bounded: None,
             projection_cache: RefCell::new(context_projection::ProjectionCache::default()),
         })
     }
 
     pub(crate) fn new_resolved_refinement(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
+        if matches!(initial, Type::Function { .. }) {
+            return Self::new(adts, initial);
+        }
         if matches!(initial, Type::Record(_)) {
             return Self::new(adts, initial);
         }
@@ -112,12 +141,40 @@ impl AggregateTypeJoin {
     }
 
     pub(crate) fn try_join(&mut self, adts: &AdtRegistry, right: &Type) -> bool {
+        if right == &Type::Unknown {
+            return true;
+        }
+        if let Some(bounded) = &mut self.bounded {
+            if !bounded_shapes_are_admissible(&bounded.contributions, right) {
+                return false;
+            }
+            bounded.contributions.push(right.clone());
+            bounded.resolved = bounded_join(adts, &bounded.contributions);
+            self.projection_cache.get_mut().clear();
+            return true;
+        }
         let Some(prepared) = self.prepare(adts, right) else {
-            return false;
+            if !bounded_shapes_are_admissible(&self.contributions, right) {
+                return false;
+            }
+            let mut contributions = self.contributions.clone();
+            contributions.push(right.clone());
+            if bounded_join(adts, &contributions).is_none()
+                && !can_retain_unresolved_contributions(adts, &contributions)
+            {
+                return false;
+            }
+            self.bounded = Some(BoundedJoin {
+                resolved: bounded_join(adts, &contributions),
+                contributions,
+            });
+            self.projection_cache.get_mut().clear();
+            return true;
         };
         if self.commit(prepared, adts) {
             self.projection_cache.get_mut().clear();
         }
+        self.contributions.push(right.clone());
         true
     }
 
@@ -295,28 +352,37 @@ impl AggregateTypeJoin {
     }
 
     pub(crate) fn try_join_resolved(&mut self, adts: &AdtRegistry, right: &Type) -> bool {
-        if join_type_parts(right).is_none() {
-            return false;
-        }
         self.try_join(adts, right)
     }
 
     pub(crate) fn has_compiler_covariant_root(&self) -> bool {
+        if self.bounded.is_some() {
+            return false;
+        }
         self.nodes[self.root].record_field_names.is_none()
             && Type::is_compiler_covariant_identity(&self.nodes[self.root].identity)
     }
 
     pub(crate) fn preserves_failed_control_flow_contribution(&self, right: &Type) -> bool {
+        if self.bounded.is_some() {
+            return true;
+        }
         (self.has_compiler_covariant_root() && self.has_same_root(right))
             || (self.nodes[self.root].record_field_names.is_some()
                 && matches!(right, Type::Record(_)))
     }
 
     pub(crate) fn has_complete_domain(&self) -> bool {
+        if self.bounded.is_some() {
+            return false;
+        }
         self.nodes[self.root].variants.is_none()
     }
 
     pub(crate) fn has_incomplete_nested_refinement_domain(&self) -> bool {
+        if self.bounded.is_some() {
+            return false;
+        }
         self.nodes.iter().enumerate().any(|(index, node)| {
             index != self.root
                 && node.variants.as_ref().is_some_and(|variants| {
@@ -331,6 +397,9 @@ impl AggregateTypeJoin {
     }
 
     pub(crate) fn has_same_root(&self, right: &Type) -> bool {
+        if self.bounded.is_some() {
+            return false;
+        }
         let Some(right) = adt_type_parts(right) else {
             return false;
         };
@@ -345,11 +414,24 @@ impl AggregateTypeJoin {
         self.materialize(false)
     }
 
+    pub(crate) fn has_resolved_result(&self) -> bool {
+        self.bounded
+            .as_ref()
+            .is_none_or(|bounded| bounded.resolved.is_some())
+    }
+
+    pub(crate) fn resolved_result_type(&self) -> Option<Type> {
+        self.has_resolved_result().then(|| self.result_type())
+    }
+
     pub(crate) fn result_type(&self) -> Type {
         self.materialize(true)
     }
 
     fn materialize(&self, include_root_refinement: bool) -> Type {
+        if let Some(bounded) = &self.bounded {
+            return bounded.resolved.clone().unwrap_or(Type::Unknown);
+        }
         let mut materialized = (0..self.nodes.len()).map(|_| None).collect::<Vec<_>>();
         for (index, node) in self.nodes.iter().enumerate().rev() {
             record_materialization();
@@ -388,6 +470,32 @@ impl AggregateTypeJoin {
             return materialize_named_node(node, args);
         }
         materialize_refined_node(node, args, variants)
+    }
+}
+
+fn can_retain_unresolved_contributions(adts: &AdtRegistry, contributions: &[Type]) -> bool {
+    if contributions.iter().any(type_contains_function) {
+        return true;
+    }
+    match contributions.first() {
+        Some(Type::Record(first)) => contributions.iter().any(|contribution| {
+            let Type::Record(fields) = contribution else {
+                return false;
+            };
+            fields.len() != first.len()
+                || first
+                    .iter()
+                    .any(|(name, _)| !fields.iter().any(|(other, _)| other == name))
+        }),
+        Some(Type::Named { identity, args, .. })
+        | Some(Type::VariantRefinement { identity, args, .. }) => adts
+            .parameter_variances_for_identity(identity, args.len())
+            .is_some_and(|variances| {
+                variances
+                    .iter()
+                    .any(|variance| *variance != Variance::Covariant)
+            }),
+        _ => false,
     }
 }
 
@@ -757,6 +865,388 @@ fn join_type_parts(ty: &Type) -> Option<()> {
         Type::Named { .. } | Type::VariantRefinement { .. } | Type::Record(_)
     )
     .then_some(())
+}
+
+fn bounded_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
+    if contributions.len() == 1 {
+        return contributions.first().cloned();
+    }
+    if contributions
+        .iter()
+        .any(|contribution| matches!(contribution, Type::Function { .. }))
+    {
+        return bounded_function_join(adts, contributions);
+    }
+    if requires_composite_bound(adts, contributions) {
+        return bounded_composite_join(adts, contributions);
+    }
+    if let Some(joined) = optimized_join(adts, contributions) {
+        return Some(joined);
+    }
+    contributed_candidate(adts, contributions, BoundDirection::Join)
+}
+
+fn requires_composite_bound(adts: &AdtRegistry, contributions: &[Type]) -> bool {
+    if contributions.iter().any(type_contains_function) {
+        return true;
+    }
+    let Some(Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. }) =
+        contributions.first()
+    else {
+        return false;
+    };
+    !Type::is_compiler_covariant_identity(identity)
+        && adts
+            .parameter_variances_for_identity(identity, args.len())
+            .is_some_and(|variances| {
+                variances
+                    .iter()
+                    .any(|variance| *variance != Variance::Covariant)
+            })
+}
+
+fn bounded_shapes_are_admissible(contributions: &[Type], right: &Type) -> bool {
+    let Some(first) = contributions.first() else {
+        return false;
+    };
+    structurally_compatible_function_shapes(first, right)
+}
+
+fn structurally_compatible_function_shapes(left: &Type, right: &Type) -> bool {
+    match (left, right) {
+        (
+            Type::Function {
+                params: left_params,
+                variadic: left_variadic,
+                return_type: left_return,
+                ..
+            },
+            Type::Function {
+                params: right_params,
+                variadic: right_variadic,
+                return_type: right_return,
+                ..
+            },
+        ) => {
+            left_params.len() == right_params.len()
+                && left_variadic.is_some() == right_variadic.is_some()
+                && left_params
+                    .iter()
+                    .zip(right_params)
+                    .all(|(left, right)| structurally_compatible_function_shapes(left, right))
+                && match (left_variadic, right_variadic) {
+                    (Some(left), Some(right)) => {
+                        structurally_compatible_function_shapes(left, right)
+                    }
+                    (None, None) => true,
+                    _ => false,
+                }
+                && structurally_compatible_function_shapes(left_return, right_return)
+        }
+        (Type::Function { .. }, _) | (_, Type::Function { .. }) => false,
+        (Type::Record(left), Type::Record(right)) if left.len() == right.len() => {
+            left.iter().all(|(name, left)| {
+                right
+                    .iter()
+                    .find(|(right_name, _)| right_name == name)
+                    .is_some_and(|(_, right)| structurally_compatible_function_shapes(left, right))
+            })
+        }
+        (
+            Type::Named {
+                name: left_name,
+                identity: left_identity,
+                args: left_args,
+                ..
+            }
+            | Type::VariantRefinement {
+                name: left_name,
+                identity: left_identity,
+                args: left_args,
+                ..
+            },
+            Type::Named {
+                name: right_name,
+                identity: right_identity,
+                args: right_args,
+                ..
+            }
+            | Type::VariantRefinement {
+                name: right_name,
+                identity: right_identity,
+                args: right_args,
+                ..
+            },
+        ) => {
+            same_type_identity(left_name, left_identity, right_name, right_identity)
+                && left_args.len() == right_args.len()
+                && left_args
+                    .iter()
+                    .zip(right_args)
+                    .all(|(left, right)| structurally_compatible_function_shapes(left, right))
+        }
+        (Type::Record(_), Type::Record(_)) => true,
+        (Type::Record(_), _) | (_, Type::Record(_)) => false,
+        _ => true,
+    }
+}
+
+fn type_contains_function(ty: &Type) -> bool {
+    let mut pending = vec![ty];
+    while let Some(ty) = pending.pop() {
+        match ty {
+            Type::Function { .. } => return true,
+            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => pending.extend(args),
+            Type::Record(fields) => pending.extend(fields.iter().map(|(_, field)| field)),
+            Type::Unknown => {}
+        }
+    }
+    false
+}
+
+fn bounded_composite_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
+    match contributions.first()? {
+        Type::Record(first_fields) => {
+            let mut names = first_fields
+                .iter()
+                .map(|(name, _)| name.clone())
+                .collect::<Vec<_>>();
+            names.sort_unstable();
+            if contributions.iter().any(|contribution| {
+                let Type::Record(fields) = contribution else {
+                    return true;
+                };
+                fields.len() != names.len()
+                    || names
+                        .iter()
+                        .any(|name| !fields.iter().any(|(field_name, _)| field_name == name))
+            }) {
+                return None;
+            }
+            let fields = names
+                .into_iter()
+                .map(|name| {
+                    let field_contributions = contributions
+                        .iter()
+                        .map(|contribution| {
+                            let Type::Record(fields) = contribution else {
+                                return None;
+                            };
+                            fields
+                                .iter()
+                                .find(|(field_name, _)| field_name == &name)
+                                .map(|(_, ty)| ty.clone())
+                        })
+                        .collect::<Option<Vec<_>>>()?;
+                    (field_contributions.len() == contributions.len())
+                        .then(|| bounded_join(adts, &field_contributions))
+                        .flatten()
+                        .map(|ty| (name, ty))
+                })
+                .collect::<Option<Vec<_>>>()?;
+            Some(Type::Record(fields))
+        }
+        Type::Named { .. } | Type::VariantRefinement { .. } => {
+            bounded_named_join(adts, contributions)
+        }
+        Type::Function { .. } => bounded_function_join(adts, contributions),
+        Type::Unknown => None,
+    }
+}
+
+fn bounded_named_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
+    let first = adt_type_parts(contributions.first()?)?;
+    let parts = contributions
+        .iter()
+        .map(adt_type_parts)
+        .collect::<Option<Vec<_>>>()?;
+    if parts.iter().any(|part| {
+        !same_type_identity(first.name, first.identity, part.name, part.identity)
+            || first.args.len() != part.args.len()
+    }) {
+        return None;
+    }
+    let compiler_covariant = Type::is_compiler_covariant_identity(first.identity);
+    let variances = (!compiler_covariant)
+        .then(|| adts.parameter_variances_for_identity(first.identity, first.args.len()))
+        .flatten();
+    let args = (0..first.args.len())
+        .map(|index| {
+            let arguments = parts
+                .iter()
+                .map(|part| part.args[index].clone())
+                .collect::<Vec<_>>();
+            let variance = if compiler_covariant {
+                Variance::Covariant
+            } else {
+                variances
+                    .and_then(|variances| variances.get(index).copied())
+                    .unwrap_or(Variance::Invariant)
+            };
+            match variance {
+                Variance::Covariant => bounded_join(adts, &arguments),
+                Variance::Contravariant => bounded_meet(adts, &arguments),
+                Variance::Invariant | Variance::Irrelevant => arguments
+                    .iter()
+                    .skip(1)
+                    .all(|argument| {
+                        invariant_args_match(
+                            std::slice::from_ref(&arguments[0]),
+                            std::slice::from_ref(argument),
+                        )
+                    })
+                    .then(|| arguments[0].clone()),
+            }
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let all_refined = parts.iter().all(|part| part.variants.is_some());
+    let mut joined = if all_refined {
+        let order = adts.variant_declaration_order_for_type(first.ty)?;
+        let mut ranks = parts
+            .iter()
+            .flat_map(|part| part.variants.expect("all parts are refined"))
+            .map(|variant| order.rank(variant))
+            .collect::<Option<HashSet<_>>>()?
+            .into_iter()
+            .collect::<Vec<_>>();
+        ranks.sort_unstable();
+        let variants = ranks
+            .into_iter()
+            .map(|rank| order.name(rank).map(str::to_string))
+            .collect::<Option<Vec<_>>>()?;
+        if variants.len() == order.len() {
+            Type::resolved_named(first.name, first.identity, args)
+        } else {
+            Type::resolved_variant_refinement(first.name, first.identity, args, variants)
+        }
+    } else {
+        Type::resolved_named(first.name, first.identity, args)
+    };
+    let mut ordered = contributions.iter().collect::<Vec<_>>();
+    ordered.sort_unstable_by_key(|contribution| contribution.render());
+    let mut presentation = TypePresentationJoin::default();
+    for contribution in ordered {
+        presentation.merge(&mut joined, contribution);
+    }
+    Some(joined)
+}
+
+fn bounded_meet(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
+    contributed_candidate(adts, contributions, BoundDirection::Meet)
+}
+
+fn optimized_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
+    let mut joined = AggregateTypeJoin::new_optimized(adts, contributions.first()?)?;
+    for contribution in &contributions[1..] {
+        let prepared = joined.prepare(adts, contribution)?;
+        joined.commit(prepared, adts);
+    }
+    Some(joined.result_type())
+}
+
+fn bounded_function_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
+    let Type::Function {
+        params: first_params,
+        variadic: first_variadic,
+        ..
+    } = contributions.first()?
+    else {
+        return None;
+    };
+    let mut parameter_contributions = (0..first_params.len())
+        .map(|_| Vec::with_capacity(contributions.len()))
+        .collect::<Vec<_>>();
+    let mut variadic_contributions = first_variadic
+        .as_ref()
+        .map(|_| Vec::with_capacity(contributions.len()));
+    let mut result_contributions = Vec::with_capacity(contributions.len());
+    let mut effects = HashSet::new();
+    for contribution in contributions {
+        let Type::Function {
+            params,
+            variadic,
+            return_type,
+            effects: contribution_effects,
+        } = contribution
+        else {
+            return None;
+        };
+        if params.len() != first_params.len() || variadic.is_some() != first_variadic.is_some() {
+            return None;
+        }
+        for (slot, parameter) in parameter_contributions.iter_mut().zip(params) {
+            slot.push(parameter.clone());
+        }
+        if let (Some(slot), Some(variadic)) = (&mut variadic_contributions, variadic) {
+            slot.push(variadic.as_ref().clone());
+        }
+        result_contributions.push(return_type.as_ref().clone());
+        effects.extend(contribution_effects.iter().cloned());
+    }
+    let params = parameter_contributions
+        .iter()
+        .map(|contributions| bounded_meet(adts, contributions))
+        .collect::<Option<Vec<_>>>()?;
+    let variadic = match &variadic_contributions {
+        Some(contributions) => Some(Box::new(bounded_meet(adts, contributions)?)),
+        None => None,
+    };
+    let return_type = Box::new(bounded_join(adts, &result_contributions)?);
+    let mut effects = effects.into_iter().collect::<Vec<_>>();
+    effects.sort_unstable();
+    Some(Type::Function {
+        params,
+        variadic,
+        return_type,
+        effects,
+    })
+}
+
+#[derive(Clone, Copy)]
+enum BoundDirection {
+    Join,
+    Meet,
+}
+
+fn contributed_candidate(
+    adts: &AdtRegistry,
+    contributions: &[Type],
+    direction: BoundDirection,
+) -> Option<Type> {
+    let valid = contributions
+        .iter()
+        .filter(|candidate| {
+            contributions.iter().all(|contribution| match direction {
+                BoundDirection::Join => is_assignable_with_registry(candidate, contribution, adts),
+                BoundDirection::Meet => is_assignable_with_registry(contribution, candidate, adts),
+            })
+        })
+        .collect::<Vec<_>>();
+    let selected = valid
+        .iter()
+        .copied()
+        .filter(|candidate| {
+            valid.iter().all(|other| match direction {
+                BoundDirection::Join => is_assignable_with_registry(other, candidate, adts),
+                BoundDirection::Meet => is_assignable_with_registry(candidate, other, adts),
+            })
+        })
+        .collect::<Vec<_>>();
+    let first = *selected.first()?;
+    if selected.iter().skip(1).any(|candidate| {
+        !is_assignable_with_registry(first, candidate, adts)
+            || !is_assignable_with_registry(candidate, first, adts)
+    }) {
+        return None;
+    }
+    let mut ordered = selected;
+    ordered.sort_unstable_by_key(|candidate| candidate.render());
+    let mut result = (*ordered[0]).clone();
+    let mut presentation = TypePresentationJoin::default();
+    for candidate in ordered.into_iter().skip(1) {
+        presentation.merge(&mut result, candidate);
+    }
+    Some(result)
 }
 
 #[cfg(test)]

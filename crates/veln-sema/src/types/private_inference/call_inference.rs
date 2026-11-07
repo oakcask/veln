@@ -328,8 +328,9 @@ fn admitted_payload_accepts_inferred(
 ) -> bool {
     admitted.is_none_or(|admitted| {
         inferred == admitted
-            || crate::aggregate_type_join::AggregateTypeJoin::new(adts, admitted)
-                .is_some_and(|mut joined| joined.try_join(adts, inferred))
+            || crate::aggregate_type_join::AggregateTypeJoin::new(adts, admitted).is_some_and(
+                |mut joined| joined.try_join(adts, inferred) && joined.has_resolved_result(),
+            )
     })
 }
 

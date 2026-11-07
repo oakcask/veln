@@ -121,9 +121,10 @@ fn aggregate_join_uses_checked_variance_in_parameter_order() {
     let module = lower_surface_ast(&parsed.tree);
     let diagnostics = analyze_surface_module(&module);
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
-    let span = diagnostics[0].span.as_ref().expect("mismatch span");
-    assert_eq!(&source_text[span.start.offset..span.end.offset], "second");
+    assert_eq!(
+        diagnostics[0].id, "type.local_inference_incomplete",
+        "{diagnostics:#?}"
+    );
 
     let environment = TypeEnvironment::from_module(&module);
     assert_eq!(
@@ -212,17 +213,18 @@ fn assert_package_identity_join_diagnostics(module: &SurfaceModule, app_text: &s
     assert!(
         diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+            .any(|diagnostic| diagnostic.id == "type.local_inference_incomplete"),
         "{diagnostics:#?}",
     );
     let failed_values = diagnostics
         .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
         .map(|diagnostic| {
             let span = diagnostic.span.as_ref().expect("mismatch span");
             &app_text[span.start.offset..span.end.offset]
         })
         .collect::<Vec<_>>();
-    assert_eq!(failed_values, ["second", "imported"]);
+    assert_eq!(failed_values, ["imported"]);
 }
 
 fn assert_local_package_identity_join(module: &SurfaceModule) {
@@ -311,7 +313,7 @@ fn non_covariant_source_slots_remain_exact_during_inference() {
         let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
         assert_eq!(diagnostics.len(), 1, "{name}: {diagnostics:#?}");
         assert_eq!(
-            diagnostics[0].id, "type.mismatch",
+            diagnostics[0].id, "type.local_inference_incomplete",
             "{name}: {diagnostics:#?}"
         );
     }

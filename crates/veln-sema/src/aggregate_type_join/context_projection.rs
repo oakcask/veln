@@ -134,6 +134,9 @@ impl super::AggregateTypeJoin {
         uses: &[UseDecl],
         local_context: &dyn Fn(&str) -> Option<LocalContext>,
     ) -> Type {
+        if self.bounded.is_some() {
+            return self.inference_type();
+        }
         if self.nodes[self.root].record_field_names.is_some() {
             return Type::Unknown;
         }

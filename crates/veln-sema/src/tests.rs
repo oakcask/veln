@@ -2,6 +2,7 @@ mod support;
 
 use self::support::*;
 
+mod bounded_function_inference;
 mod calls_pipeline_and_float_types;
 mod channel_effects_and_contract_predicates;
 mod compiler_owned_covariant_inference;

@@ -62,7 +62,7 @@ fn failed_nested_record_join_is_transactional_in_each_shared_inference_route() {
         "../../../../examples/specification/check/structural-record-joins-diagnostics/main.veln"
     );
     let (module, diagnostics) = analyze_structural_record_case(source_text);
-    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 5, "{diagnostics:#?}");
     assert!(
         diagnostics
             .iter()

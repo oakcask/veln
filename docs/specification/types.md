@@ -1426,12 +1426,35 @@ aggregate or omitted private result.
 
 When contributions have the same resolved source-ADT constructor and arity,
 context-free inference reads that declaration's checked classifications in
-parameter order. A covariant argument recursively uses the same bounded join,
-including through source ADTs and compiler-owned immutable constructors.
-Invariant, irrelevant, and contravariant arguments must match exactly.
-Missing, invalid, inaccessible, or ambiguous classification metadata also
-requires exact arguments. Local and imported declarations use the same rule
-because lookup uses resolved nominal identity rather than displayed spelling.
+parameter order. A covariant argument recursively uses the bounded join. A
+contravariant argument uses the bounded meet. Invariant and irrelevant
+arguments must match exactly without context. Missing, invalid, inaccessible,
+or ambiguous classification metadata also requires exact arguments. Local and
+imported declarations use the same rule because lookup uses resolved nominal
+identity rather than displayed spelling.
+
+A bounded join retains every successfully typed contribution. It selects the
+unique contributed type that accepts every contribution and is assignable to
+every other valid contributed candidate. A bounded meet applies the dual rule:
+the selected contributed type is accepted by every contribution and accepts
+every other valid candidate. Resolved identity, rather than alias spelling,
+determines candidate equality. Conflicting alias preferences use deterministic
+canonical presentation. A rejected or diagnostically failed contribution does
+not change the retained contributions or presentation state.
+
+Structural functions join only when their fixed parameter counts and variadic
+presence match. Every fixed and variadic input uses the bounded meet. The
+result uses the bounded join. The concrete effect rows form a sorted set union.
+Every recursive component must resolve. If a component has no unique result,
+inference requires explicit context and does not construct a function with an
+`unknown` component. Records with different field sets and other positive
+contributions use the contributed-candidate rule after the same-constructor and
+identical-field rules. Record-width function inputs therefore select the wider
+contributed record, while record-width function results select the narrower
+contributed record. The checked
+[`bounded function inference`](../../examples/specification/check/bounded-function-inference/)
+case covers refinement inputs, effect union, order independence, and delayed
+candidate selection.
 
 Same-constructor contributions to compiler-owned immutable `Option<T>`,
 `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>` recursively join every
@@ -1625,9 +1648,9 @@ classification. A direct payload such as `Box<A>` makes `A` covariant, so the
 corresponding inferred `Box<State::Ready>` also widens to `Box<State>`. A
 parameter used in both input and output positions is invariant and rejects the
 same widening. Context-free aggregate inference consumes checked source-ADT
-covariance and the covariance of compiler-owned immutable constructors. It
-also joins complete records with identical field-name sets as described above.
-It does not infer a contravariant meet or structural function join.
+classifications and the covariance of compiler-owned immutable constructors.
+It also joins complete records with identical field-name sets, structural
+functions, and other positive contributions under the bounded rules above.
 
 ### Source ADT parameter classifications
 
