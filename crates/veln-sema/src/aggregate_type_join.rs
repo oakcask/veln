@@ -485,49 +485,7 @@ fn join_node<'a>(
     initial: &'a Type,
 ) -> Option<(JoinNode, Vec<(usize, &'a Type)>)> {
     if let Type::Record(fields) = initial {
-        let mut fields = fields.iter().collect::<Vec<_>>();
-        fields.sort_unstable_by(|left, right| left.0.cmp(&right.0));
-        if fields.windows(2).any(|pair| pair[0].0 == pair[1].0) {
-            return None;
-        }
-        let record_field_names = fields
-            .iter()
-            .map(|(name, _)| name.clone())
-            .collect::<Vec<_>>();
-        if fields.iter().any(|(_, ty)| type_shape(ty).1) {
-            return None;
-        }
-        let mut pending = Vec::new();
-        let args = fields
-            .iter()
-            .enumerate()
-            .map(|(index, _)| {
-                let ty: &'a Type = &fields[index].1;
-                if join_type_parts(ty).is_some() {
-                    pending.push((index, ty));
-                    JoinArg::Covariant(usize::MAX)
-                } else {
-                    JoinArg::Exact {
-                        ty: ty.clone(),
-                        presentation: TypePresentationJoin::default(),
-                        covariant: false,
-                    }
-                }
-            })
-            .collect();
-        return Some((
-            JoinNode {
-                name: String::new(),
-                canonical_name: String::new(),
-                presentation_conflicted: false,
-                identity: String::new(),
-                args,
-                declaration_order: None,
-                variants: None,
-                record_field_names: Some(record_field_names),
-            },
-            pending,
-        ));
+        return record_join_node(fields);
     }
     let initial = adt_type_parts(initial)?;
     let variant_state = initial_variant_state(adts, initial)?;
@@ -548,6 +506,54 @@ fn join_node<'a>(
             declaration_order: variant_state.declaration_order,
             variants: variant_state.variants,
             record_field_names: None,
+        },
+        pending,
+    ))
+}
+
+fn record_join_node<'a>(
+    record_fields: &'a [(String, Type)],
+) -> Option<(JoinNode, Vec<(usize, &'a Type)>)> {
+    let mut fields = record_fields.iter().collect::<Vec<_>>();
+    fields.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+    if fields.windows(2).any(|pair| pair[0].0 == pair[1].0) {
+        return None;
+    }
+    let record_field_names = fields
+        .iter()
+        .map(|(name, _)| name.clone())
+        .collect::<Vec<_>>();
+    if fields.iter().any(|(_, ty)| type_shape(ty).1) {
+        return None;
+    }
+    let mut pending = Vec::new();
+    let args = fields
+        .iter()
+        .enumerate()
+        .map(|(index, _)| {
+            let ty: &'a Type = &fields[index].1;
+            if join_type_parts(ty).is_some() {
+                pending.push((index, ty));
+                JoinArg::Covariant(usize::MAX)
+            } else {
+                JoinArg::Exact {
+                    ty: ty.clone(),
+                    presentation: TypePresentationJoin::default(),
+                    covariant: false,
+                }
+            }
+        })
+        .collect();
+    Some((
+        JoinNode {
+            name: String::new(),
+            canonical_name: String::new(),
+            presentation_conflicted: false,
+            identity: String::new(),
+            args,
+            declaration_order: None,
+            variants: None,
+            record_field_names: Some(record_field_names),
         },
         pending,
     ))
