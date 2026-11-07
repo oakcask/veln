@@ -236,6 +236,44 @@ fn non_reusable_jobs_preflight_jvm_programs_before_cache_validation() {
     assert_eq!(ready_names, ["pass", "runner"]);
 }
 
+#[test]
+fn retained_user_effect_is_blocked_consistently_during_preflight_and_preparation() {
+    let project = TempProject::new("retained-user-effect-static-gate");
+    project.write(
+        "main_test.veln",
+        concat!(
+            "effect Audit\n",
+            "  record(value: String) -> String\n",
+            "end\n",
+            "test retained() -> () effects [Audit]\n",
+            "  perform Audit::record(\"test\")\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let (analysis, cases) = analyzed_cases(&project.root);
+    let case = cases
+        .into_iter()
+        .next()
+        .expect("retained-effect test should be discovered");
+
+    assert!(
+        !preflight_runnable_test_case_jobs(&analysis, None, std::slice::from_ref(&case))
+            .expect("retained-effect preflight should complete"),
+        "retained user effects should not require a JVM execution"
+    );
+
+    let TestCaseJob::Completed(case) =
+        prepare_test_case_job(&analysis, None, case).expect("test job should prepare")
+    else {
+        panic!("retained user effects should complete as blocked jobs");
+    };
+    assert_eq!(case.status, TestCaseStatus::Blocked);
+    assert_eq!(case.reason.as_deref(), Some("static_gate"));
+    assert_eq!(case.diagnostics.len(), 1);
+    assert_eq!(case.diagnostics[0].id, "effect.unhandled_user");
+}
+
 #[derive(Default)]
 struct ProductionPathObservation {
     build_dirs: Vec<PathBuf>,
