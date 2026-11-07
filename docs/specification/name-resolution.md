@@ -55,18 +55,6 @@ that position admits both namespaces. Namespace selection is therefore fixed
 by the syntactic role, while same-namespace duplicates remain errors and
 unrelated namespaces may share a spelling.
 
-An unqualified source-ADT constructor with more than one visible owner is
-normally ambiguous. A concrete expected ADT selects the constructor owned by
-that ADT. During context-free aggregate inference, an already admitted concrete
-payload type provides the same selection context to a later context-dependent
-payload. For example, after `Left::Namesake` fixes the direct argument of
-`Paired(A, A)`, an unqualified `Namesake` in the other direct argument selects
-`Left::Namesake`. Without that concrete context, the unqualified name remains
-`name.ambiguous`. A contribution that has already failed resolution is not
-rechecked when a later contribution supplies context. The
-[type inference rules](types.md#inference-rules) define when an aggregate
-context is admitted and preserved.
-
 ### Explicit import aliases
 
 `use a::b as local` binds `local` in the importing module's import namespace.
@@ -1013,8 +1001,6 @@ not become fallback targets.
   `crates/veln-sema/src/name_recovery.rs`.
 - Unqualified ADT import lookup:
   `crates/veln-sema/src/adt/tests/variant_lookup.rs`.
-- Contextual selection of an unqualified namesake constructor:
-  [`compiler-owned covariant inference`](../../examples/specification/check/compiler-owned-covariant-inference/).
 - Explicit-import-alias behavior evidence:
 
   | Behavior | Evidence |

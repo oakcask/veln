@@ -443,16 +443,13 @@ fn private_aggregate_component_context(
     context: &PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
     match joined_components {
-        Some(joined) if context_dependent_only => {
-            crate::aggregate_type_join::expression_admitted_context(
-                expr,
-                &joined.inference_type(),
-                context.adts,
-                context.current_module,
-                context.uses,
-                &|name| context.projection_local_context(name),
-            )
-        }
+        Some(joined) if context_dependent_only => joined.expression_admitted_context(
+            expr,
+            context.adts,
+            context.current_module,
+            context.uses,
+            &|name| context.projection_local_context(name),
+        ),
         Some(joined) => joined.inference_type(),
         None if context_dependent_only && type_has_unknown(component_type) => Type::Unknown,
         None => component_type.clone(),

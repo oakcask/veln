@@ -90,9 +90,8 @@ impl<'a> FunctionChecker<'a> {
             .is_some_and(AggregateTypeJoin::has_compiler_covariant_root);
         let recovery_type = match result.joined.as_ref() {
             Some(joined) if joined.has_compiler_covariant_root() => {
-                Some(crate::aggregate_type_join::expression_admitted_context(
+                Some(joined.expression_admitted_context(
                     branch_expr,
-                    &joined.inference_type(),
                     &self.environment.adts,
                     self.function.module_name.as_deref(),
                     &self.resolution_uses,

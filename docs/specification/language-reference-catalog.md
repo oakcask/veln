@@ -75,9 +75,8 @@ re-resolving an earlier expression that emitted a diagnostic. It also covers
 rejected contributions leaving still-unknown arguments of omitted locals and
 their direct aliases unconstrained, and
 incomplete nested refinements blocking only their affected arguments,
-including an empty collection used as a later dictionary key or value, an
-otherwise ambiguous nullary constructor selected by its admitted payload type,
-or a payload-carrying constructor whose payloads leave a generic argument
+including an empty collection used as a later dictionary key or value, or a
+payload-carrying constructor whose payloads leave a generic argument
 unknown, and exact inference for other source-ADT classifications or
 unavailable metadata,
 stable match-path narrowing, runtime erasure,

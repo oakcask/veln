@@ -103,16 +103,13 @@ fn private_control_flow_branch_context(
     context: &PrivateSignatureInferContext<'_, '_>,
 ) -> Option<Type> {
     let inferred = match joined {
-        Some(joined) if joined.has_compiler_covariant_root() => {
-            crate::aggregate_type_join::expression_admitted_context(
-                branch,
-                &joined.inference_type(),
-                context.adts,
-                context.current_module,
-                context.uses,
-                &|name| context.projection_local_context(name),
-            )
-        }
+        Some(joined) if joined.has_compiler_covariant_root() => joined.expression_admitted_context(
+            branch,
+            context.adts,
+            context.current_module,
+            context.uses,
+            &|name| context.projection_local_context(name),
+        ),
         Some(joined)
             if joined.has_complete_domain()
                 && !joined.has_incomplete_nested_refinement_domain() =>

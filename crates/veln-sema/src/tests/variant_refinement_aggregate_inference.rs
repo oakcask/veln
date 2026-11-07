@@ -142,6 +142,97 @@ fn aggregate_refinement_inference_covers_joins_context_and_projection() {
 }
 
 #[test]
+fn repeated_direct_payloads_preserve_expected_type_constructor_resolution() {
+    let source_text = concat!(
+        "type Left\n",
+        "  Ready\n",
+        "  Waiting\n",
+        "end\n",
+        "type Right\n",
+        "  Ready\n",
+        "  Waiting\n",
+        "end\n",
+        "type Pair<T>\n",
+        "  Paired(T, T)\n",
+        "end\n",
+        "fn private_path()\n",
+        "  Paired(Left::Ready, Ready)\n",
+        "end\n",
+        "fn needs_int(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn ordinary_path() -> ()\n",
+        "  needs_int(Paired(Left::Ready, Ready))\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+    assert!(
+        diagnostics[0].message.contains("Pair<Left::Ready>::Paired"),
+        "{diagnostics:#?}",
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("private_path")
+            .expect("private_path function")
+            .return_type
+            .render(),
+        "Pair<Left::Ready>::Paired",
+    );
+}
+
+#[test]
+fn nested_payloads_preserve_expected_type_constructor_resolution() {
+    let source_text = concat!(
+        "type Left\n",
+        "  Ready\n",
+        "  Waiting\n",
+        "end\n",
+        "type Right\n",
+        "  Ready\n",
+        "  Waiting\n",
+        "end\n",
+        "fn private_path(first: Option<Left::Ready>)\n",
+        "  [first, Some(Ready)]\n",
+        "end\n",
+        "fn ordinary_path(first: Option<Left::Ready>) -> ()\n",
+        "  needs_int([first, Some(Ready)])\n",
+        "end\n",
+        "fn needs_int(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+    assert!(
+        diagnostics[0].message.contains("Vec<Option<Left::Ready>>"),
+        "{diagnostics:#?}",
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("private_path")
+            .expect("private_path function")
+            .return_type
+            .render(),
+        "Vec<Option<Left::Ready>>",
+    );
+}
+
+#[test]
 fn retained_aggregate_refinement_rejections_are_table_driven() {
     for (name, source, rejected_expression, expected, actual, constraint) in [
         (

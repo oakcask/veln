@@ -274,9 +274,8 @@ impl<'a> FunctionChecker<'a> {
         let item_type = if contextual_type != &Type::Unknown {
             contextual_type.clone()
         } else if let Some(joined) = joined_type {
-            crate::aggregate_type_join::expression_admitted_context(
+            joined.expression_admitted_context(
                 item,
-                &joined.inference_type(),
                 &self.environment.adts,
                 self.function.module_name.as_deref(),
                 &self.resolution_uses,

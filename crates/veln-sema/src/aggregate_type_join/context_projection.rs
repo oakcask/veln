@@ -8,7 +8,9 @@ use crate::adt::registry::{AdtRegistry, ConstructorLookup};
 use crate::adt::{type_operations as adt, unification};
 use crate::semantic_model::Type;
 
-use super::{adt_type_parts, type_shape};
+use super::adt_type_parts;
+#[cfg(test)]
+use super::type_shape;
 
 pub(crate) fn expression_is_immediately_context_free(
     expr: &Expr,
@@ -80,9 +82,7 @@ pub(crate) fn expression_admitted_context(
     uses: &[UseDecl],
     local_context: &dyn Fn(&str) -> Option<LocalContext>,
 ) -> Type {
-    let (input_nodes, _) = type_shape(admitted_context);
-    record_context_input_scan(input_nodes);
-    record_context_retained(input_nodes);
+    record_context_input_type(admitted_context);
     project_direct_type_parameter_path(
         expr,
         admitted_context,
@@ -92,15 +92,85 @@ pub(crate) fn expression_admitted_context(
         local_context,
     )
     .unwrap_or_else(|| {
-        expression_admitted_context_fallback(
+        let admitted = Rc::new(clone_context_type(admitted_context));
+        let (projected, _, ambiguous) = expression_admitted_context_fallback(
             expr,
-            admitted_context,
+            Rc::clone(&admitted),
             adts,
             current_module,
             uses,
             local_context,
-        )
+            HashMap::new(),
+        );
+        if ambiguous {
+            into_owned_type(admitted)
+        } else {
+            projected
+        }
     })
+}
+
+#[derive(Default)]
+pub(super) struct ProjectionCache {
+    admitted: Option<Rc<Type>>,
+    direct_argument_contexts: DirectArgumentContexts,
+    input_recorded: bool,
+}
+
+impl ProjectionCache {
+    pub(super) fn clear(&mut self) {
+        self.admitted = None;
+        self.direct_argument_contexts.clear();
+        self.input_recorded = false;
+    }
+}
+
+impl super::AggregateTypeJoin {
+    pub(crate) fn expression_admitted_context(
+        &self,
+        expr: &Expr,
+        adts: &AdtRegistry,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+        local_context: &dyn Fn(&str) -> Option<LocalContext>,
+    ) -> Type {
+        let mut cache = self.projection_cache.borrow_mut();
+        let admitted = Rc::clone(
+            cache
+                .admitted
+                .get_or_insert_with(|| Rc::new(self.inference_type())),
+        );
+        if !cache.input_recorded {
+            record_context_input_type(admitted.as_ref());
+            cache.input_recorded = true;
+        }
+        if let Some(projected) = project_direct_type_parameter_path(
+            expr,
+            admitted.as_ref(),
+            adts,
+            current_module,
+            uses,
+            local_context,
+        ) {
+            return projected;
+        }
+        let direct_argument_contexts = std::mem::take(&mut cache.direct_argument_contexts);
+        let (projected, direct_argument_contexts, ambiguous) = expression_admitted_context_fallback(
+            expr,
+            Rc::clone(&admitted),
+            adts,
+            current_module,
+            uses,
+            local_context,
+            direct_argument_contexts,
+        );
+        cache.direct_argument_contexts = direct_argument_contexts;
+        if ambiguous {
+            clone_context_type(admitted.as_ref())
+        } else {
+            projected
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -135,12 +205,14 @@ fn project_direct_type_parameter_path(
     record_context_retained(frames.len());
     let projected = expression_admitted_context_fallback(
         expr,
-        admitted,
+        Rc::new(clone_context_type(admitted)),
         adts,
         current_module,
         uses,
         local_context,
-    );
+        HashMap::new(),
+    )
+    .0;
     rebuild_direct_projection(projected, frames)
 }
 
@@ -158,14 +230,8 @@ fn direct_projection_step<'expr, 'ty>(
     if args.len() != 1 {
         return Some(None);
     }
-    let constructor = match adts.constructor(segments, current_module, uses) {
-        ConstructorLookup::Found(constructor) => constructor,
-        ConstructorLookup::Ambiguous => {
-            adts.descriptor_for_type(admitted).and_then(|descriptor| {
-                adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
-            })?
-        }
-        ConstructorLookup::Missing => return Some(None),
+    let Some(constructor) = projection_constructor(adts, segments, current_module, uses) else {
+        return Some(None);
     };
     let field = constructor.variant.payload_fields.first()?;
     let AdtPayloadType::TypeParameter(type_index) = field.ty else {
@@ -173,6 +239,18 @@ fn direct_projection_step<'expr, 'ty>(
     };
     let admitted_args = unification::adt_args(admitted, constructor.descriptor)?;
     Some(Some((&args[0], admitted_args.get(type_index)?, type_index)))
+}
+
+fn projection_constructor<'registry>(
+    adts: &'registry AdtRegistry,
+    segments: &[String],
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> Option<AdtConstructor<'registry>> {
+    match adts.constructor(segments, current_module, uses) {
+        ConstructorLookup::Found(constructor) => Some(constructor),
+        ConstructorLookup::Ambiguous | ConstructorLookup::Missing => None,
+    }
 }
 
 fn rebuild_direct_projection(mut projected: Type, frames: Vec<(&Type, usize)>) -> Option<Type> {
@@ -187,9 +265,7 @@ fn rebuild_direct_projection(mut projected: Type, frames: Vec<(&Type, usize)>) -
                 if index == projected_index {
                     child.take().expect("one projected argument")
                 } else {
-                    let (nodes, _) = type_shape(arg);
-                    record_context_clone(nodes);
-                    arg.clone()
+                    clone_context_type(arg)
                 }
             })
             .collect();
@@ -226,28 +302,28 @@ struct ContextProjection<'expr, 'registry> {
     direct_argument_contexts: DirectArgumentContexts,
     tasks: Vec<ProjectionTask<'expr, 'registry>>,
     results: Vec<Rc<Type>>,
+    ambiguous_constructor: bool,
 }
 
 fn expression_admitted_context_fallback<'registry>(
     expr: &Expr,
-    admitted_context: &Type,
+    admitted_context: Rc<Type>,
     adts: &'registry AdtRegistry,
     current_module: Option<&'registry str>,
     uses: &'registry [UseDecl],
     local_context: &'registry dyn Fn(&str) -> Option<LocalContext>,
-) -> Type {
+    direct_argument_contexts: DirectArgumentContexts,
+) -> (Type, DirectArgumentContexts, bool) {
     ContextProjection {
         adts,
         current_module,
         uses,
         local_context,
         local_contexts: HashMap::new(),
-        direct_argument_contexts: HashMap::new(),
-        tasks: vec![ProjectionTask::Evaluate(
-            expr,
-            Rc::new(clone_context_type(admitted_context)),
-        )],
+        direct_argument_contexts,
+        tasks: vec![ProjectionTask::Evaluate(expr, admitted_context)],
         results: Vec::new(),
+        ambiguous_constructor: false,
     }
     .run()
 }
@@ -294,15 +370,21 @@ fn owned_type_nodes(ty: &Type, seen_args: &mut HashSet<*const Vec<Type>>) -> usi
 }
 
 impl<'expr, 'registry> ContextProjection<'expr, 'registry> {
-    fn run(mut self) -> Type {
+    fn run(mut self) -> (Type, DirectArgumentContexts, bool) {
         while let Some(task) = self.tasks.pop() {
             self.record_retained_state(Some(&task));
             self.perform(task);
         }
-        self.results
+        let projected = self
+            .results
             .pop()
             .map(into_owned_type)
-            .unwrap_or(Type::Unknown)
+            .unwrap_or(Type::Unknown);
+        (
+            projected,
+            self.direct_argument_contexts,
+            self.ambiguous_constructor,
+        )
     }
 
     #[cfg(test)]
@@ -493,9 +575,10 @@ impl<'expr, 'registry> ContextProjection<'expr, 'registry> {
                 constructor.variant.payload_fields.is_empty()
                     && !constructor.descriptor.type_parameters.is_empty()
             }
-            ConstructorLookup::Ambiguous => self
-                .constructor_for_admitted(segments, admitted.as_ref())
-                .is_some_and(|constructor| constructor.variant.payload_fields.is_empty()),
+            ConstructorLookup::Ambiguous => {
+                self.ambiguous_constructor = true;
+                false
+            }
             ConstructorLookup::Missing => false,
         };
         self.results.push(if requires {
@@ -510,9 +593,20 @@ impl<'expr, 'registry> ContextProjection<'expr, 'registry> {
             self.results.push(Rc::new(Type::Unknown));
             return;
         };
-        let Some(constructor) = self.resolve_constructor(segments, admitted.as_ref()) else {
-            self.results.push(Rc::new(Type::Unknown));
-            return;
+        let constructor = match self
+            .adts
+            .constructor(segments, self.current_module, self.uses)
+        {
+            ConstructorLookup::Found(constructor) => constructor,
+            ConstructorLookup::Ambiguous => {
+                self.ambiguous_constructor = true;
+                self.results.push(Rc::new(Type::Unknown));
+                return;
+            }
+            ConstructorLookup::Missing => {
+                self.results.push(Rc::new(Type::Unknown));
+                return;
+            }
         };
         if let Some(type_index) = direct_payload_type_parameter(constructor, args.len())
             && let Some(expected) = self.direct_argument_context(&admitted, constructor, type_index)
@@ -563,38 +657,6 @@ impl<'expr, 'registry> ContextProjection<'expr, 'registry> {
         self.direct_argument_contexts
             .insert(key, (Rc::clone(admitted), Rc::clone(&context)));
         Some(context)
-    }
-
-    fn resolve_constructor(
-        &self,
-        segments: &[String],
-        admitted: &Type,
-    ) -> Option<AdtConstructor<'registry>> {
-        match self
-            .adts
-            .constructor(segments, self.current_module, self.uses)
-        {
-            ConstructorLookup::Found(constructor) => Some(constructor),
-            ConstructorLookup::Ambiguous => self.constructor_for_admitted(segments, admitted),
-            ConstructorLookup::Missing => None,
-        }
-    }
-
-    fn constructor_for_admitted(
-        &self,
-        segments: &[String],
-        admitted: &Type,
-    ) -> Option<AdtConstructor<'registry>> {
-        self.adts
-            .descriptor_for_type(admitted)
-            .and_then(|descriptor| {
-                self.adts.constructor_for_descriptor(
-                    segments,
-                    descriptor,
-                    self.current_module,
-                    self.uses,
-                )
-            })
     }
 
     fn finish_list(&mut self, admitted: Rc<Type>, count: usize) {
@@ -996,20 +1058,18 @@ fn record_context_classification_work(units: usize) {
 fn record_context_classification_work(_units: usize) {}
 
 #[cfg(test)]
-fn record_context_input_scan(units: usize) {
+fn record_context_input_type(ty: &Type) {
+    let (units, _) = type_shape(ty);
     update_context_work(|work| work.input_type_nodes_scanned += units);
 }
 
 #[cfg(not(test))]
-fn record_context_input_scan(_units: usize) {}
+fn record_context_input_type(_ty: &Type) {}
 
 #[cfg(test)]
 fn record_context_clone(units: usize) {
     update_context_work(|work| work.type_nodes_cloned += units);
 }
-
-#[cfg(not(test))]
-fn record_context_clone(_units: usize) {}
 
 #[cfg(test)]
 fn record_context_materialization(units: usize) {
@@ -1035,6 +1095,7 @@ fn record_shared_context_reuse() {
 #[cfg(not(test))]
 fn record_shared_context_reuse() {}
 
+#[cfg(test)]
 fn record_payload_template_materialization(constructor: AdtConstructor<'_>, payload_index: usize) {
     let Some(AdtPayloadType::Concrete(template)) = constructor
         .variant
@@ -1046,6 +1107,13 @@ fn record_payload_template_materialization(constructor: AdtConstructor<'_>, payl
     };
     let (nodes, _) = type_shape(template);
     record_context_materialization(nodes);
+}
+
+#[cfg(not(test))]
+fn record_payload_template_materialization(
+    _constructor: AdtConstructor<'_>,
+    _payload_index: usize,
+) {
 }
 
 #[cfg(test)]
@@ -1069,6 +1137,28 @@ pub(crate) fn take_context_classification_work() -> ContextProjectionWork {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn projection_does_not_select_ambiguous_constructor_owners() {
+        let source = veln_source::SourceFile::new(
+            "main.veln",
+            "type Left<T>\n  Ready\n  Made(T)\nend\n\
+             type Right<T>\n  Ready\n  Made(T)\nend\n",
+        );
+        let parsed = veln_syntax::parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = veln_ast::lower_surface_ast(&parsed.tree);
+        let adts = AdtRegistry::from_module(&module);
+
+        for name in ["Ready", "Made"] {
+            let segments = vec![name.to_string()];
+            assert!(matches!(
+                adts.constructor(&segments, None, &[]),
+                ConstructorLookup::Ambiguous
+            ));
+            assert!(projection_constructor(&adts, &segments, None, &[]).is_none());
+        }
+    }
 
     fn measured_record_merge(width: usize) -> ContextProjectionWork {
         let fields = (0..width)

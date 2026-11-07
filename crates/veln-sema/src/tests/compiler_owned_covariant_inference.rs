@@ -270,64 +270,6 @@ fn repeated_direct_payloads_join_in_ordinary_and_private_inference() {
 }
 
 #[test]
-fn admitted_payload_context_selects_ambiguous_nullary_constructors() {
-    let source_text = concat!(
-        "type Left\n",
-        "  Ready\n",
-        "  Waiting\n",
-        "end\n",
-        "type Right\n",
-        "  Ready\n",
-        "  Waiting\n",
-        "end\n",
-        "type Pair<T>\n",
-        "  Paired(T, T)\n",
-        "end\n",
-        "fn private_path()\n",
-        "  Paired(Left::Ready, Ready)\n",
-        "end\n",
-        "fn needs_int(value: Int) -> ()\n",
-        "  ()\n",
-        "end\n",
-        "fn ordinary_path() -> ()\n",
-        "  needs_int(Paired(Left::Ready, Ready))\n",
-        "end\n",
-        "fn no_context() -> Int\n",
-        "  Ready\n",
-        "end\n",
-    );
-    let source = SourceFile::new("main.veln", source_text);
-    let parsed = parse(&source);
-    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-    let module = lower_surface_ast(&parsed.tree);
-    let diagnostics = analyze_surface_module(&module);
-    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
-    assert!(
-        diagnostics.iter().any(|diagnostic| {
-            diagnostic.id == "type.mismatch"
-                && diagnostic.message.contains("Pair<Left::Ready>::Paired")
-        }),
-        "{diagnostics:#?}",
-    );
-    assert!(
-        diagnostics.iter().any(|diagnostic| {
-            diagnostic.id == "name.ambiguous" && diagnostic.message.contains("Ready")
-        }),
-        "{diagnostics:#?}",
-    );
-
-    let environment = TypeEnvironment::from_module(&module);
-    assert_eq!(
-        environment
-            .function("private_path")
-            .expect("private_path function")
-            .return_type
-            .render(),
-        "Pair<Left::Ready>::Paired",
-    );
-}
-
-#[test]
 fn dictionary_members_complete_pending_join_arguments_in_any_order() {
     let source_text = concat!(
         "fn complete_then_incomplete_value()\n",

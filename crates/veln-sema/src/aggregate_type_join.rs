@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -10,6 +11,7 @@ use crate::type_relations::{TypePresentationJoin, invariant_args_match, same_typ
 pub(crate) struct AggregateTypeJoin {
     nodes: Vec<JoinNode>,
     root: usize,
+    projection_cache: RefCell<context_projection::ProjectionCache>,
 }
 
 mod context_projection;
@@ -73,7 +75,11 @@ impl AggregateTypeJoin {
             );
         }
         record_retained_nodes(nodes.len());
-        Some(Self { nodes, root: 0 })
+        Some(Self {
+            nodes,
+            root: 0,
+            projection_cache: RefCell::new(context_projection::ProjectionCache::default()),
+        })
     }
 
     pub(crate) fn new_resolved_refinement(adts: &AdtRegistry, initial: &Type) -> Option<Self> {
@@ -96,7 +102,9 @@ impl AggregateTypeJoin {
         let Some(prepared) = self.prepare(adts, right) else {
             return false;
         };
-        self.commit(prepared, adts);
+        if self.commit(prepared, adts) {
+            self.projection_cache.get_mut().clear();
+        }
         true
     }
 
@@ -133,16 +141,19 @@ impl AggregateTypeJoin {
         })
     }
 
-    fn commit(&mut self, prepared: Vec<PreparedContribution<'_>>, adts: &AdtRegistry) {
+    fn commit(&mut self, prepared: Vec<PreparedContribution<'_>>, adts: &AdtRegistry) -> bool {
+        let mut changed = false;
         for contribution in prepared {
             let node = &mut self.nodes[contribution.node];
             record_presentation_work(1);
             if !node.presentation_conflicted && contribution.right.name != node.canonical_name {
                 if node.name == node.canonical_name {
                     node.name = contribution.right.name.to_string();
+                    changed = true;
                 } else if node.name != contribution.right.name {
                     node.name.clone_from(&node.canonical_name);
                     node.presentation_conflicted = true;
+                    changed = true;
                 }
             }
             for (joined, right) in node.args.iter_mut().zip(contribution.right.args) {
@@ -160,8 +171,8 @@ impl AggregateTypeJoin {
                 {
                     continue;
                 }
-                unification::merge_type_slot(ty, right);
-                presentation.merge(ty, right);
+                changed |= unification::merge_type_slot(ty, right);
+                changed |= presentation.merge(ty, right);
             }
             match (&mut node.variants, contribution.right.variants) {
                 (Some(joined), Some(_)) => {
@@ -169,16 +180,21 @@ impl AggregateTypeJoin {
                         .variant_ranks
                         .expect("validated refinement ranks");
                     record_work(ranks.len());
+                    let previous_len = joined.len();
                     joined.extend(ranks);
+                    changed |= joined.len() != previous_len;
                 }
-                (variants @ Some(_), None) => *variants = None,
+                (variants @ Some(_), None) => {
+                    *variants = None;
+                    changed = true;
+                }
                 (None, _) => {}
             }
         }
-        self.expand_covariant_nodes(adts);
+        changed | self.expand_covariant_nodes(adts)
     }
 
-    fn expand_covariant_nodes(&mut self, adts: &AdtRegistry) {
+    fn expand_covariant_nodes(&mut self, adts: &AdtRegistry) -> bool {
         let original_nodes = self.nodes.len();
         for parent in 0..original_nodes {
             for argument in 0..self.nodes[parent].args.len() {
@@ -222,6 +238,7 @@ impl AggregateTypeJoin {
             }
         }
         record_retained_nodes(self.nodes.len());
+        self.nodes.len() != original_nodes
     }
 
     pub(crate) fn try_join_resolved(&mut self, adts: &AdtRegistry, right: &Type) -> bool {

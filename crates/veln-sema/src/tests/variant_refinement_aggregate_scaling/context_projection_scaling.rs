@@ -148,6 +148,34 @@ fn wrapped_function_list_context_source(member_count: usize, context_width: usiz
     )
 }
 
+fn outer_record_sibling_context_source(sibling_count: usize, context_width: usize) -> String {
+    let record = wide_record_type(context_width);
+    let siblings = (0..sibling_count)
+        .map(|_| "Boxed({})")
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "type Box<T>\n  Boxed(T)\nend\n\
+         fn inferred(first: Box<{record}>)\n  [first, {siblings}]\nend\n\
+         fn needs_int(value: Int) -> ()\n  ()\nend\n\
+         fn checked(first: Box<{record}>) -> ()\n  needs_int([first, {siblings}])\nend\n"
+    )
+}
+
+fn outer_function_sibling_context_source(sibling_count: usize, context_width: usize) -> String {
+    let function_type = wide_function_type(context_width);
+    let siblings = (0..sibling_count)
+        .map(|_| "Boxed(None)")
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "type Box<T>\n  Boxed(T)\nend\n\
+         fn inferred(first: Box<Option<{function_type}>>)\n  [first, {siblings}]\nend\n\
+         fn needs_int(value: Int) -> ()\n  ()\nend\n\
+         fn checked(first: Box<Option<{function_type}>>) -> ()\n  needs_int([first, {siblings}])\nend\n"
+    )
+}
+
 type ContextProjectionWork = crate::aggregate_type_join::ContextProjectionWork;
 
 fn measure_context_projection(label: &str, source_text: String) -> [ContextProjectionWork; 2] {
@@ -372,5 +400,25 @@ fn wrapped_function_projection_is_additive_in_member_and_context_width() {
         wrapped_function_list_context_source,
         Some(1),
         true,
+    );
+}
+
+#[test]
+fn outer_record_sibling_projection_is_additive_in_count_and_context_width() {
+    assert_projection_axes_are_additive(
+        "outer record siblings",
+        outer_record_sibling_context_source,
+        Some(1),
+        false,
+    );
+}
+
+#[test]
+fn outer_function_sibling_projection_is_additive_in_count_and_context_width() {
+    assert_projection_axes_are_additive(
+        "outer function siblings",
+        outer_function_sibling_context_source,
+        Some(1),
+        false,
     );
 }

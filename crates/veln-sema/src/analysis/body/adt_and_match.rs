@@ -820,9 +820,8 @@ impl<'a> FunctionChecker<'a> {
         joined_items: &mut Option<AggregateTypeJoin>,
     ) {
         let inferred_context = match joined_items {
-            Some(joined) => crate::aggregate_type_join::expression_admitted_context(
+            Some(joined) => joined.expression_admitted_context(
                 item,
-                &joined.inference_type(),
                 &self.environment.adts,
                 self.function.module_name.as_deref(),
                 &self.resolution_uses,

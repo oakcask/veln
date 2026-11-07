@@ -1453,11 +1453,8 @@ For `Paired([Closed], [])` under an admitted `Pair<Vec<State::Ready>>`, the
 complete `[Closed]` payload widens the argument independently. The empty
 sibling then receives `Vec<State::Closed>` context from that payload. An outer
 aggregate can join the resulting pair with the admitted pair in either order.
-For repeated direct constructor payloads, an admitted concrete payload type can
-select an unqualified nullary constructor that is otherwise ambiguous between
-ADTs when one candidate belongs to that admitted type. Without that admitted or
-independently supplied context, the namesake remains `name.ambiguous`. A partial
-type admitted without a diagnostic can still have an `unknown` argument made
+For repeated direct constructor payloads, a partial type admitted without a
+diagnostic can still have an `unknown` argument made
 concrete by a later contribution under the ordinary inference rule above. An
 omitted local reference receives this admitted context only when its type still
 has an `unknown` part. The context fills those parts without replacing its
@@ -1545,19 +1542,22 @@ is observational and is not an acceptance threshold.
 Complementary workloads project repeated list and dictionary members through
 wide record and function contexts. Wrapped workloads put each structural
 context behind one direct source-ADT payload and repeat `Boxed({})` or
-`Boxed(None)`. They compare 4, 8, and 16 members at a fixed context width,
-context widths 4, 8, and 16 at a fixed member count, and both axes growing
-together. The retained-state metric traverses named arguments and counts shared
-argument storage once. In both inference pipelines, each adjacent size may at
+`Boxed(None)`. Outer-sibling workloads instead place one wide admitted value
+before separate `Boxed({})` or `Boxed(None)` contributions to exercise every
+aggregate projection call. Each workload compares 4, 8, and 16 members or
+siblings at a fixed context width, context widths 4, 8, and 16 at a fixed count,
+and both axes growing together. Input-scan accounting classifies shared named
+argument storage once, matching production reuse instead of traversing the
+same context for every sibling. The retained-state metric also counts that
+shared storage once. In both inference pipelines, each adjacent size may at
 most double each prior metric, with allowances of 128 for total work and 16
 each for retained state and structural merge probes. The wrapped cases also
-require repeated results to reuse their shared context. A direct
-structural-merge workload compares record and function widths 16, 32, and 64;
-its first measurement performs at least 16 probes, and each adjacent
-measurement permits at most twice the prior probe count plus 2. These checks
-bound projection growth by the sum of member count and context width instead of
-their product. Elapsed time is observational and is not an acceptance
-threshold.
+require repeated results to reuse their shared context. A direct structural-
+merge workload compares record and function widths 16, 32, and 64; its first
+measurement performs at least 16 probes, and each adjacent measurement permits
+at most twice the prior probe count plus 2. These checks bound projection
+growth by the sum of contribution count and context width instead of their
+product. Elapsed time is observational and is not an acceptance threshold.
 
 For a source ADT nested through `D` covariant source-ADT arguments, the join
 retains `D + 1` state nodes. Accepting another equally shaped contribution
