@@ -1565,7 +1565,7 @@ fn schedule_named_argument<'a>(
                 std::slice::from_ref(argument),
             )
         })
-        .then(|| arguments[0].clone());
+        .then(|| merge_candidate_presentations(arguments));
     tasks.push(BoundTask::Ready(exact));
 }
 

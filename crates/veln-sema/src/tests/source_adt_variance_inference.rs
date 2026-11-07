@@ -406,6 +406,52 @@ fn bounded_source_join_rejects_exact_mismatch_without_losing_delayed_meet() {
 }
 
 #[test]
+fn exact_source_argument_presentation_is_order_independent_with_a_delayed_meet() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Ready\n  Closed\nend\n",
+            "pub type First = State\n",
+            "pub type Second = State\n",
+            "type Wrapper<Input, Marker>\n",
+            "  InputValue(fn(Input) -> ())\n",
+            "end\n",
+            "fn order_abc(a: Wrapper<{id: Int}, First::Ready>, b: Wrapper<{label: String}, Second::Ready>, c: Wrapper<{id: Int, label: String}, First::Ready>)\n  [a, b, c]\nend\n",
+            "fn order_acb(a: Wrapper<{id: Int}, First::Ready>, b: Wrapper<{label: String}, Second::Ready>, c: Wrapper<{id: Int, label: String}, First::Ready>)\n  [a, c, b]\nend\n",
+            "fn order_bac(a: Wrapper<{id: Int}, First::Ready>, b: Wrapper<{label: String}, Second::Ready>, c: Wrapper<{id: Int, label: String}, First::Ready>)\n  [b, a, c]\nend\n",
+            "fn order_bca(a: Wrapper<{id: Int}, First::Ready>, b: Wrapper<{label: String}, Second::Ready>, c: Wrapper<{id: Int, label: String}, First::Ready>)\n  [b, c, a]\nend\n",
+            "fn order_cab(a: Wrapper<{id: Int}, First::Ready>, b: Wrapper<{label: String}, Second::Ready>, c: Wrapper<{id: Int, label: String}, First::Ready>)\n  [c, a, b]\nend\n",
+            "fn order_cba(a: Wrapper<{id: Int}, First::Ready>, b: Wrapper<{label: String}, Second::Ready>, c: Wrapper<{id: Int, label: String}, First::Ready>)\n  [c, b, a]\nend\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+
+    for function in [
+        "order_abc",
+        "order_acb",
+        "order_bac",
+        "order_bca",
+        "order_cab",
+        "order_cba",
+    ] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            "Vec<Wrapper<{id: Int, label: String}, State::Ready>>",
+            "unexpected inferred result for {function}",
+        );
+    }
+}
+
+#[test]
 fn unavailable_variance_metadata_falls_back_to_exact_inference() {
     let source = SourceFile::new(
         "main.veln",
