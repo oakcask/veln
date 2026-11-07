@@ -2024,7 +2024,7 @@ fn append_relation_type_key<'a>(
             key,
             pending,
             params,
-            variadic.as_ref(),
+            variadic.as_deref(),
             return_type,
             effects,
         ),
@@ -2079,7 +2079,7 @@ fn append_relation_function_key<'a>(
     key: &mut String,
     pending: &mut Vec<RelationKeyPart<'a>>,
     params: &'a [Type],
-    variadic: Option<&'a Box<Type>>,
+    variadic: Option<&'a Type>,
     return_type: &'a Type,
     effects: &'a [String],
 ) {
