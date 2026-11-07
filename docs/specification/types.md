@@ -1433,14 +1433,16 @@ or ambiguous classification metadata also requires exact arguments. Local and
 imported declarations use the same rule because lookup uses resolved nominal
 identity rather than displayed spelling.
 
-A bounded join retains every successfully typed contribution. It selects the
-unique contributed type that accepts every contribution and is assignable to
-every other valid contributed candidate. A bounded meet applies the dual rule:
-the selected contributed type is accepted by every contribution and accepts
-every other valid candidate. Resolved identity, rather than alias spelling,
-determines candidate equality. Conflicting alias preferences use deterministic
-canonical presentation. A rejected or diagnostically failed contribution does
-not change the retained contributions or presentation state.
+Bounded inference retains every successfully typed contribution. When the
+same-constructor, identical-field, and structural-function rules do not produce
+a join, the contributed-candidate fallback selects the unique contributed type
+that accepts every contribution and is assignable to every other valid
+candidate. A bounded meet applies the dual candidate rule: the selected
+contributed type is accepted by every contribution and accepts every other
+valid candidate. Resolved identity, rather than alias spelling, determines
+candidate equality. Conflicting alias preferences use deterministic canonical
+presentation. A rejected or diagnostically failed contribution does not change
+the retained contributions or presentation state.
 
 Structural functions join only when their fixed parameter counts and variadic
 presence match. Every fixed and variadic input uses the bounded meet. The

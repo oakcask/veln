@@ -865,17 +865,24 @@ classification reports `type.mismatch`. Compiler-owned covariance requires the
 resolved compiler-owned identity. A source or imported constructor with the
 same displayed name instead uses its own checked classifications, and its
 aliases retain those classifications. Distinct nominal owners remain
-incompatible. During aggregate inference, an
-incompatible later contribution reports `type.mismatch` at that contribution.
-The rejected contribution changes no admitted aggregate join state. A later
-valid contribution continues from the last admitted state. A contribution that
-already produced a diagnostic also leaves the join state unchanged and does
-not produce a derivative aggregate mismatch. A rejected call or constructor
-expression follows this rule even when recovery can determine its refined
-result type from the resolved declaration. An `if` branch or `match` arm that
-produces a diagnostic is likewise excluded from its inferred result join. If
-that control-flow expression contributes to an enclosing aggregate, its
-recovered result type is excluded from the enclosing join too. The current
+incompatible. During aggregate inference, a structurally inadmissible later
+contribution reports `type.mismatch` at that contribution. This includes an
+unrelated outer identity or a mismatched function arity or variadic shape. The
+rejected contribution changes no admitted aggregate join state. A later valid
+contribution continues from the last admitted state. When every contribution
+has a compatible shape but a required bounded join or meet has no unique
+contributed result, inference retains the contributions until the aggregate is
+complete. An omitted local then reports `type.local_inference_incomplete`; an
+omitted private result reports `type.private_inference_incomplete`. In both
+cases the `inferred_type` is `unknown`, rather than a partially resolved
+function or named type. A contribution that already produced a diagnostic also
+leaves the join state unchanged and does not produce a derivative aggregate
+mismatch. A rejected call or constructor expression follows this rule even
+when recovery can determine its refined result type from the resolved
+declaration. An `if` branch or `match` arm that produces a diagnostic is
+likewise excluded from its inferred result join. If that control-flow
+expression contributes to an enclosing aggregate, its recovered result type is
+excluded from the enclosing join too. The current
 [type inference rules](types.md#inference-rules) define which direct payload
 contributions can join and which nested payload occurrences remain exact. When
 an exact nested constraint rejects a contribution, the diagnostic reports the
@@ -891,17 +898,22 @@ before the rejected payload. If an earlier error leaves the value untyped,
 
 Without a concrete expected component or result type, same-constructor
 `Option`, `Result`, `List`, `Vec`, or `Dict` contributions recursively join
-their covariant arguments. A nested argument that has no bounded join reports
-ordinary `type.mismatch` at the incompatible contribution. The accumulated
-join state keeps every previously admitted argument, refinement, and alias
-presentation unchanged. A later valid contribution continues from that state.
+their covariant arguments. A structurally inadmissible nested contribution
+reports ordinary `type.mismatch`. A compatible nested argument whose bounded
+join has no unique result instead leaves the enclosing inference unresolved
+and produces the applicable incomplete-inference diagnostic at the omitted
+binding or private result. The accumulated join state keeps every previously
+admitted argument, refinement, and alias presentation unchanged. A later valid
+contribution can resolve the retained bounded join.
 The checked
 [`compiler-owned covariant inference diagnostic`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/)
 covers that failure and preservation boundary for named constructors. The
 [`structural record join diagnostic`](../../examples/specification/check/structural-record-joins-diagnostics/)
 covers the same unchanged-state outcome when a corresponding field has no
-recursive join or when complete record contributions have different field-name
-sets.
+recursive join. Complete records with different field-name sets instead use
+the contributed-candidate rule from the
+[type inference specification](types.md#inference-rules); they produce no
+diagnostic when that rule selects a unique result.
 When different outer aliases contributed to one compiler-owned join, a later
 diagnostic renders the joined type with the compiler-owned canonical name. The
 checked
