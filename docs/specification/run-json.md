@@ -236,7 +236,7 @@ truncation and do not receive `fixture_hex`.
 
 ### Byte diagnostic projection
 
-A source-visible `RuntimeDiagnostic(..., RuntimeByteDiagnostic(...))`
+A source-visible `RuntimeDiagnostic(..., ByteDiagnostic(...))`
 projects `details.byte_diagnostic` while preserving `details.value`. Its
 common fields are:
 
@@ -298,7 +298,7 @@ escaped as `~0` and `/` as `~1`.
 
 ### Value diagnostic projection
 
-A source-visible `RuntimeValueDiagnostic` projects `details.value_diagnostic`.
+A source-visible `ValueDiagnostic` projects `details.value_diagnostic`.
 Generated encode failures retain the rendered value and expose schema-local
 `field_path`, `field_path_display`, and `reason`. Schema validation and
 checked `byte_write_*` conversion failures use the same value projection.

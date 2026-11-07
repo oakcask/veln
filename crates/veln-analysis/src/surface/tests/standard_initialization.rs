@@ -436,7 +436,7 @@ fn ordinary_project_loads_private_diagnostic_dependency_through_prelude() {
             "main.veln",
             concat!(
                 "pub fn main() -> RuntimeDiagnostic\n",
-                "  let detail: RuntimeDiagnosticDetail = RuntimeValueDiagnostic(list_nil(), \"reason\")\n",
+                "  let detail: RuntimeDiagnosticDetail = ValueDiagnostic(list_nil(), \"reason\")\n",
                 "  RuntimeDiagnostic(\"example\", \"message\", detail)\n",
                 "end\n",
             ),

@@ -8,8 +8,8 @@ end
 
 fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match input
-		Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
-		End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+		StreamInput::Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		StreamInput::End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
 	end
 end
 
@@ -18,13 +18,13 @@ fn route_with_cancellable_wait(stream_id: Int, input: StreamInput, state: { chun
 	let _ = channel::send(route.tx, input)
 	let selected: StreamInput = match channel::recv(route.rx)
 		Some(value) => value
-		None => End
+		None => StreamInput::End
 	end
 	let handled = handle_stream_input(stream_id, selected, state)
 	match time::wait_until_cancellable_outcome(deadline, token)
-		WaitCompleted => handled
-		WaitDeadlineExpired => { actions: list_cons(RetryAfterDeadline(stream_id), handled.actions), next_state: handled.next_state }
-		WaitCancelled => { actions: list_cons(CleanupAfterCancel(stream_id), handled.actions), next_state: handled.next_state }
+		CancellableWaitOutcome::Completed => handled
+		CancellableWaitOutcome::DeadlineExpired => { actions: list_cons(RetryAfterDeadline(stream_id), handled.actions), next_state: handled.next_state }
+		CancellableWaitOutcome::Cancelled => { actions: list_cons(CleanupAfterCancel(stream_id), handled.actions), next_state: handled.next_state }
 	end
 end
 

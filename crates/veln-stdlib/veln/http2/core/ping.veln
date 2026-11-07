@@ -3,28 +3,28 @@ use http2::core::frame_payload_length
 use http2::frame
 
 pub type PingRequestDecision
-	PingRequestAccepted(payload_length: Int, bytes: ByteChunk)
-	PingRequestRejected(payload_length: Int, failure: FramePayloadLengthFailure)
-	PingRequestEncodeFailed(payload_length: Int, reason: String)
+	Accepted(payload_length: Int, bytes: ByteChunk)
+	Rejected(payload_length: Int, failure: FramePayloadLengthFailure)
+	EncodeFailed(payload_length: Int, reason: String)
 end
 
 pub type PingResponseDecision
-	PingResponseAck(bytes: ByteChunk)
-	PingResponseNoResponse
-	PingResponseEncodeFailed(reason: String)
+	Ack(bytes: ByteChunk)
+	NoResponse
+	EncodeFailed(reason: String)
 end
 
 pub fn request(payload: ByteChunk) -> PingRequestDecision
 	let payload_length = byte_count_to_int(byte_chunk_count(payload))
 	match http2::core::frame_payload_length::validate(0, 6, 0, 0, payload_length, "connection-control", payload)
 		Ok(_) => encode_request(payload, payload_length)
-		Err(failure) => PingRequestRejected(payload_length, failure)
+		Err(failure) => PingRequestDecision::Rejected(payload_length, failure)
 	end
 end
 
 pub fn response(flags: Int, payload: ByteChunk) -> PingResponseDecision
 	if ack_set(flags)
-		PingResponseNoResponse
+		PingResponseDecision::NoResponse
 	else
 		encode_response(payload)
 	end
@@ -32,15 +32,15 @@ end
 
 fn encode_request(payload: ByteChunk, payload_length: Int) -> PingRequestDecision
 	match http2::frame::encode_header(8, 6, 0, 0)
-		Ok(header) => PingRequestAccepted(payload_length, byte_append(header, payload))
-		Err(reason) => PingRequestEncodeFailed(payload_length, reason)
+		Ok(header) => PingRequestDecision::Accepted(payload_length, byte_append(header, payload))
+		Err(reason) => PingRequestDecision::EncodeFailed(payload_length, reason)
 	end
 end
 
 fn encode_response(payload: ByteChunk) -> PingResponseDecision
 	match http2::frame::encode_header(8, 6, 1, 0)
-		Ok(header) => PingResponseAck(byte_append(header, payload))
-		Err(reason) => PingResponseEncodeFailed(reason)
+		Ok(header) => PingResponseDecision::Ack(byte_append(header, payload))
+		Err(reason) => PingResponseDecision::EncodeFailed(reason)
 	end
 end
 
@@ -50,88 +50,88 @@ end
 
 pub fn request_status(decision: PingRequestDecision) -> String
 	match decision
-		PingRequestAccepted(_, _) => "accepted"
-		PingRequestRejected(_, _) => "rejected"
-		PingRequestEncodeFailed(_, _) => "encode_error"
+		PingRequestDecision::Accepted(_, _) => "accepted"
+		PingRequestDecision::Rejected(_, _) => "rejected"
+		PingRequestDecision::EncodeFailed(_, _) => "encode_error"
 	end
 end
 
 pub fn request_reason(decision: PingRequestDecision) -> String
 	match decision
-		PingRequestAccepted(_, _) => "none"
-		PingRequestRejected(_, _) => "http2.protocol.invalid_payload_length"
-		PingRequestEncodeFailed(_, reason) => reason
+		PingRequestDecision::Accepted(_, _) => "none"
+		PingRequestDecision::Rejected(_, _) => "http2.protocol.invalid_payload_length"
+		PingRequestDecision::EncodeFailed(_, reason) => reason
 	end
 end
 
 pub fn request_payload_length(decision: PingRequestDecision) -> Int
 	match decision
-		PingRequestAccepted(payload_length, _) => payload_length
-		PingRequestRejected(_, failure) => http2::core::frame_payload_length::failure_observed_length(failure)
-		PingRequestEncodeFailed(payload_length, _) => payload_length
+		PingRequestDecision::Accepted(payload_length, _) => payload_length
+		PingRequestDecision::Rejected(_, failure) => http2::core::frame_payload_length::failure_observed_length(failure)
+		PingRequestDecision::EncodeFailed(payload_length, _) => payload_length
 	end
 end
 
 pub fn request_expected_payload_length(decision: PingRequestDecision) -> Int
 	match decision
-		PingRequestAccepted(_, _) => 8
-		PingRequestRejected(_, failure) => http2::core::frame_payload_length::failure_expected_length(failure)
-		PingRequestEncodeFailed(_, _) => 8
+		PingRequestDecision::Accepted(_, _) => 8
+		PingRequestDecision::Rejected(_, failure) => http2::core::frame_payload_length::failure_expected_length(failure)
+		PingRequestDecision::EncodeFailed(_, _) => 8
 	end
 end
 
 pub fn request_bytes(decision: PingRequestDecision) -> ByteChunk
 	match decision
-		PingRequestAccepted(_, bytes) => bytes
-		PingRequestRejected(_, _) => byte_chunk([])
-		PingRequestEncodeFailed(_, _) => byte_chunk([])
+		PingRequestDecision::Accepted(_, bytes) => bytes
+		PingRequestDecision::Rejected(_, _) => byte_chunk([])
+		PingRequestDecision::EncodeFailed(_, _) => byte_chunk([])
 	end
 end
 
 pub fn request_failure(decision: PingRequestDecision) -> Result<FramePayloadLengthFailure, String>
 	match decision
-		PingRequestAccepted(_, _) => Err("accepted PING request has no failure")
-		PingRequestRejected(_, failure) => Ok(failure)
-		PingRequestEncodeFailed(_, _) => Err("encoded PING request has no protocol failure")
+		PingRequestDecision::Accepted(_, _) => Err("accepted PING request has no failure")
+		PingRequestDecision::Rejected(_, failure) => Ok(failure)
+		PingRequestDecision::EncodeFailed(_, _) => Err("encoded PING request has no protocol failure")
 	end
 end
 
 pub fn request_encode_reason(decision: PingRequestDecision) -> String
 	match decision
-		PingRequestAccepted(_, _) => "none"
-		PingRequestRejected(_, _) => "none"
-		PingRequestEncodeFailed(_, reason) => reason
+		PingRequestDecision::Accepted(_, _) => "none"
+		PingRequestDecision::Rejected(_, _) => "none"
+		PingRequestDecision::EncodeFailed(_, reason) => reason
 	end
 end
 
 pub fn response_status(decision: PingResponseDecision) -> String
 	match decision
-		PingResponseAck(_) => "accepted"
-		PingResponseNoResponse => "no_response"
-		PingResponseEncodeFailed(_) => "encode_error"
+		PingResponseDecision::Ack(_) => "accepted"
+		PingResponseDecision::NoResponse => "no_response"
+		PingResponseDecision::EncodeFailed(_) => "encode_error"
 	end
 end
 
 pub fn response_reason(decision: PingResponseDecision) -> String
 	match decision
-		PingResponseAck(_) => "none"
-		PingResponseNoResponse => "ack_received"
-		PingResponseEncodeFailed(reason) => reason
+		PingResponseDecision::Ack(_) => "none"
+		PingResponseDecision::NoResponse => "ack_received"
+		PingResponseDecision::EncodeFailed(reason) => reason
 	end
 end
 
 pub fn response_bytes(decision: PingResponseDecision) -> ByteChunk
 	match decision
-		PingResponseAck(bytes) => bytes
-		PingResponseNoResponse => byte_chunk([])
-		PingResponseEncodeFailed(_) => byte_chunk([])
+		PingResponseDecision::Ack(bytes) => bytes
+		PingResponseDecision::NoResponse => byte_chunk([])
+		PingResponseDecision::EncodeFailed(_) => byte_chunk([])
 	end
 end
 
 pub fn response_encode_reason(decision: PingResponseDecision) -> String
 	match decision
-		PingResponseAck(_) => "none"
-		PingResponseNoResponse => "none"
-		PingResponseEncodeFailed(reason) => reason
+		PingResponseDecision::Ack(_) => "none"
+		PingResponseDecision::NoResponse => "none"
+		PingResponseDecision::EncodeFailed(reason) => reason
 	end
 end

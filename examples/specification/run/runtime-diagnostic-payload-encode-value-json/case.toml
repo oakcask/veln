@@ -24,7 +24,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(schema.encode_value_unrepresentable, encode value is unrepresentable, RuntimeValueDiagnostic(Cons(RuntimeDiagnosticFieldPathSegment(schema, RuntimeValuePacket), Cons(RuntimeDiagnosticFieldPathSegment(field, value), Nil)), value must be between 0 and 255))"
+equals = "RuntimeDiagnostic(schema.encode_value_unrepresentable, encode value is unrepresentable, ValueDiagnostic(Cons(RuntimeDiagnosticFieldPathSegment(schema, RuntimeValuePacket), Cons(RuntimeDiagnosticFieldPathSegment(field, value), Nil)), value must be between 0 and 255))"
 
 [[json_assert]]
 path = "error.details.value_diagnostic.kind"
@@ -64,7 +64,7 @@ equals = "schema.encode_value_unrepresentable"
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.constructor"
-equals = "RuntimeValueDiagnostic"
+equals = "ValueDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"

@@ -19,8 +19,8 @@ end
 
 fn fixture_read_with(stream: net::Stream, deadline: Deadline, token: CancelToken) -> FixtureReadOutcome effects [net::IO]
 	match net::read_with(stream, Some(deadline), Some(token))
-		Ok(net::ReadChunk(bytes)) => FixtureReadChunk(bytes)
-		Ok(net::ReadEnd) => FixtureReadEnd
+		Ok(net::ReadOutcome::Chunk(bytes)) => FixtureReadChunk(bytes)
+		Ok(net::ReadOutcome::End) => FixtureReadEnd
 		Err(net::NetError(_, _, _, net::TimedOut, _)) => FixtureReadDeadlineExpired
 		Err(net::NetError(_, _, _, net::Cancelled, _)) => FixtureReadCancelled
 		Err(_) => FixtureReadEnd
@@ -44,8 +44,8 @@ end
 
 fn handle_stream_input(input: StreamInput, state: { chunks : Int }) -> { actions : List<ResponseAction>, next_state : { chunks : Int } }
 	match input
-		Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1 } }
-		End => { actions: list_nil(), next_state: state }
+		StreamInput::Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1 } }
+		StreamInput::End => { actions: list_nil(), next_state: state }
 	end
 end
 
@@ -87,7 +87,7 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	let _ = channel::send(route.tx, input)
 	match channel::recv(route.rx)
 		Some(value) => value
-		None => End
+		None => StreamInput::End
 	end
 end
 
@@ -102,17 +102,17 @@ end
 
 fn wait_result_text(outcome: CancellableWaitOutcome) -> String
 	match outcome
-		WaitCompleted => "completed"
-		WaitDeadlineExpired => "deadline-expired"
-		WaitCancelled => "cancelled"
+		CancellableWaitOutcome::Completed => "completed"
+		CancellableWaitOutcome::DeadlineExpired => "deadline-expired"
+		CancellableWaitOutcome::Cancelled => "cancelled"
 	end
 end
 
 fn read_routed_chunk(stream: net::Stream, deadline: Deadline, token: CancelToken, state: { chunks : Int }) -> { actions : List<ResponseAction>, next_state : { chunks : Int } } effects [net::IO, time, concurrency]
 	let route = channel::bounded<StreamInput>(1)
 	match fixture_read_with(stream, deadline, token)
-		FixtureReadChunk(bytes) => handle_stream_input(route_input(route, Chunk(bytes)), state)
-		FixtureReadEnd => handle_stream_input(route_input(route, End), state)
+		FixtureReadChunk(bytes) => handle_stream_input(route_input(route, StreamInput::Chunk(bytes)), state)
+		FixtureReadEnd => handle_stream_input(route_input(route, StreamInput::End), state)
 		FixtureReadDeadlineExpired => { actions: list_nil(), next_state: state }
 		FixtureReadCancelled => { actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
 	end

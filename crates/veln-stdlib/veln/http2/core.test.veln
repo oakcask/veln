@@ -154,7 +154,7 @@ end
 
 fn require_local_settings_failure(decision: LocalSettingsSendDecision) -> Result<LocalSettingsFailure, String>
 	match decision
-		LocalSettingsRejected(failure) => Ok(failure)
+		LocalSettingsSendDecision::Rejected(failure) => Ok(failure)
 		_ => Err("local SETTINGS send did not reject")
 	end
 end
@@ -167,7 +167,7 @@ end
 fn local_setting_rejects(item: LocalSettingsItem, expected_identifier: Int, expected_name: String, expected_observed: Int, expected_min: Int, expected_max: Int) -> Result<Bool, String>
 	let decision = http2::core::send_local_setting(item, "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?
 	match decision
-		LocalSettingsRejected(failure) => Ok(http2::core::local_settings_failure_id(failure) == "http2.peer_limit.settings_value_out_of_range" and http2::core::local_settings_failure_offset(failure) == 0 and http2::core::local_settings_failure_setting_identifier(failure) == expected_identifier and http2::core::local_settings_failure_setting_name(failure) == expected_name and http2::core::local_settings_failure_observed_value(failure) == expected_observed and http2::core::local_settings_failure_accepted_min_value(failure) == expected_min and http2::core::local_settings_failure_accepted_max_value(failure) == expected_max and http2::core::local_settings_failure_peer_limit_provenance(failure) == "local_settings" and byte_count_to_int(byte_chunk_count(http2::core::local_settings_send_bytes(decision))) == 0)
+		LocalSettingsSendDecision::Rejected(failure) => Ok(http2::core::local_settings_failure_id(failure) == "http2.peer_limit.settings_value_out_of_range" and http2::core::local_settings_failure_offset(failure) == 0 and http2::core::local_settings_failure_setting_identifier(failure) == expected_identifier and http2::core::local_settings_failure_setting_name(failure) == expected_name and http2::core::local_settings_failure_observed_value(failure) == expected_observed and http2::core::local_settings_failure_accepted_min_value(failure) == expected_min and http2::core::local_settings_failure_accepted_max_value(failure) == expected_max and http2::core::local_settings_failure_peer_limit_provenance(failure) == "local_settings" and byte_count_to_int(byte_chunk_count(http2::core::local_settings_send_bytes(decision))) == 0)
 		_ => Ok(false)
 	end
 end
@@ -1928,7 +1928,7 @@ end
 test local_settings_send_rejects_client_enable_connect_protocol_without_output() -> Result<(), String>
 	let decision = http2::core::send_local_setting(http2::core::local_settings_enable_connect_protocol(1), "client", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?
 	match decision
-		LocalSettingsRejected(failure) => if http2::core::local_settings_failure_id(failure) == "http2.protocol.settings_not_allowed_for_endpoint" and http2::core::local_settings_failure_setting_identifier(failure) == 8 and http2::core::local_settings_failure_endpoint_role(failure) == "client" and http2::core::local_settings_failure_active_state(failure) == "local-settings" and http2::core::local_settings_failure_rule_provenance(failure) == "rfc8441_only_servers_send_settings_enable_connect_protocol" and byte_count_to_int(byte_chunk_count(http2::core::local_settings_send_bytes(decision))) == 0
+		LocalSettingsSendDecision::Rejected(failure) => if http2::core::local_settings_failure_id(failure) == "http2.protocol.settings_not_allowed_for_endpoint" and http2::core::local_settings_failure_setting_identifier(failure) == 8 and http2::core::local_settings_failure_endpoint_role(failure) == "client" and http2::core::local_settings_failure_active_state(failure) == "local-settings" and http2::core::local_settings_failure_rule_provenance(failure) == "rfc8441_only_servers_send_settings_enable_connect_protocol" and byte_count_to_int(byte_chunk_count(http2::core::local_settings_send_bytes(decision))) == 0
 			Ok(())
 		else
 			Err("client local SETTINGS_ENABLE_CONNECT_PROTOCOL rejection lost context")

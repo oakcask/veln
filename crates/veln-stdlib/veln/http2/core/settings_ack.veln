@@ -24,9 +24,9 @@ pub type SettingsAckFailure
 end
 
 pub type PeerSettingsAckSendDecision
-	PeerSettingsAckSent(SettingsAckState, ByteChunk)
-	PeerSettingsAckNoPending(SettingsAckState)
-	PeerSettingsAckEncodeFailed(SettingsAckState, String)
+	Sent(SettingsAckState, ByteChunk)
+	NoPending(SettingsAckState)
+	EncodeFailed(SettingsAckState, String)
 end
 
 pub fn empty() -> SettingsAckState
@@ -88,10 +88,10 @@ end
 
 pub fn send_pending_peer_ack_with_encoder(state: SettingsAckState, encode_header: fn(Int, Int, Int, Int) -> Result<ByteChunk, String>) -> PeerSettingsAckSendDecision
 	match state
-		SettingsAckState(_, NoPendingPeerSettingsAck) => PeerSettingsAckNoPending(state)
+		SettingsAckState(_, NoPendingPeerSettingsAck) => PeerSettingsAckSendDecision::NoPending(state)
 		SettingsAckState(outstanding_settings, PendingPeerSettingsAck) => match encode_header(0, 4, 1, 0)
-			Ok(header) => PeerSettingsAckSent(SettingsAckState(outstanding_settings, NoPendingPeerSettingsAck), header)
-			Err(reason) => PeerSettingsAckEncodeFailed(state, reason)
+			Ok(header) => PeerSettingsAckSendDecision::Sent(SettingsAckState(outstanding_settings, NoPendingPeerSettingsAck), header)
+			Err(reason) => PeerSettingsAckSendDecision::EncodeFailed(state, reason)
 		end
 	end
 end
@@ -170,33 +170,33 @@ end
 
 pub fn send_status(decision: PeerSettingsAckSendDecision) -> String
 	match decision
-		PeerSettingsAckSent(_, _) => "accepted"
-		PeerSettingsAckNoPending(_) => "no_pending"
-		PeerSettingsAckEncodeFailed(_, _) => "encode_error"
+		PeerSettingsAckSendDecision::Sent(_, _) => "accepted"
+		PeerSettingsAckSendDecision::NoPending(_) => "no_pending"
+		PeerSettingsAckSendDecision::EncodeFailed(_, _) => "encode_error"
 	end
 end
 
 pub fn send_state(decision: PeerSettingsAckSendDecision) -> SettingsAckState
 	match decision
-		PeerSettingsAckSent(state, _) => state
-		PeerSettingsAckNoPending(state) => state
-		PeerSettingsAckEncodeFailed(state, _) => state
+		PeerSettingsAckSendDecision::Sent(state, _) => state
+		PeerSettingsAckSendDecision::NoPending(state) => state
+		PeerSettingsAckSendDecision::EncodeFailed(state, _) => state
 	end
 end
 
 pub fn send_bytes(decision: PeerSettingsAckSendDecision) -> ByteChunk
 	match decision
-		PeerSettingsAckSent(_, bytes) => bytes
-		PeerSettingsAckNoPending(_) => byte_chunk([])
-		PeerSettingsAckEncodeFailed(_, _) => byte_chunk([])
+		PeerSettingsAckSendDecision::Sent(_, bytes) => bytes
+		PeerSettingsAckSendDecision::NoPending(_) => byte_chunk([])
+		PeerSettingsAckSendDecision::EncodeFailed(_, _) => byte_chunk([])
 	end
 end
 
 pub fn send_encode_reason(decision: PeerSettingsAckSendDecision) -> String
 	match decision
-		PeerSettingsAckSent(_, _) => "none"
-		PeerSettingsAckNoPending(_) => "none"
-		PeerSettingsAckEncodeFailed(_, reason) => reason
+		PeerSettingsAckSendDecision::Sent(_, _) => "none"
+		PeerSettingsAckSendDecision::NoPending(_) => "none"
+		PeerSettingsAckSendDecision::EncodeFailed(_, reason) => reason
 	end
 end
 

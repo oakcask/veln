@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[schema.truncated_field]: decode error at byte offset 6", "note: Field path: schema `Http2FrameHeaderWire` / field `stream_id`.", "note: DecodeError value: DecodeError(schema.truncated_field, ByteOffset(6), Http2FrameHeaderWire.stream_id)."]
+contains = ["error[schema.truncated_field]: decode error at byte offset 6", "note: Field path: schema `Http2FrameHeaderWire` / field `stream_id`.", "note: DecodeError value: WithoutReason(schema.truncated_field, ByteOffset(6), Http2FrameHeaderWire.stream_id)."]

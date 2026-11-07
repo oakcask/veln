@@ -74,25 +74,25 @@ end
 
 fn require_hello(outcome: net::ReadOutcome) -> Result<(), net::NetError>
 	match outcome
-		net::ReadChunk(observed) => match byte_chunk_to_visible_ascii_string(observed)
+		net::ReadOutcome::Chunk(observed) => match byte_chunk_to_visible_ascii_string(observed)
 			Ok("hello") => Ok(())
 			_ => Err(net::NetError("read", None, None, net::Other, "unexpected bytes"))
 		end
-		net::ReadEnd => Err(net::NetError("read", None, None, net::Other, "unexpected end"))
+		net::ReadOutcome::End => Err(net::NetError("read", None, None, net::Other, "unexpected end"))
 	end
 end
 
 fn require_end(outcome: net::ReadOutcome) -> Result<(), net::NetError>
 	match outcome
-		net::ReadEnd => Ok(())
+		net::ReadOutcome::End => Ok(())
 		_ => Err(net::NetError("read", None, None, net::Other, "missing peer end"))
 	end
 end
 
 fn require_data(outcome: net::ReadOutcome) -> Result<(), net::NetError>
 	match outcome
-		net::ReadChunk(_) => Ok(())
-		net::ReadEnd => Err(net::NetError("read", None, None, net::Other, "write peer ended before receiving data"))
+		net::ReadOutcome::Chunk(_) => Ok(())
+		net::ReadOutcome::End => Err(net::NetError("read", None, None, net::Other, "write peer ended before receiving data"))
 	end
 end
 

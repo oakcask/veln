@@ -2,7 +2,7 @@
 
 pub fn main() -> DecodeStep<Int>
 	match byte_offset(24)
-		Ok(offset) => Invalid(DecodeErrorWithReason("codec.padding_mismatch", offset, "ManualPacketWire.padding", "expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary"))
+		Ok(offset) => Invalid(WithReason("codec.padding_mismatch", offset, "ManualPacketWire.padding", "expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary"))
 		Err(_) => NeedMore(NeedEnd)
 	end
 end

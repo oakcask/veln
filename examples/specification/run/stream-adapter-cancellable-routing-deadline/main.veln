@@ -12,8 +12,8 @@ end
 
 fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match input
-		Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
-		End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
+		StreamInput::Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		StreamInput::End => { actions: list_cons(EndStream(stream_id), list_nil()), next_state: { chunks: state.chunks, ended: true } }
 	end
 end
 
@@ -22,13 +22,13 @@ fn route_with_cancellable_wait(stream_id: Int, input: StreamInput, state: { chun
 	let _ = channel::send(route.tx, input)
 	let selected = match channel::recv(route.rx)
 		Some(value) => value
-		None => End
+		None => StreamInput::End
 	end
 	let handled = handle_stream_input(stream_id, selected, state)
 	match time::wait_until_cancellable_outcome(deadline, token)
-		WaitCompleted => { outcome: "completed", actions: handled.actions, next_state: handled.next_state }
-		WaitDeadlineExpired => { outcome: "deadline-expired", actions: list_cons(RetryAfterDeadline(stream_id), handled.actions), next_state: handled.next_state }
-		WaitCancelled => { outcome: "cancelled", actions: list_cons(CleanupAfterCancel(stream_id), handled.actions), next_state: handled.next_state }
+		CancellableWaitOutcome::Completed => { outcome: "completed", actions: handled.actions, next_state: handled.next_state }
+		CancellableWaitOutcome::DeadlineExpired => { outcome: "deadline-expired", actions: list_cons(RetryAfterDeadline(stream_id), handled.actions), next_state: handled.next_state }
+		CancellableWaitOutcome::Cancelled => { outcome: "cancelled", actions: list_cons(CleanupAfterCancel(stream_id), handled.actions), next_state: handled.next_state }
 	end
 end
 
@@ -48,7 +48,7 @@ fn fixture_body() -> Result<(), String> effects [time, concurrency, stdio]
 	let payload = byte_chunk_from_hex("0c0d0e")?
 	let deadline = time::deadline_after_ms(5)
 	let token = time::cancel_token()
-	let routed = route_with_cancellable_wait(9, Chunk(payload), { chunks: 0, ended: false }, deadline, token)
+	let routed = route_with_cancellable_wait(9, StreamInput::Chunk(payload), { chunks: 0, ended: false }, deadline, token)
 	stdio::print(routed.outcome)
 	stdio::print(" score ")
 	stdio::print(int_to_string(action_score(routed.actions)))

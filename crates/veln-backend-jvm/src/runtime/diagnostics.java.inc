@@ -328,7 +328,7 @@
     }
 
     private static ByteDiagnostic runtimeByteDiagnostic(String id, Object detail) {
-        if (!isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeByteDiagnostic")) {
+        if (!isAdtNamed(detail, "RuntimeDiagnosticDetail::ByteDiagnostic")) {
             return null;
         }
         Adt byteDetail = (Adt) detail;
@@ -352,7 +352,7 @@
 
     private static ValueDiagnostic runtimeValueDiagnostic(String id, Object detail) {
         if (!isCommandEncodeDiagnosticId(id)
-            || !isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeValueDiagnostic")) {
+            || !isAdtNamed(detail, "RuntimeDiagnosticDetail::ValueDiagnostic")) {
             return null;
         }
         Adt valueDetail = (Adt) detail;
@@ -373,11 +373,11 @@
     }
 
     private static ProtocolDiagnostic runtimeProtocolDiagnostic(String id, Object detail) {
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2HpackDiagnostic")) {
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::Http2HpackDiagnostic")) {
             Adt envelope = (Adt) detail;
             return runtimeHpackFixtureDiagnostic(id, envelope.payloads[0]);
         }
-        if (!isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2Diagnostic")) {
+        if (!isAdtNamed(detail, "RuntimeDiagnosticDetail::Http2Diagnostic")) {
             return null;
         }
         Adt envelope = (Adt) detail;
@@ -385,16 +385,16 @@
     }
 
     private static ProtocolDiagnostic runtimeHpackFixtureDiagnostic(String id, Object detail) {
-        if (isAdtNamed(detail, "HpackDiagnosticDetail::RuntimeHpackFixtureDiagnostic")) {
+        if (isAdtNamed(detail, "HpackDiagnosticDetail::Diagnostic")) {
             return runtimeHpackFixtureCommonDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "HpackDiagnosticDetail::RuntimeHpackFixtureDynamicIndexDiagnostic")) {
+        if (isAdtNamed(detail, "HpackDiagnosticDetail::DynamicIndexDiagnostic")) {
             return runtimeHpackFixtureDynamicIndexDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "HpackDiagnosticDetail::RuntimeHpackFixtureDynamicNameDiagnostic")) {
+        if (isAdtNamed(detail, "HpackDiagnosticDetail::DynamicNameDiagnostic")) {
             return runtimeHpackFixtureDynamicNameDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "HpackDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic")) {
+        if (isAdtNamed(detail, "HpackDiagnosticDetail::TableSizeUpdateDiagnostic")) {
             return runtimeHpackFixtureTableSizeUpdateDiagnostic(id, (Adt) detail);
         }
         return null;
@@ -530,76 +530,76 @@
     }
 
     private static ProtocolDiagnostic runtimeHttp2ProtocolDiagnostic(String id, Object detail) {
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolClosedWithPendingDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolClosedWithPendingDiagnostic")) {
             return runtimeHttp2ProtocolClosedWithPendingDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolPartialPrefaceDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolPartialPrefaceDiagnostic")) {
             return runtimeHttp2ProtocolPartialPrefaceDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidPrefaceDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolInvalidPrefaceDiagnostic")) {
             return runtimeHttp2ProtocolInvalidPrefaceDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolInitialPeerSettingsRequiredDiagnostic")) {
             return runtimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolContinuationExpectedDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolContinuationExpectedDiagnostic")) {
             return runtimeHttp2ProtocolContinuationExpectedDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidFrameKindDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolInvalidFrameKindDiagnostic")) {
             return runtimeHttp2ProtocolInvalidFrameKindDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidStreamIdDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolInvalidStreamIdDiagnostic")) {
             return runtimeHttp2ProtocolInvalidStreamIdDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolPeerStreamIdNotIncreasingDiagnostic")) {
             return runtimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2PeerLimitFrameSizeDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::PeerLimitFrameSizeDiagnostic")) {
             return runtimeHttp2PeerLimitFrameSizeDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2PeerLimitHeaderListSizeDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::PeerLimitHeaderListSizeDiagnostic")) {
             return runtimeHttp2PeerLimitHeaderListSizeDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::PeerLimitHeaderTableSizeDiagnostic")) {
             return runtimeHttp2PeerLimitHeaderTableSizeDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::PeerLimitConcurrentStreamsDiagnostic")) {
             return runtimeHttp2PeerLimitConcurrentStreamsDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2PeerLimitSettingsValueDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::PeerLimitSettingsValueDiagnostic")) {
             return runtimeHttp2PeerLimitSettingsValueDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolInvalidPayloadLengthDiagnostic")) {
             return runtimeHttp2ProtocolInvalidPayloadLengthDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolInvalidDataPaddingDiagnostic")) {
             return runtimeHttp2ProtocolInvalidDataPaddingDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2PeerLimitFlowControlWindowDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::PeerLimitFlowControlWindowDiagnostic")) {
             return runtimeHttp2PeerLimitFlowControlWindowDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolContentLengthMismatchDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolContentLengthMismatchDiagnostic")) {
             return runtimeHttp2ProtocolContentLengthMismatchDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolInvalidRequestHeaderListDiagnostic")) {
             return runtimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolInvalidResponseHeaderListDiagnostic")) {
             return runtimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolInvalidWindowUpdateIncrementDiagnostic")) {
             return runtimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolUnexpectedSettingsAckDiagnostic")) {
             return runtimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolSettingsNotAllowedForEndpointDiagnostic")) {
             return runtimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolPriorityDependencyDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolPriorityDependencyDiagnostic")) {
             return runtimeHttp2ProtocolPriorityDependencyDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::ProtocolStreamAfterGoawayDiagnostic")) {
             return runtimeHttp2ProtocolStreamAfterGoawayDiagnostic(id, (Adt) detail);
         }
         return null;
@@ -1389,26 +1389,26 @@
     private static java.util.ArrayList<DiagnosticDetail> runtimeByteDiagnosticFacts(Object value) {
         java.util.ArrayList<DiagnosticDetail> details =
             new java.util.ArrayList<DiagnosticDetail>();
-        if (isAdtNamed(value, "RuntimeByteDiagnosticFacts::RuntimeByteCountFacts")) {
+        if (isAdtNamed(value, "RuntimeByteDiagnosticFacts::CountFacts")) {
             Adt facts = (Adt) value;
             details.add(DiagnosticDetail.number("expected_count", byteCountLong(facts.payloads[0])));
             details.add(DiagnosticDetail.number("available_count", byteCountLong(facts.payloads[1])));
             details.add(DiagnosticDetail.string("readiness", asString(facts.payloads[2])));
             return details;
         }
-        if (isAdtNamed(value, "RuntimeByteDiagnosticFacts::RuntimeByteRangeFacts")) {
+        if (isAdtNamed(value, "RuntimeByteDiagnosticFacts::RangeFacts")) {
             Adt facts = (Adt) value;
             details.add(DiagnosticDetail.number("requested_count", byteCountLong(facts.payloads[0])));
             details.add(DiagnosticDetail.number("available_count", byteCountLong(facts.payloads[1])));
             return details;
         }
-        if (isAdtNamed(value, "RuntimeByteDiagnosticFacts::RuntimeByteFixedValueFacts")) {
+        if (isAdtNamed(value, "RuntimeByteDiagnosticFacts::FixedValueFacts")) {
             Adt facts = (Adt) value;
             details.add(DiagnosticDetail.number("expected_value", asLong(facts.payloads[0])));
             details.add(DiagnosticDetail.number("actual_value", asLong(facts.payloads[1])));
             return details;
         }
-        if (isAdtNamed(value, "RuntimeByteDiagnosticFacts::RuntimeByteReasonFacts")) {
+        if (isAdtNamed(value, "RuntimeByteDiagnosticFacts::ReasonFacts")) {
             Adt facts = (Adt) value;
             details.add(DiagnosticDetail.string("reason", asString(facts.payloads[0])));
             return details;
@@ -2078,8 +2078,8 @@
     }
 
     private static ByteDiagnostic decodeErrorByteDiagnostic(Object value) {
-        if (!isAdtNamed(value, "DecodeError::DecodeError")
-            && !isAdtNamed(value, "DecodeError::DecodeErrorWithReason")) {
+        if (!isAdtNamed(value, "DecodeError::WithoutReason")
+            && !isAdtNamed(value, "DecodeError::WithReason")) {
             return null;
         }
         Adt error = (Adt) value;
@@ -2088,7 +2088,7 @@
         String fieldPath = asString(error.payloads[2]);
         java.util.ArrayList<DiagnosticDetail> details =
             new java.util.ArrayList<DiagnosticDetail>();
-        if (isAdtNamed(value, "DecodeError::DecodeErrorWithReason")) {
+        if (isAdtNamed(value, "DecodeError::WithReason")) {
             Object reasonValue = error.payloads[3];
             String reason = asString(reasonValue);
             if (id.equals("codec.checksum_mismatch")) {

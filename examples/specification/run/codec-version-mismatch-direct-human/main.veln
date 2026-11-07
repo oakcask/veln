@@ -13,5 +13,5 @@ fn offset(value: Int) -> ByteOffset
 end
 
 pub fn main() -> Result<(), DecodeError>
-	Err(DecodeErrorWithReason("codec.version_mismatch", offset(3), "ManualPacketWire.version", "expected_version=2; actual_version=1; reason=codec version is not supported"))
+	Err(WithReason("codec.version_mismatch", offset(3), "ManualPacketWire.version", "expected_version=2; actual_version=1; reason=codec version is not supported"))
 end

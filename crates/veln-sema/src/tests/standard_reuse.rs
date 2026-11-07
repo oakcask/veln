@@ -558,6 +558,25 @@ fn embedded_reusable_standard_environment_detects_current_identity() {
 }
 
 #[test]
+fn valid_type_qualified_constructors_bypass_import_recovery_scans() {
+    let _guard = standard_reuse_test_lock();
+    for count in [1, 64] {
+        let mut text = String::new();
+        for index in 0..count {
+            text.push_str(&format!(
+                "type Choice{index}\n  Ready\nend\nfn choice_{index}() -> Choice{index}\n  Choice{index}::Ready\nend\n"
+            ));
+        }
+        let source = SourceFile::new("main.veln", text);
+        let module = lower_surface_ast(&parse(&source).tree);
+        crate::types::reset_recovery_fact_declaration_visits();
+        let _ = TypeEnvironment::from_module(&module);
+        assert_eq!(crate::types::take_recovery_fact_declaration_visits(), 0);
+        assert!(analyze_surface_module(&module).is_empty());
+    }
+}
+
+#[test]
 fn embedded_reusable_standard_environment_has_current_identity_and_reuses_application_facts() {
     let _guard = standard_reuse_test_lock();
     crate::standard_reuse_counters::reset();

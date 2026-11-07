@@ -12,8 +12,8 @@ end
 
 fn handle_stream_event(context: { input : StreamInput, state : { chunks : Int, ended : Bool }, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } }) -> { action : ResponseAction, next_state : { chunks : Int, ended : Bool }, event_kind : String, byte_count : Int, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } }
 	match context.input
-		Chunk(bytes) => { action: SendBytes(bytes), next_state: { chunks: context.state.chunks + 1, ended: context.state.ended }, event_kind: "chunk", byte_count: byte_count_to_int(byte_chunk_count(bytes)), route: context.route, trace: context.trace }
-		End => { action: EndStream, next_state: { chunks: context.state.chunks, ended: true }, event_kind: "end", byte_count: 0, route: context.route, trace: context.trace }
+		StreamInput::Chunk(bytes) => { action: SendBytes(bytes), next_state: { chunks: context.state.chunks + 1, ended: context.state.ended }, event_kind: "chunk", byte_count: byte_count_to_int(byte_chunk_count(bytes)), route: context.route, trace: context.trace }
+		StreamInput::End => { action: EndStream, next_state: { chunks: context.state.chunks, ended: true }, event_kind: "end", byte_count: 0, route: context.route, trace: context.trace }
 	end
 end
 
@@ -25,14 +25,14 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	let _ = channel::send(route.tx, input)
 	match channel::recv(route.rx)
 		Some(value) => value
-		None => End
+		None => StreamInput::End
 	end
 end
 
 fn read_stream_input(stream: net::Stream) -> StreamInput effects [net::IO]
 	match read_chunk_optional(stream)
-		Some(bytes) => Chunk(bytes)
-		None => End
+		Some(bytes) => StreamInput::Chunk(bytes)
+		None => StreamInput::End
 	end
 end
 
@@ -97,8 +97,8 @@ fn collect_until_end(stream: net::Stream, channel_route: { tx : Sender<StreamInp
 	let input = route_input(channel_route, read_stream_input(stream))
 	let result = handle_routed_input(input, state, adapter_route, { trace_id: "trace-prod", sequence: state.chunks + 1 })
 	match input
-		Chunk(_) => append_summary(result, collect_until_end(stream, channel_route, adapter_route, result.next_state))
-		End => summary_from_result(result)
+		StreamInput::Chunk(_) => append_summary(result, collect_until_end(stream, channel_route, adapter_route, result.next_state))
+		StreamInput::End => summary_from_result(result)
 	end
 end
 
@@ -189,7 +189,7 @@ end
 
 fn read_chunk_optional(stream: net::Stream) -> Option<ByteChunk> effects [net::IO]
 	match net::read(stream)
-		Ok(net::ReadChunk(bytes)) => Some(bytes)
+		Ok(net::ReadOutcome::Chunk(bytes)) => Some(bytes)
 		_ => None
 	end
 end

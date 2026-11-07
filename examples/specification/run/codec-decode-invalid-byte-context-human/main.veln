@@ -18,7 +18,7 @@ end
 fn decode_manual_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int, payload: ByteView}>
 	match byte_read_u16_be(input)
 		Ok(length) => decode_payload(input, base, length)
-		Err(message) => Invalid(DecodeError(message, base, "ManualPacketWire.length"))
+		Err(message) => Invalid(WithoutReason(message, base, "ManualPacketWire.length"))
 	end
 end
 
@@ -28,13 +28,13 @@ fn decode_payload(input: ByteView, base: ByteOffset, length: Int) -> DecodeStep<
 			Ok(payload_count) => match byte_view_slice(input, local_payload, payload_count)
 				Ok(payload) => match byte_count(length + 2)
 					Ok(consumed) => Decoded({length: length, payload: payload}, consumed)
-					Err(message) => Invalid(DecodeError(message, absolute_offset(base, 2), "ManualPacketWire.payload"))
+					Err(message) => Invalid(WithoutReason(message, absolute_offset(base, 2), "ManualPacketWire.payload"))
 				end
-				Err(message) => Invalid(DecodeErrorWithReason("codec.invalid_input", absolute_offset(base, 2), "ManualPacketWire.payload", message))
+				Err(message) => Invalid(WithReason("codec.invalid_input", absolute_offset(base, 2), "ManualPacketWire.payload", message))
 			end
-			Err(message) => Invalid(DecodeError(message, base, "ManualPacketWire.payload"))
+			Err(message) => Invalid(WithoutReason(message, base, "ManualPacketWire.payload"))
 		end
-		Err(message) => Invalid(DecodeError(message, base, "ManualPacketWire.payload"))
+		Err(message) => Invalid(WithoutReason(message, base, "ManualPacketWire.payload"))
 	end
 end
 

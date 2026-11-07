@@ -12,5 +12,5 @@ fn offset(value: Int) -> ByteOffset
 end
 
 pub fn main() -> Result<(), DecodeError>
-	Err(DecodeErrorWithReason("codec.unsupported_feature", offset(27), "ManualPacketWire.extension", "feature=dynamic_table_size_update; reason=dynamic table size updates are disabled for this profile"))
+	Err(WithReason("codec.unsupported_feature", offset(27), "ManualPacketWire.extension", "feature=dynamic_table_size_update; reason=dynamic table size updates are disabled for this profile"))
 end

@@ -182,13 +182,13 @@ fn scripted_read(stream: net::Stream, expected: net::Stream, mode: String, trace
 		Err(failure("wrong-stream", "read used a stream other than the captured stream"))
 	else if mode == "data"
 		match byte_chunk_from_visible_ascii_string("data")
-			Ok(bytes) => Ok(net::ReadChunk(bytes))
+			Ok(bytes) => Ok(net::ReadOutcome::Chunk(bytes))
 			Err(message) => Err(failure("fixture", message))
 		end
 	else if mode == "end"
-		Ok(net::ReadEnd)
+		Ok(net::ReadOutcome::End)
 	else if mode == "empty"
-		Ok(net::ReadChunk(byte_chunk([])))
+		Ok(net::ReadOutcome::Chunk(byte_chunk([])))
 	else
 		Err(failure("scripted-read", "read failed"))
 	end

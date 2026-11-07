@@ -20,12 +20,12 @@ end
 
 fn emit_accepted_stream(stream: net::Stream) -> Result<(), net::NetError> effects [net::IO, stdio]
 	match net::read(stream)?
-		net::ReadChunk(incoming) => begin
+		net::ReadOutcome::Chunk(incoming) => begin
 			stdio::print("accepted ")
 			stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
 			Ok(())
 		end
-		net::ReadEnd => begin
+		net::ReadOutcome::End => begin
 			stdio::println("accepted 0")
 			Ok(())
 		end

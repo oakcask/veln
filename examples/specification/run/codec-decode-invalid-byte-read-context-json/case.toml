@@ -32,7 +32,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.message"
-equals = "runtime result failure: Err(DecodeErrorWithReason(codec.invalid_input, ByteOffset(42), ManualPacketWire.checksum, byte read requires 4 bytes but view has 3))"
+equals = "runtime result failure: Err(WithReason(codec.invalid_input, ByteOffset(42), ManualPacketWire.checksum, byte read requires 4 bytes but view has 3))"
 
 [[json_assert]]
 path = "error.details.phase"
@@ -44,7 +44,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "DecodeErrorWithReason(codec.invalid_input, ByteOffset(42), ManualPacketWire.checksum, byte read requires 4 bytes but view has 3)"
+equals = "WithReason(codec.invalid_input, ByteOffset(42), ManualPacketWire.checksum, byte read requires 4 bytes but view has 3)"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.kind"

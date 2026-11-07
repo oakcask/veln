@@ -390,8 +390,8 @@ clock correction remain observable. `Deadline` and `time::monotonic_ms` own
 duration and ordering behavior. Cancellation owners can create observer tokens
 with `time::cancel_token_from`; only the owner can cancel such a token through
 `time::cancel_owned`. Direct tokens remain cancellable through `time::cancel`.
-The cancellable wait outcome reports `WaitCompleted`, `WaitDeadlineExpired`,
-or `WaitCancelled` as an ordinary value.
+The cancellable wait outcome reports `Completed`, `DeadlineExpired`,
+or `Cancelled` as an ordinary value.
 
 ## Scoped host adapters
 

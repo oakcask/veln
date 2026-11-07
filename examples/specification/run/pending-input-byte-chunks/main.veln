@@ -21,8 +21,8 @@ end
 
 fn append_input(event: StreamInput, state: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }) -> Result<{ pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }, String>
 	match event
-		Chunk(bytes) => append_chunk(bytes, state)
-		End => Ok(state)
+		StreamInput::Chunk(bytes) => append_chunk(bytes, state)
+		StreamInput::End => Ok(state)
 	end
 end
 
@@ -108,10 +108,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let limit = byte_count(5)?
 	let initial = { pending: empty, next_offset: initial_offset, limit: limit }
 	let first_chunk = byte_chunk_from_hex("000102")?
-	let first = append_input(Chunk(first_chunk), initial)?
+	let first = append_input(StreamInput::Chunk(first_chunk), initial)?
 	let second_chunk = byte_chunk_from_hex("0304")?
-	let ready = append_input(Chunk(second_chunk), first)?
-	let ended = append_input(End, ready)?
+	let ready = append_input(StreamInput::Chunk(second_chunk), first)?
+	let ended = append_input(StreamInput::End, ready)?
 	emit_pending("pending", ended)
 
 	let consumed_count = byte_count(2)?
@@ -131,7 +131,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(byte_read_u16_be(materialized_view)?))
 
 	let overflowing_chunk = byte_chunk_from_hex("050607")?
-	let limit_result = append_input(Chunk(overflowing_chunk), consumed.next_state)
+	let limit_result = append_input(StreamInput::Chunk(overflowing_chunk), consumed.next_state)
 	let _ = match limit_result
 		Ok(_) => stdio::println("limit ok")
 		Err(error) => stdio::println(error)

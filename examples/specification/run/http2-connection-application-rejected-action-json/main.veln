@@ -31,7 +31,7 @@ end
 
 fn handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
 	let stream_id = http2::core::application_event_stream_id(event)
-	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(stream_id, response_headers()?, false), list_cons(Http2ApplicationAction::Http2SendResponseData(stream_id, byte_chunk_from_hex("0a0b")?, true), list_nil())))
+	Ok(list_cons(Http2ApplicationAction::Headers(stream_id, response_headers()?, false), list_cons(Http2ApplicationAction::Data(stream_id, byte_chunk_from_hex("0a0b")?, true), list_nil())))
 end
 
 fn run_server(stream: net::Stream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net::IO]

@@ -32,7 +32,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.message"
-equals = "runtime result failure: Err(DecodeErrorWithReason(codec.padding_mismatch, ByteOffset(24), ManualPacketWire.padding, expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary))"
+equals = "runtime result failure: Err(WithReason(codec.padding_mismatch, ByteOffset(24), ManualPacketWire.padding, expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary))"
 
 [[json_assert]]
 path = "error.details.phase"
@@ -44,7 +44,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "DecodeErrorWithReason(codec.padding_mismatch, ByteOffset(24), ManualPacketWire.padding, expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary)"
+equals = "WithReason(codec.padding_mismatch, ByteOffset(24), ManualPacketWire.padding, expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary)"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.kind"

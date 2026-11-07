@@ -39,7 +39,7 @@ fn byte_result_failure_diagnostic_projects_unsupported_feature_reason() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.unsupported_feature, ByteOffset(27), ManualPacketWire.extension, feature=dynamic_table_size_update; reason=dynamic table size updates are disabled for this profile)".to_string(),
+        "WithReason(codec.unsupported_feature, ByteOffset(27), ManualPacketWire.extension, feature=dynamic_table_size_update; reason=dynamic table size updates are disabled for this profile)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -64,7 +64,7 @@ fn byte_result_failure_diagnostic_projects_unsupported_feature_reason() {
     );
     assert_eq!(
         diagnostic.related[3].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.unsupported_feature, ByteOffset(27), ManualPacketWire.extension, feature=dynamic_table_size_update; reason=dynamic table size updates are disabled for this profile).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.unsupported_feature, ByteOffset(27), ManualPacketWire.extension, feature=dynamic_table_size_update; reason=dynamic table size updates are disabled for this profile).\"}"
     );
 }
 
@@ -106,7 +106,7 @@ fn byte_result_failure_diagnostic_projects_trailing_input_reason() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.trailing_input, ByteOffset(5), ManualPacketWire.payload, consumed_count=5; available_count=8; remaining_count=3; reason=packet decoder completed before the bounded input ended)".to_string(),
+        "WithReason(codec.trailing_input, ByteOffset(5), ManualPacketWire.payload, consumed_count=5; available_count=8; remaining_count=3; reason=packet decoder completed before the bounded input ended)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -128,7 +128,7 @@ fn byte_result_failure_diagnostic_projects_trailing_input_reason() {
     );
     assert_eq!(
         diagnostic.related[3].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.trailing_input, ByteOffset(5), ManualPacketWire.payload, consumed_count=5; available_count=8; remaining_count=3; reason=packet decoder completed before the bounded input ended).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.trailing_input, ByteOffset(5), ManualPacketWire.payload, consumed_count=5; available_count=8; remaining_count=3; reason=packet decoder completed before the bounded input ended).\"}"
     );
 }
 
@@ -167,7 +167,7 @@ fn byte_result_failure_diagnostic_preserves_plain_trailing_input_reason() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.trailing_input, ByteOffset(7), ManualPacketWire.payload, bounded input has trailing bytes)".to_string(),
+        "WithReason(codec.trailing_input, ByteOffset(7), ManualPacketWire.payload, bounded input has trailing bytes)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -185,7 +185,7 @@ fn byte_result_failure_diagnostic_preserves_plain_trailing_input_reason() {
     );
     assert_eq!(
         diagnostic.related[2].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.trailing_input, ByteOffset(7), ManualPacketWire.payload, bounded input has trailing bytes).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.trailing_input, ByteOffset(7), ManualPacketWire.payload, bounded input has trailing bytes).\"}"
     );
 }
 
@@ -226,7 +226,7 @@ fn byte_result_failure_diagnostic_projects_version_mismatch_reason() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.version_mismatch, ByteOffset(3), ManualPacketWire.version, expected_version=2; actual_version=1; reason=codec version is not supported)".to_string(),
+        "WithReason(codec.version_mismatch, ByteOffset(3), ManualPacketWire.version, expected_version=2; actual_version=1; reason=codec version is not supported)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -248,7 +248,7 @@ fn byte_result_failure_diagnostic_projects_version_mismatch_reason() {
     );
     assert_eq!(
         diagnostic.related[3].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.version_mismatch, ByteOffset(3), ManualPacketWire.version, expected_version=2; actual_version=1; reason=codec version is not supported).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.version_mismatch, ByteOffset(3), ManualPacketWire.version, expected_version=2; actual_version=1; reason=codec version is not supported).\"}"
     );
 }
 
@@ -292,7 +292,7 @@ fn byte_result_failure_diagnostic_projects_consumed_count_invalid_reason() {
         ),
     ]);
     let failure = TestFailure::result_with_details(
-        "DecodeErrorWithReason(codec.consumed_count_invalid, ByteOffset(21), ManualPacketWire.count, available_count=3; actual_consumed_count=5; reason=decoder consumed beyond the supplied view)".to_string(),
+        "WithReason(codec.consumed_count_invalid, ByteOffset(21), ManualPacketWire.count, available_count=3; actual_consumed_count=5; reason=decoder consumed beyond the supplied view)".to_string(),
         None,
         Some(byte_diagnostic),
         None,
@@ -321,6 +321,6 @@ fn byte_result_failure_diagnostic_projects_consumed_count_invalid_reason() {
     );
     assert_eq!(
         diagnostic.related[3].to_json(),
-        "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.consumed_count_invalid, ByteOffset(21), ManualPacketWire.count, available_count=3; actual_consumed_count=5; reason=decoder consumed beyond the supplied view).\"}"
+        "{\"message\":\"DecodeError value: WithReason(codec.consumed_count_invalid, ByteOffset(21), ManualPacketWire.count, available_count=3; actual_consumed_count=5; reason=decoder consumed beyond the supplied view).\"}"
     );
 }

@@ -393,7 +393,7 @@ fn is_decode_error_result_failure(failure: &TestFailure) -> bool {
     result_failure_value(failure)
         .as_deref()
         .is_some_and(|value| {
-            value.starts_with("DecodeError(") || value.starts_with("DecodeErrorWithReason(")
+            value.starts_with("WithoutReason(") || value.starts_with("WithReason(")
         })
 }
 

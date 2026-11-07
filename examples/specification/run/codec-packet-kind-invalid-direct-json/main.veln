@@ -1,4 +1,4 @@
-# Direct packet-kind DecodeErrorWithReason failures populate byte_diagnostic JSON.
+# Direct packet-kind WithReason failures populate byte_diagnostic JSON.
 
 schema ManualPacketWire
 	format binary
@@ -12,5 +12,5 @@ fn offset(value: Int) -> ByteOffset
 end
 
 pub fn main() -> Result<(), DecodeError>
-	Err(DecodeErrorWithReason("codec.packet_kind_invalid", offset(62), "ManualPacketWire.kind", "packet kind 7 is not accepted"))
+	Err(WithReason("codec.packet_kind_invalid", offset(62), "ManualPacketWire.kind", "packet kind 7 is not accepted"))
 end

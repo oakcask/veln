@@ -35,7 +35,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         &[("id", Text), ("message", Text), ("detail", Value)],
     ),
     (
-        "RuntimeByteDiagnostic",
+        "ByteDiagnostic",
         &[
             ("byte_offset", Value),
             ("field_path", List),
@@ -43,14 +43,11 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
             ("preview", Value),
         ],
     ),
+    ("ValueDiagnostic", &[("field_path", List), ("reason", Text)]),
+    ("Http2Diagnostic", &[("detail", Value)]),
+    ("Http2HpackDiagnostic", &[("detail", Value)]),
     (
-        "RuntimeValueDiagnostic",
-        &[("field_path", List), ("reason", Text)],
-    ),
-    ("RuntimeHttp2Diagnostic", &[("detail", Value)]),
-    ("RuntimeHttp2HpackDiagnostic", &[("detail", Value)]),
-    (
-        "RuntimeHpackFixtureDiagnostic",
+        "Diagnostic",
         &[
             ("byte_offset", Value),
             ("observed_header_block_size", Value),
@@ -61,20 +58,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHpackFixtureDynamicIndexDiagnostic",
-        &[
-            ("byte_offset", Value),
-            ("observed_header_block_size", Value),
-            ("observed_first_byte", Value),
-            ("requested_dynamic_index", Value),
-            ("dynamic_table_entry_count", Value),
-            ("expected_fixture", Text),
-            ("codec_module", Text),
-            ("preview", Value),
-        ],
-    ),
-    (
-        "RuntimeHpackFixtureDynamicNameDiagnostic",
+        "DynamicIndexDiagnostic",
         &[
             ("byte_offset", Value),
             ("observed_header_block_size", Value),
@@ -87,7 +71,20 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHpackFixtureTableSizeUpdateDiagnostic",
+        "DynamicNameDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("observed_header_block_size", Value),
+            ("observed_first_byte", Value),
+            ("requested_dynamic_index", Value),
+            ("dynamic_table_entry_count", Value),
+            ("expected_fixture", Text),
+            ("codec_module", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "TableSizeUpdateDiagnostic",
         &[
             ("byte_offset", Value),
             ("observed_header_block_size", Value),
@@ -102,7 +99,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolPartialPrefaceDiagnostic",
+        "ProtocolPartialPrefaceDiagnostic",
         &[
             ("byte_offset", Value),
             ("pending_count", Value),
@@ -113,7 +110,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolInvalidPrefaceDiagnostic",
+        "ProtocolInvalidPrefaceDiagnostic",
         &[
             ("byte_offset", Value),
             ("expected_byte", Value),
@@ -126,7 +123,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolClosedWithPendingDiagnostic",
+        "ProtocolClosedWithPendingDiagnostic",
         &[
             ("byte_offset", Value),
             ("pending_count", Value),
@@ -140,7 +137,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolContinuationExpectedDiagnostic",
+        "ProtocolContinuationExpectedDiagnostic",
         &[
             ("byte_offset", Value),
             ("actual_frame_kind", Value),
@@ -155,7 +152,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic",
+        "ProtocolInvalidFrameKindDiagnostic",
         &[
             ("byte_offset", Value),
             ("actual_frame_kind", Value),
@@ -167,7 +164,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolInvalidStreamIdDiagnostic",
+        "ProtocolInvalidStreamIdDiagnostic",
         &[
             ("byte_offset", Value),
             ("frame_kind", Value),
@@ -180,7 +177,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic",
+        "ProtocolPeerStreamIdNotIncreasingDiagnostic",
         &[
             ("byte_offset", Value),
             ("stream_id", Value),
@@ -192,7 +189,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2PeerLimitFrameSizeDiagnostic",
+        "PeerLimitFrameSizeDiagnostic",
         &[
             ("byte_offset", Value),
             ("observed_payload_length", Value),
@@ -204,7 +201,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2PeerLimitHeaderListSizeDiagnostic",
+        "PeerLimitHeaderListSizeDiagnostic",
         &[
             ("byte_offset", Value),
             ("observed_header_list_size", Value),
@@ -217,7 +214,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2PeerLimitSettingsValueDiagnostic",
+        "PeerLimitSettingsValueDiagnostic",
         &[
             ("byte_offset", Value),
             ("setting_identifier", Value),
@@ -230,7 +227,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic",
+        "ProtocolInvalidPayloadLengthDiagnostic",
         &[
             ("byte_offset", Value),
             ("frame_kind", Value),
@@ -243,7 +240,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic",
+        "ProtocolInvalidDataPaddingDiagnostic",
         &[
             ("byte_offset", Value),
             ("stream_id", Value),
@@ -255,7 +252,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2PeerLimitFlowControlWindowDiagnostic",
+        "PeerLimitFlowControlWindowDiagnostic",
         &[
             ("byte_offset", Value),
             ("observed_payload_length", Value),
@@ -268,7 +265,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolContentLengthMismatchDiagnostic",
+        "ProtocolContentLengthMismatchDiagnostic",
         &[
             ("byte_offset", Value),
             ("frame_kind", Value),
@@ -281,7 +278,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic",
+        "PeerLimitHeaderTableSizeDiagnostic",
         &[
             ("byte_offset", Value),
             ("observed_header_table_size", Value),
@@ -294,7 +291,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic",
+        "PeerLimitConcurrentStreamsDiagnostic",
         &[
             ("byte_offset", Value),
             ("stream_id", Value),
@@ -308,7 +305,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic",
+        "ProtocolInvalidRequestHeaderListDiagnostic",
         &[
             ("byte_offset", Value),
             ("frame_kind", Value),
@@ -322,7 +319,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic",
+        "ProtocolInvalidResponseHeaderListDiagnostic",
         &[
             ("byte_offset", Value),
             ("frame_kind", Value),
@@ -336,7 +333,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic",
+        "ProtocolInvalidWindowUpdateIncrementDiagnostic",
         &[
             ("byte_offset", Value),
             ("stream_id", Value),
@@ -349,7 +346,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic",
+        "ProtocolUnexpectedSettingsAckDiagnostic",
         &[
             ("byte_offset", Value),
             ("active_state", Text),
@@ -358,7 +355,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic",
+        "ProtocolInitialPeerSettingsRequiredDiagnostic",
         &[
             ("byte_offset", Value),
             ("actual_frame_kind", Value),
@@ -371,7 +368,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic",
+        "ProtocolSettingsNotAllowedForEndpointDiagnostic",
         &[
             ("byte_offset", Value),
             ("setting_identifier", Value),
@@ -384,7 +381,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolPriorityDependencyDiagnostic",
+        "ProtocolPriorityDependencyDiagnostic",
         &[
             ("byte_offset", Value),
             ("stream_id", Value),
@@ -395,7 +392,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic",
+        "ProtocolStreamAfterGoawayDiagnostic",
         &[
             ("byte_offset", Value),
             ("stream_id", Value),
@@ -411,7 +408,7 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         &[("kind", Text), ("name", Text)],
     ),
     (
-        "RuntimeByteCountFacts",
+        "CountFacts",
         &[
             ("expected_count", Value),
             ("available_count", Value),
@@ -419,14 +416,14 @@ const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
         ],
     ),
     (
-        "RuntimeByteRangeFacts",
+        "RangeFacts",
         &[("requested_count", Value), ("available_count", Value)],
     ),
     (
-        "RuntimeByteFixedValueFacts",
+        "FixedValueFacts",
         &[("expected_value", Value), ("actual_value", Value)],
     ),
-    ("RuntimeByteReasonFacts", &[("reason", Text)]),
+    ("ReasonFacts", &[("reason", Text)]),
 ];
 
 pub(super) fn parse_veln_value(text: &str) -> Result<JsonValue, String> {

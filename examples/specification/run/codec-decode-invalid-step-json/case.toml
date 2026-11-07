@@ -32,7 +32,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.message"
-equals = "runtime result failure: Err(DecodeError(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind))"
+equals = "runtime result failure: Err(WithoutReason(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind))"
 
 [[json_assert]]
 path = "error.details.phase"
@@ -44,7 +44,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "DecodeError(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind)"
+equals = "WithoutReason(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind)"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.kind"

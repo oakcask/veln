@@ -5,8 +5,8 @@ use fake_effects
 # Transport-boundary calls expose socket chunks, outgoing chunks, and timeouts.
 fn read_chunk(stream: net::Stream) -> Result<ByteChunk, net::NetError> effects [net::IO]
 	match net::read(stream)?
-		net::ReadChunk(bytes) => Ok(bytes)
-		net::ReadEnd => Ok(byte_chunk([]))
+		net::ReadOutcome::Chunk(bytes) => Ok(bytes)
+		net::ReadOutcome::End => Ok(byte_chunk([]))
 	end
 end
 

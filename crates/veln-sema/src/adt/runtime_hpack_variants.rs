@@ -6,7 +6,7 @@ use super::runtime_variant_builders::{
 pub(super) fn runtime_hpack_variants() -> Vec<AdtVariantDescriptor> {
     vec![
         runtime_diagnostic_variant(
-            "RuntimeHpackFixtureDiagnostic",
+            "Diagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("observed_header_block_size"),
@@ -17,20 +17,7 @@ pub(super) fn runtime_hpack_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHpackFixtureDynamicIndexDiagnostic",
-            vec![
-                int_field("byte_offset"),
-                int_field("observed_header_block_size"),
-                int_field("observed_first_byte"),
-                int_field("requested_dynamic_index"),
-                int_field("dynamic_table_entry_count"),
-                string_field("expected_fixture"),
-                string_field("codec_module"),
-                named_field("preview", "ByteChunk"),
-            ],
-        ),
-        runtime_diagnostic_variant(
-            "RuntimeHpackFixtureDynamicNameDiagnostic",
+            "DynamicIndexDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("observed_header_block_size"),
@@ -43,7 +30,20 @@ pub(super) fn runtime_hpack_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHpackFixtureTableSizeUpdateDiagnostic",
+            "DynamicNameDiagnostic",
+            vec![
+                int_field("byte_offset"),
+                int_field("observed_header_block_size"),
+                int_field("observed_first_byte"),
+                int_field("requested_dynamic_index"),
+                int_field("dynamic_table_entry_count"),
+                string_field("expected_fixture"),
+                string_field("codec_module"),
+                named_field("preview", "ByteChunk"),
+            ],
+        ),
+        runtime_diagnostic_variant(
+            "TableSizeUpdateDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("observed_header_block_size"),

@@ -12,5 +12,5 @@ fn offset(value: Int) -> ByteOffset
 end
 
 pub fn main() -> Result<(), DecodeError>
-	Err(DecodeError("codec.invalid_input", offset(5), "ManualPacketWire.kind"))
+	Err(WithoutReason("codec.invalid_input", offset(5), "ManualPacketWire.kind"))
 end

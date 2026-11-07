@@ -11,7 +11,7 @@ fn exporter(lines: Sender<String>, metric_limit: Int) -> JsonLinesExporter effec
 		metric_limit,
 		observe::ExporterLimits(2, 4, 1, list_cons("secret", list_nil())),
 		observe::StandardError,
-		observe::DiagnosticStandardError,
+		observe::DiagnosticDestination::StandardError,
 		"fixed",
 	)
 end
@@ -54,7 +54,7 @@ pub fn attribute_names_and_values_share_the_finite_string_limit() -> Result<(), 
 		1,
 		observe::ExporterLimits(3, 4, 1, list_cons("secret-name", list_nil())),
 		observe::StandardError,
-		observe::NoDiagnosticDestination,
+		observe::DiagnosticDestination::Disabled,
 		"fixed",
 	)
 	let record = observe::Event(observe::EventRecord("bounded", list_cons(observe::Attribute("secret-name", observe::StringValue("hidden")), list_cons(observe::Attribute("integer-name", observe::IntValue(3)), list_cons(observe::Attribute("both-name", observe::StringValue("abcdef")), list_nil()))), None, source("", "main", "main.veln")))
@@ -163,8 +163,8 @@ end
 pub fn invalid_exporter_identity_is_rejected_and_health_saturates() -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(3)
 	let maximum = 9223372036854775807
-	let invalid_resource = observe::new_json_lines_for_test(observe::Resource("", list_nil()), observe::InstrumentationScope("scope", "1"), 1, observe::ExporterLimits(1, 4, 1, list_nil()), observe::StandardError, observe::NoDiagnosticDestination, "resource", maximum, 0, 0, 0)
-	let invalid_scope = observe::new_json_lines_for_test(observe::Resource("resource", list_nil()), observe::InstrumentationScope("", "1"), 1, observe::ExporterLimits(1, 4, 1, list_nil()), observe::StandardError, observe::NoDiagnosticDestination, "scope", maximum, 0, 0, 0)
+	let invalid_resource = observe::new_json_lines_for_test(observe::Resource("", list_nil()), observe::InstrumentationScope("scope", "1"), 1, observe::ExporterLimits(1, 4, 1, list_nil()), observe::StandardError, observe::DiagnosticDestination::Disabled, "resource", maximum, 0, 0, 0)
+	let invalid_scope = observe::new_json_lines_for_test(observe::Resource("resource", list_nil()), observe::InstrumentationScope("", "1"), 1, observe::ExporterLimits(1, 4, 1, list_nil()), observe::StandardError, observe::DiagnosticDestination::Disabled, "scope", maximum, 0, 0, 0)
 	let record = observe::Event(observe::EventRecord("invalid-configuration", list_nil(), None, source("", "main", "main.veln")))
 	let _ = handle handle observe::export_observation(invalid_resource, record) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
 	let _ = handle handle observe::export_observation(invalid_scope, record) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)

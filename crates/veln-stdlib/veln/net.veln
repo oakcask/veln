@@ -53,10 +53,10 @@ pub type ByteCount = prelude::ByteCount
 
 ## A stream read outcome is a byte chunk or clean end-of-stream. The direct
 ## facade forwards the active IO handler's outcome unchanged, including an
-## empty ReadChunk.
+## empty Chunk.
 pub type ReadOutcome
-	pub ReadChunk(bytes: ByteChunk)
-	pub ReadEnd
+	pub Chunk(bytes: ByteChunk)
+	pub End
 end
 
 ## A stream write reports either its committed count or a committed prefix and

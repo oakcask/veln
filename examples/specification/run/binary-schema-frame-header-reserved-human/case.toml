@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[schema.reserved_bits_mismatch]: decode error at byte offset 5", "note: Field path: schema `Http2FrameHeaderWire` / field `stream_reserved`.", "note: DecodeError value: DecodeError(schema.reserved_bits_mismatch, ByteOffset(5), Http2FrameHeaderWire.stream_reserved)."]
+contains = ["error[schema.reserved_bits_mismatch]: decode error at byte offset 5", "note: Field path: schema `Http2FrameHeaderWire` / field `stream_reserved`.", "note: DecodeError value: WithoutReason(schema.reserved_bits_mismatch, ByteOffset(5), Http2FrameHeaderWire.stream_reserved)."]

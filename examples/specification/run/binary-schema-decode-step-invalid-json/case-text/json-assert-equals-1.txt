@@ -1,1 +1,1 @@
-Err(DecodeError(schema.reserved_bits_mismatch, ByteOffset(71), ReservedStepPacket.padding))
+Err(WithoutReason(schema.reserved_bits_mismatch, ByteOffset(71), ReservedStepPacket.padding))

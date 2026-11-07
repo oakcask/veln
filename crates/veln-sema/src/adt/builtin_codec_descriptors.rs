@@ -19,7 +19,7 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
             parameter_variances: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
-                    name: "DecodeError".to_string(),
+                    name: "WithoutReason".to_string(),
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
@@ -36,11 +36,11 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
                     ],
-                    coverage_case: "DecodeError(_)".to_string(),
+                    coverage_case: "WithoutReason(_)".to_string(),
                     visibility: Visibility::Public,
                 },
                 AdtVariantDescriptor {
-                    name: "DecodeErrorWithReason".to_string(),
+                    name: "WithReason".to_string(),
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
@@ -61,7 +61,7 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
                     ],
-                    coverage_case: "DecodeErrorWithReason(_)".to_string(),
+                    coverage_case: "WithReason(_)".to_string(),
                     visibility: Visibility::Public,
                 },
             ],

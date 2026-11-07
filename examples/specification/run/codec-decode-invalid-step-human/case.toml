@@ -8,4 +8,4 @@ jdk = true
 format = "empty"
 
 [stderr]
-contains = ["error[codec.invalid_input]: decode error at byte offset 5", "note: Field path: schema `ManualPacketWire` / field `kind`.", "note: DecodeError value: DecodeError(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind)."]
+contains = ["error[codec.invalid_input]: decode error at byte offset 5", "note: Field path: schema `ManualPacketWire` / field `kind`.", "note: DecodeError value: WithoutReason(codec.invalid_input, ByteOffset(5), ManualPacketWire.kind)."]

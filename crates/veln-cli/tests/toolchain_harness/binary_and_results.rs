@@ -274,7 +274,7 @@ missing = true
 #[test]
 pub(super) fn result_value_parser_exposes_runtime_diagnostic_shape() {
     let parsed = parse_result_value(
-        "RuntimeDiagnostic(codec.incomplete_input, byte read requires 3 bytes but view has 2, RuntimeByteDiagnostic(ByteOffset(2), Cons(RuntimeDiagnosticFieldPathSegment(schema, Payload), Cons(RuntimeDiagnosticFieldPathSegment(field, body), Nil)), RuntimeByteCountFacts(ByteCount(3), ByteCount(2), need_bytes), RuntimeBytePreview(0001, ByteCount(2), ByteCount(2), false)))",
+        "RuntimeDiagnostic(codec.incomplete_input, byte read requires 3 bytes but view has 2, ByteDiagnostic(ByteOffset(2), Cons(RuntimeDiagnosticFieldPathSegment(schema, Payload), Cons(RuntimeDiagnosticFieldPathSegment(field, body), Nil)), CountFacts(ByteCount(3), ByteCount(2), need_bytes), RuntimeBytePreview(0001, ByteCount(2), ByteCount(2), false)))",
     )
     .expect("runtime diagnostic value should parse");
 
@@ -303,13 +303,13 @@ pub(super) fn result_value_parser_exposes_runtime_diagnostic_shape() {
 #[test]
 pub(super) fn result_value_parser_exposes_runtime_value_diagnostic_shape() {
     let parsed = parse_result_value(
-        "RuntimeDiagnostic(schema.encode_value_unrepresentable, encode value is unrepresentable, RuntimeValueDiagnostic(Cons(RuntimeDiagnosticFieldPathSegment(schema, RuntimeValuePacket), Cons(RuntimeDiagnosticFieldPathSegment(field, value), Nil)), value must be between 0 and 255))",
+        "RuntimeDiagnostic(schema.encode_value_unrepresentable, encode value is unrepresentable, ValueDiagnostic(Cons(RuntimeDiagnosticFieldPathSegment(schema, RuntimeValuePacket), Cons(RuntimeDiagnosticFieldPathSegment(field, value), Nil)), value must be between 0 and 255))",
     )
     .expect("runtime value diagnostic should parse");
 
     assert_eq!(
         json_path(&parsed, "value.detail.constructor"),
-        Some(&JsonValue::String("RuntimeValueDiagnostic".to_string()))
+        Some(&JsonValue::String("ValueDiagnostic".to_string()))
     );
     assert_eq!(
         json_path(&parsed, "value.detail.field_path.1.name"),
@@ -326,7 +326,7 @@ pub(super) fn result_value_parser_exposes_runtime_value_diagnostic_shape() {
 #[test]
 pub(super) fn veln_value_parser_preserves_constructor_field_kinds() {
     let parsed = parse_veln_value(
-        "RuntimeByteDiagnostic(ByteOffset(4), Cons(RuntimeDiagnosticFieldPathSegment(schema, Packet), Nil), RuntimeByteReasonFacts(invalid byte), RuntimeBytePreview(ff, 1, 3, true))",
+        "ByteDiagnostic(ByteOffset(4), Cons(RuntimeDiagnosticFieldPathSegment(schema, Packet), Nil), ReasonFacts(invalid byte), RuntimeBytePreview(ff, 1, 3, true))",
     )
     .expect("runtime byte diagnostic should parse");
 
@@ -355,31 +355,29 @@ pub(super) fn veln_value_parser_preserves_constructor_field_kinds() {
 #[test]
 pub(super) fn result_value_parser_exposes_hpack_fixture_runtime_diagnostics() {
     let fixture = parse_result_value(
-        "RuntimeDiagnostic(hpack.fixture.malformed_raw_string_value, HPACK fixture malformed raw string value at byte offset 9, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(9, 5, 8, fixture HPACK raw string value, hpack_fixture, ByteChunk([Byte(8), Byte(3), Byte(50), Byte(31), Byte(48)]))))",
+        "RuntimeDiagnostic(hpack.fixture.malformed_raw_string_value, HPACK fixture malformed raw string value at byte offset 9, Http2HpackDiagnostic(Diagnostic(9, 5, 8, fixture HPACK raw string value, hpack_fixture, ByteChunk([Byte(8), Byte(3), Byte(50), Byte(31), Byte(48)]))))",
     )
     .expect("HPACK fixture runtime diagnostic value should parse");
     let dynamic_index = parse_result_value(
-        "RuntimeDiagnostic(hpack.fixture.dynamic_index_out_of_range, HPACK dynamic index out of range at byte offset 27, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDynamicIndexDiagnostic(27, 1, 190, 0, 0, fixture dynamic indexed header, hpack_fixture, ByteChunk([Byte(190)]))))",
+        "RuntimeDiagnostic(hpack.fixture.dynamic_index_out_of_range, HPACK dynamic index out of range at byte offset 27, Http2HpackDiagnostic(DynamicIndexDiagnostic(27, 1, 190, 0, 0, fixture dynamic indexed header, hpack_fixture, ByteChunk([Byte(190)]))))",
     )
     .expect("HPACK dynamic-index runtime diagnostic value should parse");
     let dynamic_name = parse_result_value(
-        "RuntimeDiagnostic(hpack.fixture.dynamic_name_continuation_out_of_range, HPACK dynamic-name continuation out of range at byte offset 98, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDynamicNameDiagnostic(98, 8, 127, 3, 3, fixture dynamic-name continuation range, hpack_fixture, ByteChunk([Byte(127), Byte(2), Byte(5), Byte(80), Byte(65), Byte(84), Byte(67), Byte(72)]))))",
+        "RuntimeDiagnostic(hpack.fixture.dynamic_name_continuation_out_of_range, HPACK dynamic-name continuation out of range at byte offset 98, Http2HpackDiagnostic(DynamicNameDiagnostic(98, 8, 127, 3, 3, fixture dynamic-name continuation range, hpack_fixture, ByteChunk([Byte(127), Byte(2), Byte(5), Byte(80), Byte(65), Byte(84), Byte(67), Byte(72)]))))",
     )
     .expect("HPACK dynamic-name runtime diagnostic value should parse");
     let table_size = parse_result_value(
-        "RuntimeDiagnostic(hpack.fixture.table_size_update_not_at_start, HPACK fixture table-size update after header field at byte offset 10, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureTableSizeUpdateDiagnostic(10, 2, 62, 30, 1, 1, hpack-fixture, fixture HPACK table-size update at header block start, hpack_fixture, ByteChunk([Byte(130), Byte(62)]))))",
+        "RuntimeDiagnostic(hpack.fixture.table_size_update_not_at_start, HPACK fixture table-size update after header field at byte offset 10, Http2HpackDiagnostic(TableSizeUpdateDiagnostic(10, 2, 62, 30, 1, 1, hpack-fixture, fixture HPACK table-size update at header block start, hpack_fixture, ByteChunk([Byte(130), Byte(62)]))))",
     )
     .expect("HPACK table-size runtime diagnostic value should parse");
     let table_size_malformed = parse_result_value(
-        "RuntimeDiagnostic(hpack.fixture.table_size_update_malformed, HPACK fixture malformed table-size update integer at byte offset 77, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(77, 2, 63, fixture HPACK malformed table-size update integer, hpack_fixture, ByteChunk([Byte(63), Byte(128)]))))",
+        "RuntimeDiagnostic(hpack.fixture.table_size_update_malformed, HPACK fixture malformed table-size update integer at byte offset 77, Http2HpackDiagnostic(Diagnostic(77, 2, 63, fixture HPACK malformed table-size update integer, hpack_fixture, ByteChunk([Byte(63), Byte(128)]))))",
     )
     .expect("HPACK table-size malformed runtime diagnostic value should parse");
 
     assert_eq!(
         json_path(&fixture, "value.detail.constructor"),
-        Some(&JsonValue::String(
-            "RuntimeHttp2HpackDiagnostic".to_string()
-        ))
+        Some(&JsonValue::String("Http2HpackDiagnostic".to_string()))
     );
     assert_eq!(
         json_path(&fixture, "value.detail.detail.expected_fixture"),
@@ -445,17 +443,17 @@ pub(super) fn result_value_parser_exposes_hpack_fixture_runtime_diagnostics() {
 #[test]
 pub(super) fn result_value_parser_exposes_http2_peer_limit_runtime_diagnostics() {
     let header_table = parse_result_value(
-        "RuntimeDiagnostic(http2.peer_limit.header_table_size_exceeded, HTTP/2 header table size exceeds receive maximum at byte offset 35, RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(35, 289, 160, 9, 1, local_configuration, hpack_dynamic_table_size_update, ByteChunk([Byte(63), Byte(129), Byte(1)]))))",
+        "RuntimeDiagnostic(http2.peer_limit.header_table_size_exceeded, HTTP/2 header table size exceeds receive maximum at byte offset 35, Http2Diagnostic(PeerLimitHeaderTableSizeDiagnostic(35, 289, 160, 9, 1, local_configuration, hpack_dynamic_table_size_update, ByteChunk([Byte(63), Byte(129), Byte(1)]))))",
     )
     .expect("header-table runtime diagnostic value should parse");
     let concurrent_streams = parse_result_value(
-        "RuntimeDiagnostic(http2.peer_limit.concurrent_streams_exceeded, HTTP/2 concurrent stream receive limit exceeded at byte offset 9, RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(9, 3, 2, 1, server, open-stream, local_configuration, peer_created_stream_receive_limit, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(1), Byte(4), Byte(0), Byte(0), Byte(0), Byte(3)]))))",
+        "RuntimeDiagnostic(http2.peer_limit.concurrent_streams_exceeded, HTTP/2 concurrent stream receive limit exceeded at byte offset 9, Http2Diagnostic(PeerLimitConcurrentStreamsDiagnostic(9, 3, 2, 1, server, open-stream, local_configuration, peer_created_stream_receive_limit, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(1), Byte(4), Byte(0), Byte(0), Byte(0), Byte(3)]))))",
     )
     .expect("concurrent-stream runtime diagnostic value should parse");
 
     assert_eq!(
         json_path(&header_table, "value.detail.constructor"),
-        Some(&JsonValue::String("RuntimeHttp2Diagnostic".to_string()))
+        Some(&JsonValue::String("Http2Diagnostic".to_string()))
     );
     assert_eq!(
         json_path(
@@ -494,15 +492,15 @@ pub(super) fn result_value_parser_exposes_http2_peer_limit_runtime_diagnostics()
 #[test]
 pub(super) fn result_value_parser_exposes_http2_data_flow_content_length_diagnostics() {
     let data_padding = parse_result_value(
-        "RuntimeDiagnostic(http2.protocol.invalid_data_padding, HTTP/2 invalid DATA padding at byte offset 9, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(9, 1, 2, 0, open-stream, rfc9113_data_padding, ByteChunk([Byte(2)]))))",
+        "RuntimeDiagnostic(http2.protocol.invalid_data_padding, HTTP/2 invalid DATA padding at byte offset 9, Http2Diagnostic(ProtocolInvalidDataPaddingDiagnostic(9, 1, 2, 0, open-stream, rfc9113_data_padding, ByteChunk([Byte(2)]))))",
     )
     .expect("DATA padding runtime diagnostic value should parse");
     let flow_control = parse_result_value(
-        "RuntimeDiagnostic(http2.peer_limit.flow_control_window_exceeded, HTTP/2 flow-control window exceeded at byte offset 0, RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(0, 4, 3, 0, 1, open-stream, stream_receive_window, ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)]))))",
+        "RuntimeDiagnostic(http2.peer_limit.flow_control_window_exceeded, HTTP/2 flow-control window exceeded at byte offset 0, Http2Diagnostic(PeerLimitFlowControlWindowDiagnostic(0, 4, 3, 0, 1, open-stream, stream_receive_window, ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)]))))",
     )
     .expect("flow-control runtime diagnostic value should parse");
     let content_length = parse_result_value(
-        "RuntimeDiagnostic(http2.protocol.content_length_mismatch, HTTP/2 content-length body length mismatch at byte offset 9, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(9, 0, 1, 5, 3, open-stream, rfc9113_content_length_body, ByteChunk([Byte(170), Byte(187), Byte(204)]))))",
+        "RuntimeDiagnostic(http2.protocol.content_length_mismatch, HTTP/2 content-length body length mismatch at byte offset 9, Http2Diagnostic(ProtocolContentLengthMismatchDiagnostic(9, 0, 1, 5, 3, open-stream, rfc9113_content_length_body, ByteChunk([Byte(170), Byte(187), Byte(204)]))))",
     )
     .expect("content-length runtime diagnostic value should parse");
 
@@ -538,11 +536,11 @@ pub(super) fn result_value_parser_exposes_http2_data_flow_content_length_diagnos
 #[test]
 pub(super) fn result_value_parser_exposes_http2_header_list_runtime_diagnostics() {
     let request = parse_result_value(
-        "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list is missing :method at byte offset 12, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :method, headers, request-headers, rfc9113_request_pseudo_headers, ByteChunk([Byte(130), Byte(132), Byte(134)]))))",
+        "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list is missing :method at byte offset 12, Http2Diagnostic(ProtocolInvalidRequestHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :method, headers, request-headers, rfc9113_request_pseudo_headers, ByteChunk([Byte(130), Byte(132), Byte(134)]))))",
     )
     .expect("request header-list runtime diagnostic value should parse");
     let response = parse_result_value(
-        "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response header list is missing :status at byte offset 12, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :status, server, response-headers, rfc9113_response_pseudo_headers, ByteChunk([Byte(136)]))))",
+        "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response header list is missing :status at byte offset 12, Http2Diagnostic(ProtocolInvalidResponseHeaderListDiagnostic(12, 9, 1, missing_required_pseudo_header, :status, server, response-headers, rfc9113_response_pseudo_headers, ByteChunk([Byte(136)]))))",
     )
     .expect("response header-list runtime diagnostic value should parse");
 
@@ -563,7 +561,7 @@ pub(super) fn result_value_parser_exposes_http2_header_list_runtime_diagnostics(
     assert_eq!(
         json_path(&response, "value.detail.detail.constructor"),
         Some(&JsonValue::String(
-            "RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic".to_string()
+            "ProtocolInvalidResponseHeaderListDiagnostic".to_string()
         ))
     );
     assert_eq!(

@@ -117,7 +117,7 @@ fn exercise_owned_network_boundary() -> Result<(), String> effects [net::IO, tim
 		_ => false
 	end, "listener endpoint changed across the host boundary")?
 	let _ = facade_expect(match net::read(accepted)
-		Ok(net::ReadChunk(bytes)) => facade_bytes_match(bytes, "read")
+		Ok(net::ReadOutcome::Chunk(bytes)) => facade_bytes_match(bytes, "read")
 		_ => false
 	end, "read bytes changed across the host boundary")?
 	let read_deadline = time::deadline_after_ms(43)

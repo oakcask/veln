@@ -32,7 +32,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.message"
-equals = "runtime result failure: Err(DecodeErrorWithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.payload, byte view range exceeds view length))"
+equals = "runtime result failure: Err(WithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.payload, byte view range exceeds view length))"
 
 [[json_assert]]
 path = "error.details.phase"
@@ -44,7 +44,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "DecodeErrorWithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.payload, byte view range exceeds view length)"
+equals = "WithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.payload, byte view range exceeds view length)"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.kind"

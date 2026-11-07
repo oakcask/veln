@@ -16,7 +16,7 @@ end
 
 fn handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
 	require false
-	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
+	Ok(list_cons(Http2ApplicationAction::Headers(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
 end
 
 fn print_result(result: Result<(), Http2ServiceFailure>) -> Result<(), String> effects [stdio]

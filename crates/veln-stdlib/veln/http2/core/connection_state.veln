@@ -14,9 +14,9 @@ use http2::hpack::dynamic_table
 pub type DynamicTable = http2::hpack::dynamic_table::DynamicTable
 
 pub type CoreConnectionLifecycle
-	CoreConnectionOpen
-	CoreConnectionDraining(last_stream_id: Int, error_code: Int)
-	CoreConnectionClosed(last_stream_id: Int, error_code: Int)
+	Open
+	Draining(last_stream_id: Int, error_code: Int)
+	Closed(last_stream_id: Int, error_code: Int)
 end
 
 pub type CoreConnectionState
@@ -37,7 +37,7 @@ fn initial(endpoint_role: String, starting_offset: Int, initial_peer_settings: I
 		Ok(credit) => credit
 		Err(_) => Err("HTTP/2 default connection window credit was invalid")?
 	end
-	Ok(CoreConnectionState(endpoint_role, starting_offset, http2::core::connection_preface::empty(starting_offset), initial_peer_settings, http2::core::pending_header_block::idle(), hpack_table, http2::core::peer_settings_state::empty(), http2::core::settings_ack::empty(), http2::core::peer_stream_admission::empty(), http2::core::stream_state::empty(), connection_credit, http2::core::local_settings::empty_policy(), CoreConnectionOpen))
+	Ok(CoreConnectionState(endpoint_role, starting_offset, http2::core::connection_preface::empty(starting_offset), initial_peer_settings, http2::core::pending_header_block::idle(), hpack_table, http2::core::peer_settings_state::empty(), http2::core::settings_ack::empty(), http2::core::peer_stream_admission::empty(), http2::core::stream_state::empty(), connection_credit, http2::core::local_settings::empty_policy(), CoreConnectionLifecycle::Open))
 end
 
 pub fn endpoint_role(state: CoreConnectionState) -> String
@@ -132,25 +132,25 @@ end
 
 pub fn lifecycle_label(lifecycle: CoreConnectionLifecycle) -> String
 	match lifecycle
-		CoreConnectionOpen => "open"
-		CoreConnectionDraining(_, _) => "draining"
-		CoreConnectionClosed(_, _) => "closed"
+		CoreConnectionLifecycle::Open => "open"
+		CoreConnectionLifecycle::Draining(_, _) => "draining"
+		CoreConnectionLifecycle::Closed(_, _) => "closed"
 	end
 end
 
 pub fn lifecycle_last_stream_id(lifecycle: CoreConnectionLifecycle) -> Int
 	match lifecycle
-		CoreConnectionOpen => 0
-		CoreConnectionDraining(last_stream_id, _) => last_stream_id
-		CoreConnectionClosed(last_stream_id, _) => last_stream_id
+		CoreConnectionLifecycle::Open => 0
+		CoreConnectionLifecycle::Draining(last_stream_id, _) => last_stream_id
+		CoreConnectionLifecycle::Closed(last_stream_id, _) => last_stream_id
 	end
 end
 
 pub fn lifecycle_error_code(lifecycle: CoreConnectionLifecycle) -> Int
 	match lifecycle
-		CoreConnectionOpen => 0
-		CoreConnectionDraining(_, error_code) => error_code
-		CoreConnectionClosed(_, error_code) => error_code
+		CoreConnectionLifecycle::Open => 0
+		CoreConnectionLifecycle::Draining(_, error_code) => error_code
+		CoreConnectionLifecycle::Closed(_, error_code) => error_code
 	end
 end
 
@@ -227,9 +227,9 @@ pub fn with_lifecycle(state: CoreConnectionState, lifecycle: CoreConnectionLifec
 end
 
 pub fn draining(last_stream_id: Int, error_code: Int) -> CoreConnectionLifecycle
-	CoreConnectionDraining(last_stream_id, error_code)
+	CoreConnectionLifecycle::Draining(last_stream_id, error_code)
 end
 
 pub fn closed(last_stream_id: Int, error_code: Int) -> CoreConnectionLifecycle
-	CoreConnectionClosed(last_stream_id, error_code)
+	CoreConnectionLifecycle::Closed(last_stream_id, error_code)
 end

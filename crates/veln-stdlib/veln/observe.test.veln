@@ -328,8 +328,8 @@ test exporter_health_totals_saturate_at_maximum_int() -> Result<(), String> effe
 	let maximum = 9223372036854775807
 	let resource = observe::Resource("checkout", list_nil())
 	let scope = observe::InstrumentationScope("checkout.web", "1")
-	let single = observe::new_json_lines_for_test(resource, scope, 1, observe::ExporterLimits(1, 4, 1, list_cons("long-name", list_nil())), observe::StandardError, observe::NoDiagnosticDestination, "single", maximum - 1, maximum - 1, maximum - 1, maximum - 1)
-	let crossing = observe::new_json_lines_for_test(resource, scope, 1, observe::ExporterLimits(2, 4, 2, list_cons("first-long", list_cons("second-long", list_nil()))), observe::StandardError, observe::NoDiagnosticDestination, "crossing", maximum - 1, maximum - 1, maximum - 1, maximum - 1)
+	let single = observe::new_json_lines_for_test(resource, scope, 1, observe::ExporterLimits(1, 4, 1, list_cons("long-name", list_nil())), observe::StandardError, observe::DiagnosticDestination::Disabled, "single", maximum - 1, maximum - 1, maximum - 1, maximum - 1)
+	let crossing = observe::new_json_lines_for_test(resource, scope, 1, observe::ExporterLimits(2, 4, 2, list_cons("first-long", list_cons("second-long", list_nil()))), observe::StandardError, observe::DiagnosticDestination::Disabled, "crossing", maximum - 1, maximum - 1, maximum - 1, maximum - 1)
 	observe_export_test_support_test::saturating_exporter_health(single, crossing)
 end
 
@@ -338,7 +338,7 @@ test rejected_export_preserves_result_and_reports_bounded_health_to_diagnostics(
 end
 
 test rejected_health_summary_preserves_health_and_is_not_retried() -> Result<(), String> effects [concurrency]
-	let configured = observe::new_json_lines_for_test(observe::Resource("checkout", list_nil()), observe::InstrumentationScope("checkout.web", "1"), 1, observe::ExporterLimits(1, 4, 1, list_nil()), observe::StandardError, observe::DiagnosticStandardError, "health", 2, 3, 4, 5)
+	let configured = observe::new_json_lines_for_test(observe::Resource("checkout", list_nil()), observe::InstrumentationScope("checkout.web", "1"), 1, observe::ExporterLimits(1, 4, 1, list_nil()), observe::StandardError, observe::DiagnosticDestination::StandardError, "health", 2, 3, 4, 5)
 	observe_export_test_support_test::rejected_health_summary_preserves_health(configured)
 end
 
@@ -378,7 +378,7 @@ fn new_buffered_with_file_destinations_for_test() -> BufferedJsonLinesConstructi
 		4,
 		observe::ExporterLimits(8, 64, 2, list_nil()),
 		observe::FileDestination("records.jsonl"),
-		observe::DiagnosticFileDestination("health.jsonl"),
+		observe::DiagnosticDestination::File("health.jsonl"),
 		"buffered",
 		1,
 	)
@@ -407,7 +407,7 @@ fn new_buffered_for_test_with_startup_hook(entered: Sender<()>, release: Receive
 		4,
 		observe::ExporterLimits(8, 64, 2, list_nil()),
 		observe::StandardError,
-		observe::DiagnosticStandardError,
+		observe::DiagnosticDestination::StandardError,
 		"startup",
 		1,
 		0,
@@ -424,7 +424,7 @@ fn new_buffered_matrix_for_test(idle: Sender<()>, resume: Receiver<()>) -> Buffe
 		2,
 		observe::ExporterLimits(0, 2, 1, list_cons("secret", list_nil())),
 		observe::StandardError,
-		observe::NoDiagnosticDestination,
+		observe::DiagnosticDestination::Disabled,
 		"matrix",
 		1,
 		observe_test_support_test::signal_buffered_idle,
@@ -440,7 +440,7 @@ fn new_buffered_transformations_for_test(idle: Sender<()>, resume: Receiver<()>)
 		10,
 		observe::ExporterLimits(2, 4, 1, list_cons("secret", list_nil())),
 		observe::StandardError,
-		observe::NoDiagnosticDestination,
+		observe::DiagnosticDestination::Disabled,
 		"transformations",
 		1,
 		observe_test_support_test::signal_buffered_idle,
@@ -483,8 +483,8 @@ end
 
 test buffered_constructor_rejects_non_positive_capacity_without_destination_effects() -> Result<(), String> effects [concurrency]
 	let lines = observe_test_support_test::export_lines(1)
-	let zero = handle new_buffered_for_test(0, observe::DiagnosticStandardError) with observe_test_support_test::exporter(lines.tx, true)
-	let negative = handle new_buffered_for_test(-7, observe::DiagnosticStandardError) with observe_test_support_test::exporter(lines.tx, true)
+	let zero = handle new_buffered_for_test(0, observe::DiagnosticDestination::StandardError) with observe_test_support_test::exporter(lines.tx, true)
+	let negative = handle new_buffered_for_test(-7, observe::DiagnosticDestination::StandardError) with observe_test_support_test::exporter(lines.tx, true)
 	match zero
 		observe::InvalidCapacity(0) => match negative
 			observe::InvalidCapacity(value) => if value == -7
@@ -503,7 +503,7 @@ end
 
 test buffered_constructor_accepts_positive_capacity_above_backend_channel_limit_and_performs_no_destination_io() -> Result<(), String> effects [concurrency]
 	let lines = observe_test_support_test::export_lines(1)
-	let constructed = handle new_buffered_for_test(2147483648, observe::DiagnosticStandardError) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_for_test(2147483648, observe::DiagnosticDestination::StandardError) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			match channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
@@ -529,7 +529,7 @@ test buffered_worker_retains_record_and_diagnostic_destinations_after_constructi
 			let diagnostic: Option<String> = channel::recv(lines.rx)
 			match admitted
 				observe::Accepted => match report
-					observe::BufferedShutdownReport(observe::Completed, _, observe::SummaryAccepted) => match record
+					observe::BufferedShutdownReport(observe::Completed, _, observe::BufferedSummaryOutcome::Accepted) => match record
 						Some(record_line) => match diagnostic
 							Some(diagnostic_line) => if buffered_contains(record_line, "record:file:records.jsonl:") and buffered_contains(diagnostic_line, "diagnostic:file:health.jsonl:")
 								Ok(())
@@ -551,7 +551,7 @@ end
 
 test buffered_invalid_record_reports_outcome_without_record_destination_attempt() -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(2)
-	let constructed = handle new_buffered_for_test(1, observe::DiagnosticStandardError) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_for_test(1, observe::DiagnosticDestination::StandardError) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let invalid = observe::Log(observe::LogRecord("log", observe::Info, "invalid", list_nil(), Some(observe::TraceContext("", "span", true)), callsite_location()))
@@ -561,7 +561,7 @@ test buffered_invalid_record_reports_outcome_without_record_destination_attempt(
 			match outcome
 				observe::InvalidRecord => match before_shutdown
 					None => match report
-						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match channel::recv(lines.rx)
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Accepted) => match channel::recv(lines.rx)
 							Some(summary) => if buffered_contains(summary, "diagnostic:stderr:{\"schema_version\":1,\"kind\":\"exporter_health\"")
 								Ok(())
 							else
@@ -585,7 +585,7 @@ test buffered_capacity_counts_in_flight_and_releases_after_completion() -> Resul
 	let release = channel::bounded<()>(3)
 	let idle = channel::bounded<()>(3)
 	let resume = channel::bounded<()>(3)
-	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::DiagnosticStandardError, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::DiagnosticDestination::StandardError, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let first = handle observe::buffered_export_observation(exporter, buffered_log("first")) with observe_test_support_test::clock(0)
@@ -615,7 +615,7 @@ test buffered_capacity_counts_in_flight_and_releases_after_completion() -> Resul
 										observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match third
 											observe::Accepted => match fourth
 												observe::Accepted => match report
-													observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => if outstanding == 0 and buffered_contains(first_line, "\"message\":\"first\"") and buffered_line_contains(second_line, "\"message\":\"second\"") and buffered_line_contains(third_line, "\"message\":\"third\"") and buffered_idle(second_idle) and buffered_idle(third_idle)
+													observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Accepted) => if outstanding == 0 and buffered_contains(first_line, "\"message\":\"first\"") and buffered_line_contains(second_line, "\"message\":\"second\"") and buffered_line_contains(third_line, "\"message\":\"third\"") and buffered_idle(second_idle) and buffered_idle(third_idle)
 														Ok(())
 													else
 														Err("buffered repeated slot release or destination order changed")
@@ -704,7 +704,7 @@ test buffered_worker_is_stack_bounded_across_repeated_idle_wake_cycles() -> Resu
 	let release = channel::bounded<()>(1)
 	let idle = channel::bounded<()>(1)
 	let resume = channel::bounded<()>(1)
-	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::DiagnosticStandardError, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::DiagnosticDestination::StandardError, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => match handle observe::buffered_export_observation(exporter, buffered_log("idle-cycle")) with observe_test_support_test::clock(0)
 			observe::Accepted => match exercise_buffered_idle_cycles(exporter, lines.rx, release.tx, idle.rx, resume.tx, 1501)
@@ -715,8 +715,8 @@ test buffered_worker_is_stack_bounded_across_repeated_idle_wake_cycles() -> Resu
 					let frozen_health = observe::buffered_exporter_health(exporter)
 					let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
 					match report
-						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match repeated
-							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match frozen_health
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Accepted) => match repeated
+							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Accepted) => match frozen_health
 								observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => if buffered_line_contains(summary, "\"kind\":\"exporter_health\"")
 									match no_more
 										None => Ok(())
@@ -780,7 +780,7 @@ test buffered_worker_is_stack_bounded_while_a_producer_sustains_non_empty_batche
 		1,
 		observe::ExporterLimits(8, 64, 2, list_nil()),
 		observe::StandardError,
-		observe::NoDiagnosticDestination,
+		observe::DiagnosticDestination::Disabled,
 		"busy-batches",
 		2,
 	) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
@@ -789,7 +789,7 @@ test buffered_worker_is_stack_bounded_while_a_producer_sustains_non_empty_batche
 			observe::Accepted => match channel::recv(lines.rx)
 				Some(_) => match exercise_buffered_busy_batches(exporter, lines.rx, release.tx, 201)
 					Ok(_) => match observe::shutdown_buffered(exporter)
-						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => Ok(())
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Disabled) => Ok(())
 						_ => Err("busy-batch shutdown did not preserve completed zero-failure health")
 					end
 					Err(error) => Err(error)
@@ -805,7 +805,7 @@ end
 test buffered_shutdown_drains_in_order_then_freezes_completed_report() -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(6)
 	let release = channel::bounded<()>(4)
-	let constructed = handle new_buffered_for_test(4, observe::DiagnosticStandardError) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	let constructed = handle new_buffered_for_test(4, observe::DiagnosticDestination::StandardError) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let log_result = handle observe::buffered_export_observation(exporter, buffered_log("first")) with observe_test_support_test::clock(0)
@@ -834,8 +834,8 @@ test buffered_shutdown_drains_in_order_then_freezes_completed_report() -> Result
 								observe::Accepted => match histogram_result
 									observe::Accepted => if buffered_lines_are_ordered(first, second, third, fourth, summary)
 									match report
-										observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match repeated
-											observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match late
+										observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Accepted) => match repeated
+											observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Accepted) => match late
 												observe::Closed => match no_more
 													None => match frozen_health
 														observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => Ok(())
@@ -957,7 +957,7 @@ test buffered_rejected_span_start_returns_handle_and_finish_retries_admission() 
 	let release = channel::bounded<()>(2)
 	let idle = channel::bounded<()>(2)
 	let resume = channel::bounded<()>(2)
-	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::NoDiagnosticDestination, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::DiagnosticDestination::Disabled, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let first = handle observe::buffered_export_observation(exporter, buffered_log("occupy")) with observe_test_support_test::clock(0)
@@ -1011,7 +1011,7 @@ end
 
 test buffered_closed_span_start_returns_allocated_handle_and_finish_remains_closed() -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(1)
-	let constructed = handle new_buffered_for_test(1, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_for_test(1, observe::DiagnosticDestination::Disabled) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let report = observe::shutdown_buffered(exporter)
@@ -1059,7 +1059,7 @@ end
 
 test buffered_invalid_span_start_returns_allocated_handle_and_finish_is_admitted() -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(2)
-	let constructed = handle new_buffered_for_test(1, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_for_test(1, observe::DiagnosticDestination::Disabled) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let invalid_link = observe::TraceContext("", "linked-span", true)
@@ -1104,7 +1104,7 @@ end
 
 test buffered_non_exporter_span_finish_is_immediate_and_preserves_state() -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(1)
-	let constructed = handle new_buffered_for_test(1, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_for_test(1, observe::DiagnosticDestination::Disabled) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let span = handle perform observe::Observe::start_span(observe::SpanRequest("noop", None, list_nil())) with observe::noop()
@@ -1163,7 +1163,7 @@ test buffered_handler_consumes_rejected_start_and_independently_admits_finish() 
 	let release = channel::bounded<()>(2)
 	let idle = channel::bounded<()>(2)
 	let resume = channel::bounded<()>(2)
-	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::NoDiagnosticDestination, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::DiagnosticDestination::Disabled, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let first = handle observe::buffered_export_observation(exporter, buffered_log("occupy-handler")) with observe_test_support_test::clock(0)
@@ -1209,7 +1209,7 @@ end
 
 fn buffered_allocator_remains_usable_after_aborted_identity(kind: String, fail: Bool) -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(2)
-	let constructed = handle new_buffered_for_test(2, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_for_test(2, observe::DiagnosticDestination::Disabled) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let entered = channel::bounded<()>(1)
@@ -1288,8 +1288,8 @@ end
 test buffered_handler_is_shared_with_children_restored_after_nesting_and_state_is_independent() -> Result<(), String> effects [time, concurrency]
 	let outer_lines = observe_test_support_test::export_lines(8)
 	let inner_lines = observe_test_support_test::export_lines(4)
-	let outer_constructed = handle new_buffered_for_test(8, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(outer_lines.tx, true)
-	let inner_constructed = handle new_buffered_for_test(4, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(inner_lines.tx, true)
+	let outer_constructed = handle new_buffered_for_test(8, observe::DiagnosticDestination::Disabled) with observe_test_support_test::exporter(outer_lines.tx, true)
+	let inner_constructed = handle new_buffered_for_test(4, observe::DiagnosticDestination::Disabled) with observe_test_support_test::exporter(inner_lines.tx, true)
 	match outer_constructed
 		observe::BufferedJsonLines(outer) => match inner_constructed
 			observe::BufferedJsonLines(inner) => begin
@@ -1355,7 +1355,7 @@ fn new_independent_buffered_for_test() -> BufferedJsonLinesConstruction effects 
 		1,
 		observe::ExporterLimits(8, 64, 2, list_nil()),
 		observe::StandardError,
-		observe::NoDiagnosticDestination,
+		observe::DiagnosticDestination::Disabled,
 		"independent",
 		1,
 	)
@@ -1634,7 +1634,7 @@ test buffered_concurrent_accepted_submissions_reach_destination_in_admission_ord
 	let release = channel::bounded<()>(1)
 	let queued = channel::bounded<()>(1)
 	let admit = channel::bounded<()>(1)
-	let constructed = handle new_buffered_for_test(2, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_for_test(2, observe::DiagnosticDestination::Disabled) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let first = task::spawn_with(stalled_buffered_admission, { exporter: exporter, entered: entered.tx, release: release.rx })
@@ -1698,7 +1698,7 @@ fn new_buffered_interruption_boundary_for_test(entered: Sender<()>, release: Rec
 		4,
 		observe::ExporterLimits(8, 64, 2, list_nil()),
 		observe::StandardError,
-		observe::NoDiagnosticDestination,
+		observe::DiagnosticDestination::Disabled,
 		"interruption-boundary",
 		1,
 		0,
@@ -1808,7 +1808,7 @@ fn check_record_permit_publication_cancellation(baseline: Int) -> Result<(), Str
 	let release = channel::bounded<()>(1)
 	let waiting = channel::bounded<()>(1)
 	let lines = observe_test_support_test::export_lines(1)
-	let constructed = handle new_buffered_permit_publication_for_test(observe::NoDiagnosticDestination, entered.tx, release.rx) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_permit_publication_for_test(observe::DiagnosticDestination::Disabled, entered.tx, release.rx) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let admission = handle observe::buffered_export_observation(exporter, buffered_log("unpublished-record")) with observe_test_support_test::clock(0)
@@ -1824,7 +1824,7 @@ fn check_record_permit_publication_cancellation(baseline: Int) -> Result<(), Str
 			match joined
 				Err(error) => if task::join_error_is_cancelled(error) and buffered_admission_is_accepted(admission) and buffered_unit_received(reached) and buffered_unit_received(shutdown_waiting) and during == baseline + 1 and after == baseline and buffered_no_selected_line(no_call)
 					match report
-						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => Ok(())
+						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) => Ok(())
 						_ => Err("record publication cancellation froze the wrong report")
 					end
 				else
@@ -1853,7 +1853,7 @@ fn check_summary_permit_publication_cancellation(baseline: Int) -> Result<(), St
 	let release = channel::bounded<()>(1)
 	let waiting = channel::bounded<()>(1)
 	let lines = observe_test_support_test::export_lines(1)
-	let constructed = handle new_buffered_permit_publication_for_test(observe::DiagnosticStandardError, entered.tx, release.rx) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_permit_publication_for_test(observe::DiagnosticDestination::StandardError, entered.tx, release.rx) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let shutdown = task::spawn_with(shutdown_buffered_task_observed, { exporter: exporter, waiting: waiting.tx })
@@ -1868,7 +1868,7 @@ fn check_summary_permit_publication_cancellation(baseline: Int) -> Result<(), St
 			match joined
 				Err(error) => if task::join_error_is_cancelled(error) and buffered_unit_received(reached) and buffered_unit_received(shutdown_waiting) and during == baseline + 1 and after == baseline and buffered_no_selected_line(no_call)
 					match report
-						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => Ok(())
+						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) => Ok(())
 						_ => Err("summary publication cancellation froze the wrong report")
 					end
 				else
@@ -1890,7 +1890,7 @@ end
 
 test buffered_record_rejection_and_exception_are_counted_once_and_later_work_continues() -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(4)
-	let constructed = handle new_buffered_failure_for_test(0, observe::NoDiagnosticDestination) with observe_test_support_test::record_failure_exporter(lines.tx)
+	let constructed = handle new_buffered_failure_for_test(0, observe::DiagnosticDestination::Disabled) with observe_test_support_test::record_failure_exporter(lines.tx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let result = handle handle buffered_failure_body() with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0)
@@ -1900,7 +1900,7 @@ test buffered_record_rejection_and_exception_are_counted_once_and_later_work_con
 			let third = channel::recv(lines.rx)
 			let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
 			match report
-				observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => if result == 42 and buffered_line_contains(first, "\"message\":\"rejected\"") and buffered_line_contains(second, "\"message\":\"exceptional\"") and buffered_line_contains(third, "\"message\":\"accepted\"")
+				observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Disabled) => if result == 42 and buffered_line_contains(first, "\"message\":\"rejected\"") and buffered_line_contains(second, "\"message\":\"exceptional\"") and buffered_line_contains(third, "\"message\":\"accepted\"")
 					match no_more
 						None => Ok(())
 						Some(_) => Err("buffered record failure retried a destination attempt")
@@ -1921,7 +1921,7 @@ test buffered_record_contract_failure_accounts_unsettled_records_and_stops_later
 	let outcomes = channel::bounded<ExportWriteOutcome>(2)
 	let _ = channel::send(outcomes.tx, observe_test_support_test::ContractFailWrite)
 	let _ = channel::send(outcomes.tx, observe_test_support_test::AcceptWrite)
-	let constructed = handle new_buffered_failure_for_test(0, observe::NoDiagnosticDestination) with observe_test_support_test::scheduled_exporter(lines.tx, outcomes.rx)
+	let constructed = handle new_buffered_failure_for_test(0, observe::DiagnosticDestination::Disabled) with observe_test_support_test::scheduled_exporter(lines.tx, outcomes.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let first = handle observe::buffered_export_observation(exporter, buffered_log("contract")) with observe_test_support_test::clock(0)
@@ -1932,7 +1932,7 @@ test buffered_record_contract_failure_accounts_unsettled_records_and_stops_later
 			match first
 				observe::Accepted => match second
 					observe::Accepted => match report
-						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => if buffered_line_contains(attempted, "\"message\":\"contract\"")
+						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) => if buffered_line_contains(attempted, "\"message\":\"contract\"")
 							match no_more
 								None => Ok(())
 								Some(_) => Err("contract-failing record continued to later buffered work")
@@ -1957,7 +1957,7 @@ test buffered_record_failure_counter_saturates_without_stopping_later_work() -> 
 	let outcomes = channel::bounded<ExportWriteOutcome>(2)
 	let _ = channel::send(outcomes.tx, observe_test_support_test::RejectWrite)
 	let _ = channel::send(outcomes.tx, observe_test_support_test::AcceptWrite)
-	let constructed = handle new_buffered_failure_for_test(maximum, observe::NoDiagnosticDestination) with observe_test_support_test::scheduled_exporter(lines.tx, outcomes.rx)
+	let constructed = handle new_buffered_failure_for_test(maximum, observe::DiagnosticDestination::Disabled) with observe_test_support_test::scheduled_exporter(lines.tx, outcomes.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let first = handle observe::buffered_export_observation(exporter, buffered_log("saturated")) with observe_test_support_test::clock(0)
@@ -1966,7 +1966,7 @@ test buffered_record_failure_counter_saturates_without_stopping_later_work() -> 
 			let first_line = channel::recv(lines.rx)
 			let second_line = channel::recv(lines.rx)
 			match report
-				observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(9223372036854775807, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => match first
+				observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(9223372036854775807, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Disabled) => match first
 					observe::Accepted => match second
 						observe::Accepted => if buffered_line_contains(first_line, "\"message\":\"saturated\"") and buffered_line_contains(second_line, "\"message\":\"later\"")
 							Ok(())
@@ -1986,7 +1986,7 @@ end
 
 test buffered_summary_disabled_makes_no_attempt_and_freezes_health() -> Result<(), String> effects [concurrency]
 	let lines = observe_test_support_test::export_lines(1)
-	let constructed = handle new_buffered_failure_for_test(3, observe::NoDiagnosticDestination) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_failure_for_test(3, observe::DiagnosticDestination::Disabled) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let report = observe::shutdown_buffered(exporter)
@@ -1994,8 +1994,8 @@ test buffered_summary_disabled_makes_no_attempt_and_freezes_health() -> Result<(
 			let health = observe::buffered_exporter_health(exporter)
 			let no_line: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
 			match report
-				observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(3, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => match repeated
-					observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(3, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryDisabled) => match health
+				observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(3, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Disabled) => match repeated
+					observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(3, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Disabled) => match health
 						observe::ExporterHealth(3, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match no_line
 							None => Ok(())
 							Some(_) => Err("disabled buffered summary reached the destination")
@@ -2015,7 +2015,7 @@ fn check_buffered_summary_failure(outcome: ExportWriteOutcome) -> Result<(), Str
 	let lines = observe_test_support_test::export_lines(2)
 	let outcomes = channel::bounded<ExportWriteOutcome>(1)
 	let _ = channel::send(outcomes.tx, outcome)
-	let constructed = handle new_buffered_failure_for_test(5, observe::DiagnosticStandardError) with observe_test_support_test::scheduled_exporter(lines.tx, outcomes.rx)
+	let constructed = handle new_buffered_failure_for_test(5, observe::DiagnosticDestination::StandardError) with observe_test_support_test::scheduled_exporter(lines.tx, outcomes.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let report = observe::shutdown_buffered(exporter)
@@ -2024,8 +2024,8 @@ fn check_buffered_summary_failure(outcome: ExportWriteOutcome) -> Result<(), Str
 			let health = observe::buffered_exporter_health(exporter)
 			let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
 			match report
-				observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryRejected) => match repeated
-					observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryRejected) => match health
+				observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Rejected) => match repeated
+					observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Rejected) => match health
 						observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => if buffered_line_contains(attempted, "diagnostic:stderr:{\"schema_version\":1,\"kind\":\"exporter_health\",\"failed_exports\":5")
 							match no_more
 								None => Ok(())
@@ -2055,7 +2055,7 @@ test buffered_summary_contract_failure_freezes_rejected_interruption_without_ret
 	let outcomes = channel::bounded<ExportWriteOutcome>(1)
 	let reports = channel::bounded<BufferedShutdownReport>(1)
 	let _ = channel::send(outcomes.tx, observe_test_support_test::ContractFailWrite)
-	let constructed = handle new_buffered_failure_for_test(5, observe::DiagnosticStandardError) with observe_test_support_test::scheduled_exporter(lines.tx, outcomes.rx)
+	let constructed = handle new_buffered_failure_for_test(5, observe::DiagnosticDestination::StandardError) with observe_test_support_test::scheduled_exporter(lines.tx, outcomes.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let shutdown = task::spawn_with(shutdown_buffered_and_send, { exporter: exporter, reports: reports.tx })
@@ -2075,9 +2075,9 @@ test buffered_summary_contract_failure_freezes_rejected_interruption_without_ret
 			let health = observe::buffered_exporter_health(exporter)
 			let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
 			match report
-				observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryRejected) => match joined
+				observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Rejected) => match joined
 					Ok(()) => match repeated
-						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryRejected) => match health
+						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Rejected) => match health
 							observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => if buffered_line_contains(attempted, "diagnostic:stderr:{\"schema_version\":1,\"kind\":\"exporter_health\",\"failed_exports\":5")
 								match no_more
 									None => Ok(())
@@ -2106,7 +2106,7 @@ test cancellation_before_queue_reversal_restores_state_and_wakes_shutdown_waiter
 	let waiter_release = channel::bounded<()>(1)
 	let reports = channel::bounded<BufferedShutdownReport>(1)
 	let lines = observe_test_support_test::export_lines(1)
-	let constructed = handle new_buffered_worker_boundary_for_test(0, observe::DiagnosticStandardError, true, boundary.tx, boundary_release.rx) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_worker_boundary_for_test(0, observe::DiagnosticDestination::StandardError, true, boundary.tx, boundary_release.rx) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let admitted = handle observe::buffered_export_observation(exporter, buffered_log("queued-before-reversal")) with observe_test_support_test::clock(0)
@@ -2124,9 +2124,9 @@ test cancellation_before_queue_reversal_restores_state_and_wakes_shutdown_waiter
 			match cancelled_join
 				Err(error) => if task::join_error_is_cancelled(error) and buffered_unit_received(reached) and buffered_unit_received(waiting) and buffered_admission_is_accepted(admitted)
 					match prompt
-						Some({ index: 0, value: observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) }) => match survivor_join
+						Some({ index: 0, value: observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) }) => match survivor_join
 							Ok(()) => match repeated
-								observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match health
+								observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) => match health
 									observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => if buffered_no_selected_line(no_call)
 										Ok(())
 									else
@@ -2157,7 +2157,7 @@ test cancellation_before_production_health_publication_restores_state_and_wakes_
 	let waiter_release = channel::bounded<()>(1)
 	let reports = channel::bounded<BufferedShutdownReport>(1)
 	let lines = observe_test_support_test::export_lines(1)
-	let constructed = handle new_buffered_worker_boundary_for_test(5, observe::DiagnosticStandardError, false, boundary.tx, boundary_release.rx) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_worker_boundary_for_test(5, observe::DiagnosticDestination::StandardError, false, boundary.tx, boundary_release.rx) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let survivor = task::spawn_with(shutdown_buffered_and_send, { exporter: exporter, reports: reports.tx })
@@ -2174,9 +2174,9 @@ test cancellation_before_production_health_publication_restores_state_and_wakes_
 			match cancelled_join
 				Err(error) => if task::join_error_is_cancelled(error) and buffered_unit_received(reached) and buffered_unit_received(waiting)
 					match prompt
-						Some({ index: 0, value: observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) }) => match survivor_join
+						Some({ index: 0, value: observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) }) => match survivor_join
 							Ok(()) => match repeated
-								observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => if buffered_health_is_five(health) and buffered_no_selected_line(no_summary)
+								observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) => if buffered_health_is_five(health) and buffered_no_selected_line(no_summary)
 									Ok(())
 								else
 									Err("production-health interruption changed health or started the summary")
@@ -2205,7 +2205,7 @@ test record_interruption_before_actual_write_entry_revokes_the_call() -> Result<
 	let reports = channel::bounded<BufferedShutdownReport>(1)
 	let events = channel::bounded<String>(1)
 	let completion_release = channel::bounded<()>(1)
-	let constructed = handle new_buffered_call_entry_for_test(0, observe::DiagnosticStandardError, entry.tx, entry_release.rx) with observe_test_support_test::late_completion_exporter(events.tx, completion_release.rx)
+	let constructed = handle new_buffered_call_entry_for_test(0, observe::DiagnosticDestination::StandardError, entry.tx, entry_release.rx) with observe_test_support_test::late_completion_exporter(events.tx, completion_release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let admitted = handle observe::buffered_export_observation(exporter, buffered_log("pre-entry")) with observe_test_support_test::clock(0)
@@ -2226,9 +2226,9 @@ test record_interruption_before_actual_write_entry_revokes_the_call() -> Result<
 			match cancelled_join
 				Err(error) => if task::join_error_is_cancelled(error) and buffered_unit_received(ready) and buffered_unit_received(waiting) and buffered_admission_is_accepted(admitted)
 					match prompt
-						Some({ index: 0, value: observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) }) => if buffered_no_selected_line(no_call) and survivor_completed
+						Some({ index: 0, value: observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) }) => if buffered_no_selected_line(no_call) and survivor_completed
 							match repeated
-								observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => Ok(())
+								observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) => Ok(())
 								_ => Err("pre-entry record interruption changed its frozen report")
 							end
 						else
@@ -2254,7 +2254,7 @@ test summary_interruption_before_actual_write_entry_is_not_attempted() -> Result
 	let reports = channel::bounded<BufferedShutdownReport>(1)
 	let events = channel::bounded<String>(1)
 	let completion_release = channel::bounded<()>(1)
-	let constructed = handle new_buffered_call_entry_for_test(5, observe::DiagnosticStandardError, entry.tx, entry_release.rx) with observe_test_support_test::late_completion_exporter(events.tx, completion_release.rx)
+	let constructed = handle new_buffered_call_entry_for_test(5, observe::DiagnosticDestination::StandardError, entry.tx, entry_release.rx) with observe_test_support_test::late_completion_exporter(events.tx, completion_release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let survivor = task::spawn_with(shutdown_buffered_and_send, { exporter: exporter, reports: reports.tx })
@@ -2275,9 +2275,9 @@ test summary_interruption_before_actual_write_entry_is_not_attempted() -> Result
 			match cancelled_join
 				Err(error) => if task::join_error_is_cancelled(error) and buffered_unit_received(ready) and buffered_unit_received(waiting)
 					match prompt
-						Some({ index: 0, value: observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) }) => if buffered_no_selected_line(no_call) and survivor_completed and buffered_health_is_five(health)
+						Some({ index: 0, value: observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) }) => if buffered_no_selected_line(no_call) and survivor_completed and buffered_health_is_five(health)
 							match repeated
-								observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => Ok(())
+								observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) => Ok(())
 								_ => Err("pre-entry summary interruption changed its frozen report")
 							end
 						else
@@ -2326,9 +2326,9 @@ test shutdown_cancellation_before_worker_cleanup_registration_freezes_shared_int
 			match cancelled_join
 				Err(error) => if task::join_error_is_cancelled(error) and buffered_unit_received(startup_blocked) and buffered_unit_received(cancelled_waiting) and buffered_unit_received(survivor_waiting) and buffered_admission_is_accepted(admitted)
 					match prompt
-						Some(observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted)) => match survivor_join
+						Some(observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted)) => match survivor_join
 							Ok(()) => match repeated
-								observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match frozen_before
+								observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) => match frozen_before
 									observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match frozen_after
 										observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => if outstanding_before_release != 0 or not queue_empty_before_release
 											Err("startup interruption did not discard queued outstanding work")
@@ -2365,7 +2365,7 @@ test concurrent_buffered_shutdown_callers_share_one_drain_summary_and_frozen_rep
 	let reports = channel::bounded<BufferedShutdownReport>(2)
 	let first_wait = channel::bounded<()>(1)
 	let second_wait = channel::bounded<()>(1)
-	let constructed = handle new_buffered_failure_for_test(0, observe::DiagnosticStandardError) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
+	let constructed = handle new_buffered_failure_for_test(0, observe::DiagnosticDestination::StandardError) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let admitted = handle observe::buffered_export_observation(exporter, buffered_log("shared")) with observe_test_support_test::clock(0)
@@ -2404,8 +2404,8 @@ test concurrent_buffered_shutdown_callers_share_one_drain_summary_and_frozen_rep
 					observe::Closed => match production_before_release
 						observe::ProductionHealth(0, 0, 0) => match before_release
 						observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match first_report
-							Some(observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted)) => match second_report
-								Some(observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted)) => if not buffered_event_is(started, "record-started")
+							Some(observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Accepted)) => match second_report
+								Some(observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Accepted)) => if not buffered_event_is(started, "record-started")
 									Err(buffered_unexpected_event("concurrent shutdown record start", started))
 								else if completed_record == None or not buffered_event_is(summary_started, "summary-started") or completed_summary == None
 									Err("concurrent shutdown did not complete one record and one summary")
@@ -2440,7 +2440,7 @@ end
 test abnormal_worker_exit_while_open_freezes_exact_unsettled_accounting() -> Result<(), String> effects [time, concurrency]
 	let events = channel::bounded<String>(3)
 	let release = channel::bounded<()>(1)
-	let constructed = handle new_buffered_failure_for_test(0, observe::NoDiagnosticDestination) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
+	let constructed = handle new_buffered_failure_for_test(0, observe::DiagnosticDestination::Disabled) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let admitted = handle observe::buffered_export_observation(exporter, buffered_log("open-in-flight")) with observe_test_support_test::clock(0)
@@ -2454,8 +2454,8 @@ test abnormal_worker_exit_while_open_freezes_exact_unsettled_accounting() -> Res
 			let repeated = observe::shutdown_buffered(exporter)
 			match admitted
 				observe::Accepted => match report
-					observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match repeated
-						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match health
+					observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) => match repeated
+						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) => match health
 							observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => if not buffered_event_is(started, "record-started")
 								Err(buffered_unexpected_event("open worker record start", started))
 							else if not buffered_admission_is_closed(closed)
@@ -2497,7 +2497,7 @@ test interruption_freezes_metric_health_after_atomic_admission() -> Result<(), S
 				Err("metric admission and interruption did not reach the atomic boundary")
 			else match interruption_result
 				Ok(()) => match report
-					observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(1, 1, 0)), observe::SummaryNotAttempted) => match health
+					observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(1, 1, 0)), observe::BufferedSummaryOutcome::NotAttempted) => match health
 						observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(1, 1, 0)) => if buffered_no_selected_line(no_call)
 							Ok(())
 						else
@@ -2519,7 +2519,7 @@ test confirmed_record_outcome_survives_worker_cancellation_before_state_commit()
 	let entered = channel::bounded<()>(1)
 	let release = channel::bounded<()>(1)
 	let lines = observe_test_support_test::export_lines(1)
-	let constructed = handle new_buffered_completion_for_test(0, observe::NoDiagnosticDestination, entered.tx, release.rx) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_completion_for_test(0, observe::DiagnosticDestination::Disabled, entered.tx, release.rx) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let admitted = handle observe::buffered_export_observation(exporter, buffered_log("confirmed")) with observe_test_support_test::clock(0)
@@ -2528,7 +2528,7 @@ test confirmed_record_outcome_survives_worker_cancellation_before_state_commit()
 			let report = observe::shutdown_buffered(exporter)
 			let line: Option<String> = channel::recv(lines.rx)
 			match report
-				observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => if not buffered_admission_is_accepted(admitted)
+				observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) => if not buffered_admission_is_accepted(admitted)
 					Err("confirmed record setup was not admitted")
 				else if not buffered_unit_received(confirmed)
 					Err("confirmed record cancellation did not reach its deterministic barrier")
@@ -2549,7 +2549,7 @@ test confirmed_summary_outcome_closes_before_interruption_cleanup() -> Result<()
 	let release = channel::bounded<()>(1)
 	let lines = observe_test_support_test::export_lines(1)
 	let waiting = channel::bounded<()>(1)
-	let constructed = handle new_buffered_completion_for_test(5, observe::DiagnosticStandardError, entered.tx, release.rx) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_completion_for_test(5, observe::DiagnosticDestination::StandardError, entered.tx, release.rx) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let shutdown = task::spawn_with(shutdown_buffered_task_observed, { exporter: exporter, waiting: waiting.tx })
@@ -2563,8 +2563,8 @@ test confirmed_summary_outcome_closes_before_interruption_cleanup() -> Result<()
 			match joined
 				Err(error) => if task::join_error_is_cancelled(error)
 					match report
-						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match repeated
-							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => if not buffered_unit_received(shutdown_waiting) or not buffered_unit_received(confirmed)
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Accepted) => match repeated
+							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Accepted) => if not buffered_unit_received(shutdown_waiting) or not buffered_unit_received(confirmed)
 								Err("confirmed summary cancellation did not reach both deterministic barriers")
 							else if line == None
 								Err("confirmed summary did not reach its destination")
@@ -2590,7 +2590,7 @@ test shutdown_cancellation_after_closed_is_abrupt_and_has_no_exporter_effect() -
 	let destination_release = channel::bounded<()>(2)
 	let return_entered = channel::bounded<()>(1)
 	let return_release = channel::bounded<()>(1)
-	let constructed = handle new_buffered_failure_for_test(0, observe::DiagnosticStandardError) with observe_test_support_test::late_completion_exporter(events.tx, destination_release.rx)
+	let constructed = handle new_buffered_failure_for_test(0, observe::DiagnosticDestination::StandardError) with observe_test_support_test::late_completion_exporter(events.tx, destination_release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let admission = handle observe::buffered_export_observation(exporter, buffered_log("close-before-cancel")) with observe_test_support_test::clock(0)
@@ -2629,14 +2629,14 @@ test interrupted_unsettled_accounting_saturates_failed_exports() -> Result<(), S
 	let lines = observe_test_support_test::export_lines(1)
 	let outcomes = channel::bounded<ExportWriteOutcome>(1)
 	let _ = channel::send(outcomes.tx, observe_test_support_test::ContractFailWrite)
-	let constructed = handle new_buffered_failure_for_test(maximum, observe::NoDiagnosticDestination) with observe_test_support_test::scheduled_exporter(lines.tx, outcomes.rx)
+	let constructed = handle new_buffered_failure_for_test(maximum, observe::DiagnosticDestination::Disabled) with observe_test_support_test::scheduled_exporter(lines.tx, outcomes.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let admission = handle observe::buffered_export_observation(exporter, buffered_log("saturating interruption")) with observe_test_support_test::clock(0)
 			let report = observe::shutdown_buffered(exporter)
 			match admission
 				observe::Accepted => match report
-					observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(9223372036854775807, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => Ok(())
+					observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(9223372036854775807, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) => Ok(())
 					_ => Err("interrupted unsettled accounting overflowed failed exports")
 				end
 				_ => Err("saturating interruption record was not admitted")
@@ -2653,7 +2653,7 @@ test cancelled_shutdown_waiter_interrupts_shared_drain_and_late_record_completio
 	let reports = channel::bounded<BufferedShutdownReport>(1)
 	let cancelled_wait = channel::bounded<()>(1)
 	let survivor_wait = channel::bounded<()>(1)
-	let constructed = handle new_buffered_call_return_for_test(0, observe::DiagnosticStandardError, call_returned.tx) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
+	let constructed = handle new_buffered_call_return_for_test(0, observe::DiagnosticDestination::StandardError, call_returned.tx) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let first_admission = handle observe::buffered_export_observation(exporter, buffered_log("in-flight")) with observe_test_support_test::clock(0)
@@ -2681,8 +2681,8 @@ test cancelled_shutdown_waiter_interrupts_shared_drain_and_late_record_completio
 			match cancelled_join
 				Err(error) => if task::join_error_is_cancelled(error)
 					match prompt
-						Some({ index: 0, value: observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) }) => match repeated
-							observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryNotAttempted) => match frozen_before
+						Some({ index: 0, value: observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) }) => match repeated
+							observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted) => match frozen_before
 								observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match frozen_after
 									observe::ExporterHealth(2, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => if not buffered_admission_is_accepted(first_admission) or not buffered_admission_is_accepted(second_admission)
 										Err("interrupted drain setup did not admit two records")
@@ -2722,7 +2722,7 @@ test summary_interruption_rejects_unconfirmed_call_and_late_completion_is_inert(
 	let release = channel::bounded<()>(1)
 	let call_returned = channel::bounded<()>(1)
 	let waiting = channel::bounded<()>(1)
-	let constructed = handle new_buffered_call_return_for_test(5, observe::DiagnosticStandardError, call_returned.tx) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
+	let constructed = handle new_buffered_call_return_for_test(5, observe::DiagnosticDestination::StandardError, call_returned.tx) with observe_test_support_test::late_completion_exporter(events.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let shutdown = task::spawn_with(shutdown_buffered_task_observed, { exporter: exporter, waiting: waiting.tx })
@@ -2741,8 +2741,8 @@ test summary_interruption_rejects_unconfirmed_call_and_late_completion_is_inert(
 			match joined
 				Err(error) => if task::join_error_is_cancelled(error)
 					match report
-						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryRejected) => match repeated
-							observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryRejected) => if not buffered_unit_received(shutdown_waiting)
+						observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Rejected) => match repeated
+							observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(5, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Rejected) => if not buffered_unit_received(shutdown_waiting)
 								Err("summary interruption caller did not join the transition")
 							else if not buffered_event_is(started, "summary-started")
 								Err(buffered_unexpected_event("summary interruption start", started))
@@ -2792,7 +2792,7 @@ end
 
 fn buffered_report_is_completed(report: BufferedShutdownReport) -> Bool
 	match report
-		observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => true
+		observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::Accepted) => true
 		_ => false
 	end
 end

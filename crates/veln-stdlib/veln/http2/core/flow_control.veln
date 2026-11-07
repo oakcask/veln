@@ -21,8 +21,8 @@ pub type FlowControlDomainFailure
 end
 
 pub type FlowControlCreditDecision
-	FlowControlCreditAccepted(value: Int)
-	FlowControlCreditRejected(failure: FlowControlDomainFailure)
+	Accepted(value: Int)
+	Rejected(failure: FlowControlDomainFailure)
 end
 
 pub fn max_value() -> Int
@@ -99,50 +99,50 @@ end
 
 pub fn debit_connection_window(credit: CoreConnectionWindowCredit, length: Int) -> FlowControlCreditDecision
 	match connection_window_credit(connection_window_credit_value(credit) - length)
-		Ok(next) => FlowControlCreditAccepted(connection_window_credit_value(next))
-		Err(failure) => FlowControlCreditRejected(failure)
+		Ok(next) => FlowControlCreditDecision::Accepted(connection_window_credit_value(next))
+		Err(failure) => FlowControlCreditDecision::Rejected(failure)
 	end
 end
 
 pub fn debit_stream_window(credit: CoreStreamWindowCredit, length: Int) -> FlowControlCreditDecision
 	match stream_window_credit(stream_window_credit_value(credit) - length)
-		Ok(next) => FlowControlCreditAccepted(stream_window_credit_value(next))
-		Err(failure) => FlowControlCreditRejected(failure)
+		Ok(next) => FlowControlCreditDecision::Accepted(stream_window_credit_value(next))
+		Err(failure) => FlowControlCreditDecision::Rejected(failure)
 	end
 end
 
 pub fn refill_connection_window(credit: CoreConnectionWindowCredit, increment: CoreWindowUpdateIncrement) -> FlowControlCreditDecision
 	match connection_window_credit(connection_window_credit_value(credit) + window_update_increment_value(increment))
-		Ok(next) => FlowControlCreditAccepted(connection_window_credit_value(next))
-		Err(failure) => FlowControlCreditRejected(failure)
+		Ok(next) => FlowControlCreditDecision::Accepted(connection_window_credit_value(next))
+		Err(failure) => FlowControlCreditDecision::Rejected(failure)
 	end
 end
 
 pub fn refill_stream_window(credit: CoreStreamWindowCredit, increment: CoreWindowUpdateIncrement) -> FlowControlCreditDecision
 	match stream_window_credit(stream_window_credit_value(credit) + window_update_increment_value(increment))
-		Ok(next) => FlowControlCreditAccepted(stream_window_credit_value(next))
-		Err(failure) => FlowControlCreditRejected(failure)
+		Ok(next) => FlowControlCreditDecision::Accepted(stream_window_credit_value(next))
+		Err(failure) => FlowControlCreditDecision::Rejected(failure)
 	end
 end
 
 pub fn credit_decision_status(decision: FlowControlCreditDecision) -> String
 	match decision
-		FlowControlCreditAccepted(_) => "accepted"
-		FlowControlCreditRejected(_) => "rejected"
+		FlowControlCreditDecision::Accepted(_) => "accepted"
+		FlowControlCreditDecision::Rejected(_) => "rejected"
 	end
 end
 
 pub fn credit_decision_value(decision: FlowControlCreditDecision) -> Int
 	match decision
-		FlowControlCreditAccepted(value) => value
-		FlowControlCreditRejected(_) => 0
+		FlowControlCreditDecision::Accepted(value) => value
+		FlowControlCreditDecision::Rejected(_) => 0
 	end
 end
 
 pub fn credit_decision_failure(decision: FlowControlCreditDecision) -> Result<FlowControlDomainFailure, String>
 	match decision
-		FlowControlCreditAccepted(_) => Err("accepted flow-control credit decision has no failure")
-		FlowControlCreditRejected(failure) => Ok(failure)
+		FlowControlCreditDecision::Accepted(_) => Err("accepted flow-control credit decision has no failure")
+		FlowControlCreditDecision::Rejected(failure) => Ok(failure)
 	end
 end
 

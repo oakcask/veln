@@ -5,11 +5,11 @@ use fake_effects
 # Deadline-aware socket read returns a chunk before the deadline.
 fn emit_read_result(result: Result<net::ReadOutcome, net::NetError>) -> Result<(), net::NetError> effects [stdio]
 	match result
-		Ok(net::ReadChunk(bytes)) => begin
+		Ok(net::ReadOutcome::Chunk(bytes)) => begin
 			emit_chunk(bytes)
 			Ok(())
 		end
-		Ok(net::ReadEnd) => begin
+		Ok(net::ReadOutcome::End) => begin
 			stdio::println("none")
 			Ok(())
 		end

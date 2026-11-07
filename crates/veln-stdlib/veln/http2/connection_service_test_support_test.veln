@@ -308,9 +308,9 @@ fn later_stream_read(operation: String, fails: Bool, request: ByteChunk, trace: 
 	if fails
 		Err(failure("read", "scripted later read failure"))
 	else if trace_contains(observed, operation)
-		Ok(net::ReadEnd)
+		Ok(net::ReadOutcome::End)
 	else
-		Ok(net::ReadChunk(request))
+		Ok(net::ReadOutcome::Chunk(request))
 	end
 end
 
@@ -399,9 +399,9 @@ fn many_connections_read(stream: net::Stream, expected_stream: net::Stream, requ
 	if not same_stream(stream, expected_stream)
 		Err(failure("read", "service used the wrong stream"))
 	else if ready
-		Ok(net::ReadChunk(request))
+		Ok(net::ReadOutcome::Chunk(request))
 	else
-		Ok(net::ReadEnd)
+		Ok(net::ReadOutcome::End)
 	end
 end
 
@@ -473,9 +473,9 @@ fn scripted_read(stream: net::Stream, expected_stream: net::Stream, mode: String
 	else if mode == "read-failure"
 		Err(failure("read", "scripted read failure"))
 	else if trace_contains(observed, "read")
-		Ok(net::ReadEnd)
+		Ok(net::ReadOutcome::End)
 	else
-		Ok(net::ReadChunk(request))
+		Ok(net::ReadOutcome::Chunk(request))
 	end
 end
 

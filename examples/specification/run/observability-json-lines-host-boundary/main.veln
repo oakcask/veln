@@ -7,9 +7,9 @@ use clock
 # installed here, so destinations and identities use their production host
 # implementations.
 pub fn main() -> () effects [fs, stdio, time, concurrency]
-	let exporter = configured(observe::FileDestination("records.jsonl"), observe::NoDiagnosticDestination)
+	let exporter = configured(observe::FileDestination("records.jsonl"), observe::DiagnosticDestination::Disabled)
 	let identities = handle export_span(exporter) with clock::fixed()
-	let failed = configured(observe::FileDestination("."), observe::DiagnosticFileDestination("health.jsonl"))
+	let failed = configured(observe::FileDestination("."), observe::DiagnosticDestination::File("health.jsonl"))
 	let application_result = handle handle failing_application() with observe::json_lines(failed) with clock::fixed()
 	stdio::println(application_result)
 	stdio::println(if failed_once(failed) "health-bounded" else "health-unexpected" end)

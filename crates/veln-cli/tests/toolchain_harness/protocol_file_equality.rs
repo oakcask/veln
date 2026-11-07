@@ -571,7 +571,7 @@ workspace_file_uri = "main.veln"
 "#,
     );
     let rendered = parse_json(&format!(
-        r#"{{"rendered":"RuntimeByteDiagnostic(offset, Cons(first, Cons(second, Nil)), facts, preview)","uri_rendered":"RuntimeDiagnostic({uri}, message, detail)"}}"#
+        r#"{{"rendered":"ByteDiagnostic(offset, Cons(first, Cons(second, Nil)), facts, preview)","uri_rendered":"RuntimeDiagnostic({uri}, message, detail)"}}"#
     ))
     .expect("result-value adapter input should parse");
     for (index, assertion) in result_manifest

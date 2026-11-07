@@ -70,25 +70,25 @@ fn publish_runtime_detail_families(mut descriptors: Vec<AdtDescriptor>) -> Vec<A
     });
     detail.variants.extend([
         AdtVariantDescriptor {
-            name: "RuntimeHttp2Diagnostic".to_string(),
+            name: "Http2Diagnostic".to_string(),
             name_class: SourceLessNameClass::Constructor,
             kind: AdtVariantKind::Source,
             payload_fields: vec![AdtPayloadField {
                 name: "detail".to_string(),
                 ty: AdtPayloadType::Concrete(Type::named("Http2DiagnosticDetail", Vec::new())),
             }],
-            coverage_case: "RuntimeHttp2Diagnostic(_)".to_string(),
+            coverage_case: "Http2Diagnostic(_)".to_string(),
             visibility: Visibility::Public,
         },
         AdtVariantDescriptor {
-            name: "RuntimeHttp2HpackDiagnostic".to_string(),
+            name: "Http2HpackDiagnostic".to_string(),
             name_class: SourceLessNameClass::Constructor,
             kind: AdtVariantKind::Source,
             payload_fields: vec![AdtPayloadField {
                 name: "detail".to_string(),
                 ty: AdtPayloadType::Concrete(Type::named("HpackDiagnosticDetail", Vec::new())),
             }],
-            coverage_case: "RuntimeHttp2HpackDiagnostic(_)".to_string(),
+            coverage_case: "Http2HpackDiagnostic(_)".to_string(),
             visibility: Visibility::Public,
         },
     ]);

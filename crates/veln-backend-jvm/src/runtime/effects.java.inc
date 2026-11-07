@@ -494,12 +494,12 @@
         ListValue current = asListValue(chunks);
         while (current.cons) {
             Object outcome = netWriteChunkUntil(stream, current.head, deadline);
-            if (!isAdt(outcome, "StreamWriteOutcome::WriteCompleted")) {
+            if (!isAdt(outcome, "StreamWriteOutcome::Completed")) {
                 return outcome;
             }
             current = asListValue(current.tail);
         }
-        return streamWriteOutcome("WriteCompleted");
+        return streamWriteOutcome("Completed");
     }
 
     public static Object netWriteChunksUntilCancellable(
@@ -516,12 +516,12 @@
                 deadline,
                 token
             );
-            if (!isAdt(outcome, "StreamWriteOutcome::WriteCompleted")) {
+            if (!isAdt(outcome, "StreamWriteOutcome::Completed")) {
                 return outcome;
             }
             current = asListValue(current.tail);
         }
-        return streamWriteOutcome("WriteCompleted");
+        return streamWriteOutcome("Completed");
     }
 
     public static Object processArgs() {
@@ -923,10 +923,10 @@
         if (listener.adapter != null) {
             Object reply = listenerRequest(listener, operation, deadline, token);
             String status = replyText(reply, "status");
-            if (status.equals("end")) return acceptOutcome("AcceptEnd");
-            if (status.equals("deadline")) return acceptOutcome("AcceptDeadlineExpired");
-            if (status.equals("cancelled")) return acceptOutcome("AcceptCancelled");
-            return acceptOutcome("AcceptStream", adapterStream(listener.adapter, reply));
+            if (status.equals("end")) return acceptOutcome("End");
+            if (status.equals("deadline")) return acceptOutcome("DeadlineExpired");
+            if (status.equals("cancelled")) return acceptOutcome("Cancelled");
+            return acceptOutcome("Stream", adapterStream(listener.adapter, reply));
         }
         SocketReadiness readiness = null;
         try {
@@ -934,9 +934,9 @@
             if (!listener.server.isOpen()) throw listenerTransportFailure(
                 "accept", "closed", listener, "closed_handle", false, "listener closed", null);
             while (true) {
-                if (token != null && waitCancelled(asCancelToken(token))) return acceptOutcome("AcceptCancelled");
+                if (token != null && waitCancelled(asCancelToken(token))) return acceptOutcome("Cancelled");
                 long remaining = deadline == null ? Long.MAX_VALUE : deadlineRemainingNanos(deadline);
-                if (remaining == 0L) return acceptOutcome("AcceptDeadlineExpired");
+                if (remaining == 0L) return acceptOutcome("DeadlineExpired");
                 java.nio.channels.SocketChannel socket = listener.server.accept();
                 if (socket == null) {
                     if (readiness == null) readiness = new SocketReadiness(
@@ -946,7 +946,7 @@
                 }
                 socket.configureBlocking(false);
                 NetStream stream = new NetStream(formatSocketAddress(socket.getRemoteAddress()), formatSocketAddress(socket.getLocalAddress()), formatSocketAddress(socket.getRemoteAddress()), socket, null);
-                return acceptOutcome("AcceptStream", stream);
+                return acceptOutcome("Stream", stream);
             }
         } catch (java.io.IOException error) {
             throwTaskCancellationIfRequested();
@@ -955,10 +955,10 @@
             if (readiness != null) try { readiness.close(); } catch (java.io.IOException ignored) { }
         }
     }
-    private static Object acceptedOption(Object outcome) { return isAdt(outcome, "AcceptOutcome::AcceptStream") ? some(((Adt)outcome).payloads[0]) : none(); }
+    private static Object acceptedOption(Object outcome) { return isAdt(outcome, "AcceptOutcome::Stream") ? some(((Adt)outcome).payloads[0]) : none(); }
     public static Object netAccept(Object listener) {
         Object outcome = acceptHost(asNetListener(listener), null, null, "accept");
-        if (isAdt(outcome, "AcceptOutcome::AcceptStream")) return ((Adt)outcome).payloads[0];
+        if (isAdt(outcome, "AcceptOutcome::Stream")) return ((Adt)outcome).payloads[0];
         throw acceptTransportFailure("end_of_stream", asNetListener(listener), null, "clean_end", false, "listener ended", null);
     }
     public static Object netAcceptOrEnd(Object listener) { return acceptedOption(acceptHost(asNetListener(listener), null, null, "accept_or_end")); }
@@ -988,13 +988,13 @@
         if (stream.adapter != null) {
             Object reply = streamRequest(stream, operation, emptyNetworkBytes(), deadline, token);
             String status = replyText(reply, "status");
-            if (status.equals("end")) return streamReadOutcome("ReadEnd");
-            if (status.equals("deadline")) return streamReadOutcome("ReadDeadlineExpired");
-            if (status.equals("cancelled")) return streamReadOutcome("ReadCancelled");
+            if (status.equals("end")) return streamReadOutcome("End");
+            if (status.equals("deadline")) return streamReadOutcome("DeadlineExpired");
+            if (status.equals("cancelled")) return streamReadOutcome("Cancelled");
             if (!status.equals("ok")) throw new NetworkProtocolFailure("network handler returned an invalid read status");
             Object bytes = recordField(reply, "bytes");
             if (byteChunkToByteArray(bytes).length == 0) throw new NetworkProtocolFailure("network handler returned an empty successful read");
-            return streamReadOutcome("ReadChunk", bytes);
+            return streamReadOutcome("Chunk", bytes);
         }
         SocketReadiness readiness = null;
         try {
@@ -1003,20 +1003,20 @@
             java.nio.ByteBuffer bytes = java.nio.ByteBuffer.allocate(4096);
             while (true) {
                 failIfHostStreamClosed(stream, "read");
-                if (stream.readShutdown) return streamReadOutcome("ReadEnd");
-                if (token != null && waitCancelled(asCancelToken(token))) return streamReadOutcome("ReadCancelled");
+                if (stream.readShutdown) return streamReadOutcome("End");
+                if (token != null && waitCancelled(asCancelToken(token))) return streamReadOutcome("Cancelled");
                 long remaining = deadline == null ? Long.MAX_VALUE : deadlineRemainingNanos(deadline);
-                if (remaining == 0L) return streamReadOutcome("ReadDeadlineExpired");
+                if (remaining == 0L) return streamReadOutcome("DeadlineExpired");
                 bytes.clear();
                 int count = stream.socket.read(bytes);
-                if (count < 0) return streamReadOutcome("ReadEnd");
+                if (count < 0) return streamReadOutcome("End");
                 if (count == 0) {
                     if (readiness == null) readiness = new SocketReadiness(
                         stream.socket, java.nio.channels.SelectionKey.OP_READ);
                     readiness.await(stream.systemOwner != null || deadline != null || token != null ? 10L : 0L);
                     continue;
                 }
-                return streamReadOutcome("ReadChunk", byteChunkFromByteArray(bytes.array(), count));
+                return streamReadOutcome("Chunk", byteChunkFromByteArray(bytes.array(), count));
             }
         } catch (java.io.IOException error) {
             throwTaskCancellationIfRequested();
@@ -1025,10 +1025,10 @@
             if (readiness != null) try { readiness.close(); } catch (java.io.IOException ignored) { }
         }
     }
-    private static Object readOption(Object outcome) { return isAdt(outcome, "StreamReadOutcome::ReadChunk") ? some(((Adt)outcome).payloads[0]) : none(); }
+    private static Object readOption(Object outcome) { return isAdt(outcome, "StreamReadOutcome::Chunk") ? some(((Adt)outcome).payloads[0]) : none(); }
     public static Object netReadChunk(Object stream) {
         Object outcome = readHost(asNetStream(stream), null, null, "read_chunk");
-        if (isAdt(outcome, "StreamReadOutcome::ReadChunk")) return ((Adt)outcome).payloads[0];
+        if (isAdt(outcome, "StreamReadOutcome::Chunk")) return ((Adt)outcome).payloads[0];
         throw streamTransportFailure("read", "end_of_stream", asNetStream(stream), "clean_end", true, false, false, "stream ended", null);
     }
     public static Object netReadChunkOrEnd(Object stream) { return readOption(readHost(asNetStream(stream), null, null, "read_chunk_or_end")); }
@@ -1037,7 +1037,7 @@
     private static Object writeHost(NetStream stream, Object bytes, Object deadline, Object token, String operation) {
         if (stream.adapter != null) {
             String status = replyText(streamRequest(stream, operation, bytes, deadline, token), "status");
-            return streamWriteOutcome(status.equals("deadline") ? "WriteDeadlineExpired" : status.equals("cancelled") ? "WriteCancelled" : "WriteCompleted");
+            return streamWriteOutcome(status.equals("deadline") ? "DeadlineExpired" : status.equals("cancelled") ? "Cancelled" : "Completed");
         }
         SocketReadiness readiness = null;
         try {
@@ -1045,23 +1045,23 @@
             failIfHostStreamClosed(stream, "write");
             if (stream.writeShutdown) throw streamTransportFailure("write", "closed", stream,
                 "write_shutdown", false, false, true, "stream write side is shut down", null);
-            if (token != null && waitCancelled(asCancelToken(token))) return streamWriteOutcome("WriteCancelled");
-            if (deadline != null && deadlineRemainingNanos(deadline) == 0L) return streamWriteOutcome("WriteDeadlineExpired");
+            if (token != null && waitCancelled(asCancelToken(token))) return streamWriteOutcome("Cancelled");
+            if (deadline != null && deadlineRemainingNanos(deadline) == 0L) return streamWriteOutcome("DeadlineExpired");
             java.nio.ByteBuffer output = java.nio.ByteBuffer.wrap(byteChunkToByteArray(bytes));
             while (output.hasRemaining()) {
                 int written = stream.socket.write(output);
                 if (!output.hasRemaining()) break;
-                if (token != null && waitCancelled(asCancelToken(token))) return streamWriteOutcome("WriteCancelled");
-                if (deadline != null && deadlineRemainingNanos(deadline) == 0L) return streamWriteOutcome("WriteDeadlineExpired");
+                if (token != null && waitCancelled(asCancelToken(token))) return streamWriteOutcome("Cancelled");
+                if (deadline != null && deadlineRemainingNanos(deadline) == 0L) return streamWriteOutcome("DeadlineExpired");
                 if (written == 0) {
                     if (readiness == null) readiness = new SocketReadiness(
                         stream.socket, java.nio.channels.SelectionKey.OP_WRITE);
                     readiness.await(deadline != null || token != null ? 10L : 0L);
-                    if (token != null && waitCancelled(asCancelToken(token))) return streamWriteOutcome("WriteCancelled");
-                    if (deadline != null && deadlineRemainingNanos(deadline) == 0L) return streamWriteOutcome("WriteDeadlineExpired");
+                    if (token != null && waitCancelled(asCancelToken(token))) return streamWriteOutcome("Cancelled");
+                    if (deadline != null && deadlineRemainingNanos(deadline) == 0L) return streamWriteOutcome("DeadlineExpired");
                 }
             }
-            return streamWriteOutcome("WriteCompleted");
+            return streamWriteOutcome("Completed");
         } catch (java.io.IOException error) {
             throwTaskCancellationIfRequested();
             throw hostStreamFailure("write", stream, error);
@@ -1614,9 +1614,9 @@
         if (!listener.accepting.compareAndSet(false, true)) return err(netSystemError("accept", null, listener.localAddress, "Busy", "another accept is active"));
         try {
             Object outcome = acceptHost(listener, netSystemOptionValue(deadlineOption), netSystemOptionValue(tokenOption), "accept");
-            if (isAdt(outcome, "AcceptOutcome::AcceptDeadlineExpired")) return err(netSystemError("accept", null, listener.localAddress, "TimedOut", "accept deadline elapsed"));
-            if (isAdt(outcome, "AcceptOutcome::AcceptCancelled")) return err(netSystemError("accept", null, listener.localAddress, "Cancelled", "accept was cancelled"));
-            if (isAdt(outcome, "AcceptOutcome::AcceptEnd")) return err(netSystemError("accept", null, listener.localAddress, "Closed", "listener reached clean end"));
+            if (isAdt(outcome, "AcceptOutcome::DeadlineExpired")) return err(netSystemError("accept", null, listener.localAddress, "TimedOut", "accept deadline elapsed"));
+            if (isAdt(outcome, "AcceptOutcome::Cancelled")) return err(netSystemError("accept", null, listener.localAddress, "Cancelled", "accept was cancelled"));
+            if (isAdt(outcome, "AcceptOutcome::End")) return err(netSystemError("accept", null, listener.localAddress, "Closed", "listener reached clean end"));
             NetStream stream = asNetStream(((Adt) outcome).payloads[0]);
             if (!netSystemPublishResource(owner, stream)) {
                 return err(netSystemInvalidResource("accept"));
@@ -1675,13 +1675,13 @@
         if (!stream.reading.compareAndSet(false, true)) return err(netSystemError("read", null, stream.peerAddress, "Busy", "another read is active"));
         try {
             if (netSystemReadUnavailable(stream) || stream.readFailed) return err(netSystemError("read", null, stream.peerAddress, "Closed", "stream read side is closed"));
-            if (stream.peerEnded) return ok(adt("ReadOutcome::ReadEnd", new Object[] {}));
+            if (stream.peerEnded) return ok(adt("ReadOutcome::End", new Object[] {}));
             Object outcome = readHost(stream, netSystemOptionValue(deadlineOption), netSystemOptionValue(tokenOption), "read");
             if (netSystemReadUnavailable(stream)) return err(netSystemError("read", null, stream.peerAddress, "Closed", "stream read side is closed"));
-            if (isAdt(outcome, "StreamReadOutcome::ReadDeadlineExpired")) return err(netSystemError("read", null, stream.peerAddress, "TimedOut", "read deadline elapsed"));
-            if (isAdt(outcome, "StreamReadOutcome::ReadCancelled")) return err(netSystemError("read", null, stream.peerAddress, "Cancelled", "read was cancelled"));
-            if (isAdt(outcome, "StreamReadOutcome::ReadEnd")) { stream.peerEnded = true; return ok(adt("ReadOutcome::ReadEnd", new Object[] {})); }
-            return ok(adt("ReadOutcome::ReadChunk", new Object[] { ((Adt) outcome).payloads[0] }));
+            if (isAdt(outcome, "StreamReadOutcome::DeadlineExpired")) return err(netSystemError("read", null, stream.peerAddress, "TimedOut", "read deadline elapsed"));
+            if (isAdt(outcome, "StreamReadOutcome::Cancelled")) return err(netSystemError("read", null, stream.peerAddress, "Cancelled", "read was cancelled"));
+            if (isAdt(outcome, "StreamReadOutcome::End")) { stream.peerEnded = true; return ok(adt("ReadOutcome::End", new Object[] {})); }
+            return ok(adt("ReadOutcome::Chunk", new Object[] { ((Adt) outcome).payloads[0] }));
         } catch (Throwable failure) {
             netSystemRejectUnexpectedFailure(failure);
             if (netSystemReadUnavailable(stream)) return err(netSystemError("read", null, stream.peerAddress, "Closed", "stream read side is closed"));
@@ -2023,29 +2023,29 @@
     }
     public static Object timeWaitUntilCancellable(Object deadline, Object token) {
         Object outcome = timeWaitUntilCancellableOutcome(deadline, token);
-        if (isAdt(outcome, "WaitCancelled")) throw new RuntimeFailure("transport wait cancelled: cancellation token");
-        if (isAdt(outcome, "WaitDeadlineExpired")) throw new RuntimeFailure("transport deadline expired: injected clock");
+        if (isAdt(outcome, "Cancelled")) throw new RuntimeFailure("transport wait cancelled: cancellation token");
+        if (isAdt(outcome, "DeadlineExpired")) throw new RuntimeFailure("transport deadline expired: injected clock");
         return UNIT;
     }
     public static Object timeWaitUntilCancellableOutcome(Object deadline, Object value) {
         CancelToken token = asCancelToken(value);
-        if (waitCancelled(token)) return waitOutcome("WaitCancelled");
+        if (waitCancelled(token)) return waitOutcome("Cancelled");
         if (findHandler(CLOCK_EFFECT) != null) {
             long result = clockRequest("wait_cancellable", deadlineRemainingNanos(deadline) / 1000000L);
-            return waitOutcome(result == 1L ? "WaitDeadlineExpired" : result == 2L ? "WaitCancelled" : "WaitCompleted");
+            return waitOutcome(result == 1L ? "DeadlineExpired" : result == 2L ? "Cancelled" : "Completed");
         }
         long remaining;
         while ((remaining = deadlineRemainingNanos(deadline)) > 0L) {
-            if (waitCancelled(token)) return waitOutcome("WaitCancelled");
+            if (waitCancelled(token)) return waitOutcome("Cancelled");
             try { long slice = Math.min(remaining, 10000000L); Thread.sleep(slice / 1000000L, (int)(slice % 1000000L)); }
             catch (InterruptedException error) {
                 throwTaskCancellationIfRequested();
                 Thread.currentThread().interrupt();
                 token.cancelled = true;
-                return waitOutcome("WaitCancelled");
+                return waitOutcome("Cancelled");
             }
         }
-        return waitOutcome(token.cancelled ? "WaitCancelled" : "WaitCompleted");
+        return waitOutcome(token.cancelled ? "Cancelled" : "Completed");
     }
 
     public static Object fsPath(Object text) { return pathValue(java.nio.file.Paths.get(asString(text))); }

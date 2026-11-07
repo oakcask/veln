@@ -5,8 +5,8 @@ use fake_effects
 # Absolute monotonic deadlines use the same deadline-aware socket path.
 fn emit_read_result(result: net::ReadOutcome) -> () effects [stdio]
 	match result
-		net::ReadChunk(bytes) => emit_chunk(bytes)
-		net::ReadEnd => stdio::println("end")
+		net::ReadOutcome::Chunk(bytes) => emit_chunk(bytes)
+		net::ReadOutcome::End => stdio::println("end")
 	end
 end
 

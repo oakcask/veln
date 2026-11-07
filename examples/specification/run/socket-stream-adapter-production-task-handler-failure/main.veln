@@ -13,8 +13,8 @@ end
 
 fn handle_stream_event(context: { input : StreamInput, state : { chunks : Int, ended : Bool }, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } }) -> Result<{ action : ResponseAction, next_state : { chunks : Int, ended : Bool }, event_kind : String, byte_count : Int, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } }, String>
 	match context.input
-		Chunk(_) => Err("handler rejected stream chunk")
-		End => Ok({ action: EndStream, next_state: { chunks: context.state.chunks, ended: true }, event_kind: "end", byte_count: 0, route: context.route, trace: context.trace })
+		StreamInput::Chunk(_) => Err("handler rejected stream chunk")
+		StreamInput::End => Ok({ action: EndStream, next_state: { chunks: context.state.chunks, ended: true }, event_kind: "end", byte_count: 0, route: context.route, trace: context.trace })
 	end
 end
 
@@ -26,14 +26,14 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	let _ = channel::send(route.tx, input)
 	match channel::recv(route.rx)
 		Some(value) => value
-		None => End
+		None => StreamInput::End
 	end
 end
 
 fn read_stream_input(stream: net::Stream) -> StreamInput effects [net::IO]
 	match read_chunk_optional(stream)
-		Some(bytes) => Chunk(bytes)
-		None => End
+		Some(bytes) => StreamInput::Chunk(bytes)
+		None => StreamInput::End
 	end
 end
 
@@ -190,7 +190,7 @@ end
 
 fn read_chunk_optional(stream: net::Stream) -> Option<ByteChunk> effects [net::IO]
 	match net::read(stream)
-		Ok(net::ReadChunk(bytes)) => Some(bytes)
+		Ok(net::ReadOutcome::Chunk(bytes)) => Some(bytes)
 		_ => None
 	end
 end

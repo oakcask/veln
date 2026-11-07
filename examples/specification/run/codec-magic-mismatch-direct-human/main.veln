@@ -12,5 +12,5 @@ fn offset(value: Int) -> ByteOffset
 end
 
 pub fn main() -> Result<(), DecodeError>
-	Err(DecodeErrorWithReason("codec.magic_mismatch", offset(18), "ManualPacketWire.magic", "expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature"))
+	Err(WithReason("codec.magic_mismatch", offset(18), "ManualPacketWire.magic", "expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature"))
 end

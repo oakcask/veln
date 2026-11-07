@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response trailer list contains pseudo-header :status at byte offset 12, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 1, 1, trailer_pseudo_header, :status, :status, response-trailers, rfc9113_trailer_pseudo_headers, ByteChunk([Byte(136)]))))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response trailer list contains pseudo-header :status at byte offset 12, Http2Diagnostic(ProtocolInvalidResponseHeaderListDiagnostic(12, 1, 1, trailer_pseudo_header, :status, :status, response-trailers, rfc9113_trailer_pseudo_headers, ByteChunk([Byte(136)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -93,7 +93,7 @@ equals = "rfc9113_trailer_pseudo_headers"
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.detail.constructor"
-equals = "RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic"
+equals = "ProtocolInvalidResponseHeaderListDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"

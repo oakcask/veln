@@ -19,8 +19,8 @@ end
 
 fn fixture_read_with(stream: net::Stream, deadline: Deadline, token: CancelToken) -> FixtureReadOutcome effects [net::IO]
 	match net::read_with(stream, Some(deadline), Some(token))
-		Ok(net::ReadChunk(bytes)) => FixtureReadChunk(bytes)
-		Ok(net::ReadEnd) => FixtureReadEnd
+		Ok(net::ReadOutcome::Chunk(bytes)) => FixtureReadChunk(bytes)
+		Ok(net::ReadOutcome::End) => FixtureReadEnd
 		Err(net::NetError(_, _, _, net::TimedOut, _)) => FixtureReadDeadlineExpired
 		Err(net::NetError(_, _, _, net::Cancelled, _)) => FixtureReadCancelled
 		Err(_) => FixtureReadEnd
@@ -46,16 +46,16 @@ end
 
 fn handle_stream_input(input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match input
-		Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
-		End => { actions: list_cons(EndStream, list_nil()), next_state: { chunks: state.chunks, ended: true } }
+		StreamInput::Chunk(bytes) => { actions: list_cons(SendBytes(bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
+		StreamInput::End => { actions: list_cons(EndStream, list_nil()), next_state: { chunks: state.chunks, ended: true } }
 	end
 end
 
 fn wait_response(outcome: CancellableWaitOutcome, state: { chunks : Int, ended : Bool }) -> { decision : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match outcome
-		WaitCompleted => { decision: "completed", actions: list_nil(), next_state: state }
-		WaitDeadlineExpired => { decision: "deadline-expired", actions: list_cons(RetryAfterDeadline, list_nil()), next_state: state }
-		WaitCancelled => { decision: "cancelled", actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
+		CancellableWaitOutcome::Completed => { decision: "completed", actions: list_nil(), next_state: state }
+		CancellableWaitOutcome::DeadlineExpired => { decision: "deadline-expired", actions: list_cons(RetryAfterDeadline, list_nil()), next_state: state }
+		CancellableWaitOutcome::Cancelled => { decision: "cancelled", actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
 	end
 end
 
@@ -113,14 +113,14 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	let _ = channel::send(route.tx, input)
 	match channel::recv(route.rx)
 		Some(value) => value
-		None => End
+		None => StreamInput::End
 	end
 end
 
 fn read_response(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, outcome: FixtureReadOutcome, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
 	match outcome
-		FixtureReadChunk(bytes) => handle_stream_input(route_input(route, Chunk(bytes)), state)
-		FixtureReadEnd => handle_stream_input(route_input(route, End), state)
+		FixtureReadChunk(bytes) => handle_stream_input(route_input(route, StreamInput::Chunk(bytes)), state)
+		FixtureReadEnd => handle_stream_input(route_input(route, StreamInput::End), state)
 		FixtureReadDeadlineExpired => { actions: list_cons(RetryAfterDeadline, list_nil()), next_state: state }
 		FixtureReadCancelled => { actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
 	end

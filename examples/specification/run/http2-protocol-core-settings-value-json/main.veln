@@ -6,7 +6,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.peer_limit.settings_value_out_of_range",
 		error,
-		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitSettingsValueDiagnostic(15, 2, "SETTINGS_ENABLE_PUSH", 2, 0, 1, "peer_settings", byte_chunk([])))
+		RuntimeDiagnosticDetail::Http2Diagnostic(Http2DiagnosticDetail::PeerLimitSettingsValueDiagnostic(15, 2, "SETTINGS_ENABLE_PUSH", 2, 0, 1, "peer_settings", byte_chunk([])))
 	)
 end
 

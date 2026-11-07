@@ -53,4 +53,4 @@ equals = "rfc9113_push_promise_padding"
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.detail.constructor"
-equals = "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic"
+equals = "ProtocolInvalidPayloadLengthDiagnostic"

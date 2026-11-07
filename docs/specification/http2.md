@@ -270,14 +270,14 @@ For each `Ok(Some(chunk))` read, the driver delegates to
 `http2::core::receive_connection_chunk(...)`. Accepted transitions commit the
 returned receive state and write each newly accepted output chunk exactly once
 in output-buffer order. Rejected transitions return
-`Http2ConnectionProtocolFailure` with the focused core failure facts and do
+`ProtocolFailure` with the focused core failure facts and do
 not write output from the rejected transition; bytes from earlier accepted
 driver iterations remain committed. On clean end, the driver delegates to
 `finalize_receive_connection_eof(...)` and returns either the accepted final
-core state or `Http2ConnectionIncompleteInput`.
+core state or `IncompleteInput`.
 
 A duplex read or write `Err(error)` returns
-`Http2ConnectionTransportFailure(error)`. The variant contains the unchanged
+`TransportFailure(error)`. The variant contains the unchanged
 `net::NetError`; it is distinct from protocol, incomplete-input, and local
 settings failures. The connection failure projections report kind
 `"transport"`, id `"http2.connection.transport_failure"`, the network
@@ -285,8 +285,8 @@ operation as source, and the network message as reason.
 
 `http2::connection::Http2ApplicationAction` is the public immutable response
 action value for the server application boundary. It has
-`Http2SendResponseHeaders(stream_id, headers, end_stream)` and
-`Http2SendResponseData(stream_id, data, end_stream)` constructors. These
+`Headers(stream_id, headers, end_stream)` and
+`Data(stream_id, data, end_stream)` constructors. These
 values carry only response data: request stream id, HPACK header list,
 payload bytes, and END_STREAM state. They do not carry transport handles,
 mutable host state, or HTTP/2 core state.
@@ -324,7 +324,7 @@ action is rejected, earlier committed writes remain visible and the rejected
 action and later actions write no bytes. Callback failures write no response
 action bytes. Clean EOF and incomplete EOF preserve the same accepted and
 incomplete-input behavior as the connection driver. A duplex read or write
-failure returns `Http2ApplicationTransportFailure(error)` with the unchanged
+failure returns `TransportFailure(error)` with the unchanged
 `net::NetError`. Its kind is `"transport"` and its id is
 `"http2.application.transport_failure"`; it is not a protocol or callback
 failure.
@@ -359,7 +359,7 @@ every stream returned during the service invocation, including streams whose
 earlier connection task and stream close completed. The service accepts the
 next stream only after the current task and stream close succeed.
 An accept, duplex-adapter read or write, stream-close, or listener-close error
-returns `Http2ServiceNetworkFailure` with the count at that boundary and the
+returns `NetworkFailure` with the count at that boundary and the
 unchanged `net::NetError`; transport errors are not classified as application
 or join failures. On an application, protocol, or join failure, the service
 closes the failed stream and then the listener once and does not accept or
@@ -413,7 +413,7 @@ On the first request-send, protocol, callback, or join failure,
 `request_endpoint_sequence` returns `Http2ClientServiceFailure` with the
 completed request count and closes the retained stream once. A connect,
 duplex read, duplex write, replacement close, or final close failure returns
-`Http2ClientServiceNetworkFailure` with the unchanged `net::NetError` and the
+`NetworkFailure` with the unchanged `net::NetError` and the
 completed count at that boundary. If stream cleanup fails after an earlier
 client outcome, the cleanup network failure replaces that outcome and retains
 its completed count. The service keeps ownership of connected streams; the

@@ -6,7 +6,7 @@ use super::runtime_variant_builders::{
 pub(super) fn runtime_connection_variants() -> Vec<AdtVariantDescriptor> {
     vec![
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolClosedWithPendingDiagnostic",
+            "ProtocolClosedWithPendingDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("pending_count"),
@@ -20,7 +20,7 @@ pub(super) fn runtime_connection_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolPartialPrefaceDiagnostic",
+            "ProtocolPartialPrefaceDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("pending_count"),
@@ -31,7 +31,7 @@ pub(super) fn runtime_connection_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolInvalidPrefaceDiagnostic",
+            "ProtocolInvalidPrefaceDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("expected_byte"),
@@ -44,7 +44,7 @@ pub(super) fn runtime_connection_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic",
+            "ProtocolInitialPeerSettingsRequiredDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("actual_frame_kind"),
@@ -57,7 +57,7 @@ pub(super) fn runtime_connection_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolContinuationExpectedDiagnostic",
+            "ProtocolContinuationExpectedDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("actual_frame_kind"),
@@ -72,7 +72,7 @@ pub(super) fn runtime_connection_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic",
+            "ProtocolInvalidFrameKindDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("actual_frame_kind"),
@@ -84,7 +84,7 @@ pub(super) fn runtime_connection_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolInvalidStreamIdDiagnostic",
+            "ProtocolInvalidStreamIdDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("frame_kind"),
@@ -97,7 +97,7 @@ pub(super) fn runtime_connection_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic",
+            "ProtocolPeerStreamIdNotIncreasingDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("stream_id"),
@@ -109,7 +109,7 @@ pub(super) fn runtime_connection_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2PeerLimitFrameSizeDiagnostic",
+            "PeerLimitFrameSizeDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("observed_payload_length"),

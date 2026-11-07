@@ -32,7 +32,7 @@ The module exports these public values and aliases:
 | `Listener` | Alias for the opaque `NetListener` resource |
 | `Stream` | Alias for the opaque `NetStream` resource |
 | `ByteCount` | Alias for `prelude::ByteCount` |
-| `ReadOutcome` | `ReadChunk(bytes: ByteChunk)` and `ReadEnd` variants |
+| `ReadOutcome` | `Chunk(bytes: ByteChunk)` and `End` variants |
 | `WriteOutcome` | `Written(count: ByteCount)` and `WriteFailed(committed: ByteCount, error: NetError)` variants |
 
 The algebraic value constructors and fields can be matched as ordinary public
@@ -138,9 +138,9 @@ is `Other`; this prevents an unbounded retry. A `Written` count larger than the
 attempted chunk is also an `Other` failure because it violates the handler
 contract.
 
-`ReadOutcome` has the `ReadChunk(ByteChunk)` and `ReadEnd` shapes. The direct
+`ReadOutcome` has the `Chunk(ByteChunk)` and `End` shapes. The direct
 `read` and `read_with` functions return the handler's outcome unchanged,
-including `ReadChunk` with an empty `ByteChunk`. The facade does not enforce
+including `Chunk` with an empty `ByteChunk`. The facade does not enforce
 the system handler's non-empty read-chunk rule.
 
 A public caller declares `effects [net::IO]`, handles that effect explicitly,
@@ -203,9 +203,9 @@ the command report. This diagnostic provenance does not add fields to the
 `NetError` value available to Veln source. Other raw host failures do not
 acquire the failed `listen` or `connect` commit facts.
 
-System reads return non-empty `ReadChunk` values. They return `ReadEnd` after
+System reads return non-empty `Chunk` values. They return `End` after
 the peer write half ends and buffered bytes have been consumed; later reads
-remain `ReadEnd`. A write reports the bytes committed by that attempt, including
+remain `End`. A write reports the bytes committed by that attempt, including
 a committed prefix on failure. An empty write returns `Written(ByteCount(0))`
 after resource ownership, open-state, and same-direction concurrency checks
 succeed; it does not inspect the supplied deadline or cancellation token. For
@@ -250,8 +250,8 @@ A stream tracks its read and write halves independently:
 
 | Current state | Event | Next state and result |
 | --- | --- | --- |
-| Read open | `read` receives bytes | The read half stays open and returns a non-empty `ReadChunk`. |
-| Read open | The peer ends its write half after buffered bytes drain | The read half becomes peer-ended and returns `ReadEnd`; later reads also return `ReadEnd`. |
+| Read open | `read` receives bytes | The read half stays open and returns a non-empty `Chunk`. |
+| Read open | The peer ends its write half after buffered bytes drain | The read half becomes peer-ended and returns `End`; later reads also return `End`. |
 | Read open | `shutdown_read` | The read half becomes shut, unread buffered input is discarded, and a blocked or later read returns `Closed`. |
 | Read open | `shutdown_read` fails without committing | The read half stays open and retryable. The call returns the error, and a concurrent successful read keeps its bytes. |
 | Read open | `shutdown_read` reports a committed failure | The read half becomes shut and the call returns the error; a concurrent blocked read observes `Closed`. |
@@ -327,10 +327,10 @@ nominal duplex effect. Each handler uses the operations from its own module;
 the two import paths therefore remain equivalent across spawned task
 boundaries.
 
-- `ReadChunk(bytes)` becomes `Ok(Some(bytes))` when `bytes` is non-empty.
-- `ReadEnd` becomes `Ok(None)`.
+- `Chunk(bytes)` becomes `Ok(Some(bytes))` when `bytes` is non-empty.
+- `End` becomes `Ok(None)`.
 - `Err(error)` returns the same `NetError` value.
-- A successful empty `ReadChunk` becomes
+- A successful empty `Chunk` becomes
   `NetError("read", None, None, Other, "read returned an empty chunk without reaching end-of-stream")`.
 - An empty write list succeeds without a write. Otherwise the adapter calls
   `net::write_all` for each chunk in list order and returns the first

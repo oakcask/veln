@@ -13,7 +13,7 @@ end
 
 fn project_encode_error(error: EncodeError) -> RuntimeDiagnostic
 	match error
-		EncodeError(id, _, reason) => RuntimeDiagnostic(id, "encode value is unrepresentable", RuntimeValueDiagnostic(value_field_path(), reason))
+		EncodeError(id, _, reason) => RuntimeDiagnostic(id, "encode value is unrepresentable", RuntimeDiagnosticDetail::ValueDiagnostic(value_field_path(), reason))
 	end
 end
 

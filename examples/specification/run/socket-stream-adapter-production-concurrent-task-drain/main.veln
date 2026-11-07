@@ -21,8 +21,8 @@ fn handle_stream(context: { input : StreamInput, accepted : Int }) -> Result<Han
 	match context.accepted
 		2 => Err("handler rejected second stream")
 		_ => match context.input
-			Chunk(bytes) => Ok(Handled(list_cons(SendBytes(bytes), list_nil()), context.accepted))
-			End => Err("missing stream chunk")
+			StreamInput::Chunk(bytes) => Ok(Handled(list_cons(SendBytes(bytes), list_nil()), context.accepted))
+			StreamInput::End => Err("missing stream chunk")
 		end
 	end
 end
@@ -33,8 +33,8 @@ end
 
 fn read_stream_input(stream: net::Stream) -> StreamInput effects [net::IO]
 	match read_chunk_optional(stream)
-		Some(bytes) => Chunk(bytes)
-		None => End
+		Some(bytes) => StreamInput::Chunk(bytes)
+		None => StreamInput::End
 	end
 end
 
@@ -136,7 +136,7 @@ end
 
 fn read_chunk_optional(stream: net::Stream) -> Option<ByteChunk> effects [net::IO]
 	match net::read(stream)
-		Ok(net::ReadChunk(bytes)) => Some(bytes)
+		Ok(net::ReadOutcome::Chunk(bytes)) => Some(bytes)
 		_ => None
 	end
 end

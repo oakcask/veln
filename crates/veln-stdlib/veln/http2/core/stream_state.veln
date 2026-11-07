@@ -2,14 +2,14 @@ use prelude
 use http2::core::flow_control
 
 pub type CoreStreamLifecycle
-	CoreStreamOpen
-	CoreStreamClientPushAssociated
-	CoreStreamReservedByPeer
-	CoreStreamReservedLocal
-	CoreStreamHalfClosedLocal
-	CoreStreamHalfClosedRemote
-	CoreStreamClosed
-	CoreStreamReset(error_code: Int)
+	Open
+	ClientPushAssociated
+	ReservedByPeer
+	ReservedLocal
+	HalfClosedLocal
+	HalfClosedRemote
+	Closed
+	Reset(error_code: Int)
 end
 
 pub type CoreStreamEntry
@@ -31,35 +31,35 @@ pub fn entry(stream_id: Int, lifecycle: CoreStreamLifecycle, receive_credit_valu
 end
 
 pub fn open_lifecycle() -> CoreStreamLifecycle
-	CoreStreamOpen
+	CoreStreamLifecycle::Open
 end
 
 pub fn client_push_associated_lifecycle() -> CoreStreamLifecycle
-	CoreStreamClientPushAssociated
+	CoreStreamLifecycle::ClientPushAssociated
 end
 
 pub fn reserved_by_peer_lifecycle() -> CoreStreamLifecycle
-	CoreStreamReservedByPeer
+	CoreStreamLifecycle::ReservedByPeer
 end
 
 pub fn reserved_local_lifecycle() -> CoreStreamLifecycle
-	CoreStreamReservedLocal
+	CoreStreamLifecycle::ReservedLocal
 end
 
 pub fn half_closed_local_lifecycle() -> CoreStreamLifecycle
-	CoreStreamHalfClosedLocal
+	CoreStreamLifecycle::HalfClosedLocal
 end
 
 pub fn half_closed_remote_lifecycle() -> CoreStreamLifecycle
-	CoreStreamHalfClosedRemote
+	CoreStreamLifecycle::HalfClosedRemote
 end
 
 pub fn closed_lifecycle() -> CoreStreamLifecycle
-	CoreStreamClosed
+	CoreStreamLifecycle::Closed
 end
 
 pub fn reset_lifecycle(error_code: Int) -> CoreStreamLifecycle
-	CoreStreamReset(error_code)
+	CoreStreamLifecycle::Reset(error_code)
 end
 
 pub fn add_or_replace(collection: CoreStreamCollection, entry: CoreStreamEntry) -> CoreStreamCollection
@@ -165,51 +165,51 @@ end
 
 pub fn lifecycle_label(lifecycle: CoreStreamLifecycle) -> String
 	match lifecycle
-		CoreStreamOpen => "open"
-		CoreStreamClientPushAssociated => "client-push-associated"
-		CoreStreamReservedByPeer => "reserved-by-peer"
-		CoreStreamReservedLocal => "reserved-local"
-		CoreStreamHalfClosedLocal => "half-closed-local"
-		CoreStreamHalfClosedRemote => "half-closed-remote"
-		CoreStreamClosed => "closed"
-		CoreStreamReset(_) => "reset"
+		CoreStreamLifecycle::Open => "open"
+		CoreStreamLifecycle::ClientPushAssociated => "client-push-associated"
+		CoreStreamLifecycle::ReservedByPeer => "reserved-by-peer"
+		CoreStreamLifecycle::ReservedLocal => "reserved-local"
+		CoreStreamLifecycle::HalfClosedLocal => "half-closed-local"
+		CoreStreamLifecycle::HalfClosedRemote => "half-closed-remote"
+		CoreStreamLifecycle::Closed => "closed"
+		CoreStreamLifecycle::Reset(_) => "reset"
 	end
 end
 
 pub fn lifecycle_has_receive_window(lifecycle: CoreStreamLifecycle) -> Bool
 	match lifecycle
-		CoreStreamOpen => true
-		CoreStreamClientPushAssociated => true
-		CoreStreamHalfClosedLocal => true
+		CoreStreamLifecycle::Open => true
+		CoreStreamLifecycle::ClientPushAssociated => true
+		CoreStreamLifecycle::HalfClosedLocal => true
 		_ => false
 	end
 end
 
 pub fn lifecycle_is_active(lifecycle: CoreStreamLifecycle) -> Bool
 	match lifecycle
-		CoreStreamOpen => true
-		CoreStreamClientPushAssociated => true
-		CoreStreamReservedByPeer => true
-		CoreStreamReservedLocal => true
-		CoreStreamHalfClosedLocal => true
-		CoreStreamHalfClosedRemote => true
+		CoreStreamLifecycle::Open => true
+		CoreStreamLifecycle::ClientPushAssociated => true
+		CoreStreamLifecycle::ReservedByPeer => true
+		CoreStreamLifecycle::ReservedLocal => true
+		CoreStreamLifecycle::HalfClosedLocal => true
+		CoreStreamLifecycle::HalfClosedRemote => true
 		_ => false
 	end
 end
 
 pub fn lifecycle_projects_open_stream(lifecycle: CoreStreamLifecycle) -> Bool
 	match lifecycle
-		CoreStreamOpen => true
-		CoreStreamClientPushAssociated => true
+		CoreStreamLifecycle::Open => true
+		CoreStreamLifecycle::ClientPushAssociated => true
 		_ => false
 	end
 end
 
 pub fn lifecycle_accepts_data(lifecycle: CoreStreamLifecycle) -> Bool
 	match lifecycle
-		CoreStreamOpen => true
-		CoreStreamClientPushAssociated => true
-		CoreStreamHalfClosedLocal => true
+		CoreStreamLifecycle::Open => true
+		CoreStreamLifecycle::ClientPushAssociated => true
+		CoreStreamLifecycle::HalfClosedLocal => true
 		_ => false
 	end
 end
@@ -220,9 +220,9 @@ end
 
 pub fn lifecycle_accepts_window_update(lifecycle: CoreStreamLifecycle) -> Bool
 	match lifecycle
-		CoreStreamOpen => true
-		CoreStreamClientPushAssociated => true
-		CoreStreamHalfClosedRemote => true
+		CoreStreamLifecycle::Open => true
+		CoreStreamLifecycle::ClientPushAssociated => true
+		CoreStreamLifecycle::HalfClosedRemote => true
 		_ => false
 	end
 end
@@ -233,32 +233,32 @@ end
 
 pub fn lifecycle_active_state(lifecycle: CoreStreamLifecycle) -> String
 	match lifecycle
-		CoreStreamOpen => "open-stream"
-		CoreStreamClientPushAssociated => "open-stream"
-		CoreStreamReservedByPeer => "reserved-by-peer-stream"
-		CoreStreamReservedLocal => "reserved-local-stream"
-		CoreStreamHalfClosedLocal => "half-closed-local-stream"
-		CoreStreamHalfClosedRemote => "half-closed-remote-stream"
-		CoreStreamClosed => "closed-by-peer-stream"
-		CoreStreamReset(_) => "reset-stream"
+		CoreStreamLifecycle::Open => "open-stream"
+		CoreStreamLifecycle::ClientPushAssociated => "open-stream"
+		CoreStreamLifecycle::ReservedByPeer => "reserved-by-peer-stream"
+		CoreStreamLifecycle::ReservedLocal => "reserved-local-stream"
+		CoreStreamLifecycle::HalfClosedLocal => "half-closed-local-stream"
+		CoreStreamLifecycle::HalfClosedRemote => "half-closed-remote-stream"
+		CoreStreamLifecycle::Closed => "closed-by-peer-stream"
+		CoreStreamLifecycle::Reset(_) => "reset-stream"
 	end
 end
 
 pub fn lifecycle_rejection_rule(lifecycle: CoreStreamLifecycle) -> String
 	match lifecycle
-		CoreStreamReservedByPeer => "reserved_by_peer_requires_response_headers"
-		CoreStreamReservedLocal => "reserved_local_rejects_peer_frames"
-		CoreStreamHalfClosedLocal => "half_closed_local_data_only"
-		CoreStreamHalfClosedRemote => "half_closed_remote_rejects_later_frames"
-		CoreStreamClosed => "closed_by_peer_rejects_later_frames"
-		CoreStreamReset(_) => "reset_stream_rejects_later_frames"
+		CoreStreamLifecycle::ReservedByPeer => "reserved_by_peer_requires_response_headers"
+		CoreStreamLifecycle::ReservedLocal => "reserved_local_rejects_peer_frames"
+		CoreStreamLifecycle::HalfClosedLocal => "half_closed_local_data_only"
+		CoreStreamLifecycle::HalfClosedRemote => "half_closed_remote_rejects_later_frames"
+		CoreStreamLifecycle::Closed => "closed_by_peer_rejects_later_frames"
+		CoreStreamLifecycle::Reset(_) => "reset_stream_rejects_later_frames"
 		_ => "idle_streams_require_headers"
 	end
 end
 
 pub fn lifecycle_error_code(lifecycle: CoreStreamLifecycle) -> Int
 	match lifecycle
-		CoreStreamReset(error_code) => error_code
+		CoreStreamLifecycle::Reset(error_code) => error_code
 		_ => 0
 	end
 end
@@ -329,13 +329,13 @@ end
 
 fn active_value(lifecycle: CoreStreamLifecycle) -> Int
 	match lifecycle
-		CoreStreamOpen => 1
-		CoreStreamClientPushAssociated => 1
-		CoreStreamReservedByPeer => 1
-		CoreStreamReservedLocal => 1
-		CoreStreamHalfClosedLocal => 1
-		CoreStreamHalfClosedRemote => 1
-		CoreStreamClosed => 0
-		CoreStreamReset(_) => 0
+		CoreStreamLifecycle::Open => 1
+		CoreStreamLifecycle::ClientPushAssociated => 1
+		CoreStreamLifecycle::ReservedByPeer => 1
+		CoreStreamLifecycle::ReservedLocal => 1
+		CoreStreamLifecycle::HalfClosedLocal => 1
+		CoreStreamLifecycle::HalfClosedRemote => 1
+		CoreStreamLifecycle::Closed => 0
+		CoreStreamLifecycle::Reset(_) => 0
 	end
 end

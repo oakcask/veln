@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.stream_after_goaway, HTTP/2 stream opened after graceful shutdown at byte offset 0, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(0, 7, 5, graceful_shutdown, local, goaway_last_stream_id, ByteChunk([]))))"
+equals = "RuntimeDiagnostic(http2.protocol.stream_after_goaway, HTTP/2 stream opened after graceful shutdown at byte offset 0, Http2Diagnostic(ProtocolStreamAfterGoawayDiagnostic(0, 7, 5, graceful_shutdown, local, goaway_last_stream_id, ByteChunk([]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -85,7 +85,7 @@ equals = "goaway_last_stream_id"
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.detail.constructor"
-equals = "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic"
+equals = "ProtocolStreamAfterGoawayDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"

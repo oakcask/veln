@@ -32,7 +32,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.message"
-equals = "runtime result failure: Err(DecodeErrorWithReason(codec.payload_length_mismatch, ByteOffset(21), ManualPacketWire.payload, expected_payload_length=8; actual_payload_length=5; reason=payload length did not match frame header))"
+equals = "runtime result failure: Err(WithReason(codec.payload_length_mismatch, ByteOffset(21), ManualPacketWire.payload, expected_payload_length=8; actual_payload_length=5; reason=payload length did not match frame header))"
 
 [[json_assert]]
 path = "error.details.phase"
@@ -44,7 +44,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "DecodeErrorWithReason(codec.payload_length_mismatch, ByteOffset(21), ManualPacketWire.payload, expected_payload_length=8; actual_payload_length=5; reason=payload length did not match frame header)"
+equals = "WithReason(codec.payload_length_mismatch, ByteOffset(21), ManualPacketWire.payload, expected_payload_length=8; actual_payload_length=5; reason=payload length did not match frame header)"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.kind"

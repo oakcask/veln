@@ -13,5 +13,5 @@ fn offset(value: Int) -> ByteOffset
 end
 
 pub fn main() -> Result<(), DecodeError>
-	Err(DecodeErrorWithReason("codec.padding_mismatch", offset(24), "ManualPacketWire.padding", "expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary"))
+	Err(WithReason("codec.padding_mismatch", offset(24), "ManualPacketWire.padding", "expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary"))
 end

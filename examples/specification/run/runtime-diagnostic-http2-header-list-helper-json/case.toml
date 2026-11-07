@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.peer_limit.header_list_size_exceeded, HTTP/2 header list size exceeds receive maximum at byte offset 12, RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(12, 10, 9, 9, 1, local_configuration, header_list_receive_limit, ByteChunk([Byte(6), Byte(7), Byte(8), Byte(9), Byte(10), Byte(11), Byte(12), Byte(13), Byte(14)]))))"
+equals = "RuntimeDiagnostic(http2.peer_limit.header_list_size_exceeded, HTTP/2 header list size exceeds receive maximum at byte offset 12, Http2Diagnostic(PeerLimitHeaderListSizeDiagnostic(12, 10, 9, 9, 1, local_configuration, header_list_receive_limit, ByteChunk([Byte(6), Byte(7), Byte(8), Byte(9), Byte(10), Byte(11), Byte(12), Byte(13), Byte(14)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -85,7 +85,7 @@ equals = true
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.detail.constructor"
-equals = "RuntimeHttp2PeerLimitHeaderListSizeDiagnostic"
+equals = "PeerLimitHeaderListSizeDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"

@@ -6,7 +6,7 @@ use super::runtime_variant_builders::{
 pub(super) fn runtime_peer_limit_variants() -> Vec<AdtVariantDescriptor> {
     vec![
         runtime_diagnostic_variant(
-            "RuntimeHttp2PeerLimitHeaderListSizeDiagnostic",
+            "PeerLimitHeaderListSizeDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("observed_header_list_size"),
@@ -19,7 +19,7 @@ pub(super) fn runtime_peer_limit_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic",
+            "PeerLimitHeaderTableSizeDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("observed_header_table_size"),
@@ -32,7 +32,7 @@ pub(super) fn runtime_peer_limit_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic",
+            "PeerLimitConcurrentStreamsDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("stream_id"),
@@ -46,7 +46,7 @@ pub(super) fn runtime_peer_limit_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2PeerLimitSettingsValueDiagnostic",
+            "PeerLimitSettingsValueDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("setting_identifier"),
@@ -59,7 +59,7 @@ pub(super) fn runtime_peer_limit_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic",
+            "ProtocolInvalidPayloadLengthDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("frame_kind"),
@@ -72,7 +72,7 @@ pub(super) fn runtime_peer_limit_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic",
+            "ProtocolInvalidDataPaddingDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("stream_id"),
@@ -84,7 +84,7 @@ pub(super) fn runtime_peer_limit_variants() -> Vec<AdtVariantDescriptor> {
             ],
         ),
         runtime_diagnostic_variant(
-            "RuntimeHttp2PeerLimitFlowControlWindowDiagnostic",
+            "PeerLimitFlowControlWindowDiagnostic",
             vec![
                 int_field("byte_offset"),
                 int_field("observed_payload_length"),

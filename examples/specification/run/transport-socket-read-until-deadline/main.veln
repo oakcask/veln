@@ -5,8 +5,8 @@ use fake_effects
 # Deadline-aware socket read observes fixture deadline expiry as None.
 fn emit_read_result(result: Result<net::ReadOutcome, net::NetError>) -> Result<(), net::NetError> effects [stdio]
 	match result
-		Ok(net::ReadChunk(_)) => printed("read")
-		Ok(net::ReadEnd) => printed("deadline")
+		Ok(net::ReadOutcome::Chunk(_)) => printed("read")
+		Ok(net::ReadOutcome::End) => printed("deadline")
 		Err(net::NetError(_, _, _, net::TimedOut, _)) => printed("deadline")
 		Err(error) => Err(error)
 	end

@@ -42,7 +42,7 @@ test production_client_installs_system_handler_and_preserves_callback_effects() 
 	let result = handle handle http2::connection::request_endpoint_sequence_tcp(net::Address(net::Tcp4, "production-client.test", 443), client_one_request()?, observe_client_response_with_db) with http2::connection_client_system_test_support_test::failing_resolution(calls) with test_clock::clock(0, 0, 0, 0, 0)
 	let observed: List<String> = option_unwrap_or(channel::recv(calls.rx), list_nil())
 	match result
-		Err(Http2ClientServiceFailure::Http2ClientServiceNetworkFailure(completed, net::NetError(_, _, _, net::NameNotFound, _))) => if completed == 0
+		Err(Http2ClientServiceFailure::NetworkFailure(completed, net::NetError(_, _, _, net::NameNotFound, _))) => if completed == 0
 			match observed
 				Cons(operation, Nil) => if operation == "resolve_tcp4"
 					Ok(())
@@ -81,7 +81,7 @@ fn fail_if_called_handler(event: Http2ApplicationEvent) -> Result<List<Http2Appl
 end
 
 fn bodyless_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
-	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
+	Ok(list_cons(Http2ApplicationAction::Headers(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
 end
 
 fn reject_client_response(response: Http2ClientResponse) -> Result<(), String>
@@ -90,16 +90,16 @@ fn reject_client_response(response: Http2ClientResponse) -> Result<(), String>
 end
 
 fn invalid_action_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
-	Ok(list_cons(Http2ApplicationAction::Http2SendResponseData(http2::core::application_event_stream_id(event), byte_chunk_from_hex("0a")?, true), list_nil()))
+	Ok(list_cons(Http2ApplicationAction::Data(http2::core::application_event_stream_id(event), byte_chunk_from_hex("0a")?, true), list_nil()))
 end
 
 fn mismatched_stream_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
-	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(http2::core::application_event_stream_id(event) + 2, response_headers()?, true), list_nil()))
+	Ok(list_cons(Http2ApplicationAction::Headers(http2::core::application_event_stream_id(event) + 2, response_headers()?, true), list_nil()))
 end
 
 fn rejected_data_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
 	let stream_id = http2::core::application_event_stream_id(event)
-	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(stream_id, response_headers_with_length("5")?, false), list_cons(Http2ApplicationAction::Http2SendResponseData(stream_id, byte_chunk_from_hex("0a0b")?, true), list_nil())))
+	Ok(list_cons(Http2ApplicationAction::Headers(stream_id, response_headers_with_length("5")?, false), list_cons(Http2ApplicationAction::Data(stream_id, byte_chunk_from_hex("0a0b")?, true), list_nil())))
 end
 
 fn join_failure_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
@@ -145,7 +145,7 @@ fn service_network_failure_matches(result: Result<(), Http2ServiceFailure>, acce
 	match result
 		Err(failure) => if http2::connection::service_failure_kind(failure) == "network" and http2::connection::service_failure_id(failure) == "http2.service.network_failure" and http2::connection::service_failure_accepted(failure) == accepted
 			match failure
-				Http2ServiceFailure::Http2ServiceNetworkFailure(observed_accepted, net::NetError(observed_operation, None, Some(observed_address), net::ConnectionReset, observed_message)) => observed_accepted == accepted and observed_operation == operation and observed_address == service_network_failure_address(operation) and http2::connection::service_failure_reason(failure) == observed_message
+				Http2ServiceFailure::NetworkFailure(observed_accepted, net::NetError(observed_operation, None, Some(observed_address), net::ConnectionReset, observed_message)) => observed_accepted == accepted and observed_operation == operation and observed_address == service_network_failure_address(operation) and http2::connection::service_failure_reason(failure) == observed_message
 				_ => false
 			end
 		else
@@ -199,7 +199,7 @@ fn connection_transport_failure_matches(result: Result<CoreConnectionState, Http
 	match result
 		Err(failure) => if http2::connection::connection_failure_kind(failure) == "transport" and http2::connection::connection_failure_id(failure) == "http2.connection.transport_failure" and http2::connection::connection_failure_source(failure) == operation and http2::connection::connection_failure_reason(failure) == message
 			match failure
-				Http2ConnectionFailure::Http2ConnectionTransportFailure(net::NetError(observed_operation, Some(net::Tcp6), Some("[2001:db8::1]:443"), net::ConnectionReset, observed_message)) => if observed_operation == operation and observed_message == message
+				Http2ConnectionFailure::TransportFailure(net::NetError(observed_operation, Some(net::Tcp6), Some("[2001:db8::1]:443"), net::ConnectionReset, observed_message)) => if observed_operation == operation and observed_message == message
 					Ok(())
 				else
 					Err("HTTP/2 connection changed the network failure fields")
@@ -217,7 +217,7 @@ fn application_transport_failure_matches(result: Result<CoreConnectionState, Htt
 	match result
 		Err(failure) => if http2::connection::application_failure_kind(failure) == "transport" and http2::connection::application_failure_id(failure) == "http2.application.transport_failure" and http2::connection::application_failure_reason(failure) == message
 			match failure
-				Http2ApplicationBoundaryFailure::Http2ApplicationTransportFailure(net::NetError(observed_operation, Some(net::Tcp6), Some("[2001:db8::1]:443"), net::ConnectionReset, observed_message)) => if observed_operation == operation and observed_message == message
+				Http2ApplicationBoundaryFailure::TransportFailure(net::NetError(observed_operation, Some(net::Tcp6), Some("[2001:db8::1]:443"), net::ConnectionReset, observed_message)) => if observed_operation == operation and observed_message == message
 					Ok(())
 				else
 					Err("HTTP/2 application changed the network failure fields")
@@ -447,8 +447,8 @@ test tcp_service_later_listener_cleanup_replaces_later_stream_cleanup_failure() 
 end
 
 test application_action_values_are_public_and_immutable() -> Result<(), String>
-	let headers = Http2ApplicationAction::Http2SendResponseHeaders(1, response_headers()?, true)
-	let data = Http2ApplicationAction::Http2SendResponseData(1, byte_chunk_from_hex("0a0b")?, true)
+	let headers = Http2ApplicationAction::Headers(1, response_headers()?, true)
+	let data = Http2ApplicationAction::Data(1, byte_chunk_from_hex("0a0b")?, true)
 	if http2::connection::application_action_kind(headers) == "headers" and http2::connection::application_action_stream_id(headers) == 1 and http2::connection::application_action_end_stream(headers) and http2::connection::application_action_kind(data) == "data" and http2::connection::application_action_stream_id(data) == 1 and http2::connection::application_action_end_stream(data)
 		Ok(())
 	else
@@ -457,10 +457,10 @@ test application_action_values_are_public_and_immutable() -> Result<(), String>
 end
 
 test application_failure_variants_remain_distinguishable() -> Result<(), String>
-	let callback = Http2ApplicationBoundaryFailure::Http2ApplicationCallbackFailure("boom")
-	let unsupported_shape = Http2ApplicationBoundaryFailure::Http2ApplicationUnsupportedRequestShape(1, "body")
-	let unsupported_count = Http2ApplicationBoundaryFailure::Http2ApplicationUnsupportedRequestCount(3)
-	let invalid = Http2ApplicationBoundaryFailure::Http2ApplicationInvalidActionSequence("bad", 2, 5, 1)
+	let callback = Http2ApplicationBoundaryFailure::CallbackFailure("boom")
+	let unsupported_shape = Http2ApplicationBoundaryFailure::UnsupportedRequestShape(1, "body")
+	let unsupported_count = Http2ApplicationBoundaryFailure::UnsupportedRequestCount(3)
+	let invalid = Http2ApplicationBoundaryFailure::InvalidActionSequence("bad", 2, 5, 1)
 	if http2::connection::application_failure_kind(callback) == "callback" and http2::connection::application_failure_reason(callback) == "boom" and http2::connection::application_failure_kind(unsupported_shape) == "unsupported-request-shape" and http2::connection::application_failure_stream_id(unsupported_shape) == 1 and http2::connection::application_failure_kind(unsupported_count) == "unsupported-request-count" and http2::connection::application_failure_stream_id(unsupported_count) == 3 and http2::connection::application_failure_kind(invalid) == "invalid-action-sequence" and http2::connection::application_failure_action_index(invalid) == 2 and http2::connection::application_failure_stream_id(invalid) == 5
 		Ok(())
 	else
@@ -605,7 +605,7 @@ end
 fn client_network_failure_matches(failure: Http2ClientServiceFailure, completed: Int, operation: String) -> Bool
 	if http2::connection::client_service_failure_kind(failure) == "network" and http2::connection::client_service_failure_id(failure) == "http2.client_service.network_failure" and http2::connection::client_service_failure_completed(failure) == completed
 		match failure
-			Http2ClientServiceFailure::Http2ClientServiceNetworkFailure(observed_completed, net::NetError(observed_operation, observed_network, observed_address, net::ConnectionReset, observed_message)) => observed_completed == completed and observed_operation == operation and client_network_failure_context_matches(observed_network, observed_address, operation) and http2::connection::client_service_failure_reason(failure) == observed_message
+			Http2ClientServiceFailure::NetworkFailure(observed_completed, net::NetError(observed_operation, observed_network, observed_address, net::ConnectionReset, observed_message)) => observed_completed == completed and observed_operation == operation and client_network_failure_context_matches(observed_network, observed_address, operation) and http2::connection::client_service_failure_reason(failure) == observed_message
 			_ => false
 		end
 	else
