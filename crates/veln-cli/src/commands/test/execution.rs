@@ -116,48 +116,78 @@ impl TestJvmExecution {
     }
 }
 
+pub(super) enum TestCaseAnalysis<'a> {
+    Reusable {
+        module: &'a SurfaceModule,
+        ir: &'a TypedProgram,
+    },
+    Reachable(Box<ReachableEntryAnalysis>),
+    Blocked(Vec<Diagnostic>),
+}
+
+impl TestCaseAnalysis<'_> {
+    pub(super) fn ready_parts(&self) -> Option<(&SurfaceModule, &TypedProgram)> {
+        match self {
+            Self::Reusable { module, ir } => Some((module, ir)),
+            Self::Reachable(reachable) => reachable
+                .lowered
+                .ir
+                .as_ref()
+                .map(|ir| (&reachable.module, ir)),
+            Self::Blocked(_) => None,
+        }
+    }
+}
+
+pub(super) fn classify_test_case_analysis<'a>(
+    analysis: &'a ProjectAnalysis,
+    case_name: &str,
+) -> TestCaseAnalysis<'a> {
+    if let Some(ir) = analysis.reusable_standard_ir() {
+        return TestCaseAnalysis::Reusable {
+            module: &analysis.module,
+            ir,
+        };
+    }
+
+    let mut reachable = analysis.lower_reachable_entry(case_name, FunctionKind::Test);
+    if !reachable.lowered.diagnostics.is_empty() {
+        return TestCaseAnalysis::Blocked(std::mem::take(&mut reachable.lowered.diagnostics));
+    }
+    if let Some(diagnostic) = retained_user_effect_diagnostic(
+        &reachable.module,
+        reachable.lowered.core.as_ref(),
+        case_name,
+    ) {
+        return TestCaseAnalysis::Blocked(vec![diagnostic]);
+    }
+    if reachable.lowered.ir.is_none() {
+        return TestCaseAnalysis::Blocked(std::mem::take(&mut reachable.lowered.diagnostics));
+    }
+    TestCaseAnalysis::Reachable(Box::new(reachable))
+}
+
+fn blocked_test_case_job(mut case: TestCase, diagnostics: Vec<Diagnostic>) -> TestCaseJob {
+    case.status = TestCaseStatus::Blocked;
+    case.reason = Some("static_gate".to_string());
+    case.diagnostics = diagnostics;
+    TestCaseJob::Completed(Box::new(case))
+}
+
 pub(super) fn prepare_test_case_job(
     analysis: &ProjectAnalysis,
     reusable_program: Option<&JvmProgram>,
-    mut case: TestCase,
+    case: TestCase,
 ) -> Result<TestCaseJob, String> {
-    let reachable = analysis
-        .reusable_standard_ir()
-        .is_none()
-        .then(|| analysis.lower_reachable_entry(&case.name, FunctionKind::Test));
-    let (module, ir) = match &reachable {
-        Some(reachable) => {
-            if !reachable.lowered.diagnostics.is_empty() {
-                case.status = TestCaseStatus::Blocked;
-                case.reason = Some("static_gate".to_string());
-                case.diagnostics = reachable.lowered.diagnostics.clone();
-                return Ok(TestCaseJob::Completed(Box::new(case)));
-            };
-            if let Some(diagnostic) = retained_user_effect_diagnostic(
-                &reachable.module,
-                reachable.lowered.core.as_ref(),
-                &case.name,
-            ) {
-                case.status = TestCaseStatus::Blocked;
-                case.reason = Some("static_gate".to_string());
-                case.diagnostics = vec![diagnostic];
-                return Ok(TestCaseJob::Completed(Box::new(case)));
-            }
-            let Some(ir) = &reachable.lowered.ir else {
-                case.status = TestCaseStatus::Blocked;
-                case.reason = Some("static_gate".to_string());
-                case.diagnostics = reachable.lowered.diagnostics.clone();
-                return Ok(TestCaseJob::Completed(Box::new(case)));
-            };
-            (&reachable.module, ir)
+    let prepared = match classify_test_case_analysis(analysis, &case.name) {
+        TestCaseAnalysis::Blocked(diagnostics) => {
+            return Ok(blocked_test_case_job(case, diagnostics));
         }
-        None => (
-            &analysis.module,
-            analysis
-                .reusable_standard_ir()
-                .expect("fully lowered project IR was checked before test execution"),
-        ),
+        prepared => prepared,
     };
+    let (module, ir) = prepared
+        .ready_parts()
+        .expect("test analysis was classified as ready");
 
     let (program, java_args) = if let Some(program) = reusable_program {
         (program.clone(), vec![case.name.clone()])

@@ -8,13 +8,15 @@ use std::sync::{MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 
 use veln_analysis::{
-    AnalysisTiming, DoctestMode, ProjectAnalysis, analyze_project, analyze_project_with_timings,
+    AnalysisTiming, DoctestMode, ProjectAnalysis, ReachableEntryAnalysis, analyze_project,
+    analyze_project_with_timings,
 };
 use veln_ast::{FunctionKind, SurfaceModule};
 use veln_backend_jvm::{
     JvmProgram, try_generate_classfiles_with_entry, try_generate_classfiles_with_test_entries,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope};
+use veln_ir::TypedProgram;
 use veln_project::{Project, classify_companion_source, discover_source_paths};
 use veln_test::{
     SuiteError, TestCase, TestCaseStatus, TestFailure, TestReport, TestRunStatus, TestSelection,
@@ -241,29 +243,16 @@ fn preflight_test_case_job(
     reusable_program: Option<&JvmProgram>,
     case_name: &str,
 ) -> Result<bool, String> {
-    let Some(reachable) = analysis
-        .reusable_standard_ir()
-        .is_none()
-        .then(|| analysis.lower_reachable_entry(case_name, FunctionKind::Test))
-    else {
+    let prepared = classify_test_case_analysis(analysis, case_name);
+    if matches!(&prepared, TestCaseAnalysis::Blocked(_)) {
+        return Ok(false);
+    }
+    if matches!(&prepared, TestCaseAnalysis::Reusable { .. }) {
         return Ok(reusable_program.is_some());
-    };
-
-    if !reachable.lowered.diagnostics.is_empty() {
-        return Ok(false);
     }
-    if retained_user_effect_diagnostic(
-        &reachable.module,
-        reachable.lowered.core.as_ref(),
-        case_name,
-    )
-    .is_some()
-    {
-        return Ok(false);
-    }
-    let Some(ir) = &reachable.lowered.ir else {
-        return Ok(false);
-    };
+    let (_, ir) = prepared
+        .ready_parts()
+        .expect("reachable test analysis was classified as ready");
     try_generate_classfiles_with_entry(ir, case_name)
         .map(|_| true)
         .map_err(|error| format!("JVM backend could not generate test `{case_name}`: {error}"))
