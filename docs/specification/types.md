@@ -1459,7 +1459,9 @@ omitted local reference receives this admitted context only when its type still
 has an `unknown` part. The context fills those parts without replacing its
 known arguments. Thus `let xs = []` followed by `[[1], xs]` fixes `xs` as
 `Vec<Int>` and infers `Vec<Vec<Int>>`; the same rule applies in dictionary
-members, control-flow results, and repeated constructor payloads. If
+members, control-flow results, and repeated constructor payloads. An omitted
+`{}` local receives admitted context only when that context is a complete
+`Dict<K, V>`; otherwise the initializer remains an empty record. If
 the original check instead reports an ambiguity or a mismatch, later facts do
 not cause that expression to be checked again. The failed expression leaves the
 accumulated join unchanged under the transactional rule below. An independently
