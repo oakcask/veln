@@ -36,6 +36,8 @@ struct JoinNode {
     record_field_names: Option<Vec<String>>,
 }
 
+type JoinNodeSetup<'a> = (JoinNode, Vec<(usize, &'a Type, bool)>);
+
 enum JoinArg {
     Exact {
         ty: Type,
@@ -494,7 +496,7 @@ fn join_node<'a>(
     adts: &AdtRegistry,
     initial: &'a Type,
     record_subtree_is_complete: bool,
-) -> Option<(JoinNode, Vec<(usize, &'a Type, bool)>)> {
+) -> Option<JoinNodeSetup<'a>> {
     if let Type::Record(fields) = initial {
         if !record_subtree_is_complete && setup_type_shape(initial).1 {
             return None;
@@ -525,9 +527,7 @@ fn join_node<'a>(
     ))
 }
 
-fn record_join_node<'a>(
-    record_fields: &'a [(String, Type)],
-) -> Option<(JoinNode, Vec<(usize, &'a Type, bool)>)> {
+fn record_join_node<'a>(record_fields: &'a [(String, Type)]) -> Option<JoinNodeSetup<'a>> {
     let mut fields = record_fields.iter().collect::<Vec<_>>();
     fields.sort_unstable_by(|left, right| left.0.cmp(&right.0));
     if fields.windows(2).any(|pair| pair[0].0 == pair[1].0) {
