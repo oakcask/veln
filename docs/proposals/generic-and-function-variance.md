@@ -8,51 +8,10 @@ update-when: Dependency variance metadata, variance presentation, nested incompa
 ## Summary
 
 This proposal contains the remaining integration work for named generic
-variance. Current assignment and bounded inference behavior is defined by the
-[type specification](../specification/types.md#compatibility-and-limits) and
-its [inference rules](../specification/types.md#inference-rules). Bounded
-contravariant meets, structural function joins, contributed-candidate fallback,
-and transactional local contribution admission are implemented. The remaining
-work adds dependency invalidation, detailed nested incompatibility context,
+variance. The remaining work adds dependency invalidation, detailed nested incompatibility context,
 stable formatter, package, LSP, and MCP presentation, and whole-analysis and
 language-service failure preservation. This proposal does not add
 declaration-site variance modifiers.
-
-## Implemented Inference Basis
-
-The implemented polarity basis was informed by the Rust Project's
-[variance discussion in the Rustonomicon](https://doc.rust-lang.org/nomicon/subtyping.html#variance).
-Its variance table classifies function inputs as contravariant and function
-results as covariant. Its function examples explain that a replacement may
-return a more specific result but must accept every input accepted by the
-expected function. The same table shows that an owning collection can be
-covariant while mutation through an alias can require invariance.
-
-Veln adopts the input and output polarity finding, but not Rust's type relation
-as a whole. Rust uses lifetime subtyping
-and ownership or aliasing properties that are not Veln's nominal ADT identity,
-finite variant-refinement subset relation, or immutable source-value model.
-The source therefore supports the direction in which constraints compose; it
-does not establish which Veln refinement is a join or meet, nor does it make
-Rust's mutation rules an authority for Veln assignment.
-
-The implemented design collects lower bounds from positive occurrences
-and selects their bounded join `J`, collects upper bounds from negative
-occurrences and selects their bounded meet `M`, and requires equality for an
-invariant occurrence. An irrelevant occurrence contributes no inference
-constraint, but context-free joining still requires equal irrelevant arguments
-because each complete argument remains part of nominal type identity.
-The same polarity makes function inputs use `M` and results use `J`. When a
-required bounded join or meet is not available among Veln's contributed types,
-the design requires explicit context instead of importing a lifetime,
-ownership, union, intersection, or bottom-type relation from Rust.
-
-## Implemented Generic Inference And Joins
-
-The current [inference rules](../specification/types.md#inference-rules) own the
-implemented behavior. Executable evidence includes the
-[`bounded function inference`](../../examples/specification/check/bounded-function-inference/)
-case. This proposal does not redefine those rules.
 
 ## Remaining Invalidation, Presentation, And Failure
 
@@ -79,7 +38,7 @@ remaining-behavior table above is its independent acceptance oracle.
 | --- | --- |
 | Metadata invalidation | Package fixtures prove that a variance-changing payload edit invalidates dependent analysis before subsequent inference. |
 | Presentation and diagnostics | Human and JSON fixtures cover nested paths, reversed input comparison, direct exclusions, and stable formatter, package, LSP, and MCP presentations. |
-| Failure preservation | Whole-analysis and language-service regression cases prove no partial signature escapes rejection, retained successful snapshots survive applicable failures, and rejected programs do not run. Local covariant-join contribution exclusion is already implemented. |
+| Failure preservation | Whole-analysis and language-service regression cases prove no partial signature escapes rejection, retained successful snapshots survive applicable failures, and rejected programs do not run. |
 
 Compiler evidence belongs in the existing semantic test suites and
 `examples/specification/check/` with diagnostic companions. Run the existing
@@ -92,15 +51,7 @@ executable examples. Then retire this proposal and its catalog entry.
 ## Scope And Implementation Basis
 
 This proposal is independently ready. It does not depend on the remaining
-refinement-flow, repair, or handler proposals. The current structural
-record/function assignment kernel, identical-field record joins, compiler-owned
-immutable constructor joins, and source-ADT covariant joins are its implemented
-prerequisites.
+refinement-flow, repair, or handler proposals.
 It excludes mutable references, declaration-site variance syntax, general
 unions/intersections, higher-kinded types, predicate-based subtyping, and
 runtime representation changes solely for variance.
-
-The local implementation anchor is
-`crates/veln-sema/src/aggregate_type_join.rs` for current bounded joins and
-meets. The remaining proposal table does not redefine that implemented
-behavior.

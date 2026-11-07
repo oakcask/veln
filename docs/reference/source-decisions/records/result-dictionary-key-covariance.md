@@ -20,12 +20,8 @@ compiler-owned dictionary identity at its exact arity; it does not require a
 finite ADT descriptor or infer covariance from the displayed name. This
 metadata agrees with the established assignment rule and does not change
 dictionary runtime behavior. Context-free inference uses the same
-compiler-owned classification to apply the current bounded join to both
-arguments of same-constructor dictionaries recursively. A function-shaped
-nested argument therefore uses its contravariant input meet and covariant
-result join. If a required recursive bound has no unique contributed result,
-inference requires explicit context instead of changing the dictionary's
-covariant classification or constructing a partial argument type.
+compiler-owned classification to join both arguments of same-constructor
+dictionaries recursively.
 
 Source-ADT composition requires checked metadata with the constructor's
 declared arity. For another source declaration, owner-aware lookup must resolve

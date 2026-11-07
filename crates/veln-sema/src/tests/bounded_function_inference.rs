@@ -1,4 +1,5 @@
 use super::*;
+use crate::semantic_model::Type;
 use crate::types::TypeEnvironment;
 
 fn analyze(source_text: &str) -> (SurfaceModule, Vec<Diagnostic>) {
@@ -93,10 +94,41 @@ fn fallback_retains_every_contribution_until_a_unique_candidate_exists() {
 }
 
 #[test]
+fn record_width_fallback_with_function_fields_is_order_independent() {
+    let source = concat!(
+        "fn forward(narrow: {callback: fn(Int) -> Int}, wide: {callback: fn(Int) -> Int, label: String})\n  [narrow, wide]\nend\n",
+        "fn reverse(narrow: {callback: fn(Int) -> Int}, wide: {callback: fn(Int) -> Int, label: String})\n  [wide, narrow]\nend\n",
+    );
+    let (module, diagnostics) = analyze(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    for name in ["forward", "reverse"] {
+        assert_eq!(
+            result(&environment, name),
+            "Vec<{callback: fn(Int) -> Int}>"
+        );
+    }
+}
+
+#[test]
+fn fallback_uses_contributions_instead_of_an_optimized_prefix_result() {
+    let source = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "fn unresolved(first: {state: State::Ready}, second: {state: State::Closed}, wider: {state: State, extra: Int})\n",
+        "  [first, second, wider]\nend\n",
+    );
+    let (module, diagnostics) = analyze(source);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.private_inference_incomplete");
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(result(&environment, "unresolved"), "unknown");
+}
+
+#[test]
 fn recursive_shape_rejection_does_not_change_later_successful_join() {
     let source_text = concat!(
-        "fn retained(first: fn(fn(Int) -> Int) -> Int, rejected: fn(fn(Int, Int) -> Int) -> Int, later: fn(fn(Int) -> Int) -> Int) -> ()\n",
-        "  let values = [first, rejected, later]\n  ()\nend\n",
+        "fn retained(first: fn(fn(Int) -> Int) -> Int, rejected: fn(fn(Int, Int) -> Int) -> Int, later: fn(fn(Int) -> Int) -> Int effects [stdio])\n",
+        "  [first, rejected, later]\nend\n",
     );
     let (module, diagnostics) = analyze(source_text);
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
@@ -104,7 +136,65 @@ fn recursive_shape_rejection_does_not_change_later_successful_join() {
     let span = diagnostics[0].span.as_ref().expect("mismatch span");
     assert_eq!(&source_text[span.start.offset..span.end.offset], "rejected");
     let environment = TypeEnvironment::from_module(&module);
-    assert_eq!(result(&environment, "retained"), "()");
+    assert_eq!(
+        result(&environment, "retained"),
+        "Vec<fn(fn(Int) -> Int) -> Int effects [stdio]>"
+    );
+}
+
+fn fallback_record(index: usize) -> Type {
+    Type::Record(vec![
+        ("common".to_string(), Type::int()),
+        (format!("field_{index}"), Type::int()),
+    ])
+}
+
+fn fallback_comparison_measurement(size: usize, resolve_late: bool) -> usize {
+    let environment = TypeEnvironment::from_module(&lower_surface_ast(
+        &parse(&SourceFile::new("main.veln", "")).tree,
+    ));
+    let initial = fallback_record(0);
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("record fallback join");
+    crate::aggregate_type_join::reset_fallback_comparisons();
+    for index in 1..size {
+        assert!(joined.try_join(&environment.adts, &fallback_record(index)));
+    }
+    if resolve_late {
+        assert!(joined.try_join(
+            &environment.adts,
+            &Type::Record(vec![("common".to_string(), Type::int())]),
+        ));
+        assert_eq!(joined.result_type().render(), "{common: Int}");
+    } else {
+        assert!(!joined.has_resolved_result());
+    }
+    crate::aggregate_type_join::take_fallback_comparisons()
+}
+
+#[test]
+fn fallback_candidate_comparisons_grow_at_most_quadratically() {
+    for resolve_late in [false, true] {
+        let sizes = [8, 16, 32];
+        let measurements = sizes.map(|size| {
+            let comparisons = fallback_comparison_measurement(size, resolve_late);
+            let contributions = size + usize::from(resolve_late);
+            assert!(
+                comparisons <= contributions * contributions,
+                "size={size} resolve_late={resolve_late} comparisons={comparisons}"
+            );
+            comparisons
+        });
+        eprintln!("fallback comparisons resolve_late={resolve_late}: {measurements:?}");
+        for (index, adjacent) in measurements.windows(2).enumerate() {
+            let scale = sizes[index + 1] / sizes[index];
+            assert!(
+                adjacent[1] <= adjacent[0] * scale * scale + sizes[index + 1],
+                "{measurements:?}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -127,4 +217,77 @@ fn disjoint_refinement_meet_requires_context_without_partial_function_type() {
     );
     let environment = TypeEnvironment::from_module(&module);
     assert_eq!(result(&environment, "unavailable"), "unknown");
+}
+
+fn positive_registry() -> TypeEnvironment {
+    let source = SourceFile::new("main.veln", "type Positive<T>\n  Present(T)\nend\n");
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    TypeEnvironment::from_module(&lower_surface_ast(&parsed.tree))
+}
+
+fn positive_identity(environment: &TypeEnvironment) -> String {
+    environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "Positive")
+        .expect("Positive descriptor")
+        .identity()
+}
+
+fn deep_function_result(depth: usize, identity: &str, effects: Vec<String>) -> Type {
+    let leaf = Type::Function {
+        params: vec![Type::int()],
+        variadic: None,
+        return_type: Box::new(Type::int()),
+        effects,
+    };
+    let nested = (0..depth).fold(leaf, |argument, _| {
+        Type::resolved_named("Positive", identity, vec![argument])
+    });
+    Type::Function {
+        params: Vec::new(),
+        variadic: None,
+        return_type: Box::new(nested),
+        effects: Vec::new(),
+    }
+}
+
+#[test]
+fn deep_bounded_function_join_uses_explicit_linear_frames() {
+    let environment = positive_registry();
+    let identity = positive_identity(&environment);
+    let depths = [512, 1024, 2048];
+    let measurements = depths.map(|depth| {
+        let initial = deep_function_result(depth, &identity, Vec::new());
+        let right = deep_function_result(depth, &identity, vec!["stdio".to_string()]);
+        let mut joined =
+            crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+                .expect("bounded function join");
+        crate::aggregate_type_join::reset_bounded_frames();
+        assert!(joined.try_join(&environment.adts, &right));
+        let frames = crate::aggregate_type_join::take_bounded_frames();
+        let resolved = joined.result_type();
+        let Type::Function { return_type, .. } = resolved else {
+            panic!("expected outer function");
+        };
+        let mut leaf = return_type.as_ref();
+        for _ in 0..depth {
+            let Type::Named { args, .. } = leaf else {
+                panic!("expected Positive wrapper");
+            };
+            leaf = &args[0];
+        }
+        let Type::Function { effects, .. } = leaf else {
+            panic!("expected function leaf");
+        };
+        assert_eq!(effects, &["stdio"]);
+        assert_eq!(frames, depth + 4);
+        frames
+    });
+    eprintln!("deep bounded frames: {measurements:?}");
+    for adjacent in measurements.windows(2) {
+        assert!(adjacent[1] <= adjacent[0] * 2 + 1);
+    }
 }

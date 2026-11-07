@@ -1,5 +1,8 @@
+#[cfg(test)]
+use std::cell::Cell;
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::fmt::Write;
 use std::sync::Arc;
 
 use crate::adt::descriptors::{AdtConstructor, Variance};
@@ -13,7 +16,7 @@ use crate::type_relations::{
 pub(crate) struct AggregateTypeJoin {
     nodes: Vec<JoinNode>,
     root: usize,
-    contributions: Vec<Type>,
+    optimized_contributions: Option<Vec<Type>>,
     bounded: Option<BoundedJoin>,
     projection_cache: RefCell<context_projection::ProjectionCache>,
 }
@@ -21,6 +24,147 @@ pub(crate) struct AggregateTypeJoin {
 struct BoundedJoin {
     contributions: Vec<Type>,
     resolved: Option<Type>,
+    fallback: Option<ContributedCandidateState>,
+    relation_cache: HashMap<(String, String), bool>,
+}
+
+struct ContributedCandidateState {
+    direction: BoundDirection,
+    assignable: Vec<Vec<bool>>,
+    valid: Vec<bool>,
+    selection_blockers: Vec<usize>,
+}
+
+impl BoundedJoin {
+    fn from_contributions(adts: &AdtRegistry, contributions: Vec<Type>) -> Self {
+        let fallback = uses_outer_contributed_fallback(&contributions)
+            .then(|| ContributedCandidateState::new(adts, &contributions, BoundDirection::Join));
+        let mut relation_cache = HashMap::new();
+        let resolved = fallback
+            .as_ref()
+            .map(|state| state.result(&contributions))
+            .unwrap_or_else(|| bounded_join_with_cache(adts, &contributions, &mut relation_cache));
+        Self {
+            contributions,
+            resolved,
+            fallback,
+            relation_cache,
+        }
+    }
+
+    fn admit(&mut self, adts: &AdtRegistry, right: &Type) {
+        self.contributions.push(right.clone());
+        if let Some(fallback) = &mut self.fallback {
+            fallback.admit(adts, &self.contributions);
+            self.resolved = fallback.result(&self.contributions);
+            return;
+        }
+        self.resolved =
+            bounded_join_with_cache(adts, &self.contributions, &mut self.relation_cache);
+        if uses_outer_contributed_fallback(&self.contributions) {
+            self.fallback = Some(ContributedCandidateState::new(
+                adts,
+                &self.contributions,
+                BoundDirection::Join,
+            ));
+        }
+    }
+}
+
+impl ContributedCandidateState {
+    fn new(adts: &AdtRegistry, contributions: &[Type], direction: BoundDirection) -> Self {
+        let mut state = Self {
+            direction,
+            assignable: Vec::new(),
+            valid: Vec::new(),
+            selection_blockers: Vec::new(),
+        };
+        for end in 1..=contributions.len() {
+            state.admit(adts, &contributions[..end]);
+        }
+        state
+    }
+
+    fn admit(&mut self, adts: &AdtRegistry, contributions: &[Type]) {
+        let new_index = contributions.len() - 1;
+        debug_assert_eq!(self.assignable.len(), new_index);
+        for row in &mut self.assignable {
+            row.push(false);
+        }
+        let mut new_row = vec![false; contributions.len()];
+        for index in 0..new_index {
+            self.assignable[index][new_index] =
+                candidate_assignable(&contributions[index], &contributions[new_index], adts);
+            new_row[index] =
+                candidate_assignable(&contributions[new_index], &contributions[index], adts);
+        }
+        new_row[new_index] = true;
+        self.assignable.push(new_row);
+
+        let previously_valid = self.valid.clone();
+        for index in 0..new_index {
+            if self.valid[index] && !self.valid_relation(index, new_index) {
+                self.valid[index] = false;
+            }
+        }
+        let new_valid = (0..=new_index).all(|other| self.valid_relation(new_index, other));
+        self.valid.push(new_valid);
+        self.selection_blockers.push(0);
+
+        for removed in 0..new_index {
+            if previously_valid[removed] && !self.valid[removed] {
+                for candidate in 0..new_index {
+                    if self.valid[candidate] && !self.selection_relation(candidate, removed) {
+                        self.selection_blockers[candidate] -= 1;
+                    }
+                }
+            }
+        }
+        if new_valid {
+            for candidate in 0..new_index {
+                if self.valid[candidate] {
+                    if !self.selection_relation(candidate, new_index) {
+                        self.selection_blockers[candidate] += 1;
+                    }
+                    if !self.selection_relation(new_index, candidate) {
+                        self.selection_blockers[new_index] += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    fn valid_relation(&self, candidate: usize, contribution: usize) -> bool {
+        match self.direction {
+            BoundDirection::Join => self.assignable[candidate][contribution],
+            BoundDirection::Meet => self.assignable[contribution][candidate],
+        }
+    }
+
+    fn selection_relation(&self, candidate: usize, other: usize) -> bool {
+        match self.direction {
+            BoundDirection::Join => self.assignable[other][candidate],
+            BoundDirection::Meet => self.assignable[candidate][other],
+        }
+    }
+
+    fn result(&self, contributions: &[Type]) -> Option<Type> {
+        let mut selected = self
+            .valid
+            .iter()
+            .zip(&self.selection_blockers)
+            .enumerate()
+            .filter_map(|(index, (valid, blockers))| (*valid && *blockers == 0).then_some(index))
+            .collect::<Vec<_>>();
+        selected.sort_unstable_by_key(|index| contributions[*index].render());
+        let first = *selected.first()?;
+        let mut result = contributions[first].clone();
+        let mut presentation = TypePresentationJoin::default();
+        for index in selected.into_iter().skip(1) {
+            presentation.merge(&mut result, &contributions[index]);
+        }
+        Some(result)
+    }
 }
 
 mod context_projection;
@@ -78,10 +222,12 @@ impl AggregateTypeJoin {
             matches!(initial, Type::Function { .. }).then(|| Self {
                 nodes: Vec::new(),
                 root: 0,
-                contributions: Vec::new(),
+                optimized_contributions: None,
                 bounded: Some(BoundedJoin {
                     contributions: vec![initial.clone()],
                     resolved: Some(initial.clone()),
+                    fallback: None,
+                    relation_cache: HashMap::new(),
                 }),
                 projection_cache: RefCell::new(context_projection::ProjectionCache::default()),
             })
@@ -112,7 +258,8 @@ impl AggregateTypeJoin {
         Some(Self {
             nodes,
             root: 0,
-            contributions: vec![initial.clone()],
+            optimized_contributions: optimized_join_retains_contributions(adts, initial)
+                .then(|| vec![initial.clone()]),
             bounded: None,
             projection_cache: RefCell::new(context_projection::ProjectionCache::default()),
         })
@@ -148,33 +295,38 @@ impl AggregateTypeJoin {
             if !bounded_shapes_are_admissible(&bounded.contributions, right) {
                 return false;
             }
-            bounded.contributions.push(right.clone());
-            bounded.resolved = bounded_join(adts, &bounded.contributions);
+            bounded.admit(adts, right);
             self.projection_cache.get_mut().clear();
             return true;
         }
         let Some(prepared) = self.prepare(adts, right) else {
-            if !bounded_shapes_are_admissible(&self.contributions, right) {
+            let Some(retained) = self.optimized_contributions.as_deref() else {
+                return false;
+            };
+            if !bounded_shapes_are_admissible(retained, right) {
                 return false;
             }
-            let mut contributions = self.contributions.clone();
+            let mut contributions = self
+                .optimized_contributions
+                .take()
+                .expect("transition-capable optimized join retains contributions");
             contributions.push(right.clone());
-            if bounded_join(adts, &contributions).is_none()
-                && !can_retain_unresolved_contributions(adts, &contributions)
+            let bounded = BoundedJoin::from_contributions(adts, contributions);
+            if bounded.resolved.is_none()
+                && !can_retain_unresolved_contributions(adts, &bounded.contributions)
             {
                 return false;
             }
-            self.bounded = Some(BoundedJoin {
-                resolved: bounded_join(adts, &contributions),
-                contributions,
-            });
+            self.bounded = Some(bounded);
             self.projection_cache.get_mut().clear();
             return true;
         };
         if self.commit(prepared, adts) {
             self.projection_cache.get_mut().clear();
         }
-        self.contributions.push(right.clone());
+        if let Some(contributions) = &mut self.optimized_contributions {
+            contributions.push(right.clone());
+        }
         true
     }
 
@@ -471,6 +623,26 @@ impl AggregateTypeJoin {
         }
         materialize_refined_node(node, args, variants)
     }
+}
+
+fn optimized_join_retains_contributions(adts: &AdtRegistry, initial: &Type) -> bool {
+    if matches!(initial, Type::Record(_)) {
+        return true;
+    }
+    if type_contains_function(initial) {
+        return true;
+    }
+    let Some(parts) = adt_type_parts(initial) else {
+        return false;
+    };
+    !Type::is_compiler_covariant_identity(parts.identity)
+        && adts
+            .parameter_variances_for_identity(parts.identity, parts.args.len())
+            .is_some_and(|variances| {
+                variances
+                    .iter()
+                    .any(|variance| *variance != Variance::Covariant)
+            })
 }
 
 fn can_retain_unresolved_contributions(adts: &AdtRegistry, contributions: &[Type]) -> bool {
@@ -867,31 +1039,150 @@ fn join_type_parts(ty: &Type) -> Option<()> {
     .then_some(())
 }
 
-fn bounded_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
-    if contributions.len() == 1 {
-        return contributions.first().cloned();
-    }
-    if contributions
-        .iter()
-        .any(|contribution| matches!(contribution, Type::Function { .. }))
-    {
-        return bounded_function_join(adts, contributions);
-    }
-    if requires_composite_bound(adts, contributions) {
-        return bounded_composite_join(adts, contributions);
-    }
-    if let Some(joined) = optimized_join(adts, contributions) {
-        return Some(joined);
-    }
-    contributed_candidate(adts, contributions, BoundDirection::Join)
+fn bounded_join_with_cache(
+    adts: &AdtRegistry,
+    contributions: &[Type],
+    relation_cache: &mut HashMap<(String, String), bool>,
+) -> Option<Type> {
+    bounded_join_iterative(adts, contributions, relation_cache)
 }
 
-fn requires_composite_bound(adts: &AdtRegistry, contributions: &[Type]) -> bool {
-    if contributions.iter().any(type_contains_function) {
+enum BoundTask<'a> {
+    Ready(Option<Type>),
+    Evaluate {
+        contributions: Vec<&'a Type>,
+        direction: BoundDirection,
+    },
+    BuildRecord {
+        names: Vec<String>,
+    },
+    BuildNamed {
+        name: String,
+        identity: String,
+        variants: Option<Vec<String>>,
+        argument_count: usize,
+    },
+    BuildFunction {
+        parameter_count: usize,
+        has_variadic: bool,
+        effects: Vec<String>,
+    },
+}
+
+fn bounded_join_iterative(
+    adts: &AdtRegistry,
+    contributions: &[Type],
+    relation_cache: &mut HashMap<(String, String), bool>,
+) -> Option<Type> {
+    let mut tasks = vec![BoundTask::Evaluate {
+        contributions: contributions.iter().collect(),
+        direction: BoundDirection::Join,
+    }];
+    let mut results = Vec::new();
+    while let Some(task) = tasks.pop() {
+        match task {
+            BoundTask::Ready(result) => results.push(result),
+            BoundTask::Evaluate {
+                contributions,
+                direction,
+            } => {
+                record_bounded_frame();
+                if contributions.len() == 1 {
+                    results.push(contributions.first().map(|ty| (*ty).clone()));
+                    continue;
+                }
+                if matches!(direction, BoundDirection::Meet) {
+                    results.push(contributed_candidate_refs(
+                        adts,
+                        &contributions,
+                        direction,
+                        relation_cache,
+                    ));
+                    continue;
+                }
+                if contributions
+                    .iter()
+                    .any(|contribution| matches!(contribution, Type::Function { .. }))
+                {
+                    schedule_function_bound(&mut tasks, &mut results, contributions);
+                    continue;
+                }
+                if refs_require_composite_bound(adts, &contributions) {
+                    schedule_composite_bound(
+                        adts,
+                        &mut tasks,
+                        &mut results,
+                        contributions,
+                        relation_cache,
+                    );
+                    continue;
+                }
+                let owned = contributions
+                    .iter()
+                    .map(|contribution| (*contribution).clone())
+                    .collect::<Vec<_>>();
+                results.push(optimized_join(adts, &owned).or_else(|| {
+                    contributed_candidate_refs(adts, &contributions, direction, relation_cache)
+                }));
+            }
+            BoundTask::BuildRecord { names } => {
+                let children = take_bound_results(&mut results, names.len());
+                results.push(
+                    children
+                        .map(|children| Type::Record(names.into_iter().zip(children).collect())),
+                );
+            }
+            BoundTask::BuildNamed {
+                name,
+                identity,
+                variants,
+                argument_count,
+            } => {
+                let children = take_bound_results(&mut results, argument_count);
+                results.push(children.map(|children| match variants {
+                    Some(variants) => {
+                        Type::resolved_variant_refinement(name, identity, children, variants)
+                    }
+                    None => Type::resolved_named(name, identity, children),
+                }));
+            }
+            BoundTask::BuildFunction {
+                parameter_count,
+                has_variadic,
+                effects,
+            } => {
+                let child_count = parameter_count + usize::from(has_variadic) + 1;
+                let Some(mut children) = take_bound_results(&mut results, child_count) else {
+                    results.push(None);
+                    continue;
+                };
+                let return_type = Box::new(children.pop().expect("function result child"));
+                let variadic =
+                    has_variadic.then(|| Box::new(children.pop().expect("variadic child")));
+                results.push(Some(Type::Function {
+                    params: children,
+                    variadic,
+                    return_type,
+                    effects,
+                }));
+            }
+        }
+    }
+    debug_assert_eq!(results.len(), 1);
+    results.pop().flatten()
+}
+
+fn take_bound_results(results: &mut Vec<Option<Type>>, count: usize) -> Option<Vec<Type>> {
+    let start = results.len().checked_sub(count)?;
+    results.drain(start..).collect::<Option<Vec<_>>>()
+}
+
+fn refs_require_composite_bound(adts: &AdtRegistry, contributions: &[&Type]) -> bool {
+    if contributions.iter().any(|ty| type_contains_function(ty)) {
         return true;
     }
     let Some(Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. }) =
-        contributions.first()
+        contributions.first().copied()
     else {
         return false;
     };
@@ -905,6 +1196,311 @@ fn requires_composite_bound(adts: &AdtRegistry, contributions: &[Type]) -> bool 
             })
 }
 
+fn schedule_composite_bound<'a>(
+    adts: &AdtRegistry,
+    tasks: &mut Vec<BoundTask<'a>>,
+    results: &mut Vec<Option<Type>>,
+    contributions: Vec<&'a Type>,
+    relation_cache: &mut HashMap<(String, String), bool>,
+) {
+    match contributions.first().copied() {
+        Some(Type::Record(first_fields)) => {
+            let mut names = first_fields
+                .iter()
+                .map(|(name, _)| name.clone())
+                .collect::<Vec<_>>();
+            names.sort_unstable();
+            let same_fields = contributions.iter().all(|contribution| {
+                let Type::Record(fields) = contribution else {
+                    return false;
+                };
+                fields.len() == names.len()
+                    && names
+                        .iter()
+                        .all(|name| fields.iter().any(|(field, _)| field == name))
+            });
+            if !same_fields {
+                results.push(contributed_candidate_refs(
+                    adts,
+                    &contributions,
+                    BoundDirection::Join,
+                    relation_cache,
+                ));
+                return;
+            }
+            tasks.push(BoundTask::BuildRecord {
+                names: names.clone(),
+            });
+            for name in names.into_iter().rev() {
+                let fields = contributions
+                    .iter()
+                    .map(|contribution| {
+                        let Type::Record(fields) = contribution else {
+                            unreachable!("record shape was checked");
+                        };
+                        fields
+                            .iter()
+                            .find(|(field, _)| field == &name)
+                            .map(|(_, ty)| ty)
+                            .expect("record field was checked")
+                    })
+                    .collect();
+                tasks.push(BoundTask::Evaluate {
+                    contributions: fields,
+                    direction: BoundDirection::Join,
+                });
+            }
+        }
+        Some(Type::Named { .. } | Type::VariantRefinement { .. }) => {
+            schedule_named_bound(adts, tasks, results, contributions, relation_cache);
+        }
+        Some(Type::Function { .. }) => schedule_function_bound(tasks, results, contributions),
+        Some(Type::Unknown) | None => results.push(None),
+    }
+}
+
+fn schedule_named_bound<'a>(
+    adts: &AdtRegistry,
+    tasks: &mut Vec<BoundTask<'a>>,
+    results: &mut Vec<Option<Type>>,
+    contributions: Vec<&'a Type>,
+    relation_cache: &mut HashMap<(String, String), bool>,
+) {
+    let Some(first) = contributions.first().and_then(|ty| adt_type_parts(ty)) else {
+        results.push(None);
+        return;
+    };
+    let Some(parts) = contributions
+        .iter()
+        .map(|ty| adt_type_parts(ty))
+        .collect::<Option<Vec<_>>>()
+    else {
+        results.push(contributed_candidate_refs(
+            adts,
+            &contributions,
+            BoundDirection::Join,
+            relation_cache,
+        ));
+        return;
+    };
+    if parts.iter().any(|part| {
+        !same_type_identity(first.name, first.identity, part.name, part.identity)
+            || first.args.len() != part.args.len()
+    }) {
+        results.push(contributed_candidate_refs(
+            adts,
+            &contributions,
+            BoundDirection::Join,
+            relation_cache,
+        ));
+        return;
+    }
+    let canonical_name = Type::compiler_covariant_name(first.identity)
+        .map(str::to_string)
+        .or_else(|| {
+            adts.descriptor_for_type(first.ty)
+                .map(|descriptor| adts.canonical_type_name_for_descriptor(descriptor))
+        })
+        .unwrap_or_else(|| first.name.to_string());
+    let name = parts
+        .iter()
+        .all(|part| part.name == first.name)
+        .then(|| first.name.to_string())
+        .unwrap_or(canonical_name);
+    let Some(variants) = joined_named_variants(adts, first, &parts) else {
+        results.push(None);
+        return;
+    };
+    let compiler_covariant = Type::is_compiler_covariant_identity(first.identity);
+    let variances = (!compiler_covariant)
+        .then(|| adts.parameter_variances_for_identity(first.identity, first.args.len()))
+        .flatten();
+    tasks.push(BoundTask::BuildNamed {
+        name,
+        identity: first.identity.to_string(),
+        variants,
+        argument_count: first.args.len(),
+    });
+    for index in (0..first.args.len()).rev() {
+        let arguments = parts
+            .iter()
+            .map(|part| &part.args[index])
+            .collect::<Vec<_>>();
+        let variance = if compiler_covariant {
+            Variance::Covariant
+        } else {
+            variances
+                .and_then(|items| items.get(index).copied())
+                .unwrap_or(Variance::Invariant)
+        };
+        match variance {
+            Variance::Covariant => tasks.push(BoundTask::Evaluate {
+                contributions: arguments,
+                direction: BoundDirection::Join,
+            }),
+            Variance::Contravariant => tasks.push(BoundTask::Evaluate {
+                contributions: arguments,
+                direction: BoundDirection::Meet,
+            }),
+            Variance::Invariant | Variance::Irrelevant => {
+                let exact = arguments
+                    .iter()
+                    .skip(1)
+                    .all(|argument| {
+                        invariant_args_match(
+                            std::slice::from_ref(&arguments[0]),
+                            std::slice::from_ref(argument),
+                        )
+                    })
+                    .then(|| arguments[0].clone());
+                tasks.push(BoundTask::Ready(exact));
+            }
+        }
+    }
+}
+
+fn joined_named_variants(
+    adts: &AdtRegistry,
+    first: AdtTypeParts<'_>,
+    parts: &[AdtTypeParts<'_>],
+) -> Option<Option<Vec<String>>> {
+    if parts.iter().any(|part| part.variants.is_none()) {
+        return Some(None);
+    }
+    let order = adts.variant_declaration_order_for_type(first.ty)?;
+    let mut ranks = parts
+        .iter()
+        .flat_map(|part| part.variants.expect("all parts are refined"))
+        .map(|variant| order.rank(variant))
+        .collect::<Option<HashSet<_>>>()?
+        .into_iter()
+        .collect::<Vec<_>>();
+    ranks.sort_unstable();
+    if ranks.len() == order.len() {
+        return Some(None);
+    }
+    ranks
+        .into_iter()
+        .map(|rank| order.name(rank).map(str::to_string))
+        .collect::<Option<Vec<_>>>()
+        .map(Some)
+}
+
+fn schedule_function_bound<'a>(
+    tasks: &mut Vec<BoundTask<'a>>,
+    results: &mut Vec<Option<Type>>,
+    contributions: Vec<&'a Type>,
+) {
+    let Some(Type::Function {
+        params: first_params,
+        variadic: first_variadic,
+        ..
+    }) = contributions.first().copied()
+    else {
+        results.push(None);
+        return;
+    };
+    let mut functions = Vec::with_capacity(contributions.len());
+    let mut effects = HashSet::new();
+    for contribution in &contributions {
+        let Type::Function {
+            params,
+            variadic,
+            return_type,
+            effects: contribution_effects,
+        } = contribution
+        else {
+            results.push(None);
+            return;
+        };
+        if params.len() != first_params.len() || variadic.is_some() != first_variadic.is_some() {
+            results.push(None);
+            return;
+        }
+        effects.extend(contribution_effects.iter().cloned());
+        functions.push((params, variadic, return_type.as_ref()));
+    }
+    let mut effects = effects.into_iter().collect::<Vec<_>>();
+    effects.sort_unstable();
+    tasks.push(BoundTask::BuildFunction {
+        parameter_count: first_params.len(),
+        has_variadic: first_variadic.is_some(),
+        effects,
+    });
+    tasks.push(BoundTask::Evaluate {
+        contributions: functions.iter().map(|(_, _, result)| *result).collect(),
+        direction: BoundDirection::Join,
+    });
+    if first_variadic.is_some() {
+        tasks.push(BoundTask::Evaluate {
+            contributions: functions
+                .iter()
+                .map(|(_, variadic, _)| variadic.as_deref().expect("variadic shape was checked"))
+                .collect(),
+            direction: BoundDirection::Meet,
+        });
+    }
+    for index in (0..first_params.len()).rev() {
+        tasks.push(BoundTask::Evaluate {
+            contributions: functions
+                .iter()
+                .map(|(params, _, _)| &params[index])
+                .collect(),
+            direction: BoundDirection::Meet,
+        });
+    }
+}
+
+fn contributed_candidate_refs(
+    adts: &AdtRegistry,
+    contributions: &[&Type],
+    direction: BoundDirection,
+    relation_cache: &mut HashMap<(String, String), bool>,
+) -> Option<Type> {
+    let valid = contributions
+        .iter()
+        .copied()
+        .filter(|candidate| {
+            contributions.iter().all(|contribution| match direction {
+                BoundDirection::Join => {
+                    candidate_assignable_cached(candidate, contribution, adts, relation_cache)
+                }
+                BoundDirection::Meet => {
+                    candidate_assignable_cached(contribution, candidate, adts, relation_cache)
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut selected = valid
+        .iter()
+        .copied()
+        .filter(|candidate| {
+            valid.iter().all(|other| match direction {
+                BoundDirection::Join => {
+                    candidate_assignable_cached(other, candidate, adts, relation_cache)
+                }
+                BoundDirection::Meet => {
+                    candidate_assignable_cached(candidate, other, adts, relation_cache)
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+    let first = *selected.first()?;
+    if selected.iter().skip(1).any(|candidate| {
+        !candidate_assignable_cached(first, candidate, adts, relation_cache)
+            || !candidate_assignable_cached(candidate, first, adts, relation_cache)
+    }) {
+        return None;
+    }
+    selected.sort_unstable_by_key(|candidate| candidate.render());
+    let mut result = selected[0].clone();
+    let mut presentation = TypePresentationJoin::default();
+    for candidate in selected.into_iter().skip(1) {
+        presentation.merge(&mut result, candidate);
+    }
+    Some(result)
+}
+
 fn bounded_shapes_are_admissible(contributions: &[Type], right: &Type) -> bool {
     let Some(first) = contributions.first() else {
         return false;
@@ -913,82 +1509,89 @@ fn bounded_shapes_are_admissible(contributions: &[Type], right: &Type) -> bool {
 }
 
 fn structurally_compatible_function_shapes(left: &Type, right: &Type) -> bool {
-    match (left, right) {
-        (
-            Type::Function {
-                params: left_params,
-                variadic: left_variadic,
-                return_type: left_return,
-                ..
-            },
-            Type::Function {
-                params: right_params,
-                variadic: right_variadic,
-                return_type: right_return,
-                ..
-            },
-        ) => {
-            left_params.len() == right_params.len()
-                && left_variadic.is_some() == right_variadic.is_some()
-                && left_params
-                    .iter()
-                    .zip(right_params)
-                    .all(|(left, right)| structurally_compatible_function_shapes(left, right))
-                && match (left_variadic, right_variadic) {
-                    (Some(left), Some(right)) => {
-                        structurally_compatible_function_shapes(left, right)
-                    }
-                    (None, None) => true,
-                    _ => false,
+    let mut pending = vec![(left, right)];
+    while let Some((left, right)) = pending.pop() {
+        match (left, right) {
+            (
+                Type::Function {
+                    params: left_params,
+                    variadic: left_variadic,
+                    return_type: left_return,
+                    ..
+                },
+                Type::Function {
+                    params: right_params,
+                    variadic: right_variadic,
+                    return_type: right_return,
+                    ..
+                },
+            ) => {
+                if left_params.len() != right_params.len()
+                    || left_variadic.is_some() != right_variadic.is_some()
+                {
+                    return false;
                 }
-                && structurally_compatible_function_shapes(left_return, right_return)
-        }
-        (Type::Function { .. }, _) | (_, Type::Function { .. }) => false,
-        (Type::Record(left), Type::Record(right)) if left.len() == right.len() => {
-            left.iter().all(|(name, left)| {
-                right
-                    .iter()
-                    .find(|(right_name, _)| right_name == name)
-                    .is_some_and(|(_, right)| structurally_compatible_function_shapes(left, right))
-            })
-        }
-        (
-            Type::Named {
-                name: left_name,
-                identity: left_identity,
-                args: left_args,
-                ..
+                pending.extend(left_params.iter().zip(right_params));
+                if let (Some(left), Some(right)) = (left_variadic, right_variadic) {
+                    pending.push((left, right));
+                }
+                pending.push((left_return, right_return));
             }
-            | Type::VariantRefinement {
-                name: left_name,
-                identity: left_identity,
-                args: left_args,
-                ..
-            },
-            Type::Named {
-                name: right_name,
-                identity: right_identity,
-                args: right_args,
-                ..
+            (Type::Function { .. }, _) | (_, Type::Function { .. }) => return false,
+            (Type::Record(left), Type::Record(right)) => {
+                if left.len() != right.len()
+                    || left
+                        .iter()
+                        .any(|(name, _)| !right.iter().any(|(other, _)| other == name))
+                {
+                    continue;
+                }
+                for (name, left) in left {
+                    let Some((_, right)) = right.iter().find(|(right_name, _)| right_name == name)
+                    else {
+                        return false;
+                    };
+                    pending.push((left, right));
+                }
             }
-            | Type::VariantRefinement {
-                name: right_name,
-                identity: right_identity,
-                args: right_args,
-                ..
-            },
-        ) => {
-            same_type_identity(left_name, left_identity, right_name, right_identity)
-                && left_args.len() == right_args.len()
-                && left_args
-                    .iter()
-                    .zip(right_args)
-                    .all(|(left, right)| structurally_compatible_function_shapes(left, right))
+            (
+                Type::Named {
+                    name: left_name,
+                    identity: left_identity,
+                    args: left_args,
+                    ..
+                }
+                | Type::VariantRefinement {
+                    name: left_name,
+                    identity: left_identity,
+                    args: left_args,
+                    ..
+                },
+                Type::Named {
+                    name: right_name,
+                    identity: right_identity,
+                    args: right_args,
+                    ..
+                }
+                | Type::VariantRefinement {
+                    name: right_name,
+                    identity: right_identity,
+                    args: right_args,
+                    ..
+                },
+            ) => {
+                if !same_type_identity(left_name, left_identity, right_name, right_identity)
+                    || left_args.len() != right_args.len()
+                {
+                    return false;
+                }
+                pending.extend(left_args.iter().zip(right_args));
+            }
+            (Type::Record(_), _) | (_, Type::Record(_)) => return false,
+            _ => {}
         }
-        (Type::Record(_), Type::Record(_)) => true,
-        (Type::Record(_), _) | (_, Type::Record(_)) => false,
-        _ => true,
     }
+    true
 }
 
 fn type_contains_function(ty: &Type) -> bool {
@@ -1004,137 +1607,6 @@ fn type_contains_function(ty: &Type) -> bool {
     false
 }
 
-fn bounded_composite_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
-    match contributions.first()? {
-        Type::Record(first_fields) => {
-            let mut names = first_fields
-                .iter()
-                .map(|(name, _)| name.clone())
-                .collect::<Vec<_>>();
-            names.sort_unstable();
-            if contributions.iter().any(|contribution| {
-                let Type::Record(fields) = contribution else {
-                    return true;
-                };
-                fields.len() != names.len()
-                    || names
-                        .iter()
-                        .any(|name| !fields.iter().any(|(field_name, _)| field_name == name))
-            }) {
-                return None;
-            }
-            let fields = names
-                .into_iter()
-                .map(|name| {
-                    let field_contributions = contributions
-                        .iter()
-                        .map(|contribution| {
-                            let Type::Record(fields) = contribution else {
-                                return None;
-                            };
-                            fields
-                                .iter()
-                                .find(|(field_name, _)| field_name == &name)
-                                .map(|(_, ty)| ty.clone())
-                        })
-                        .collect::<Option<Vec<_>>>()?;
-                    (field_contributions.len() == contributions.len())
-                        .then(|| bounded_join(adts, &field_contributions))
-                        .flatten()
-                        .map(|ty| (name, ty))
-                })
-                .collect::<Option<Vec<_>>>()?;
-            Some(Type::Record(fields))
-        }
-        Type::Named { .. } | Type::VariantRefinement { .. } => {
-            bounded_named_join(adts, contributions)
-        }
-        Type::Function { .. } => bounded_function_join(adts, contributions),
-        Type::Unknown => None,
-    }
-}
-
-fn bounded_named_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
-    let first = adt_type_parts(contributions.first()?)?;
-    let parts = contributions
-        .iter()
-        .map(adt_type_parts)
-        .collect::<Option<Vec<_>>>()?;
-    if parts.iter().any(|part| {
-        !same_type_identity(first.name, first.identity, part.name, part.identity)
-            || first.args.len() != part.args.len()
-    }) {
-        return None;
-    }
-    let compiler_covariant = Type::is_compiler_covariant_identity(first.identity);
-    let variances = (!compiler_covariant)
-        .then(|| adts.parameter_variances_for_identity(first.identity, first.args.len()))
-        .flatten();
-    let args = (0..first.args.len())
-        .map(|index| {
-            let arguments = parts
-                .iter()
-                .map(|part| part.args[index].clone())
-                .collect::<Vec<_>>();
-            let variance = if compiler_covariant {
-                Variance::Covariant
-            } else {
-                variances
-                    .and_then(|variances| variances.get(index).copied())
-                    .unwrap_or(Variance::Invariant)
-            };
-            match variance {
-                Variance::Covariant => bounded_join(adts, &arguments),
-                Variance::Contravariant => bounded_meet(adts, &arguments),
-                Variance::Invariant | Variance::Irrelevant => arguments
-                    .iter()
-                    .skip(1)
-                    .all(|argument| {
-                        invariant_args_match(
-                            std::slice::from_ref(&arguments[0]),
-                            std::slice::from_ref(argument),
-                        )
-                    })
-                    .then(|| arguments[0].clone()),
-            }
-        })
-        .collect::<Option<Vec<_>>>()?;
-    let all_refined = parts.iter().all(|part| part.variants.is_some());
-    let mut joined = if all_refined {
-        let order = adts.variant_declaration_order_for_type(first.ty)?;
-        let mut ranks = parts
-            .iter()
-            .flat_map(|part| part.variants.expect("all parts are refined"))
-            .map(|variant| order.rank(variant))
-            .collect::<Option<HashSet<_>>>()?
-            .into_iter()
-            .collect::<Vec<_>>();
-        ranks.sort_unstable();
-        let variants = ranks
-            .into_iter()
-            .map(|rank| order.name(rank).map(str::to_string))
-            .collect::<Option<Vec<_>>>()?;
-        if variants.len() == order.len() {
-            Type::resolved_named(first.name, first.identity, args)
-        } else {
-            Type::resolved_variant_refinement(first.name, first.identity, args, variants)
-        }
-    } else {
-        Type::resolved_named(first.name, first.identity, args)
-    };
-    let mut ordered = contributions.iter().collect::<Vec<_>>();
-    ordered.sort_unstable_by_key(|contribution| contribution.render());
-    let mut presentation = TypePresentationJoin::default();
-    for contribution in ordered {
-        presentation.merge(&mut joined, contribution);
-    }
-    Some(joined)
-}
-
-fn bounded_meet(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
-    contributed_candidate(adts, contributions, BoundDirection::Meet)
-}
-
 fn optimized_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
     let mut joined = AggregateTypeJoin::new_optimized(adts, contributions.first()?)?;
     for contribution in &contributions[1..] {
@@ -1144,109 +1616,188 @@ fn optimized_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
     Some(joined.result_type())
 }
 
-fn bounded_function_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
-    let Type::Function {
-        params: first_params,
-        variadic: first_variadic,
-        ..
-    } = contributions.first()?
-    else {
-        return None;
-    };
-    let mut parameter_contributions = (0..first_params.len())
-        .map(|_| Vec::with_capacity(contributions.len()))
-        .collect::<Vec<_>>();
-    let mut variadic_contributions = first_variadic
-        .as_ref()
-        .map(|_| Vec::with_capacity(contributions.len()));
-    let mut result_contributions = Vec::with_capacity(contributions.len());
-    let mut effects = HashSet::new();
-    for contribution in contributions {
-        let Type::Function {
-            params,
-            variadic,
-            return_type,
-            effects: contribution_effects,
-        } = contribution
-        else {
-            return None;
-        };
-        if params.len() != first_params.len() || variadic.is_some() != first_variadic.is_some() {
-            return None;
-        }
-        for (slot, parameter) in parameter_contributions.iter_mut().zip(params) {
-            slot.push(parameter.clone());
-        }
-        if let (Some(slot), Some(variadic)) = (&mut variadic_contributions, variadic) {
-            slot.push(variadic.as_ref().clone());
-        }
-        result_contributions.push(return_type.as_ref().clone());
-        effects.extend(contribution_effects.iter().cloned());
-    }
-    let params = parameter_contributions
-        .iter()
-        .map(|contributions| bounded_meet(adts, contributions))
-        .collect::<Option<Vec<_>>>()?;
-    let variadic = match &variadic_contributions {
-        Some(contributions) => Some(Box::new(bounded_meet(adts, contributions)?)),
-        None => None,
-    };
-    let return_type = Box::new(bounded_join(adts, &result_contributions)?);
-    let mut effects = effects.into_iter().collect::<Vec<_>>();
-    effects.sort_unstable();
-    Some(Type::Function {
-        params,
-        variadic,
-        return_type,
-        effects,
-    })
-}
-
 #[derive(Clone, Copy)]
 enum BoundDirection {
     Join,
     Meet,
 }
 
-fn contributed_candidate(
+fn uses_outer_contributed_fallback(contributions: &[Type]) -> bool {
+    let Some(first) = contributions.first() else {
+        return false;
+    };
+    match first {
+        Type::Function { .. } | Type::Unknown => false,
+        Type::Record(first_fields) => contributions.iter().skip(1).any(|contribution| {
+            let Type::Record(fields) = contribution else {
+                return true;
+            };
+            fields.len() != first_fields.len()
+                || first_fields
+                    .iter()
+                    .any(|(name, _)| !fields.iter().any(|(other, _)| other == name))
+        }),
+        Type::Named {
+            name,
+            identity,
+            args,
+        }
+        | Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => contributions.iter().skip(1).any(|contribution| {
+            adt_type_parts(contribution).is_none_or(|other| {
+                !same_type_identity(name, identity, other.name, other.identity)
+                    || args.len() != other.args.len()
+            })
+        }),
+    }
+}
+
+fn candidate_assignable(expected: &Type, actual: &Type, adts: &AdtRegistry) -> bool {
+    record_fallback_comparison();
+    is_assignable_with_registry(expected, actual, adts)
+}
+
+fn candidate_assignable_cached(
+    expected: &Type,
+    actual: &Type,
     adts: &AdtRegistry,
-    contributions: &[Type],
-    direction: BoundDirection,
-) -> Option<Type> {
-    let valid = contributions
-        .iter()
-        .filter(|candidate| {
-            contributions.iter().all(|contribution| match direction {
-                BoundDirection::Join => is_assignable_with_registry(candidate, contribution, adts),
-                BoundDirection::Meet => is_assignable_with_registry(contribution, candidate, adts),
-            })
-        })
-        .collect::<Vec<_>>();
-    let selected = valid
-        .iter()
-        .copied()
-        .filter(|candidate| {
-            valid.iter().all(|other| match direction {
-                BoundDirection::Join => is_assignable_with_registry(other, candidate, adts),
-                BoundDirection::Meet => is_assignable_with_registry(candidate, other, adts),
-            })
-        })
-        .collect::<Vec<_>>();
-    let first = *selected.first()?;
-    if selected.iter().skip(1).any(|candidate| {
-        !is_assignable_with_registry(first, candidate, adts)
-            || !is_assignable_with_registry(candidate, first, adts)
-    }) {
-        return None;
+    relation_cache: &mut HashMap<(String, String), bool>,
+) -> bool {
+    let key = (
+        canonical_relation_key(expected),
+        canonical_relation_key(actual),
+    );
+    if let Some(assignable) = relation_cache.get(&key) {
+        return *assignable;
     }
-    let mut ordered = selected;
-    ordered.sort_unstable_by_key(|candidate| candidate.render());
-    let mut result = (*ordered[0]).clone();
-    let mut presentation = TypePresentationJoin::default();
-    for candidate in ordered.into_iter().skip(1) {
-        presentation.merge(&mut result, candidate);
+    let assignable = candidate_assignable(expected, actual, adts);
+    relation_cache.insert(key, assignable);
+    assignable
+}
+
+fn canonical_relation_key(ty: &Type) -> String {
+    enum Part<'a> {
+        Type(&'a Type),
+        Text(&'a str),
+        End,
     }
-    Some(result)
+    let mut key = String::new();
+    let mut pending = vec![Part::Type(ty)];
+    while let Some(part) = pending.pop() {
+        match part {
+            Part::Text(text) => {
+                let _ = write!(key, "{}:{text};", text.len());
+            }
+            Part::End => key.push(']'),
+            Part::Type(Type::Unknown) => key.push('U'),
+            Part::Type(Type::Named { identity, args, .. }) => {
+                let _ = write!(key, "N{}[", args.len());
+                pending.push(Part::End);
+                for argument in args.iter().rev() {
+                    pending.push(Part::Type(argument));
+                }
+                pending.push(Part::Text(identity));
+            }
+            Part::Type(Type::VariantRefinement {
+                identity,
+                args,
+                variants,
+                ..
+            }) => {
+                let _ = write!(key, "V{}:{}[", args.len(), variants.len());
+                pending.push(Part::End);
+                for variant in variants.iter().rev() {
+                    pending.push(Part::Text(variant));
+                }
+                for argument in args.iter().rev() {
+                    pending.push(Part::Type(argument));
+                }
+                pending.push(Part::Text(identity));
+            }
+            Part::Type(Type::Record(fields)) => {
+                let _ = write!(key, "R{}[", fields.len());
+                pending.push(Part::End);
+                for (name, field) in fields.iter().rev() {
+                    pending.push(Part::Type(field));
+                    pending.push(Part::Text(name));
+                }
+            }
+            Part::Type(Type::Function {
+                params,
+                variadic,
+                return_type,
+                effects,
+            }) => {
+                let _ = write!(
+                    key,
+                    "F{}:{}:{}[",
+                    params.len(),
+                    usize::from(variadic.is_some()),
+                    effects.len()
+                );
+                pending.push(Part::End);
+                for effect in effects.iter().rev() {
+                    pending.push(Part::Text(effect));
+                }
+                pending.push(Part::Type(return_type));
+                if let Some(variadic) = variadic {
+                    pending.push(Part::Type(variadic));
+                } else {
+                    pending.push(Part::Text("no-variadic"));
+                }
+                for parameter in params.iter().rev() {
+                    pending.push(Part::Type(parameter));
+                }
+            }
+        }
+    }
+    key
+}
+
+#[cfg(test)]
+thread_local! {
+    static FALLBACK_COMPARISONS: Cell<usize> = const { Cell::new(0) };
+    static BOUNDED_FRAMES: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_fallback_comparison() {
+    FALLBACK_COMPARISONS.with(|comparisons| comparisons.set(comparisons.get() + 1));
+}
+
+#[cfg(not(test))]
+fn record_fallback_comparison() {}
+
+#[cfg(test)]
+pub(crate) fn reset_fallback_comparisons() {
+    FALLBACK_COMPARISONS.with(|comparisons| comparisons.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_fallback_comparisons() -> usize {
+    FALLBACK_COMPARISONS.with(|comparisons| comparisons.replace(0))
+}
+
+#[cfg(test)]
+fn record_bounded_frame() {
+    BOUNDED_FRAMES.with(|frames| frames.set(frames.get() + 1));
+}
+
+#[cfg(not(test))]
+fn record_bounded_frame() {}
+
+#[cfg(test)]
+pub(crate) fn reset_bounded_frames() {
+    BOUNDED_FRAMES.with(|frames| frames.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_bounded_frames() -> usize {
+    BOUNDED_FRAMES.with(|frames| frames.replace(0))
 }
 
 #[cfg(test)]

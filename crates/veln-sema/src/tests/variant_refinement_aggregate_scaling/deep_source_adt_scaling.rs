@@ -213,7 +213,7 @@ fn assert_deep_join_work(measurement: &DeepJoinMeasurement, depth: usize) {
     assert_eq!(measurement.acceptance.retained_nodes, depth + 1);
     assert_eq!(measurement.acceptance.presentation_nodes, depth + 1);
     assert_eq!(measurement.acceptance.materialized_nodes, 0);
-    assert_eq!(measurement.acceptance_clones, 1);
+    assert_eq!(measurement.acceptance_clones, 0);
     assert_eq!(measurement.materialization.node_visits, 0);
     assert_eq!(measurement.materialization.presentation_nodes, 0);
     assert_eq!(measurement.materialization.materialized_nodes, depth + 1);
