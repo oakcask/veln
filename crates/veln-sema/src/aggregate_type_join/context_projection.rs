@@ -215,13 +215,15 @@ enum ProjectionTask<'expr, 'registry> {
     },
 }
 
+type DirectArgumentContexts = HashMap<(*const Type, usize), (Rc<Type>, Rc<Type>)>;
+
 struct ContextProjection<'expr, 'registry> {
     adts: &'registry AdtRegistry,
     current_module: Option<&'registry str>,
     uses: &'registry [UseDecl],
     local_context: &'registry dyn Fn(&str) -> Option<LocalContext>,
     local_contexts: HashMap<String, Option<LocalContext>>,
-    direct_argument_contexts: HashMap<(*const Type, usize), (Rc<Type>, Rc<Type>)>,
+    direct_argument_contexts: DirectArgumentContexts,
     tasks: Vec<ProjectionTask<'expr, 'registry>>,
     results: Vec<Rc<Type>>,
 }
