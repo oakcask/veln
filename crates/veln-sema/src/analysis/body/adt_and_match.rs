@@ -478,6 +478,8 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         constructor: AdtConstructor,
     ) -> Vec<Type> {
+        let diagnostic_count = self.diagnostics.len();
+        self.begin_binding_inference_transaction();
         let mut type_args = ConstructorTypeArgInference::new(constructor);
         for (index, field) in constructor.variant.payload_fields.iter().enumerate() {
             let Some(arg) = args.get(index) else {
@@ -496,7 +498,13 @@ impl<'a> FunctionChecker<'a> {
         for arg in args.iter().skip(constructor.variant.payload_fields.len()) {
             self.infer_expr(arg, None);
         }
-        type_args.finish(expected.map(|expected| &expected.ty), constructor)
+        let result = type_args.finish(expected.map(|expected| &expected.ty), constructor);
+        if self.diagnostics.len() == diagnostic_count {
+            self.commit_binding_inference_transaction();
+        } else {
+            self.rollback_binding_inference_transaction();
+        }
+        result
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -837,8 +845,10 @@ impl<'a> FunctionChecker<'a> {
             item_expected.source = ExpectedTypeSource::AdmittedAggregate;
         }
         let diagnostic_count = self.diagnostics.len();
+        self.begin_binding_inference_transaction();
         let actual = self.infer_expr(item, Some(&item_expected));
         if self.diagnostics.len() != diagnostic_count {
+            self.rollback_binding_inference_transaction();
             return;
         }
         let aggregate_actual = if contextual_item {
@@ -861,6 +871,11 @@ impl<'a> FunctionChecker<'a> {
             joined,
             joined_items,
         );
+        if self.diagnostics.len() != diagnostic_count {
+            self.rollback_binding_inference_transaction();
+            return;
+        }
+        self.commit_binding_inference_transaction();
         if *item_type == Type::Unknown {
             *item_type = aggregate_actual;
             *joined_items = (!contextual_item)

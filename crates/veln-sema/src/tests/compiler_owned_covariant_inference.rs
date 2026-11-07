@@ -462,6 +462,70 @@ fn failed_compiler_owned_nested_join_preserves_admitted_state() {
 }
 
 #[test]
+fn rejected_projected_context_does_not_constrain_omitted_locals_or_aliases() {
+    let source_text = concat!(
+        "type Pair<T>\n",
+        "  Paired(T, T)\n",
+        "end\n",
+        "fn forward(first: Option<Pair<Result<Int, String>>::Paired>, bad: Int) -> ()\n",
+        "  let partial = Ok(1)\n",
+        "  let values = [first, Some(Paired(partial, bad))]\n",
+        "  let checked: Result<Int, Bool> = partial\n",
+        "  ()\n",
+        "end\n",
+        "fn reverse(first: Option<Pair<Result<Int, String>>::Paired>, bad: Int) -> ()\n",
+        "  let partial = Ok(1)\n",
+        "  let values = [first, Some(Paired(bad, partial))]\n",
+        "  let checked: Result<Int, Bool> = partial\n",
+        "  ()\n",
+        "end\n",
+        "fn alias(first: Option<Pair<Result<Int, String>>::Paired>, bad: Int) -> ()\n",
+        "  let partial = Ok(1)\n",
+        "  let forwarded = partial\n",
+        "  let values = [first, Some(Paired(forwarded, bad))]\n",
+        "  let checked: Result<Int, Bool> = partial\n",
+        "  ()\n",
+        "end\n",
+        "fn admitted(first: Option<Pair<Result<Int, String>>::Paired>) -> ()\n",
+        "  let partial = Ok(1)\n",
+        "  let values = [first, Some(Paired(partial, partial))]\n",
+        "  let checked: Result<Int, String> = partial\n",
+        "  ()\n",
+        "end\n",
+        "fn private_path(first: Option<Pair<Result<Int, String>>::Paired>, bad: Int)\n",
+        "  let partial = Ok(1)\n",
+        "  let values = [first, Some(Paired(partial, bad))]\n",
+        "  let checked: Result<Int, Bool> = partial\n",
+        "  checked\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}",
+    );
+    for diagnostic in &diagnostics {
+        let span = diagnostic.span.as_ref().expect("mismatch span");
+        assert_eq!(&source_text[span.start.offset..span.end.offset], "bad");
+    }
+    assert_eq!(
+        TypeEnvironment::from_module(&module)
+            .function("private_path")
+            .expect("private_path function")
+            .return_type
+            .render(),
+        "Result<Int, Bool>",
+    );
+}
+
+#[test]
 fn failed_compiler_owned_control_flow_join_preserves_admitted_state() {
     let source_text = concat!(
         "type State\n",

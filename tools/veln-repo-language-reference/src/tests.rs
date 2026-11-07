@@ -426,7 +426,7 @@ fn checked_types_topic_renders_the_variant_refinement_contract_and_examples() {
         "whose variant set is a superset",
         "Control-flow result inference applies the same join",
         "Same-constructor contributions to the compiler-owned immutable",
-        "leaves the previously accumulated join unchanged",
+        "leaves the previously accumulated join and projected omitted-local facts unchanged",
         "residual catch-all",
         "erased at runtime",
         "A public type-alias chain whose resolved target is an ADT can qualify a refinement",

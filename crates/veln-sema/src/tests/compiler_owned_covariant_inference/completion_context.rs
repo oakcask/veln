@@ -194,7 +194,7 @@ fn complete_local_constructor_payloads_still_widen_independently() {
 }
 
 #[test]
-fn admitted_context_fills_only_unknown_local_slots() {
+fn rejected_admitted_context_does_not_fill_unknown_local_slots() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -213,12 +213,20 @@ fn admitted_context_fills_only_unknown_local_slots() {
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
     let diagnostics = analyze_surface_module(&module);
-    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
     assert!(
-        diagnostics.iter().all(|diagnostic| {
-            diagnostic.id == "type.mismatch"
-                && diagnostic.message.contains("found `Result<Int, Bool>::Ok`")
-        }),
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .all(|diagnostic| diagnostic.message.contains("found `Result<Int, Bool>::Ok`")),
+        "{diagnostics:#?}",
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.inference_ambiguous")
+            .count(),
+        2,
         "{diagnostics:#?}",
     );
 

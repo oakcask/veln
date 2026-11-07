@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 19
+equals = 22
 
 [[json_assert]]
 path = "diagnostics.5.details.actual_type"

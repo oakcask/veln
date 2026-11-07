@@ -221,8 +221,10 @@ impl<'a> FunctionChecker<'a> {
             origin_message,
         );
         let item_diagnostic_count = self.diagnostics.len();
+        self.begin_binding_inference_transaction();
         let actual = self.infer_expr(item, Some(&item_expected));
         if self.diagnostics.len() != item_diagnostic_count {
+            self.rollback_binding_inference_transaction();
             return current_type.clone();
         }
         let aggregate = dict_member_aggregate_type(
@@ -243,6 +245,11 @@ impl<'a> FunctionChecker<'a> {
             joined,
             constraint,
         );
+        if self.diagnostics.len() != item_diagnostic_count {
+            self.rollback_binding_inference_transaction();
+            return current_type.clone();
+        }
+        self.commit_binding_inference_transaction();
         if current_type == &Type::Unknown {
             if !has_contextual_type {
                 *joined_type = AggregateTypeJoin::new(&self.environment.adts, &aggregate);

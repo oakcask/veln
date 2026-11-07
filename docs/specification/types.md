@@ -1424,10 +1424,11 @@ collection elements, repeated generic constructor payloads, and unannotated
 constructor or a source-ADT variant refinement. A concrete expected type still
 checks each contribution by ordinary assignment compatibility.
 
-Context-free aggregate inference does not run a separate completion pass. It
-checks each contribution once and retains independently known covariant
-arguments while sibling arguments are pending. An independently inferred
-payload does not erase an argument required by another payload. For example,
+Later successful contributions can complete still-unknown slots in an earlier
+admitted expression. Later context does not re-resolve an earlier expression
+that emitted a diagnostic. Independently known covariant arguments remain
+available while sibling arguments are pending. An independently inferred payload
+does not erase an argument required by another payload. For example,
 `Cons(1, Cons(2, Nil))` retains the integer argument while the nested `Nil`
 receives `List<Int>` context. Repeated direct constructor payloads and
 dictionary members that have complete types are inferred without using the
@@ -1516,10 +1517,11 @@ case covers the canonical result for both contribution orders.
 A same-constructor covariant join is transactional across all arguments. If a
 later nested argument cannot join, the failed contribution reports
 `type.mismatch` at that contribution and does not change any admitted argument,
-refinement set, or alias presentation. A later valid contribution continues
-from the last admitted state. Permuting successful contributions produces the
-same resolved type and presentation. These rules apply to compiler-owned
-constructors and covariant source-ADT parameters.
+refinement set, alias presentation, omitted-local type, or transparent alias
+group fact. A later valid contribution continues from the last admitted state.
+Permuting successful contributions produces the same resolved type and
+presentation. These rules apply to compiler-owned constructors and covariant
+source-ADT parameters.
 
 Projecting an admitted aggregate context through nested compiler-owned
 constructors has bounded linear total work and retained state. The deterministic

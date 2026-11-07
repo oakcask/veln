@@ -159,6 +159,8 @@ fn infer_private_constructor_call(
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
+    let failure_count = *context.failures;
+    context.bindings.begin_inference_transaction();
     if args.len() != constructor.variant.payload_fields.len() {
         *context.failures += 1;
     }
@@ -174,6 +176,11 @@ fn infer_private_constructor_call(
         );
     }
     let inferred_type_args = type_args.finish(expected, constructor);
+    if *context.failures == failure_count {
+        context.bindings.commit_inference_transaction();
+    } else {
+        context.bindings.rollback_inference_transaction();
+    }
     adt::refined_constructed_type_from_args(constructor, &inferred_type_args)
 }
 

@@ -47,6 +47,7 @@ impl<'a> FunctionChecker<'a> {
             origin_message,
         );
         let diagnostic_count = self.diagnostics.len();
+        self.begin_binding_inference_transaction();
         let actual = self.infer_expr(branch_expr, expected.or(recovery_expected.as_ref()));
         if self.diagnostics.len() != diagnostic_count
             && expected.is_none_or(|expected| {
@@ -56,6 +57,7 @@ impl<'a> FunctionChecker<'a> {
                 )
             })
         {
+            self.rollback_binding_inference_transaction();
             return;
         }
         self.check_control_flow_result(
@@ -67,6 +69,11 @@ impl<'a> FunctionChecker<'a> {
             origin_message,
             constraint,
         );
+        if self.diagnostics.len() == diagnostic_count {
+            self.commit_binding_inference_transaction();
+        } else {
+            self.rollback_binding_inference_transaction();
+        }
     }
 
     fn control_flow_result_expected(

@@ -372,6 +372,7 @@ fn infer_private_aggregate_component(
     context_dependent_only: bool,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
+    context.bindings.begin_inference_transaction();
     let inferred_context = private_aggregate_component_context(
         expr,
         component_type,
@@ -389,6 +390,7 @@ fn infer_private_aggregate_component(
         context.infer_outcome(expr, item_type_unknown_as_none(&inferred_context))
     };
     if !actual.may_contribute {
+        context.bindings.rollback_inference_transaction();
         return;
     }
     let actual = actual.ty;
@@ -417,6 +419,7 @@ fn infer_private_aggregate_component(
         context.adts,
     ) {
         *context.failures += 1;
+        context.bindings.rollback_inference_transaction();
         return;
     }
     if !joined && *component_type == Type::Unknown {
@@ -429,6 +432,7 @@ fn infer_private_aggregate_component(
             context.adts,
         );
     }
+    context.bindings.commit_inference_transaction();
 }
 
 fn private_aggregate_component_context(
@@ -665,7 +669,7 @@ pub(crate) fn infer_private_signature_name_type(
             && expected.dict_parts().is_some()
             && !type_has_unknown(expected)
         {
-            bindings[index].ty = expected.clone();
+            bindings.set_inferred_type(index, expected.clone());
             return expected.clone();
         }
         if type_has_unknown(&current)
@@ -674,7 +678,7 @@ pub(crate) fn infer_private_signature_name_type(
         {
             let mut constrained = current;
             adt::merge_type_holes(&mut constrained, expected);
-            bindings[index].ty = constrained.clone();
+            bindings.set_inferred_type(index, constrained.clone());
             return constrained;
         }
         return current;

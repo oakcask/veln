@@ -69,13 +69,15 @@ and control-flow joins, recursive context-free joins through checked covariant
 source-ADT arguments for local and imported declarations, recursive joins
 through every argument of same-constructor compiler-owned immutable types,
 transactional exclusion of contributions whose nested argument cannot join,
-one-pass argument-specific context from an unrefined compiler-owned immutable
-join to a later context-dependent expression, with incomplete nested
-refinements blocking only their affected arguments, including an empty
-collection used as a later dictionary key or value, an otherwise ambiguous nullary constructor
-selected by its admitted payload type, or a payload-carrying constructor whose
-payloads leave a generic argument unknown, and exact inference for other
-source-ADT classifications or unavailable metadata,
+and describes how an unrefined compiler-owned immutable join supplies
+argument-specific context to a later context-dependent expression without
+re-resolving an earlier expression that emitted a diagnostic. It also covers
+incomplete nested refinements blocking only their affected arguments,
+including an empty collection used as a later dictionary key or value, an
+otherwise ambiguous nullary constructor selected by its admitted payload type,
+or a payload-carrying constructor whose payloads leave a generic argument
+unknown, and exact inference for other source-ADT classifications or
+unavailable metadata,
 stable match-path narrowing, runtime erasure,
 transitive alias-qualified identity and presentation, complete-domain alias
 reconciliation, generic payload propagation across alias-qualified constructor

@@ -61,6 +61,7 @@ fn infer_private_control_flow_results<'a>(
         let branch_expected = expected.cloned().or_else(|| {
             private_control_flow_branch_context(branch, &result, joined_result.as_ref(), context)
         });
+        context.bindings.begin_inference_transaction();
         let outcome = if admitted_context {
             match branch_expected.as_ref() {
                 Some(expected) => context.infer_admitted_outcome(branch, expected),
@@ -75,6 +76,7 @@ fn infer_private_control_flow_results<'a>(
             context.infer_outcome(branch, branch_expected.as_ref())
         };
         if !outcome.may_contribute {
+            context.bindings.rollback_inference_transaction();
             continue;
         }
         if !merge_private_control_flow_result(
@@ -86,6 +88,9 @@ fn infer_private_control_flow_results<'a>(
             expected.is_none(),
         ) {
             *context.failures += 1;
+            context.bindings.rollback_inference_transaction();
+        } else {
+            context.bindings.commit_inference_transaction();
         }
     }
     materialize_private_control_flow_result(result, joined_result, join_failed)

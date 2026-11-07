@@ -130,3 +130,36 @@ fn observe_nested_failure(first: Bool, second: Bool, state: State, accepted: Opt
 	needs_int(nested_failed_if(first, second, accepted, rejected, later))
 	needs_int(nested_failed_match(state, accepted, rejected, later))
 end
+
+type Pair<T>
+	Paired(T, T)
+end
+
+fn projected_local_forward(first: Option<Pair<Result<Int, String>>::Paired>, bad: Int) -> ()
+	let partial = Ok(1)
+	let values = [first, Some(Paired(partial, bad))]
+	let checked: Result<Int, Bool> = partial
+	()
+end
+
+fn projected_local_reverse(first: Option<Pair<Result<Int, String>>::Paired>, bad: Int) -> ()
+	let partial = Ok(1)
+	let values = [first, Some(Paired(bad, partial))]
+	let checked: Result<Int, Bool> = partial
+	()
+end
+
+fn projected_alias_rollback(first: Option<Pair<Result<Int, String>>::Paired>, bad: Int) -> ()
+	let partial = Ok(1)
+	let forwarded = partial
+	let values = [first, Some(Paired(forwarded, bad))]
+	let checked: Result<Int, Bool> = partial
+	()
+end
+
+fn projected_local_commit(first: Option<Pair<Result<Int, String>>::Paired>) -> ()
+	let partial = Ok(1)
+	let values = [first, Some(Paired(partial, partial))]
+	let checked: Result<Int, String> = partial
+	()
+end
