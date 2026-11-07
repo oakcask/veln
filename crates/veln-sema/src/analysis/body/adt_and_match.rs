@@ -632,7 +632,7 @@ impl<'a> FunctionChecker<'a> {
                 field,
                 constructor,
                 index,
-                &inferred,
+                inferred,
                 joined,
                 &self.environment.adts,
             )
@@ -641,7 +641,7 @@ impl<'a> FunctionChecker<'a> {
                 arg,
                 &conflict.expected,
                 &conflict.actual,
-                &arg_expected,
+                arg_expected,
                 "call_argument",
             );
         }

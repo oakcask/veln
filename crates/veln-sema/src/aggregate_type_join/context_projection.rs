@@ -180,8 +180,8 @@ struct ContextProjection<'expr, 'registry> {
     results: Vec<Type>,
 }
 
-fn expression_admitted_context_fallback<'expr, 'registry>(
-    expr: &'expr Expr,
+fn expression_admitted_context_fallback<'registry>(
+    expr: &Expr,
     admitted_context: &Type,
     adts: &'registry AdtRegistry,
     current_module: Option<&'registry str>,
