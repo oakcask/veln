@@ -271,18 +271,22 @@ fn private_constructor_payload_context<'a>(
     } else {
         type_args.payload_expected(expected, constructor, index, false)
     };
-    let projected_payload_context = if expected.is_some() && !context.expected_is_admitted {
-        admitted_payload_context.clone()
-    } else {
-        crate::aggregate_type_join::expression_admitted_context(
-            arg,
-            &admitted_payload_context,
-            context.adts,
-            context.current_module,
-            context.uses,
-            &|name| context.projection_local_context(name),
-        )
-    };
+    let sole_direct_payload = index == 0
+        && constructor.variant.payload_fields.len() == 1
+        && field.is_some_and(|field| matches!(field.ty, AdtPayloadType::TypeParameter(_)));
+    let projected_payload_context =
+        if expected.is_some() && (!context.expected_is_admitted || sole_direct_payload) {
+            admitted_payload_context.clone()
+        } else {
+            crate::aggregate_type_join::expression_admitted_context(
+                arg,
+                &admitted_payload_context,
+                context.adts,
+                context.current_module,
+                context.uses,
+                &|name| context.projection_local_context(name),
+            )
+        };
     let direct_payload_joins_independently = immediately_independent
         || field.is_some_and(|field| {
             type_args.direct_payload_joins_independently(field)

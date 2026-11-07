@@ -120,6 +120,34 @@ fn function_dict_context_source(member_count: usize, context_width: usize) -> St
     )
 }
 
+fn wrapped_record_list_context_source(member_count: usize, context_width: usize) -> String {
+    let record = wide_record_type(context_width);
+    let members = (0..member_count)
+        .map(|_| "Boxed({})")
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "type Box<T>\n  Boxed(T)\nend\n\
+         fn inferred(first: Vec<Box<{record}>>)\n  [first, [{members}]]\nend\n\
+         fn needs_int(value: Int) -> ()\n  ()\nend\n\
+         fn checked(first: Vec<Box<{record}>>) -> ()\n  needs_int([first, [{members}]])\nend\n"
+    )
+}
+
+fn wrapped_function_list_context_source(member_count: usize, context_width: usize) -> String {
+    let function_type = wide_function_type(context_width);
+    let members = (0..member_count)
+        .map(|_| "Boxed(None)")
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "type Box<T>\n  Boxed(T)\nend\n\
+         fn inferred(first: Vec<Box<Option<{function_type}>>>)\n  [first, [{members}]]\nend\n\
+         fn needs_int(value: Int) -> ()\n  ()\nend\n\
+         fn checked(first: Vec<Box<Option<{function_type}>>>) -> ()\n  needs_int([first, [{members}]])\nend\n"
+    )
+}
+
 type ContextProjectionWork = crate::aggregate_type_join::ContextProjectionWork;
 
 fn measure_context_projection(label: &str, source_text: String) -> [ContextProjectionWork; 2] {
@@ -190,8 +218,8 @@ fn assert_projection_axes_are_additive(
         });
         for pipeline in 0..2 {
             assert!(
-                measurements[0][pipeline].type_nodes_cloned >= sizes[0].1,
-                "owned context clones must be observed: {measurements:?}",
+                measurements[0][pipeline].input_type_nodes_scanned >= sizes[0].1,
+                "the named context width must be observed: {measurements:?}",
             );
             if expect_shared_results {
                 assert!(
@@ -324,5 +352,25 @@ fn function_dict_projection_is_additive_in_member_and_context_width() {
         function_dict_context_source,
         Some(1),
         false,
+    );
+}
+
+#[test]
+fn wrapped_record_projection_is_additive_in_member_and_context_width() {
+    assert_projection_axes_are_additive(
+        "wrapped record list",
+        wrapped_record_list_context_source,
+        Some(1),
+        true,
+    );
+}
+
+#[test]
+fn wrapped_function_projection_is_additive_in_member_and_context_width() {
+    assert_projection_axes_are_additive(
+        "wrapped function list",
+        wrapped_function_list_context_source,
+        Some(1),
+        true,
     );
 }

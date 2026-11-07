@@ -195,11 +195,9 @@ pub(super) fn contribute_control_flow_result(
         .as_mut()
         .is_some_and(|joined| joined.try_join_resolved(adts, actual));
     if !joined {
-        if result
-            .joined
-            .as_ref()
-            .is_some_and(|joined| joined.has_same_root(actual))
-        {
+        if result.joined.as_ref().is_some_and(|joined| {
+            joined.has_compiler_covariant_root() && joined.has_same_root(actual)
+        }) {
             return false;
         }
         result.failed = true;

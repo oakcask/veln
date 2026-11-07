@@ -202,6 +202,11 @@ enum ProjectionTask<'expr, 'registry> {
     Evaluate(&'expr Expr, Rc<Type>),
     FinishList(Rc<Type>, usize),
     FinishDict(usize),
+    FinishDirectCall {
+        admitted: Rc<Type>,
+        expected: Rc<Type>,
+        type_index: usize,
+    },
     FinishCall {
         admitted: Rc<Type>,
         constructor: AdtConstructor<'registry>,
@@ -216,6 +221,7 @@ struct ContextProjection<'expr, 'registry> {
     uses: &'registry [UseDecl],
     local_context: &'registry dyn Fn(&str) -> Option<LocalContext>,
     local_contexts: HashMap<String, Option<LocalContext>>,
+    direct_argument_contexts: HashMap<(*const Type, usize), (Rc<Type>, Rc<Type>)>,
     tasks: Vec<ProjectionTask<'expr, 'registry>>,
     results: Vec<Rc<Type>>,
 }
@@ -234,6 +240,7 @@ fn expression_admitted_context_fallback<'registry>(
         uses,
         local_context,
         local_contexts: HashMap::new(),
+        direct_argument_contexts: HashMap::new(),
         tasks: vec![ProjectionTask::Evaluate(
             expr,
             Rc::new(clone_context_type(admitted_context)),
@@ -244,17 +251,26 @@ fn expression_admitted_context_fallback<'registry>(
 }
 
 #[cfg(test)]
-fn owned_type_nodes(ty: &Type) -> usize {
+fn owned_type_nodes(ty: &Type, seen_args: &mut HashSet<*const Vec<Type>>) -> usize {
     let mut nodes = 0;
     let mut pending = vec![ty];
     while let Some(ty) = pending.pop() {
         nodes += 1;
         match ty {
-            Type::Unknown | Type::Named { .. } => {}
+            Type::Unknown => {}
+            Type::Named { args, .. } => {
+                if seen_args.insert(args.allocation_ptr()) {
+                    pending.extend(args);
+                }
+            }
             Type::VariantRefinement {
+                args,
                 unresolved_alternatives,
                 ..
             } => {
+                if seen_args.insert(args.allocation_ptr()) {
+                    pending.extend(args);
+                }
                 for (_, alternatives, _) in unresolved_alternatives {
                     pending.extend(alternatives);
                 }
@@ -289,9 +305,14 @@ impl<'expr, 'registry> ContextProjection<'expr, 'registry> {
 
     #[cfg(test)]
     fn record_retained_state(&self, active: Option<&ProjectionTask<'expr, 'registry>>) {
-        fn retain_context(context: &Rc<Type>, seen: &mut HashSet<*const Type>, units: &mut usize) {
+        fn retain_context(
+            context: &Rc<Type>,
+            seen: &mut HashSet<*const Type>,
+            seen_args: &mut HashSet<*const Vec<Type>>,
+            units: &mut usize,
+        ) {
             if seen.insert(Rc::as_ptr(context)) {
-                *units += owned_type_nodes(context.as_ref());
+                *units += owned_type_nodes(context.as_ref(), seen_args);
             } else {
                 *units += 1;
             }
@@ -300,39 +321,55 @@ impl<'expr, 'registry> ContextProjection<'expr, 'registry> {
         fn retain_task(
             task: &ProjectionTask<'_, '_>,
             seen: &mut HashSet<*const Type>,
+            seen_args: &mut HashSet<*const Vec<Type>>,
             units: &mut usize,
         ) {
             match task {
                 ProjectionTask::Evaluate(_, admitted) | ProjectionTask::FinishList(admitted, _) => {
-                    retain_context(admitted, seen, units);
+                    retain_context(admitted, seen, seen_args, units);
                 }
                 ProjectionTask::FinishDict(_) => {}
+                ProjectionTask::FinishDirectCall {
+                    admitted, expected, ..
+                } => {
+                    retain_context(admitted, seen, seen_args, units);
+                    retain_context(expected, seen, seen_args, units);
+                }
                 ProjectionTask::FinishCall {
                     admitted,
                     expected_args,
                     affected,
                     ..
                 } => {
-                    retain_context(admitted, seen, units);
-                    *units += expected_args.iter().map(owned_type_nodes).sum::<usize>();
+                    retain_context(admitted, seen, seen_args, units);
+                    *units += expected_args
+                        .iter()
+                        .map(|expected| owned_type_nodes(expected, seen_args))
+                        .sum::<usize>();
                     *units += affected.len() + affected.iter().map(Vec::len).sum::<usize>();
                 }
             }
         }
 
         let mut seen = HashSet::<*const Type>::new();
+        let mut seen_args = HashSet::<*const Vec<Type>>::new();
         let mut units = self.tasks.len()
             + self.results.len()
             + self.local_contexts.len()
+            + self.direct_argument_contexts.len()
             + usize::from(active.is_some());
         for task in &self.tasks {
-            retain_task(task, &mut seen, &mut units);
+            retain_task(task, &mut seen, &mut seen_args, &mut units);
         }
         if let Some(task) = active {
-            retain_task(task, &mut seen, &mut units);
+            retain_task(task, &mut seen, &mut seen_args, &mut units);
         }
         for result in &self.results {
-            retain_context(result, &mut seen, &mut units);
+            retain_context(result, &mut seen, &mut seen_args, &mut units);
+        }
+        for (admitted, argument) in self.direct_argument_contexts.values() {
+            retain_context(admitted, &mut seen, &mut seen_args, &mut units);
+            retain_context(argument, &mut seen, &mut seen_args, &mut units);
         }
         record_context_retained(units);
     }
@@ -345,6 +382,11 @@ impl<'expr, 'registry> ContextProjection<'expr, 'registry> {
             ProjectionTask::Evaluate(expr, admitted) => self.evaluate(expr, admitted),
             ProjectionTask::FinishList(admitted, count) => self.finish_list(admitted, count),
             ProjectionTask::FinishDict(count) => self.finish_dict(count),
+            ProjectionTask::FinishDirectCall {
+                admitted,
+                expected,
+                type_index,
+            } => self.finish_direct_call(admitted, expected, type_index),
             ProjectionTask::FinishCall {
                 admitted,
                 constructor,
@@ -470,6 +512,18 @@ impl<'expr, 'registry> ContextProjection<'expr, 'registry> {
             self.results.push(Rc::new(Type::Unknown));
             return;
         };
+        if let Some(type_index) = direct_payload_type_parameter(constructor, args.len())
+            && let Some(expected) = self.direct_argument_context(&admitted, constructor, type_index)
+        {
+            self.tasks.push(ProjectionTask::FinishDirectCall {
+                admitted,
+                expected: Rc::clone(&expected),
+                type_index,
+            });
+            self.tasks
+                .push(ProjectionTask::Evaluate(&args[0], expected));
+            return;
+        }
         let Some(expected_args) = unification::adt_args(admitted.as_ref(), constructor.descriptor)
             .map(|args| args.iter().map(clone_context_type).collect::<Vec<_>>())
         else {
@@ -488,6 +542,25 @@ impl<'expr, 'registry> ContextProjection<'expr, 'registry> {
             self.tasks
                 .push(ProjectionTask::Evaluate(arg, Rc::new(context)));
         }
+    }
+
+    fn direct_argument_context(
+        &mut self,
+        admitted: &Rc<Type>,
+        constructor: AdtConstructor<'_>,
+        type_index: usize,
+    ) -> Option<Rc<Type>> {
+        let key = (Rc::as_ptr(admitted), type_index);
+        if let Some((_, context)) = self.direct_argument_contexts.get(&key) {
+            record_shared_context_reuse();
+            return Some(Rc::clone(context));
+        }
+        let argument =
+            unification::adt_args(admitted.as_ref(), constructor.descriptor)?.get(type_index)?;
+        let context = Rc::new(clone_context_type(argument));
+        self.direct_argument_contexts
+            .insert(key, (Rc::clone(admitted), Rc::clone(&context)));
+        Some(context)
     }
 
     fn resolve_constructor(
@@ -579,6 +652,47 @@ impl<'expr, 'registry> ContextProjection<'expr, 'registry> {
         restore_unprovided(&mut required_args, &expected_args, provided);
         self.results
             .push(Rc::new(replace_adt_args(admitted.as_ref(), required_args)));
+    }
+
+    fn finish_direct_call(&mut self, admitted: Rc<Type>, expected: Rc<Type>, type_index: usize) {
+        let projected = self.results.pop().expect("one direct payload projection");
+        if Rc::ptr_eq(&projected, &expected) {
+            record_shared_context_reuse();
+            self.results.push(admitted);
+            return;
+        }
+        let Some(parts) = adt_type_parts(admitted.as_ref()) else {
+            self.results.push(Rc::new(Type::Unknown));
+            return;
+        };
+        let mut projected = Some(into_owned_type(projected));
+        let args = parts
+            .args
+            .iter()
+            .enumerate()
+            .map(|(index, argument)| {
+                if index == type_index {
+                    projected.take().expect("one direct projected argument")
+                } else {
+                    clone_context_type(argument)
+                }
+            })
+            .collect();
+        self.results
+            .push(Rc::new(replace_adt_args(admitted.as_ref(), args)));
+    }
+}
+
+fn direct_payload_type_parameter(
+    constructor: AdtConstructor<'_>,
+    payload_count: usize,
+) -> Option<usize> {
+    if payload_count != 1 || constructor.variant.payload_fields.len() != 1 {
+        return None;
+    }
+    match constructor.variant.payload_fields[0].ty {
+        AdtPayloadType::TypeParameter(type_index) => Some(type_index),
+        AdtPayloadType::SelfType | AdtPayloadType::Concrete(_) => None,
     }
 }
 

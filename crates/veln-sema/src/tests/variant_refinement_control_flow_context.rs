@@ -346,3 +346,65 @@ fn failed_control_flow_joins_recover_to_the_base_and_do_not_resume() {
     );
     assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
 }
+
+#[test]
+fn failed_same_root_source_adt_join_does_not_resume() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "end\n",
+            "type Choice<T>\n",
+            "  A(fn(T) -> T)\n",
+            "  B(fn(T) -> T)\n",
+            "  C(fn(T) -> T)\n",
+            "end\n",
+            "type Branch\n",
+            "  First\n",
+            "  Rejected\n",
+            "  Later\n",
+            "end\n",
+            "fn private_path(branch: Branch, first: Choice<State::Ready>::A, rejected: Choice<State::Closed>::A, later: Choice<State::Ready>::B)\n",
+            "  match branch\n",
+            "    First => first\n",
+            "    Rejected => rejected\n",
+            "    Later => later\n",
+            "  end\n",
+            "end\n",
+            "fn ordinary(branch: Branch, first: Choice<State::Ready>::A, rejected: Choice<State::Closed>::A, later: Choice<State::Ready>::B) -> ()\n",
+            "  let result = match branch\n",
+            "    First => first\n",
+            "    Rejected => rejected\n",
+            "    Later => later\n",
+            "  end\n",
+            "  let narrow: Choice<State::Ready>::A | Choice<State::Ready>::B = result\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    let environment = TypeEnvironment::from_module(&module);
+
+    assert_eq!(
+        environment
+            .function("private_path")
+            .expect("private_path function")
+            .return_type
+            .render(),
+        "Choice<State::Ready>",
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.variant_mismatch"
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains("\"actual_type\":\"Choice<State::Ready>\"")
+        }),
+        "{diagnostics:#?}",
+    );
+}

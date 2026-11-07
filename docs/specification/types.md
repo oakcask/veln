@@ -620,12 +620,11 @@ to it. The join does not resolve an ambiguous constructor, infer a missing or
 nested unknown generic argument, or supply an expected type to a sibling arm.
 An explicit enclosing expected type continues to flow to every arm. A later
 result that cannot join reports the ordinary compatibility diagnostic against
-the base ADT. A failed compiler-owned contribution with the same root, or a
-fully resolved same-root source-ADT contribution, leaves the finite join
-unchanged so a later compatible result can continue it. A result with a
-different root or an incomplete source-ADT type abandons the finite join:
-recovery uses the base ADT, and a later compatible refinement does not resume
-it.
+the base ADT. A failed compiler-owned contribution with the same root leaves
+the finite join unchanged so a later compatible result can continue it. A
+result with a different root or a source-ADT type that cannot join abandons the
+finite join: recovery uses the base ADT, and a later compatible refinement does
+not resume it.
 When the first typed arm cannot start an ADT-refinement join, it supplies the
 initial result type for the existing compatibility and mismatch rules. When
 that type is a concrete base ADT, it supplies context to later arms, including
@@ -1449,6 +1448,10 @@ value is pending, or a known value while its key is pending. A later
 contribution can complete the pending argument without rechecking the earlier
 expression. The same argument-level progress applies when a partial `Result`
 precedes the contribution that supplies its other argument.
+For `Paired([Closed], [])` under an admitted `Pair<Vec<State::Ready>>`, the
+complete `[Closed]` payload widens the argument independently. The empty
+sibling then receives `Vec<State::Closed>` context from that payload. An outer
+aggregate can join the resulting pair with the admitted pair in either order.
 For repeated direct constructor payloads, an admitted concrete payload type can
 select an unqualified nullary constructor that is otherwise ambiguous between
 ADTs when one candidate belongs to that admitted type. Without that admitted or
@@ -1536,15 +1539,18 @@ nested `Option` arguments in a source-ADT payload, then projects the concrete
 and retained type nodes obey the same adjacent-size linear bound. Elapsed time
 is observational and is not an acceptance threshold.
 
-A complementary workload projects repeated list and dictionary members through
-wide record and function contexts. It compares 4, 8, and 16 members at a fixed
-context width, context widths 4, 8, and 16 at a fixed member count, and both
-axes growing together. In both inference pipelines, each adjacent size may at
+Complementary workloads project repeated list and dictionary members through
+wide record and function contexts. Wrapped workloads put each structural
+context behind one direct source-ADT payload and repeat `Boxed({})` or
+`Boxed(None)`. They compare 4, 8, and 16 members at a fixed context width,
+context widths 4, 8, and 16 at a fixed member count, and both axes growing
+together. The retained-state metric traverses named arguments and counts shared
+argument storage once. In both inference pipelines, each adjacent size may at
 most double each prior metric, with allowances of 128 for total work and 16
-each for retained state and structural merge probes. Record projections also
-verify that repeated pointer-identical results reuse their shared context. A
-direct structural-merge workload compares record and function widths 16, 32,
-and 64; its first measurement performs at least 16 probes, and each adjacent
+each for retained state and structural merge probes. The wrapped cases also
+require repeated results to reuse their shared context. A direct
+structural-merge workload compares record and function widths 16, 32, and 64;
+its first measurement performs at least 16 probes, and each adjacent
 measurement permits at most twice the prior probe count plus 2. These checks
 bound projection growth by the sum of member count and context width instead of
 their product. Elapsed time is observational and is not an acceptance

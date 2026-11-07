@@ -229,6 +229,11 @@ impl TypeArgs {
     pub(crate) fn ptr_eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
     }
+
+    #[cfg(test)]
+    pub(crate) fn allocation_ptr(&self) -> *const Vec<Type> {
+        Arc::as_ptr(&self.0)
+    }
 }
 
 impl From<Vec<Type>> for TypeArgs {

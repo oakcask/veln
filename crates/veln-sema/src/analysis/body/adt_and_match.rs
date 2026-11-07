@@ -624,18 +624,22 @@ impl<'a> FunctionChecker<'a> {
         } else {
             type_args.payload_expected(expected, constructor, index, false)
         };
-        let projected_payload_context = if expected.is_some() {
-            admitted_payload_context.clone()
-        } else {
-            crate::aggregate_type_join::expression_admitted_context(
-                arg,
-                &admitted_payload_context,
-                &self.environment.adts,
-                self.function.module_name.as_deref(),
-                &self.resolution_uses,
-                &|name| self.projection_local_context(name),
-            )
-        };
+        let sole_direct_payload = index == 0
+            && constructor.variant.payload_fields.len() == 1
+            && matches!(field.ty, AdtPayloadType::TypeParameter(_));
+        let projected_payload_context =
+            if expected.is_some() && (!admitted_expected || sole_direct_payload) {
+                admitted_payload_context.clone()
+            } else {
+                crate::aggregate_type_join::expression_admitted_context(
+                    arg,
+                    &admitted_payload_context,
+                    &self.environment.adts,
+                    self.function.module_name.as_deref(),
+                    &self.resolution_uses,
+                    &|name| self.projection_local_context(name),
+                )
+            };
         let direct_payload_joins_independently = immediately_independent
             || (type_args.direct_payload_joins_independently(field)
                 && projected_payload_context == Type::Unknown);

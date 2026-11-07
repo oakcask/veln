@@ -205,6 +205,14 @@ fn payload_with_omitted_local()
 	Paired([1], empty)
 end
 
+fn completed_collection_payload_forward(first: Pair<Vec<State::Ready>>)
+	[first, Paired([Closed], [])]
+end
+
+fn completed_collection_payload_reverse(first: Pair<Vec<State::Ready>>)
+	[Paired([Closed], []), first]
+end
+
 fn dictionary_with_omitted_local()
 	let empty = []
 	{1: [1], 2: empty}
@@ -263,6 +271,9 @@ fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option
 	let collection_with_omitted_local_result: Vec<Vec<Int>> = collection_with_omitted_local()
 	let option_with_omitted_local_result: Vec<Option<Int>> = option_with_omitted_local()
 	let payload_with_omitted_local_result: Pair<Vec<Int>>::Paired = payload_with_omitted_local()
+	let first_pair: Pair<Vec<State::Ready>> = Paired(first_vector, first_vector)
+	let completed_collection_payload_forward_result: Vec<Pair<Vec<State::Ready | State::Closed>>> = completed_collection_payload_forward(first_pair)
+	let completed_collection_payload_reverse_result: Vec<Pair<Vec<State::Ready | State::Closed>>> = completed_collection_payload_reverse(first_pair)
 	let dictionary_with_omitted_local_result: Dict<Int, Vec<Int>> = dictionary_with_omitted_local()
 	let empty_dictionary_with_omitted_local_result: Vec<Dict<Int, Int>> = empty_dictionary_with_omitted_local()
 	let selected_with_omitted_local_result: Vec<Int> = selected_with_omitted_local(flag)

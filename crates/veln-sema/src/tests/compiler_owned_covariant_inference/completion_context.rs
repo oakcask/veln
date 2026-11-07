@@ -763,6 +763,51 @@ fn assert_partial_join_results(
 }
 
 #[test]
+fn complete_collection_payload_joins_before_sibling_completion_in_both_orders() {
+    let source_text = concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "  Failed\n",
+        "end\n",
+        "type Pair<T>\n",
+        "  Paired(T, T)\n",
+        "end\n",
+        "fn private_forward(first: Pair<Vec<State::Ready>>)\n",
+        "  [first, Paired([Closed], [])]\n",
+        "end\n",
+        "fn private_reverse(first: Pair<Vec<State::Ready>>)\n",
+        "  [Paired([Closed], []), first]\n",
+        "end\n",
+        "fn ordinary(first: Pair<Vec<State::Ready>>) -> ()\n",
+        "  let forward = [first, Paired([Closed], [])]\n",
+        "  let reverse = [Paired([Closed], []), first]\n",
+        "  let checked_forward: Vec<Pair<Vec<State::Ready | State::Closed>>> = forward\n",
+        "  let checked_reverse: Vec<Pair<Vec<State::Ready | State::Closed>>> = reverse\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["private_forward", "private_reverse"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            "Vec<Pair<Vec<State::Ready | State::Closed>>>",
+            "{function}",
+        );
+    }
+}
+
+#[test]
 fn partial_compiler_owned_arguments_join_in_both_orders() {
     let fixture = partial_join_fixture();
     let source = SourceFile::new("main.veln", fixture.source_text);
