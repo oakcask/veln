@@ -16,9 +16,11 @@ also states it.
 
 ## Ready
 
-- Complete bounded inference beyond implemented source-ADT covariant joins,
-  including contravariant meets and structural joins; add modifier-free
-  presentation, nested incompatibility diagnostics, and failure preservation:
+- Complete bounded inference beyond implemented source-ADT and compiler-owned
+  covariant joins, including contravariant meets and structural joins; add
+  dependency variance-metadata invalidation, stable formatter, package, LSP,
+  and MCP presentation, nested incompatibility diagnostics, and whole-analysis
+  and language-service failure preservation:
   [generic-and-function-variance.md](generic-and-function-variance.md).
 
 ## Design In Progress

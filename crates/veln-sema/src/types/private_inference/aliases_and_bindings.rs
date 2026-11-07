@@ -4,6 +4,8 @@ use std::ops::{Deref, DerefMut};
 pub(crate) struct PrivateBindings {
     values: Vec<Binding>,
     has_builtin_callsite: bool,
+    inference_transactions: Vec<(usize, usize)>,
+    inference_changes: Vec<(usize, Type)>,
 }
 
 impl PrivateBindings {
@@ -11,6 +13,8 @@ impl PrivateBindings {
         Self {
             values: Vec::new(),
             has_builtin_callsite: function.callsite.is_some(),
+            inference_transactions: Vec::new(),
+            inference_changes: Vec::new(),
         }
     }
 
@@ -18,6 +22,53 @@ impl PrivateBindings {
         Self {
             values,
             has_builtin_callsite: false,
+            inference_transactions: Vec::new(),
+            inference_changes: Vec::new(),
+        }
+    }
+
+    pub(crate) fn begin_inference_transaction(&mut self) {
+        self.inference_transactions
+            .push((self.inference_changes.len(), self.values.len()));
+    }
+
+    pub(crate) fn set_inferred_type(&mut self, index: usize, ty: Type) {
+        if self
+            .inference_transactions
+            .last()
+            .is_some_and(|(_, binding_count)| index < *binding_count)
+        {
+            self.inference_changes
+                .push((index, self.values[index].ty.clone()));
+        }
+        self.values[index].ty = ty;
+    }
+
+    pub(crate) fn commit_inference_transaction(&mut self) {
+        let (start, _) = self
+            .inference_transactions
+            .pop()
+            .expect("private binding inference transaction");
+        if let Some((_, parent_binding_count)) = self.inference_transactions.last() {
+            let changes = self.inference_changes.split_off(start);
+            self.inference_changes.extend(
+                changes
+                    .into_iter()
+                    .filter(|(index, _)| index < parent_binding_count),
+            );
+        } else {
+            self.inference_changes.clear();
+        }
+    }
+
+    pub(crate) fn rollback_inference_transaction(&mut self) {
+        let (start, _) = self
+            .inference_transactions
+            .pop()
+            .expect("private binding inference transaction");
+        let changes = self.inference_changes.split_off(start);
+        for (index, ty) in changes.into_iter().rev() {
+            self.values[index].ty = ty;
         }
     }
 }

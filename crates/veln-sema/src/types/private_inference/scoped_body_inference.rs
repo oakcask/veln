@@ -186,6 +186,7 @@ pub(super) fn infer_private_body_type(
         returns_by_path,
         adts,
         failures,
+        expected_is_admitted: false,
     };
     infer_private_body_lines(body, expected, &mut context)
 }

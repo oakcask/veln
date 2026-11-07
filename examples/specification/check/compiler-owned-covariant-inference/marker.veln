@@ -1,0 +1,6 @@
+pub type Marker
+	pub None
+	pub Nil
+	pub Ready
+	pub Other
+end

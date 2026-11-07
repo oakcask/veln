@@ -6,6 +6,7 @@ pub(crate) fn infer_private_match_type(
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
+    let expected = expected.filter(|expected| !is_incomplete_compiler_covariant(expected));
     let scrutinee_expected = match infer_match_scrutinee_type_from_constructor_patterns(
         arms,
         context.current_module,
@@ -17,28 +18,7 @@ pub(crate) fn infer_private_match_type(
         | MatchScrutineePatternInference::Ambiguous(_) => None,
     };
     context.infer(scrutinee, scrutinee_expected.as_ref());
-    let mut result = expected.cloned().unwrap_or(Type::Unknown);
-    let mut joined_result = None;
-    let mut join_failed = false;
-    for arm in arms {
-        let recovery_expected = joined_result
-            .as_ref()
-            .is_none_or(crate::aggregate_type_join::AggregateTypeJoin::has_complete_domain)
-            .then_some(&result);
-        let actual = context.infer(
-            &arm.expr,
-            expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none)),
-        );
-        merge_private_control_flow_result(
-            &mut result,
-            &mut joined_result,
-            &mut join_failed,
-            actual,
-            context.adts,
-            expected.is_none(),
-        );
-    }
-    materialize_private_control_flow_result(result, joined_result, join_failed)
+    infer_private_control_flow_results(arms.iter().map(|arm| &arm.expr), expected, context, false)
 }
 
 pub(crate) fn infer_private_if_result_type(
@@ -49,41 +29,105 @@ pub(crate) fn infer_private_if_result_type(
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
+    let expected = expected.filter(|expected| !is_incomplete_compiler_covariant(expected));
     context.infer_expected_outcome(condition, &Type::bool());
     for branch in else_if_branches {
         context.infer_expected_outcome(&branch.condition, &Type::bool());
     }
+    infer_private_control_flow_results(
+        std::iter::once(then_branch)
+            .chain(else_if_branches.iter().map(|branch| &branch.expr))
+            .chain(std::iter::once(else_branch)),
+        expected,
+        context,
+        true,
+    )
+}
+
+fn infer_private_control_flow_results<'a>(
+    branches: impl Iterator<Item = &'a Expr>,
+    expected: Option<&Type>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
+    check_expected: bool,
+) -> Type {
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
     let mut joined_result = None;
     let mut join_failed = false;
-    for branch_expr in std::iter::once(then_branch)
-        .chain(else_if_branches.iter().map(|branch| &branch.expr))
-        .chain(std::iter::once(else_branch))
-    {
-        let recovery_expected = joined_result
-            .as_ref()
-            .is_none_or(crate::aggregate_type_join::AggregateTypeJoin::has_complete_domain)
-            .then_some(&result);
-        let branch_expected =
-            expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none));
-        let actual = match branch_expected {
-            Some(expected) => context.infer_expected_outcome(branch_expr, expected).ty,
-            None => context.infer(branch_expr, None),
+    for branch in branches {
+        let admitted_context = expected.is_none()
+            && joined_result.as_ref().is_some_and(
+                crate::aggregate_type_join::AggregateTypeJoin::has_compiler_covariant_root,
+            );
+        let branch_expected = expected.cloned().or_else(|| {
+            private_control_flow_branch_context(branch, &result, joined_result.as_ref(), context)
+        });
+        context.bindings.begin_inference_transaction();
+        let outcome = if admitted_context {
+            match branch_expected.as_ref() {
+                Some(expected) => context.infer_admitted_outcome(branch, expected),
+                None => context.infer_outcome(branch, None),
+            }
+        } else if check_expected {
+            match branch_expected.as_ref() {
+                Some(expected) => context.infer_expected_outcome(branch, expected),
+                None => context.infer_outcome(branch, None),
+            }
+        } else {
+            context.infer_outcome(branch, branch_expected.as_ref())
         };
-        let was_join_failed = join_failed;
-        merge_private_control_flow_result(
+        if !outcome.may_contribute {
+            context.bindings.rollback_inference_transaction();
+            continue;
+        }
+        if !merge_private_control_flow_result(
             &mut result,
             &mut joined_result,
             &mut join_failed,
-            actual,
+            outcome.ty,
             context.adts,
             expected.is_none(),
-        );
-        if !was_join_failed && join_failed {
+        ) {
             *context.failures += 1;
+            context.bindings.rollback_inference_transaction();
+        } else {
+            context.bindings.commit_inference_transaction();
         }
     }
     materialize_private_control_flow_result(result, joined_result, join_failed)
+}
+
+fn private_control_flow_branch_context(
+    branch: &Expr,
+    result: &Type,
+    joined: Option<&crate::aggregate_type_join::AggregateTypeJoin>,
+    context: &PrivateSignatureInferContext<'_, '_>,
+) -> Option<Type> {
+    let inferred = match joined {
+        Some(joined) if joined.has_compiler_covariant_root() => joined.expression_admitted_context(
+            branch,
+            context.adts,
+            context.current_module,
+            context.uses,
+            &|name| context.projection_local_context(name),
+        ),
+        Some(joined)
+            if joined.has_complete_domain()
+                && !joined.has_incomplete_nested_refinement_domain() =>
+        {
+            joined.inference_type()
+        }
+        Some(_) => return None,
+        None => result.clone(),
+    };
+    item_type_unknown_as_none(&inferred).cloned()
+}
+
+fn is_incomplete_compiler_covariant(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Named { identity, .. } | Type::VariantRefinement { identity, .. }
+            if Type::is_compiler_covariant_identity(identity) && type_has_unknown(ty)
+    )
 }
 
 fn merge_private_control_flow_result(
@@ -93,33 +137,40 @@ fn merge_private_control_flow_result(
     actual: Type,
     adts: &AdtRegistry,
     allow_join: bool,
-) {
+) -> bool {
     if *result == Type::Unknown {
         *joined_result =
             crate::aggregate_type_join::AggregateTypeJoin::new_resolved_refinement(adts, &actual);
         *result = private_control_flow_recovery_type(&actual);
-        return;
+        return true;
     }
     if actual == Type::Unknown {
-        return;
+        return true;
     }
     if !allow_join {
         merge_expected_private_control_flow_result(result, &actual);
-        return;
+        return true;
     }
     if *join_failed {
-        return;
+        return true;
     }
     if joined_result.is_none() && *result == actual {
-        return;
+        return true;
     }
     if let Some(joined) = joined_result.as_mut()
         && joined.try_join_resolved(adts, &actual)
     {
-        return;
+        return true;
+    }
+    if joined_result
+        .as_ref()
+        .is_some_and(|joined| joined.has_compiler_covariant_root() && joined.has_same_root(&actual))
+    {
+        return false;
     }
     *join_failed = true;
     *joined_result = None;
+    false
 }
 
 fn private_control_flow_recovery_type(ty: &Type) -> Type {
@@ -129,7 +180,7 @@ fn private_control_flow_recovery_type(ty: &Type) -> Type {
             identity,
             args,
             ..
-        } => Type::resolved_named(name, identity, args.clone()),
+        } => Type::resolved_named(name, identity, args.to_vec()),
         ty => ty.clone(),
     }
 }
@@ -169,7 +220,7 @@ fn merge_expected_private_control_flow_result(result: &mut Type, actual: &Type) 
                 ..
             },
         ) if identity == actual_identity && args == actual_args => {
-            Some(Type::resolved_named(name, identity, args.clone()))
+            Some(Type::resolved_named(name, identity, args.to_vec()))
         }
         (
             Type::Named {
@@ -183,7 +234,7 @@ fn merge_expected_private_control_flow_result(result: &mut Type, actual: &Type) 
                 ..
             },
         ) if identity == actual_identity && args == actual_args => {
-            Some(Type::resolved_named(name, identity, args.clone()))
+            Some(Type::resolved_named(name, identity, args.to_vec()))
         }
         _ => None,
     };

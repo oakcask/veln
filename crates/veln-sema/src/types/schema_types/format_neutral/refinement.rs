@@ -196,7 +196,7 @@ fn written_refinement_base_is_adt_candidate(
     match ty {
         Type::Named { name, args, .. } => {
             let written_base = name.rsplit_once("::").map(|(base, _)| {
-                let base = Type::named(base, args.clone());
+                let base = Type::named(base, args.to_vec());
                 format_neutral_schema_source_adt_descriptor(
                     module,
                     current_module,
@@ -261,7 +261,7 @@ fn written_type_contains_adt_refinement(
     match ty {
         Type::Named { name, args, .. } => {
             name.rsplit_once("::").is_some_and(|(base, _)| {
-                let base = Type::named(base, args.clone());
+                let base = Type::named(base, args.to_vec());
                 format_neutral_schema_source_adt_descriptor(
                     module,
                     current_module,
