@@ -1522,6 +1522,20 @@ nested `Option` arguments in a source-ADT payload, then projects the concrete
 and retained type nodes obey the same adjacent-size linear bound. Elapsed time
 is observational and is not an acceptance threshold.
 
+A complementary workload projects repeated list and dictionary members through
+wide record and function contexts. It compares 4, 8, and 16 members at a fixed
+context width, context widths 4, 8, and 16 at a fixed member count, and both
+axes growing together. In both inference pipelines, each adjacent size may at
+most double each prior metric, with allowances of 128 for total work and 16
+each for retained state and structural merge probes. Record projections also
+verify that repeated pointer-identical results reuse their shared context. A
+direct structural-merge workload compares record and function widths 16, 32,
+and 64; its first measurement performs at least 16 probes, and each adjacent
+measurement permits at most twice the prior probe count plus 2. These checks
+bound projection growth by the sum of member count and context width instead of
+their product. Elapsed time is observational and is not an acceptance
+threshold.
+
 For a source ADT nested through `D` covariant source-ADT arguments, the join
 retains `D + 1` state nodes. Accepting another equally shaped contribution
 visits `D + 1` nodes, retains `D + 1` join nodes, and visits `D + 1`
