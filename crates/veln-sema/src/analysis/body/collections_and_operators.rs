@@ -115,18 +115,7 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
     ) -> Type {
         let diagnostic_count = self.diagnostics.len();
-        if entries.is_empty()
-            && let Some(expected) = expected
-            && expected.ty.dict_parts().is_some()
-            && type_contains_unknown(&expected.ty)
-        {
-            self.push_ambiguous_empty_collection_type(
-                expr.node_id,
-                expr.span.clone(),
-                "Dict",
-                &expected.ty,
-            );
-        }
+        self.check_ambiguous_empty_dict(expr, entries, expected);
         let (expected_key, expected_value) = expected
             .and_then(|expected| expected.ty.dict_parts())
             .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
@@ -162,23 +151,51 @@ impl<'a> FunctionChecker<'a> {
                 "dict_value",
             );
         }
-        if let Some(joined) = joined_keys {
-            key_type = joined.result_type();
-        }
-        if let Some(joined) = joined_values {
-            value_type = joined.result_type();
-        }
-        let actual = Type::dict(key_type, value_type);
+        key_type = joined_keys.map_or(key_type, |joined| joined.result_type());
+        value_type = joined_values.map_or(value_type, |joined| joined.result_type());
+        self.materialize_dict_type(
+            key_type,
+            value_type,
+            expected,
+            self.diagnostics.len() != diagnostic_count,
+        )
+    }
+
+    fn check_ambiguous_empty_dict(
+        &mut self,
+        expr: &Expr,
+        entries: &[DictEntry],
+        expected: Option<&ExpectedType>,
+    ) {
         if let Some(expected) = expected
+            && entries.is_empty()
             && expected.ty.dict_parts().is_some()
-            && !type_contains_unknown(&expected.ty)
-            && (self.diagnostics.len() != diagnostic_count
-                || !type_contains_variant_refinement(&actual))
+            && type_contains_unknown(&expected.ty)
         {
-            expected.ty.clone()
-        } else {
-            actual
+            self.push_ambiguous_empty_collection_type(
+                expr.node_id,
+                expr.span.clone(),
+                "Dict",
+                &expected.ty,
+            );
         }
+    }
+
+    fn materialize_dict_type(
+        &self,
+        key_type: Type,
+        value_type: Type,
+        expected: Option<&ExpectedType>,
+        diagnostics_changed: bool,
+    ) -> Type {
+        let actual = Type::dict(key_type, value_type);
+        expected
+            .filter(|expected| {
+                expected.ty.dict_parts().is_some()
+                    && !type_contains_unknown(&expected.ty)
+                    && (diagnostics_changed || !type_contains_variant_refinement(&actual))
+            })
+            .map_or(actual, |expected| expected.ty.clone())
     }
 
     #[allow(clippy::too_many_arguments)]

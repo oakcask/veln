@@ -1,10 +1,8 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use veln_ast::{Expr, ExprKind, UseDecl};
-
 use crate::adt::descriptors::{AdtConstructor, Variance};
-use crate::adt::registry::{AdtRegistry, ConstructorLookup, VariantDeclarationOrder};
+use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
 use crate::adt::{type_operations as adt, unification};
 use crate::semantic_model::Type;
 use crate::type_relations::{TypePresentationJoin, invariant_args_match, same_type_identity};
@@ -14,428 +12,16 @@ pub(crate) struct AggregateTypeJoin {
     root: usize,
 }
 
-pub(crate) fn expression_is_immediately_context_free(
-    expr: &Expr,
-    adts: &AdtRegistry,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) -> bool {
-    match &expr.kind {
-        ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit => true,
-        ExprKind::NamePath { segments, .. } => {
-            matches!(
-                adts.constructor(segments, current_module, uses),
-                ConstructorLookup::Found(constructor)
-                    if constructor.descriptor.type_parameters.is_empty()
-            )
-        }
-        ExprKind::Call { callee, .. } => {
-            let ExprKind::NamePath { segments, .. } = &callee.kind else {
-                return false;
-            };
-            matches!(
-                adts.constructor(segments, current_module, uses),
-                ConstructorLookup::Missing
-            )
-        }
-        _ => false,
-    }
-}
+mod context_projection;
 
-pub(crate) fn expression_has_compiler_covariant_root(
-    expr: &Expr,
-    adts: &AdtRegistry,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) -> bool {
-    match &expr.kind {
-        ExprKind::List(_) | ExprKind::Dict(_) => true,
-        ExprKind::NamePath { segments, .. } => {
-            matches!(
-                adts.constructor(segments, current_module, uses),
-                ConstructorLookup::Found(constructor)
-                    if Type::is_compiler_covariant_identity(&constructor.descriptor.identity())
-            )
-        }
-        ExprKind::Call { callee, .. } => {
-            let ExprKind::NamePath { segments, .. } = &callee.kind else {
-                return false;
-            };
-            matches!(
-                adts.constructor(segments, current_module, uses),
-                ConstructorLookup::Found(constructor)
-                    if Type::is_compiler_covariant_identity(&constructor.descriptor.identity())
-            )
-        }
-        _ => false,
-    }
-}
-
-pub(crate) fn expression_admitted_context(
-    expr: &Expr,
-    admitted_context: &Type,
-    adts: &AdtRegistry,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) -> Type {
-    let (input_nodes, _) = type_shape(admitted_context);
-    record_context_input_scan(input_nodes);
-    record_context_retained(input_nodes);
-    if let Some(projected) =
-        project_direct_type_parameter_path(expr, admitted_context, adts, current_module, uses)
-    {
-        return projected;
-    }
-    expression_admitted_context_fallback(expr, admitted_context, adts, current_module, uses)
-}
-
-fn project_direct_type_parameter_path(
-    mut expr: &Expr,
-    mut admitted: &Type,
-    adts: &AdtRegistry,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) -> Option<Type> {
-    let mut frames = Vec::new();
-    while let ExprKind::Call { callee, args } = &expr.kind {
-        let ExprKind::NamePath { segments, .. } = &callee.kind else {
-            break;
-        };
-        if args.len() != 1 {
-            break;
-        }
-        let constructor = match adts.constructor(segments, current_module, uses) {
-            ConstructorLookup::Found(constructor) => constructor,
-            ConstructorLookup::Ambiguous => {
-                adts.descriptor_for_type(admitted).and_then(|descriptor| {
-                    adts.constructor_for_descriptor(segments, descriptor, current_module, uses)
-                })?
-            }
-            ConstructorLookup::Missing => break,
-        };
-        let field = constructor.variant.payload_fields.first()?;
-        let crate::adt::descriptors::AdtPayloadType::TypeParameter(type_index) = field.ty else {
-            break;
-        };
-        let admitted_args = unification::adt_args(admitted, constructor.descriptor)?;
-        let next = admitted_args.get(type_index)?;
-        frames.push((admitted, type_index));
-        expr = &args[0];
-        admitted = next;
-    }
-    if frames.len() < 2 {
-        return None;
-    }
-
-    record_context_retained(frames.len());
-    let mut projected =
-        expression_admitted_context_fallback(expr, admitted, adts, current_module, uses);
-    for (admitted, projected_index) in frames.into_iter().rev() {
-        let parts = adt_type_parts(admitted)?;
-        let mut child = Some(projected);
-        let args = parts
-            .args
-            .iter()
-            .enumerate()
-            .map(|(index, arg)| {
-                if index == projected_index {
-                    child.take().expect("one projected argument")
-                } else {
-                    let (nodes, _) = type_shape(arg);
-                    record_context_clone(nodes);
-                    arg.clone()
-                }
-            })
-            .collect();
-        projected = replace_adt_args(admitted, args);
-    }
-    Some(projected)
-}
-
-fn expression_admitted_context_fallback(
-    expr: &Expr,
-    admitted_context: &Type,
-    adts: &AdtRegistry,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) -> Type {
-    enum ProjectionTask<'expr, 'registry> {
-        Evaluate(&'expr Expr, Type),
-        FinishList(Type, usize),
-        FinishDict(usize),
-        FinishCall {
-            admitted: Type,
-            constructor: AdtConstructor<'registry>,
-            expected_args: Vec<Type>,
-            affected: Vec<Vec<usize>>,
-        },
-    }
-
-    let mut tasks = vec![ProjectionTask::Evaluate(
-        expr,
-        clone_context_type(admitted_context),
-    )];
-    let mut results = Vec::new();
-    while let Some(task) = tasks.pop() {
-        record_context_retained(tasks.len() + results.len() + 1);
-        match task {
-            ProjectionTask::Evaluate(expr, admitted) => {
-                record_context_classification_work(1);
-                match &expr.kind {
-                    ExprKind::List(items) => {
-                        let Some(item_context) = adt_type_parts(&admitted)
-                            .and_then(|parts| parts.args.first())
-                            .map(clone_context_type)
-                        else {
-                            results.push(Type::Unknown);
-                            continue;
-                        };
-                        if items.is_empty() {
-                            results.push(admitted);
-                            continue;
-                        }
-                        tasks.push(ProjectionTask::FinishList(admitted, items.len()));
-                        for item in items.iter().rev() {
-                            tasks.push(ProjectionTask::Evaluate(
-                                item,
-                                clone_context_type(&item_context),
-                            ));
-                        }
-                    }
-                    ExprKind::Dict(entries) => {
-                        let Some((key_context, value_context)) = admitted.dict_parts() else {
-                            results.push(Type::Unknown);
-                            continue;
-                        };
-                        let key_context = clone_context_type(key_context);
-                        let value_context = clone_context_type(value_context);
-                        if entries.is_empty() {
-                            results.push(admitted);
-                            continue;
-                        }
-                        tasks.push(ProjectionTask::FinishDict(entries.len()));
-                        for entry in entries.iter().rev() {
-                            tasks.push(ProjectionTask::Evaluate(
-                                &entry.value,
-                                clone_context_type(&value_context),
-                            ));
-                            tasks.push(ProjectionTask::Evaluate(
-                                &entry.key,
-                                clone_context_type(&key_context),
-                            ));
-                        }
-                    }
-                    ExprKind::Record(fields) => results.push(if fields.is_empty() {
-                        admitted
-                    } else {
-                        Type::Unknown
-                    }),
-                    ExprKind::NamePath { segments, .. } => {
-                        let requires = match adts.constructor(segments, current_module, uses) {
-                            ConstructorLookup::Found(constructor) => {
-                                constructor.variant.payload_fields.is_empty()
-                                    && !constructor.descriptor.type_parameters.is_empty()
-                            }
-                            ConstructorLookup::Ambiguous => adts
-                                .descriptor_for_type(&admitted)
-                                .and_then(|descriptor| {
-                                    adts.constructor_for_descriptor(
-                                        segments,
-                                        descriptor,
-                                        current_module,
-                                        uses,
-                                    )
-                                })
-                                .is_some_and(|constructor| {
-                                    constructor.variant.payload_fields.is_empty()
-                                }),
-                            ConstructorLookup::Missing => false,
-                        };
-                        results.push(if requires { admitted } else { Type::Unknown });
-                    }
-                    ExprKind::Call { callee, args } => {
-                        let ExprKind::NamePath { segments, .. } = &callee.kind else {
-                            results.push(Type::Unknown);
-                            continue;
-                        };
-                        let constructor = match adts.constructor(segments, current_module, uses) {
-                            ConstructorLookup::Found(constructor) => constructor,
-                            ConstructorLookup::Ambiguous => {
-                                let Some(constructor) =
-                                    adts.descriptor_for_type(&admitted).and_then(|descriptor| {
-                                        adts.constructor_for_descriptor(
-                                            segments,
-                                            descriptor,
-                                            current_module,
-                                            uses,
-                                        )
-                                    })
-                                else {
-                                    results.push(Type::Unknown);
-                                    continue;
-                                };
-                                constructor
-                            }
-                            ConstructorLookup::Missing => {
-                                results.push(Type::Unknown);
-                                continue;
-                            }
-                        };
-                        let Some(expected_args) =
-                            unification::adt_args(&admitted, constructor.descriptor).map(|args| {
-                                args.iter().map(clone_context_type).collect::<Vec<Type>>()
-                            })
-                        else {
-                            results.push(Type::Unknown);
-                            continue;
-                        };
-                        let mut affected = Vec::with_capacity(args.len());
-                        let mut payload_contexts = Vec::with_capacity(args.len());
-                        for index in 0..args.len() {
-                            let mut indices = HashSet::new();
-                            adt::visit_type_arg_indices_from_payload(
-                                constructor,
-                                index,
-                                |type_index| {
-                                    record_context_classification_work(1);
-                                    indices.insert(type_index);
-                                },
-                            );
-                            let mut indices = indices.into_iter().collect::<Vec<_>>();
-                            indices.sort_unstable();
-                            affected.push(indices);
-                            payload_contexts.push(
-                                adt::payload_type_with_resolved_args(
-                                    constructor,
-                                    index,
-                                    |type_index| clone_context_type(&expected_args[type_index]),
-                                )
-                                .unwrap_or(Type::Unknown),
-                            );
-                        }
-                        tasks.push(ProjectionTask::FinishCall {
-                            admitted,
-                            constructor,
-                            expected_args,
-                            affected,
-                        });
-                        for (arg, context) in args.iter().zip(payload_contexts).rev() {
-                            tasks.push(ProjectionTask::Evaluate(arg, context));
-                        }
-                    }
-                    _ => results.push(Type::Unknown),
-                }
-            }
-            ProjectionTask::FinishList(admitted, count) => {
-                let projected = results.split_off(results.len() - count);
-                let mut required = Type::Unknown;
-                for projected in projected {
-                    adt::merge_type_holes(&mut required, &projected);
-                }
-                results.push(if required != Type::Unknown {
-                    replace_adt_args(&admitted, vec![required])
-                } else {
-                    Type::Unknown
-                });
-            }
-            ProjectionTask::FinishDict(count) => {
-                let projected = results.split_off(results.len() - count * 2);
-                let mut required_key = Type::Unknown;
-                let mut required_value = Type::Unknown;
-                for pair in projected.as_chunks::<2>().0 {
-                    adt::merge_type_holes(&mut required_key, &pair[0]);
-                    adt::merge_type_holes(&mut required_value, &pair[1]);
-                }
-                results.push(
-                    if required_key != Type::Unknown || required_value != Type::Unknown {
-                        record_context_materialization(1);
-                        Type::dict(required_key, required_value)
-                    } else {
-                        Type::Unknown
-                    },
-                );
-            }
-            ProjectionTask::FinishCall {
-                admitted,
-                constructor,
-                expected_args,
-                affected,
-            } => {
-                let projected = results.split_off(results.len() - affected.len());
-                let mut required_args = expected_args
-                    .iter()
-                    .map(clone_context_type)
-                    .collect::<Vec<_>>();
-                let mut provided = vec![false; expected_args.len()];
-                for (index, (projected, affected)) in
-                    projected.into_iter().zip(affected).enumerate()
-                {
-                    for type_index in &affected {
-                        provided[*type_index] = true;
-                    }
-                    if projected == Type::Unknown {
-                        for type_index in affected {
-                            required_args[type_index] = Type::Unknown;
-                        }
-                        continue;
-                    }
-                    adt::visit_type_arg_contributions_from_payload(
-                        constructor,
-                        index,
-                        &projected,
-                        |type_index, required| {
-                            if required_args[type_index] != Type::Unknown {
-                                required_args[type_index] = clone_context_type(required);
-                            }
-                        },
-                    );
-                }
-                for (index, was_provided) in provided.into_iter().enumerate() {
-                    if !was_provided {
-                        required_args[index] = clone_context_type(&expected_args[index]);
-                    }
-                }
-                results.push(replace_adt_args(&admitted, required_args));
-            }
-        }
-    }
-    results.pop().unwrap_or(Type::Unknown)
-}
-
-fn replace_adt_args(ty: &Type, args: Vec<Type>) -> Type {
-    record_context_materialization(1);
-    match ty {
-        Type::Named { name, identity, .. } => {
-            Type::resolved_named(name.clone(), identity.clone(), args)
-        }
-        Type::VariantRefinement {
-            name,
-            identity,
-            variants,
-            unresolved_alternatives,
-            ..
-        } => Type::VariantRefinement {
-            name: name.clone(),
-            identity: identity.clone(),
-            args: args.into(),
-            variants: variants.clone(),
-            unresolved_alternatives: unresolved_alternatives.clone(),
-        },
-        _ => Type::Unknown,
-    }
-}
-
-fn clone_context_type(ty: &Type) -> Type {
-    // Named type arguments are copy-on-write shared. Count the retained root
-    // handle here; walking the shared suffix would make accounting itself
-    // quadratic and would no longer describe owned state.
-    record_context_clone(1);
-    ty.clone()
-}
+#[cfg(test)]
+pub(crate) use context_projection::{
+    ContextProjectionWork, reset_context_classification_work, take_context_classification_work,
+};
+pub(crate) use context_projection::{
+    expression_admitted_context, expression_has_compiler_covariant_root,
+    expression_is_immediately_context_free,
+};
 
 struct JoinNode {
     name: String,
@@ -523,57 +109,28 @@ impl AggregateTypeJoin {
         let mut prepared = Vec::new();
         while let Some((node_index, right)) = pending.pop() {
             record_node_visit();
-            let right = adt_type_parts(right)?;
-            let node = &self.nodes[node_index];
-            if !same_type_identity(&node.name, &node.identity, right.name, right.identity)
-                || node.args.len() != right.args.len()
-            {
-                return None;
-            }
-            for (joined, right) in node.args.iter().zip(right.args) {
-                let compiler_covariant = Type::is_compiler_covariant_identity(&node.identity);
-                match joined {
-                    JoinArg::Exact {
-                        ty,
-                        covariant: true,
-                        ..
-                    } if compiler_covariant
-                        && (ty == &Type::Unknown || right == &Type::Unknown) => {}
-                    JoinArg::Exact { ty, .. } => {
-                        if !invariant_args_match(
-                            std::slice::from_ref(ty),
-                            std::slice::from_ref(right),
-                        ) {
-                            return None;
-                        }
-                    }
-                    JoinArg::Covariant(_) if compiler_covariant && right == &Type::Unknown => {}
-                    JoinArg::Covariant(child) => pending.push((*child, right)),
-                }
-            }
-            let variant_ranks = match (&node.variants, right.variants) {
-                (Some(_), Some(right_variants)) => {
-                    let declaration_order = node
-                        .declaration_order
-                        .as_ref()
-                        .expect("a refinement join retains declaration order");
-                    Some(
-                        right_variants
-                            .iter()
-                            .map(|variant| declaration_order.rank(variant))
-                            .collect::<Option<Vec<_>>>()?,
-                    )
-                }
-                (Some(_), None) => None,
-                (None, _) => Some(Vec::new()),
-            };
-            prepared.push(PreparedContribution {
-                node: node_index,
-                right,
-                variant_ranks,
-            });
+            prepared.push(self.prepare_contribution(node_index, right, &mut pending)?);
         }
         Some(prepared)
+    }
+
+    fn prepare_contribution<'a>(
+        &self,
+        node_index: usize,
+        right: &'a Type,
+        pending: &mut Vec<(usize, &'a Type)>,
+    ) -> Option<PreparedContribution<'a>> {
+        let right = adt_type_parts(right)?;
+        let node = &self.nodes[node_index];
+        (same_type_identity(&node.name, &node.identity, right.name, right.identity)
+            && node.args.len() == right.args.len())
+        .then_some(())?;
+        queue_covariant_contributions(node, right.args, pending)?;
+        Some(PreparedContribution {
+            node: node_index,
+            right,
+            variant_ranks: joined_variant_ranks(node, right.variants)?,
+        })
     }
 
     fn commit(&mut self, prepared: Vec<PreparedContribution<'_>>, adts: &AdtRegistry) {
@@ -751,6 +308,52 @@ impl AggregateTypeJoin {
             return materialize_named_node(node, args);
         }
         materialize_refined_node(node, args, variants)
+    }
+}
+
+fn queue_covariant_contributions<'a>(
+    node: &JoinNode,
+    right_args: &'a [Type],
+    pending: &mut Vec<(usize, &'a Type)>,
+) -> Option<()> {
+    let compiler_covariant = Type::is_compiler_covariant_identity(&node.identity);
+    for (joined, right) in node.args.iter().zip(right_args) {
+        match joined {
+            JoinArg::Exact {
+                ty,
+                covariant: true,
+                ..
+            } if compiler_covariant && (ty == &Type::Unknown || right == &Type::Unknown) => {}
+            JoinArg::Exact { ty, .. } => {
+                invariant_args_match(std::slice::from_ref(ty), std::slice::from_ref(right))
+                    .then_some(())?
+            }
+            JoinArg::Covariant(_) if compiler_covariant && right == &Type::Unknown => {}
+            JoinArg::Covariant(child) => pending.push((*child, right)),
+        }
+    }
+    Some(())
+}
+
+fn joined_variant_ranks(
+    node: &JoinNode,
+    right_variants: Option<&[String]>,
+) -> Option<Option<Vec<usize>>> {
+    match (&node.variants, right_variants) {
+        (Some(_), Some(right_variants)) => {
+            let declaration_order = node
+                .declaration_order
+                .as_ref()
+                .expect("a refinement join retains declaration order");
+            Some(Some(
+                right_variants
+                    .iter()
+                    .map(|variant| declaration_order.rank(variant))
+                    .collect::<Option<Vec<_>>>()?,
+            ))
+        }
+        (Some(_), None) => Some(None),
+        (None, _) => Some(Some(Vec::new())),
     }
 }
 
@@ -1021,110 +624,6 @@ pub(crate) fn reset_work() {
 #[cfg(test)]
 pub(crate) fn take_work() -> usize {
     crate::inference_work::take()
-}
-
-#[cfg(test)]
-thread_local! {
-    static CONTEXT_CLASSIFICATION_WORK: std::cell::Cell<ContextProjectionWork> =
-        const { std::cell::Cell::new(ContextProjectionWork::new()) };
-}
-
-#[cfg(test)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct ContextProjectionWork {
-    pub(crate) input_type_nodes_scanned: usize,
-    pub(crate) expression_or_parameter_edges_scanned: usize,
-    pub(crate) type_nodes_cloned: usize,
-    pub(crate) materialized_type_nodes: usize,
-    pub(crate) max_retained_state: usize,
-}
-
-#[cfg(test)]
-impl ContextProjectionWork {
-    const fn new() -> Self {
-        Self {
-            input_type_nodes_scanned: 0,
-            expression_or_parameter_edges_scanned: 0,
-            type_nodes_cloned: 0,
-            materialized_type_nodes: 0,
-            max_retained_state: 0,
-        }
-    }
-
-    pub(crate) fn total_relevant_work(self) -> usize {
-        self.input_type_nodes_scanned
-            + self.expression_or_parameter_edges_scanned
-            + self.type_nodes_cloned
-            + self.materialized_type_nodes
-    }
-}
-
-#[cfg(test)]
-fn update_context_work(update: impl FnOnce(&mut ContextProjectionWork)) {
-    CONTEXT_CLASSIFICATION_WORK.with(|work| {
-        let mut current = work.get();
-        update(&mut current);
-        work.set(current);
-    });
-}
-
-#[cfg(test)]
-fn record_context_classification_work(units: usize) {
-    update_context_work(|work| work.expression_or_parameter_edges_scanned += units);
-}
-
-#[cfg(not(test))]
-fn record_context_classification_work(_units: usize) {}
-
-#[cfg(test)]
-fn record_context_input_scan(units: usize) {
-    update_context_work(|work| work.input_type_nodes_scanned += units);
-}
-
-#[cfg(not(test))]
-fn record_context_input_scan(_units: usize) {}
-
-#[cfg(test)]
-fn record_context_clone(units: usize) {
-    update_context_work(|work| work.type_nodes_cloned += units);
-}
-
-#[cfg(not(test))]
-fn record_context_clone(_units: usize) {}
-
-#[cfg(test)]
-fn record_context_materialization(units: usize) {
-    update_context_work(|work| work.materialized_type_nodes += units);
-}
-
-#[cfg(not(test))]
-fn record_context_materialization(_units: usize) {}
-
-#[cfg(test)]
-pub(crate) fn record_context_template_materialization(ty: &Type) {
-    let (nodes, _) = type_shape(ty);
-    record_context_materialization(nodes);
-}
-
-#[cfg(not(test))]
-pub(crate) fn record_context_template_materialization(_ty: &Type) {}
-
-#[cfg(test)]
-fn record_context_retained(units: usize) {
-    update_context_work(|work| work.max_retained_state = work.max_retained_state.max(units));
-}
-
-#[cfg(not(test))]
-fn record_context_retained(_units: usize) {}
-
-#[cfg(test)]
-pub(crate) fn reset_context_classification_work() {
-    CONTEXT_CLASSIFICATION_WORK.with(|work| work.set(ContextProjectionWork::new()));
-}
-
-#[cfg(test)]
-pub(crate) fn take_context_classification_work() -> ContextProjectionWork {
-    CONTEXT_CLASSIFICATION_WORK.with(|work| work.replace(ContextProjectionWork::new()))
 }
 
 #[cfg(test)]

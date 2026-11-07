@@ -1,4 +1,4 @@
-use super::control_flow_results::{ControlFlowResultJoin, contribute_control_flow_result};
+use super::control_flow_results::ControlFlowResultJoin;
 use super::*;
 use crate::adt::descriptors::AdtPayloadField;
 use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
@@ -510,6 +510,66 @@ impl<'a> FunctionChecker<'a> {
         constructor: AdtConstructor,
         type_args: &mut ConstructorTypeArgInference,
     ) {
+        let arg_expected = self.constructor_payload_expected(
+            call,
+            arg,
+            field,
+            index,
+            expected,
+            constructor,
+            type_args,
+        );
+        let diagnostic_count = self.diagnostics.len();
+        let actual = self.infer_expr(arg, Some(&arg_expected));
+        if self.diagnostics.len() != diagnostic_count {
+            return;
+        }
+        let has_context = expected.is_some()
+            || (!matches!(field.ty, AdtPayloadType::TypeParameter(_))
+                && !type_contains_unknown(&arg_expected.ty));
+        let inferred = if has_context {
+            inferred_aggregate_member_type_with_expected(
+                actual,
+                &arg_expected.ty,
+                &self.environment.adts,
+            )
+        } else {
+            actual
+        };
+        let joined = type_args.try_join(field, &inferred, &self.environment.adts);
+        self.check_constructor_payload(
+            arg,
+            field,
+            &arg_expected,
+            &inferred,
+            has_context,
+            joined,
+            type_args,
+        );
+        self.commit_constructor_payload(
+            arg,
+            field,
+            index,
+            constructor,
+            type_args,
+            &arg_expected,
+            &inferred,
+            joined,
+            diagnostic_count,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn constructor_payload_expected(
+        &self,
+        call: &Expr,
+        arg: &Expr,
+        field: &AdtPayloadField,
+        index: usize,
+        expected: Option<&ExpectedType>,
+        constructor: AdtConstructor,
+        type_args: &ConstructorTypeArgInference,
+    ) -> ExpectedType {
         let mut arg_expected = expected.cloned().unwrap_or_else(|| ExpectedType {
             ty: Type::Unknown,
             source: ExpectedTypeSource::Inferred,
@@ -551,33 +611,22 @@ impl<'a> FunctionChecker<'a> {
         } else {
             projected_payload_context
         };
-        let diagnostic_count = self.diagnostics.len();
-        let actual = self.infer_expr(arg, Some(&arg_expected));
-        if self.diagnostics.len() != diagnostic_count {
-            return;
-        }
-        let has_context = expected.is_some()
-            || (!matches!(field.ty, AdtPayloadType::TypeParameter(_))
-                && !type_contains_unknown(&arg_expected.ty));
-        let inferred = if has_context {
-            inferred_aggregate_member_type_with_expected(
-                actual,
-                &arg_expected.ty,
-                &self.environment.adts,
-            )
-        } else {
-            actual
-        };
-        let joined = type_args.try_join(field, &inferred, &self.environment.adts);
-        self.check_constructor_payload(
-            arg,
-            field,
-            &arg_expected,
-            &inferred,
-            has_context,
-            joined,
-            type_args,
-        );
+        arg_expected
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn commit_constructor_payload(
+        &mut self,
+        arg: &Expr,
+        field: &AdtPayloadField,
+        index: usize,
+        constructor: AdtConstructor,
+        type_args: &mut ConstructorTypeArgInference,
+        arg_expected: &ExpectedType,
+        inferred: &Type,
+        joined: bool,
+        diagnostic_count: usize,
+    ) {
         if self.diagnostics.len() == diagnostic_count
             && let Err(conflict) = type_args.commit(
                 field,
@@ -757,36 +806,57 @@ impl<'a> FunctionChecker<'a> {
         };
         let joined =
             self.join_list_item(contextual_item, item_type, joined_items, &aggregate_actual);
-        let join_failed = !contextual_item && !joined && joined_items.is_some();
-        if join_failed {
-            let mismatch_expected = joined_items
-                .as_ref()
-                .map(AggregateTypeJoin::result_type)
-                .unwrap_or_else(|| item_expected.ty.clone());
-            let mismatch_context = ExpectedType {
-                ty: mismatch_expected,
-                ..item_expected.clone()
-            };
-            self.push_inferred_type_mismatch(
-                item,
-                &mismatch_context.ty,
-                &actual,
-                &mismatch_context,
-                "list_element",
-            );
-        } else if !is_assignable_nested_with_registry(
-            &item_expected.ty,
+        self.check_inferred_list_item(
+            item,
+            &item_expected,
+            &actual,
             &aggregate_actual,
-            &self.environment.adts,
-        ) && (contextual_item || !joined)
-        {
-            self.push_list_item_mismatch(item, &item_expected, &actual, joined_items);
-        }
+            contextual_item,
+            joined,
+            joined_items,
+        );
         if *item_type == Type::Unknown {
             *item_type = aggregate_actual;
             *joined_items = (!contextual_item)
                 .then(|| AggregateTypeJoin::new(&self.environment.adts, item_type))
                 .flatten();
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn check_inferred_list_item(
+        &mut self,
+        item: &Expr,
+        item_expected: &ExpectedType,
+        actual: &Type,
+        aggregate_actual: &Type,
+        contextual_item: bool,
+        joined: bool,
+        joined_items: &Option<AggregateTypeJoin>,
+    ) {
+        let join_failed = !contextual_item && !joined && joined_items.is_some();
+        if join_failed {
+            let mismatch_context = ExpectedType {
+                ty: joined_items
+                    .as_ref()
+                    .map(AggregateTypeJoin::result_type)
+                    .unwrap_or_else(|| item_expected.ty.clone()),
+                ..item_expected.clone()
+            };
+            self.push_inferred_type_mismatch(
+                item,
+                &mismatch_context.ty,
+                actual,
+                &mismatch_context,
+                "list_element",
+            );
+        } else if !is_assignable_nested_with_registry(
+            &item_expected.ty,
+            aggregate_actual,
+            &self.environment.adts,
+        ) && (contextual_item || !joined)
+        {
+            self.push_list_item_mismatch(item, item_expected, actual, joined_items);
         }
     }
 
@@ -1869,83 +1939,14 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         result: &mut ControlFlowResultJoin,
     ) {
-        let recovery_type = match result.joined.as_ref() {
-            Some(joined) if joined.has_compiler_covariant_root() => {
-                Some(crate::aggregate_type_join::expression_admitted_context(
-                    &arm.expr,
-                    &joined.inference_type(),
-                    &self.environment.adts,
-                    self.function.module_name.as_deref(),
-                    &self.resolution_uses,
-                ))
-            }
-            Some(joined)
-                if joined.has_complete_domain()
-                    && !joined.has_incomplete_nested_refinement_domain() =>
-            {
-                Some(joined.inference_type())
-            }
-            Some(_) => None,
-            None if result.recovery_type != Type::Unknown => Some(result.recovery_type.clone()),
-            None => None,
-        };
-        let needs_pending_context = recovery_type.is_some()
-            || crate::aggregate_type_join::expression_has_compiler_covariant_root(
-                &arm.expr,
-                &self.environment.adts,
-                self.function.module_name.as_deref(),
-                &self.resolution_uses,
-            );
-        let recovery_expected = if expected.is_none() && needs_pending_context {
-            Some(ExpectedType {
-                ty: recovery_type.unwrap_or(Type::Unknown),
-                source: ExpectedTypeSource::Inferred,
-                origin_node_id: match_expr.node_id,
-                origin_span: Some(match_expr.span.clone()),
-                origin_message: "Match result type inferred here.",
-            })
-        } else {
-            None
-        };
-        let diagnostic_count = self.diagnostics.len();
-        let actual = self.infer_expr(&arm.expr, expected.or(recovery_expected.as_ref()));
-        if self.diagnostics.len() != diagnostic_count
-            && expected
-                .is_none_or(|expected| matches!(expected.source, ExpectedTypeSource::Inferred))
-        {
-            return;
-        }
-        if let Some(expected) = expected {
-            self.check_assignable(&arm.expr, &expected.ty, &actual, expected, "match_arm");
-            return;
-        }
-        let recovering_from_failed_join = result.failed();
-        if !contribute_control_flow_result(&self.environment.adts, result, &actual) {
-            let mismatch_expected = ExpectedType {
-                ty: result.recovery_type.clone(),
-                source: ExpectedTypeSource::Inferred,
-                origin_node_id: match_expr.node_id,
-                origin_span: Some(match_expr.span.clone()),
-                origin_message: "Match result type inferred here.",
-            };
-            if recovering_from_failed_join || type_contains_unknown(&actual) {
-                self.check_assignable(
-                    &arm.expr,
-                    &mismatch_expected.ty,
-                    &actual,
-                    &mismatch_expected,
-                    "match_arm",
-                );
-            } else {
-                self.push_inferred_type_mismatch(
-                    &arm.expr,
-                    &mismatch_expected.ty,
-                    &actual,
-                    &mismatch_expected,
-                    "match_arm",
-                );
-            }
-        }
+        self.infer_control_flow_result(
+            match_expr,
+            &arm.expr,
+            expected,
+            result,
+            "Match result type inferred here.",
+            "match_arm",
+        );
     }
 
     pub(super) fn infer_if(

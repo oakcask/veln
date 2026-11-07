@@ -342,7 +342,65 @@ fn infer_private_aggregate_component(
     context_dependent_only: bool,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) {
-    let inferred_context = match joined_components {
+    let inferred_context = private_aggregate_component_context(
+        expr,
+        component_type,
+        joined_components.as_ref(),
+        context_dependent_only,
+        context,
+    );
+    let actual = context.infer_outcome(expr, item_type_unknown_as_none(&inferred_context));
+    if !actual.may_contribute {
+        return;
+    }
+    let actual = actual.ty;
+    let actual = if has_context {
+        inferred_private_aggregate_member_type(actual, component_type, context.adts)
+    } else {
+        actual
+    };
+    initialize_private_aggregate_join(
+        has_context,
+        component_type,
+        joined_components,
+        context_dependent_only,
+        context.adts,
+    );
+    let joined = !has_context
+        && joined_components
+            .as_mut()
+            .is_some_and(|joined| joined.try_join(context.adts, &actual));
+    if private_aggregate_component_rejected(
+        has_context,
+        joined_components.is_some(),
+        joined,
+        &inferred_context,
+        &actual,
+        context.adts,
+    ) {
+        *context.failures += 1;
+        return;
+    }
+    if !joined && *component_type == Type::Unknown {
+        *component_type = actual;
+        initialize_private_aggregate_join(
+            has_context,
+            component_type,
+            joined_components,
+            context_dependent_only,
+            context.adts,
+        );
+    }
+}
+
+fn private_aggregate_component_context(
+    expr: &Expr,
+    component_type: &Type,
+    joined_components: Option<&crate::aggregate_type_join::AggregateTypeJoin>,
+    context_dependent_only: bool,
+    context: &PrivateSignatureInferContext<'_, '_>,
+) -> Type {
+    match joined_components {
         Some(joined) if context_dependent_only => {
             crate::aggregate_type_join::expression_admitted_context(
                 expr,
@@ -355,53 +413,42 @@ fn infer_private_aggregate_component(
         Some(joined) => joined.inference_type(),
         None if context_dependent_only && type_has_unknown(component_type) => Type::Unknown,
         None => component_type.clone(),
-    };
-    let actual = context.infer_outcome(expr, item_type_unknown_as_none(&inferred_context));
-    if !actual.may_contribute {
-        return;
     }
-    let actual = actual.ty;
-    let actual = if has_context {
-        inferred_private_aggregate_member_type(actual, component_type, context.adts)
-    } else {
-        actual
-    };
+}
+
+fn initialize_private_aggregate_join(
+    has_context: bool,
+    component_type: &Type,
+    joined_components: &mut Option<crate::aggregate_type_join::AggregateTypeJoin>,
+    context_dependent_only: bool,
+    adts: &AdtRegistry,
+) {
     if !has_context
         && joined_components.is_none()
-        && (!context_dependent_only || *component_type != Type::Unknown)
+        && (!context_dependent_only || component_type != &Type::Unknown)
     {
         *joined_components =
-            crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, component_type);
+            crate::aggregate_type_join::AggregateTypeJoin::new(adts, component_type);
     }
-    let joined = !has_context
-        && joined_components
-            .as_mut()
-            .is_some_and(|joined| joined.try_join(context.adts, &actual));
-    let assignable = crate::type_relations::is_assignable_nested_with_registry(
-        &inferred_context,
-        &actual,
-        context.adts,
-    );
-    let rejected_here = if has_context {
-        inferred_context != Type::Unknown && !assignable
-    } else if joined_components.is_some() {
-        !joined
-    } else {
-        inferred_context != Type::Unknown && !assignable
-    };
-    if rejected_here {
-        *context.failures += 1;
-        return;
+}
+
+fn private_aggregate_component_rejected(
+    has_context: bool,
+    has_join: bool,
+    joined: bool,
+    inferred_context: &Type,
+    actual: &Type,
+    adts: &AdtRegistry,
+) -> bool {
+    if !has_context && has_join {
+        return !joined;
     }
-    if !joined && *component_type == Type::Unknown {
-        *component_type = actual;
-        *joined_components = (!has_context
-            && (!context_dependent_only || *component_type != Type::Unknown))
-            .then(|| {
-                crate::aggregate_type_join::AggregateTypeJoin::new(context.adts, component_type)
-            })
-            .flatten();
-    }
+    inferred_context != &Type::Unknown
+        && !crate::type_relations::is_assignable_nested_with_registry(
+            inferred_context,
+            actual,
+            adts,
+        )
 }
 
 pub(crate) fn infer_private_record_type(

@@ -20,6 +20,59 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         result: &mut ControlFlowResultJoin,
     ) {
+        self.infer_control_flow_result(
+            if_expr,
+            branch_expr,
+            expected,
+            result,
+            "If result type inferred here.",
+            "if_branch",
+        );
+    }
+
+    pub(super) fn infer_control_flow_result(
+        &mut self,
+        result_expr: &Expr,
+        branch_expr: &Expr,
+        expected: Option<&ExpectedType>,
+        result: &mut ControlFlowResultJoin,
+        origin_message: &'static str,
+        constraint: &'static str,
+    ) {
+        let recovery_expected = self.control_flow_result_expected(
+            result_expr,
+            branch_expr,
+            expected,
+            result,
+            origin_message,
+        );
+        let diagnostic_count = self.diagnostics.len();
+        let actual = self.infer_expr(branch_expr, expected.or(recovery_expected.as_ref()));
+        if self.diagnostics.len() != diagnostic_count
+            && expected
+                .is_none_or(|expected| matches!(expected.source, ExpectedTypeSource::Inferred))
+        {
+            return;
+        }
+        self.check_control_flow_result(
+            result_expr,
+            branch_expr,
+            expected,
+            result,
+            &actual,
+            origin_message,
+            constraint,
+        );
+    }
+
+    fn control_flow_result_expected(
+        &self,
+        result_expr: &Expr,
+        branch_expr: &Expr,
+        expected: Option<&ExpectedType>,
+        result: &ControlFlowResultJoin,
+        origin_message: &'static str,
+    ) -> Option<ExpectedType> {
         let recovery_type = match result.joined.as_ref() {
             Some(joined) if joined.has_compiler_covariant_root() => {
                 Some(crate::aggregate_type_join::expression_admitted_context(
@@ -47,53 +100,58 @@ impl<'a> FunctionChecker<'a> {
                 self.function.module_name.as_deref(),
                 &self.resolution_uses,
             );
-        let recovery_expected = if expected.is_none() && needs_pending_context {
+        if expected.is_none() && needs_pending_context {
             Some(ExpectedType {
                 ty: recovery_type.unwrap_or(Type::Unknown),
                 source: ExpectedTypeSource::Inferred,
-                origin_node_id: if_expr.node_id,
-                origin_span: Some(if_expr.span.clone()),
-                origin_message: "If result type inferred here.",
+                origin_node_id: result_expr.node_id,
+                origin_span: Some(result_expr.span.clone()),
+                origin_message,
             })
         } else {
             None
-        };
-        let diagnostic_count = self.diagnostics.len();
-        let actual = self.infer_expr(branch_expr, expected.or(recovery_expected.as_ref()));
-        if self.diagnostics.len() != diagnostic_count
-            && expected
-                .is_none_or(|expected| matches!(expected.source, ExpectedTypeSource::Inferred))
-        {
-            return;
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn check_control_flow_result(
+        &mut self,
+        result_expr: &Expr,
+        branch_expr: &Expr,
+        expected: Option<&ExpectedType>,
+        result: &mut ControlFlowResultJoin,
+        actual: &Type,
+        origin_message: &'static str,
+        constraint: &'static str,
+    ) {
         if let Some(expected) = expected {
-            self.check_assignable(branch_expr, &expected.ty, &actual, expected, "if_branch");
+            self.check_assignable(branch_expr, &expected.ty, actual, expected, constraint);
             return;
         }
         let recovering_from_failed_join = result.failed();
-        if !contribute_control_flow_result(&self.environment.adts, result, &actual) {
+        if !contribute_control_flow_result(&self.environment.adts, result, actual) {
             let mismatch_expected = ExpectedType {
                 ty: result.recovery_type.clone(),
                 source: ExpectedTypeSource::Inferred,
-                origin_node_id: if_expr.node_id,
-                origin_span: Some(if_expr.span.clone()),
-                origin_message: "If result type inferred here.",
+                origin_node_id: result_expr.node_id,
+                origin_span: Some(result_expr.span.clone()),
+                origin_message,
             };
-            if recovering_from_failed_join || type_contains_unknown(&actual) {
+            if recovering_from_failed_join || type_contains_unknown(actual) {
                 self.check_assignable(
                     branch_expr,
                     &mismatch_expected.ty,
-                    &actual,
+                    actual,
                     &mismatch_expected,
-                    "if_branch",
+                    constraint,
                 );
             } else {
                 self.push_inferred_type_mismatch(
                     branch_expr,
                     &mismatch_expected.ty,
-                    &actual,
+                    actual,
                     &mismatch_expected,
-                    "if_branch",
+                    constraint,
                 );
             }
         }
