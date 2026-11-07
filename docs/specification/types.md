@@ -1510,13 +1510,17 @@ workload nests `Result<Int, String>` inside `D` `Option` arguments, then joins
 an independently typed value with `D` nested `Some` calls around `Ok(1)`. It
 measures both ordinary body inference and omitted private-result inference at
 depths 32, 64, and 128. The counter includes input type scans, expression and
-payload-parameter edges, cloned type nodes, and materialized type nodes. It
-also records maximum retained projection state. For adjacent measurements
-`W(D)` and `W(2D)`, the check requires total work to remain within a constant
-allowance of `2 * W(D)` and retained state to grow at most linearly. A separate
-16, 32, and 64 parameter workload places every distinct parameter in one
-constructor payload and applies the same adjacent-size rule. Elapsed time is
-observational and is not an acceptance threshold.
+payload-parameter edges, cloned type nodes, and materialized type nodes,
+including inference-template materialization. It also records maximum retained
+projection state. For adjacent measurements `W(D)` and `W(2D)`, the check
+requires total work to remain within a constant allowance of `2 * W(D)` and
+retained state to grow at most linearly. A separate 16, 32, and 64 parameter
+workload places every distinct parameter in one constructor payload and applies
+the same adjacent-size rule. Another workload places `T` below 16, 32, and 64
+nested `Option` arguments in a source-ADT payload, then projects the concrete
+`Int` argument through that payload in both inference pipelines. Its total work
+and retained type nodes obey the same adjacent-size linear bound. Elapsed time
+is observational and is not an acceptance threshold.
 
 For a source ADT nested through `D` covariant source-ADT arguments, the join
 retains `D + 1` state nodes. Accepting another equally shaped contribution
