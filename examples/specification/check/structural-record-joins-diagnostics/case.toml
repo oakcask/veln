@@ -4,10 +4,10 @@ exit = 1
 [stdout]
 format = "json"
 contains = [
-  "expected `{guard: Option<Int>, state: First::Ready | First::Closed}`, but found `{state: Second::Other, guard: Option<String>}`",
+  "expected `{detail: {guard: Option<Int>}, state: First::Ready | First::Closed}`, but found `{state: Second::Last, detail: {guard: Option<String>}}`",
   "expected `{id: Int, label: String}`, but found `{id: Int}`",
-  "expected `{guard: Option<Int>, state: First::Ready}`, but found `{guard: Option<String>, state: Second::Last}`",
-  "expected `{guard: Option<Int>, state: First::Ready | First::Closed | First::Other}`, but found `{guard: Option<String>, state: Second::Last}`",
+  "expected `{detail: {guard: Option<Int>}, state: First::Ready}`, but found `{detail: {guard: Option<String>}, state: Second::Last}`",
+  "expected `{detail: {guard: Option<Int>}, state: First::Ready | First::Closed}`, but found `{detail: {guard: Option<String>}, state: Second::Last}`",
 ]
 
 [stderr]
@@ -19,24 +19,13 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 5
+equals = 6
 
 [[diagnostics]]
 id = "type.mismatch"
 severity = "error"
 kind = "type"
-message = "expected `{guard: Option<Int>, state: First::Ready | First::Closed}`, but found `{state: Second::Other, guard: Option<String>}`"
-
-[diagnostics.span]
-file = "main.veln"
-line = 14
-column = 10
-
-[[diagnostics]]
-id = "type.mismatch"
-severity = "error"
-kind = "type"
-message = "expected `{id: Int, label: String}`, but found `{id: Int}`"
+message = "expected `{detail: {guard: Option<Int>}, state: First::Ready | First::Closed}`, but found `{state: Second::Last, detail: {guard: Option<String>}}`"
 
 [diagnostics.span]
 file = "main.veln"
@@ -47,31 +36,53 @@ column = 10
 id = "type.mismatch"
 severity = "error"
 kind = "type"
-message = "expected `{guard: Option<Int>, state: First::Ready}`, but found `{guard: Option<String>, state: Second::Last}`"
+message = "expected `{detail: {guard: Option<Int>}, state: First::Ready | First::Closed}`, but found `{state: Second::Last, detail: {guard: Option<String>}}`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 27
+line = 22
+column = 17
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{id: Int, label: String}`, but found `{id: Int}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 26
+column = 10
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{detail: {guard: Option<Int>}, state: First::Ready}`, but found `{detail: {guard: Option<String>}, state: Second::Last}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 33
 column = 3
 
 [[diagnostics]]
 id = "type.mismatch"
 severity = "error"
 kind = "type"
-message = "expected `{guard: Option<Int>, state: First::Ready}`, but found `{guard: Option<String>, state: Second::Last}`"
+message = "expected `{detail: {guard: Option<Int>}, state: First::Ready}`, but found `{detail: {guard: Option<String>}, state: Second::Last}`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 39
+line = 44
 column = 11
 
 [[diagnostics]]
 id = "type.mismatch"
 severity = "error"
 kind = "type"
-message = "expected `{guard: Option<Int>, state: First::Ready | First::Closed | First::Other}`, but found `{guard: Option<String>, state: Second::Last}`"
+message = "expected `{detail: {guard: Option<Int>}, state: First::Ready | First::Closed}`, but found `{detail: {guard: Option<String>}, state: Second::Last}`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 52
+line = 56
 column = 3

@@ -1,32 +1,43 @@
-# Complete records with the same field names join by field across every shared
-# context-free inference route, independent of field and contribution order.
+# Complete nested records with the same field names join by field across every
+# shared context-free inference route, independent of field and contribution order.
 type State
 	Ready
 	Closed
-	Other
 end
 
 type Pair<T>
 	Paired(T, T)
 end
 
-fn collection_forward(first: {label: String, state: State::Ready}, second: {state: State::Closed, label: String})
+fn collection_forward(first: {label: String, detail: {state: State::Ready}}, second: {detail: {state: State::Closed}, label: String})
 	[first, second]
 end
 
-fn collection_reverse(first: {label: String, state: State::Ready}, second: {state: State::Closed, label: String})
+fn collection_reverse(first: {label: String, detail: {state: State::Ready}}, second: {detail: {state: State::Closed}, label: String})
 	[second, first]
 end
 
-fn collection_nested(first: {outer: {state: State::Ready}, label: String}, second: {label: String, outer: {state: State::Closed}})
-	[first, second]
+fn exact_leaf(first: {callback: fn(Int) -> String, state: State::Ready}, second: {state: State::Closed, callback: fn(Int) -> String})
+	[second, first]
 end
 
-fn payload(first: {label: String, state: State::Ready}, second: {state: State::Closed, label: String})
+fn payload_forward(first: {label: String, detail: {state: State::Ready}}, second: {detail: {state: State::Closed}, label: String})
+	Paired(first, second)
+end
+
+fn payload_reverse(first: {label: String, detail: {state: State::Ready}}, second: {detail: {state: State::Closed}, label: String})
 	Paired(second, first)
 end
 
-fn selected(flag: Bool, first: {label: String, state: State::Ready}, second: {state: State::Closed, label: String})
+fn if_forward(flag: Bool, first: {label: String, detail: {state: State::Ready}}, second: {detail: {state: State::Closed}, label: String})
+	if flag
+		first
+	else
+		second
+	end
+end
+
+fn if_reverse(flag: Bool, first: {label: String, detail: {state: State::Ready}}, second: {detail: {state: State::Closed}, label: String})
 	if flag
 		second
 	else
@@ -34,28 +45,46 @@ fn selected(flag: Bool, first: {label: String, state: State::Ready}, second: {st
 	end
 end
 
-fn matched(flag: Bool, first: {label: String, state: State::Ready}, second: {state: State::Closed, label: String})
+fn match_forward(flag: Bool, first: {label: String, detail: {state: State::Ready}}, second: {detail: {state: State::Closed}, label: String})
 	match flag
 		true => first
 		false => second
 	end
 end
 
-fn private_result(flag: Bool)
-	if flag
-		{state: Ready, label: "ready"}
-	else
-		{label: "closed", state: Closed}
+fn match_reverse(flag: Bool, first: {label: String, detail: {state: State::Ready}}, second: {detail: {state: State::Closed}, label: String})
+	match flag
+		true => second
+		false => first
 	end
 end
 
-fn verify(flag: Bool, first: {label: String, state: State::Ready}, second: {state: State::Closed, label: String}, nested_first: {outer: {state: State::Ready}, label: String}, nested_second: {label: String, outer: {state: State::Closed}}) -> ()
-	let forward: Vec<{label: String, state: State::Ready | State::Closed}> = collection_forward(first, second)
-	let reverse: Vec<{label: String, state: State::Ready | State::Closed}> = collection_reverse(first, second)
-	let nested: Vec<{label: String, outer: {state: State::Ready | State::Closed}}> = collection_nested(nested_first, nested_second)
-	let paired: Pair<{label: String, state: State::Ready | State::Closed}>::Paired = payload(first, second)
-	let branch: {label: String, state: State::Ready | State::Closed} = selected(flag, first, second)
-	let arms: {label: String, state: State::Ready | State::Closed} = matched(flag, first, second)
-	let private: {label: String, state: State::Ready | State::Closed} = private_result(flag)
+fn private_forward(flag: Bool)
+	if flag
+		{label: "ready", detail: {state: Ready}}
+	else
+		{detail: {state: Closed}, label: "closed"}
+	end
+end
+
+fn private_reverse(flag: Bool)
+	if flag
+		{detail: {state: Closed}, label: "closed"}
+	else
+		{label: "ready", detail: {state: Ready}}
+	end
+end
+
+fn verify(flag: Bool, first: {label: String, detail: {state: State::Ready}}, second: {detail: {state: State::Closed}, label: String}) -> ()
+	let collection_one: Vec<{detail: {state: State::Ready | State::Closed}, label: String}> = collection_forward(first, second)
+	let collection_two: Vec<{detail: {state: State::Ready | State::Closed}, label: String}> = collection_reverse(first, second)
+	let payload_one: Pair<{detail: {state: State::Ready | State::Closed}, label: String}>::Paired = payload_forward(first, second)
+	let payload_two: Pair<{detail: {state: State::Ready | State::Closed}, label: String}>::Paired = payload_reverse(first, second)
+	let branch_one: {detail: {state: State::Ready | State::Closed}, label: String} = if_forward(flag, first, second)
+	let branch_two: {detail: {state: State::Ready | State::Closed}, label: String} = if_reverse(flag, first, second)
+	let arms_one: {detail: {state: State::Ready | State::Closed}, label: String} = match_forward(flag, first, second)
+	let arms_two: {detail: {state: State::Ready | State::Closed}, label: String} = match_reverse(flag, first, second)
+	let private_one: {detail: {state: State::Ready | State::Closed}, label: String} = private_forward(flag)
+	let private_two: {detail: {state: State::Ready | State::Closed}, label: String} = private_reverse(flag)
 	()
 end
