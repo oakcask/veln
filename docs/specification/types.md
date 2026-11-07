@@ -1447,7 +1447,11 @@ presence match. Every fixed and variadic input uses the bounded meet. The
 result uses the bounded join. The concrete effect rows form a sorted set union.
 Every recursive component must resolve. If a component has no unique result,
 inference requires explicit context and does not construct a function with an
-`unknown` component. Records with different field sets and other positive
+`unknown` component. An omitted local or private result that remains unresolved
+reports its existing incomplete-inference diagnostic with `unknown` as the
+inferred type. A contribution whose function shape is incompatible instead
+reports `type.mismatch` at that contribution and does not change the retained
+join. Records with different field sets and other positive
 contributions use the contributed-candidate rule after the same-constructor and
 identical-field rules. Record-width function inputs therefore select the wider
 contributed record, while record-width function results select the narrower
