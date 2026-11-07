@@ -21,7 +21,12 @@ finite ADT descriptor or infer covariance from the displayed name. This
 metadata agrees with the established assignment rule and does not change
 dictionary runtime behavior. Context-free inference uses the same
 compiler-owned classification to join both arguments of same-constructor
-dictionaries recursively.
+dictionaries recursively. Each argument follows the current
+[bounded join rules](../../../specification/types.md#bounded-joins-and-meets),
+including retention of compatible unresolved contributions until a later
+contribution selects a result. This decision does not give either argument a
+separate inference rule or make key arguments invariant during context-free
+inference.
 
 Source-ADT composition requires checked metadata with the constructor's
 declared arity. For another source declaration, owner-aware lookup must resolve
