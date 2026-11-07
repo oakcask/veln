@@ -657,7 +657,19 @@ fn buffered_idle(value: Option<()>) -> Bool
 	end
 end
 
+# Keep the recursive driver outside begin cleanup regions so it lowers to a loop.
 fn exercise_buffered_idle_cycles(exporter: BufferedJsonLinesExporter, lines: Receiver<String>, release: Sender<()>, idle: Receiver<()>, resume: Sender<()>, remaining: Int) -> Result<(), String> effects [time, concurrency]
+	match exercise_buffered_idle_cycles_step(exporter, lines, release, idle, resume, remaining)
+		Ok(_) => if remaining <= 1
+			Ok(())
+		else
+			exercise_buffered_idle_cycles(exporter, lines, release, idle, resume, remaining - 1)
+		end
+		Err(error) => Err(error)
+	end
+end
+
+fn exercise_buffered_idle_cycles_step(exporter: BufferedJsonLinesExporter, lines: Receiver<String>, release: Sender<()>, idle: Receiver<()>, resume: Sender<()>, remaining: Int) -> Result<(), String> effects [time, concurrency]
 	match channel::recv(lines)
 		Some(_) => begin
 			let _ = channel::send(release, ())
@@ -672,7 +684,7 @@ fn exercise_buffered_idle_cycles(exporter: BufferedJsonLinesExporter, lines: Rec
 						match handle observe::buffered_export_observation(exporter, buffered_log("idle-cycle")) with observe_test_support_test::clock(0)
 							observe::Accepted => begin
 								let _ = channel::send(resume, ())
-								exercise_buffered_idle_cycles(exporter, lines, release, idle, resume, remaining - 1)
+								Ok(())
 							end
 							_ => Err("buffered exporter rejected a record after reaching idle")
 						end
@@ -728,7 +740,19 @@ test buffered_worker_is_stack_bounded_across_repeated_idle_wake_cycles() -> Resu
 	end
 end
 
+# Keep the recursive driver outside begin cleanup regions so it lowers to a loop.
 fn exercise_buffered_busy_batches(exporter: BufferedJsonLinesExporter, lines: Receiver<String>, release: Sender<()>, remaining: Int) -> Result<(), String> effects [time, concurrency]
+	match exercise_buffered_busy_batches_step(exporter, lines, release, remaining)
+		Ok(_) => if remaining <= 0
+			Ok(())
+		else
+			exercise_buffered_busy_batches(exporter, lines, release, remaining - 1)
+		end
+		Err(error) => Err(error)
+	end
+end
+
+fn exercise_buffered_busy_batches_step(exporter: BufferedJsonLinesExporter, lines: Receiver<String>, release: Sender<()>, remaining: Int) -> Result<(), String> effects [time, concurrency]
 	if remaining <= 0
 		begin
 			let _ = channel::send(release, ())
@@ -738,7 +762,7 @@ fn exercise_buffered_busy_batches(exporter: BufferedJsonLinesExporter, lines: Re
 		observe::Accepted => begin
 			let _ = channel::send(release, ())
 			match channel::recv(lines)
-				Some(_) => exercise_buffered_busy_batches(exporter, lines, release, remaining - 1)
+				Some(_) => Ok(())
 				None => Err("buffered busy-batch destination closed")
 			end
 		end
