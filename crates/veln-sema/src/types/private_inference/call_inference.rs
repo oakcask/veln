@@ -194,9 +194,11 @@ fn infer_private_constructor_payload(
             context.current_module,
             context.uses,
         );
-    let admitted_payload_context = immediately_independent
-        .then_some(Type::Unknown)
-        .unwrap_or_else(|| type_args.payload_expected(expected, constructor, index, false));
+    let admitted_payload_context = if immediately_independent {
+        Type::Unknown
+    } else {
+        type_args.payload_expected(expected, constructor, index, false)
+    };
     let projected_payload_context = if expected.is_some() {
         admitted_payload_context.clone()
     } else {

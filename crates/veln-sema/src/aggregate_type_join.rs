@@ -46,10 +46,10 @@ pub(crate) fn expression_is_immediately_context_free(
     }
 }
 
-pub(crate) fn expression_admitted_context<'expr, 'registry>(
-    expr: &'expr Expr,
+pub(crate) fn expression_admitted_context(
+    expr: &Expr,
     admitted_context: &Type,
-    adts: &'registry AdtRegistry,
+    adts: &AdtRegistry,
     current_module: Option<&str>,
     uses: &[UseDecl],
 ) -> Type {
@@ -113,12 +113,11 @@ pub(crate) fn expression_admitted_context<'expr, 'registry>(
                             tasks.push(ProjectionTask::Evaluate(&entry.key, key_context.clone()));
                         }
                     }
-                    ExprKind::Record(fields) => results.push(
-                        fields
-                            .is_empty()
-                            .then_some(admitted)
-                            .unwrap_or(Type::Unknown),
-                    ),
+                    ExprKind::Record(fields) => results.push(if fields.is_empty() {
+                        admitted
+                    } else {
+                        Type::Unknown
+                    }),
                     ExprKind::NamePath { segments, .. } => {
                         let requires = match adts.constructor(segments, current_module, uses) {
                             ConstructorLookup::Found(constructor) => {
@@ -220,24 +219,26 @@ pub(crate) fn expression_admitted_context<'expr, 'registry>(
                 for projected in projected {
                     adt::merge_type_holes(&mut required, &projected);
                 }
-                results.push(
-                    (required != Type::Unknown)
-                        .then(|| replace_adt_args(&admitted, vec![required]))
-                        .unwrap_or(Type::Unknown),
-                );
+                results.push(if required != Type::Unknown {
+                    replace_adt_args(&admitted, vec![required])
+                } else {
+                    Type::Unknown
+                });
             }
             ProjectionTask::FinishDict(count) => {
                 let projected = results.split_off(results.len() - count * 2);
                 let mut required_key = Type::Unknown;
                 let mut required_value = Type::Unknown;
-                for pair in projected.chunks_exact(2) {
+                for pair in projected.as_chunks::<2>().0 {
                     adt::merge_type_holes(&mut required_key, &pair[0]);
                     adt::merge_type_holes(&mut required_value, &pair[1]);
                 }
                 results.push(
-                    (required_key != Type::Unknown || required_value != Type::Unknown)
-                        .then(|| Type::dict(required_key, required_value))
-                        .unwrap_or(Type::Unknown),
+                    if required_key != Type::Unknown || required_value != Type::Unknown {
+                        Type::dict(required_key, required_value)
+                    } else {
+                        Type::Unknown
+                    },
                 );
             }
             ProjectionTask::FinishCall {
