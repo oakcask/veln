@@ -1221,6 +1221,7 @@ fn bounded_join_iterative(
         direction: BoundDirection::Join,
     }];
     let mut results = Vec::new();
+    let mut function_presence_cache = HashMap::new();
     while let Some(task) = tasks.pop() {
         match task {
             BoundTask::Ready(result) => results.push(result),
@@ -1234,6 +1235,7 @@ fn bounded_join_iterative(
                 contributions,
                 direction,
                 relation_cache,
+                &mut function_presence_cache,
             ),
             BoundTask::BuildRecord { names } => build_record_bound(&mut results, names),
             BoundTask::BuildNamed {
@@ -1260,6 +1262,7 @@ fn evaluate_bound_task<'a>(
     contributions: Vec<&'a Type>,
     direction: BoundDirection,
     relation_cache: &mut HashMap<(String, String), bool>,
+    function_presence_cache: &mut HashMap<*const Type, bool>,
 ) {
     record_bounded_frame();
     if contributions.len() == 1 {
@@ -1271,7 +1274,7 @@ fn evaluate_bound_task<'a>(
         .any(|contribution| matches!(contribution, Type::Function { .. }))
     {
         schedule_function_bound(tasks, results, contributions);
-    } else if refs_require_composite_bound(adts, &contributions) {
+    } else if refs_require_composite_bound(adts, &contributions, function_presence_cache) {
         schedule_composite_bound(adts, tasks, results, contributions, relation_cache);
     } else {
         let owned = contributions
@@ -1329,8 +1332,15 @@ fn take_bound_results(results: &mut Vec<Option<Type>>, count: usize) -> Option<V
     results.drain(start..).collect::<Option<Vec<_>>>()
 }
 
-fn refs_require_composite_bound(adts: &AdtRegistry, contributions: &[&Type]) -> bool {
-    if contributions.iter().any(|ty| type_contains_function(ty)) {
+fn refs_require_composite_bound(
+    adts: &AdtRegistry,
+    contributions: &[&Type],
+    function_presence_cache: &mut HashMap<*const Type, bool>,
+) -> bool {
+    if contributions
+        .iter()
+        .any(|ty| type_contains_function(ty, function_presence_cache))
+    {
         return true;
     }
     let Some(Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. }) =
@@ -1947,17 +1957,46 @@ fn queue_compatible_named_shape<'a>(
     true
 }
 
-fn type_contains_function(ty: &Type) -> bool {
-    let mut pending = vec![ty];
-    while let Some(ty) = pending.pop() {
-        match ty {
-            Type::Function { .. } => return true,
-            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => pending.extend(args),
-            Type::Record(fields) => pending.extend(fields.iter().map(|(_, field)| field)),
-            Type::Unknown => {}
+fn type_contains_function(ty: &Type, cache: &mut HashMap<*const Type, bool>) -> bool {
+    let mut pending = vec![(ty, false)];
+    while let Some((current, expanded)) = pending.pop() {
+        let key = std::ptr::from_ref(current);
+        if cache.contains_key(&key) {
+            continue;
+        }
+        if expanded {
+            let contains = match current {
+                Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+                    args.iter().any(|child| cache[&std::ptr::from_ref(child)])
+                }
+                Type::Record(fields) => fields
+                    .iter()
+                    .any(|(_, child)| cache[&std::ptr::from_ref(child)]),
+                Type::Function { .. } => true,
+                Type::Unknown => false,
+            };
+            cache.insert(key, contains);
+            continue;
+        }
+        record_function_scan_node();
+        match current {
+            Type::Function { .. } => {
+                cache.insert(key, true);
+            }
+            Type::Unknown => {
+                cache.insert(key, false);
+            }
+            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+                pending.push((current, true));
+                pending.extend(args.iter().map(|child| (child, false)));
+            }
+            Type::Record(fields) => {
+                pending.push((current, true));
+                pending.extend(fields.iter().map(|(_, child)| (child, false)));
+            }
         }
     }
-    false
+    cache[&std::ptr::from_ref(ty)]
 }
 
 fn optimized_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
@@ -2166,6 +2205,7 @@ fn append_relation_function_key<'a>(
 thread_local! {
     static FALLBACK_COMPARISONS: Cell<usize> = const { Cell::new(0) };
     static BOUNDED_FRAMES: Cell<usize> = const { Cell::new(0) };
+    static FUNCTION_SCAN_NODES: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -2202,6 +2242,24 @@ pub(crate) fn reset_bounded_frames() {
 #[cfg(test)]
 pub(crate) fn take_bounded_frames() -> usize {
     BOUNDED_FRAMES.with(|frames| frames.replace(0))
+}
+
+#[cfg(test)]
+fn record_function_scan_node() {
+    FUNCTION_SCAN_NODES.with(|nodes| nodes.set(nodes.get() + 1));
+}
+
+#[cfg(not(test))]
+fn record_function_scan_node() {}
+
+#[cfg(test)]
+pub(crate) fn reset_function_scan_nodes() {
+    FUNCTION_SCAN_NODES.with(|nodes| nodes.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_function_scan_nodes() -> usize {
+    FUNCTION_SCAN_NODES.with(|nodes| nodes.replace(0))
 }
 
 #[cfg(test)]

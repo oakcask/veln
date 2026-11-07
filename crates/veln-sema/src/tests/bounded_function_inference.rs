@@ -415,7 +415,7 @@ fn deep_function_result(depth: usize, identity: &str, effects: Vec<String>) -> T
 }
 
 #[test]
-fn deep_bounded_function_join_uses_explicit_linear_frames() {
+fn deep_bounded_function_join_uses_linear_frames_and_function_scans() {
     let environment = positive_registry();
     let identity = positive_identity(&environment);
     let depths = [512, 1024, 2048];
@@ -426,8 +426,10 @@ fn deep_bounded_function_join_uses_explicit_linear_frames() {
             crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
                 .expect("bounded function join");
         crate::aggregate_type_join::reset_bounded_frames();
+        crate::aggregate_type_join::reset_function_scan_nodes();
         assert!(joined.try_join(&environment.adts, &right));
         let frames = crate::aggregate_type_join::take_bounded_frames();
+        let function_scan_nodes = crate::aggregate_type_join::take_function_scan_nodes();
         let resolved = joined.result_type();
         let Type::Function { return_type, .. } = resolved else {
             panic!("expected outer function");
@@ -444,10 +446,12 @@ fn deep_bounded_function_join_uses_explicit_linear_frames() {
         };
         assert_eq!(effects, &["stdio"]);
         assert_eq!(frames, depth + 4);
-        frames
+        assert_eq!(function_scan_nodes, depth + 3);
+        (frames, function_scan_nodes)
     });
-    eprintln!("deep bounded frames: {measurements:?}");
+    eprintln!("deep bounded frames and function scans: {measurements:?}");
     for adjacent in measurements.windows(2) {
-        assert!(adjacent[1] <= adjacent[0] * 2 + 1);
+        assert!(adjacent[1].0 <= adjacent[0].0 * 2 + 1);
+        assert!(adjacent[1].1 <= adjacent[0].1 * 2);
     }
 }
