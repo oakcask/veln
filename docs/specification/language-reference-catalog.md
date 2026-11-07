@@ -65,12 +65,16 @@ singleton and finite-set identity, subset assignability and direct widening,
 complete record and function assignment, checked source-ADT parameter variance,
 covariance for every argument of the compiler-owned immutable `Option<T>`,
 `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>` constructors, aggregate
-and control-flow joins, recursive context-free joins through checked covariant
-source-ADT arguments for local and imported declarations, recursive joins
-through every argument of same-constructor compiler-owned immutable types,
-complete identical-field record joins that recursively join corresponding
-fields, transactional exclusion of contributions whose nested argument cannot
-join,
+and control-flow joins, recursive context-free joins and meets through checked
+covariant and contravariant source-ADT arguments for local and imported
+declarations, exact admission for invariant and irrelevant arguments, recursive
+joins through every argument of same-constructor compiler-owned immutable
+types, complete identical-field record joins that recursively join corresponding
+fields, contributed record-width selection without synthesized shapes,
+structural function joins that meet inputs and join results, concrete effect-set
+unions without symbolic effect-row synthesis, contributed-candidate fallback,
+retention of compatible unresolved contributions, and transactional exclusion
+of contributions whose nested argument cannot join,
 and describes how an unrefined compiler-owned immutable join supplies
 argument-specific context to a later context-dependent expression without
 re-resolving an earlier expression that emitted a diagnostic. It also covers
@@ -106,8 +110,9 @@ Calls, indexing, constructed records, and other computed expressions do not
 become module-value field roots.
 The selected examples demonstrate refined call typing, complete structural and
 source-ADT variance assignment, source-ADT and compiler-owned covariant
-inference, identical-field structural record inference and failed-contribution
-preservation, control-flow result joins, alias-qualified identity and
+inference, bounded structural function inference, identical-field and
+record-width structural inference, failed-contribution preservation,
+control-flow result joins, alias-qualified identity and
 presentation, generic alias boundaries, structural visibility, publication
 quarantine, and qualified module-value match refinement. The
 current type and source specifications remain authoritative for those

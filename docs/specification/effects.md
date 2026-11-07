@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: Veln effect labels, call-bound effect-row inference, compiler-known call signatures, nominal handlers, or effect-boundary behavior changes.
+update-when: Veln effect labels, call-bound or context-free function effect-row inference, compiler-known call signatures, nominal handlers, or effect-boundary behavior changes.
 specification-coverage: usage=#representative-usage; behavior=#effect-labels; limits=#limits
 ---
 
@@ -84,6 +84,15 @@ fully concrete accepted call use the concrete instantiated effects. The checked
 and
 [`schema-argument`](../../examples/specification/check/effect-row-call-schema-arguments/)
 cases cover those accepted-expression and rejection boundaries.
+
+Context-free aggregation of function types does not solve a row tail as a call
+substitution. When every contributed function effect set is concrete, type
+inference can form their set union. If any contributed effect set contains a
+row tail, every contributed effect set must be identical for the structural
+function join to resolve. Inference preserves that exact set and does not
+synthesize a row-bearing set from different contributions. The
+[type inference rules](types.md#compatibility-and-limits) define the remaining
+bounded join and meet behavior.
 
 Source modules may also declare nominal operation effects with `effect Name`
 or `pub effect Name`. Each operation declares ordinary parameter types and one
@@ -715,6 +724,9 @@ sections.
 
 - Effect inference and handlers: `crates/veln-sema/src/effects.rs` and
   `crates/veln-sema/src/effect_rows.rs`.
+- Context-free structural function effect inference:
+  `crates/veln-sema/src/aggregate_type_join.rs` and
+  `crates/veln-sema/src/tests/bounded_function_inference.rs`.
 - Compiler-known signatures: `crates/veln-sema/src/standard_symbols/`.
 - Wall-clock record type boundaries:
   `examples/specification/check/transport-wall-clock-record-type/` and

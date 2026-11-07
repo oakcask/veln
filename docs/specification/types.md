@@ -1442,23 +1442,30 @@ or ambiguous classification metadata also requires exact arguments. Local and
 imported declarations use the same rule because lookup uses resolved nominal
 identity rather than displayed spelling.
 
-Bounded inference retains every successfully typed contribution. When the
-same-constructor, identical-field, and structural-function rules do not produce
-a join, the contributed-candidate fallback selects the unique contributed type
-that accepts every contribution and is assignable to every other valid
-candidate. A bounded meet applies the dual candidate rule: the selected
-contributed type is accepted by every contribution and accepts every other
-valid candidate. Resolved identity, rather than alias spelling, determines
-candidate equality. Conflicting alias preferences use deterministic canonical
-presentation. A rejected or diagnostically failed contribution does not change
-the retained contributions or presentation state.
+Bounded inference retains every successfully typed, structurally admissible
+contribution. For a same-constructor source ADT, invariant and irrelevant
+arguments must match exactly before the contribution is admitted. An
+exact-argument mismatch reports `type.mismatch` at that contribution and leaves
+the retained bounds and presentation state unchanged. When the same-constructor,
+identical-field, and structural-function rules do not produce a join, the
+contributed-candidate fallback selects the unique contributed type that accepts
+every contribution and is assignable to every other valid candidate. A bounded
+meet applies the dual candidate rule: the selected contributed type is accepted
+by every contribution and accepts every other valid candidate. Resolved
+identity, rather than alias spelling, determines candidate equality. Conflicting
+alias preferences use deterministic canonical presentation. A rejected or
+diagnostically failed contribution does not change the retained contributions
+or presentation state.
 
 Structural functions join only when their fixed parameter counts and variadic
 presence match. Every fixed and variadic input uses the bounded meet. The
-result uses the bounded join. The concrete effect rows form a sorted set union.
-Every recursive component must resolve. If a component has no unique result,
-inference requires explicit context and does not construct a function with an
-`unknown` component. An omitted local or private result that remains unresolved
+result uses the bounded join. When every effect list is concrete, the lists form
+a sorted set union. If any effect list contains a row tail, every contribution
+must have the same complete effect list. The join preserves that list and does
+not synthesize a row-bearing effect set from differing contributions. Every
+recursive component must resolve. If a component has no unique result, inference
+requires explicit context and does not construct a function with an `unknown`
+component. An omitted local or private result that remains unresolved
 reports its existing incomplete-inference diagnostic with `unknown` as the
 inferred type. A contribution whose function shape is incompatible instead
 reports `type.mismatch` at that contribution and does not change the retained
