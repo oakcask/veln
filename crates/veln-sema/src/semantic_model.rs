@@ -174,6 +174,7 @@ pub(crate) enum ExpectedTypeSource {
     SchemaEncodeParameter,
     LocalAnnotation,
     Inferred,
+    AdmittedAggregate,
     Unknown,
 }
 
@@ -184,7 +185,7 @@ impl ExpectedTypeSource {
             Self::DeclaredParameter => "declared_parameter",
             Self::SchemaEncodeParameter => "declared_parameter",
             Self::LocalAnnotation => "local_annotation",
-            Self::Inferred => "inferred_expression",
+            Self::Inferred | Self::AdmittedAggregate => "inferred_expression",
             Self::Unknown => "unknown",
         }
     }
@@ -195,7 +196,7 @@ impl ExpectedTypeSource {
             | Self::DeclaredParameter
             | Self::SchemaEncodeParameter
             | Self::LocalAnnotation => "declared",
-            Self::Inferred => "inferred",
+            Self::Inferred | Self::AdmittedAggregate => "inferred",
             Self::Unknown => "unknown",
         }
     }

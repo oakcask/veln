@@ -1045,6 +1045,11 @@ fn expected_type_sources_render_for_diagnostics_and_holes() {
             "inferred_expression",
             "inferred",
         ),
+        (
+            ExpectedTypeSource::AdmittedAggregate,
+            "inferred_expression",
+            "inferred",
+        ),
         (ExpectedTypeSource::Unknown, "unknown", "unknown"),
     ];
 

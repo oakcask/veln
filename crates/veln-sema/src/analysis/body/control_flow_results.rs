@@ -49,8 +49,12 @@ impl<'a> FunctionChecker<'a> {
         let diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(branch_expr, expected.or(recovery_expected.as_ref()));
         if self.diagnostics.len() != diagnostic_count
-            && expected
-                .is_none_or(|expected| matches!(expected.source, ExpectedTypeSource::Inferred))
+            && expected.is_none_or(|expected| {
+                matches!(
+                    expected.source,
+                    ExpectedTypeSource::Inferred | ExpectedTypeSource::AdmittedAggregate
+                )
+            })
         {
             return;
         }
@@ -73,6 +77,10 @@ impl<'a> FunctionChecker<'a> {
         result: &ControlFlowResultJoin,
         origin_message: &'static str,
     ) -> Option<ExpectedType> {
+        let admitted = result
+            .joined
+            .as_ref()
+            .is_some_and(AggregateTypeJoin::has_compiler_covariant_root);
         let recovery_type = match result.joined.as_ref() {
             Some(joined) if joined.has_compiler_covariant_root() => {
                 Some(crate::aggregate_type_join::expression_admitted_context(
@@ -81,6 +89,7 @@ impl<'a> FunctionChecker<'a> {
                     &self.environment.adts,
                     self.function.module_name.as_deref(),
                     &self.resolution_uses,
+                    &|name| self.projection_local_context(name),
                 ))
             }
             Some(joined)
@@ -103,7 +112,11 @@ impl<'a> FunctionChecker<'a> {
         if expected.is_none() && needs_pending_context {
             Some(ExpectedType {
                 ty: recovery_type.unwrap_or(Type::Unknown),
-                source: ExpectedTypeSource::Inferred,
+                source: if admitted {
+                    ExpectedTypeSource::AdmittedAggregate
+                } else {
+                    ExpectedTypeSource::Inferred
+                },
                 origin_node_id: result_expr.node_id,
                 origin_span: Some(result_expr.span.clone()),
                 origin_message,

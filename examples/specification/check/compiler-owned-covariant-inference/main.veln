@@ -186,6 +186,25 @@ fn mixed_result_matched(flag: Bool, first: Result<First::Ready, String>, closed:
 	end
 end
 
+fn nested_cons_without_annotation()
+	Cons(1, Cons(2, Nil))
+end
+
+fn collection_with_omitted_local()
+	let empty = []
+	[[1], empty]
+end
+
+fn option_with_omitted_local()
+	let empty = None
+	[Some(1), empty]
+end
+
+fn payload_with_omitted_local()
+	let empty = []
+	Paired([1], empty)
+end
+
 fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option<Second::Closed>, wide_option: Option<State>, first_result: Result<Option<State::Ready>, List<State::Closed>>, second_result: Result<Option<State::Closed>, List<State::Failed>>, first_list: List<State::Ready>, second_list: List<State::Closed>, first_vector: Vec<State::Ready>, second_vector: Vec<State::Closed>, first_dict: Dict<Option<State::Ready>, Positive<State::Closed>>, second_dict: Dict<Option<State::Closed>, Positive<State::Failed>>, scalar_result: Result<Int, String>, mixed_dict_first: Dict<First::Ready, Vec<Int>>) -> ()
 	let option_result: Vec<Option<State::Ready | State::Closed>> = option(first_option, second_option)
 	let option_reverse_result: Vec<Option<State::Ready | State::Closed>> = option_reverse(first_option, second_option)
@@ -221,5 +240,9 @@ fn observe(flag: Bool, first_option: Option<First::Ready>, second_option: Option
 	let mixed_result_payload_result: Pair<Result<State, String>>::Paired = mixed_result_payload(Ok(Ready), Closed)
 	let mixed_result_selected_result: Result<State, String> = mixed_result_selected(flag, Ok(Ready), Closed)
 	let mixed_result_matched_result: Result<State, String> = mixed_result_matched(flag, Ok(Ready), Closed)
+	let nested_cons_result: List<Int> = nested_cons_without_annotation()
+	let collection_with_omitted_local_result: Vec<Vec<Int>> = collection_with_omitted_local()
+	let option_with_omitted_local_result: Vec<Option<Int>> = option_with_omitted_local()
+	let payload_with_omitted_local_result: Pair<Vec<Int>>::Paired = payload_with_omitted_local()
 	()
 end

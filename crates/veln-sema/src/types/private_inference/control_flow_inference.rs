@@ -54,10 +54,19 @@ fn infer_private_control_flow_results<'a>(
     let mut joined_result = None;
     let mut join_failed = false;
     for branch in branches {
+        let admitted_context = expected.is_none()
+            && joined_result.as_ref().is_some_and(
+                crate::aggregate_type_join::AggregateTypeJoin::has_compiler_covariant_root,
+            );
         let branch_expected = expected.cloned().or_else(|| {
             private_control_flow_branch_context(branch, &result, joined_result.as_ref(), context)
         });
-        let outcome = if check_expected {
+        let outcome = if admitted_context {
+            match branch_expected.as_ref() {
+                Some(expected) => context.infer_admitted_outcome(branch, expected),
+                None => context.infer_outcome(branch, None),
+            }
+        } else if check_expected {
             match branch_expected.as_ref() {
                 Some(expected) => context.infer_expected_outcome(branch, expected),
                 None => context.infer_outcome(branch, None),
@@ -96,6 +105,7 @@ fn private_control_flow_branch_context(
                 context.adts,
                 context.current_module,
                 context.uses,
+                &|name| context.projection_local_context(name),
             )
         }
         Some(joined)

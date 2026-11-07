@@ -524,7 +524,30 @@ impl<'a> FunctionChecker<'a> {
         if self.diagnostics.len() != diagnostic_count {
             return;
         }
-        let has_context = expected.is_some()
+        let admitted_expected = expected.is_some_and(|expected| {
+            matches!(expected.source, ExpectedTypeSource::AdmittedAggregate)
+        });
+        if admitted_expected
+            && matches!(field.ty, AdtPayloadType::TypeParameter(_))
+            && arg_expected.ty == Type::Unknown
+            && let Some(expected_payload) = expected.map(|expected| {
+                type_args.payload_expected(Some(expected), constructor, index, false)
+            })
+            && expected_payload != Type::Unknown
+            && actual != expected_payload
+            && !AggregateTypeJoin::new(&self.environment.adts, &expected_payload)
+                .is_some_and(|mut joined| joined.try_join(&self.environment.adts, &actual))
+        {
+            self.check_assignable_nested(
+                arg,
+                &expected_payload,
+                &actual,
+                &arg_expected,
+                "call_argument",
+            );
+            return;
+        }
+        let has_context = (expected.is_some() && !admitted_expected)
             || (!matches!(field.ty, AdtPayloadType::TypeParameter(_))
                 && !type_contains_unknown(&arg_expected.ty));
         let inferred = if has_context {
@@ -577,16 +600,27 @@ impl<'a> FunctionChecker<'a> {
             origin_span: Some(call.span.clone()),
             origin_message: "Constructor payload inferred here.",
         });
-        let immediately_independent = expected.is_none()
+        let admitted_expected = expected.is_some_and(|expected| {
+            matches!(expected.source, ExpectedTypeSource::AdmittedAggregate)
+        });
+        let immediately_independent = (expected.is_none() || admitted_expected)
             && type_args.direct_payload_joins_independently(field)
             && crate::aggregate_type_join::expression_is_immediately_context_free(
                 arg,
                 &self.environment.adts,
                 self.function.module_name.as_deref(),
                 &self.resolution_uses,
+                &|name| self.projection_local_context(name),
             );
         let admitted_payload_context = if immediately_independent {
             Type::Unknown
+        } else if admitted_expected {
+            let mut local = type_args.payload_expected(None, constructor, index, false);
+            if type_contains_unknown(&local) {
+                let admitted = type_args.payload_expected(expected, constructor, index, false);
+                adt::merge_type_holes(&mut local, &admitted);
+            }
+            local
         } else {
             type_args.payload_expected(expected, constructor, index, false)
         };
@@ -599,11 +633,15 @@ impl<'a> FunctionChecker<'a> {
                 &self.environment.adts,
                 self.function.module_name.as_deref(),
                 &self.resolution_uses,
+                &|name| self.projection_local_context(name),
             )
         };
         let direct_payload_joins_independently = immediately_independent
             || (type_args.direct_payload_joins_independently(field)
                 && projected_payload_context == Type::Unknown);
+        if expected.is_none() && projected_payload_context != Type::Unknown {
+            arg_expected.source = ExpectedTypeSource::AdmittedAggregate;
+        }
         arg_expected.ty = if direct_payload_joins_independently {
             Type::Unknown
         } else if projected_payload_context == Type::Unknown {
@@ -776,10 +814,11 @@ impl<'a> FunctionChecker<'a> {
                 &self.environment.adts,
                 self.function.module_name.as_deref(),
                 &self.resolution_uses,
+                &|name| self.projection_local_context(name),
             ),
             None => item_type.clone(),
         };
-        let item_expected = collection_item_expected(
+        let mut item_expected = collection_item_expected(
             if inferred_context == Type::Unknown {
                 expected_item.clone()
             } else {
@@ -790,6 +829,9 @@ impl<'a> FunctionChecker<'a> {
             list.span.clone(),
             "Vec element type inferred here.",
         );
+        if joined_items.is_some() && item_expected.ty != Type::Unknown {
+            item_expected.source = ExpectedTypeSource::AdmittedAggregate;
+        }
         let diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(item, Some(&item_expected));
         if self.diagnostics.len() != diagnostic_count {

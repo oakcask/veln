@@ -19,7 +19,7 @@ pub(crate) use context_projection::{
     ContextProjectionWork, reset_context_classification_work, take_context_classification_work,
 };
 pub(crate) use context_projection::{
-    expression_admitted_context, expression_has_compiler_covariant_root,
+    LocalContext, expression_admitted_context, expression_has_compiler_covariant_root,
     expression_is_immediately_context_free,
 };
 

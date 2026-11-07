@@ -273,19 +273,27 @@ impl<'a> FunctionChecker<'a> {
                 &self.environment.adts,
                 self.function.module_name.as_deref(),
                 &self.resolution_uses,
+                &|name| self.projection_local_context(name),
             )
         } else if type_contains_unknown(current_type) {
             Type::Unknown
         } else {
             current_type.clone()
         };
-        collection_item_expected(
+        let admitted = contextual_type == &Type::Unknown
+            && joined_type.is_some()
+            && item_type != Type::Unknown;
+        let mut expected = collection_item_expected(
             item_type,
             expected,
             dict_expr.node_id,
             dict_expr.span.clone(),
             origin_message,
-        )
+        );
+        if admitted {
+            expected.source = ExpectedTypeSource::AdmittedAggregate;
+        }
+        expected
     }
 
     fn join_dict_member(

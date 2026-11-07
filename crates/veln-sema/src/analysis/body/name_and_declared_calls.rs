@@ -3,6 +3,23 @@ use crate::effect_rows::EffectRowSubstitutions;
 use crate::types::ModuleValueLookup;
 
 impl<'a> FunctionChecker<'a> {
+    pub(super) fn projection_local_context(
+        &self,
+        name: &str,
+    ) -> Option<crate::aggregate_type_join::LocalContext> {
+        let index = self.visible_binding_index(name)?;
+        let current = self.binding_type(index);
+        Some(
+            if matches!(current, Type::Record(ref fields) if fields.is_empty()) {
+                crate::aggregate_type_join::LocalContext::EmptyRecord
+            } else if type_contains_unknown(&current) {
+                crate::aggregate_type_join::LocalContext::UnknownBearing
+            } else {
+                crate::aggregate_type_join::LocalContext::Complete
+            },
+        )
+    }
+
     pub(super) fn infer_name_path(
         &mut self,
         segments: &[String],
@@ -298,14 +315,10 @@ impl<'a> FunctionChecker<'a> {
             && let Some(expected) = expected
             && !type_contains_unknown(&expected.ty)
         {
-            if matches!(current, Type::VariantRefinement { .. }) {
-                let mut constrained = current.clone();
-                adt::merge_type_holes(&mut constrained, &expected.ty);
-                self.set_binding_type(index, constrained.clone());
-                return Some(constrained);
-            }
-            self.set_binding_type(index, expected.ty.clone());
-            return Some(expected.ty.clone());
+            let mut constrained = current;
+            adt::merge_type_holes(&mut constrained, &expected.ty);
+            self.set_binding_type(index, constrained.clone());
+            return Some(constrained);
         }
         Some(current)
     }

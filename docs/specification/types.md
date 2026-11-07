@@ -1427,12 +1427,16 @@ checks each contribution by ordinary assignment compatibility.
 
 Context-free aggregate inference does not run a separate completion pass. It
 checks each contribution once and retains independently known covariant
-arguments while sibling arguments are pending. Repeated direct constructor
-payloads and dictionary members that have complete types are inferred without
-using the partial join as their expected type. They can therefore widen the
-join instead of being forced to equal its current refinement. When the join
-root is an unrefined compiler-owned immutable type, the accumulated type can
-provide argument-specific context to a later context-dependent expression.
+arguments while sibling arguments are pending. An independently inferred
+payload does not erase an argument required by another payload. For example,
+`Cons(1, Cons(2, Nil))` retains the integer argument while the nested `Nil`
+receives `List<Int>` context. Repeated direct constructor payloads and
+dictionary members that have complete types are inferred without using the
+partial join as their expected type. A complete local reference follows the
+same rule. These contributions can therefore widen the join instead of being
+forced to equal its current refinement. When the join root is an unrefined
+compiler-owned immutable type, the accumulated type can provide
+argument-specific context to a later context-dependent expression.
 This includes a nullary generic constructor or a payload-carrying constructor
 whose payloads do not determine every generic argument, such as
 `Ok(1)` without an independently known error type. Independently inferred
@@ -1450,7 +1454,12 @@ select an unqualified nullary constructor that is otherwise ambiguous between
 ADTs when one candidate belongs to that admitted type. Without that admitted or
 independently supplied context, the namesake remains `name.ambiguous`. A partial
 type admitted without a diagnostic can still have an `unknown` argument made
-concrete by a later contribution under the ordinary inference rule above. If
+concrete by a later contribution under the ordinary inference rule above. An
+omitted local reference receives this admitted context only when its type still
+has an `unknown` part. The context fills those parts without replacing its
+known arguments. Thus `let xs = []` followed by `[[1], xs]` fixes `xs` as
+`Vec<Int>` and infers `Vec<Vec<Int>>`; the same rule applies in dictionary
+members, control-flow results, and repeated constructor payloads. If
 the original check instead reports an ambiguity or a mismatch, later facts do
 not cause that expression to be checked again. The failed expression leaves the
 accumulated join unchanged under the transactional rule below. An independently

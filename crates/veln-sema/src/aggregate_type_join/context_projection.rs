@@ -15,6 +15,7 @@ pub(crate) fn expression_is_immediately_context_free(
     adts: &AdtRegistry,
     current_module: Option<&str>,
     uses: &[UseDecl],
+    local_context: &dyn Fn(&str) -> Option<LocalContext>,
 ) -> bool {
     match &expr.kind {
         ExprKind::StringLiteral(_)
@@ -22,11 +23,18 @@ pub(crate) fn expression_is_immediately_context_free(
         | ExprKind::FloatLiteral(_)
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => true,
-        ExprKind::NamePath { segments, .. } => matches!(
-            adts.constructor(segments, current_module, uses),
-            ConstructorLookup::Found(constructor)
-                if constructor.descriptor.type_parameters.is_empty()
-        ),
+        ExprKind::NamePath { segments, .. } => {
+            if let [name] = segments.as_slice()
+                && let Some(local) = local_context(name)
+            {
+                return matches!(local, LocalContext::Complete);
+            }
+            matches!(
+                adts.constructor(segments, current_module, uses),
+                ConstructorLookup::Found(constructor)
+                    if constructor.descriptor.type_parameters.is_empty()
+            )
+        }
         ExprKind::Call { callee, .. } => {
             let ExprKind::NamePath { segments, .. } = &callee.kind else {
                 return false;
@@ -70,14 +78,36 @@ pub(crate) fn expression_admitted_context(
     adts: &AdtRegistry,
     current_module: Option<&str>,
     uses: &[UseDecl],
+    local_context: &dyn Fn(&str) -> Option<LocalContext>,
 ) -> Type {
     let (input_nodes, _) = type_shape(admitted_context);
     record_context_input_scan(input_nodes);
     record_context_retained(input_nodes);
-    project_direct_type_parameter_path(expr, admitted_context, adts, current_module, uses)
-        .unwrap_or_else(|| {
-            expression_admitted_context_fallback(expr, admitted_context, adts, current_module, uses)
-        })
+    project_direct_type_parameter_path(
+        expr,
+        admitted_context,
+        adts,
+        current_module,
+        uses,
+        local_context,
+    )
+    .unwrap_or_else(|| {
+        expression_admitted_context_fallback(
+            expr,
+            admitted_context,
+            adts,
+            current_module,
+            uses,
+            local_context,
+        )
+    })
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum LocalContext {
+    Complete,
+    UnknownBearing,
+    EmptyRecord,
 }
 
 fn project_direct_type_parameter_path(
@@ -86,6 +116,7 @@ fn project_direct_type_parameter_path(
     adts: &AdtRegistry,
     current_module: Option<&str>,
     uses: &[UseDecl],
+    local_context: &dyn Fn(&str) -> Option<LocalContext>,
 ) -> Option<Type> {
     let mut frames = Vec::new();
     while let ExprKind::Call { callee, args } = &expr.kind {
@@ -102,8 +133,14 @@ fn project_direct_type_parameter_path(
         return None;
     }
     record_context_retained(frames.len());
-    let projected =
-        expression_admitted_context_fallback(expr, admitted, adts, current_module, uses);
+    let projected = expression_admitted_context_fallback(
+        expr,
+        admitted,
+        adts,
+        current_module,
+        uses,
+        local_context,
+    );
     rebuild_direct_projection(projected, frames)
 }
 
@@ -177,6 +214,8 @@ struct ContextProjection<'expr, 'registry> {
     adts: &'registry AdtRegistry,
     current_module: Option<&'registry str>,
     uses: &'registry [UseDecl],
+    local_context: &'registry dyn Fn(&str) -> Option<LocalContext>,
+    local_contexts: HashMap<String, Option<LocalContext>>,
     tasks: Vec<ProjectionTask<'expr, 'registry>>,
     results: Vec<Rc<Type>>,
 }
@@ -187,11 +226,14 @@ fn expression_admitted_context_fallback<'registry>(
     adts: &'registry AdtRegistry,
     current_module: Option<&'registry str>,
     uses: &'registry [UseDecl],
+    local_context: &'registry dyn Fn(&str) -> Option<LocalContext>,
 ) -> Type {
     ContextProjection {
         adts,
         current_module,
         uses,
+        local_context,
+        local_contexts: HashMap::new(),
         tasks: vec![ProjectionTask::Evaluate(
             expr,
             Rc::new(clone_context_type(admitted_context)),
@@ -279,7 +321,10 @@ impl<'expr, 'registry> ContextProjection<'expr, 'registry> {
         }
 
         let mut seen = HashSet::<*const Type>::new();
-        let mut units = self.tasks.len() + self.results.len() + usize::from(active.is_some());
+        let mut units = self.tasks.len()
+            + self.results.len()
+            + self.local_contexts.len()
+            + usize::from(active.is_some());
         for task in &self.tasks {
             retain_task(task, &mut seen, &mut units);
         }
@@ -370,6 +415,32 @@ impl<'expr, 'registry> ContextProjection<'expr, 'registry> {
     }
 
     fn evaluate_name(&mut self, segments: &[String], admitted: Rc<Type>) {
+        if let [name] = segments {
+            let local = match self.local_contexts.get(name) {
+                Some(local) => *local,
+                None => {
+                    let local = (self.local_context)(name);
+                    self.local_contexts.insert(name.clone(), local);
+                    local
+                }
+            };
+            if let Some(local) = local {
+                let requires = match local {
+                    LocalContext::Complete => false,
+                    LocalContext::UnknownBearing => true,
+                    LocalContext::EmptyRecord => {
+                        admitted.dict_parts().is_some()
+                            && !crate::types::type_has_unknown(admitted.as_ref())
+                    }
+                };
+                self.results.push(if requires {
+                    admitted
+                } else {
+                    Rc::new(Type::Unknown)
+                });
+                return;
+            }
+        }
         let requires = match self
             .adts
             .constructor(segments, self.current_module, self.uses)
@@ -497,16 +568,11 @@ impl<'expr, 'registry> ContextProjection<'expr, 'registry> {
         affected: Vec<Vec<usize>>,
     ) {
         let projected = self.results.split_off(self.results.len() - affected.len());
-        let mut required_args = expected_args
-            .iter()
-            .map(clone_context_type)
-            .collect::<Vec<_>>();
+        let mut required_args = vec![Type::Unknown; expected_args.len()];
         let mut provided = vec![false; expected_args.len()];
         for (index, (projected, affected)) in projected.into_iter().zip(affected).enumerate() {
             mark_provided(&mut provided, &affected);
-            if projected.as_ref() == &Type::Unknown {
-                clear_affected(&mut required_args, affected);
-            } else {
+            if projected.as_ref() != &Type::Unknown {
                 merge_payload_projection(constructor, index, &projected, &mut required_args);
             }
         }
@@ -695,12 +761,6 @@ fn mark_provided(provided: &mut [bool], affected: &[usize]) {
     }
 }
 
-fn clear_affected(required_args: &mut [Type], affected: Vec<usize>) {
-    for index in affected {
-        required_args[index] = Type::Unknown;
-    }
-}
-
 fn merge_payload_projection(
     constructor: AdtConstructor<'_>,
     payload_index: usize,
@@ -712,9 +772,7 @@ fn merge_payload_projection(
         payload_index,
         projected,
         |type_index, required| {
-            if required_args[type_index] != Type::Unknown {
-                required_args[type_index] = clone_context_type(required);
-            }
+            merge_projected_type_slots(&mut required_args[type_index], required);
         },
     );
 }

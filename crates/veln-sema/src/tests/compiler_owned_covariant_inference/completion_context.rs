@@ -1,6 +1,239 @@
 use super::*;
 
 #[test]
+fn admitted_aggregate_context_completes_nested_constructors_and_omitted_locals() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Pair<T>\n",
+            "  Paired(T, T)\n",
+            "end\n",
+            "type Choice\n",
+            "  First\n",
+            "  Second\n",
+            "end\n",
+            "fn private_nested_cons()\n",
+            "  Cons(1, Cons(2, Nil))\n",
+            "end\n",
+            "fn ordinary_nested_cons() -> ()\n",
+            "  let value = Cons(1, Cons(2, Nil))\n",
+            "  let checked: List<Int> = value\n",
+            "  ()\n",
+            "end\n",
+            "fn private_collection()\n",
+            "  let empty = []\n",
+            "  [[1], empty]\n",
+            "end\n",
+            "fn ordinary_collection() -> ()\n",
+            "  let empty = []\n",
+            "  let value = [[1], empty]\n",
+            "  let checked: Vec<Vec<Int>> = value\n",
+            "  ()\n",
+            "end\n",
+            "fn private_option()\n",
+            "  let empty = None\n",
+            "  [Some(1), empty]\n",
+            "end\n",
+            "fn ordinary_option() -> ()\n",
+            "  let empty = None\n",
+            "  let value = [Some(1), empty]\n",
+            "  let checked: Vec<Option<Int>> = value\n",
+            "  ()\n",
+            "end\n",
+            "fn private_list()\n",
+            "  let empty = Nil\n",
+            "  [Cons(1, Nil), empty]\n",
+            "end\n",
+            "fn ordinary_list() -> ()\n",
+            "  let empty = Nil\n",
+            "  let value = [Cons(1, Nil), empty]\n",
+            "  let checked: Vec<List<Int>> = value\n",
+            "  ()\n",
+            "end\n",
+            "fn private_dictionary_value()\n",
+            "  let empty = []\n",
+            "  {1: [1], 2: empty}\n",
+            "end\n",
+            "fn ordinary_dictionary_value() -> ()\n",
+            "  let empty = []\n",
+            "  let value = {1: [1], 2: empty}\n",
+            "  let checked: Dict<Int, Vec<Int>> = value\n",
+            "  ()\n",
+            "end\n",
+            "fn private_dictionary_key()\n",
+            "  let empty = []\n",
+            "  {[1]: 1, empty: 2}\n",
+            "end\n",
+            "fn ordinary_dictionary_key() -> ()\n",
+            "  let empty = []\n",
+            "  let value = {[1]: 1, empty: 2}\n",
+            "  let checked: Dict<Vec<Int>, Int> = value\n",
+            "  ()\n",
+            "end\n",
+            "fn private_empty_dictionary()\n",
+            "  let empty = {}\n",
+            "  [{1: 1}, empty]\n",
+            "end\n",
+            "fn ordinary_empty_dictionary() -> ()\n",
+            "  let empty = {}\n",
+            "  let value = [{1: 1}, empty]\n",
+            "  let checked: Vec<Dict<Int, Int>> = value\n",
+            "  ()\n",
+            "end\n",
+            "fn private_if(flag: Bool)\n",
+            "  let empty = []\n",
+            "  if flag\n",
+            "    [1]\n",
+            "  else\n",
+            "    empty\n",
+            "  end\n",
+            "end\n",
+            "fn ordinary_if(flag: Bool) -> ()\n",
+            "  let empty = []\n",
+            "  let value = if flag\n",
+            "    [1]\n",
+            "  else\n",
+            "    empty\n",
+            "  end\n",
+            "  let checked: Vec<Int> = value\n",
+            "  ()\n",
+            "end\n",
+            "fn private_match(choice: Choice)\n",
+            "  let empty = []\n",
+            "  match choice\n",
+            "    First => [1]\n",
+            "    Second => empty\n",
+            "  end\n",
+            "end\n",
+            "fn ordinary_match(choice: Choice) -> ()\n",
+            "  let empty = []\n",
+            "  let value = match choice\n",
+            "    First => [1]\n",
+            "    Second => empty\n",
+            "  end\n",
+            "  let checked: Vec<Int> = value\n",
+            "  ()\n",
+            "end\n",
+            "fn private_payload()\n",
+            "  let empty = []\n",
+            "  Paired([1], empty)\n",
+            "end\n",
+            "fn ordinary_payload() -> ()\n",
+            "  let empty = []\n",
+            "  let value = Paired([1], empty)\n",
+            "  let checked: Pair<Vec<Int>>::Paired = value\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for (function, expected) in [
+        ("private_nested_cons", "List<Int>::Cons"),
+        ("private_collection", "Vec<Vec<Int>>"),
+        ("private_option", "Vec<Option<Int>>"),
+        ("private_list", "Vec<List<Int>>"),
+        ("private_dictionary_value", "Dict<Int, Vec<Int>>"),
+        ("private_dictionary_key", "Dict<Vec<Int>, Int>"),
+        ("private_empty_dictionary", "Vec<Dict<Int, Int>>"),
+        ("private_if", "Vec<Int>"),
+        ("private_match", "Vec<Int>"),
+        ("private_payload", "Pair<Vec<Int>>::Paired"),
+    ] {
+        assert_eq!(
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            expected,
+            "unexpected inferred result for {function}",
+        );
+    }
+}
+
+#[test]
+fn complete_local_constructor_payloads_still_widen_independently() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "end\n",
+            "pub type First = State\n",
+            "pub type Second = State\n",
+            "fn forward(ready: First::Ready, closed: Second::Closed)\n",
+            "  let local = closed\n",
+            "  [Some(ready), Some(local)]\n",
+            "end\n",
+            "fn reverse(ready: First::Ready, closed: Second::Closed)\n",
+            "  let local = closed\n",
+            "  [Some(local), Some(ready)]\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["forward", "reverse"] {
+        assert_eq!(
+            environment.function(function).unwrap().return_type.render(),
+            "Vec<Option<State>::Some>",
+        );
+    }
+}
+
+#[test]
+fn admitted_context_fills_only_unknown_local_slots() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn private_path(first: Result<String, Bool>)\n",
+            "  let partial = Ok(1)\n",
+            "  [first, partial]\n",
+            "end\n",
+            "fn ordinary_path(first: Result<String, Bool>) -> ()\n",
+            "  let partial = Ok(1)\n",
+            "  let values = [first, partial]\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic.message.contains("found `Result<Int, Bool>::Ok`")
+        }),
+        "{diagnostics:#?}",
+    );
+
+    assert_eq!(
+        TypeEnvironment::from_module(&module)
+            .function("private_path")
+            .expect("private_path function")
+            .return_type
+            .render(),
+        "Vec<Result<String, Bool>>",
+        "the rejected local must not replace the earlier admitted join state",
+    );
+}
+
+#[test]
 fn complete_constructor_contributions_preserve_aliases_until_joined() {
     let source = SourceFile::new(
         "main.veln",
