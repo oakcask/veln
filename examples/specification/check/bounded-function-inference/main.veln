@@ -25,6 +25,30 @@ fn width_reverse(first: fn({id: Int}) -> Int, second: fn({id: Int, label: String
 	[second, first]
 end
 
+fn delayed_meet_0(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int)
+	[id_only, label_only, candidate]
+end
+
+fn delayed_meet_1(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int)
+	[id_only, candidate, label_only]
+end
+
+fn delayed_meet_2(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int)
+	[label_only, id_only, candidate]
+end
+
+fn delayed_meet_3(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int)
+	[label_only, candidate, id_only]
+end
+
+fn delayed_meet_4(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int)
+	[candidate, id_only, label_only]
+end
+
+fn delayed_meet_5(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int)
+	[candidate, label_only, id_only]
+end
+
 fn nested_effect_forward(first: fn(fn() -> Int) -> Int, second: fn(fn() -> Int effects [stdio]) -> Int)
 	[first, second]
 end
@@ -57,6 +81,16 @@ end
 fn verify_record_width(first: fn({id: Int}) -> Int, second: fn({id: Int, label: String}) -> Int) -> ()
 	let joined_forward: Vec<fn({id: Int, label: String}) -> Int> = width_forward(first, second)
 	let joined_reverse: Vec<fn({id: Int, label: String}) -> Int> = width_reverse(first, second)
+	()
+end
+
+fn verify_delayed_meet(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int) -> ()
+	let result_0: Vec<fn({id: Int, label: String}) -> Int> = delayed_meet_0(id_only, label_only, candidate)
+	let result_1: Vec<fn({id: Int, label: String}) -> Int> = delayed_meet_1(id_only, label_only, candidate)
+	let result_2: Vec<fn({id: Int, label: String}) -> Int> = delayed_meet_2(id_only, label_only, candidate)
+	let result_3: Vec<fn({id: Int, label: String}) -> Int> = delayed_meet_3(id_only, label_only, candidate)
+	let result_4: Vec<fn({id: Int, label: String}) -> Int> = delayed_meet_4(id_only, label_only, candidate)
+	let result_5: Vec<fn({id: Int, label: String}) -> Int> = delayed_meet_5(id_only, label_only, candidate)
 	()
 end
 

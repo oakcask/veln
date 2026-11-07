@@ -121,10 +121,7 @@ fn aggregate_join_uses_checked_variance_in_parameter_order() {
     let module = lower_surface_ast(&parsed.tree);
     let diagnostics = analyze_surface_module(&module);
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    assert_eq!(
-        diagnostics[0].id, "type.local_inference_incomplete",
-        "{diagnostics:#?}"
-    );
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
 
     let environment = TypeEnvironment::from_module(&module);
     assert_eq!(
@@ -213,7 +210,7 @@ fn assert_package_identity_join_diagnostics(module: &SurfaceModule, app_text: &s
     assert!(
         diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.id == "type.local_inference_incomplete"),
+            .all(|diagnostic| diagnostic.id != "type.local_inference_incomplete"),
         "{diagnostics:#?}",
     );
     let failed_values = diagnostics
@@ -224,7 +221,7 @@ fn assert_package_identity_join_diagnostics(module: &SurfaceModule, app_text: &s
             &app_text[span.start.offset..span.end.offset]
         })
         .collect::<Vec<_>>();
-    assert_eq!(failed_values, ["imported"]);
+    assert_eq!(failed_values, ["second", "imported"]);
 }
 
 fn assert_local_package_identity_join(module: &SurfaceModule) {
@@ -312,11 +309,100 @@ fn non_covariant_source_slots_remain_exact_during_inference() {
         );
         let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
         assert_eq!(diagnostics.len(), 1, "{name}: {diagnostics:#?}");
-        assert_eq!(
-            diagnostics[0].id, "type.local_inference_incomplete",
-            "{name}: {diagnostics:#?}"
-        );
+        let expected = if name == "contravariant" {
+            "type.local_inference_incomplete"
+        } else {
+            "type.mismatch"
+        };
+        assert_eq!(diagnostics[0].id, expected, "{name}: {diagnostics:#?}");
     }
+}
+
+#[test]
+fn exact_source_slots_reject_refinement_mismatches_transactionally() {
+    let source_text = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "type Wrapper<T>\n  A(fn(T) -> T)\n  B(fn(T) -> T)\nend\n",
+        "fn retained(first: Wrapper<State::Ready>::A, rejected: Wrapper<State::Closed>::A, later: Wrapper<State::Ready>::B)\n\
+           [first, rejected, later]\n\
+         end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+    let span = diagnostics[0].span.as_ref().expect("mismatch span");
+    assert_eq!(&source_text[span.start.offset..span.end.offset], "rejected");
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("retained")
+            .expect("retained function")
+            .return_type
+            .render(),
+        "Vec<Wrapper<State::Ready>>",
+    );
+}
+
+#[test]
+fn contravariant_source_slot_retains_a_delayed_meet() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Consumer<T>\n",
+            "  ConsumerValue(fn(T) -> ())\n",
+            "end\n",
+            "fn retained(id_only: Consumer<{id: Int}>, label_only: Consumer<{label: String}>, candidate: Consumer<{id: Int, label: String}>)\n",
+            "  [id_only, label_only, candidate]\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("retained")
+            .expect("retained function")
+            .return_type
+            .render(),
+        "Vec<Consumer<{id: Int, label: String}>>",
+    );
+}
+
+#[test]
+fn bounded_source_join_rejects_exact_mismatch_without_losing_delayed_meet() {
+    let source_text = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "type Wrapper<Input, Exact>\n  InputValue(fn(Input) -> ())\n  ExactOutput(Exact)\n  ExactInput(fn(Exact) -> ())\nend\n",
+        "fn retained(id_only: Wrapper<{id: Int}, State::Ready>, label_only: Wrapper<{label: String}, State::Ready>, rejected: Wrapper<{id: Int, label: String}, State::Closed>, candidate: Wrapper<{id: Int, label: String}, State::Ready>)\n",
+        "  [id_only, label_only, rejected, candidate]\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+    let span = diagnostics[0].span.as_ref().expect("mismatch span");
+    assert_eq!(&source_text[span.start.offset..span.end.offset], "rejected");
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("retained")
+            .expect("retained function")
+            .return_type
+            .render(),
+        "Vec<Wrapper<{id: Int, label: String}, State::Ready>>",
+    );
 }
 
 #[test]

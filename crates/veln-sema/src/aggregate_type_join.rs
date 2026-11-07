@@ -292,7 +292,7 @@ impl AggregateTypeJoin {
             return true;
         }
         if let Some(bounded) = &mut self.bounded {
-            if !bounded_shapes_are_admissible(&bounded.contributions, right) {
+            if !bounded_shapes_are_admissible(adts, &bounded.contributions, right) {
                 return false;
             }
             bounded.admit(adts, right);
@@ -303,7 +303,7 @@ impl AggregateTypeJoin {
             let Some(retained) = self.optimized_contributions.as_deref() else {
                 return false;
             };
-            if !bounded_shapes_are_admissible(retained, right) {
+            if !bounded_shapes_are_admissible(adts, retained, right) {
                 return false;
             }
             let mut contributions = retained.to_vec();
@@ -459,9 +459,13 @@ impl AggregateTypeJoin {
             && Type::is_compiler_covariant_identity(&self.nodes[self.root].identity)
     }
 
-    pub(crate) fn preserves_failed_control_flow_contribution(&self, right: &Type) -> bool {
-        if self.bounded.is_some() {
-            return true;
+    pub(crate) fn preserves_failed_control_flow_contribution(
+        &self,
+        adts: &AdtRegistry,
+        right: &Type,
+    ) -> bool {
+        if let Some(bounded) = &self.bounded {
+            return bounded_shapes_are_admissible(adts, &bounded.contributions, right);
         }
         (self.has_compiler_covariant_root() && self.has_same_root(right))
             || (self.nodes[self.root].record_field_names.is_some()
@@ -771,16 +775,27 @@ fn queue_retainable_named_group<'a>(
             .all(|part| invariant_args_match(first.args, part.args))
             .then_some(false);
     };
+    if !named_exact_arguments_match(&parts, variances) {
+        return None;
+    }
     let covariant = variances
         .iter()
         .enumerate()
         .filter_map(|(argument, variance)| (*variance == Variance::Covariant).then_some(argument));
     queue_named_argument_groups(&parts, covariant, pending);
-    Some(
-        variances
-            .iter()
-            .any(|variance| *variance != Variance::Covariant),
-    )
+    Some(variances.contains(&Variance::Contravariant))
+}
+
+fn named_exact_arguments_match(parts: &[AdtTypeParts<'_>], variances: &[Variance]) -> bool {
+    variances.iter().enumerate().all(|(argument, variance)| {
+        !matches!(variance, Variance::Invariant | Variance::Irrelevant)
+            || parts.iter().skip(1).all(|part| {
+                invariant_args_match(
+                    std::slice::from_ref(&parts[0].args[argument]),
+                    std::slice::from_ref(&part.args[argument]),
+                )
+            })
+    })
 }
 
 fn same_adt_shape(first: AdtTypeParts<'_>, other: AdtTypeParts<'_>) -> bool {
@@ -1617,6 +1632,7 @@ fn collect_function_bound_parts<'a>(
     let Type::Function {
         params: first_params,
         variadic: first_variadic,
+        effects: first_effects,
         ..
     } = contributions.first().copied()?
     else {
@@ -1624,6 +1640,13 @@ fn collect_function_bound_parts<'a>(
     };
     let mut functions = Vec::with_capacity(contributions.len());
     let mut effects = HashSet::new();
+    let has_effect_row = contributions.iter().any(|contribution| {
+        matches!(
+            contribution,
+            Type::Function { effects, .. }
+                if effects.iter().any(|effect| effect.starts_with("..."))
+        )
+    });
     for contribution in contributions {
         let Type::Function {
             params,
@@ -1637,15 +1660,26 @@ fn collect_function_bound_parts<'a>(
         if params.len() != first_params.len() || variadic.is_some() != first_variadic.is_some() {
             return None;
         }
-        effects.extend(contribution_effects.iter().cloned());
+        if has_effect_row {
+            if contribution_effects != first_effects {
+                return None;
+            }
+        } else {
+            effects.extend(contribution_effects.iter().cloned());
+        }
         functions.push(FunctionBoundParts {
             params,
             variadic: variadic.as_deref(),
             return_type,
         });
     }
-    let mut effects = effects.into_iter().collect::<Vec<_>>();
-    effects.sort_unstable();
+    let effects = if has_effect_row {
+        first_effects.clone()
+    } else {
+        let mut effects = effects.into_iter().collect::<Vec<_>>();
+        effects.sort_unstable();
+        effects
+    };
     Some(CollectedFunctionBound {
         functions,
         effects,
@@ -1779,17 +1813,19 @@ fn merge_candidate_presentations(selected: Vec<&Type>) -> Type {
     result
 }
 
-fn bounded_shapes_are_admissible(contributions: &[Type], right: &Type) -> bool {
-    let Some(first) = contributions.first() else {
+fn bounded_shapes_are_admissible(adts: &AdtRegistry, contributions: &[Type], right: &Type) -> bool {
+    if contributions.is_empty() {
         return false;
-    };
-    structurally_compatible_function_shapes(first, right)
+    }
+    contributions
+        .iter()
+        .all(|contribution| structurally_compatible_function_shapes(adts, contribution, right))
 }
 
-fn structurally_compatible_function_shapes(left: &Type, right: &Type) -> bool {
+fn structurally_compatible_function_shapes(adts: &AdtRegistry, left: &Type, right: &Type) -> bool {
     let mut pending = vec![(left, right)];
     while let Some((left, right)) = pending.pop() {
-        if !queue_compatible_shape_pair(left, right, &mut pending) {
+        if !queue_compatible_shape_pair(adts, left, right, &mut pending) {
             return false;
         }
     }
@@ -1797,6 +1833,7 @@ fn structurally_compatible_function_shapes(left: &Type, right: &Type) -> bool {
 }
 
 fn queue_compatible_shape_pair<'a>(
+    adts: &AdtRegistry,
     left: &'a Type,
     right: &'a Type,
     pending: &mut Vec<(&'a Type, &'a Type)>,
@@ -1813,7 +1850,7 @@ fn queue_compatible_shape_pair<'a>(
         (
             left @ (Type::Named { .. } | Type::VariantRefinement { .. }),
             right @ (Type::Named { .. } | Type::VariantRefinement { .. }),
-        ) => queue_compatible_named_shape(left, right, pending),
+        ) => queue_compatible_named_shape(adts, left, right, pending),
         _ => true,
     }
 }
@@ -1875,6 +1912,7 @@ fn queue_compatible_record_shape<'a>(
 }
 
 fn queue_compatible_named_shape<'a>(
+    adts: &AdtRegistry,
     left: &'a Type,
     right: &'a Type,
     pending: &mut Vec<(&'a Type, &'a Type)>,
@@ -1886,7 +1924,26 @@ fn queue_compatible_named_shape<'a>(
     if !same_adt_shape(first, other) {
         return false;
     }
-    pending.extend(first.args.iter().zip(other.args));
+    let compiler_covariant = Type::is_compiler_covariant_identity(first.identity);
+    let variances = (!compiler_covariant)
+        .then(|| adts.parameter_variances_for_identity(first.identity, first.args.len()))
+        .flatten();
+    for (index, (left, right)) in first.args.iter().zip(other.args).enumerate() {
+        let variance = if compiler_covariant {
+            Variance::Covariant
+        } else {
+            variances
+                .and_then(|items| items.get(index).copied())
+                .unwrap_or(Variance::Invariant)
+        };
+        if matches!(variance, Variance::Invariant | Variance::Irrelevant) {
+            if !invariant_args_match(std::slice::from_ref(left), std::slice::from_ref(right)) {
+                return false;
+            }
+        } else {
+            pending.push((left, right));
+        }
+    }
     true
 }
 

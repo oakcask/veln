@@ -67,7 +67,10 @@ fn structural_function_joins_are_order_independent_across_bounded_components() {
 
 #[test]
 fn function_input_meets_keep_irrelevant_arguments_exact() {
-    let source = SourceFile::new("main.veln", "type Ignored<T>\n  Empty\nend\n");
+    let source = SourceFile::new(
+        "main.veln",
+        "type State\n  Ready\n  Closed\nend\ntype Ignored<T>\n  Empty\nend\n",
+    );
     let parsed = parse(&source);
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let environment = TypeEnvironment::from_module(&lower_surface_ast(&parsed.tree));
@@ -78,18 +81,87 @@ fn function_input_meets_keep_irrelevant_arguments_exact() {
         .find(|descriptor| descriptor.type_name == "Ignored")
         .expect("Ignored descriptor")
         .identity();
+    let state_identity = environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "State")
+        .expect("State descriptor")
+        .identity();
+    let refinement = |variant: &str| {
+        Type::resolved_variant_refinement(
+            "State",
+            &state_identity,
+            Vec::new(),
+            vec![variant.to_string()],
+        )
+    };
     let function = |argument| Type::Function {
         params: vec![Type::resolved_named("Ignored", &identity, vec![argument])],
         variadic: None,
         return_type: Box::new(Type::int()),
         effects: Vec::new(),
     };
-    let initial = function(Type::int());
+    let initial = function(refinement("Ready"));
     let mut joined =
         crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
             .expect("bounded function join");
-    assert!(!joined.try_join(&environment.adts, &function(Type::string())));
+    assert!(!joined.try_join(&environment.adts, &function(refinement("Closed"))));
     assert_eq!(joined.result_type(), initial);
+}
+
+#[test]
+fn delayed_function_input_meets_resolve_in_every_order() {
+    let permutations = [
+        ["id_only", "label_only", "candidate"],
+        ["id_only", "candidate", "label_only"],
+        ["label_only", "id_only", "candidate"],
+        ["label_only", "candidate", "id_only"],
+        ["candidate", "id_only", "label_only"],
+        ["candidate", "label_only", "id_only"],
+    ];
+    let mut source = String::new();
+    for (index, order) in permutations.iter().enumerate() {
+        source.push_str(&format!(
+            "fn meet_{index}(id_only: fn({{id: Int}}) -> Int, label_only: fn({{label: String}}) -> Int, candidate: fn({{id: Int, label: String}}) -> Int)\n  [{}, {}, {}]\nend\n",
+            order[0], order[1], order[2]
+        ));
+    }
+    let (module, diagnostics) = analyze(&source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    for index in 0..permutations.len() {
+        assert_eq!(
+            result(&environment, &format!("meet_{index}")),
+            "Vec<fn({id: Int, label: String}) -> Int>"
+        );
+    }
+}
+
+#[test]
+fn structural_function_effect_union_does_not_synthesize_effect_rows() {
+    let source = concat!(
+        "fn mixed<effect E>(row: fn() -> Int effects [...E], concrete: fn() -> Int effects [stdio])\n  [row, concrete]\nend\n",
+        "fn identical<effect E>(first: fn() -> Int effects [...E], second: fn() -> Int effects [...E])\n  [first, second]\nend\n",
+    );
+    let (module, diagnostics) = analyze(source);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.private_inference_incomplete");
+    let inferred = diagnostics[0]
+        .details
+        .as_object()
+        .and_then(|details| details.iter().find(|(key, _)| key == "inferred_type"))
+        .map(|(_, value)| value);
+    assert_eq!(
+        inferred,
+        Some(&veln_diagnostics::JsonValue::string("unknown"))
+    );
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(result(&environment, "mixed"), "unknown");
+    assert_eq!(
+        result(&environment, "identical"),
+        "Vec<fn() -> Int effects [...E]>"
+    );
 }
 
 #[test]

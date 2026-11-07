@@ -204,7 +204,7 @@ pub(super) fn contribute_control_flow_result(
         if result
             .joined
             .as_ref()
-            .is_some_and(|joined| joined.preserves_failed_control_flow_contribution(actual))
+            .is_some_and(|joined| joined.preserves_failed_control_flow_contribution(adts, actual))
         {
             return false;
         }
