@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Checked source-ADT variance classification or compiler-owned covariant inference, their assignment or inference consumption, dependency variance metadata, variance presentation, nested incompatibility diagnostics, or analysis and language-service failure preservation change.
+update-when: Checked source-ADT variance classification, compiler-owned covariant inference, structural-record inference, remaining bounded inference, their assignment or inference consumption, dependency variance metadata, variance presentation, nested incompatibility diagnostics, or analysis and language-service failure preservation change.
 ---
 
 # Generic And Function Variance
@@ -154,6 +154,7 @@ runtime representation changes solely for variance.
 
 The inspected local implementation anchor is
 `crates/veln-sema/src/aggregate_type_join.rs` for current refinement and
-compiler-owned constructor joins. It identifies the shared inference boundary.
-The proposal tables define only the intended behavior that remains beyond the
-implemented covariant and structural-record joins.
+compiler-owned constructor and structural-record joins. It identifies the
+shared inference boundary. The proposal tables define only the intended
+behavior that remains beyond the implemented covariant and structural-record
+joins.

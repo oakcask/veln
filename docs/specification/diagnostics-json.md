@@ -897,7 +897,11 @@ join state keeps every previously admitted argument, refinement, and alias
 presentation unchanged. A later valid contribution continues from that state.
 The checked
 [`compiler-owned covariant inference diagnostic`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/)
-covers that failure and preservation boundary.
+covers that failure and preservation boundary for named constructors. The
+[`structural record join diagnostic`](../../examples/specification/check/structural-record-joins-diagnostics/)
+covers the same unchanged-state outcome when a corresponding field has no
+recursive join or when complete record contributions have different field-name
+sets.
 When different outer aliases contributed to one compiler-owned join, a later
 diagnostic renders the joined type with the compiler-owned canonical name. The
 checked
