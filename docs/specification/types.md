@@ -1442,6 +1442,8 @@ or ambiguous classification metadata also requires exact arguments. Local and
 imported declarations use the same rule because lookup uses resolved nominal
 identity rather than displayed spelling.
 
+### Bounded joins and meets
+
 Bounded inference retains every successfully typed, structurally admissible
 contribution. For a same-constructor source ADT, invariant and irrelevant
 arguments must match exactly before the contribution is admitted. An
@@ -1467,8 +1469,11 @@ a sorted set union. If any effect list contains a row tail, every contribution
 must have the same complete effect list. The join preserves that list and does
 not synthesize a row-bearing effect set from differing contributions. Every
 recursive component must resolve. If a component has no unique result, inference
-requires explicit context and does not construct a function with an `unknown`
-component. An omitted local or private result that remains unresolved
+does not construct a function with an `unknown` component. Compatible explicit
+context can select a result when a source-expressible bounded result exists.
+When no compatible written type exists, as for a meet of disjoint singleton
+refinements, an explicit annotation receives the ordinary incompatibility
+diagnostic. An omitted local or private result that remains unresolved
 reports its existing incomplete-inference diagnostic with `unknown` as the
 inferred type. A contribution whose function shape is incompatible instead
 reports `type.mismatch` at that contribution and does not change the retained
@@ -1489,6 +1494,13 @@ the join. For `N` contributions, the comparison count must not exceed `N * N`;
 after doubling the input, it must not exceed four times the preceding count
 plus the larger input size. Elapsed time is observational and is not an
 acceptance threshold.
+
+The retained fallback state grows at most linearly in the number and owned size
+of admitted contributions. The deterministic 8, 16, and 32 contribution
+workload counts retained candidate slots and all owned type and text material.
+After doubling the input, the count must not exceed twice the preceding count
+plus a constant allowance. Candidate comparison also handles deeply nested
+records, named arguments, and functions without using the host call stack.
 
 Recursive bounded function inference uses explicit linear work frames. The
 deterministic workload joins two functions whose result contains a function

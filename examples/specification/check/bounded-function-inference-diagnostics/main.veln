@@ -1,0 +1,21 @@
+# Disjoint singleton function-input meets have no source-expressible result.
+# Context-free inference remains unknown, and an incompatible annotation uses
+# the ordinary assignment diagnostic instead of manufacturing a wider input.
+pub type State
+	pub Ready
+	pub Closed
+end
+
+fn private_unavailable(first: fn(State::Ready) -> Int, second: fn(State::Closed) -> Int)
+	[first, second]
+end
+
+pub fn local_unavailable(first: fn(State::Ready) -> Int, second: fn(State::Closed) -> Int) -> ()
+	let unavailable = [first, second]
+	()
+end
+
+pub fn annotated_unavailable(first: fn(State::Ready) -> Int, second: fn(State::Closed) -> Int) -> ()
+	let unavailable: Vec<fn(State) -> Int> = [first, second]
+	()
+end

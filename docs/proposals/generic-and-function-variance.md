@@ -13,7 +13,7 @@ dependency invalidation, detailed nested incompatibility context, stable
 formatter, package, LSP, and MCP presentation, and whole-analysis and
 language-service failure preservation. Complete contributed types already use
 the bounded joins and meets defined by the
-[type specification](../specification/types.md#inference-rules); this proposal
+[type specification](../specification/types.md#bounded-joins-and-meets); this proposal
 does not reclassify those rules as future work. This proposal does not add
 declaration-site variance modifiers.
 

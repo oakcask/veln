@@ -91,7 +91,7 @@ inference can form their set union. If any contributed effect set contains a
 row tail, every contributed effect set must be identical for the structural
 function join to resolve. Inference preserves that exact set and does not
 synthesize a row-bearing set from different contributions. The
-[type inference rules](types.md#compatibility-and-limits) define the remaining
+[bounded join and meet rules](types.md#bounded-joins-and-meets) define the remaining
 bounded join and meet behavior.
 
 Source modules may also declare nominal operation effects with `effect Name`

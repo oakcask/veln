@@ -10,7 +10,8 @@ use crate::adt::registry::{AdtRegistry, VariantDeclarationOrder};
 use crate::adt::{type_operations as adt, unification};
 use crate::semantic_model::Type;
 use crate::type_relations::{
-    TypePresentationJoin, invariant_args_match, is_assignable_with_registry, same_type_identity,
+    TypePresentationJoin, invariant_args_match, is_assignable_nested_with_registry,
+    same_type_identity,
 };
 
 pub(crate) struct AggregateTypeJoin {
@@ -25,30 +26,25 @@ struct BoundedJoin {
     contributions: Vec<Type>,
     resolved: Option<Type>,
     fallback: Option<ContributedCandidateState>,
-    relation_cache: HashMap<(String, String), bool>,
 }
 
 struct ContributedCandidateState {
     direction: BoundDirection,
-    assignable: Vec<Vec<bool>>,
     valid: Vec<bool>,
-    selection_blockers: Vec<usize>,
 }
 
 impl BoundedJoin {
     fn from_contributions(adts: &AdtRegistry, contributions: Vec<Type>) -> Self {
         let fallback = uses_outer_contributed_fallback(&contributions)
             .then(|| ContributedCandidateState::new(adts, &contributions, BoundDirection::Join));
-        let mut relation_cache = HashMap::new();
         let resolved = fallback
             .as_ref()
             .map(|state| state.result(&contributions))
-            .unwrap_or_else(|| bounded_join_with_cache(adts, &contributions, &mut relation_cache));
+            .unwrap_or_else(|| bounded_join(adts, &contributions));
         Self {
             contributions,
             resolved,
             fallback,
-            relation_cache,
         }
     }
 
@@ -59,8 +55,7 @@ impl BoundedJoin {
             self.resolved = fallback.result(&self.contributions);
             return;
         }
-        self.resolved =
-            bounded_join_with_cache(adts, &self.contributions, &mut self.relation_cache);
+        self.resolved = bounded_join(adts, &self.contributions);
         if uses_outer_contributed_fallback(&self.contributions) {
             self.fallback = Some(ContributedCandidateState::new(
                 adts,
@@ -75,9 +70,7 @@ impl ContributedCandidateState {
     fn new(adts: &AdtRegistry, contributions: &[Type], direction: BoundDirection) -> Self {
         let mut state = Self {
             direction,
-            assignable: Vec::new(),
             valid: Vec::new(),
-            selection_blockers: Vec::new(),
         };
         for end in 1..=contributions.len() {
             state.admit(adts, &contributions[..end]);
@@ -87,74 +80,36 @@ impl ContributedCandidateState {
 
     fn admit(&mut self, adts: &AdtRegistry, contributions: &[Type]) {
         let new_index = contributions.len() - 1;
-        debug_assert_eq!(self.assignable.len(), new_index);
-        for row in &mut self.assignable {
-            row.push(false);
-        }
-        let mut new_row = vec![false; contributions.len()];
+        debug_assert_eq!(self.valid.len(), new_index);
         for index in 0..new_index {
-            self.assignable[index][new_index] =
-                candidate_assignable(&contributions[index], &contributions[new_index], adts);
-            new_row[index] =
-                candidate_assignable(&contributions[new_index], &contributions[index], adts);
-        }
-        new_row[new_index] = true;
-        self.assignable.push(new_row);
-
-        let previously_valid = self.valid.clone();
-        for index in 0..new_index {
-            if self.valid[index] && !self.valid_relation(index, new_index) {
+            if self.valid[index]
+                && !candidate_relation(
+                    &contributions[index],
+                    &contributions[new_index],
+                    self.direction,
+                    adts,
+                )
+            {
                 self.valid[index] = false;
             }
         }
-        let new_valid = (0..=new_index).all(|other| self.valid_relation(new_index, other));
+        let new_valid = contributions.iter().all(|contribution| {
+            candidate_relation(
+                &contributions[new_index],
+                contribution,
+                self.direction,
+                adts,
+            )
+        });
         self.valid.push(new_valid);
-        self.selection_blockers.push(0);
-
-        for (removed, was_valid) in previously_valid.iter().enumerate().take(new_index) {
-            if *was_valid && !self.valid[removed] {
-                for candidate in 0..new_index {
-                    if self.valid[candidate] && !self.selection_relation(candidate, removed) {
-                        self.selection_blockers[candidate] -= 1;
-                    }
-                }
-            }
-        }
-        if new_valid {
-            for candidate in 0..new_index {
-                if self.valid[candidate] {
-                    if !self.selection_relation(candidate, new_index) {
-                        self.selection_blockers[candidate] += 1;
-                    }
-                    if !self.selection_relation(new_index, candidate) {
-                        self.selection_blockers[new_index] += 1;
-                    }
-                }
-            }
-        }
-    }
-
-    fn valid_relation(&self, candidate: usize, contribution: usize) -> bool {
-        match self.direction {
-            BoundDirection::Join => self.assignable[candidate][contribution],
-            BoundDirection::Meet => self.assignable[contribution][candidate],
-        }
-    }
-
-    fn selection_relation(&self, candidate: usize, other: usize) -> bool {
-        match self.direction {
-            BoundDirection::Join => self.assignable[other][candidate],
-            BoundDirection::Meet => self.assignable[candidate][other],
-        }
     }
 
     fn result(&self, contributions: &[Type]) -> Option<Type> {
         let mut selected = self
             .valid
             .iter()
-            .zip(&self.selection_blockers)
             .enumerate()
-            .filter_map(|(index, (valid, blockers))| (*valid && *blockers == 0).then_some(index))
+            .filter_map(|(index, valid)| (*valid).then_some(index))
             .collect::<Vec<_>>();
         selected.sort_unstable_by_key(|index| contributions[*index].render());
         let first = *selected.first()?;
@@ -227,7 +182,6 @@ impl AggregateTypeJoin {
                     contributions: vec![initial.clone()],
                     resolved: Some(initial.clone()),
                     fallback: None,
-                    relation_cache: HashMap::new(),
                 }),
                 projection_cache: RefCell::new(context_projection::ProjectionCache::default()),
             })
@@ -326,6 +280,24 @@ impl AggregateTypeJoin {
             contributions.push(right.clone());
         }
         true
+    }
+
+    #[cfg(test)]
+    pub(crate) fn bounded_retained_state(&self) -> usize {
+        let Some(bounded) = &self.bounded else {
+            return 0;
+        };
+        let contribution_state = bounded
+            .contributions
+            .iter()
+            .map(type_retained_units)
+            .sum::<usize>();
+        let resolved_state = bounded.resolved.as_ref().map_or(0, type_retained_units);
+        let fallback_state = bounded
+            .fallback
+            .as_ref()
+            .map_or(0, |fallback| fallback.valid.len());
+        bounded.contributions.len() + contribution_state + resolved_state + fallback_state
     }
 
     fn prepare<'a>(
@@ -571,6 +543,53 @@ impl AggregateTypeJoin {
         }
         materialize_refined_node(node, args, variants)
     }
+}
+
+#[cfg(test)]
+fn type_retained_units(ty: &Type) -> usize {
+    let mut units = 0;
+    let mut pending = vec![ty];
+    while let Some(ty) = pending.pop() {
+        units += 1;
+        match ty {
+            Type::Unknown => {}
+            Type::Named {
+                name,
+                identity,
+                args,
+            } => {
+                units += name.len() + identity.len();
+                pending.extend(args);
+            }
+            Type::VariantRefinement {
+                name,
+                identity,
+                args,
+                variants,
+                ..
+            } => {
+                units +=
+                    name.len() + identity.len() + variants.iter().map(String::len).sum::<usize>();
+                pending.extend(args);
+            }
+            Type::Record(fields) => {
+                units += fields.iter().map(|(name, _)| name.len()).sum::<usize>();
+                pending.extend(fields.iter().map(|(_, field)| field));
+            }
+            Type::Function {
+                params,
+                variadic,
+                return_type,
+                effects,
+            } => {
+                units += effects.iter().map(String::len).sum::<usize>();
+                pending.extend(params);
+                pending.extend(variadic.as_deref());
+                pending.push(return_type);
+            }
+        }
+    }
+    units
 }
 
 fn commit_prepared_contribution(
@@ -1181,12 +1200,9 @@ fn join_type_parts(ty: &Type) -> Option<()> {
     .then_some(())
 }
 
-fn bounded_join_with_cache(
-    adts: &AdtRegistry,
-    contributions: &[Type],
-    relation_cache: &mut HashMap<(String, String), bool>,
-) -> Option<Type> {
-    bounded_join_iterative(adts, contributions, relation_cache)
+fn bounded_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
+    let mut relation_cache = HashMap::new();
+    bounded_join_iterative(adts, contributions, &mut relation_cache)
 }
 
 enum BoundTask<'a> {
@@ -2050,7 +2066,19 @@ fn uses_outer_contributed_fallback(contributions: &[Type]) -> bool {
 
 fn candidate_assignable(expected: &Type, actual: &Type, adts: &AdtRegistry) -> bool {
     record_fallback_comparison();
-    is_assignable_with_registry(expected, actual, adts)
+    is_assignable_nested_with_registry(expected, actual, adts)
+}
+
+fn candidate_relation(
+    candidate: &Type,
+    contribution: &Type,
+    direction: BoundDirection,
+    adts: &AdtRegistry,
+) -> bool {
+    match direction {
+        BoundDirection::Join => candidate_assignable(candidate, contribution, adts),
+        BoundDirection::Meet => candidate_assignable(contribution, candidate, adts),
+    }
 }
 
 fn candidate_assignable_cached(

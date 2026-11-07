@@ -49,6 +49,10 @@ fn delayed_meet_5(id_only: fn({id: Int}) -> Int, label_only: fn({label: String})
 	[candidate, label_only, id_only]
 end
 
+fn contextual_meet(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int) -> Vec<fn({id: Int, label: String}) -> Int>
+	[id_only, label_only]
+end
+
 fn nested_effect_forward(first: fn(fn() -> Int) -> Int, second: fn(fn() -> Int effects [stdio]) -> Int)
 	[first, second]
 end
