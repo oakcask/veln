@@ -236,12 +236,14 @@ field-name sets. In that case, inference matches fields by name and recursively
 applies the same bounded join to every corresponding field. Field declaration
 order and contribution order do not change the resolved type or its
 presentation. The contribution is committed only when every field joins. A
-different field-name set or an unavailable recursive field join leaves the
-accumulated type, presentation, and alias provenance unchanged. Record-width
-assignment does not permit context-free inference to drop fields. This
-state-preservation rule also applies to unannotated `if` and `match` results
-and to omitted private results: a rejected record branch reports its mismatch,
-and later compatible branches continue from the last admitted record type.
+failed recursive field join leaves the accumulated type, presentation, and
+alias provenance unchanged. Records with different field-name sets do not
+synthesize a merged field set. They use the contributed-candidate fallback
+described below, which can select a unique width-compatible record only when
+that exact record was contributed. This state-preservation rule also applies
+to unannotated `if` and `match` results and to omitted private results: a
+rejected record branch reports its mismatch, and later compatible branches
+continue from the last admitted record type.
 For a complete single-field record nested to depth `D`, deterministic work
 counters visit `D + 1` type nodes during join setup, contribution acceptance,
 and result materialization. Rejecting an incompatible leaf visits the same

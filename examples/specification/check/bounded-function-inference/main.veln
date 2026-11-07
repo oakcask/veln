@@ -17,6 +17,22 @@ fn refinement_reverse(first: fn(State) -> Int, second: fn(State::Ready) -> Int e
 	[second, first]
 end
 
+fn width_forward(first: fn({id: Int}) -> Int, second: fn({id: Int, label: String}) -> Int)
+	[first, second]
+end
+
+fn width_reverse(first: fn({id: Int}) -> Int, second: fn({id: Int, label: String}) -> Int)
+	[second, first]
+end
+
+fn nested_effect_forward(first: fn(fn() -> Int) -> Int, second: fn(fn() -> Int effects [stdio]) -> Int)
+	[first, second]
+end
+
+fn nested_effect_reverse(first: fn(fn() -> Int) -> Int, second: fn(fn() -> Int effects [stdio]) -> Int)
+	[second, first]
+end
+
 fn fallback(first: fn() -> {id: Int, left: String}, second: fn() -> {id: Int, right: Bool}, candidate: fn() -> {id: Int})
 	[first, second, candidate]
 end
@@ -35,5 +51,17 @@ fn verify(first: fn(State) -> Int, second: fn(State::Ready) -> Int effects [stdi
 	let selected: Vec<fn() -> {id: Int}> = fallback(left, right, candidate)
 	let alias_forward: Vec<fn(State::Ready) -> Int> = aliases_forward(alias_first, alias_second)
 	let alias_reverse: Vec<fn(State::Ready) -> Int> = aliases_reverse(alias_first, alias_second)
+	()
+end
+
+fn verify_record_width(first: fn({id: Int}) -> Int, second: fn({id: Int, label: String}) -> Int) -> ()
+	let joined_forward: Vec<fn({id: Int, label: String}) -> Int> = width_forward(first, second)
+	let joined_reverse: Vec<fn({id: Int, label: String}) -> Int> = width_reverse(first, second)
+	()
+end
+
+fn verify_nested_effect(first: fn(fn() -> Int) -> Int, second: fn(fn() -> Int effects [stdio]) -> Int) -> ()
+	let joined_forward: Vec<fn(fn() -> Int) -> Int> = nested_effect_forward(first, second)
+	let joined_reverse: Vec<fn(fn() -> Int) -> Int> = nested_effect_reverse(first, second)
 	()
 end

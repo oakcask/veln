@@ -111,8 +111,8 @@ impl ContributedCandidateState {
         self.valid.push(new_valid);
         self.selection_blockers.push(0);
 
-        for removed in 0..new_index {
-            if previously_valid[removed] && !self.valid[removed] {
+        for (removed, was_valid) in previously_valid.iter().enumerate().take(new_index) {
+            if *was_valid && !self.valid[removed] {
                 for candidate in 0..new_index {
                     if self.valid[candidate] && !self.selection_relation(candidate, removed) {
                         self.selection_blockers[candidate] -= 1;
@@ -1302,11 +1302,11 @@ fn schedule_named_bound<'a>(
                 .map(|descriptor| adts.canonical_type_name_for_descriptor(descriptor))
         })
         .unwrap_or_else(|| first.name.to_string());
-    let name = parts
-        .iter()
-        .all(|part| part.name == first.name)
-        .then(|| first.name.to_string())
-        .unwrap_or(canonical_name);
+    let name = if parts.iter().all(|part| part.name == first.name) {
+        first.name.to_string()
+    } else {
+        canonical_name
+    };
     let Some(variants) = joined_named_variants(adts, first, &parts) else {
         results.push(None);
         return;
@@ -1348,7 +1348,7 @@ fn schedule_named_bound<'a>(
                     .skip(1)
                     .all(|argument| {
                         invariant_args_match(
-                            std::slice::from_ref(&arguments[0]),
+                            std::slice::from_ref(arguments[0]),
                             std::slice::from_ref(argument),
                         )
                     })
