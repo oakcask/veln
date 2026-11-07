@@ -72,6 +72,8 @@ transactional exclusion of contributions whose nested argument cannot join,
 and describes how an unrefined compiler-owned immutable join supplies
 argument-specific context to a later context-dependent expression without
 re-resolving an earlier expression that emitted a diagnostic. It also covers
+rejected contributions leaving still-unknown arguments of omitted locals and
+their direct aliases unconstrained, and
 incomplete nested refinements blocking only their affected arguments,
 including an empty collection used as a later dictionary key or value, an
 otherwise ambiguous nullary constructor selected by its admitted payload type,

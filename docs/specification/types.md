@@ -1517,11 +1517,12 @@ case covers the canonical result for both contribution orders.
 A same-constructor covariant join is transactional across all arguments. If a
 later nested argument cannot join, the failed contribution reports
 `type.mismatch` at that contribution and does not change any admitted argument,
-refinement set, alias presentation, omitted-local type, or transparent alias
-group fact. A later valid contribution continues from the last admitted state.
-Permuting successful contributions produces the same resolved type and
-presentation. These rules apply to compiler-owned constructors and covariant
-source-ADT parameters.
+refinement set, or alias presentation. It also does not constrain a
+still-unknown argument of an omitted local, including through a direct local
+alias. A later valid contribution can complete that argument from the last
+admitted state. Permuting successful contributions produces the same resolved
+type and presentation. These rules apply to compiler-owned constructors and
+covariant source-ADT parameters.
 
 Projecting an admitted aggregate context through nested compiler-owned
 constructors has bounded linear total work and retained state. The deterministic
