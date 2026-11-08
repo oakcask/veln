@@ -1655,19 +1655,23 @@ rules used by [source ADT parameter classifications](#source-adt-parameter-class
 | --- | --- |
 | Positive | A lower bound selected by the bounded join. |
 | Negative | An upper bound selected by the bounded meet. |
-| Invariant | An equality constraint on one type identity. |
+| Invariant | An equality constraint on one complete type. |
 | Irrelevant | No constraint. |
 
 An equality constraint fixes the argument. Every lower bound must be assignable
 to that argument, and the argument must be assignable to every upper bound.
 Without equality, one or more lower bounds select their bounded join; that
 result must satisfy every upper bound. Upper bounds alone select their bounded
-meet. If there is no effective concrete constraint, or the required join or
-meet has no result, the constructor keeps its existing explicit-context
-requirement and reports the existing ambiguity without context. It does not
-synthesize a union, intersection, bottom type, or `unknown` argument. An
-explicit expected constructor type can supply an argument that irrelevant
-occurrences or unavailable bounds do not infer.
+meet. Constraint selection considers the complete set of accepted bounds. A
+prefix whose structural bounds have no bounded result remains unresolved; a
+later bound can make the complete set resolvable. The selected result must then
+satisfy every accumulated bound. This transition and its result are independent
+of payload order. If there is no effective concrete constraint, or the complete
+set has no required join or meet, the constructor keeps its existing
+explicit-context requirement and reports the existing ambiguity without
+context. It does not synthesize a union, intersection, bottom type, or `unknown`
+argument. An explicit expected constructor type can supply an argument that
+irrelevant occurrences or unavailable bounds do not infer.
 
 All occurrences contributed by one payload are accepted or rejected together.
 If one occurrence conflicts, no occurrence from that payload constrains the
@@ -1747,6 +1751,16 @@ meet updates, bound validation, and presentation reconciliation. In both the
 resolvable and unavailable workloads, each doubled size may use at most twice
 the preceding work plus a fixed allowance of 128. Elapsed time is observational
 and is not an acceptance threshold.
+
+A structural-transition workload alternates two function lower bounds whose
+pair has no bounded result, then adds a function bound that makes the complete
+set resolvable. It measures 8, 16, and 32 repetitions in ordinary body
+inference and omitted private-result inference. The work metric also includes
+bounded-candidate ordering, relation-key construction, result materialization,
+and relation-cache retained state. Each doubled size may use at most twice the
+preceding work plus 256. The result must be the same resolved function type in
+both inference pipelines. Elapsed time is observational and is not an
+acceptance threshold.
 
 Complementary workloads project repeated list and dictionary members through
 wide record and function contexts. Wrapped workloads put each structural
