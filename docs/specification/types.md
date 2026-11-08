@@ -1457,10 +1457,14 @@ by every contribution and accepts every other valid candidate. Resolved
 identity, rather than alias spelling, determines candidate equality.
 Successfully admitted exact arguments and bounded candidates reconcile alias
 preferences across all retained contributions, including while a sibling bound
-remains unresolved. Conflicting preferences use the canonical presentation,
-and contribution order does not change that presentation. A rejected or
-diagnostically failed contribution does not change the retained contributions
-or presentation state.
+remains unresolved. The contributed-candidate fallback also reconciles shared
+parts of every admitted contribution, not only contributions whose complete
+shape remains a candidate for the result. A record-width contribution that
+cannot itself become the selected shape can therefore supply an alias
+preference for a shared field. Conflicting preferences use the canonical
+presentation, and contribution order does not change that presentation. A
+rejected or diagnostically failed contribution does not change the retained
+contributions or presentation state.
 
 Structural functions join only when their fixed parameter counts and variadic
 presence match. Every fixed and variadic input uses the bounded meet. The
@@ -1484,8 +1488,10 @@ contributed record, while record-width function results select the narrower
 contributed record. The checked
 [`bounded function inference`](../../examples/specification/check/bounded-function-inference/)
 case covers refinement inputs, effect union, explicit-context compatibility,
-and delayed candidate selection. Semantic regression coverage independently
-checks context-free inferred signatures and every contribution order. The
+delayed candidate selection, and canonical alias presentation when candidate
+and non-candidate record shapes contribute conflicting aliases. Semantic
+regression coverage independently checks context-free inferred signatures and
+every contribution order. The
 [`diagnostic companion`](../../examples/specification/check/bounded-function-inference-diagnostics/)
 checks unresolved local and private results plus incompatible explicit context.
 
