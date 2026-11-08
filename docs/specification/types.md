@@ -1568,6 +1568,17 @@ join visits exactly `D + 4` bounded frames. Each doubled depth permits at most
 twice the preceding frame count plus one. Elapsed time is observational and is
 not an acceptance threshold.
 
+Direct function-return chains also use linear work and retained state. The
+companion deterministic workload joins two zero-parameter function chains at
+depths 512, 1024, and 2048. Their leaf functions differ only by the `stdio`
+effect, and the resolved leaf must contain that effect. The workload counts
+type-clone nodes, bounded frames, and retained state while checking that setup,
+materialization, and destruction complete on a 128 KiB worker stack. After
+doubling the depth, clone nodes must not exceed twice the preceding count plus
+16, bounded frames must not exceed twice the preceding count plus 4, and
+retained state must not exceed twice the preceding count plus 32. Elapsed time
+is not an acceptance threshold.
+
 Same-constructor contributions to compiler-owned immutable `Option<T>`,
 `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>` recursively join every
 argument. `Result` joins its value and error arguments independently, and
