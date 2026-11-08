@@ -37,15 +37,26 @@ pub(crate) enum ConstructorLowerBoundAdmission {
 struct TypeParameterConstraints {
     lower: CanonicalConstraintBound,
     upper: CanonicalConstraintBound,
-    equality: Option<Type>,
+    equality: Option<CanonicalConstraint>,
     resolved: Option<Type>,
     lower_join: Option<AggregateTypeJoin>,
 }
 
-#[derive(Default)]
+#[derive(Clone)]
+struct CanonicalConstraint {
+    ty: Type,
+    presentation: TypePresentationJoin,
+}
+
+struct ConstraintListNode {
+    constraint: CanonicalConstraint,
+    previous: Option<Arc<ConstraintListNode>>,
+}
+
+#[derive(Clone, Default)]
 struct CanonicalConstraintBound {
-    selected: Option<Type>,
-    unresolved: Vec<Type>,
+    selected: Option<CanonicalConstraint>,
+    unresolved: Option<Arc<ConstraintListNode>>,
 }
 
 #[derive(Clone)]
@@ -1721,11 +1732,7 @@ impl ConstructorTypeArgConstraints {
             return ConstructorLowerBoundAdmission::Admitted;
         }
         let admitted = constraints.lower_join.as_ref().map_or_else(
-            || {
-                let mut candidates = constraints.lower.refs();
-                candidates.push(actual);
-                bounded_join_refs(adts, &candidates).is_some()
-            },
+            || constraints.lower.can_admit_lower(actual, adts),
             |joined| joined.can_admit(adts, actual),
         );
         if admitted {
@@ -1858,7 +1865,7 @@ impl TypeParameterConstraints {
             self.lower_join = AggregateTypeJoin::new(adts, &contribution);
             if self.lower_join.is_none() {
                 self.resolved = Some(contribution.clone());
-                self.lower.selected = Some(contribution);
+                self.lower.selected = Some(CanonicalConstraint::new(contribution));
             } else {
                 self.resolved = None;
             }
@@ -1885,19 +1892,21 @@ impl TypeParameterConstraints {
         contribution: Type,
     ) -> Result<(), unification::TypeParameterContributionConflict> {
         let Some(current) = self.equality.as_mut() else {
-            self.equality = Some(contribution);
+            self.equality = Some(CanonicalConstraint::new(contribution));
             return Ok(());
         };
         record_work(1);
         if !invariant_args_match(
-            std::slice::from_ref(current),
+            std::slice::from_ref(&current.ty),
             std::slice::from_ref(&contribution),
         ) {
-            return Err(type_parameter_constraint_conflict(current, &contribution));
+            return Err(type_parameter_constraint_conflict(
+                &current.ty,
+                &contribution,
+            ));
         }
         record_work(1);
-        let mut presentation = TypePresentationJoin::default();
-        presentation.merge(current, &contribution);
+        current.merge(CanonicalConstraint::new(contribution));
         Ok(())
     }
 
@@ -1909,102 +1918,189 @@ impl TypeParameterConstraints {
     }
 }
 
+impl CanonicalConstraint {
+    fn new(ty: Type) -> Self {
+        Self {
+            ty,
+            presentation: TypePresentationJoin::default(),
+        }
+    }
+
+    fn merge(&mut self, other: Self) {
+        self.presentation.merge(&mut self.ty, &other.ty);
+        self.presentation.absorb(&mut self.ty, &other.presentation);
+    }
+}
+
 impl CanonicalConstraintBound {
     fn from_join(joined: &AggregateTypeJoin) -> Self {
         if let Some(selected) = joined.resolved_result_type() {
+            let mut selected = CanonicalConstraint::new(selected);
+            for contribution in joined.constraint_contributions() {
+                if invariant_args_match(
+                    std::slice::from_ref(&selected.ty),
+                    std::slice::from_ref(&contribution),
+                ) {
+                    selected.merge(CanonicalConstraint::new(contribution));
+                }
+            }
             return Self {
                 selected: Some(selected),
-                unresolved: Vec::new(),
+                unresolved: None,
             };
         }
-        Self {
-            selected: None,
-            unresolved: joined.constraint_contributions(),
+        let mut bound = Self::default();
+        for contribution in joined.constraint_contributions() {
+            bound.push_unresolved(CanonicalConstraint::new(contribution));
         }
+        bound
     }
 
     fn from_lower_contributions(contributions: Vec<Type>, adts: &AdtRegistry) -> Self {
-        let refs = contributions.iter().collect::<Vec<_>>();
-        if let Some(selected) = bounded_join_refs(adts, &refs) {
-            Self {
-                selected: Some(selected),
-                unresolved: Vec::new(),
-            }
-        } else {
-            Self {
-                selected: None,
-                unresolved: contributions,
-            }
+        let mut bound = Self::default();
+        for contribution in contributions {
+            bound.admit(contribution, BoundDirection::Join, adts);
         }
+        bound
     }
     fn clone_for_trial(&self) -> Self {
-        Self {
-            selected: self.selected.clone(),
-            unresolved: self.unresolved.clone(),
-        }
+        self.clone()
     }
 
     fn has_constraints(&self) -> bool {
-        self.selected.is_some() || !self.unresolved.is_empty()
+        self.selected.is_some() || self.unresolved.is_some()
     }
 
     fn first(&self) -> Option<&Type> {
-        self.selected.as_ref().or_else(|| self.unresolved.first())
+        self.selected
+            .as_ref()
+            .map(|selected| &selected.ty)
+            .or_else(|| self.unresolved.as_ref().map(|node| &node.constraint.ty))
     }
 
     fn refs(&self) -> Vec<&Type> {
-        self.selected.iter().chain(&self.unresolved).collect()
+        self.constraints()
+            .into_iter()
+            .map(|constraint| &constraint.ty)
+            .collect()
     }
 
     fn candidate(&self) -> Option<&Type> {
-        self.selected.as_ref()
+        self.selected.as_ref().map(|selected| &selected.ty)
+    }
+
+    fn can_admit_lower(&self, actual: &Type, adts: &AdtRegistry) -> bool {
+        if self.unresolved.is_some() {
+            return true;
+        }
+        let Some(selected) = &self.selected else {
+            return true;
+        };
+        if invariant_args_match(
+            std::slice::from_ref(&selected.ty),
+            std::slice::from_ref(actual),
+        ) {
+            return true;
+        }
+        bounded_join_refs(adts, &[&selected.ty, actual]).is_some()
     }
 
     fn admit(&mut self, contribution: Type, direction: BoundDirection, adts: &AdtRegistry) {
         if !self.has_constraints() {
-            self.selected = Some(contribution);
+            self.selected = Some(CanonicalConstraint::new(contribution));
             return;
         }
-        if self.merge_equivalent(&contribution) {
+        let contribution = CanonicalConstraint::new(contribution);
+        if self.merge_equivalent(contribution.clone()) {
             return;
         }
-        let mut candidates = self.refs();
-        candidates.push(&contribution);
+
+        if let Some(unresolved) = &self.unresolved {
+            if !candidate_relation(&contribution.ty, &unresolved.constraint.ty, direction, adts) {
+                self.push_unresolved(contribution);
+                return;
+            }
+        }
+
+        let mut constraints = self.constraints();
+        constraints.push(&contribution);
+        let candidates = constraints
+            .iter()
+            .map(|constraint| &constraint.ty)
+            .collect::<Vec<_>>();
         record_work(candidates.len());
         let resolved = match direction {
             BoundDirection::Join => bounded_join_refs(adts, &candidates),
             BoundDirection::Meet => bounded_meet_refs(adts, &candidates),
         };
         if let Some(resolved) = resolved {
-            self.selected = Some(resolved);
-            self.unresolved.clear();
+            let mut selected = CanonicalConstraint::new(resolved);
+            for constraint in constraints {
+                if invariant_args_match(
+                    std::slice::from_ref(&selected.ty),
+                    std::slice::from_ref(&constraint.ty),
+                ) {
+                    selected.merge(constraint.clone());
+                }
+            }
+            self.selected = Some(selected);
+            self.unresolved = None;
         } else {
             if let Some(selected) = self.selected.take() {
-                self.unresolved.push(selected);
+                self.push_unresolved(selected);
             }
-            self.unresolved.push(contribution);
+            self.push_unresolved(contribution);
         }
     }
 
-    fn merge_equivalent(&mut self, contribution: &Type) -> bool {
-        let existing = self
-            .selected
-            .iter_mut()
-            .chain(&mut self.unresolved)
-            .find(|existing| {
-                record_work(1);
-                invariant_args_match(
-                    std::slice::from_ref(*existing),
-                    std::slice::from_ref(contribution),
-                )
-            });
-        let Some(existing) = existing else {
+    fn merge_equivalent(&mut self, contribution: CanonicalConstraint) -> bool {
+        record_work(1);
+        if let Some(selected) = self.selected.as_mut() {
+            if invariant_args_match(
+                std::slice::from_ref(&selected.ty),
+                std::slice::from_ref(&contribution.ty),
+            ) {
+                selected.merge(contribution);
+                return true;
+            }
+            return false;
+        }
+        let Some(head) = self.unresolved.as_ref() else {
             return false;
         };
-        record_work(1);
-        let mut presentation = TypePresentationJoin::default();
-        presentation.merge(existing, contribution);
+        if !invariant_args_match(
+            std::slice::from_ref(&head.constraint.ty),
+            std::slice::from_ref(&contribution.ty),
+        ) {
+            return false;
+        }
+        let mut constraint = head.constraint.clone();
+        constraint.merge(contribution);
+        self.unresolved = Some(Arc::new(ConstraintListNode {
+            constraint,
+            previous: head.previous.clone(),
+        }));
         true
+    }
+
+    fn push_unresolved(&mut self, constraint: CanonicalConstraint) {
+        self.unresolved = Some(Arc::new(ConstraintListNode {
+            constraint,
+            previous: self.unresolved.clone(),
+        }));
+    }
+
+    fn constraints(&self) -> Vec<&CanonicalConstraint> {
+        if let Some(selected) = &self.selected {
+            return vec![selected];
+        }
+        let mut constraints = Vec::new();
+        let mut current = self.unresolved.as_deref();
+        while let Some(node) = current {
+            constraints.push(&node.constraint);
+            current = node.previous.as_deref();
+        }
+        constraints
     }
 }
 
@@ -2207,13 +2303,15 @@ fn solve_type_parameter_constraints(
         .transpose()
 }
 
-fn select_constraint_candidate(constraints: &TypeParameterConstraints) -> Option<Type> {
+fn select_constraint_candidate(
+    constraints: &TypeParameterConstraints,
+) -> Option<CanonicalConstraint> {
     if let Some(equality) = &constraints.equality {
         Some(equality.clone())
     } else if constraints.lower.has_constraints() {
-        constraints.lower.candidate().cloned()
+        constraints.lower.selected.clone()
     } else if constraints.upper.has_constraints() {
-        constraints.upper.candidate().cloned()
+        constraints.upper.selected.clone()
     } else {
         None
     }
@@ -2221,43 +2319,42 @@ fn select_constraint_candidate(constraints: &TypeParameterConstraints) -> Option
 
 fn validate_constraint_bounds(
     constraints: &TypeParameterConstraints,
-    mut selected: Type,
+    mut selected: CanonicalConstraint,
     adts: &AdtRegistry,
 ) -> Result<Type, unification::TypeParameterContributionConflict> {
     for lower in constraints.lower.refs() {
         record_work(1);
-        if !is_assignable_nested_with_registry(&selected, lower, adts) {
-            return Err(type_parameter_constraint_conflict(&selected, lower));
+        if !is_assignable_nested_with_registry(&selected.ty, lower, adts) {
+            return Err(type_parameter_constraint_conflict(&selected.ty, lower));
         }
     }
     for upper in constraints.upper.refs() {
         record_work(1);
-        if !is_assignable_nested_with_registry(upper, &selected, adts) {
-            return Err(type_parameter_constraint_conflict(upper, &selected));
+        if !is_assignable_nested_with_registry(upper, &selected.ty, adts) {
+            return Err(type_parameter_constraint_conflict(upper, &selected.ty));
         }
     }
     reconcile_constraint_presentations(constraints, &mut selected, adts);
-    Ok(selected)
+    Ok(selected.ty)
 }
 
 fn reconcile_constraint_presentations(
     constraints: &TypeParameterConstraints,
-    selected: &mut Type,
+    selected: &mut CanonicalConstraint,
     adts: &AdtRegistry,
 ) {
-    let mut presentation = TypePresentationJoin::default();
     let contributions = constraints
         .lower
-        .refs()
+        .constraints()
         .into_iter()
-        .chain(constraints.upper.refs())
+        .chain(constraints.upper.constraints())
         .chain(constraints.equality.iter());
     for contribution in contributions {
         record_work(1);
-        if is_assignable_nested_with_registry(selected, contribution, adts)
-            && is_assignable_nested_with_registry(contribution, selected, adts)
+        if is_assignable_nested_with_registry(&selected.ty, &contribution.ty, adts)
+            && is_assignable_nested_with_registry(&contribution.ty, &selected.ty, adts)
         {
-            presentation.merge(selected, contribution);
+            selected.merge(contribution.clone());
         }
     }
 }
