@@ -7,7 +7,7 @@ contains = [
   "expected `Int`, but found `String`",
   "expected `Option<Int>::Some`, but found `Option<String>::Some`",
   "expected `First::Value`, but found `Second::Value`",
-  "expected `unknown`, but found `Option<String>::Some`",
+  "constructor `Paired` needs type context",
 ]
 
 [stderr]
@@ -99,12 +99,12 @@ line = 109
 column = 27
 
 [[diagnostics]]
-id = "type.mismatch"
+id = "type.inference_ambiguous"
 severity = "error"
 kind = "type"
-message = "expected `unknown`, but found `Option<String>::Some`"
+message = "constructor `Paired` needs type context"
 
 [diagnostics.span]
 file = "main.veln"
 line = 110
-column = 34
+column = 15
