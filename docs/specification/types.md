@@ -238,15 +238,19 @@ Complete record contributions join structurally only when they have identical
 field-name sets. In that case, inference matches fields by name and recursively
 applies the same bounded join to every corresponding field. Field declaration
 order and contribution order do not change the resolved type or its
-presentation. The contribution is committed only when every field joins. A
-failed recursive field join leaves the accumulated type, presentation, and
-alias provenance unchanged. Records with different field-name sets do not
-synthesize a merged field set. They use the contributed-candidate fallback
-described below, which can select a unique width-compatible record only when
-that exact record was contributed. This state-preservation rule also applies
-to unannotated `if` and `match` results and to omitted private results: a
-rejected record branch reports its mismatch, and later compatible branches
-continue from the last admitted record type.
+presentation. The contribution is admitted only when every corresponding
+field is structurally admissible. An exact-argument mismatch or another
+structurally inadmissible recursive field leaves the accumulated type,
+presentation, and alias provenance unchanged. A compatible recursive field
+whose bounded join has no unique result remains admitted and keeps the
+enclosing result unresolved until a later contribution or explicit context
+completes it. Records with different field-name sets do not synthesize a merged
+field set. They use the contributed-candidate fallback described below, which
+can select a unique width-compatible record only when that exact record was
+contributed. This state-preservation rule also applies to unannotated `if` and
+`match` results and to omitted private results: a rejected record branch
+reports its mismatch, and later compatible branches continue from the last
+admitted record type.
 For a complete single-field record nested to depth `D`, deterministic work
 counters visit `D + 1` type nodes during join setup, contribution acceptance,
 and result materialization. Rejecting an incompatible leaf visits the same
@@ -1533,6 +1537,22 @@ plus the larger input size, and normalized-key work can grow by at most twice
 plus a constant allowance. The workload also checks the resolved identity,
 presentation, and linear retained-state bound. Elapsed time remains
 observational.
+
+Distinct structural-function results have a separate deterministic workload.
+It contributes functions with one `Int` input and descending-width record
+results, including a rejected incompatible result and alternating aliases of
+one resolved field identity. At width `N`, the admitted generated result types
+contain `S(N) = N * (N + 1) / 2 + 3 * N + 5` field occurrences. The work
+metric counts candidate iterations, normalized-key nodes, candidate ordering,
+result materialization, record-field matching, and presentation reconciliation.
+For `N = 16`, `N = 32`, and `N = 64`, total work must not exceed `200 * S(N)`,
+temporary relation state must not exceed 8 entries or 1024 key bytes, and the
+rejected result must leave the resolved result and retained state unchanged.
+After doubling `N`, candidate iterations must not exceed four times the
+preceding count plus `N`, total work must not exceed seven times the preceding
+count plus `64 * N`, and retained state must not exceed four times the
+preceding count plus `8 * N`. The final result identity and presentation are
+also checked. Elapsed time remains observational.
 
 The retained fallback state grows at most linearly in the number and owned size
 of admitted contributions. The deterministic 8, 16, and 32 contribution

@@ -912,9 +912,11 @@ The checked
 [`compiler-owned covariant inference diagnostic`](../../examples/specification/check/compiler-owned-covariant-inference-diagnostics/)
 covers that failure and preservation boundary for named constructors. The
 [`structural record join diagnostic`](../../examples/specification/check/structural-record-joins-diagnostics/)
-covers the same unchanged-state outcome when a corresponding field has no
-recursive join. Complete records with different field-name sets instead use
-the contributed-candidate rule from the
+covers the same unchanged-state outcome when a corresponding field is
+structurally inadmissible. A compatible field whose bounded join has no unique
+result instead remains admitted under the incomplete-inference rule above.
+Complete records with different field-name sets use the contributed-candidate
+rule from the
 [type inference specification](types.md#inference-rules); they produce no
 diagnostic when that rule selects a unique result. Before candidate selection,
 every shared field path must remain compatible. An invariant or irrelevant

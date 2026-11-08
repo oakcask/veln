@@ -85,8 +85,8 @@ their direct aliases unconstrained, and
 incomplete nested refinements blocking only their affected arguments,
 including an empty collection used as a later dictionary key or value, or a
 payload-carrying constructor whose payloads leave a generic argument
-unknown, and exact inference for other source-ADT classifications or
-unavailable metadata,
+unknown, and exact admission for invariant or irrelevant source-ADT arguments
+or unavailable variance metadata,
 stable match-path narrowing, runtime erasure,
 transitive alias-qualified identity and presentation, complete-domain alias
 reconciliation, generic payload propagation across alias-qualified constructor
