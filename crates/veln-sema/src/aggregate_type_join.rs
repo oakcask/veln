@@ -2364,83 +2364,87 @@ fn admission_witness(adts: &AdtRegistry, contributions: &[Type]) -> Option<usize
 fn structural_paths_cover(adts: &AdtRegistry, cover: &Type, covered: &Type) -> bool {
     let mut pending = vec![(cover, covered)];
     while let Some((cover, covered)) = pending.pop() {
-        match (cover, covered) {
-            (
-                Type::Function {
-                    params: cover_params,
-                    variadic: cover_variadic,
-                    return_type: cover_return,
-                    ..
-                },
-                Type::Function {
-                    params: covered_params,
-                    variadic: covered_variadic,
-                    return_type: covered_return,
-                    ..
-                },
-            ) => {
-                if cover_params.len() != covered_params.len()
-                    || cover_variadic.is_some() != covered_variadic.is_some()
-                {
-                    return false;
-                }
-                pending.extend(cover_params.iter().zip(covered_params));
-                if let (Some(cover), Some(covered)) = (cover_variadic, covered_variadic) {
-                    pending.push((cover, covered));
-                }
-                pending.push((cover_return, covered_return));
-            }
-            (Type::Function { .. }, _) | (_, Type::Function { .. }) => return false,
-            (Type::Record(cover_fields), Type::Record(covered_fields)) => {
-                for _ in cover_fields {
-                    record_field_match_work();
-                }
-                let cover_by_name = cover_fields
-                    .iter()
-                    .map(|(name, ty)| (name.as_str(), ty))
-                    .collect::<HashMap<_, _>>();
-                for (name, covered) in covered_fields {
-                    record_field_match_work();
-                    let Some(cover) = cover_by_name.get(name.as_str()) else {
-                        return false;
-                    };
-                    pending.push((*cover, covered));
-                }
-            }
-            (Type::Record(_), _) | (_, Type::Record(_)) => return false,
-            (
-                cover @ (Type::Named { .. } | Type::VariantRefinement { .. }),
-                covered @ (Type::Named { .. } | Type::VariantRefinement { .. }),
-            ) => {
-                let first = adt_type_parts(cover).expect("named coverage was selected");
-                let Some(other) = adt_type_parts(covered) else {
-                    return false;
-                };
-                if !same_adt_shape(first, other) {
-                    return false;
-                }
-                let compiler_covariant = Type::is_compiler_covariant_identity(first.identity);
-                let variances = (!compiler_covariant)
-                    .then(|| {
-                        adts.parameter_variances_for_identity(first.identity, first.args.len())
-                    })
-                    .flatten();
-                for (index, (cover, covered)) in first.args.iter().zip(other.args).enumerate() {
-                    let variance = if compiler_covariant {
-                        Variance::Covariant
-                    } else {
-                        variances
-                            .and_then(|items| items.get(index).copied())
-                            .unwrap_or(Variance::Invariant)
-                    };
-                    if matches!(variance, Variance::Covariant | Variance::Contravariant) {
-                        pending.push((cover, covered));
-                    }
-                }
-            }
-            (Type::Named { .. } | Type::VariantRefinement { .. }, _)
-            | (_, Type::Named { .. } | Type::VariantRefinement { .. }) => return false,
-            (Type::Unknown, Type::Unknown) => {}
+        if !queue_structural_cover_pair(adts, cover, covered, &mut pending) {
+            return false;
+        }
+    }
+    true
+}
+
+fn queue_structural_cover_pair<'a>(
+    adts: &AdtRegistry,
+    cover: &'a Type,
+    covered: &'a Type,
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    match (cover, covered) {
+        (Type::Function { .. }, Type::Function { .. }) => {
+            queue_compatible_function_shape(cover, covered, pending)
+        }
+        (Type::Function { .. }, _) | (_, Type::Function { .. }) => false,
+        (Type::Record(cover), Type::Record(covered)) => {
+            queue_structural_record_cover(cover, covered, pending)
+        }
+        (Type::Record(_), _) | (_, Type::Record(_)) => false,
+        (
+            cover @ (Type::Named { .. } | Type::VariantRefinement { .. }),
+            covered @ (Type::Named { .. } | Type::VariantRefinement { .. }),
+        ) => queue_structural_named_cover(adts, cover, covered, pending),
+        (Type::Named { .. } | Type::VariantRefinement { .. }, _)
+        | (_, Type::Named { .. } | Type::VariantRefinement { .. }) => false,
+        (Type::Unknown, Type::Unknown) => true,
+    }
+}
+
+fn queue_structural_record_cover<'a>(
+    cover: &'a [(String, Type)],
+    covered: &'a [(String, Type)],
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    for _ in cover {
+        record_field_match_work();
+    }
+    let cover_by_name = cover
+        .iter()
+        .map(|(name, ty)| (name.as_str(), ty))
+        .collect::<HashMap<_, _>>();
+    for (name, covered) in covered {
+        record_field_match_work();
+        let Some(cover) = cover_by_name.get(name.as_str()) else {
+            return false;
+        };
+        pending.push((*cover, covered));
+    }
+    true
+}
+
+fn queue_structural_named_cover<'a>(
+    adts: &AdtRegistry,
+    cover: &'a Type,
+    covered: &'a Type,
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    let first = adt_type_parts(cover).expect("named coverage was selected");
+    let Some(other) = adt_type_parts(covered) else {
+        return false;
+    };
+    if !same_adt_shape(first, other) {
+        return false;
+    }
+    let compiler_covariant = Type::is_compiler_covariant_identity(first.identity);
+    let variances = (!compiler_covariant)
+        .then(|| adts.parameter_variances_for_identity(first.identity, first.args.len()))
+        .flatten();
+    for (index, (cover, covered)) in first.args.iter().zip(other.args).enumerate() {
+        let variance = if compiler_covariant {
+            Variance::Covariant
+        } else {
+            variances
+                .and_then(|items| items.get(index).copied())
+                .unwrap_or(Variance::Invariant)
+        };
+        if matches!(variance, Variance::Covariant | Variance::Contravariant) {
+            pending.push((cover, covered));
         }
     }
     true
