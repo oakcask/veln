@@ -122,6 +122,12 @@ fn ordinary_context_free(value: Phantom<State::Ready>) -> ()
 		Ready => ()
 		Closed => ()
 	end
+	let positive_reverse = PositiveValue({left: Closed, right: Ready})
+	let PositiveValue(reverse_payload) = positive_reverse
+	match reverse_payload.left
+		Ready => ()
+		Closed => ()
+	end
 	let negative = NegativeValue(accepts_state, accepts_ready)
 	let NegativeValue(first, second) = negative
 	let first_ready: fn(State::Ready) -> () = first
