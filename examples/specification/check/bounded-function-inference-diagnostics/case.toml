@@ -9,7 +9,7 @@ contains = [
   "\"inferred_type\":\"unknown\"",
   "expected `fn(State) -> Int`, but found `fn(State::Ready) -> Int`",
   "expected `fn(State) -> Int`, but found `fn(State::Closed) -> Int`",
-  "expected `fn() -> {guard: Invariant<Int>, state: State::Ready, left: Int}`, but found `fn() -> {guard: Invariant<String>, state: State::Ready}`",
+  "expected `fn() -> {guard: Invariant<Int>, left: Int, state: State::Ready}`, but found `fn() -> {guard: Invariant<String>, state: State::Ready}`",
 ]
 
 [stderr]
