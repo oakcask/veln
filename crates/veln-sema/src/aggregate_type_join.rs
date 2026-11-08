@@ -41,6 +41,10 @@ struct ContributedCandidateState {
 struct FunctionCandidateStates {
     inputs: Vec<ContributedCandidateState>,
     has_variadic: bool,
+    returns: FunctionReturnCandidateState,
+}
+
+struct FunctionReturnCandidateState {
     return_keys: HashSet<String>,
     return_join: Option<Box<AggregateTypeJoin>>,
     return_type: Option<Type>,
@@ -317,41 +321,21 @@ impl FunctionCandidateStates {
                 BoundDirection::Meet,
             ));
         }
-        let returns = functions
-            .iter()
-            .map(|function| function.return_type)
-            .collect::<Vec<_>>();
-        let return_keys = returns
-            .iter()
-            .map(|return_type| canonical_relation_key(return_type))
-            .collect();
-        let return_join = incremental_function_return_join(adts, &returns);
-        let (return_type, return_presentation) = return_join.as_ref().map_or_else(
-            || resolve_function_returns(adts, &returns),
-            |joined| {
-                let mut resolved = joined.resolved_result_type();
-                let mut presentation = TypePresentationJoin::default();
-                if let Some(resolved) = &mut resolved {
-                    for return_type in &returns {
-                        presentation.merge(resolved, return_type);
-                    }
-                }
-                (resolved, presentation)
-            },
-        );
         Some(Self {
             inputs,
             has_variadic: first.variadic.is_some(),
-            return_keys,
-            return_join,
-            return_type,
-            return_presentation,
+            returns: FunctionReturnCandidateState::new(adts, &functions),
         })
     }
 
     fn admit(&mut self, adts: &AdtRegistry, contributions: &[Type]) {
         let functions = root_function_parts(contributions)
             .expect("admitted bounded function contributions keep their shape");
+        self.admit_inputs(adts, &functions);
+        self.returns.admit(adts, &functions);
+    }
+
+    fn admit_inputs(&mut self, adts: &AdtRegistry, functions: &[FunctionBoundParts<'_>]) {
         let parameter_count = functions[0].params.len();
         for (index, state) in self.inputs.iter_mut().enumerate() {
             let candidates = if index < parameter_count {
@@ -366,48 +350,6 @@ impl FunctionCandidateStates {
                     .collect::<Vec<_>>()
             };
             state.admit_refs(adts, &candidates);
-        }
-        let return_type = functions
-            .last()
-            .expect("admitted bounded function contributions are nonempty")
-            .return_type;
-        if self.return_keys.insert(canonical_relation_key(return_type)) {
-            let returns = functions
-                .iter()
-                .map(|function| function.return_type)
-                .collect::<Vec<_>>();
-            let incrementally_admitted = self
-                .return_join
-                .as_mut()
-                .is_some_and(|joined| joined.try_join(adts, return_type));
-            if incrementally_admitted {
-                let mut resolved = self
-                    .return_join
-                    .as_ref()
-                    .and_then(|joined| joined.resolved_result_type());
-                if self.return_type.is_some() {
-                    if let Some(resolved) = &mut resolved {
-                        self.return_presentation.merge(resolved, return_type);
-                    } else {
-                        self.return_presentation = TypePresentationJoin::default();
-                    }
-                    self.replace_return_type(resolved);
-                } else {
-                    let mut presentation = TypePresentationJoin::default();
-                    if let Some(resolved) = &mut resolved {
-                        for return_type in &returns {
-                            presentation.merge(resolved, return_type);
-                        }
-                    }
-                    self.replace_return(resolved, presentation);
-                }
-            } else {
-                self.return_join = None;
-                let (resolved, presentation) = resolve_function_returns(adts, &returns);
-                self.replace_return(resolved, presentation);
-            }
-        } else if let Some(resolved) = &mut self.return_type {
-            self.return_presentation.merge(resolved, return_type);
         }
     }
 
@@ -431,7 +373,7 @@ impl FunctionCandidateStates {
         } else {
             None
         };
-        let Some(return_type) = self.return_type.clone() else {
+        let Some(return_type) = self.returns.return_type.clone() else {
             drop_types_iteratively(&mut params);
             if let Some(variadic) = variadic {
                 crate::semantic_model::drop_type_iteratively(*variadic);
@@ -465,6 +407,83 @@ impl FunctionCandidateStates {
         }
         Some(params)
     }
+}
+
+impl FunctionReturnCandidateState {
+    fn new(adts: &AdtRegistry, functions: &[FunctionBoundParts<'_>]) -> Self {
+        let returns = function_return_types(functions);
+        let return_keys = returns
+            .iter()
+            .map(|return_type| canonical_relation_key(return_type))
+            .collect();
+        let return_join = incremental_function_return_join(adts, &returns);
+        let (return_type, return_presentation) = return_join.as_ref().map_or_else(
+            || resolve_function_returns(adts, &returns),
+            |joined| {
+                let mut resolved = joined.resolved_result_type();
+                let mut presentation = TypePresentationJoin::default();
+                if let Some(resolved) = &mut resolved {
+                    for return_type in &returns {
+                        presentation.merge(resolved, return_type);
+                    }
+                }
+                (resolved, presentation)
+            },
+        );
+        Self {
+            return_keys,
+            return_join,
+            return_type,
+            return_presentation,
+        }
+    }
+
+    fn admit(&mut self, adts: &AdtRegistry, functions: &[FunctionBoundParts<'_>]) {
+        let return_type = functions
+            .last()
+            .expect("admitted bounded function contributions are nonempty")
+            .return_type;
+        if !self.return_keys.insert(canonical_relation_key(return_type)) {
+            if let Some(resolved) = &mut self.return_type {
+                self.return_presentation.merge(resolved, return_type);
+            }
+            return;
+        }
+
+        let returns = function_return_types(functions);
+        let incrementally_admitted = self
+            .return_join
+            .as_mut()
+            .is_some_and(|joined| joined.try_join(adts, return_type));
+        if !incrementally_admitted {
+            self.return_join = None;
+            let (resolved, presentation) = resolve_function_returns(adts, &returns);
+            self.replace_return(resolved, presentation);
+            return;
+        }
+
+        let mut resolved = self
+            .return_join
+            .as_ref()
+            .and_then(|joined| joined.resolved_result_type());
+        if self.return_type.is_some() {
+            if let Some(resolved) = &mut resolved {
+                self.return_presentation.merge(resolved, return_type);
+            } else {
+                self.return_presentation = TypePresentationJoin::default();
+            }
+            self.replace_return_type(resolved);
+            return;
+        }
+
+        let mut presentation = TypePresentationJoin::default();
+        if let Some(resolved) = &mut resolved {
+            for return_type in &returns {
+                presentation.merge(resolved, return_type);
+            }
+        }
+        self.replace_return(resolved, presentation);
+    }
 
     fn replace_return(&mut self, resolved: Option<Type>, presentation: TypePresentationJoin) {
         self.return_presentation = presentation;
@@ -477,6 +496,24 @@ impl FunctionCandidateStates {
             crate::semantic_model::drop_type_iteratively(previous);
         }
     }
+
+    #[cfg(test)]
+    fn retained_units(&self) -> usize {
+        self.return_keys.iter().map(String::len).sum::<usize>()
+            + self
+                .return_join
+                .as_ref()
+                .map_or(0, |joined| joined.bounded_retained_state())
+            + self.return_type.as_ref().map_or(0, type_retained_units)
+            + self.return_presentation.retained_nodes()
+    }
+}
+
+fn function_return_types<'a>(functions: &[FunctionBoundParts<'a>]) -> Vec<&'a Type> {
+    functions
+        .iter()
+        .map(|function| function.return_type)
+        .collect()
 }
 
 fn incremental_function_return_join(
@@ -497,7 +534,7 @@ fn incremental_function_return_join(
     Some(joined)
 }
 
-impl Drop for FunctionCandidateStates {
+impl Drop for FunctionReturnCandidateState {
     fn drop(&mut self) {
         if let Some(return_type) = self.return_type.take() {
             crate::semantic_model::drop_type_iteratively(return_type);
@@ -732,13 +769,7 @@ impl AggregateTypeJoin {
                 .iter()
                 .map(ContributedCandidateState::retained_units)
                 .sum::<usize>()
-                + states.return_keys.iter().map(String::len).sum::<usize>()
-                + states
-                    .return_join
-                    .as_ref()
-                    .map_or(0, |joined| joined.bounded_retained_state())
-                + states.return_type.as_ref().map_or(0, type_retained_units)
-                + states.return_presentation.retained_nodes()
+                + states.returns.retained_units()
         });
         bounded.contributions.len()
             + contribution_state
