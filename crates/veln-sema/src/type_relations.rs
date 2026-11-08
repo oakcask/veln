@@ -130,151 +130,241 @@ pub(crate) fn is_assignable_nested_with_registry(
         if matches!(expected, Type::Unknown) || matches!(actual, Type::Unknown) {
             continue;
         }
-        match (expected, actual) {
-            (
-                Type::VariantRefinement {
-                    name: expected_name,
-                    identity: expected_identity,
-                    args: expected_args,
-                    variants: expected_variants,
-                    ..
-                },
-                Type::VariantRefinement {
-                    name: actual_name,
-                    identity: actual_identity,
-                    args: actual_args,
-                    variants: actual_variants,
-                    ..
-                },
-            ) => {
-                let expected_variants = expected_variants
-                    .iter()
-                    .map(String::as_str)
-                    .collect::<HashSet<_>>();
-                if !same_type_identity(
-                    expected_name,
-                    expected_identity,
-                    actual_name,
-                    actual_identity,
-                ) || !actual_variants.iter().all(|variant| {
-                    record_variant_set_lookup();
-                    expected_variants.contains(variant.as_str())
-                }) || !push_assignable_named_args(
-                    expected_identity,
-                    expected_args,
-                    actual_identity,
-                    actual_args,
-                    adts,
-                    &mut pending,
-                ) {
-                    return false;
-                }
-            }
-            (
-                Type::Named {
-                    name: expected_name,
-                    identity: expected_identity,
-                    args: expected_args,
-                },
-                Type::VariantRefinement {
-                    name: actual_name,
-                    identity: actual_identity,
-                    args: actual_args,
-                    ..
-                },
-            ) => {
-                if !same_type_identity(
-                    expected_name,
-                    expected_identity,
-                    actual_name,
-                    actual_identity,
-                ) || !push_assignable_named_args(
-                    expected_identity,
-                    expected_args,
-                    actual_identity,
-                    actual_args,
-                    adts,
-                    &mut pending,
-                ) {
-                    return false;
-                }
-            }
-            (
-                Type::Named {
-                    name: expected_name,
-                    identity: expected_identity,
-                    args: expected_args,
-                },
-                Type::Named {
-                    name: actual_name,
-                    identity: actual_identity,
-                    args: actual_args,
-                },
-            ) => {
-                if !same_type_identity(
-                    expected_name,
-                    expected_identity,
-                    actual_name,
-                    actual_identity,
-                ) || !push_assignable_named_args(
-                    expected_identity,
-                    expected_args,
-                    actual_identity,
-                    actual_args,
-                    adts,
-                    &mut pending,
-                ) {
-                    return false;
-                }
-            }
-            (Type::Record(expected_fields), Type::Record(actual_fields)) => {
-                for (expected_name, expected_ty) in expected_fields {
-                    let Some((_, actual_ty)) = actual_fields
-                        .iter()
-                        .find(|(actual_name, _)| actual_name == expected_name)
-                    else {
-                        return false;
-                    };
-                    record_field_match_work();
-                    pending.push((expected_ty, actual_ty));
-                }
-            }
-            (
-                Type::Function {
-                    params: expected_params,
-                    variadic: expected_variadic,
-                    return_type: expected_return,
-                    effects: expected_effects,
-                },
-                Type::Function {
-                    params: actual_params,
-                    variadic: actual_variadic,
-                    return_type: actual_return,
-                    effects: actual_effects,
-                },
-            ) => {
-                if expected_params.len() != actual_params.len()
-                    || expected_variadic.is_some() != actual_variadic.is_some()
-                    || !effects_are_assignable(expected_effects, actual_effects)
-                {
-                    return false;
-                }
-                pending.push((expected_return, actual_return));
-                if let (Some(expected), Some(actual)) =
-                    (expected_variadic.as_deref(), actual_variadic.as_deref())
-                {
-                    pending.push((actual, expected));
-                }
-                pending.extend(
-                    expected_params
-                        .iter()
-                        .zip(actual_params)
-                        .map(|(expected, actual)| (actual, expected)),
-                );
-            }
-            _ => return false,
+        if !push_assignable_nested_pair(expected, actual, adts, &mut pending) {
+            return false;
         }
     }
+    true
+}
+
+fn push_assignable_nested_pair<'a>(
+    expected: &'a Type,
+    actual: &'a Type,
+    adts: &dyn ParameterVarianceLookup,
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    match (expected, actual) {
+        (
+            Type::VariantRefinement {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+                variants: expected_variants,
+                ..
+            },
+            Type::VariantRefinement {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+                variants: actual_variants,
+                ..
+            },
+        ) => push_assignable_variant_refinement(
+            VariantAssignableParts {
+                named: NamedAssignableParts {
+                    name: expected_name,
+                    identity: expected_identity,
+                    args: expected_args,
+                },
+                variants: expected_variants,
+            },
+            VariantAssignableParts {
+                named: NamedAssignableParts {
+                    name: actual_name,
+                    identity: actual_identity,
+                    args: actual_args,
+                },
+                variants: actual_variants,
+            },
+            adts,
+            pending,
+        ),
+        (
+            Type::Named {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+            },
+            Type::VariantRefinement {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+                ..
+            },
+        )
+        | (
+            Type::Named {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+            },
+            Type::Named {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+            },
+        ) => push_assignable_named_type(
+            NamedAssignableParts {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+            },
+            NamedAssignableParts {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+            },
+            adts,
+            pending,
+        ),
+        (Type::Record(expected_fields), Type::Record(actual_fields)) => {
+            push_assignable_record_fields(expected_fields, actual_fields, pending)
+        }
+        (
+            Type::Function {
+                params: expected_params,
+                variadic: expected_variadic,
+                return_type: expected_return,
+                effects: expected_effects,
+            },
+            Type::Function {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                effects: actual_effects,
+            },
+        ) => push_assignable_function_parts(
+            FunctionAssignableParts {
+                params: expected_params,
+                variadic: expected_variadic,
+                return_type: expected_return,
+                effects: expected_effects,
+            },
+            FunctionAssignableParts {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                effects: actual_effects,
+            },
+            pending,
+        ),
+        _ => false,
+    }
+}
+
+#[derive(Clone, Copy)]
+struct NamedAssignableParts<'a> {
+    name: &'a str,
+    identity: &'a str,
+    args: &'a TypeArgs,
+}
+
+#[derive(Clone, Copy)]
+struct VariantAssignableParts<'a> {
+    named: NamedAssignableParts<'a>,
+    variants: &'a [String],
+}
+
+#[derive(Clone, Copy)]
+struct FunctionAssignableParts<'a> {
+    params: &'a [Type],
+    variadic: &'a Option<Box<Type>>,
+    return_type: &'a Type,
+    effects: &'a [String],
+}
+
+fn push_assignable_variant_refinement<'a>(
+    expected: VariantAssignableParts<'a>,
+    actual: VariantAssignableParts<'a>,
+    adts: &dyn ParameterVarianceLookup,
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    let expected_variants = expected
+        .variants
+        .iter()
+        .map(String::as_str)
+        .collect::<HashSet<_>>();
+    same_type_identity(
+        expected.named.name,
+        expected.named.identity,
+        actual.named.name,
+        actual.named.identity,
+    ) && actual.variants.iter().all(|variant| {
+        record_variant_set_lookup();
+        expected_variants.contains(variant.as_str())
+    }) && push_assignable_named_args(
+        expected.named.identity,
+        expected.named.args,
+        actual.named.identity,
+        actual.named.args,
+        adts,
+        pending,
+    )
+}
+
+fn push_assignable_named_type<'a>(
+    expected: NamedAssignableParts<'a>,
+    actual: NamedAssignableParts<'a>,
+    adts: &dyn ParameterVarianceLookup,
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    same_type_identity(
+        expected.name,
+        expected.identity,
+        actual.name,
+        actual.identity,
+    ) && push_assignable_named_args(
+        expected.identity,
+        expected.args,
+        actual.identity,
+        actual.args,
+        adts,
+        pending,
+    )
+}
+
+fn push_assignable_record_fields<'a>(
+    expected_fields: &'a [(String, Type)],
+    actual_fields: &'a [(String, Type)],
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    for (expected_name, expected_ty) in expected_fields {
+        let Some((_, actual_ty)) = actual_fields
+            .iter()
+            .find(|(actual_name, _)| actual_name == expected_name)
+        else {
+            return false;
+        };
+        record_field_match_work();
+        pending.push((expected_ty, actual_ty));
+    }
+    true
+}
+
+fn push_assignable_function_parts<'a>(
+    expected: FunctionAssignableParts<'a>,
+    actual: FunctionAssignableParts<'a>,
+    pending: &mut Vec<(&'a Type, &'a Type)>,
+) -> bool {
+    if expected.params.len() != actual.params.len()
+        || expected.variadic.is_some() != actual.variadic.is_some()
+        || !effects_are_assignable(expected.effects, actual.effects)
+    {
+        return false;
+    }
+    pending.push((expected.return_type, actual.return_type));
+    if let (Some(expected), Some(actual)) =
+        (expected.variadic.as_deref(), actual.variadic.as_deref())
+    {
+        pending.push((actual, expected));
+    }
+    pending.extend(
+        expected
+            .params
+            .iter()
+            .zip(actual.params)
+            .map(|(expected, actual)| (actual, expected)),
+    );
     true
 }
 

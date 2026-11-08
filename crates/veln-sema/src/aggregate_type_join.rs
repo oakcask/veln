@@ -249,18 +249,7 @@ impl FunctionCandidateStates {
         let contribution_refs = contributions.iter().collect::<Vec<_>>();
         let effects = collect_function_bound_parts(&contribution_refs)?.effects;
         let parameter_count = functions.first()?.params.len();
-        let mut params = Vec::with_capacity(parameter_count);
-        for (index, state) in self.inputs.iter().take(parameter_count).enumerate() {
-            let candidates = functions
-                .iter()
-                .map(|function| &function.params[index])
-                .collect::<Vec<_>>();
-            let Some(param) = state.result_refs(&candidates) else {
-                drop_types_iteratively(&mut params);
-                return None;
-            };
-            params.push(param);
-        }
+        let mut params = self.result_params(&functions, parameter_count)?;
         let variadic = if self.has_variadic {
             let candidates = functions
                 .iter()
@@ -287,6 +276,26 @@ impl FunctionCandidateStates {
             return_type: Box::new(return_type),
             effects,
         })
+    }
+
+    fn result_params(
+        &self,
+        functions: &[FunctionBoundParts<'_>],
+        parameter_count: usize,
+    ) -> Option<Vec<Type>> {
+        let mut params = Vec::with_capacity(parameter_count);
+        for (index, state) in self.inputs.iter().take(parameter_count).enumerate() {
+            let candidates = functions
+                .iter()
+                .map(|function| &function.params[index])
+                .collect::<Vec<_>>();
+            let Some(param) = state.result_refs(&candidates) else {
+                drop_types_iteratively(&mut params);
+                return None;
+            };
+            params.push(param);
+        }
+        Some(params)
     }
 
     fn replace_return(&mut self, resolved: Option<Type>, presentation: TypePresentationJoin) {
@@ -2430,62 +2439,96 @@ fn append_candidate_order_type<'a>(
             args,
             variants,
             ..
-        } => {
-            for (index, variant) in variants.iter().enumerate().rev() {
-                pending.push(CandidateOrderPart::Text(variant));
-                pending.push(CandidateOrderPart::Text("::"));
-                pending.push(CandidateOrderPart::Named(name, args));
-                if index > 0 {
-                    pending.push(CandidateOrderPart::Text(" | "));
-                }
-            }
-        }
-        Type::Record(fields) => {
-            pending.push(CandidateOrderPart::Text("}"));
-            for (index, (name, field)) in fields.iter().enumerate().rev() {
-                pending.push(CandidateOrderPart::Type(field));
-                pending.push(CandidateOrderPart::Text(": "));
-                pending.push(CandidateOrderPart::Text(name));
-                if index > 0 {
-                    pending.push(CandidateOrderPart::Text(", "));
-                }
-            }
-            pending.push(CandidateOrderPart::Text("{"));
-        }
+        } => schedule_candidate_order_variants(pending, name, args, variants),
+        Type::Record(fields) => schedule_candidate_order_record(pending, fields),
         Type::Function {
             params,
             variadic,
             return_type,
             effects,
-        } => {
-            if !effects.is_empty() {
-                pending.push(CandidateOrderPart::Text("]"));
-                for (index, effect) in effects.iter().enumerate().rev() {
-                    pending.push(CandidateOrderPart::Text(effect));
-                    if index > 0 {
-                        pending.push(CandidateOrderPart::Text(", "));
-                    }
-                }
-                pending.push(CandidateOrderPart::Text(" effects ["));
-            }
-            pending.push(CandidateOrderPart::Type(return_type));
-            pending.push(CandidateOrderPart::Text(") -> "));
-            if let Some(variadic) = variadic {
-                pending.push(CandidateOrderPart::Type(variadic));
-                pending.push(CandidateOrderPart::Text("..."));
-                if !params.is_empty() {
-                    pending.push(CandidateOrderPart::Text(", "));
-                }
-            }
-            for (index, param) in params.iter().enumerate().rev() {
-                pending.push(CandidateOrderPart::Type(param));
-                if index > 0 {
-                    pending.push(CandidateOrderPart::Text(", "));
-                }
-            }
-            pending.push(CandidateOrderPart::Text("fn("));
+        } => schedule_candidate_order_function(
+            pending,
+            params,
+            variadic.as_deref(),
+            return_type,
+            effects,
+        ),
+    }
+}
+
+fn schedule_candidate_order_variants<'a>(
+    pending: &mut Vec<CandidateOrderPart<'a>>,
+    name: &'a str,
+    args: &'a [Type],
+    variants: &'a [String],
+) {
+    for (index, variant) in variants.iter().enumerate().rev() {
+        pending.push(CandidateOrderPart::Text(variant));
+        pending.push(CandidateOrderPart::Text("::"));
+        pending.push(CandidateOrderPart::Named(name, args));
+        if index > 0 {
+            pending.push(CandidateOrderPart::Text(" | "));
         }
     }
+}
+
+fn schedule_candidate_order_record<'a>(
+    pending: &mut Vec<CandidateOrderPart<'a>>,
+    fields: &'a [(String, Type)],
+) {
+    pending.push(CandidateOrderPart::Text("}"));
+    for (index, (name, field)) in fields.iter().enumerate().rev() {
+        pending.push(CandidateOrderPart::Type(field));
+        pending.push(CandidateOrderPart::Text(": "));
+        pending.push(CandidateOrderPart::Text(name));
+        if index > 0 {
+            pending.push(CandidateOrderPart::Text(", "));
+        }
+    }
+    pending.push(CandidateOrderPart::Text("{"));
+}
+
+fn schedule_candidate_order_function<'a>(
+    pending: &mut Vec<CandidateOrderPart<'a>>,
+    params: &'a [Type],
+    variadic: Option<&'a Type>,
+    return_type: &'a Type,
+    effects: &'a [String],
+) {
+    schedule_candidate_order_effects(pending, effects);
+    pending.push(CandidateOrderPart::Type(return_type));
+    pending.push(CandidateOrderPart::Text(") -> "));
+    if let Some(variadic) = variadic {
+        pending.push(CandidateOrderPart::Type(variadic));
+        pending.push(CandidateOrderPart::Text("..."));
+        if !params.is_empty() {
+            pending.push(CandidateOrderPart::Text(", "));
+        }
+    }
+    for (index, param) in params.iter().enumerate().rev() {
+        pending.push(CandidateOrderPart::Type(param));
+        if index > 0 {
+            pending.push(CandidateOrderPart::Text(", "));
+        }
+    }
+    pending.push(CandidateOrderPart::Text("fn("));
+}
+
+fn schedule_candidate_order_effects<'a>(
+    pending: &mut Vec<CandidateOrderPart<'a>>,
+    effects: &'a [String],
+) {
+    if effects.is_empty() {
+        return;
+    }
+    pending.push(CandidateOrderPart::Text("]"));
+    for (index, effect) in effects.iter().enumerate().rev() {
+        pending.push(CandidateOrderPart::Text(effect));
+        if index > 0 {
+            pending.push(CandidateOrderPart::Text(", "));
+        }
+    }
+    pending.push(CandidateOrderPart::Text(" effects ["));
 }
 
 fn canonical_relation_key(ty: &Type) -> String {
