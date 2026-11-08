@@ -302,6 +302,53 @@ fn recursive_shape_rejection_does_not_change_later_successful_join() {
     );
 }
 
+#[test]
+fn control_flow_rejection_preserves_bounded_state_for_later_effect_union() {
+    let source_text = concat!(
+        "type Choice\n  First\n  Rejected\n  Later\nend\n",
+        "fn needs_int(value: Int) -> ()\n  ()\nend\n",
+        "fn private_if(choice: Choice, first: fn(fn(Int) -> Int) -> Int, rejected: fn(fn(Int, Int) -> Int) -> Int, later: fn(fn(Int) -> Int) -> Int effects [stdio])\n",
+        "  if choice == Choice::First\n    first\n  else if choice == Choice::Rejected\n    rejected\n  else\n    later\n  end\nend\n",
+        "fn private_match(choice: Choice, first: fn(fn(Int) -> Int) -> Int, rejected: fn(fn(Int, Int) -> Int) -> Int, later: fn(fn(Int) -> Int) -> Int effects [stdio])\n",
+        "  match choice\n    First => first\n    Rejected => rejected\n    Later => later\n  end\nend\n",
+        "fn ordinary_if(choice: Choice, first: fn(fn(Int) -> Int) -> Int, rejected: fn(fn(Int, Int) -> Int) -> Int, later: fn(fn(Int) -> Int) -> Int effects [stdio]) -> ()\n",
+        "  let selected = if choice == Choice::First\n    first\n  else if choice == Choice::Rejected\n    rejected\n  else\n    later\n  end\n  needs_int(selected)\nend\n",
+        "fn ordinary_match(choice: Choice, first: fn(fn(Int) -> Int) -> Int, rejected: fn(fn(Int, Int) -> Int) -> Int, later: fn(fn(Int) -> Int) -> Int effects [stdio]) -> ()\n",
+        "  let selected = match choice\n    First => first\n    Rejected => rejected\n    Later => later\n  end\n  needs_int(selected)\nend\n",
+    );
+    let (module, diagnostics) = analyze(source_text);
+    let rejected = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic
+                .span
+                .as_ref()
+                .is_some_and(|span| &source_text[span.start.offset..span.end.offset] == "rejected")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(rejected.len(), 4, "{diagnostics:#?}");
+    assert!(
+        rejected
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+    let final_type = "fn(fn(Int) -> Int) -> Int effects [stdio]";
+    let ordinary_results = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.message.contains("expected `Int`") && diagnostic.message.contains(final_type)
+        })
+        .count();
+    assert_eq!(ordinary_results, 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["private_if", "private_match"] {
+        assert_eq!(result(&environment, function), final_type, "{function}");
+    }
+}
+
 fn fallback_record(index: usize) -> Type {
     Type::Record(vec![
         ("common".to_string(), Type::int()),
@@ -373,6 +420,64 @@ fn fallback_candidate_comparisons_grow_at_most_quadratically() {
     }
 }
 
+fn function_input_width_meet_measurement(size: usize) -> (usize, std::time::Duration) {
+    let environment = TypeEnvironment::from_module(&lower_surface_ast(
+        &parse(&SourceFile::new("main.veln", "")).tree,
+    ));
+    let function = |width: usize| Type::Function {
+        params: vec![Type::Record(
+            (0..width)
+                .map(|index| (format!("field_{index:03}"), Type::int()))
+                .collect(),
+        )],
+        variadic: None,
+        return_type: Box::new(Type::int()),
+        effects: Vec::new(),
+    };
+    let initial = function(1);
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("bounded function join");
+    crate::aggregate_type_join::reset_fallback_comparisons();
+    let started = std::time::Instant::now();
+    for width in 2..=size {
+        assert!(joined.try_join(&environment.adts, &function(width)));
+    }
+    let elapsed = started.elapsed();
+    let resolved = joined.result_type();
+    let Type::Function { params, .. } = &resolved else {
+        panic!("expected function result");
+    };
+    let Type::Record(fields) = &params[0] else {
+        panic!("expected record input");
+    };
+    assert_eq!(fields.len(), size);
+    crate::semantic_model::drop_type_iteratively(resolved);
+    (
+        crate::aggregate_type_join::take_fallback_comparisons(),
+        elapsed,
+    )
+}
+
+#[test]
+fn structural_function_input_meets_grow_at_most_quadratically() {
+    let sizes = [8, 16, 32];
+    let measurements = sizes.map(function_input_width_meet_measurement);
+    eprintln!("function input meet comparisons and elapsed: {measurements:?}");
+    for (size, (comparisons, _)) in sizes.into_iter().zip(measurements) {
+        assert!(
+            comparisons <= size * size,
+            "size={size} comparisons={comparisons}"
+        );
+    }
+    for (index, adjacent) in measurements.windows(2).enumerate() {
+        assert!(
+            adjacent[1].0 <= adjacent[0].0 * 4 + sizes[index + 1],
+            "{measurements:?}"
+        );
+    }
+}
+
 fn deep_fallback_component(depth: usize, identity: &str) -> Type {
     (0..depth).fold(Type::int(), |nested, _| Type::Function {
         params: vec![Type::Record(vec![(
@@ -412,6 +517,82 @@ fn deeply_nested_contributed_candidate_relation_is_stack_safe() {
     assert!(joined.try_join(&environment.adts, &candidate));
     assert_eq!(joined.result_type(), candidate);
     assert!(crate::aggregate_type_join::take_fallback_comparisons() >= 4);
+}
+
+#[test]
+fn deep_owned_candidate_order_replacement_transition_and_drop_are_stack_safe() {
+    let environment = positive_registry();
+    let identity = positive_identity(&environment);
+    let depth = 12_000;
+    let record = |field_order: &[&str]| {
+        Type::Record(
+            field_order
+                .iter()
+                .map(|name| {
+                    let ty = if *name == "common" {
+                        deep_fallback_component(depth, &identity)
+                    } else {
+                        Type::int()
+                    };
+                    ((*name).to_string(), ty)
+                })
+                .collect(),
+        )
+    };
+
+    let initial = record(&["common", "id", "left"]);
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("deep record aggregate");
+    crate::semantic_model::drop_type_iteratively(initial);
+
+    for fields in [
+        &["common", "id", "left"][..],
+        &["id", "common"][..],
+        &["common", "id"][..],
+    ] {
+        let contribution = record(fields);
+        assert!(joined.try_join(&environment.adts, &contribution));
+        crate::semantic_model::drop_type_iteratively(contribution);
+    }
+
+    let resolved = joined.result_type();
+    let Type::Record(fields) = &resolved else {
+        panic!("expected record result");
+    };
+    assert_eq!(
+        fields
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect::<Vec<_>>(),
+        ["common", "id"]
+    );
+    let mut current = fields
+        .iter()
+        .find(|(name, _)| name == "common")
+        .map(|(_, ty)| ty)
+        .expect("common field");
+    for _ in 0..depth {
+        let Type::Function { params, .. } = current else {
+            panic!("expected nested function");
+        };
+        let Type::Record(fields) = &params[0] else {
+            panic!("expected nested record");
+        };
+        let Type::Named {
+            identity: actual,
+            args,
+            ..
+        } = &fields[0].1
+        else {
+            panic!("expected Positive wrapper");
+        };
+        assert_eq!(actual, &identity);
+        current = &args[0];
+    }
+    assert!(matches!(current, Type::Named { name, .. } if name == "Int"));
+    crate::semantic_model::drop_type_iteratively(resolved);
+    drop(joined);
 }
 
 #[test]

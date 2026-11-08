@@ -164,7 +164,7 @@ fn merge_private_control_flow_result(
     }
     if joined_result
         .as_ref()
-        .is_some_and(|joined| joined.preserves_failed_control_flow_contribution(adts, &actual))
+        .is_some_and(|joined| joined.preserves_failed_control_flow_contribution(&actual))
     {
         return false;
     }

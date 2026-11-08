@@ -1493,10 +1493,12 @@ The contributed-candidate fallback performs at most quadratic assignment
 comparisons in the number of retained contributions. The deterministic
 workload contributes 8, 16, and 32 records with one common field and one
 distinct field, both with and without a final contributed record that resolves
-the join. For `N` contributions, the comparison count must not exceed `N * N`;
-after doubling the input, it must not exceed four times the preceding count
-plus the larger input size. Elapsed time is observational and is not an
-acceptance threshold.
+the join. A companion structural-function workload contributes functions whose
+input records form an increasing-width chain, so the widest input remains the
+bounded meet after every admission. For `N` contributions in either workload,
+the comparison count must not exceed `N * N`; after doubling the input, it must
+not exceed four times the preceding count plus the larger input size. Elapsed
+time is observational and is not an acceptance threshold.
 
 The retained fallback state grows at most linearly in the number and owned size
 of admitted contributions. The deterministic 8, 16, and 32 contribution
