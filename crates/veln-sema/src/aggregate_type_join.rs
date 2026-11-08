@@ -2015,11 +2015,11 @@ impl CanonicalConstraintBound {
             return;
         }
 
-        if let Some(unresolved) = &self.unresolved {
-            if !candidate_relation(&contribution.ty, &unresolved.constraint.ty, direction, adts) {
-                self.push_unresolved(contribution);
-                return;
-            }
+        if let Some(unresolved) = &self.unresolved
+            && !candidate_relation(&contribution.ty, &unresolved.constraint.ty, direction, adts)
+        {
+            self.push_unresolved(contribution);
+            return;
         }
 
         let mut constraints = self.constraints();
