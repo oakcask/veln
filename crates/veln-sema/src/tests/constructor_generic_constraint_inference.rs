@@ -369,6 +369,62 @@ fn rejected_payloads_preserve_constraints_for_later_accepted_payloads() {
 }
 
 #[test]
+fn rejected_concrete_payload_shapes_preserve_constraints_in_both_consumers() {
+    let source_text = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "type Other\n  OtherValue\nend\n",
+        "type Box<T>\n  Boxed(T)\nend\n",
+        "type Outer<T>\n  Out(T, Box<T>, T)\nend\n",
+        "type Structured<T>\n  Shaped(T, {guard: Option<Int>, value: T}, T)\nend\n",
+        "fn private_named(rejected: Other)\n",
+        "  Out(Ready, rejected, Closed)\n",
+        "end\n",
+        "fn private_structural(rejected: {wrong: String})\n",
+        "  Shaped(Ready, rejected, Closed)\n",
+        "end\n",
+        "fn ordinary_named(rejected: Other) -> Outer<State::Ready | State::Closed>\n",
+        "  Out(Ready, rejected, Closed)\n",
+        "end\n",
+        "fn ordinary_structural(rejected: {wrong: String}) -> Structured<State::Ready | State::Closed>\n",
+        "  Shaped(Ready, rejected, Closed)\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic.span.as_ref().is_some_and(|span| {
+                    &source_text[span.start.offset..span.end.offset] == "rejected"
+                })
+        }),
+        "{diagnostics:#?}",
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("private_named")
+            .unwrap()
+            .return_type
+            .render(),
+        "Outer<State>::Out",
+    );
+    assert_eq!(
+        environment
+            .function("private_structural")
+            .unwrap()
+            .return_type
+            .render(),
+        "Structured<State>::Shaped",
+    );
+}
+
+#[test]
 fn equality_constraints_keep_irrelevant_named_arguments_in_complete_identity() {
     let source = SourceFile::new(
         "main.veln",

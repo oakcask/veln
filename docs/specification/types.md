@@ -1675,6 +1675,12 @@ constructor type argument. A later valid payload therefore continues from the
 last successfully inferred type instead of from a partial result of the failed
 payload. This rule also applies when one payload contributes several lower,
 upper, or equality constraints through nested types.
+Constraint collection also validates the complete concrete payload shape. A
+different outer named constructor, a missing required record field, or an
+incompatible function shape rejects the payload even when another nested
+occurrence could contribute a constraint. That rejection leaves the retained
+constraints and constructor result unchanged, so later valid payloads continue
+from the last accepted result.
 
 Successful direct and nested contributions reconcile alias
 presentation for the inferred type argument. Different alias preferences make
@@ -1728,6 +1734,16 @@ nested `Option` arguments in a source-ADT payload, then projects the concrete
 `Int` argument through that payload in both inference pipelines. Its total work
 and retained type nodes obey the same adjacent-size linear bound. Elapsed time
 is observational and is not an acceptance threshold.
+
+A repeated-parameter workload measures 32, 64, and 128 successful constraints
+on one constructor parameter in both inference pipelines. It measures
+upper-only occurrences through repeated `fn(T) -> ()` payloads, equality
+occurrences through repeated uses of an invariant named constructor, and mixed
+lower-and-upper occurrences through repeated `fn(T) -> T` payloads. The work
+metric includes retained-type clones, constraint comparisons, join and meet
+updates, bound validation, and presentation reconciliation. Each doubled size
+may use at most twice the preceding work plus a fixed allowance of 128.
+Elapsed time is observational and is not an acceptance threshold.
 
 Complementary workloads project repeated list and dictionary members through
 wide record and function contexts. Wrapped workloads put each structural
