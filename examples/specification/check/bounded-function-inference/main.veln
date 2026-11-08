@@ -65,6 +65,30 @@ fn fallback(first: fn() -> {id: Int, left: String}, second: fn() -> {id: Int, ri
 	[first, second, candidate]
 end
 
+fn alias_fallback_0(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready})
+	[first, second, candidate]
+end
+
+fn alias_fallback_1(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready})
+	[first, candidate, second]
+end
+
+fn alias_fallback_2(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready})
+	[second, first, candidate]
+end
+
+fn alias_fallback_3(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready})
+	[second, candidate, first]
+end
+
+fn alias_fallback_4(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready})
+	[candidate, first, second]
+end
+
+fn alias_fallback_5(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready})
+	[candidate, second, first]
+end
+
 fn aliases_forward(first: fn(First::Ready) -> Int, second: fn(Second::Ready) -> Int)
 	[first, second]
 end
@@ -101,5 +125,15 @@ end
 fn verify_nested_effect(first: fn(fn() -> Int) -> Int, second: fn(fn() -> Int effects [stdio]) -> Int) -> ()
 	let joined_forward: Vec<fn(fn() -> Int) -> Int> = nested_effect_forward(first, second)
 	let joined_reverse: Vec<fn(fn() -> Int) -> Int> = nested_effect_reverse(first, second)
+	()
+end
+
+fn verify_alias_fallback(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready}) -> ()
+	let result_0: Vec<{state: State::Ready}> = alias_fallback_0(first, second, candidate)
+	let result_1: Vec<{state: State::Ready}> = alias_fallback_1(first, second, candidate)
+	let result_2: Vec<{state: State::Ready}> = alias_fallback_2(first, second, candidate)
+	let result_3: Vec<{state: State::Ready}> = alias_fallback_3(first, second, candidate)
+	let result_4: Vec<{state: State::Ready}> = alias_fallback_4(first, second, candidate)
+	let result_5: Vec<{state: State::Ready}> = alias_fallback_5(first, second, candidate)
 	()
 end

@@ -157,12 +157,10 @@ impl ContributedCandidateState {
             .collect::<Vec<_>>();
         selected.sort_unstable_by_key(|index| candidate_order_key(contributions[*index]));
         let first = *selected.first()?;
-        let mut result = contributions[first].clone();
-        let mut presentation = TypePresentationJoin::default();
-        for index in selected.into_iter().skip(1) {
-            presentation.merge(&mut result, contributions[index]);
-        }
-        Some(result)
+        Some(merge_contributed_presentations(
+            contributions[first],
+            contributions,
+        ))
     }
 }
 
@@ -1990,7 +1988,8 @@ fn contributed_candidate_refs(
         return None;
     }
     selected.sort_unstable_by_key(|candidate| candidate_order_key(candidate));
-    Some(merge_candidate_presentations(selected))
+    let first = selected[0];
+    Some(merge_contributed_presentations(first, contributions))
 }
 
 fn contributed_candidate_is_valid(
@@ -2038,14 +2037,18 @@ fn selected_candidates_are_equivalent(
 }
 
 fn merge_candidate_presentations(selected: Vec<&Type>) -> Type {
-    let mut candidates = selected.into_iter();
-    let mut result = candidates
-        .next()
-        .expect("selected candidates are nonempty")
-        .clone();
+    let first = selected
+        .first()
+        .copied()
+        .expect("selected candidates are nonempty");
+    merge_contributed_presentations(first, &selected)
+}
+
+fn merge_contributed_presentations(first: &Type, contributions: &[&Type]) -> Type {
+    let mut result = first.clone();
     let mut presentation = TypePresentationJoin::default();
-    for candidate in candidates {
-        presentation.merge(&mut result, candidate);
+    for contribution in contributions {
+        presentation.merge(&mut result, contribution);
     }
     result
 }

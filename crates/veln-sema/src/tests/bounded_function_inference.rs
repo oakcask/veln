@@ -193,6 +193,55 @@ fn fallback_retains_every_contribution_until_a_unique_candidate_exists() {
 }
 
 #[test]
+fn fallback_reconciles_aliases_from_non_candidates_in_every_order() {
+    let permutations = [
+        ["first", "second", "candidate"],
+        ["first", "candidate", "second"],
+        ["second", "first", "candidate"],
+        ["second", "candidate", "first"],
+        ["candidate", "first", "second"],
+        ["candidate", "second", "first"],
+    ];
+    let mut source = String::from(
+        "type State\n  Ready\n  Closed\nend\npub type First = State\npub type Second = State\n",
+    );
+    for (index, order) in permutations.iter().enumerate() {
+        source.push_str(&format!(
+            "fn aliases_{index}(first: {{state: First::Ready, left: String}}, second: {{state: Second::Ready, right: Bool}}, candidate: {{state: First::Ready}})\n  [{}, {}, {}]\nend\n",
+            order[0], order[1], order[2]
+        ));
+    }
+    let (module, diagnostics) = analyze(&source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    let state_identity = environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "State")
+        .expect("State descriptor")
+        .identity();
+    for index in 0..permutations.len() {
+        let inferred = &environment
+            .function(&format!("aliases_{index}"))
+            .expect("permutation function")
+            .return_type;
+        assert_eq!(inferred.render(), "Vec<{state: State::Ready}>");
+        let Type::Named { args, .. } = inferred else {
+            panic!("expected Vec result");
+        };
+        let Type::Record(fields) = &args[0] else {
+            panic!("expected record element");
+        };
+        let Type::VariantRefinement { name, identity, .. } = &fields[0].1 else {
+            panic!("expected refined state field");
+        };
+        assert_eq!(name, "State");
+        assert_eq!(identity, &state_identity);
+    }
+}
+
+#[test]
 fn covariant_wrappers_retain_nested_fallback_candidates_in_every_order() {
     let permutations = [
         ["first", "second", "fallback"],
