@@ -290,6 +290,135 @@ fn successful_constraint_permutations_preserve_identity_and_presentation() {
 }
 
 #[test]
+fn unresolved_structural_lower_bounds_resolve_in_every_permutation() {
+    let mut source_text = concat!(
+        "type State\n  Ready\n  Closed\n  Failed\nend\n",
+        "type Box<T>\n  Boxed(T)\nend\n",
+        "type Mixed<T>\n  Made({upper: fn(T) -> (), first: Box<T>, second: Box<T>, third: Box<T>})\nend\n",
+        "fn f(value: {a: Int}) -> State::Ready\n  Ready\nend\n",
+        "fn g(value: {b: Int}) -> State::Closed\n  Closed\nend\n",
+        "fn h(value: {a: Int, b: Int}) -> State::Ready\n  Ready\nend\n",
+        "fn accepts_complete(value: fn({a: Int, b: Int}) -> State) -> ()\n  ()\nend\n",
+        "fn needs_complete(value: Mixed<fn({a: Int, b: Int}) -> State::Ready | State::Closed>) -> ()\n  ()\nend\n",
+    )
+    .to_owned();
+    let permutations = [
+        ["f", "g", "h"],
+        ["f", "h", "g"],
+        ["g", "f", "h"],
+        ["g", "h", "f"],
+        ["h", "f", "g"],
+        ["h", "g", "f"],
+    ];
+    for (index, order) in permutations.iter().enumerate() {
+        let order = order.map(|name| match name {
+            "f" => "fn({a: Int}) -> State::Ready",
+            "g" => "fn({b: Int}) -> State::Closed",
+            "h" => "fn({a: Int, b: Int}) -> State::Ready",
+            _ => unreachable!(),
+        });
+        source_text.push_str(&format!(
+            "fn private_{index}(payload: {{upper: fn(fn({{a: Int, b: Int}}) -> State) -> (), first: Box<{}>, second: Box<{}>, third: Box<{}>}})\n  Made(payload)\nend\n",
+            order[0], order[1], order[2],
+        ));
+    }
+    source_text.push_str("fn ordinary(");
+    for (index, order) in permutations.iter().enumerate() {
+        let order = order.map(|name| match name {
+            "f" => "fn({a: Int}) -> State::Ready",
+            "g" => "fn({b: Int}) -> State::Closed",
+            "h" => "fn({a: Int, b: Int}) -> State::Ready",
+            _ => unreachable!(),
+        });
+        source_text.push_str(&format!(
+            "payload_{index}: {{upper: fn(fn({{a: Int, b: Int}}) -> State) -> (), first: Box<{}>, second: Box<{}>, third: Box<{}>}}, ",
+            order[0], order[1], order[2],
+        ));
+    }
+    source_text.push_str(") -> ()\n");
+    for index in 0..permutations.len() {
+        source_text.push_str(&format!(
+            "  let value_{index} = Made(payload_{index})\n  needs_complete(value_{index})\n",
+        ));
+    }
+    source_text.push_str("end\n");
+
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    let expected = "Mixed<fn({a: Int, b: Int}) -> State::Ready | State::Closed>::Made";
+    for index in 0..permutations.len() {
+        let function = environment
+            .function(&format!("private_{index}"))
+            .expect("private permutation function");
+        assert_eq!(function.return_type.render(), expected);
+        if index > 0 {
+            assert_same_inferred_result(
+                &environment,
+                "private_0",
+                &format!("private_{index}"),
+                expected,
+            );
+        }
+    }
+}
+
+#[test]
+fn structural_bound_transition_keeps_explicit_and_ambiguity_controls() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Ready\n  Closed\n  Failed\nend\n",
+            "type Box<T>\n  Boxed(T)\nend\n",
+            "type Mixed<T>\n  Made({upper: fn(T) -> (), first: Box<T>, second: Box<T>, third: Box<T>})\nend\n",
+            "fn explicit(payload: {upper: fn(fn({a: Int, b: Int}) -> State) -> (), first: Box<fn({a: Int}) -> State::Ready>, second: Box<fn({b: Int}) -> State::Closed>, third: Box<fn({a: Int}) -> State::Ready>}) -> Mixed<fn({a: Int, b: Int}) -> State::Ready | State::Closed>\n",
+            "  Made(payload)\n",
+            "end\n",
+            "fn unavailable(payload: {upper: fn(fn({a: Int, b: Int}) -> State) -> (), first: Box<fn({a: Int}) -> State::Ready>, second: Box<fn({b: Int}) -> State::Closed>, third: Box<fn({a: Int}) -> State::Ready>})\n",
+            "  Made(payload)\n",
+            "end\n",
+            "fn ordinary(payload: {upper: fn(fn({a: Int, b: Int}) -> State) -> (), first: Box<fn({a: Int}) -> State::Ready>, second: Box<fn({b: Int}) -> State::Closed>, third: Box<fn({a: Int}) -> State::Ready>}) -> ()\n",
+            "  let exact: Mixed<fn({a: Int, b: Int}) -> State::Ready | State::Closed> = Made(payload)\n",
+            "  let missing = Made(payload)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.inference_ambiguous")
+            .count(),
+        2,
+        "{diagnostics:#?}",
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.private_inference_incomplete")
+            .count(),
+        1,
+        "{diagnostics:#?}",
+    );
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("explicit")
+            .unwrap()
+            .return_type
+            .render(),
+        "Mixed<fn({a: Int, b: Int}) -> State::Ready | State::Closed>",
+    );
+}
+
+#[test]
 fn post_conflict_alias_permutations_are_canonical_in_both_consumers() {
     let source = SourceFile::new(
         "main.veln",

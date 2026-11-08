@@ -2016,7 +2016,12 @@ impl CanonicalConstraintBound {
         }
 
         if let Some(unresolved) = &self.unresolved
-            && !candidate_relation(&contribution.ty, &unresolved.constraint.ty, direction, adts)
+            && !constraint_pair_has_bound(
+                &contribution.ty,
+                &unresolved.constraint.ty,
+                direction,
+                adts,
+            )
         {
             self.push_unresolved(contribution);
             return;
@@ -3597,6 +3602,22 @@ fn candidate_relation(
     match direction {
         BoundDirection::Join => candidate_assignable(candidate, contribution, adts),
         BoundDirection::Meet => candidate_assignable(contribution, candidate, adts),
+    }
+}
+
+fn constraint_pair_has_bound(
+    candidate: &Type,
+    contribution: &Type,
+    direction: BoundDirection,
+    adts: &AdtRegistry,
+) -> bool {
+    if candidate_relation(candidate, contribution, direction, adts) {
+        return true;
+    }
+    let pair = [candidate, contribution];
+    match direction {
+        BoundDirection::Join => bounded_join_refs(adts, &pair).is_some(),
+        BoundDirection::Meet => bounded_meet_refs(adts, &pair).is_some(),
     }
 }
 
