@@ -66,6 +66,28 @@ fn structural_function_joins_are_order_independent_across_bounded_components() {
 }
 
 #[test]
+fn duplicate_function_return_keys_merge_alias_presentation() {
+    let source = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "pub type First = State\n",
+        "pub type Second = State\n",
+        "fn aliases_forward(first: fn() -> First::Ready, second: fn() -> Second::Ready)\n",
+        "  [first, second]\n",
+        "end\n",
+        "fn aliases_reverse(first: fn() -> First::Ready, second: fn() -> Second::Ready)\n",
+        "  [second, first]\n",
+        "end\n",
+    );
+    let (module, diagnostics) = analyze(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+
+    for name in ["aliases_forward", "aliases_reverse"] {
+        assert_eq!(result(&environment, name), "Vec<fn() -> State::Ready>");
+    }
+}
+
+#[test]
 fn function_input_meets_keep_irrelevant_arguments_exact() {
     let source = SourceFile::new(
         "main.veln",
