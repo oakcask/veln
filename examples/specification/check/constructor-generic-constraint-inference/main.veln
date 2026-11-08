@@ -15,8 +15,12 @@ type Negative<T>
 	NegativeValue(fn(T) -> (), fn(T) -> ())
 end
 
+type Invariant<T>
+	InvariantValue(fn(T) -> T)
+end
+
 type Exact<T>
-	ExactValue(fn(T) -> T)
+	ExactValue(Invariant<T>)
 end
 
 type Phantom<T>
@@ -28,7 +32,7 @@ type Irrelevant<T>
 end
 
 type Mixed<T>
-	MixedValue(T, fn(T) -> (), fn(T) -> T)
+	MixedValue(T, fn(T) -> (), Invariant<T>)
 end
 
 type Pair<T>
@@ -72,11 +76,11 @@ fn negative_private(first: fn(State) -> (), second: fn(State::Ready) -> ())
 end
 
 fn exact_private(callback: fn(State::Ready) -> State::Ready)
-	ExactValue(callback)
+	ExactValue(InvariantValue(callback))
 end
 
 fn mixed_private(callback: fn(State::Ready) -> State::Ready)
-	MixedValue(Ready, accepts_state, callback)
+	MixedValue(Ready, accepts_state, InvariantValue(callback))
 end
 
 fn contextual(value: Phantom<State::Ready>) -> Irrelevant<State::Closed>
@@ -134,10 +138,13 @@ fn ordinary_context_free(value: Phantom<State::Ready>) -> ()
 	let second_ready: fn(State::Ready) -> () = second
 	first_ready(Ready)
 	second_ready(Ready)
-	let exact = ExactValue(ready_identity)
-	let ExactValue(exact_callback) = exact
+	let exact = ExactValue(InvariantValue(ready_identity))
+	needs_exact(exact)
+	let ExactValue(exact_value) = exact
+	let InvariantValue(exact_callback) = exact_value
 	exact_callback(Ready)
-	let mixed = MixedValue(Ready, accepts_state, ready_identity)
+	let mixed = MixedValue(Ready, accepts_state, InvariantValue(ready_identity))
+	needs_mixed(mixed)
 	let MixedValue(mixed_value, _, _) = mixed
 	match mixed_value
 		Ready => ()
