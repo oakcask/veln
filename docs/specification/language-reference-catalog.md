@@ -70,7 +70,8 @@ covariant and contravariant source-ADT arguments for local and imported
 declarations, exact admission for invariant and irrelevant arguments, recursive
 joins through every argument of same-constructor compiler-owned immutable
 types, complete identical-field record joins that recursively join corresponding
-fields, contributed record-width selection without synthesized shapes,
+fields, contributed record-width selection after shared-field compatibility
+validation and without synthesized shapes,
 structural function joins that meet inputs and join results, concrete effect-set
 unions without symbolic effect-row synthesis, contributed-candidate fallback,
 retention of compatible unresolved contributions, and transactional exclusion

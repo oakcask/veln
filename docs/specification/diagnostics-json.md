@@ -916,7 +916,13 @@ covers the same unchanged-state outcome when a corresponding field has no
 recursive join. Complete records with different field-name sets instead use
 the contributed-candidate rule from the
 [type inference specification](types.md#inference-rules); they produce no
-diagnostic when that rule selects a unique result.
+diagnostic when that rule selects a unique result. Before candidate selection,
+every shared field path must remain compatible. An invariant or irrelevant
+named argument mismatch on a shared path reports `type.mismatch` at the later
+contribution and leaves the admitted bounds and alias presentation unchanged,
+even when the records have different field-name sets. The checked bounded-
+inference diagnostic companion above covers this record-width rejection and a
+subsequent valid contribution.
 When different outer aliases contributed to one compiler-owned join, a later
 diagnostic renders the joined type with the compiler-owned canonical name. The
 checked
