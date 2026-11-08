@@ -1643,7 +1643,8 @@ change the joined arguments or resolved identity. The checked
 case covers the conflicting-alias result in both contribution orders.
 
 Constructor payload inference collects a constraint from every direct or
-nested occurrence of a type parameter. A record field and a function result
+nested occurrence of a type parameter. Constraint traversal starts positive at
+each constructor payload template. A record field and a function result
 preserve the current polarity. A fixed or variadic function input reverses it.
 An argument of a resolved named constructor composes it with that constructor
 parameter's checked classification. Missing or unusable classification
