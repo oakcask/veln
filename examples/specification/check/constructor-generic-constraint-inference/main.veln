@@ -43,6 +43,14 @@ type Upper<T>
 	UpperValue(fn(T) -> (), fn(T) -> ())
 end
 
+type FunctionBox<T>
+	FunctionBoxed(T)
+end
+
+type Transition<T>
+	Resolved({upper: fn(T) -> (), first: FunctionBox<T>, second: FunctionBox<T>, third: FunctionBox<T>})
+end
+
 fn accepts_state(value: State) -> ()
 	()
 end
@@ -60,6 +68,22 @@ fn accepts_phantom_int(value: Phantom<Int>) -> ()
 end
 
 fn accepts_phantom_string(value: Phantom<String>) -> ()
+	()
+end
+
+fn transition_f(value: {a: Int}) -> State::Ready
+	Ready
+end
+
+fn transition_g(value: {b: Int}) -> State::Closed
+	Closed
+end
+
+fn transition_h(value: {a: Int, b: Int}) -> State::Ready
+	Ready
+end
+
+fn accepts_transition_complete(value: fn({a: Int, b: Int}) -> State) -> ()
 	()
 end
 
@@ -95,6 +119,10 @@ fn contextual_meet()
 	UpperValue(accepts_phantom_int, accepts_phantom_string)
 end
 
+fn private_transition(payload: {upper: fn(fn({a: Int, b: Int}) -> State) -> (), first: FunctionBox<fn({a: Int}) -> State::Ready>, second: FunctionBox<fn({b: Int}) -> State::Closed>, third: FunctionBox<fn({a: Int, b: Int}) -> State::Ready>})
+	Resolved(payload)
+end
+
 fn needs_positive(value: Positive<State::Ready | State::Closed>) -> ()
 	()
 end
@@ -116,6 +144,10 @@ fn needs_pair(value: Pair<Phantom<State::Ready>>) -> ()
 end
 
 fn needs_upper(value: Upper<Phantom<State::Ready>>) -> ()
+	()
+end
+
+fn needs_transition(value: Transition<fn({a: Int, b: Int}) -> State::Ready | State::Closed>) -> ()
 	()
 end
 
@@ -152,6 +184,11 @@ fn ordinary_context_free(value: Phantom<State::Ready>) -> ()
 	let contextual_irrelevant: Irrelevant<State::Closed> = IrrelevantValue(value)
 end
 
+fn ordinary_transition(payload: {upper: fn(fn({a: Int, b: Int}) -> State) -> (), first: FunctionBox<fn({a: Int}) -> State::Ready>, second: FunctionBox<fn({b: Int}) -> State::Closed>, third: FunctionBox<fn({a: Int, b: Int}) -> State::Ready>}) -> ()
+	let inferred = Resolved(payload)
+	needs_transition(inferred)
+end
+
 pub fn main() -> ()
 	let value: Phantom<State::Ready> = Empty
 	needs_positive(positive_forward())
@@ -171,4 +208,7 @@ pub fn main() -> ()
 	needs_pair(contextual_join(phantom_int, phantom_string))
 	needs_upper(contextual_meet())
 	ordinary_context_free(value)
+	let transition_payload: {upper: fn(fn({a: Int, b: Int}) -> State) -> (), first: FunctionBox<fn({a: Int}) -> State::Ready>, second: FunctionBox<fn({b: Int}) -> State::Closed>, third: FunctionBox<fn({a: Int, b: Int}) -> State::Ready>} = {upper: accepts_transition_complete, first: FunctionBoxed(transition_f), second: FunctionBoxed(transition_g), third: FunctionBoxed(transition_h)}
+	needs_transition(private_transition(transition_payload))
+	ordinary_transition(transition_payload)
 end

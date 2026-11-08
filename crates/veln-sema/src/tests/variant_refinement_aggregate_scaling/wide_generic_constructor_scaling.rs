@@ -259,3 +259,88 @@ fn pairwise_incomparable_constructor_constraints_grow_linearly_when_unavailable(
         );
     }
 }
+
+fn resolving_structural_constraint_source(repetitions: usize) -> String {
+    let template_fields = (0..repetitions * 2)
+        .map(|index| format!("p{index}: Box<T>"))
+        .chain(std::iter::once("complete: Box<T>".to_owned()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let actual_fields = (0..repetitions * 2)
+        .map(|index| {
+            if index % 2 == 0 {
+                format!("p{index}: Box<fn({{a: Int}}) -> State::Ready>")
+            } else {
+                format!("p{index}: Box<fn({{b: Int}}) -> State::Closed>")
+            }
+        })
+        .chain(std::iter::once(
+            "complete: Box<fn({a: Int, b: Int}) -> State::Ready>".to_owned(),
+        ))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "type State\n  Ready\n  Closed\n  Failed\nend\n\
+         type Box<T>\n  Boxed(T)\nend\n\
+         type Repeated<T>\n  Made({{upper: fn(T) -> (), {template_fields}}})\nend\n\
+         fn inferred(payload: {{upper: fn(fn({{a: Int, b: Int}}) -> State) -> (), {actual_fields}}})\n  Made(payload)\nend\n\
+         fn ordinary(payload: {{upper: fn(fn({{a: Int, b: Int}}) -> State) -> (), {actual_fields}}}) -> ()\n  let value = Made(payload)\nend\n",
+    )
+}
+
+fn measure_resolving_structural_constraint_work(repetitions: usize) -> usize {
+    let source = SourceFile::new(
+        "main.veln",
+        resolving_structural_constraint_source(repetitions),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::aggregate_type_join::reset_work();
+    crate::aggregate_type_join::reset_bounded_frames();
+    crate::aggregate_type_join::reset_bounded_candidate_work();
+    crate::type_relations::reset_type_presentation_work();
+    let started = std::time::Instant::now();
+    let (diagnostics, cloned_type_nodes) =
+        crate::semantic_model::measure_type_clone_nodes(|| analyze_surface_module(&module));
+    let elapsed = started.elapsed();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let inference_work = crate::aggregate_type_join::take_work();
+    let bounded_frames = crate::aggregate_type_join::take_bounded_frames();
+    let bounded = crate::aggregate_type_join::take_bounded_candidate_work();
+    let bounded_work = bounded.candidate_iterations
+        + bounded.relation_key_nodes
+        + bounded.candidate_order_nodes
+        + bounded.result_materialization_units
+        + bounded.relation_cache_peak_entries
+        + bounded.relation_cache_peak_key_bytes;
+    let presentation = crate::type_relations::take_type_presentation_work();
+    let presentation_work = presentation.conflict_lookups
+        + presentation.conflict_insertions
+        + presentation.child_lookups
+        + presentation.child_insertions;
+    let total =
+        inference_work + cloned_type_nodes + bounded_frames + bounded_work + presentation_work;
+    eprintln!(
+        "resolving structural repetitions {repetitions}: {elapsed:?}, total={total}, inference={inference_work}, clones={cloned_type_nodes}, bounds={bounded_frames}, candidates={bounded_work}, presentation={presentation_work}",
+    );
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("inferred")
+            .unwrap()
+            .return_type
+            .render(),
+        "Repeated<fn({a: Int, b: Int}) -> State::Ready | State::Closed>::Made",
+    );
+    total
+}
+
+#[test]
+fn unresolved_structural_constructor_constraints_resolve_with_linear_work() {
+    let work = [8, 16, 32].map(measure_resolving_structural_constraint_work);
+    assert!(
+        work[1] <= work[0] * 2 + 256 && work[2] <= work[1] * 2 + 256,
+        "doubling unresolved structural constraints must add only linear incremental clone, comparison, bound-update, and presentation work: {work:?}",
+    );
+}
