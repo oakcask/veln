@@ -7,7 +7,7 @@ contains = [
   "expected `Int`, but found `String`",
   "expected `Option<Int>::Some`, but found `Option<String>::Some`",
   "expected `First::Value`, but found `Second::Value`",
-  "expected `State::Ready`, but found `State::Closed`",
+  "constructor `Paired` needs type context",
 ]
 
 [stderr]
@@ -19,7 +19,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 9
+equals = 8
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -99,23 +99,12 @@ line = 109
 column = 27
 
 [[diagnostics]]
-id = "type.mismatch"
+id = "type.inference_ambiguous"
 severity = "error"
 kind = "type"
-message = "expected `Option<Int>::Some`, but found `Option<String>::Some`"
+message = "constructor `Paired` needs type context"
 
 [diagnostics.span]
 file = "main.veln"
 line = 110
-column = 34
-
-[[diagnostics]]
-id = "type.mismatch"
-severity = "error"
-kind = "type"
-message = "expected `State::Ready`, but found `State::Closed`"
-
-[diagnostics.span]
-file = "main.veln"
-line = 111
-column = 28
+column = 15

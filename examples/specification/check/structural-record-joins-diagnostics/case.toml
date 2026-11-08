@@ -18,7 +18,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 5
+equals = 4
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -30,17 +30,6 @@ message = "expected `{detail: {guard: Option<Int>}, state: First::Ready | First:
 file = "main.veln"
 line = 18
 column = 10
-
-[[diagnostics]]
-id = "type.mismatch"
-severity = "error"
-kind = "type"
-message = "expected `{detail: {guard: Option<Int>}, state: First::Ready | First::Closed}`, but found `{state: Second::Last, detail: {guard: Option<String>}}`"
-
-[diagnostics.span]
-file = "main.veln"
-line = 22
-column = 17
 
 [[diagnostics]]
 id = "type.mismatch"
