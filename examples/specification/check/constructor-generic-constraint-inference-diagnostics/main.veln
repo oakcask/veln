@@ -21,7 +21,7 @@ type Irrelevant<T>
 end
 
 type Exact<T>
-	ExactValue(fn(T) -> T, T)
+	ExactValue(fn(T) -> T, T, T)
 end
 
 fn accepts_int(value: Int) -> ()
@@ -36,8 +36,8 @@ fn ready_identity(value: State::Ready) -> State::Ready
 	value
 end
 
-fn rollback(callback: fn(State::Ready) -> State::Ready, rejected: State::Closed)
-	ExactValue(callback, rejected)
+fn rollback(callback: fn(State::Ready) -> State::Ready, rejected: State::Closed, later: State::Ready)
+	ExactValue(callback, rejected, later)
 end
 
 pub fn main() -> ()
@@ -45,5 +45,5 @@ pub fn main() -> ()
 	let missing = IrrelevantValue(value)
 	let unavailable_join = Paired(1, "text")
 	let unavailable_meet = UpperValue(accepts_int, accepts_string)
-	let retained = rollback(ready_identity, Closed)
+	let retained = rollback(ready_identity, Closed, Ready)
 end

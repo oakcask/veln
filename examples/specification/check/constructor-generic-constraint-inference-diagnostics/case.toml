@@ -21,7 +21,7 @@ equals = 4
 id = "type.mismatch"
 severity = "error"
 kind = "type"
-message = "expected `State::Ready`, but found `State::Ready | State::Closed`"
+message = "expected `State::Ready`, but found `State::Closed`"
 
 [diagnostics.span]
 file = "main.veln"
