@@ -1,0 +1,62 @@
+# Integration contract: `veln check --json` renders unavailable bounds through
+# the existing ambiguity diagnostic and preserves a focused rejected-payload mismatch.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `State::Ready`, but found `State::Ready | State::Closed`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 40
+column = 23
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `IrrelevantValue` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 45
+column = 16
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Paired` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 46
+column = 25
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `UpperValue` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 47
+column = 25

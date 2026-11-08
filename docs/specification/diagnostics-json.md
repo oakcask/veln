@@ -821,7 +821,7 @@ explicit alias spelling is preserved only on the side that supplied it, and an
 expected alias never relabels an inferred actual type. Conflicting alias
 provenance uses the target ADT's canonical display name, including when the
 conflicting singleton or union refinements cover the complete ADT domain and
-render as its base type. The same rule applies when direct and exact nested
+render as its base type. The same rule applies when direct and nested
 constructor payload contributions infer one type argument. The checked
 [`alias diagnostic case`](../../examples/specification/check/adt-variant-refinement-alias-presentation-diagnostics-json/)
 and
@@ -886,17 +886,16 @@ excluded from the enclosing join too. The current
 [`bounded-inference diagnostic companion`](../../examples/specification/check/bounded-function-inference-diagnostics/)
 checks the local and private incomplete-inference forms and the ordinary
 incompatibility diagnostics produced by an unusable explicit context. The
-current [type inference rules](types.md#inference-rules) define which direct payload
-contributions can join and which nested payload occurrences remain exact. When
-an exact nested constraint rejects a contribution, the diagnostic reports the
-constraint established by the other payload rather than applying that named
-type's assignment variance. Thus `Vec<A>` establishes an exact constraint here
-even though compiler-owned `Vec<T>` is covariant for assignment. When one
-payload contributes the same type parameter more than once, a conflict reports
-the earlier occurrence's type as expected and the conflicting occurrence's
-type as actual. None of that payload's occurrences update the accumulated type,
-so a later payload is checked against only the constraints that were complete
-before the rejected payload. If an earlier error leaves the value untyped,
+current [type inference rules](types.md#inference-rules) define how direct and
+nested payload occurrences contribute lower, upper, equality, or irrelevant
+constraints. When an equality constraint or a lower-to-upper comparison rejects
+a payload, the diagnostic reports the conflicting selected and contributed
+types. None of that payload's occurrences update the accumulated constraints or
+alias presentation, so a later payload is checked against only the constraints
+that were complete before the rejected payload. When a required bounded join or
+meet is unavailable, or no effective occurrence constrains an argument, a
+context-free constructor reports `type.inference_ambiguous` instead of a
+payload mismatch. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
 Without a concrete expected component or result type, same-constructor

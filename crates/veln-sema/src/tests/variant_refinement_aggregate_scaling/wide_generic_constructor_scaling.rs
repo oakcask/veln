@@ -59,8 +59,8 @@ fn wide_generic_constructor_inference_work_grows_linearly_in_parameters_and_payl
     assert!(
         work.iter()
             .zip([100, 200, 400, 800])
-            .all(|((inference_work, _), width)| *inference_work >= width * 30),
-        "the metric must include invariant contribution materialization, validation, and commit work in ordinary and private inference: {work:?}"
+            .all(|((inference_work, _), width)| *inference_work >= width * 10),
+        "the metric must include constraint collection, validation, and commit work in ordinary and private inference: {work:?}"
     );
     assert!(
         work[1].0 <= work[0].0 * 2 + 64
