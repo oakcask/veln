@@ -42,6 +42,7 @@ struct FunctionCandidateStates {
     inputs: Vec<ContributedCandidateState>,
     has_variadic: bool,
     return_keys: HashSet<String>,
+    return_join: Option<Box<AggregateTypeJoin>>,
     return_type: Option<Type>,
     return_presentation: TypePresentationJoin,
 }
@@ -324,11 +325,25 @@ impl FunctionCandidateStates {
             .iter()
             .map(|return_type| canonical_relation_key(return_type))
             .collect();
-        let (return_type, return_presentation) = resolve_function_returns(adts, &returns);
+        let return_join = incremental_function_return_join(adts, &returns);
+        let (return_type, return_presentation) = return_join.as_ref().map_or_else(
+            || resolve_function_returns(adts, &returns),
+            |joined| {
+                let mut resolved = joined.resolved_result_type();
+                let mut presentation = TypePresentationJoin::default();
+                if let Some(resolved) = &mut resolved {
+                    for return_type in &returns {
+                        presentation.merge(resolved, return_type);
+                    }
+                }
+                (resolved, presentation)
+            },
+        );
         Some(Self {
             inputs,
             has_variadic: first.variadic.is_some(),
             return_keys,
+            return_join,
             return_type,
             return_presentation,
         })
@@ -361,8 +376,36 @@ impl FunctionCandidateStates {
                 .iter()
                 .map(|function| function.return_type)
                 .collect::<Vec<_>>();
-            let (resolved, presentation) = resolve_function_returns(adts, &returns);
-            self.replace_return(resolved, presentation);
+            let incrementally_admitted = self
+                .return_join
+                .as_mut()
+                .is_some_and(|joined| joined.try_join(adts, return_type));
+            if incrementally_admitted {
+                let mut resolved = self
+                    .return_join
+                    .as_ref()
+                    .and_then(|joined| joined.resolved_result_type());
+                if self.return_type.is_some() {
+                    if let Some(resolved) = &mut resolved {
+                        self.return_presentation.merge(resolved, return_type);
+                    } else {
+                        self.return_presentation = TypePresentationJoin::default();
+                    }
+                    self.replace_return_type(resolved);
+                } else {
+                    let mut presentation = TypePresentationJoin::default();
+                    if let Some(resolved) = &mut resolved {
+                        for return_type in &returns {
+                            presentation.merge(resolved, return_type);
+                        }
+                    }
+                    self.replace_return(resolved, presentation);
+                }
+            } else {
+                self.return_join = None;
+                let (resolved, presentation) = resolve_function_returns(adts, &returns);
+                self.replace_return(resolved, presentation);
+            }
         } else if let Some(resolved) = &mut self.return_type {
             self.return_presentation.merge(resolved, return_type);
         }
@@ -424,12 +467,29 @@ impl FunctionCandidateStates {
     }
 
     fn replace_return(&mut self, resolved: Option<Type>, presentation: TypePresentationJoin) {
-        let previous = std::mem::replace(&mut self.return_type, resolved);
         self.return_presentation = presentation;
+        self.replace_return_type(resolved);
+    }
+
+    fn replace_return_type(&mut self, resolved: Option<Type>) {
+        let previous = std::mem::replace(&mut self.return_type, resolved);
         if let Some(previous) = previous {
             crate::semantic_model::drop_type_iteratively(previous);
         }
     }
+}
+
+fn incremental_function_return_join(
+    adts: &AdtRegistry,
+    returns: &[&Type],
+) -> Option<Box<AggregateTypeJoin>> {
+    let mut joined = Box::new(AggregateTypeJoin::new(adts, returns.first()?)?);
+    for return_type in &returns[1..] {
+        if !joined.try_join(adts, return_type) {
+            return None;
+        }
+    }
+    Some(joined)
 }
 
 impl Drop for FunctionCandidateStates {
@@ -668,6 +728,10 @@ impl AggregateTypeJoin {
                 .map(ContributedCandidateState::retained_units)
                 .sum::<usize>()
                 + states.return_keys.iter().map(String::len).sum::<usize>()
+                + states
+                    .return_join
+                    .as_ref()
+                    .map_or(0, |joined| joined.bounded_retained_state())
                 + states.return_type.as_ref().map_or(0, type_retained_units)
                 + states.return_presentation.retained_nodes()
         });
@@ -1591,7 +1655,10 @@ fn bounded_join(adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
 
 fn bounded_join_refs(adts: &AdtRegistry, contributions: &[&Type]) -> Option<Type> {
     let mut relation_cache = HashMap::new();
-    bounded_join_iterative(adts, contributions, &mut relation_cache)
+    reset_relation_cache_current_key_bytes();
+    let resolved = bounded_join_iterative(adts, contributions, &mut relation_cache);
+    reset_relation_cache_current_key_bytes();
+    resolved
 }
 
 enum BoundTask<'a> {
@@ -2699,7 +2766,9 @@ fn candidate_assignable_cached(
         return *assignable;
     }
     let assignable = candidate_assignable(expected, actual, adts);
+    let key_bytes = key.0.len() + key.1.len();
     relation_cache.insert(key, assignable);
+    record_relation_cache_insert(relation_cache.len(), key_bytes);
     assignable
 }
 
@@ -2979,12 +3048,15 @@ thread_local! {
     static FALLBACK_COMPARISONS: Cell<usize> = const { Cell::new(0) };
     static BOUNDED_FRAMES: Cell<usize> = const { Cell::new(0) };
     static FUNCTION_SCAN_NODES: Cell<usize> = const { Cell::new(0) };
+    static RELATION_CACHE_CURRENT_KEY_BYTES: Cell<usize> = const { Cell::new(0) };
     static BOUNDED_CANDIDATE_WORK: Cell<BoundedCandidateWork> =
         const { Cell::new(BoundedCandidateWork {
             candidate_iterations: 0,
             relation_key_nodes: 0,
             candidate_order_nodes: 0,
             result_materialization_units: 0,
+            relation_cache_peak_entries: 0,
+            relation_cache_peak_key_bytes: 0,
         }) };
 }
 
@@ -2995,6 +3067,8 @@ pub(crate) struct BoundedCandidateWork {
     pub(crate) relation_key_nodes: usize,
     pub(crate) candidate_order_nodes: usize,
     pub(crate) result_materialization_units: usize,
+    pub(crate) relation_cache_peak_entries: usize,
+    pub(crate) relation_cache_peak_key_bytes: usize,
 }
 
 #[inline(always)]
@@ -3039,9 +3113,34 @@ fn record_bounded_result_materialization(ty: &Type) {
     let _ = ty;
 }
 
+#[inline(always)]
+fn record_relation_cache_insert(entries: usize, key_bytes: usize) {
+    #[cfg(test)]
+    RELATION_CACHE_CURRENT_KEY_BYTES.with(|current_key_bytes| {
+        let key_bytes = current_key_bytes.get() + key_bytes;
+        current_key_bytes.set(key_bytes);
+        BOUNDED_CANDIDATE_WORK.with(|work| {
+            let mut current = work.get();
+            current.relation_cache_peak_entries = current.relation_cache_peak_entries.max(entries);
+            current.relation_cache_peak_key_bytes =
+                current.relation_cache_peak_key_bytes.max(key_bytes);
+            work.set(current);
+        });
+    });
+    #[cfg(not(test))]
+    let _ = (entries, key_bytes);
+}
+
+#[inline(always)]
+fn reset_relation_cache_current_key_bytes() {
+    #[cfg(test)]
+    RELATION_CACHE_CURRENT_KEY_BYTES.with(|current_key_bytes| current_key_bytes.set(0));
+}
+
 #[cfg(test)]
 pub(crate) fn reset_bounded_candidate_work() {
     BOUNDED_CANDIDATE_WORK.with(|work| work.set(BoundedCandidateWork::default()));
+    reset_relation_cache_current_key_bytes();
 }
 
 #[cfg(test)]

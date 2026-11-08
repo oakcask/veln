@@ -694,6 +694,171 @@ fn repeated_function_return_measurement(
     }
 }
 
+#[derive(Debug)]
+struct DistinctFunctionReturnMeasurement {
+    total_field_occurrences: usize,
+    work: usize,
+    candidate_work: crate::aggregate_type_join::BoundedCandidateWork,
+    record_work: usize,
+    presentation_work: crate::type_relations::TypePresentationWork,
+    retained_state: usize,
+    elapsed: std::time::Duration,
+}
+
+fn distinct_function_return_measurement(size: usize) -> DistinctFunctionReturnMeasurement {
+    let source = SourceFile::new(
+        "main.veln",
+        "type State\n  Ready\n  Closed\nend\npub type First = State\npub type Second = State\n",
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let environment = TypeEnvironment::from_module(&lower_surface_ast(&parsed.tree));
+    let state_identity = environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "State")
+        .expect("State descriptor")
+        .identity();
+    let state = |name: &str| Type::resolved_named(name, &state_identity, Vec::new());
+    let record = |width: usize, suffix: Option<&str>, alias: &str| {
+        let mut fields = vec![("state".to_string(), state(alias))];
+        fields.extend((0..width).map(|index| (format!("field_{index:03}"), Type::int())));
+        if let Some(suffix) = suffix {
+            fields.push((suffix.to_string(), Type::int()));
+        }
+        Type::Record(fields)
+    };
+    let function = |return_type| Type::Function {
+        params: vec![Type::int()],
+        variadic: None,
+        return_type: Box::new(return_type),
+        effects: Vec::new(),
+    };
+
+    crate::aggregate_type_join::reset_bounded_candidate_work();
+    crate::type_relations::reset_record_field_match_work();
+    crate::type_relations::reset_type_presentation_work();
+    let started = std::time::Instant::now();
+    let initial = function(record(size, Some("left"), "First"));
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("bounded function join");
+    assert!(joined.try_join(
+        &environment.adts,
+        &function(record(size, Some("right"), "Second")),
+    ));
+    assert!(!joined.has_resolved_result());
+    assert!(joined.try_join(&environment.adts, &function(record(size, None, "First")),));
+    assert!(joined.has_resolved_result());
+
+    let before_rejection = joined.result_type();
+    let retained_before_rejection = joined.bounded_retained_state();
+    let rejected = function(Type::Record(vec![("state".to_string(), Type::string())]));
+    assert!(!joined.try_join(&environment.adts, &rejected));
+    assert_eq!(joined.result_type(), before_rejection);
+    assert_eq!(joined.bounded_retained_state(), retained_before_rejection);
+    crate::semantic_model::drop_type_iteratively(before_rejection);
+
+    let replacement_width = size - 1;
+    assert!(joined.try_join(
+        &environment.adts,
+        &function(record(replacement_width, None, "Second")),
+    ));
+    let replacement = joined.result_type();
+    let Type::Function { return_type, .. } = &replacement else {
+        panic!("expected replacement function result");
+    };
+    let Type::Record(fields) = return_type.as_ref() else {
+        panic!("expected replacement record return");
+    };
+    assert_eq!(fields.len(), replacement_width + 1);
+    crate::semantic_model::drop_type_iteratively(replacement);
+
+    for width in (0..replacement_width).rev() {
+        let alias = if width % 2 == 0 { "First" } else { "Second" };
+        assert!(joined.try_join(&environment.adts, &function(record(width, None, alias)),));
+    }
+    let resolved = joined.result_type();
+    let elapsed = started.elapsed();
+    assert_eq!(resolved.render(), "fn(Int) -> {state: State}");
+    let Type::Function { return_type, .. } = &resolved else {
+        panic!("expected function result");
+    };
+    let Type::Record(fields) = return_type.as_ref() else {
+        panic!("expected record return");
+    };
+    let Type::Named { name, identity, .. } = &fields[0].1 else {
+        panic!("expected resolved State field");
+    };
+    assert_eq!(name, "State");
+    assert_eq!(identity, &state_identity);
+    crate::semantic_model::drop_type_iteratively(resolved);
+
+    let candidate_work = crate::aggregate_type_join::take_bounded_candidate_work();
+    let record_work = crate::type_relations::take_record_field_match_work();
+    let presentation_work = crate::type_relations::take_type_presentation_work();
+    let presentation_units = presentation_work.conflict_lookups
+        + presentation_work.conflict_insertions
+        + presentation_work.child_lookups
+        + presentation_work.child_insertions;
+    let work = candidate_work.candidate_iterations
+        + candidate_work.relation_key_nodes
+        + candidate_work.candidate_order_nodes
+        + candidate_work.result_materialization_units
+        + record_work
+        + presentation_units;
+    DistinctFunctionReturnMeasurement {
+        total_field_occurrences: size * (size + 1) / 2 + 3 * size + 5,
+        work,
+        candidate_work,
+        record_work,
+        presentation_work,
+        retained_state: joined.bounded_retained_state(),
+        elapsed,
+    }
+}
+
+#[test]
+fn distinct_descending_width_function_returns_scale_with_source_size() {
+    let sizes = [16, 32, 64];
+    let measurements = sizes.map(distinct_function_return_measurement);
+    eprintln!("distinct function return source-size work: {measurements:?}");
+    for measurement in &measurements {
+        let _observed_elapsed = measurement.elapsed;
+        assert!(
+            measurement.work <= measurement.total_field_occurrences * 200,
+            "complete admission work must stay bounded by generated source fields: {measurement:?}"
+        );
+        assert!(
+            measurement.candidate_work.relation_cache_peak_entries <= 8,
+            "temporary relation state must remain bounded: {measurement:?}"
+        );
+        assert!(
+            measurement.candidate_work.relation_cache_peak_key_bytes <= 1_024,
+            "temporary relation key storage must remain bounded: {measurement:?}"
+        );
+        assert!(measurement.record_work > 0);
+        assert!(measurement.presentation_work.child_lookups > 0);
+    }
+    for (index, adjacent) in measurements.windows(2).enumerate() {
+        let larger = sizes[index + 1];
+        assert!(
+            adjacent[1].candidate_work.candidate_iterations
+                <= adjacent[0].candidate_work.candidate_iterations * 4 + larger,
+            "candidate work must not grow cumulatively cubically: {measurements:?}"
+        );
+        assert!(
+            adjacent[1].work <= adjacent[0].work * 7 + larger * 64,
+            "total measured work must remain below cumulative cubic growth: {measurements:?}"
+        );
+        assert!(
+            adjacent[1].retained_state <= adjacent[0].retained_state * 4 + larger * 8,
+            "retained state must not outgrow the source types: {measurements:?}"
+        );
+    }
+}
+
 #[test]
 fn repeated_nested_function_returns_do_not_repeat_quadratic_solves() {
     let sizes = [16, 32, 64];
