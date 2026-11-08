@@ -46,4 +46,5 @@ pub fn main() -> ()
 	let unavailable_join = Paired(1, "text")
 	let unavailable_meet = UpperValue(accepts_int, accepts_string)
 	let retained = rollback(ready_identity, Closed, Ready)
+	let ordinary_retained: Exact<State::Ready> = ExactValue(ready_identity, Closed, Ready)
 end

@@ -50,6 +50,21 @@ fn nested_constructor_constraints_use_composed_polarity_in_both_consumers() {
             "type Exact<T>\n",
             "  ExactValue(fn(T) -> T)\n",
             "end\n",
+            "type Covariant<T>\n",
+            "  CovariantValue(T)\n",
+            "end\n",
+            "type Contravariant<T>\n",
+            "  ContravariantValue(fn(T) -> ())\n",
+            "end\n",
+            "type NamedPositive<T>\n",
+            "  NamedPositiveValue(Covariant<T>, Covariant<T>)\n",
+            "end\n",
+            "type NamedNegative<T>\n",
+            "  NamedNegativeValue(Contravariant<T>, Contravariant<T>)\n",
+            "end\n",
+            "type VariadicNegative<T>\n",
+            "  VariadicNegativeValue(fn(...T) -> (), fn(...T) -> ())\n",
+            "end\n",
             "fn accepts_state(value: State) -> ()\n  ()\nend\n",
             "fn accepts_ready(value: State::Ready) -> ()\n  ()\nend\n",
             "fn ready_identity(value: State::Ready) -> State::Ready\n  value\nend\n",
@@ -65,11 +80,26 @@ fn nested_constructor_constraints_use_composed_polarity_in_both_consumers() {
             "fn exact_private(callback: fn(State::Ready) -> State::Ready)\n",
             "  ExactValue(callback)\n",
             "end\n",
+            "fn named_positive_private()\n",
+            "  NamedPositiveValue(CovariantValue(Ready), CovariantValue(Closed))\n",
+            "end\n",
+            "fn named_negative_private(first: Contravariant<State>, second: Contravariant<State::Ready>)\n",
+            "  NamedNegativeValue(first, second)\n",
+            "end\n",
+            "fn variadic_negative_private(first: fn(...State) -> (), second: fn(...State::Ready) -> ())\n",
+            "  VariadicNegativeValue(first, second)\n",
+            "end\n",
             "fn needs_positive(value: Positive<State::Ready | State::Closed>) -> ()\n  ()\nend\n",
             "fn needs_negative(value: Negative<State::Ready>) -> ()\n  ()\nend\n",
-            "fn ordinary() -> ()\n",
+            "fn needs_named_positive(value: NamedPositive<State::Ready | State::Closed>) -> ()\n  ()\nend\n",
+            "fn needs_named_negative(value: NamedNegative<State::Ready>) -> ()\n  ()\nend\n",
+            "fn needs_variadic_negative(value: VariadicNegative<State::Ready>) -> ()\n  ()\nend\n",
+            "fn ordinary(first: Contravariant<State>, second: Contravariant<State::Ready>, variadic_state: fn(...State) -> (), variadic_ready: fn(...State::Ready) -> ()) -> ()\n",
             "  needs_positive(PositiveValue({left: Ready, right: Closed}))\n",
             "  needs_negative(NegativeValue(accepts_state, accepts_ready))\n",
+            "  needs_named_positive(NamedPositiveValue(CovariantValue(Ready), CovariantValue(Closed)))\n",
+            "  needs_named_negative(NamedNegativeValue(first, second))\n",
+            "  needs_variadic_negative(VariadicNegativeValue(variadic_state, variadic_ready))\n",
             "end\n",
         ),
     );
@@ -101,6 +131,30 @@ fn nested_constructor_constraints_use_composed_polarity_in_both_consumers() {
             .return_type
             .render(),
         "Exact<State::Ready>::ExactValue"
+    );
+    assert_eq!(
+        environment
+            .function("named_positive_private")
+            .unwrap()
+            .return_type
+            .render(),
+        "NamedPositive<State::Ready | State::Closed>::NamedPositiveValue"
+    );
+    assert_eq!(
+        environment
+            .function("named_negative_private")
+            .unwrap()
+            .return_type
+            .render(),
+        "NamedNegative<State::Ready>::NamedNegativeValue"
+    );
+    assert_eq!(
+        environment
+            .function("variadic_negative_private")
+            .unwrap()
+            .return_type
+            .render(),
+        "VariadicNegative<State::Ready>::VariadicNegativeValue"
     );
 }
 

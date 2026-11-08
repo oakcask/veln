@@ -15,7 +15,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 4
+equals = 5
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -60,3 +60,14 @@ message = "constructor `UpperValue` needs type context"
 file = "main.veln"
 line = 47
 column = 25
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `State::Ready`, but found `State::Closed`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 49
+column = 74
