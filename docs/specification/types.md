@@ -1448,7 +1448,9 @@ Bounded inference retains every successfully typed, structurally admissible
 contribution. For a same-constructor source ADT, invariant and irrelevant
 arguments must match exactly before the contribution is admitted. An
 exact-argument mismatch reports `type.mismatch` at that contribution and leaves
-the retained bounds and presentation state unchanged. When the same-constructor,
+the retained bounds and presentation state unchanged. Records with different
+field sets remain eligible for width fallback, but every field path shared by
+the records must satisfy this exact-argument admission rule. When the same-constructor,
 identical-field, and structural-function rules do not produce a join, the
 contributed-candidate fallback selects the unique contributed type that accepts
 every contribution and is assignable to every other valid candidate. A bounded
@@ -1499,12 +1501,22 @@ The contributed-candidate fallback performs at most quadratic assignment
 comparisons in the number of retained contributions. The deterministic
 workload contributes 8, 16, and 32 records with one common field and one
 distinct field, both with and without a final contributed record that resolves
-the join. A companion structural-function workload contributes functions whose
-input records form an increasing-width chain, so the widest input remains the
-bounded meet after every admission. For `N` contributions in either workload,
-the comparison count must not exceed `N * N`; after doubling the input, it must
-not exceed four times the preceding count plus the larger input size. Elapsed
-time is observational and is not an acceptance threshold.
+the join. For `N` contributions, the comparison count must not exceed `N * N`;
+after doubling the input, it must not exceed four times the preceding count
+plus the larger input size.
+
+A companion structural-function workload contributes functions whose input
+records have widths from 1 through `N`, so its generated source types contain
+`S(N) = N * (N + 1) / 2` record fields and have maximum width `N`. Its work
+metric includes candidate admission and selection, normalized-key nodes,
+record-index construction, successful and failed field lookups, presentation
+reconciliation, and selected-result materialization. The workload compares
+`N = 8`, `N = 16`, and `N = 32`. It requires total work to remain linear in
+`S(N)`. After doubling `N`, work must not exceed four times the preceding work
+plus a linear allowance in the larger width. This excludes repeated cubic or
+quartic traversal in the maximum width while permitting work proportional to
+the quadratic source-type input. Elapsed time is observational and is not an
+acceptance threshold.
 
 Repeated normalized function results do not cause a nested result solve after
 each admission. The deterministic 16, 32, and 64 contribution workload compares

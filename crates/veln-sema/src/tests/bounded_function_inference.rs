@@ -303,6 +303,67 @@ fn rejected_optimized_transition_preserves_the_aggregate_for_later_fallback() {
 }
 
 #[test]
+fn record_width_rejection_preserves_exact_arguments_and_alias_state() {
+    let source_text = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "pub type First = State\n",
+        "pub type Second = State\n",
+        "type Invariant<T>\n  Value(fn(T) -> T)\nend\n",
+        "fn optimized_baseline(first: fn() -> {guard: Invariant<Int>, state: First::Ready, left: Int}, later: fn() -> {guard: Invariant<Int>, state: First::Ready})\n  [first, later]\nend\n",
+        "fn optimized_crossed(first: fn() -> {guard: Invariant<Int>, state: First::Ready, left: Int}, rejected: fn() -> {guard: Invariant<String>, state: Second::Ready}, later: fn() -> {guard: Invariant<Int>, state: First::Ready})\n  [first, rejected, later]\nend\n",
+        "fn bounded_baseline(first: fn() -> {guard: Invariant<Int>, state: First::Ready}, second: fn() -> {guard: Invariant<Int>, state: First::Ready, right: Bool}, later: fn() -> {guard: Invariant<Int>, state: First::Ready})\n  [first, second, later]\nend\n",
+        "fn bounded_crossed(first: fn() -> {guard: Invariant<Int>, state: First::Ready}, second: fn() -> {guard: Invariant<Int>, state: First::Ready, right: Bool}, rejected: fn() -> {guard: Invariant<String>, state: Second::Ready, bad: String}, later: fn() -> {guard: Invariant<Int>, state: First::Ready})\n  [first, second, rejected, later]\nend\n",
+    );
+    let (module, diagnostics) = analyze(source_text);
+    let rejected = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic
+                .span
+                .as_ref()
+                .is_some_and(|span| &source_text[span.start.offset..span.end.offset] == "rejected")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(rejected.len(), 2, "{diagnostics:#?}");
+    assert!(
+        rejected
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    let optimized_baseline = environment
+        .function("optimized_baseline")
+        .expect("optimized baseline")
+        .return_type
+        .clone();
+    let optimized_crossed = environment
+        .function("optimized_crossed")
+        .expect("optimized crossed")
+        .return_type
+        .clone();
+    let bounded_baseline = environment
+        .function("bounded_baseline")
+        .expect("bounded baseline")
+        .return_type
+        .clone();
+    let bounded_crossed = environment
+        .function("bounded_crossed")
+        .expect("bounded crossed")
+        .return_type
+        .clone();
+    assert_eq!(optimized_crossed, optimized_baseline);
+    assert_eq!(bounded_crossed, bounded_baseline);
+    assert_eq!(
+        optimized_crossed.render(),
+        "Vec<fn() -> {guard: Invariant<Int>, state: First::Ready}>"
+    );
+    assert_eq!(bounded_crossed, optimized_crossed);
+}
+
+#[test]
 fn record_width_fallback_with_function_fields_is_order_independent() {
     let source = concat!(
         "fn forward(narrow: {callback: fn(Int) -> Int}, wide: {callback: fn(Int) -> Int, label: String})\n  [narrow, wide]\nend\n",
@@ -469,7 +530,19 @@ fn fallback_candidate_comparisons_grow_at_most_quadratically() {
     }
 }
 
-fn function_input_width_meet_measurement(size: usize) -> (usize, std::time::Duration) {
+#[derive(Debug)]
+struct FunctionInputWidthMeasurement {
+    total_field_occurrences: usize,
+    maximum_record_width: usize,
+    work: usize,
+    candidate_work: crate::aggregate_type_join::BoundedCandidateWork,
+    record_work: usize,
+    presentation_work: crate::type_relations::TypePresentationWork,
+    retained_state: usize,
+    elapsed: std::time::Duration,
+}
+
+fn function_input_width_meet_measurement(size: usize) -> FunctionInputWidthMeasurement {
     let environment = TypeEnvironment::from_module(&lower_surface_ast(
         &parse(&SourceFile::new("main.veln", "")).tree,
     ));
@@ -484,10 +557,12 @@ fn function_input_width_meet_measurement(size: usize) -> (usize, std::time::Dura
         effects: Vec::new(),
     };
     let initial = function(1);
+    crate::aggregate_type_join::reset_bounded_candidate_work();
+    crate::type_relations::reset_record_field_match_work();
+    crate::type_relations::reset_type_presentation_work();
     let mut joined =
         crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
             .expect("bounded function join");
-    crate::aggregate_type_join::reset_fallback_comparisons();
     let started = std::time::Instant::now();
     for width in 2..=size {
         assert!(joined.try_join(&environment.adts, &function(width)));
@@ -502,27 +577,66 @@ fn function_input_width_meet_measurement(size: usize) -> (usize, std::time::Dura
     };
     assert_eq!(fields.len(), size);
     crate::semantic_model::drop_type_iteratively(resolved);
-    (
-        crate::aggregate_type_join::take_fallback_comparisons(),
+    let candidate_work = crate::aggregate_type_join::take_bounded_candidate_work();
+    let record_work = crate::type_relations::take_record_field_match_work();
+    let presentation_work = crate::type_relations::take_type_presentation_work();
+    let work = candidate_work.candidate_iterations
+        + candidate_work.relation_key_nodes
+        + candidate_work.candidate_order_nodes
+        + candidate_work.result_materialization_units
+        + record_work
+        + presentation_work.conflict_lookups
+        + presentation_work.conflict_insertions
+        + presentation_work.child_lookups
+        + presentation_work.child_insertions;
+    FunctionInputWidthMeasurement {
+        total_field_occurrences: size * (size + 1) / 2,
+        maximum_record_width: size,
+        work,
+        candidate_work,
+        record_work,
+        presentation_work,
+        retained_state: joined.bounded_retained_state(),
         elapsed,
-    )
+    }
 }
 
 #[test]
-fn structural_function_input_meets_grow_at_most_quadratically() {
+fn structural_function_input_meets_scale_with_source_size() {
     let sizes = [8, 16, 32];
     let measurements = sizes.map(function_input_width_meet_measurement);
-    eprintln!("function input meet comparisons and elapsed: {measurements:?}");
-    for (size, (comparisons, _)) in sizes.into_iter().zip(measurements) {
+    eprintln!("function input meet source-size work: {measurements:?}");
+    for (size, measurement) in sizes.into_iter().zip(&measurements) {
+        let presentation_work = measurement.presentation_work.conflict_lookups
+            + measurement.presentation_work.conflict_insertions
+            + measurement.presentation_work.child_lookups
+            + measurement.presentation_work.child_insertions;
+        assert_eq!(
+            measurement.work,
+            measurement.candidate_work.candidate_iterations
+                + measurement.candidate_work.relation_key_nodes
+                + measurement.candidate_work.candidate_order_nodes
+                + measurement.candidate_work.result_materialization_units
+                + measurement.record_work
+                + presentation_work
+        );
+        let _observed_elapsed = measurement.elapsed;
+        assert_eq!(measurement.maximum_record_width, size);
+        assert_eq!(measurement.total_field_occurrences, size * (size + 1) / 2);
         assert!(
-            comparisons <= size * size,
-            "size={size} comparisons={comparisons}"
+            measurement.work <= measurement.total_field_occurrences * 80,
+            "work must remain linear in generated source fields: {measurement:?}"
         );
     }
     for (index, adjacent) in measurements.windows(2).enumerate() {
+        let larger_width = sizes[index + 1];
         assert!(
-            adjacent[1].0 <= adjacent[0].0 * 4 + sizes[index + 1],
-            "{measurements:?}"
+            adjacent[1].work <= adjacent[0].work * 4 + larger_width * 16,
+            "work may grow with the quadratic source size, not cubically with maximum width: {measurements:?}"
+        );
+        assert!(
+            adjacent[1].retained_state <= adjacent[0].retained_state * 4 + larger_width * 4,
+            "retained state must not outgrow the source types: {measurements:?}"
         );
     }
 }

@@ -30,7 +30,7 @@ pub(crate) fn take_record_field_match_work() -> usize {
 }
 
 #[inline(always)]
-fn record_field_match_work() {
+pub(crate) fn record_field_match_work() {
     #[cfg(test)]
     RECORD_FIELD_MATCH_WORK.with(|work| work.set(work.get() + 1));
 }
@@ -328,14 +328,11 @@ fn push_assignable_record_fields<'a>(
     actual_fields: &'a [(String, Type)],
     pending: &mut Vec<(&'a Type, &'a Type)>,
 ) -> bool {
+    let actual_by_name = index_record_fields(actual_fields);
     for (expected_name, expected_ty) in expected_fields {
-        let Some((_, actual_ty)) = actual_fields
-            .iter()
-            .find(|(actual_name, _)| actual_name == expected_name)
-        else {
+        let Some(actual_ty) = indexed_record_field(&actual_by_name, expected_name) else {
             return false;
         };
-        record_field_match_work();
         pending.push((expected_ty, actual_ty));
     }
     true
@@ -1061,14 +1058,10 @@ fn merge_record_type_presentation<'a>(
     state: &'a mut TypePresentationState,
     pending: &mut Vec<(&'a mut Type, &'a Type, &'a mut TypePresentationState)>,
 ) {
+    let actual_by_name = index_record_fields(actual_fields);
     let actual = joined_fields
         .iter()
-        .map(|(name, _)| {
-            actual_fields
-                .iter()
-                .find(|(actual_name, _)| actual_name == name)
-                .map(|(_, ty)| ty)
-        })
+        .map(|(name, _)| indexed_record_field(&actual_by_name, name))
         .collect::<Vec<_>>();
     let child_count = actual
         .iter()

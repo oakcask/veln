@@ -9,6 +9,7 @@ contains = [
   "\"inferred_type\":\"unknown\"",
   "expected `fn(State) -> Int`, but found `fn(State::Ready) -> Int`",
   "expected `fn(State) -> Int`, but found `fn(State::Closed) -> Int`",
+  "expected `fn() -> {guard: Invariant<Int>, state: State::Ready, left: Int}`, but found `fn() -> {guard: Invariant<String>, state: State::Ready}`",
 ]
 
 [stderr]
@@ -20,4 +21,4 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 4
+equals = 5
