@@ -1736,14 +1736,17 @@ and retained type nodes obey the same adjacent-size linear bound. Elapsed time
 is observational and is not an acceptance threshold.
 
 A repeated-parameter workload measures 32, 64, and 128 successful constraints
-on one constructor parameter in both inference pipelines. It measures
-upper-only occurrences through repeated `fn(T) -> ()` payloads, equality
-occurrences through repeated uses of an invariant named constructor, and mixed
-lower-and-upper occurrences through repeated `fn(T) -> T` payloads. The work
-metric includes retained-type clones, constraint comparisons, join and meet
-updates, bound validation, and presentation reconciliation. Each doubled size
-may use at most twice the preceding work plus a fixed allowance of 128.
-Elapsed time is observational and is not an acceptance threshold.
+on one constructor parameter in both inference pipelines. It measures direct
+lower bounds, upper-only occurrences through repeated `fn(T) -> ()` payloads,
+equality occurrences through repeated uses of an invariant named constructor,
+and mixed lower-and-upper occurrences through repeated `fn(T) -> T` payloads.
+Separate workloads measure 16, 32, and 64 pairwise-incomparable nominal lower
+bounds and upper bounds whose required join or meet remains unavailable. The
+work metric includes retained-type clones, constraint comparisons, join and
+meet updates, bound validation, and presentation reconciliation. In both the
+resolvable and unavailable workloads, each doubled size may use at most twice
+the preceding work plus a fixed allowance of 128. Elapsed time is observational
+and is not an acceptance threshold.
 
 Complementary workloads project repeated list and dictionary members through
 wide record and function contexts. Wrapped workloads put each structural

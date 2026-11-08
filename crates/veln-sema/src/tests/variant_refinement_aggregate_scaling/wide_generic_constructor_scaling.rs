@@ -22,6 +22,7 @@ fn wide_generic_constructor_scaling_source(width: usize) -> String {
 
 #[derive(Clone, Copy, Debug)]
 enum RepeatedConstraintWorkload {
+    Lower,
     Upper,
     Equality,
     Mixed,
@@ -32,6 +33,7 @@ fn repeated_constraint_scaling_source(
     workload: RepeatedConstraintWorkload,
 ) -> String {
     let (payloads, arguments) = match workload {
+        RepeatedConstraintWorkload::Lower => (vec!["T"; count], vec!["state"; count]),
         RepeatedConstraintWorkload::Upper => (vec!["fn(T) -> ()"; count], vec!["callback"; count]),
         RepeatedConstraintWorkload::Equality => {
             (vec!["Invariant<T>"; count], vec!["exact_value"; count])
@@ -42,8 +44,8 @@ fn repeated_constraint_scaling_source(
         "type State\n  Ready\n  Closed\nend\n\
          type Invariant<T>\n  InvariantValue(fn(T) -> T)\nend\n\
          type Repeated<T>\n  Made({})\nend\n\
-         fn inferred(callback: fn(State) -> (), identity: fn(State) -> State, exact_value: Invariant<State>)\n  Made({})\nend\n\
-         fn declared(callback: fn(State) -> (), identity: fn(State) -> State, exact_value: Invariant<State>) -> Repeated<State>::Made\n  Made({})\nend\n",
+         fn inferred(state: State, callback: fn(State) -> (), identity: fn(State) -> State, exact_value: Invariant<State>)\n  Made({})\nend\n\
+         fn declared(state: State, callback: fn(State) -> (), identity: fn(State) -> State, exact_value: Invariant<State>) -> Repeated<State>::Made\n  Made({})\nend\n",
         payloads.join(", "),
         arguments.join(", "),
         arguments.join(", "),
@@ -150,6 +152,7 @@ fn wide_generic_constructor_inference_work_grows_linearly_in_parameters_and_payl
 #[test]
 fn repeated_constructor_constraint_work_grows_linearly_per_parameter() {
     for workload in [
+        RepeatedConstraintWorkload::Lower,
         RepeatedConstraintWorkload::Upper,
         RepeatedConstraintWorkload::Equality,
         RepeatedConstraintWorkload::Mixed,
@@ -164,6 +167,95 @@ fn repeated_constructor_constraint_work_grows_linearly_per_parameter() {
         assert!(
             work[1] <= work[0] * 2 + 128 && work[2] <= work[1] * 2 + 128,
             "doubling repeated {workload:?} constraints for one parameter must add only linear work: {work:?}",
+        );
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum UnavailableConstraintWorkload {
+    Lower,
+    Upper,
+}
+
+fn unavailable_constraint_scaling_source(
+    count: usize,
+    workload: UnavailableConstraintWorkload,
+) -> String {
+    let declarations = (0..count)
+        .map(|index| format!("type Bound{index}\n  Value{index}\nend\n"))
+        .collect::<String>();
+    let callbacks = matches!(workload, UnavailableConstraintWorkload::Upper)
+        .then(|| {
+            (0..count)
+                .map(|index| format!("fn accepts_{index}(value: Bound{index}) -> ()\n  ()\nend\n"))
+                .collect::<String>()
+        })
+        .unwrap_or_default();
+    let payload = match workload {
+        UnavailableConstraintWorkload::Lower => "{value: T}",
+        UnavailableConstraintWorkload::Upper => "{callback: fn(T) -> ()}",
+    };
+    let payloads = vec![payload; count].join(", ");
+    let arguments = (0..count)
+        .map(|index| match workload {
+            UnavailableConstraintWorkload::Lower => format!("{{value: Value{index}}}"),
+            UnavailableConstraintWorkload::Upper => {
+                format!("{{callback: accepts_{index}}}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "{declarations}{callbacks}type Repeated<T>\n  Made({payloads})\nend\nfn inferred()\n  Made({arguments})\nend\nfn ordinary() -> ()\n  let unavailable = Made({arguments})\n  ()\nend\n"
+    )
+}
+
+fn measure_unavailable_constraint_work(
+    count: usize,
+    workload: UnavailableConstraintWorkload,
+) -> usize {
+    let source = SourceFile::new(
+        "main.veln",
+        unavailable_constraint_scaling_source(count, workload),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::aggregate_type_join::reset_work();
+    crate::aggregate_type_join::reset_bounded_frames();
+    crate::type_relations::reset_type_presentation_work();
+    let (diagnostics, cloned_type_nodes) =
+        crate::semantic_model::measure_type_clone_nodes(|| analyze_surface_module(&module));
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.inference_ambiguous"),
+        "{diagnostics:#?}"
+    );
+    let inference_work = crate::aggregate_type_join::take_work();
+    let bounded_frames = crate::aggregate_type_join::take_bounded_frames();
+    let presentation = crate::type_relations::take_type_presentation_work();
+    let presentation_work = presentation.conflict_lookups
+        + presentation.conflict_insertions
+        + presentation.child_lookups
+        + presentation.child_insertions;
+    let total = inference_work + cloned_type_nodes + bounded_frames + presentation_work;
+    eprintln!(
+        "{workload:?} unavailable count {count}: total={total}, inference={inference_work}, clones={cloned_type_nodes}, bounds={bounded_frames}, presentation={presentation_work}"
+    );
+    total
+}
+
+#[test]
+fn pairwise_incomparable_constructor_constraints_grow_linearly_when_unavailable() {
+    for workload in [
+        UnavailableConstraintWorkload::Lower,
+        UnavailableConstraintWorkload::Upper,
+    ] {
+        let work = [16, 32, 64].map(|count| measure_unavailable_constraint_work(count, workload));
+        assert!(
+            work[1] <= work[0] * 2 + 128 && work[2] <= work[1] * 2 + 128,
+            "doubling pairwise-incomparable {workload:?} constraints must add only linear work: {work:?}",
         );
     }
 }

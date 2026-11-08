@@ -944,9 +944,117 @@ impl TypePresentationJoin {
         changed
     }
 
+    pub(crate) fn absorb(&mut self, joined: &mut Type, other: &Self) -> bool {
+        let mut changed = false;
+        let mut pending = vec![(joined, &mut self.state, &other.state)];
+        while let Some((joined, state, other)) = pending.pop() {
+            if other.conflicted {
+                if let Some((name, identity, _)) = mutable_presentation_named_parts(joined) {
+                    let canonical = identity.rsplit("::").next().unwrap_or(name).to_string();
+                    if *name != canonical {
+                        name.clear();
+                        name.push_str(&canonical);
+                        changed = true;
+                    }
+                }
+                state.conflicted = true;
+            }
+            prepare_presentation_children(state, other.children.len(), other.children.len());
+            extend_presentation_state_children(&mut pending, joined, state, other);
+        }
+        changed
+    }
+
     #[cfg(test)]
     pub(crate) fn retained_nodes(&self) -> usize {
         self.state.retained_nodes()
+    }
+}
+
+fn mutable_presentation_named_parts(ty: &mut Type) -> Option<(&mut String, &str, &mut [Type])> {
+    match ty {
+        Type::Named {
+            name,
+            identity,
+            args,
+        }
+        | Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => Some((name, identity, args)),
+        _ => None,
+    }
+}
+
+fn extend_presentation_state_children<'a>(
+    pending: &mut Vec<(
+        &'a mut Type,
+        &'a mut TypePresentationState,
+        &'a TypePresentationState,
+    )>,
+    joined: &'a mut Type,
+    state: &'a mut TypePresentationState,
+    other: &'a TypePresentationState,
+) {
+    match joined {
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+            pending.extend(
+                args.iter_mut()
+                    .zip(&mut state.children)
+                    .zip(&other.children)
+                    .map(|((joined, state), other)| (joined, state, other)),
+            );
+        }
+        Type::Record(fields) => {
+            pending.extend(
+                fields
+                    .iter_mut()
+                    .map(|(_, field)| field)
+                    .zip(&mut state.children)
+                    .zip(&other.children)
+                    .map(|((joined, state), other)| (joined, state, other)),
+            );
+        }
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            if other.children.is_empty() {
+                return;
+            }
+            let parameter_count = params.len();
+            let (parameter_states, remaining_states) = state.children.split_at_mut(parameter_count);
+            let (other_parameter_states, other_remaining_states) = other
+                .children
+                .split_at(parameter_count.min(other.children.len()));
+            let (variadic_states, return_states) = remaining_states.split_at_mut(1);
+            let (other_variadic_states, other_return_states) =
+                other_remaining_states.split_at(1.min(other_remaining_states.len()));
+            pending.extend(
+                params
+                    .iter_mut()
+                    .zip(parameter_states)
+                    .zip(other_parameter_states)
+                    .map(|((joined, state), other)| (joined, state, other)),
+            );
+            if let (Some(joined), Some(state), Some(other)) = (
+                variadic.as_deref_mut(),
+                variadic_states.first_mut(),
+                other_variadic_states.first(),
+            ) {
+                pending.push((joined, state, other));
+            }
+            if let (Some(state), Some(other)) =
+                (return_states.first_mut(), other_return_states.first())
+            {
+                pending.push((return_type, state, other));
+            }
+        }
+        Type::Unknown => {}
     }
 }
 

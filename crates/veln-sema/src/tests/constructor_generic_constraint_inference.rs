@@ -3,17 +3,17 @@ use crate::types::TypeEnvironment;
 
 fn assert_same_inferred_result(
     environment: &TypeEnvironment,
-    first: &str,
-    second: &str,
+    first_name: &str,
+    second_name: &str,
     expected_render: &str,
 ) {
     let first = &environment
-        .function(first)
-        .unwrap_or_else(|| panic!("missing function {first}"))
+        .function(first_name)
+        .unwrap_or_else(|| panic!("missing function {first_name}"))
         .return_type;
     let second = &environment
-        .function(second)
-        .unwrap_or_else(|| panic!("missing function {second}"))
+        .function(second_name)
+        .unwrap_or_else(|| panic!("missing function {second_name}"))
         .return_type;
     assert!(
         crate::type_relations::invariant_args_match(
@@ -27,8 +27,16 @@ fn assert_same_inferred_result(
         second.render(),
         "presentation changed by order"
     );
-    assert_eq!(first.render(), expected_render);
-    assert_eq!(second.render(), expected_render);
+    assert_eq!(
+        first.render(),
+        expected_render,
+        "unexpected result for {first_name}: {first:?}"
+    );
+    assert_eq!(
+        second.render(),
+        expected_render,
+        "unexpected result for {second_name}: {second:?}"
+    );
 }
 
 #[test]
@@ -282,6 +290,114 @@ fn successful_constraint_permutations_preserve_identity_and_presentation() {
 }
 
 #[test]
+fn post_conflict_alias_permutations_are_canonical_in_both_consumers() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Ready\n  Closed\nend\n",
+            "pub type First = State\n",
+            "pub type Second = State\n",
+            "type Other\n  OtherValue\nend\n",
+            "type Invariant<T>\n  InvariantValue(fn(T) -> T)\nend\n",
+            "type Lower<T>\n  LowerValue(T, T, T)\nend\n",
+            "type Upper<T>\n  UpperValue(fn(T) -> (), fn(T) -> (), fn(T) -> ())\nend\n",
+            "type Exact<T>\n  ExactValue({a: Invariant<T>, b: Invariant<T>, c: Invariant<T>})\nend\n",
+            "type Mixed<T>\n  MixedValue(T, T, T, fn(T) -> (), fn(T) -> (), fn(T) -> ())\nend\n",
+            "fn accepts_first(value: First::Ready) -> ()\n  ()\nend\n",
+            "fn accepts_second(value: Second::Ready) -> ()\n  ()\nend\n",
+            "fn first_identity(value: First::Ready) -> First::Ready\n  value\nend\n",
+            "fn second_identity(value: Second::Ready) -> Second::Ready\n  value\nend\n",
+            "fn private_lower_after_conflict()\n  LowerValue(First::Ready, Second::Ready, First::Ready)\nend\n",
+            "fn private_lower_late_conflict()\n  LowerValue(First::Ready, First::Ready, Second::Ready)\nend\n",
+            "fn private_upper_after_conflict(first: fn(First::Ready) -> (), second: fn(Second::Ready) -> ())\n  UpperValue(first, second, first)\nend\n",
+            "fn private_upper_late_conflict(first: fn(First::Ready) -> (), second: fn(Second::Ready) -> ())\n  UpperValue(first, first, second)\nend\n",
+            "fn private_exact_after_conflict(values: {a: Invariant<First::Ready>, b: Invariant<Second::Ready>, c: Invariant<First::Ready>})\n  ExactValue(values)\nend\n",
+            "fn private_exact_late_conflict(values: {a: Invariant<First::Ready>, b: Invariant<First::Ready>, c: Invariant<Second::Ready>})\n  ExactValue(values)\nend\n",
+            "fn private_mixed_after_conflict(first: fn(First::Ready) -> (), second: fn(Second::Ready) -> ())\n  MixedValue(First::Ready, Second::Ready, First::Ready, first, second, first)\nend\n",
+            "fn private_mixed_late_conflict(first: fn(First::Ready) -> (), second: fn(Second::Ready) -> ())\n  MixedValue(First::Ready, First::Ready, Second::Ready, first, first, second)\nend\n",
+            "fn needs_lower_other(value: Lower<Other>) -> ()\n  ()\nend\n",
+            "fn needs_upper_other(value: Upper<Other>) -> ()\n  ()\nend\n",
+            "fn needs_exact_other(value: Exact<Other>) -> ()\n  ()\nend\n",
+            "fn needs_mixed_other(value: Mixed<Other>) -> ()\n  ()\nend\n",
+            "fn ordinary(exact_after_values: {a: Invariant<First::Ready>, b: Invariant<Second::Ready>, c: Invariant<First::Ready>}, exact_late_values: {a: Invariant<First::Ready>, b: Invariant<First::Ready>, c: Invariant<Second::Ready>}) -> ()\n",
+            "  let lower_after = LowerValue(First::Ready, Second::Ready, First::Ready)\n",
+            "  let lower_late = LowerValue(First::Ready, First::Ready, Second::Ready)\n",
+            "  let upper_after = UpperValue(accepts_first, accepts_second, accepts_first)\n",
+            "  let upper_late = UpperValue(accepts_first, accepts_first, accepts_second)\n",
+            "  let exact_after = ExactValue(exact_after_values)\n",
+            "  let exact_late = ExactValue(exact_late_values)\n",
+            "  let mixed_after = MixedValue(First::Ready, Second::Ready, First::Ready, accepts_first, accepts_second, accepts_first)\n",
+            "  let mixed_late = MixedValue(First::Ready, First::Ready, Second::Ready, accepts_first, accepts_first, accepts_second)\n",
+            "  needs_lower_other(lower_after)\n",
+            "  needs_lower_other(lower_late)\n",
+            "  needs_upper_other(upper_after)\n",
+            "  needs_upper_other(upper_late)\n",
+            "  needs_exact_other(exact_after)\n",
+            "  needs_exact_other(exact_late)\n",
+            "  needs_mixed_other(mixed_after)\n",
+            "  needs_mixed_other(mixed_late)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 8, "{diagnostics:#?}");
+    let actual_types = diagnostics
+        .iter()
+        .map(|diagnostic| {
+            assert_eq!(diagnostic.id, "type.mismatch", "{diagnostics:#?}");
+            diagnostic
+                .details
+                .as_object()
+                .and_then(|details| details.iter().find(|(key, _)| key == "actual_type"))
+                .map(|(_, value)| value.clone())
+                .expect("ordinary mismatch actual type")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        actual_types,
+        vec![
+            veln_diagnostics::JsonValue::string("Lower<State::Ready>::LowerValue"),
+            veln_diagnostics::JsonValue::string("Lower<State::Ready>::LowerValue"),
+            veln_diagnostics::JsonValue::string("Upper<State::Ready>::UpperValue"),
+            veln_diagnostics::JsonValue::string("Upper<State::Ready>::UpperValue"),
+            veln_diagnostics::JsonValue::string("Exact<State::Ready>::ExactValue"),
+            veln_diagnostics::JsonValue::string("Exact<State::Ready>::ExactValue"),
+            veln_diagnostics::JsonValue::string("Mixed<State::Ready>::MixedValue"),
+            veln_diagnostics::JsonValue::string("Mixed<State::Ready>::MixedValue"),
+        ]
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    for (first, second, expected) in [
+        (
+            "private_lower_after_conflict",
+            "private_lower_late_conflict",
+            "Lower<State::Ready>::LowerValue",
+        ),
+        (
+            "private_upper_after_conflict",
+            "private_upper_late_conflict",
+            "Upper<State::Ready>::UpperValue",
+        ),
+        (
+            "private_exact_after_conflict",
+            "private_exact_late_conflict",
+            "Exact<State::Ready>::ExactValue",
+        ),
+        (
+            "private_mixed_after_conflict",
+            "private_mixed_late_conflict",
+            "Mixed<State::Ready>::MixedValue",
+        ),
+    ] {
+        assert_same_inferred_result(&environment, first, second, expected);
+    }
+}
+
+#[test]
 fn explicit_context_resolves_otherwise_unavailable_bounds_in_both_consumers() {
     let source = SourceFile::new(
         "main.veln",
@@ -323,22 +439,25 @@ fn rejected_payloads_preserve_constraints_for_later_accepted_payloads() {
         "type State\n  Ready\n  Closed\nend\n",
         "pub type First = State\n",
         "pub type Second = State\n",
-        "type Exact<T>\n  ExactValue(fn(T) -> T, fn(T) -> T, fn(T) -> T)\nend\n",
+        "type Exact<T>\n  ExactValue(fn(T) -> T, fn(T) -> T, fn(T) -> T, fn(T) -> T)\nend\n",
         "fn first_identity(value: First::Ready) -> First::Ready\n  value\nend\n",
         "fn closed_identity(value: State::Closed) -> State::Closed\n  value\nend\n",
         "fn second_identity(value: Second::Ready) -> Second::Ready\n  value\nend\n",
-        "fn needs_ready(callback: fn(State::Ready) -> State::Ready) -> ()\n  ()\nend\n",
-        "fn private_transaction(first: fn(First::Ready) -> First::Ready, rejected: fn(State::Closed) -> State::Closed, later: fn(Second::Ready) -> Second::Ready)\n",
-        "  ExactValue(first, rejected, later)\n",
+        "type Other\n  OtherValue\nend\n",
+        "fn needs_other(value: Exact<Other>) -> ()\n  ()\nend\n",
+        "fn private_transaction(first: fn(First::Ready) -> First::Ready, second: fn(Second::Ready) -> Second::Ready, rejected: fn(State::Closed) -> State::Closed)\n",
+        "  ExactValue(first, second, rejected, first)\n",
         "end\n",
-        "fn ordinary_transaction(first: fn(First::Ready) -> First::Ready, rejected: fn(State::Closed) -> State::Closed, later: fn(Second::Ready) -> Second::Ready) -> ()\n",
-        "  let retained: Exact<State::Ready> = ExactValue(first, rejected, later)\n",
-        "  let ExactValue(earlier, _, subsequent) = retained\n",
-        "  needs_ready(earlier)\n",
-        "  needs_ready(subsequent)\n",
+        "fn private_transaction_late(first: fn(First::Ready) -> First::Ready, second: fn(Second::Ready) -> Second::Ready, rejected: fn(State::Closed) -> State::Closed)\n",
+        "  ExactValue(first, first, rejected, second)\n",
         "end\n",
-        "pub fn exercise() -> ()\n",
-        "  ordinary_transaction(first_identity, closed_identity, second_identity)\n",
+        "fn ordinary_transaction(first: fn(First::Ready) -> First::Ready, second: fn(Second::Ready) -> Second::Ready, rejected: fn(State::Closed) -> State::Closed) -> ()\n",
+        "  let retained = ExactValue(first, second, rejected, first)\n",
+        "  needs_other(retained)\n",
+        "end\n",
+        "fn ordinary_transaction_late(first: fn(First::Ready) -> First::Ready, second: fn(Second::Ready) -> Second::Ready, rejected: fn(State::Closed) -> State::Closed) -> ()\n",
+        "  let retained = ExactValue(first, first, rejected, second)\n",
+        "  needs_other(retained)\n",
         "end\n",
     );
     let source = SourceFile::new("main.veln", source_text);
@@ -346,24 +465,47 @@ fn rejected_payloads_preserve_constraints_for_later_accepted_payloads() {
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
     let diagnostics = analyze_surface_module(&module);
-    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
     assert!(
-        diagnostics.iter().all(|diagnostic| {
-            diagnostic.id == "type.mismatch"
-                && diagnostic.span.as_ref().is_some_and(|span| {
-                    &source_text[span.start.offset..span.end.offset] == "rejected"
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}",
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.span.as_ref().is_some_and(|span| {
+                &source_text[span.start.offset..span.end.offset] == "rejected"
+            }))
+            .count(),
+        4,
+        "{diagnostics:#?}",
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter_map(|diagnostic| {
+                diagnostic.details.as_object().and_then(|details| {
+                    details
+                        .iter()
+                        .find(|(key, _)| key == "actual_type")
+                        .map(|(_, value)| value)
                 })
-        }),
+            })
+            .filter(|actual| {
+                **actual == veln_diagnostics::JsonValue::string("Exact<State::Ready>::ExactValue")
+            })
+            .count(),
+        2,
         "{diagnostics:#?}",
     );
 
     let environment = TypeEnvironment::from_module(&module);
-    assert_eq!(
-        environment
-            .function("private_transaction")
-            .unwrap()
-            .return_type
-            .render(),
+    assert_same_inferred_result(
+        &environment,
+        "private_transaction",
+        "private_transaction_late",
         "Exact<State::Ready>::ExactValue",
     );
 }
