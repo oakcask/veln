@@ -1506,6 +1506,19 @@ the comparison count must not exceed `N * N`; after doubling the input, it must
 not exceed four times the preceding count plus the larger input size. Elapsed
 time is observational and is not an acceptance threshold.
 
+Repeated normalized function results do not cause a nested result solve after
+each admission. The deterministic 16, 32, and 64 contribution workload compares
+outer functions with an `Int` result against outer functions with the same
+structural-function result. Its work metric counts every candidate iteration
+and every normalized-key type node, including keys built for cache hits. The
+nested workload adds only the constant work of its initial result solve beyond
+the non-nested control; repeated admissions add no nested candidate solve.
+After doubling the input, candidate iterations can grow by at most four times
+plus the larger input size, and normalized-key work can grow by at most twice
+plus a constant allowance. The workload also checks the resolved identity,
+presentation, and linear retained-state bound. Elapsed time remains
+observational.
+
 The retained fallback state grows at most linearly in the number and owned size
 of admitted contributions. The deterministic 8, 16, and 32 contribution
 workload counts retained candidate slots and all owned type and text material.

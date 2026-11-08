@@ -527,6 +527,117 @@ fn structural_function_input_meets_grow_at_most_quadratically() {
     }
 }
 
+#[derive(Debug)]
+struct RepeatedFunctionReturnMeasurement {
+    work: crate::aggregate_type_join::BoundedCandidateWork,
+    retained_state: usize,
+    elapsed: std::time::Duration,
+}
+
+fn repeated_function_return_measurement(
+    size: usize,
+    nested: bool,
+) -> RepeatedFunctionReturnMeasurement {
+    let environment = TypeEnvironment::from_module(&lower_surface_ast(
+        &parse(&SourceFile::new("main.veln", "")).tree,
+    ));
+    let callback = Type::Function {
+        params: vec![Type::string()],
+        variadic: None,
+        return_type: Box::new(Type::int()),
+        effects: vec!["stdio".to_string()],
+    };
+    let contribution = Type::Function {
+        params: vec![Type::int()],
+        variadic: None,
+        return_type: Box::new(if nested { callback } else { Type::int() }),
+        effects: Vec::new(),
+    };
+    crate::aggregate_type_join::reset_bounded_candidate_work();
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &contribution)
+            .expect("bounded function join");
+    let started = std::time::Instant::now();
+    for _ in 1..size {
+        assert!(joined.try_join(&environment.adts, &contribution));
+    }
+    let elapsed = started.elapsed();
+    let resolved = joined.result_type();
+    assert_eq!(resolved, contribution);
+    assert_eq!(
+        resolved.render(),
+        if nested {
+            "fn(Int) -> fn(String) -> Int effects [stdio]"
+        } else {
+            "fn(Int) -> Int"
+        }
+    );
+    crate::semantic_model::drop_type_iteratively(resolved);
+    RepeatedFunctionReturnMeasurement {
+        work: crate::aggregate_type_join::take_bounded_candidate_work(),
+        retained_state: joined.bounded_retained_state(),
+        elapsed,
+    }
+}
+
+#[test]
+fn repeated_nested_function_returns_do_not_repeat_quadratic_solves() {
+    let sizes = [16, 32, 64];
+    let controls = sizes.map(|size| repeated_function_return_measurement(size, false));
+    let nested = sizes.map(|size| repeated_function_return_measurement(size, true));
+    eprintln!("repeated function return control: {controls:?}");
+    eprintln!("repeated nested function returns: {nested:?}");
+    eprintln!(
+        "repeated function return elapsed control={:?} nested={:?}",
+        controls
+            .iter()
+            .map(|measurement| measurement.elapsed)
+            .collect::<Vec<_>>(),
+        nested
+            .iter()
+            .map(|measurement| measurement.elapsed)
+            .collect::<Vec<_>>()
+    );
+
+    for index in 0..sizes.len() {
+        let size = sizes[index];
+        assert!(
+            nested[index].work.candidate_iterations <= size * size,
+            "size={size} nested={:?}",
+            nested[index]
+        );
+        assert!(
+            nested[index].work.candidate_iterations
+                <= controls[index].work.candidate_iterations + 8,
+            "a repeated nested return may add only its initial candidate solve: control={:?} nested={:?}",
+            controls[index],
+            nested[index]
+        );
+        assert!(
+            nested[index].work.relation_key_nodes <= controls[index].work.relation_key_nodes * 4,
+            "normalized-key work must remain linear in admissions: control={:?} nested={:?}",
+            controls[index],
+            nested[index]
+        );
+    }
+    for index in 0..sizes.len() - 1 {
+        assert!(
+            nested[index + 1].work.candidate_iterations
+                <= nested[index].work.candidate_iterations * 4 + sizes[index + 1],
+            "candidate work must remain non-cubic: {nested:?}"
+        );
+        assert!(
+            nested[index + 1].work.relation_key_nodes
+                <= nested[index].work.relation_key_nodes * 2 + 4,
+            "normalized-key work must remain linear: {nested:?}"
+        );
+        assert!(
+            nested[index + 1].retained_state <= nested[index].retained_state * 2 + 32,
+            "retained state must remain linear: {nested:?}"
+        );
+    }
+}
+
 fn deep_fallback_component(depth: usize, identity: &str) -> Type {
     (0..depth).fold(Type::int(), |nested, _| Type::Function {
         params: vec![Type::Record(vec![(

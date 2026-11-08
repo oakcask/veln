@@ -37,6 +37,9 @@ struct ContributedCandidateState {
 struct FunctionCandidateStates {
     inputs: Vec<ContributedCandidateState>,
     has_variadic: bool,
+    return_keys: HashSet<String>,
+    return_type: Option<Type>,
+    return_presentation: TypePresentationJoin,
 }
 
 impl BoundedJoin {
@@ -45,7 +48,7 @@ impl BoundedJoin {
         let fallback = uses_outer_contributed_fallback(&contributions)
             .then(|| ContributedCandidateState::new(adts, &contributions, BoundDirection::Join));
         let resolved = if let Some(state) = &function_candidates {
-            state.result(adts, &contributions)
+            state.result(&contributions)
         } else if let Some(state) = &fallback {
             state.result(&contributions)
         } else {
@@ -63,7 +66,7 @@ impl BoundedJoin {
         self.contributions.push(right.clone());
         if let Some(function_candidates) = &mut self.function_candidates {
             function_candidates.admit(adts, &self.contributions);
-            let resolved = function_candidates.result(adts, &self.contributions);
+            let resolved = function_candidates.result(&self.contributions);
             self.replace_resolved(resolved);
             return;
         }
@@ -188,9 +191,21 @@ impl FunctionCandidateStates {
                 BoundDirection::Meet,
             ));
         }
+        let returns = functions
+            .iter()
+            .map(|function| function.return_type)
+            .collect::<Vec<_>>();
+        let return_keys = returns
+            .iter()
+            .map(|return_type| canonical_relation_key(return_type))
+            .collect();
+        let (return_type, return_presentation) = resolve_function_returns(adts, &returns);
         Some(Self {
             inputs,
             has_variadic: first.variadic.is_some(),
+            return_keys,
+            return_type,
+            return_presentation,
         })
     }
 
@@ -212,9 +227,23 @@ impl FunctionCandidateStates {
             };
             state.admit_refs(adts, &candidates);
         }
+        let return_type = functions
+            .last()
+            .expect("admitted bounded function contributions are nonempty")
+            .return_type;
+        if self.return_keys.insert(canonical_relation_key(return_type)) {
+            let returns = functions
+                .iter()
+                .map(|function| function.return_type)
+                .collect::<Vec<_>>();
+            let (resolved, presentation) = resolve_function_returns(adts, &returns);
+            self.replace_return(resolved, presentation);
+        } else if let Some(resolved) = &mut self.return_type {
+            self.return_presentation.merge(resolved, return_type);
+        }
     }
 
-    fn result(&self, adts: &AdtRegistry, contributions: &[Type]) -> Option<Type> {
+    fn result(&self, contributions: &[Type]) -> Option<Type> {
         record_bounded_frame();
         let functions = root_function_parts(contributions)?;
         let contribution_refs = contributions.iter().collect::<Vec<_>>();
@@ -245,11 +274,7 @@ impl FunctionCandidateStates {
         } else {
             None
         };
-        let returns = functions
-            .iter()
-            .map(|function| function.return_type)
-            .collect::<Vec<_>>();
-        let Some(return_type) = bounded_join_refs(adts, &returns) else {
+        let Some(return_type) = self.return_type.clone() else {
             drop_types_iteratively(&mut params);
             if let Some(variadic) = variadic {
                 crate::semantic_model::drop_type_iteratively(*variadic);
@@ -263,6 +288,36 @@ impl FunctionCandidateStates {
             effects,
         })
     }
+
+    fn replace_return(&mut self, resolved: Option<Type>, presentation: TypePresentationJoin) {
+        let previous = std::mem::replace(&mut self.return_type, resolved);
+        self.return_presentation = presentation;
+        if let Some(previous) = previous {
+            crate::semantic_model::drop_type_iteratively(previous);
+        }
+    }
+}
+
+impl Drop for FunctionCandidateStates {
+    fn drop(&mut self) {
+        if let Some(return_type) = self.return_type.take() {
+            crate::semantic_model::drop_type_iteratively(return_type);
+        }
+    }
+}
+
+fn resolve_function_returns(
+    adts: &AdtRegistry,
+    returns: &[&Type],
+) -> (Option<Type>, TypePresentationJoin) {
+    let mut resolved = bounded_join_refs(adts, returns);
+    let mut presentation = TypePresentationJoin::default();
+    if let Some(resolved) = &mut resolved {
+        for return_type in returns {
+            presentation.merge(resolved, return_type);
+        }
+    }
+    (resolved, presentation)
 }
 
 fn root_function_parts(contributions: &[Type]) -> Option<Vec<FunctionBoundParts<'_>>> {
@@ -473,7 +528,14 @@ impl AggregateTypeJoin {
             .as_ref()
             .map_or(0, |fallback| fallback.valid.len());
         let function_candidate_state = bounded.function_candidates.as_ref().map_or(0, |states| {
-            states.inputs.iter().map(|state| state.valid.len()).sum()
+            states
+                .inputs
+                .iter()
+                .map(|state| state.valid.len())
+                .sum::<usize>()
+                + states.return_keys.iter().map(String::len).sum::<usize>()
+                + states.return_type.as_ref().map_or(0, type_retained_units)
+                + states.return_presentation.retained_nodes()
         });
         bounded.contributions.len()
             + contribution_state
@@ -2289,6 +2351,7 @@ fn candidate_relation(
     direction: BoundDirection,
     adts: &AdtRegistry,
 ) -> bool {
+    record_bounded_candidate_iteration();
     match direction {
         BoundDirection::Join => candidate_assignable(candidate, contribution, adts),
         BoundDirection::Meet => candidate_assignable(contribution, candidate, adts),
@@ -2301,6 +2364,7 @@ fn candidate_assignable_cached(
     adts: &AdtRegistry,
     relation_cache: &mut HashMap<(String, String), bool>,
 ) -> bool {
+    record_bounded_candidate_iteration();
     let key = (
         canonical_relation_key(expected),
         canonical_relation_key(actual),
@@ -2446,6 +2510,7 @@ fn append_relation_type_key<'a>(
     pending: &mut Vec<RelationKeyPart<'a>>,
     ty: &'a Type,
 ) {
+    record_relation_key_node();
     match ty {
         Type::Unknown => key.push('U'),
         Type::Named { identity, args, .. } => {
@@ -2553,6 +2618,48 @@ thread_local! {
     static FALLBACK_COMPARISONS: Cell<usize> = const { Cell::new(0) };
     static BOUNDED_FRAMES: Cell<usize> = const { Cell::new(0) };
     static FUNCTION_SCAN_NODES: Cell<usize> = const { Cell::new(0) };
+    static BOUNDED_CANDIDATE_WORK: Cell<BoundedCandidateWork> =
+        const { Cell::new(BoundedCandidateWork {
+            candidate_iterations: 0,
+            relation_key_nodes: 0,
+        }) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct BoundedCandidateWork {
+    pub(crate) candidate_iterations: usize,
+    pub(crate) relation_key_nodes: usize,
+}
+
+#[inline(always)]
+fn record_bounded_candidate_iteration() {
+    #[cfg(test)]
+    BOUNDED_CANDIDATE_WORK.with(|work| {
+        let mut current = work.get();
+        current.candidate_iterations += 1;
+        work.set(current);
+    });
+}
+
+#[inline(always)]
+fn record_relation_key_node() {
+    #[cfg(test)]
+    BOUNDED_CANDIDATE_WORK.with(|work| {
+        let mut current = work.get();
+        current.relation_key_nodes += 1;
+        work.set(current);
+    });
+}
+
+#[cfg(test)]
+pub(crate) fn reset_bounded_candidate_work() {
+    BOUNDED_CANDIDATE_WORK.with(|work| work.set(BoundedCandidateWork::default()));
+}
+
+#[cfg(test)]
+pub(crate) fn take_bounded_candidate_work() -> BoundedCandidateWork {
+    BOUNDED_CANDIDATE_WORK.with(|work| work.replace(BoundedCandidateWork::default()))
 }
 
 #[cfg(test)]
