@@ -75,7 +75,8 @@ validation and without synthesized shapes,
 structural function joins that meet inputs and join results, concrete effect-set
 unions without symbolic effect-row synthesis, contributed-candidate fallback,
 retention of compatible unresolved contributions, and transactional exclusion
-of contributions whose nested argument cannot join,
+of structurally inadmissible, exact-argument-rejected, or diagnostically failed
+contributions,
 and describes how an unrefined compiler-owned immutable join supplies
 argument-specific context to a later context-dependent expression without
 re-resolving an earlier expression that emitted a diagnostic. It also covers

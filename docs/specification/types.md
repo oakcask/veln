@@ -220,11 +220,14 @@ while the group retains one feasible match domain.
 
 Non-empty `Vec<T>` and `Dict<K, V>` literals infer their element, key, and
 value positions from every successfully typed contribution. Same-constructor
-compiler-owned immutable types recursively join every argument. Source-ADT
-arguments recursively join only where checked variance metadata marks the
-parameter covariant; other classifications and unavailable metadata require
-exact arguments. Constructor refinements join into a declaration-ordered
-variant set, independent of source order. A join containing every declared
+compiler-owned immutable types recursively join every argument. For source
+ADTs, covariant arguments use the bounded join and contravariant arguments use
+the bounded meet. Invariant or irrelevant arguments require exact admission,
+as do arguments whose variance metadata is missing or unusable. Structural
+function joins and other positive contributions may use the applicable
+[bounded rules](#bounded-joins-and-meets), including contributed-candidate
+fallback. Constructor refinements join into a declaration-ordered variant set,
+independent of source order. A join containing every declared
 variant, or a join of a refinement and its base ADT, becomes the base ADT. A
 contribution that produces its own diagnostic does not change the accumulated
 type, so a later successful contribution joins with only the preceding
@@ -2013,8 +2016,14 @@ module and to aliases of that declaration. Source aliases instead retain their
 target declaration's checked classifications. The rule does not relate distinct
 nominal constructors and does not coerce runtime values. Without a concrete
 expected type, the same covariance recursively joins arguments only for
-same-constructor contributions under the inference rules above. Other
-context-free joins remain unavailable.
+same-constructor compiler-owned contributions under the inference rules above.
+For same-constructor source ADTs, covariant arguments use the bounded join and
+contravariant arguments use the bounded meet; invariant and irrelevant
+arguments, or arguments with unavailable checked metadata, still require exact
+admission. Structural functions and other positive contributions can also join
+when their bounded structural or contributed-candidate rules select one unique
+result. A context-free join remains unavailable when those rules cannot select
+a unique result, so inference requires compatible explicit context.
 Recovery still lets `unknown` match a complete argument. `Path` and `String` are distinct named types at
 assignment boundaries; the runtime path representation is not source-visible.
 Function assignment checks fixed parameter count, parameter types, variadic
