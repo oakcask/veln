@@ -890,12 +890,16 @@ current [type inference rules](types.md#inference-rules) define how direct and
 nested payload occurrences contribute lower, upper, equality, or irrelevant
 constraints. When an equality constraint or a lower-to-upper comparison rejects
 a payload, the diagnostic reports the conflicting selected and contributed
-types. None of that payload's occurrences update the accumulated constraints or
-alias presentation, so a later payload is checked against only the constraints
-that were complete before the rejected payload. When a required bounded join or
-meet is unavailable, or no effective occurrence constrains an argument, a
-context-free constructor reports `type.inference_ambiguous` instead of a
-payload mismatch. If an earlier error leaves the value untyped,
+types. When the complete concrete payload shape is incompatible, the diagnostic
+instead reports the resolved payload shape as expected and the supplied payload
+type as actual. This includes a different outer named constructor and a record
+that omits required fields. None of a rejected payload's occurrences update the
+accumulated constraints or alias presentation, so a later payload is checked
+against only the constraints that were complete before the rejected payload.
+When a required bounded join or meet is unavailable, or no effective occurrence
+constrains an argument, a context-free constructor reports
+`type.inference_ambiguous` instead of a payload mismatch. If an earlier error
+leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
 Without a concrete expected component or result type, same-constructor
