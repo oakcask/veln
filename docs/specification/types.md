@@ -1642,30 +1642,40 @@ change the joined arguments or resolved identity. The checked
 [`compiler-owned alias presentation`](../../examples/specification/check/compiler-owned-covariant-alias-presentation/)
 case covers the conflicting-alias result in both contribution orders.
 
-The join applies when repeated constructor payloads use a type parameter
-directly and those direct occurrences contribute complete types supported by
-the bounded join, including source ADTs and compiler-owned immutable
-constructors. Each complete direct occurrence is inferred independently before
-it contributes. A later direct context-dependent expression instead uses the
-accumulated concrete argument as its expected type when one is available.
-If the same parameter also occurs inside a named payload, that nested
-occurrence establishes an exact inference constraint independently of the
-named constructor's assignment or inference variance. For example, given
-`Built(A, Vec<A>)`,
-`Built(Ready, [Ready])` infers `Container<State::Ready>::Built`, while
-`Built(Ready, [Closed])` reports `type.mismatch`, even though compiler-owned
-`Vec<T>` is covariant at an assignment boundary. Reversing the two payload
-positions does not change either result.
+Constructor payload inference collects a constraint from every direct or
+nested occurrence of a type parameter. A record field and a function result
+preserve the current polarity. A fixed or variadic function input reverses it.
+An argument of a resolved named constructor composes it with that constructor
+parameter's checked classification. Missing or unusable classification
+metadata makes the nested argument invariant. These are the same composition
+rules used by [source ADT parameter classifications](#source-adt-parameter-classifications).
+
+| Effective occurrence | Inference constraint |
+| --- | --- |
+| Positive | A lower bound selected by the bounded join. |
+| Negative | An upper bound selected by the bounded meet. |
+| Invariant | An equality constraint on one type identity. |
+| Irrelevant | No constraint. |
+
+An equality constraint fixes the argument. Every lower bound must be assignable
+to that argument, and the argument must be assignable to every upper bound.
+Without equality, one or more lower bounds select their bounded join; that
+result must satisfy every upper bound. Upper bounds alone select their bounded
+meet. If there is no effective concrete constraint, or the required join or
+meet has no result, the constructor keeps its existing explicit-context
+requirement and reports the existing ambiguity without context. It does not
+synthesize a union, intersection, bottom type, or `unknown` argument. An
+explicit expected constructor type can supply an argument that irrelevant
+occurrences or unavailable bounds do not infer.
 
 All occurrences contributed by one payload are accepted or rejected together.
 If one occurrence conflicts, no occurrence from that payload constrains the
 constructor type argument. A later valid payload therefore continues from the
 last successfully inferred type instead of from a partial result of the failed
-payload. This rule also applies when the rejected payload contains repeated
-occurrences inside one named type that contributes an exact inference
-constraint.
+payload. This rule also applies when one payload contributes several lower,
+upper, or equality constraints through nested types.
 
-Successful direct and exact nested contributions also reconcile alias
+Successful direct and nested contributions reconcile alias
 presentation for the inferred type argument. Different alias preferences make
 the target ADT's canonical name permanent for that inference, even when a later
 contribution repeats one alias. The result is independent of payload order and
@@ -1674,6 +1684,14 @@ transaction does not contribute alias provenance, so it cannot create or clear
 a presentation conflict. The checked
 [`invariant alias presentation diagnostic`](../../examples/specification/check/adt-variant-refinement-invariant-alias-presentation-diagnostics-human/)
 case covers the canonical result for both contribution orders.
+
+The checked
+[`constructor generic constraint inference`](../../examples/specification/check/constructor-generic-constraint-inference/)
+and
+[`constructor generic constraint diagnostics`](../../examples/specification/check/constructor-generic-constraint-inference-diagnostics/)
+cases exercise ordinary constructor checking, inferred private signatures,
+context requirements, unavailable bounds, and rejected payloads through the
+public `check --json` command.
 
 A same-constructor covariant join is transactional across all arguments. If a
 later nested argument cannot join, the join validates the complete contribution

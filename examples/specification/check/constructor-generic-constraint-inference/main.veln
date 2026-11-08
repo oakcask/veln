@@ -1,0 +1,96 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+pub type First = State
+pub type Second = State
+
+type Positive<T>
+	PositiveValue({left: T, right: T})
+end
+
+type Negative<T>
+	NegativeValue(fn(T) -> (), fn(T) -> ())
+end
+
+type Exact<T>
+	ExactValue(fn(T) -> T)
+end
+
+type Phantom<T>
+	Empty
+end
+
+type Irrelevant<T>
+	IrrelevantValue(Phantom<T>)
+end
+
+type Mixed<T>
+	MixedValue(T, fn(T) -> (), fn(T) -> T)
+end
+
+fn accepts_state(value: State) -> ()
+	()
+end
+
+fn accepts_ready(value: State::Ready) -> ()
+	()
+end
+
+fn ready_identity(value: State::Ready) -> State::Ready
+	value
+end
+
+fn positive_forward()
+	PositiveValue({left: First::Ready, right: Second::Closed})
+end
+
+fn positive_reverse()
+	PositiveValue({left: Second::Closed, right: First::Ready})
+end
+
+fn negative_private(first: fn(State) -> (), second: fn(State::Ready) -> ())
+	NegativeValue(first, second)
+end
+
+fn exact_private(callback: fn(State::Ready) -> State::Ready)
+	ExactValue(callback)
+end
+
+fn mixed_private(callback: fn(State::Ready) -> State::Ready)
+	MixedValue(Ready, accepts_state, callback)
+end
+
+fn contextual(value: Phantom<State::Ready>) -> Irrelevant<State::Closed>
+	IrrelevantValue(value)
+end
+
+fn needs_positive(value: Positive<State::Ready | State::Closed>) -> ()
+	()
+end
+
+fn needs_negative(value: Negative<State::Ready>) -> ()
+	()
+end
+
+fn needs_exact(value: Exact<State::Ready>) -> ()
+	()
+end
+
+fn needs_mixed(value: Mixed<State::Ready>) -> ()
+	()
+end
+
+pub fn main() -> ()
+	let value: Phantom<State::Ready> = Empty
+	needs_positive(positive_forward())
+	needs_positive(positive_reverse())
+	needs_positive(PositiveValue({left: Ready, right: Closed}))
+	needs_negative(negative_private(accepts_state, accepts_ready))
+	needs_negative(NegativeValue(accepts_state, accepts_ready))
+	needs_exact(exact_private(ready_identity))
+	needs_mixed(mixed_private(ready_identity))
+	let explicit: Irrelevant<State::Closed> = contextual(value)
+end

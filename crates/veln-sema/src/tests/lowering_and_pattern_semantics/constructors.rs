@@ -292,7 +292,7 @@ fn unresolved_payload_constructor_type_arguments_are_ambiguous() {
 }
 
 #[test]
-fn conflicting_payload_constructor_type_arguments_report_mismatch() {
+fn incompatible_payload_lower_bounds_require_constructor_context() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -312,16 +312,19 @@ fn conflicting_payload_constructor_type_arguments_report_mismatch() {
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(diagnostics.len(), 1);
-    assert_eq!(diagnostics[0].id, "type.mismatch");
-    assert_eq!(diagnostics[0].message, "expected `Int`, but found `String`");
-    assert_diagnostic_span(&diagnostics[0], 5, 23, 5, 28);
+    assert_eq!(diagnostics[0].id, "type.inference_ambiguous");
+    assert_eq!(
+        diagnostics[0].message,
+        "constructor `Both` needs type context"
+    );
+    assert_diagnostic_span(&diagnostics[0], 5, 15, 5, 29);
     let details = diagnostics[0].details.to_json();
-    assert!(details.contains("\"expected_type_source\":\"inferred_expression\""));
-    assert!(details.contains("\"constraint\":\"call_argument\""));
+    assert!(details.contains("\"inferred_type\":\"Both<unknown>\""));
+    assert!(details.contains("\"constraint\":\"constructor_type_context\""));
 }
 
 #[test]
-fn inferred_nested_payload_type_constrains_later_constructor_arguments() {
+fn nested_and_direct_positive_bounds_require_context_when_no_join_exists() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -341,9 +344,12 @@ fn inferred_nested_payload_type_constrains_later_constructor_arguments() {
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    assert_eq!(diagnostics[0].id, "type.mismatch");
-    assert_eq!(diagnostics[0].message, "expected `Int`, but found `String`");
-    assert_diagnostic_span(&diagnostics[0], 5, 35, 5, 40);
+    assert_eq!(diagnostics[0].id, "type.inference_ambiguous");
+    assert_eq!(
+        diagnostics[0].message,
+        "constructor `Envelope` needs type context"
+    );
+    assert_diagnostic_span(&diagnostics[0], 5, 18, 5, 41);
 }
 
 #[test]

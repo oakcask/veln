@@ -108,6 +108,7 @@ fn record_type_presentation_child_insertions(inserted: usize) {
 
 use crate::adt::descriptors::{ParameterVarianceLookup, Variance};
 
+#[cfg(test)]
 pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
     Assignability::without_registry().is_assignable(expected, actual)
 }
@@ -412,6 +413,7 @@ struct Assignability<'a> {
 }
 
 impl<'a> Assignability<'a> {
+    #[cfg(test)]
     fn without_registry() -> Self {
         Self { adts: None }
     }
