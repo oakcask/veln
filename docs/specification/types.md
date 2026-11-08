@@ -1483,7 +1483,7 @@ identical-field rules. Record-width function inputs therefore select the wider
 contributed record, while record-width function results select the narrower
 contributed record. The checked
 [`bounded function inference`](../../examples/specification/check/bounded-function-inference/)
-case covers refinement inputs, effect union, explicit-context presentation,
+case covers refinement inputs, effect union, explicit-context compatibility,
 and delayed candidate selection. Semantic regression coverage independently
 checks context-free inferred signatures and every contribution order. The
 [`diagnostic companion`](../../examples/specification/check/bounded-function-inference-diagnostics/)
