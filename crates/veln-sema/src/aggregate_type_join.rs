@@ -483,6 +483,11 @@ fn incremental_function_return_join(
     adts: &AdtRegistry,
     returns: &[&Type],
 ) -> Option<Box<AggregateTypeJoin>> {
+    // A nested aggregate at every direct function return would retain every
+    // remaining suffix. The bounded worklist resolves that spine iteratively.
+    if matches!(returns.first(), Some(Type::Function { .. })) {
+        return None;
+    }
     let mut joined = Box::new(AggregateTypeJoin::new(adts, returns.first()?)?);
     for return_type in &returns[1..] {
         if !joined.try_join(adts, return_type) {

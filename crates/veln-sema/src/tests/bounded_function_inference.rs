@@ -1239,3 +1239,101 @@ fn deep_bounded_function_join_uses_linear_frames_and_function_scans() {
         assert!(adjacent[1].1 <= adjacent[0].1 * 2);
     }
 }
+
+fn direct_function_return_chain(depth: usize, leaf_effects: Vec<String>) -> Type {
+    let leaf = Type::Function {
+        params: vec![Type::int()],
+        variadic: None,
+        return_type: Box::new(Type::int()),
+        effects: leaf_effects,
+    };
+    (0..depth).fold(leaf, |return_type, _| Type::Function {
+        params: Vec::new(),
+        variadic: None,
+        return_type: Box::new(return_type),
+        effects: Vec::new(),
+    })
+}
+
+#[derive(Debug)]
+struct DirectFunctionReturnMeasurement {
+    clone_nodes: usize,
+    bounded_frames: usize,
+    retained_state: usize,
+}
+
+fn direct_function_return_measurement(depth: usize) -> DirectFunctionReturnMeasurement {
+    std::thread::Builder::new()
+        .name(format!("direct-function-return-{depth}"))
+        .stack_size(128 * 1024)
+        .spawn(move || {
+            let environment = TypeEnvironment::from_module(&lower_surface_ast(
+                &parse(&SourceFile::new("main.veln", "")).tree,
+            ));
+            let initial = direct_function_return_chain(depth, Vec::new());
+            let contribution = direct_function_return_chain(depth, vec!["stdio".to_string()]);
+            crate::aggregate_type_join::reset_bounded_frames();
+            let ((retained_state, resolved), clone_nodes) =
+                crate::semantic_model::measure_type_clone_nodes(|| {
+                    let mut joined = crate::aggregate_type_join::AggregateTypeJoin::new(
+                        &environment.adts,
+                        &initial,
+                    )
+                    .expect("bounded function join");
+                    assert!(joined.try_join(&environment.adts, &contribution));
+                    let retained_state = joined.bounded_retained_state();
+                    let resolved = joined.result_type();
+                    drop(joined);
+                    (retained_state, resolved)
+                });
+            let bounded_frames = crate::aggregate_type_join::take_bounded_frames();
+            let mut current = &resolved;
+            for _ in 0..depth {
+                let Type::Function {
+                    params,
+                    variadic,
+                    return_type,
+                    effects,
+                } = current
+                else {
+                    panic!("expected direct function return");
+                };
+                assert!(params.is_empty());
+                assert!(variadic.is_none());
+                assert!(effects.is_empty());
+                current = return_type;
+            }
+            let Type::Function { effects, .. } = current else {
+                panic!("expected function leaf");
+            };
+            assert_eq!(effects, &["stdio"]);
+            crate::semantic_model::drop_type_iteratively(resolved);
+            crate::semantic_model::drop_type_iteratively(initial);
+            crate::semantic_model::drop_type_iteratively(contribution);
+            DirectFunctionReturnMeasurement {
+                clone_nodes,
+                bounded_frames,
+                retained_state,
+            }
+        })
+        .expect("direct function return worker")
+        .join()
+        .expect("direct function return worker must not overflow its stack")
+}
+
+#[test]
+fn direct_function_return_initialization_and_destruction_use_linear_work_state() {
+    let depths = [512, 1024, 2048];
+    let measurements = depths.map(direct_function_return_measurement);
+    eprintln!("direct function return work: {measurements:?}");
+    for measurement in &measurements {
+        assert!(measurement.clone_nodes > 0);
+        assert!(measurement.bounded_frames > 0);
+        assert!(measurement.retained_state > 0);
+    }
+    for adjacent in measurements.windows(2) {
+        assert!(adjacent[1].clone_nodes <= adjacent[0].clone_nodes * 2 + 16);
+        assert!(adjacent[1].bounded_frames <= adjacent[0].bounded_frames * 2 + 4);
+        assert!(adjacent[1].retained_state <= adjacent[0].retained_state * 2 + 32);
+    }
+}
