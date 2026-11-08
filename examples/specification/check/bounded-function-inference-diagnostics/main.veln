@@ -1,0 +1,33 @@
+# Disjoint singleton function-input meets have no source-expressible result.
+# Context-free inference remains unknown, and an incompatible annotation uses
+# the ordinary assignment diagnostic instead of manufacturing a wider input.
+pub type State
+	pub Ready
+	pub Closed
+end
+
+type Invariant<T>
+	Value(fn(T) -> T)
+end
+
+fn private_unavailable(first: fn(State::Ready) -> Int, second: fn(State::Closed) -> Int)
+	[first, second]
+end
+
+pub fn local_unavailable(first: fn(State::Ready) -> Int, second: fn(State::Closed) -> Int) -> ()
+	let unavailable = [first, second]
+	()
+end
+
+pub fn annotated_unavailable(first: fn(State::Ready) -> Int, second: fn(State::Closed) -> Int) -> ()
+	let unavailable: Vec<fn(State) -> Int> = [first, second]
+	()
+end
+
+# Different-width function results remain eligible for bounded fallback, but
+# their shared fields still enforce exact generic arguments. The rejected
+# contribution must not prevent the later valid candidate from being checked.
+pub fn record_width_exact_argument(first: fn() -> {guard: Invariant<Int>, state: State::Ready, left: Int}, rejected: fn() -> {guard: Invariant<String>, state: State::Ready}, later: fn() -> {guard: Invariant<Int>, state: State::Ready}) -> ()
+	let callbacks = [first, rejected, later]
+	()
+end

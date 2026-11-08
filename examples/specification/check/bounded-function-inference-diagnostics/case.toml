@@ -1,0 +1,24 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"type.private_inference_incomplete\"",
+  "\"id\":\"type.local_inference_incomplete\"",
+  "\"inferred_type\":\"unknown\"",
+  "expected `fn(State) -> Int`, but found `fn(State::Ready) -> Int`",
+  "expected `fn(State) -> Int`, but found `fn(State::Closed) -> Int`",
+  "expected `fn() -> {guard: Invariant<Int>, left: Int, state: State::Ready}`, but found `fn() -> {guard: Invariant<String>, state: State::Ready}`",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 5

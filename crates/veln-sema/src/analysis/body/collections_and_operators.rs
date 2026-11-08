@@ -151,8 +151,18 @@ impl<'a> FunctionChecker<'a> {
                 "dict_value",
             );
         }
-        key_type = joined_keys.map_or(key_type, |joined| joined.result_type());
-        value_type = joined_values.map_or(value_type, |joined| joined.result_type());
+        if let Some(joined) = joined_keys {
+            let Some(resolved) = joined.resolved_result_type() else {
+                return Type::Unknown;
+            };
+            key_type = resolved;
+        }
+        if let Some(joined) = joined_values {
+            let Some(resolved) = joined.resolved_result_type() else {
+                return Type::Unknown;
+            };
+            value_type = resolved;
+        }
         self.materialize_dict_type(
             key_type,
             value_type,

@@ -1,0 +1,139 @@
+# Structural function joins meet inputs, join results, and union effects. The
+# contributed-candidate fallback keeps unresolved earlier contributions until
+# a unique contributed result is available.
+type State
+	Ready
+	Closed
+end
+
+pub type First = State
+pub type Second = State
+
+fn refinement_forward(first: fn(State) -> Int, second: fn(State::Ready) -> Int effects [stdio])
+	[first, second]
+end
+
+fn refinement_reverse(first: fn(State) -> Int, second: fn(State::Ready) -> Int effects [stdio])
+	[second, first]
+end
+
+fn width_forward(first: fn({id: Int}) -> Int, second: fn({id: Int, label: String}) -> Int)
+	[first, second]
+end
+
+fn width_reverse(first: fn({id: Int}) -> Int, second: fn({id: Int, label: String}) -> Int)
+	[second, first]
+end
+
+fn delayed_meet_0(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int)
+	[id_only, label_only, candidate]
+end
+
+fn delayed_meet_1(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int)
+	[id_only, candidate, label_only]
+end
+
+fn delayed_meet_2(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int)
+	[label_only, id_only, candidate]
+end
+
+fn delayed_meet_3(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int)
+	[label_only, candidate, id_only]
+end
+
+fn delayed_meet_4(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int)
+	[candidate, id_only, label_only]
+end
+
+fn delayed_meet_5(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int)
+	[candidate, label_only, id_only]
+end
+
+fn contextual_meet(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int) -> Vec<fn({id: Int, label: String}) -> Int>
+	[id_only, label_only]
+end
+
+fn nested_effect_forward(first: fn(fn() -> Int) -> Int, second: fn(fn() -> Int effects [stdio]) -> Int)
+	[first, second]
+end
+
+fn nested_effect_reverse(first: fn(fn() -> Int) -> Int, second: fn(fn() -> Int effects [stdio]) -> Int)
+	[second, first]
+end
+
+fn fallback(first: fn() -> {id: Int, left: String}, second: fn() -> {id: Int, right: Bool}, candidate: fn() -> {id: Int})
+	[first, second, candidate]
+end
+
+fn alias_fallback_0(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready})
+	[first, second, candidate]
+end
+
+fn alias_fallback_1(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready})
+	[first, candidate, second]
+end
+
+fn alias_fallback_2(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready})
+	[second, first, candidate]
+end
+
+fn alias_fallback_3(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready})
+	[second, candidate, first]
+end
+
+fn alias_fallback_4(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready})
+	[candidate, first, second]
+end
+
+fn alias_fallback_5(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready})
+	[candidate, second, first]
+end
+
+fn aliases_forward(first: fn(First::Ready) -> Int, second: fn(Second::Ready) -> Int)
+	[first, second]
+end
+
+fn aliases_reverse(first: fn(First::Ready) -> Int, second: fn(Second::Ready) -> Int)
+	[second, first]
+end
+
+fn verify(first: fn(State) -> Int, second: fn(State::Ready) -> Int effects [stdio], left: fn() -> {id: Int, left: String}, right: fn() -> {id: Int, right: Bool}, candidate: fn() -> {id: Int}, alias_first: fn(First::Ready) -> Int, alias_second: fn(Second::Ready) -> Int) -> ()
+	let joined_forward: Vec<fn(State::Ready) -> Int effects [stdio]> = refinement_forward(first, second)
+	let joined_reverse: Vec<fn(State::Ready) -> Int effects [stdio]> = refinement_reverse(first, second)
+	let selected: Vec<fn() -> {id: Int}> = fallback(left, right, candidate)
+	let alias_forward: Vec<fn(State::Ready) -> Int> = aliases_forward(alias_first, alias_second)
+	let alias_reverse: Vec<fn(State::Ready) -> Int> = aliases_reverse(alias_first, alias_second)
+	()
+end
+
+fn verify_record_width(first: fn({id: Int}) -> Int, second: fn({id: Int, label: String}) -> Int) -> ()
+	let joined_forward: Vec<fn({id: Int, label: String}) -> Int> = width_forward(first, second)
+	let joined_reverse: Vec<fn({id: Int, label: String}) -> Int> = width_reverse(first, second)
+	()
+end
+
+fn verify_delayed_meet(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int, candidate: fn({id: Int, label: String}) -> Int) -> ()
+	let result_0: Vec<fn({id: Int, label: String}) -> Int> = delayed_meet_0(id_only, label_only, candidate)
+	let result_1: Vec<fn({id: Int, label: String}) -> Int> = delayed_meet_1(id_only, label_only, candidate)
+	let result_2: Vec<fn({id: Int, label: String}) -> Int> = delayed_meet_2(id_only, label_only, candidate)
+	let result_3: Vec<fn({id: Int, label: String}) -> Int> = delayed_meet_3(id_only, label_only, candidate)
+	let result_4: Vec<fn({id: Int, label: String}) -> Int> = delayed_meet_4(id_only, label_only, candidate)
+	let result_5: Vec<fn({id: Int, label: String}) -> Int> = delayed_meet_5(id_only, label_only, candidate)
+	()
+end
+
+fn verify_nested_effect(first: fn(fn() -> Int) -> Int, second: fn(fn() -> Int effects [stdio]) -> Int) -> ()
+	let joined_forward: Vec<fn(fn() -> Int) -> Int> = nested_effect_forward(first, second)
+	let joined_reverse: Vec<fn(fn() -> Int) -> Int> = nested_effect_reverse(first, second)
+	()
+end
+
+fn verify_alias_fallback(first: {state: First::Ready, left: String}, second: {state: Second::Ready, right: Bool}, candidate: {state: First::Ready}) -> ()
+	let result_0: Vec<{state: State::Ready}> = alias_fallback_0(first, second, candidate)
+	let result_1: Vec<{state: State::Ready}> = alias_fallback_1(first, second, candidate)
+	let result_2: Vec<{state: State::Ready}> = alias_fallback_2(first, second, candidate)
+	let result_3: Vec<{state: State::Ready}> = alias_fallback_3(first, second, candidate)
+	let result_4: Vec<{state: State::Ready}> = alias_fallback_4(first, second, candidate)
+	let result_5: Vec<{state: State::Ready}> = alias_fallback_5(first, second, candidate)
+	()
+end

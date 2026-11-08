@@ -1,0 +1,1339 @@
+use super::*;
+use crate::semantic_model::Type;
+use crate::types::TypeEnvironment;
+
+fn analyze(source_text: &str) -> (SurfaceModule, Vec<Diagnostic>) {
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    (module, diagnostics)
+}
+
+fn result(environment: &TypeEnvironment, name: &str) -> String {
+    environment
+        .function(name)
+        .unwrap_or_else(|| panic!("missing function {name}"))
+        .return_type
+        .render()
+}
+
+#[test]
+fn structural_function_joins_are_order_independent_across_bounded_components() {
+    let source = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "pub type First = State\n",
+        "pub type Second = State\n",
+        "fn refinement_forward(first: fn(State) -> Int, second: fn(State::Ready) -> Int effects [stdio])\n  [first, second]\nend\n",
+        "fn refinement_reverse(first: fn(State) -> Int, second: fn(State::Ready) -> Int effects [stdio])\n  [second, first]\nend\n",
+        "fn width_forward(first: fn({id: Int}) -> Int, second: fn({id: Int, label: String}) -> Int)\n  [first, second]\nend\n",
+        "fn width_reverse(first: fn({id: Int}) -> Int, second: fn({id: Int, label: String}) -> Int)\n  [second, first]\nend\n",
+        "fn nested_effect_forward(first: fn(fn() -> Int) -> Int, second: fn(fn() -> Int effects [stdio]) -> Int)\n  [first, second]\nend\n",
+        "fn nested_effect_reverse(first: fn(fn() -> Int) -> Int, second: fn(fn() -> Int effects [stdio]) -> Int)\n  [second, first]\nend\n",
+        "fn variadic_forward(first: fn(Int, ...State) -> Int, second: fn(Int, ...State::Ready) -> Int)\n  [first, second]\nend\n",
+        "fn variadic_reverse(first: fn(Int, ...State) -> Int, second: fn(Int, ...State::Ready) -> Int)\n  [second, first]\nend\n",
+        "fn alias_forward(first: fn(First::Ready) -> Int, second: fn(Second::Ready) -> Int)\n  [first, second]\nend\n",
+        "fn alias_reverse(first: fn(First::Ready) -> Int, second: fn(Second::Ready) -> Int)\n  [second, first]\nend\n",
+    );
+    let (module, diagnostics) = analyze(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    for name in ["refinement_forward", "refinement_reverse"] {
+        assert_eq!(
+            result(&environment, name),
+            "Vec<fn(State::Ready) -> Int effects [stdio]>"
+        );
+    }
+    for name in ["width_forward", "width_reverse"] {
+        assert_eq!(
+            result(&environment, name),
+            "Vec<fn({id: Int, label: String}) -> Int>"
+        );
+    }
+    for name in ["nested_effect_forward", "nested_effect_reverse"] {
+        assert_eq!(result(&environment, name), "Vec<fn(fn() -> Int) -> Int>");
+    }
+    for name in ["variadic_forward", "variadic_reverse"] {
+        assert_eq!(
+            result(&environment, name),
+            "Vec<fn(Int, ...State::Ready) -> Int>"
+        );
+    }
+    for name in ["alias_forward", "alias_reverse"] {
+        assert_eq!(result(&environment, name), "Vec<fn(State::Ready) -> Int>");
+    }
+}
+
+#[test]
+fn function_input_meets_keep_irrelevant_arguments_exact() {
+    let source = SourceFile::new(
+        "main.veln",
+        "type State\n  Ready\n  Closed\nend\ntype Ignored<T>\n  Empty\nend\n",
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let environment = TypeEnvironment::from_module(&lower_surface_ast(&parsed.tree));
+    let identity = environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "Ignored")
+        .expect("Ignored descriptor")
+        .identity();
+    let state_identity = environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "State")
+        .expect("State descriptor")
+        .identity();
+    let refinement = |variant: &str| {
+        Type::resolved_variant_refinement(
+            "State",
+            &state_identity,
+            Vec::new(),
+            vec![variant.to_string()],
+        )
+    };
+    let function = |argument| Type::Function {
+        params: vec![Type::resolved_named("Ignored", &identity, vec![argument])],
+        variadic: None,
+        return_type: Box::new(Type::int()),
+        effects: Vec::new(),
+    };
+    let initial = function(refinement("Ready"));
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("bounded function join");
+    assert!(!joined.try_join(&environment.adts, &function(refinement("Closed"))));
+    assert_eq!(joined.result_type(), initial);
+}
+
+#[test]
+fn delayed_function_input_meets_resolve_in_every_order() {
+    let permutations = [
+        ["id_only", "label_only", "candidate"],
+        ["id_only", "candidate", "label_only"],
+        ["label_only", "id_only", "candidate"],
+        ["label_only", "candidate", "id_only"],
+        ["candidate", "id_only", "label_only"],
+        ["candidate", "label_only", "id_only"],
+    ];
+    let mut source = String::new();
+    for (index, order) in permutations.iter().enumerate() {
+        source.push_str(&format!(
+            "fn meet_{index}(id_only: fn({{id: Int}}) -> Int, label_only: fn({{label: String}}) -> Int, candidate: fn({{id: Int, label: String}}) -> Int)\n  [{}, {}, {}]\nend\n",
+            order[0], order[1], order[2]
+        ));
+    }
+    let (module, diagnostics) = analyze(&source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    for index in 0..permutations.len() {
+        assert_eq!(
+            result(&environment, &format!("meet_{index}")),
+            "Vec<fn({id: Int, label: String}) -> Int>"
+        );
+    }
+}
+
+#[test]
+fn structural_function_effect_union_does_not_synthesize_effect_rows() {
+    let source = concat!(
+        "fn mixed<effect E>(row: fn() -> Int effects [...E], concrete: fn() -> Int effects [stdio])\n  [row, concrete]\nend\n",
+        "fn identical<effect E>(first: fn() -> Int effects [...E], second: fn() -> Int effects [...E])\n  [first, second]\nend\n",
+    );
+    let (module, diagnostics) = analyze(source);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.private_inference_incomplete");
+    let inferred = diagnostics[0]
+        .details
+        .as_object()
+        .and_then(|details| details.iter().find(|(key, _)| key == "inferred_type"))
+        .map(|(_, value)| value);
+    assert_eq!(
+        inferred,
+        Some(&veln_diagnostics::JsonValue::string("unknown"))
+    );
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(result(&environment, "mixed"), "unknown");
+    assert_eq!(
+        result(&environment, "identical"),
+        "Vec<fn() -> Int effects [...E]>"
+    );
+}
+
+#[test]
+fn fallback_retains_every_contribution_until_a_unique_candidate_exists() {
+    let permutations = [
+        ["first", "second", "fallback"],
+        ["first", "fallback", "second"],
+        ["second", "first", "fallback"],
+        ["second", "fallback", "first"],
+        ["fallback", "first", "second"],
+        ["fallback", "second", "first"],
+    ];
+    let mut source = String::new();
+    for (index, order) in permutations.iter().enumerate() {
+        source.push_str(&format!(
+            "fn permutation_{index}(first: fn() -> {{id: Int, left: String}}, second: fn() -> {{id: Int, right: Bool}}, fallback: fn() -> {{id: Int}})\n  [{}, {}, {}]\nend\n",
+            order[0], order[1], order[2]
+        ));
+    }
+    let (module, diagnostics) = analyze(&source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    for index in 0..permutations.len() {
+        assert_eq!(
+            result(&environment, &format!("permutation_{index}")),
+            "Vec<fn() -> {id: Int}>"
+        );
+    }
+}
+
+#[test]
+fn fallback_reconciles_aliases_from_non_candidates_in_every_order() {
+    let permutations = [
+        ["first", "second", "candidate"],
+        ["first", "candidate", "second"],
+        ["second", "first", "candidate"],
+        ["second", "candidate", "first"],
+        ["candidate", "first", "second"],
+        ["candidate", "second", "first"],
+    ];
+    let mut source = String::from(
+        "type State\n  Ready\n  Closed\nend\npub type First = State\npub type Second = State\n",
+    );
+    for (index, order) in permutations.iter().enumerate() {
+        source.push_str(&format!(
+            "fn aliases_{index}(first: {{state: First::Ready, left: String}}, second: {{state: Second::Ready, right: Bool}}, candidate: {{state: First::Ready}})\n  [{}, {}, {}]\nend\n",
+            order[0], order[1], order[2]
+        ));
+    }
+    let (module, diagnostics) = analyze(&source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    let state_identity = environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "State")
+        .expect("State descriptor")
+        .identity();
+    for index in 0..permutations.len() {
+        let inferred = &environment
+            .function(&format!("aliases_{index}"))
+            .expect("permutation function")
+            .return_type;
+        assert_eq!(inferred.render(), "Vec<{state: State::Ready}>");
+        let Type::Named { args, .. } = inferred else {
+            panic!("expected Vec result");
+        };
+        let Type::Record(fields) = &args[0] else {
+            panic!("expected record element");
+        };
+        let Type::VariantRefinement { name, identity, .. } = &fields[0].1 else {
+            panic!("expected refined state field");
+        };
+        assert_eq!(name, "State");
+        assert_eq!(identity, &state_identity);
+    }
+}
+
+#[test]
+fn covariant_wrappers_retain_nested_fallback_candidates_in_every_order() {
+    let permutations = [
+        ["first", "second", "fallback"],
+        ["first", "fallback", "second"],
+        ["second", "first", "fallback"],
+        ["second", "fallback", "first"],
+        ["fallback", "first", "second"],
+        ["fallback", "second", "first"],
+    ];
+    let mut source = String::from("type Positive<A>\n  Present(A)\nend\n");
+    for (index, order) in permutations.iter().enumerate() {
+        source.push_str(&format!(
+            "fn option_{index}(first: Option<{{id: Int, left: String}}>, second: Option<{{id: Int, right: Bool}}>, fallback: Option<{{id: Int}}>)\n  [{}, {}, {}]\nend\n",
+            order[0], order[1], order[2]
+        ));
+        source.push_str(&format!(
+            "fn source_{index}(first: Positive<{{id: Int, left: String}}>, second: Positive<{{id: Int, right: Bool}}>, fallback: Positive<{{id: Int}}>)\n  [{}, {}, {}]\nend\n",
+            order[0], order[1], order[2]
+        ));
+    }
+    let (module, diagnostics) = analyze(&source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    for index in 0..permutations.len() {
+        assert_eq!(
+            result(&environment, &format!("option_{index}")),
+            "Vec<Option<{id: Int}>>"
+        );
+        assert_eq!(
+            result(&environment, &format!("source_{index}")),
+            "Vec<Positive<{id: Int}>>"
+        );
+    }
+}
+
+#[test]
+fn rejected_optimized_transition_preserves_the_aggregate_for_later_fallback() {
+    let environment = TypeEnvironment::from_module(&lower_surface_ast(
+        &parse(&SourceFile::new("main.veln", "")).tree,
+    ));
+    let initial = Type::Record(vec![
+        ("id".to_string(), Type::int()),
+        ("extra".to_string(), Type::string()),
+    ]);
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("record aggregate");
+    let before_rejection = joined.result_type();
+    let rejected = Type::Record(vec![
+        ("id".to_string(), Type::string()),
+        ("extra".to_string(), Type::string()),
+    ]);
+    assert!(!joined.try_join(&environment.adts, &rejected));
+    assert_eq!(joined.result_type(), before_rejection);
+
+    let fallback = Type::Record(vec![("id".to_string(), Type::int())]);
+    assert!(joined.try_join(&environment.adts, &fallback));
+    assert_eq!(joined.result_type(), fallback);
+}
+
+#[test]
+fn record_width_rejection_preserves_exact_arguments_and_alias_state() {
+    let source_text = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "pub type First = State\n",
+        "pub type Second = State\n",
+        "type Invariant<T>\n  Value(fn(T) -> T)\nend\n",
+        "fn optimized_baseline(first: fn() -> {guard: Invariant<Int>, state: First::Ready, left: Int}, later: fn() -> {guard: Invariant<Int>, state: First::Ready})\n  [first, later]\nend\n",
+        "fn optimized_crossed(first: fn() -> {guard: Invariant<Int>, state: First::Ready, left: Int}, rejected: fn() -> {guard: Invariant<String>, state: Second::Ready}, later: fn() -> {guard: Invariant<Int>, state: First::Ready})\n  [first, rejected, later]\nend\n",
+        "fn bounded_baseline(first: fn() -> {guard: Invariant<Int>, state: First::Ready}, second: fn() -> {guard: Invariant<Int>, state: First::Ready, right: Bool}, later: fn() -> {guard: Invariant<Int>, state: First::Ready})\n  [first, second, later]\nend\n",
+        "fn bounded_crossed(first: fn() -> {guard: Invariant<Int>, state: First::Ready}, second: fn() -> {guard: Invariant<Int>, state: First::Ready, right: Bool}, rejected: fn() -> {guard: Invariant<String>, state: Second::Ready, bad: String}, later: fn() -> {guard: Invariant<Int>, state: First::Ready})\n  [first, second, rejected, later]\nend\n",
+    );
+    let (module, diagnostics) = analyze(source_text);
+    let rejected = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic
+                .span
+                .as_ref()
+                .is_some_and(|span| &source_text[span.start.offset..span.end.offset] == "rejected")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(rejected.len(), 2, "{diagnostics:#?}");
+    assert!(
+        rejected
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    let optimized_baseline = environment
+        .function("optimized_baseline")
+        .expect("optimized baseline")
+        .return_type
+        .clone();
+    let optimized_crossed = environment
+        .function("optimized_crossed")
+        .expect("optimized crossed")
+        .return_type
+        .clone();
+    let bounded_baseline = environment
+        .function("bounded_baseline")
+        .expect("bounded baseline")
+        .return_type
+        .clone();
+    let bounded_crossed = environment
+        .function("bounded_crossed")
+        .expect("bounded crossed")
+        .return_type
+        .clone();
+    assert_eq!(optimized_crossed, optimized_baseline);
+    assert_eq!(bounded_crossed, bounded_baseline);
+    assert_eq!(
+        optimized_crossed.render(),
+        "Vec<fn() -> {guard: Invariant<Int>, state: First::Ready}>"
+    );
+    assert_eq!(bounded_crossed, optimized_crossed);
+}
+
+#[test]
+fn record_width_fallback_with_function_fields_is_order_independent() {
+    let source = concat!(
+        "fn forward(narrow: {callback: fn(Int) -> Int}, wide: {callback: fn(Int) -> Int, label: String})\n  [narrow, wide]\nend\n",
+        "fn reverse(narrow: {callback: fn(Int) -> Int}, wide: {callback: fn(Int) -> Int, label: String})\n  [wide, narrow]\nend\n",
+    );
+    let (module, diagnostics) = analyze(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    for name in ["forward", "reverse"] {
+        assert_eq!(
+            result(&environment, name),
+            "Vec<{callback: fn(Int) -> Int}>"
+        );
+    }
+}
+
+#[test]
+fn fallback_uses_contributions_instead_of_an_optimized_prefix_result() {
+    let source = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "fn unresolved(first: {state: State::Ready}, second: {state: State::Closed}, wider: {state: State, extra: Int})\n",
+        "  [first, second, wider]\nend\n",
+    );
+    let (module, diagnostics) = analyze(source);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.private_inference_incomplete");
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(result(&environment, "unresolved"), "unknown");
+}
+
+#[test]
+fn recursive_shape_rejection_does_not_change_later_successful_join() {
+    let source_text = concat!(
+        "fn retained(first: fn(fn(Int) -> Int) -> Int, rejected: fn(fn(Int, Int) -> Int) -> Int, later: fn(fn(Int) -> Int) -> Int effects [stdio])\n",
+        "  [first, rejected, later]\nend\n",
+    );
+    let (module, diagnostics) = analyze(source_text);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    let span = diagnostics[0].span.as_ref().expect("mismatch span");
+    assert_eq!(&source_text[span.start.offset..span.end.offset], "rejected");
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        result(&environment, "retained"),
+        "Vec<fn(fn(Int) -> Int) -> Int effects [stdio]>"
+    );
+}
+
+#[test]
+fn control_flow_rejection_preserves_bounded_state_for_later_effect_union() {
+    let source_text = concat!(
+        "type Choice\n  First\n  Rejected\n  Later\nend\n",
+        "fn needs_int(value: Int) -> ()\n  ()\nend\n",
+        "fn private_if(choice: Choice, first: fn(fn(Int) -> Int) -> Int, rejected: fn(fn(Int, Int) -> Int) -> Int, later: fn(fn(Int) -> Int) -> Int effects [stdio])\n",
+        "  if choice == Choice::First\n    first\n  else if choice == Choice::Rejected\n    rejected\n  else\n    later\n  end\nend\n",
+        "fn private_match(choice: Choice, first: fn(fn(Int) -> Int) -> Int, rejected: fn(fn(Int, Int) -> Int) -> Int, later: fn(fn(Int) -> Int) -> Int effects [stdio])\n",
+        "  match choice\n    First => first\n    Rejected => rejected\n    Later => later\n  end\nend\n",
+        "fn ordinary_if(choice: Choice, first: fn(fn(Int) -> Int) -> Int, rejected: fn(fn(Int, Int) -> Int) -> Int, later: fn(fn(Int) -> Int) -> Int effects [stdio]) -> ()\n",
+        "  let selected = if choice == Choice::First\n    first\n  else if choice == Choice::Rejected\n    rejected\n  else\n    later\n  end\n  needs_int(selected)\nend\n",
+        "fn ordinary_match(choice: Choice, first: fn(fn(Int) -> Int) -> Int, rejected: fn(fn(Int, Int) -> Int) -> Int, later: fn(fn(Int) -> Int) -> Int effects [stdio]) -> ()\n",
+        "  let selected = match choice\n    First => first\n    Rejected => rejected\n    Later => later\n  end\n  needs_int(selected)\nend\n",
+    );
+    let (module, diagnostics) = analyze(source_text);
+    let rejected = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic
+                .span
+                .as_ref()
+                .is_some_and(|span| &source_text[span.start.offset..span.end.offset] == "rejected")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(rejected.len(), 4, "{diagnostics:#?}");
+    assert!(
+        rejected
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+    let final_type = "fn(fn(Int) -> Int) -> Int effects [stdio]";
+    let ordinary_results = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.message.contains("expected `Int`") && diagnostic.message.contains(final_type)
+        })
+        .count();
+    assert_eq!(ordinary_results, 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    for function in ["private_if", "private_match"] {
+        assert_eq!(result(&environment, function), final_type, "{function}");
+    }
+}
+
+fn fallback_record(index: usize) -> Type {
+    Type::Record(vec![
+        ("common".to_string(), Type::int()),
+        (format!("field_{index:03}"), Type::int()),
+    ])
+}
+
+fn fallback_measurement(size: usize, resolve_late: bool) -> (usize, usize) {
+    let environment = TypeEnvironment::from_module(&lower_surface_ast(
+        &parse(&SourceFile::new("main.veln", "")).tree,
+    ));
+    let initial = fallback_record(0);
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("record fallback join");
+    crate::aggregate_type_join::reset_fallback_comparisons();
+    for index in 1..size {
+        assert!(joined.try_join(&environment.adts, &fallback_record(index)));
+    }
+    if resolve_late {
+        assert!(joined.try_join(
+            &environment.adts,
+            &Type::Record(vec![("common".to_string(), Type::int())]),
+        ));
+        assert_eq!(joined.result_type().render(), "{common: Int}");
+    } else {
+        assert!(!joined.has_resolved_result());
+    }
+    (
+        joined.bounded_retained_state(),
+        crate::aggregate_type_join::take_fallback_comparisons(),
+    )
+}
+
+#[test]
+fn fallback_candidate_retained_state_grows_at_most_linearly() {
+    let sizes = [8, 16, 32];
+    let measurements = sizes.map(|size| fallback_measurement(size, false).0);
+    eprintln!("fallback retained state: {measurements:?}");
+    for adjacent in measurements.windows(2) {
+        assert!(
+            adjacent[1] <= adjacent[0] * 2 + 8,
+            "retained fallback state must grow at most linearly: {measurements:?}"
+        );
+    }
+}
+
+#[test]
+fn fallback_candidate_comparisons_grow_at_most_quadratically() {
+    for resolve_late in [false, true] {
+        let sizes = [8, 16, 32];
+        let measurements = sizes.map(|size| {
+            let comparisons = fallback_measurement(size, resolve_late).1;
+            let contributions = size + usize::from(resolve_late);
+            assert!(
+                comparisons <= contributions * contributions,
+                "size={size} resolve_late={resolve_late} comparisons={comparisons}"
+            );
+            comparisons
+        });
+        eprintln!("fallback comparisons resolve_late={resolve_late}: {measurements:?}");
+        for (index, adjacent) in measurements.windows(2).enumerate() {
+            let scale = sizes[index + 1] / sizes[index];
+            assert!(
+                adjacent[1] <= adjacent[0] * scale * scale + sizes[index + 1],
+                "{measurements:?}"
+            );
+        }
+    }
+}
+
+#[derive(Debug)]
+struct FunctionInputWidthMeasurement {
+    total_field_occurrences: usize,
+    maximum_record_width: usize,
+    work: usize,
+    candidate_work: crate::aggregate_type_join::BoundedCandidateWork,
+    record_work: usize,
+    presentation_work: crate::type_relations::TypePresentationWork,
+    retained_state: usize,
+    elapsed: std::time::Duration,
+}
+
+fn function_input_width_meet_measurement(size: usize) -> FunctionInputWidthMeasurement {
+    let environment = TypeEnvironment::from_module(&lower_surface_ast(
+        &parse(&SourceFile::new("main.veln", "")).tree,
+    ));
+    let function = |width: usize| Type::Function {
+        params: vec![Type::Record(
+            (0..width)
+                .map(|index| (format!("field_{index:03}"), Type::int()))
+                .collect(),
+        )],
+        variadic: None,
+        return_type: Box::new(Type::int()),
+        effects: Vec::new(),
+    };
+    let initial = function(1);
+    crate::aggregate_type_join::reset_bounded_candidate_work();
+    crate::type_relations::reset_record_field_match_work();
+    crate::type_relations::reset_type_presentation_work();
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("bounded function join");
+    let started = std::time::Instant::now();
+    for width in 2..=size {
+        assert!(joined.try_join(&environment.adts, &function(width)));
+    }
+    let elapsed = started.elapsed();
+    let resolved = joined.result_type();
+    let Type::Function { params, .. } = &resolved else {
+        panic!("expected function result");
+    };
+    let Type::Record(fields) = &params[0] else {
+        panic!("expected record input");
+    };
+    assert_eq!(fields.len(), size);
+    crate::semantic_model::drop_type_iteratively(resolved);
+    let candidate_work = crate::aggregate_type_join::take_bounded_candidate_work();
+    let record_work = crate::type_relations::take_record_field_match_work();
+    let presentation_work = crate::type_relations::take_type_presentation_work();
+    let work = candidate_work.candidate_iterations
+        + candidate_work.relation_key_nodes
+        + candidate_work.candidate_order_nodes
+        + candidate_work.result_materialization_units
+        + record_work
+        + presentation_work.conflict_lookups
+        + presentation_work.conflict_insertions
+        + presentation_work.child_lookups
+        + presentation_work.child_insertions;
+    FunctionInputWidthMeasurement {
+        total_field_occurrences: size * (size + 1) / 2,
+        maximum_record_width: size,
+        work,
+        candidate_work,
+        record_work,
+        presentation_work,
+        retained_state: joined.bounded_retained_state(),
+        elapsed,
+    }
+}
+
+#[test]
+fn structural_function_input_meets_scale_with_source_size() {
+    let sizes = [8, 16, 32];
+    let measurements = sizes.map(function_input_width_meet_measurement);
+    eprintln!("function input meet source-size work: {measurements:?}");
+    for (size, measurement) in sizes.into_iter().zip(&measurements) {
+        let presentation_work = measurement.presentation_work.conflict_lookups
+            + measurement.presentation_work.conflict_insertions
+            + measurement.presentation_work.child_lookups
+            + measurement.presentation_work.child_insertions;
+        assert_eq!(
+            measurement.work,
+            measurement.candidate_work.candidate_iterations
+                + measurement.candidate_work.relation_key_nodes
+                + measurement.candidate_work.candidate_order_nodes
+                + measurement.candidate_work.result_materialization_units
+                + measurement.record_work
+                + presentation_work
+        );
+        let _observed_elapsed = measurement.elapsed;
+        assert_eq!(measurement.maximum_record_width, size);
+        assert_eq!(measurement.total_field_occurrences, size * (size + 1) / 2);
+        assert!(
+            measurement.work <= measurement.total_field_occurrences * 80,
+            "work must remain linear in generated source fields: {measurement:?}"
+        );
+    }
+    for (index, adjacent) in measurements.windows(2).enumerate() {
+        let larger_width = sizes[index + 1];
+        assert!(
+            adjacent[1].work <= adjacent[0].work * 4 + larger_width * 16,
+            "work may grow with the quadratic source size, not cubically with maximum width: {measurements:?}"
+        );
+        assert!(
+            adjacent[1].retained_state <= adjacent[0].retained_state * 4 + larger_width * 4,
+            "retained state must not outgrow the source types: {measurements:?}"
+        );
+    }
+}
+
+#[derive(Debug)]
+struct RepeatedFunctionReturnMeasurement {
+    work: crate::aggregate_type_join::BoundedCandidateWork,
+    retained_state: usize,
+    elapsed: std::time::Duration,
+}
+
+fn repeated_function_return_measurement(
+    size: usize,
+    nested: bool,
+) -> RepeatedFunctionReturnMeasurement {
+    let environment = TypeEnvironment::from_module(&lower_surface_ast(
+        &parse(&SourceFile::new("main.veln", "")).tree,
+    ));
+    let callback = Type::Function {
+        params: vec![Type::string()],
+        variadic: None,
+        return_type: Box::new(Type::int()),
+        effects: vec!["stdio".to_string()],
+    };
+    let contribution = Type::Function {
+        params: vec![Type::int()],
+        variadic: None,
+        return_type: Box::new(if nested { callback } else { Type::int() }),
+        effects: Vec::new(),
+    };
+    crate::aggregate_type_join::reset_bounded_candidate_work();
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &contribution)
+            .expect("bounded function join");
+    let started = std::time::Instant::now();
+    for _ in 1..size {
+        assert!(joined.try_join(&environment.adts, &contribution));
+    }
+    let elapsed = started.elapsed();
+    let resolved = joined.result_type();
+    assert_eq!(resolved, contribution);
+    assert_eq!(
+        resolved.render(),
+        if nested {
+            "fn(Int) -> fn(String) -> Int effects [stdio]"
+        } else {
+            "fn(Int) -> Int"
+        }
+    );
+    crate::semantic_model::drop_type_iteratively(resolved);
+    RepeatedFunctionReturnMeasurement {
+        work: crate::aggregate_type_join::take_bounded_candidate_work(),
+        retained_state: joined.bounded_retained_state(),
+        elapsed,
+    }
+}
+
+#[derive(Debug)]
+struct DistinctFunctionReturnMeasurement {
+    total_field_occurrences: usize,
+    work: usize,
+    candidate_work: crate::aggregate_type_join::BoundedCandidateWork,
+    record_work: usize,
+    presentation_work: crate::type_relations::TypePresentationWork,
+    retained_state: usize,
+    elapsed: std::time::Duration,
+}
+
+fn distinct_function_return_measurement(size: usize) -> DistinctFunctionReturnMeasurement {
+    let source = SourceFile::new(
+        "main.veln",
+        "type State\n  Ready\n  Closed\nend\npub type First = State\npub type Second = State\n",
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let environment = TypeEnvironment::from_module(&lower_surface_ast(&parsed.tree));
+    let state_identity = environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "State")
+        .expect("State descriptor")
+        .identity();
+    let state = |name: &str| Type::resolved_named(name, &state_identity, Vec::new());
+    let record = |width: usize, suffix: Option<&str>, alias: &str| {
+        let mut fields = vec![("state".to_string(), state(alias))];
+        fields.extend((0..width).map(|index| (format!("field_{index:03}"), Type::int())));
+        if let Some(suffix) = suffix {
+            fields.push((suffix.to_string(), Type::int()));
+        }
+        Type::Record(fields)
+    };
+    let function = |return_type| Type::Function {
+        params: vec![Type::int()],
+        variadic: None,
+        return_type: Box::new(return_type),
+        effects: Vec::new(),
+    };
+
+    crate::aggregate_type_join::reset_bounded_candidate_work();
+    crate::type_relations::reset_record_field_match_work();
+    crate::type_relations::reset_type_presentation_work();
+    let started = std::time::Instant::now();
+    let initial = function(record(size, Some("left"), "First"));
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("bounded function join");
+    assert!(joined.try_join(
+        &environment.adts,
+        &function(record(size, Some("right"), "Second")),
+    ));
+    assert!(!joined.has_resolved_result());
+    assert!(joined.try_join(&environment.adts, &function(record(size, None, "First")),));
+    assert!(joined.has_resolved_result());
+
+    let before_rejection = joined.result_type();
+    let retained_before_rejection = joined.bounded_retained_state();
+    let rejected = function(Type::Record(vec![("state".to_string(), Type::string())]));
+    assert!(!joined.try_join(&environment.adts, &rejected));
+    assert_eq!(joined.result_type(), before_rejection);
+    assert_eq!(joined.bounded_retained_state(), retained_before_rejection);
+    crate::semantic_model::drop_type_iteratively(before_rejection);
+
+    let replacement_width = size - 1;
+    assert!(joined.try_join(
+        &environment.adts,
+        &function(record(replacement_width, None, "Second")),
+    ));
+    let replacement = joined.result_type();
+    let Type::Function { return_type, .. } = &replacement else {
+        panic!("expected replacement function result");
+    };
+    let Type::Record(fields) = return_type.as_ref() else {
+        panic!("expected replacement record return");
+    };
+    assert_eq!(fields.len(), replacement_width + 1);
+    crate::semantic_model::drop_type_iteratively(replacement);
+
+    for width in (0..replacement_width).rev() {
+        let alias = if width % 2 == 0 { "First" } else { "Second" };
+        assert!(joined.try_join(&environment.adts, &function(record(width, None, alias)),));
+    }
+    let resolved = joined.result_type();
+    let elapsed = started.elapsed();
+    assert_eq!(resolved.render(), "fn(Int) -> {state: State}");
+    let Type::Function { return_type, .. } = &resolved else {
+        panic!("expected function result");
+    };
+    let Type::Record(fields) = return_type.as_ref() else {
+        panic!("expected record return");
+    };
+    let Type::Named { name, identity, .. } = &fields[0].1 else {
+        panic!("expected resolved State field");
+    };
+    assert_eq!(name, "State");
+    assert_eq!(identity, &state_identity);
+    crate::semantic_model::drop_type_iteratively(resolved);
+
+    let candidate_work = crate::aggregate_type_join::take_bounded_candidate_work();
+    let record_work = crate::type_relations::take_record_field_match_work();
+    let presentation_work = crate::type_relations::take_type_presentation_work();
+    let presentation_units = presentation_work.conflict_lookups
+        + presentation_work.conflict_insertions
+        + presentation_work.child_lookups
+        + presentation_work.child_insertions;
+    let work = candidate_work.candidate_iterations
+        + candidate_work.relation_key_nodes
+        + candidate_work.candidate_order_nodes
+        + candidate_work.result_materialization_units
+        + record_work
+        + presentation_units;
+    DistinctFunctionReturnMeasurement {
+        total_field_occurrences: size * (size + 1) / 2 + 3 * size + 5,
+        work,
+        candidate_work,
+        record_work,
+        presentation_work,
+        retained_state: joined.bounded_retained_state(),
+        elapsed,
+    }
+}
+
+#[test]
+fn distinct_descending_width_function_returns_scale_with_source_size() {
+    let sizes = [16, 32, 64];
+    let measurements = sizes.map(distinct_function_return_measurement);
+    eprintln!("distinct function return source-size work: {measurements:?}");
+    for measurement in &measurements {
+        let _observed_elapsed = measurement.elapsed;
+        assert!(
+            measurement.work <= measurement.total_field_occurrences * 200,
+            "complete admission work must stay bounded by generated source fields: {measurement:?}"
+        );
+        assert!(
+            measurement.candidate_work.relation_cache_peak_entries <= 8,
+            "temporary relation state must remain bounded: {measurement:?}"
+        );
+        assert!(
+            measurement.candidate_work.relation_cache_peak_key_bytes <= 1_024,
+            "temporary relation key storage must remain bounded: {measurement:?}"
+        );
+        assert!(measurement.record_work > 0);
+        assert!(measurement.presentation_work.child_lookups > 0);
+    }
+    for (index, adjacent) in measurements.windows(2).enumerate() {
+        let larger = sizes[index + 1];
+        assert!(
+            adjacent[1].candidate_work.candidate_iterations
+                <= adjacent[0].candidate_work.candidate_iterations * 4 + larger,
+            "candidate work must not grow cumulatively cubically: {measurements:?}"
+        );
+        assert!(
+            adjacent[1].work <= adjacent[0].work * 7 + larger * 64,
+            "total measured work must remain below cumulative cubic growth: {measurements:?}"
+        );
+        assert!(
+            adjacent[1].retained_state <= adjacent[0].retained_state * 4 + larger * 8,
+            "retained state must not outgrow the source types: {measurements:?}"
+        );
+    }
+}
+
+#[test]
+fn repeated_nested_function_returns_do_not_repeat_quadratic_solves() {
+    let sizes = [16, 32, 64];
+    let controls = sizes.map(|size| repeated_function_return_measurement(size, false));
+    let nested = sizes.map(|size| repeated_function_return_measurement(size, true));
+    eprintln!("repeated function return control: {controls:?}");
+    eprintln!("repeated nested function returns: {nested:?}");
+    eprintln!(
+        "repeated function return elapsed control={:?} nested={:?}",
+        controls
+            .iter()
+            .map(|measurement| measurement.elapsed)
+            .collect::<Vec<_>>(),
+        nested
+            .iter()
+            .map(|measurement| measurement.elapsed)
+            .collect::<Vec<_>>()
+    );
+
+    for index in 0..sizes.len() {
+        let size = sizes[index];
+        assert!(
+            nested[index].work.candidate_iterations <= size * size,
+            "size={size} nested={:?}",
+            nested[index]
+        );
+        assert!(
+            nested[index].work.candidate_iterations
+                <= controls[index].work.candidate_iterations + 8,
+            "a repeated nested return may add only its initial candidate solve: control={:?} nested={:?}",
+            controls[index],
+            nested[index]
+        );
+        assert!(
+            nested[index].work.relation_key_nodes <= controls[index].work.relation_key_nodes * 4,
+            "normalized-key work must remain linear in admissions: control={:?} nested={:?}",
+            controls[index],
+            nested[index]
+        );
+    }
+    for index in 0..sizes.len() - 1 {
+        assert!(
+            nested[index + 1].work.candidate_iterations
+                <= nested[index].work.candidate_iterations * 4 + sizes[index + 1],
+            "candidate work must remain non-cubic: {nested:?}"
+        );
+        assert!(
+            nested[index + 1].work.relation_key_nodes
+                <= nested[index].work.relation_key_nodes * 2 + 4,
+            "normalized-key work must remain linear: {nested:?}"
+        );
+        assert!(
+            nested[index + 1].retained_state <= nested[index].retained_state * 2 + 32,
+            "retained state must remain linear: {nested:?}"
+        );
+    }
+}
+
+fn deep_fallback_component(depth: usize, identity: &str) -> Type {
+    (0..depth).fold(Type::int(), |nested, _| Type::Function {
+        params: vec![Type::Record(vec![(
+            "value".to_string(),
+            Type::resolved_named("Positive", identity, vec![nested]),
+        )])],
+        variadic: None,
+        return_type: Box::new(Type::int()),
+        effects: Vec::new(),
+    })
+}
+
+#[test]
+fn deeply_nested_contributed_candidate_relation_is_stack_safe() {
+    let environment = positive_registry();
+    let identity = positive_identity(&environment);
+    let depth = 1_024;
+    let record = |distinct: &str| {
+        Type::Record(vec![
+            (
+                "common".to_string(),
+                deep_fallback_component(depth, &identity),
+            ),
+            (distinct.to_string(), Type::int()),
+        ])
+    };
+    let initial = record("left");
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("record fallback join");
+    crate::aggregate_type_join::reset_fallback_comparisons();
+    assert!(joined.try_join(&environment.adts, &record("right")));
+    let candidate = Type::Record(vec![(
+        "common".to_string(),
+        deep_fallback_component(depth, &identity),
+    )]);
+    assert!(joined.try_join(&environment.adts, &candidate));
+    assert_eq!(joined.result_type(), candidate);
+    assert!(crate::aggregate_type_join::take_fallback_comparisons() >= 4);
+}
+
+#[test]
+fn deep_owned_candidate_order_replacement_transition_and_drop_are_stack_safe() {
+    let environment = positive_registry();
+    let identity = positive_identity(&environment);
+    let depth = 12_000;
+    let record = |field_order: &[&str]| {
+        Type::Record(
+            field_order
+                .iter()
+                .map(|name| {
+                    let ty = if *name == "common" {
+                        deep_fallback_component(depth, &identity)
+                    } else {
+                        Type::int()
+                    };
+                    ((*name).to_string(), ty)
+                })
+                .collect(),
+        )
+    };
+
+    let initial = record(&["common", "id", "left"]);
+    let mut joined =
+        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+            .expect("deep record aggregate");
+    crate::semantic_model::drop_type_iteratively(initial);
+
+    for fields in [
+        &["common", "id", "left"][..],
+        &["id", "common"][..],
+        &["common", "id"][..],
+    ] {
+        let contribution = record(fields);
+        assert!(joined.try_join(&environment.adts, &contribution));
+        crate::semantic_model::drop_type_iteratively(contribution);
+    }
+
+    let resolved = joined.result_type();
+    let Type::Record(fields) = &resolved else {
+        panic!("expected record result");
+    };
+    assert_eq!(
+        fields
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect::<Vec<_>>(),
+        ["common", "id"]
+    );
+    let mut current = fields
+        .iter()
+        .find(|(name, _)| name == "common")
+        .map(|(_, ty)| ty)
+        .expect("common field");
+    for _ in 0..depth {
+        let Type::Function { params, .. } = current else {
+            panic!("expected nested function");
+        };
+        let Type::Record(fields) = &params[0] else {
+            panic!("expected nested record");
+        };
+        let Type::Named {
+            identity: actual,
+            args,
+            ..
+        } = &fields[0].1
+        else {
+            panic!("expected Positive wrapper");
+        };
+        assert_eq!(actual, &identity);
+        current = &args[0];
+    }
+    assert!(matches!(current, Type::Named { name, .. } if name == "Int"));
+    crate::semantic_model::drop_type_iteratively(resolved);
+    drop(joined);
+}
+
+#[test]
+fn unavailable_disjoint_refinement_meet_has_no_partial_function_type() {
+    let source = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "fn unavailable(first: fn(State::Ready) -> Int, second: fn(State::Closed) -> Int)\n  [first, second]\nend\n",
+    );
+    let (module, diagnostics) = analyze(source);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.private_inference_incomplete");
+    let inferred = diagnostics[0]
+        .details
+        .as_object()
+        .and_then(|details| details.iter().find(|(key, _)| key == "inferred_type"))
+        .map(|(_, value)| value);
+    assert_eq!(
+        inferred,
+        Some(&veln_diagnostics::JsonValue::string("unknown"))
+    );
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(result(&environment, "unavailable"), "unknown");
+}
+
+#[test]
+fn unavailable_disjoint_meet_fails_in_local_and_incompatible_annotated_contexts() {
+    let source = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "fn local(first: fn(State::Ready) -> Int, second: fn(State::Closed) -> Int) -> ()\n",
+        "  let unavailable = [first, second]\n  ()\nend\n",
+        "fn annotated(first: fn(State::Ready) -> Int, second: fn(State::Closed) -> Int) -> ()\n",
+        "  let unavailable: Vec<fn(State) -> Int> = [first, second]\n  ()\nend\n",
+    );
+    let (_, diagnostics) = analyze(source);
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    let local = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.local_inference_incomplete")
+        .expect("local incomplete-inference diagnostic");
+    let inferred = local
+        .details
+        .as_object()
+        .and_then(|details| details.iter().find(|(key, _)| key == "inferred_type"))
+        .map(|(_, value)| value);
+    assert_eq!(
+        inferred,
+        Some(&veln_diagnostics::JsonValue::string("unknown"))
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "expected `fn(State) -> Int`, but found `fn(State::Ready) -> Int`",
+            "expected `fn(State) -> Int`, but found `fn(State::Closed) -> Int`",
+        ]
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .count(),
+        2
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.message.contains("fn(unknown"))
+    );
+}
+
+#[test]
+fn constructible_record_width_meet_uses_explicit_context() {
+    let source = concat!(
+        "fn contextual(id_only: fn({id: Int}) -> Int, label_only: fn({label: String}) -> Int) -> Vec<fn({id: Int, label: String}) -> Int>\n",
+        "  [id_only, label_only]\nend\n",
+    );
+    let (module, diagnostics) = analyze(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        result(&environment, "contextual"),
+        "Vec<fn({id: Int, label: String}) -> Int>"
+    );
+}
+
+#[test]
+fn diagnosed_contribution_does_not_change_retained_alias_state() {
+    let source = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "pub type First = State\npub type Second = State\n",
+        "fn recover(value: Int, callback: fn({id: Int, label: String}) -> Second::Ready) -> fn({id: Int, label: String}) -> Second::Ready\n",
+        "  callback\nend\n",
+        "fn baseline(id_only: fn({id: Int}) -> First::Ready, label_only: fn({label: String}) -> First::Ready, candidate: fn({id: Int, label: String}) -> First::Ready)\n",
+        "  [id_only, label_only, candidate]\nend\n",
+        "fn crossed(id_only: fn({id: Int}) -> First::Ready, label_only: fn({label: String}) -> First::Ready, conflicting: fn({id: Int, label: String}) -> Second::Ready, candidate: fn({id: Int, label: String}) -> First::Ready)\n",
+        "  [id_only, label_only, recover(\"bad\", conflicting), candidate]\nend\n",
+    );
+    let (module, diagnostics) = analyze(source);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    let environment = TypeEnvironment::from_module(&module);
+    let baseline = &environment.function("baseline").unwrap().return_type;
+    let crossed = &environment.function("crossed").unwrap().return_type;
+    assert_eq!(crossed, baseline);
+    assert_eq!(
+        crossed.render(),
+        "Vec<fn({id: Int, label: String}) -> First::Ready>"
+    );
+    let Type::Named { args, .. } = crossed else {
+        panic!("expected Vec result");
+    };
+    let Type::Function { return_type, .. } = &args[0] else {
+        panic!("expected callback element");
+    };
+    let Type::VariantRefinement { name, identity, .. } = return_type.as_ref() else {
+        panic!("expected refined callback result");
+    };
+    let state_identity = environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "State")
+        .expect("State descriptor")
+        .identity();
+    assert_eq!(identity, &state_identity);
+    assert_eq!(name, "First");
+}
+
+fn positive_registry() -> TypeEnvironment {
+    let source = SourceFile::new("main.veln", "type Positive<T>\n  Present(T)\nend\n");
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    TypeEnvironment::from_module(&lower_surface_ast(&parsed.tree))
+}
+
+fn positive_identity(environment: &TypeEnvironment) -> String {
+    environment
+        .adts
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "Positive")
+        .expect("Positive descriptor")
+        .identity()
+}
+
+fn deep_function_result(depth: usize, identity: &str, effects: Vec<String>) -> Type {
+    let leaf = Type::Function {
+        params: vec![Type::int()],
+        variadic: None,
+        return_type: Box::new(Type::int()),
+        effects,
+    };
+    let nested = (0..depth).fold(leaf, |argument, _| {
+        Type::resolved_named("Positive", identity, vec![argument])
+    });
+    Type::Function {
+        params: Vec::new(),
+        variadic: None,
+        return_type: Box::new(nested),
+        effects: Vec::new(),
+    }
+}
+
+#[test]
+fn deep_bounded_function_join_uses_linear_frames_and_function_scans() {
+    let environment = positive_registry();
+    let identity = positive_identity(&environment);
+    let depths = [512, 1024, 2048];
+    let measurements = depths.map(|depth| {
+        let initial = deep_function_result(depth, &identity, Vec::new());
+        let right = deep_function_result(depth, &identity, vec!["stdio".to_string()]);
+        let mut joined =
+            crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+                .expect("bounded function join");
+        crate::aggregate_type_join::reset_bounded_frames();
+        crate::aggregate_type_join::reset_function_scan_nodes();
+        assert!(joined.try_join(&environment.adts, &right));
+        let frames = crate::aggregate_type_join::take_bounded_frames();
+        let function_scan_nodes = crate::aggregate_type_join::take_function_scan_nodes();
+        let resolved = joined.result_type();
+        let Type::Function { return_type, .. } = resolved else {
+            panic!("expected outer function");
+        };
+        let mut leaf = return_type.as_ref();
+        for _ in 0..depth {
+            let Type::Named { args, .. } = leaf else {
+                panic!("expected Positive wrapper");
+            };
+            leaf = &args[0];
+        }
+        let Type::Function { effects, .. } = leaf else {
+            panic!("expected function leaf");
+        };
+        assert_eq!(effects, &["stdio"]);
+        assert_eq!(frames, depth + 4);
+        assert_eq!(function_scan_nodes, depth + 3);
+        (frames, function_scan_nodes)
+    });
+    eprintln!("deep bounded frames and function scans: {measurements:?}");
+    for adjacent in measurements.windows(2) {
+        assert!(adjacent[1].0 <= adjacent[0].0 * 2 + 1);
+        assert!(adjacent[1].1 <= adjacent[0].1 * 2);
+    }
+}
+
+fn direct_function_return_chain(depth: usize, leaf_effects: Vec<String>) -> Type {
+    let leaf = Type::Function {
+        params: vec![Type::int()],
+        variadic: None,
+        return_type: Box::new(Type::int()),
+        effects: leaf_effects,
+    };
+    (0..depth).fold(leaf, |return_type, _| Type::Function {
+        params: Vec::new(),
+        variadic: None,
+        return_type: Box::new(return_type),
+        effects: Vec::new(),
+    })
+}
+
+#[derive(Debug)]
+struct DirectFunctionReturnMeasurement {
+    clone_nodes: usize,
+    bounded_frames: usize,
+    retained_state: usize,
+}
+
+fn direct_function_return_measurement(depth: usize) -> DirectFunctionReturnMeasurement {
+    std::thread::Builder::new()
+        .name(format!("direct-function-return-{depth}"))
+        .stack_size(128 * 1024)
+        .spawn(move || {
+            let environment = TypeEnvironment::from_module(&lower_surface_ast(
+                &parse(&SourceFile::new("main.veln", "")).tree,
+            ));
+            let initial = direct_function_return_chain(depth, Vec::new());
+            let contribution = direct_function_return_chain(depth, vec!["stdio".to_string()]);
+            crate::aggregate_type_join::reset_bounded_frames();
+            let ((retained_state, resolved), clone_nodes) =
+                crate::semantic_model::measure_type_clone_nodes(|| {
+                    let mut joined = crate::aggregate_type_join::AggregateTypeJoin::new(
+                        &environment.adts,
+                        &initial,
+                    )
+                    .expect("bounded function join");
+                    assert!(joined.try_join(&environment.adts, &contribution));
+                    let retained_state = joined.bounded_retained_state();
+                    let resolved = joined.result_type();
+                    drop(joined);
+                    (retained_state, resolved)
+                });
+            let bounded_frames = crate::aggregate_type_join::take_bounded_frames();
+            let mut current = &resolved;
+            for _ in 0..depth {
+                let Type::Function {
+                    params,
+                    variadic,
+                    return_type,
+                    effects,
+                } = current
+                else {
+                    panic!("expected direct function return");
+                };
+                assert!(params.is_empty());
+                assert!(variadic.is_none());
+                assert!(effects.is_empty());
+                current = return_type;
+            }
+            let Type::Function { effects, .. } = current else {
+                panic!("expected function leaf");
+            };
+            assert_eq!(effects, &["stdio"]);
+            crate::semantic_model::drop_type_iteratively(resolved);
+            crate::semantic_model::drop_type_iteratively(initial);
+            crate::semantic_model::drop_type_iteratively(contribution);
+            DirectFunctionReturnMeasurement {
+                clone_nodes,
+                bounded_frames,
+                retained_state,
+            }
+        })
+        .expect("direct function return worker")
+        .join()
+        .expect("direct function return worker must not overflow its stack")
+}
+
+#[test]
+fn direct_function_return_initialization_and_destruction_use_linear_work_state() {
+    let depths = [512, 1024, 2048];
+    let measurements = depths.map(direct_function_return_measurement);
+    eprintln!("direct function return work: {measurements:?}");
+    for measurement in &measurements {
+        assert!(measurement.clone_nodes > 0);
+        assert!(measurement.bounded_frames > 0);
+        assert!(measurement.retained_state > 0);
+    }
+    for adjacent in measurements.windows(2) {
+        assert!(adjacent[1].clone_nodes <= adjacent[0].clone_nodes * 2 + 16);
+        assert!(adjacent[1].bounded_frames <= adjacent[0].bounded_frames * 2 + 4);
+        assert!(adjacent[1].retained_state <= adjacent[0].retained_state * 2 + 32);
+    }
+}

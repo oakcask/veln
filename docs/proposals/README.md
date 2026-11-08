@@ -16,12 +16,10 @@ also states it.
 
 ## Ready
 
-- Complete bounded inference beyond implemented source-ADT and compiler-owned
-  covariant and structural-record joins, including contravariant meets,
-  structural function joins, and contributed-candidate fallback; add
-  dependency variance-metadata invalidation, stable formatter, package, LSP,
-  and MCP presentation, nested incompatibility diagnostics, and whole-analysis
-  and language-service failure preservation:
+- Add nested constructor generic constraint inference, dependency
+  variance-metadata invalidation, stable formatter, package, LSP, and MCP
+  presentation, nested incompatibility diagnostics, and whole-analysis and
+  language-service failure preservation for generic and function variance:
   [generic-and-function-variance.md](generic-and-function-variance.md).
 
 ## Design In Progress

@@ -220,11 +220,14 @@ while the group retains one feasible match domain.
 
 Non-empty `Vec<T>` and `Dict<K, V>` literals infer their element, key, and
 value positions from every successfully typed contribution. Same-constructor
-compiler-owned immutable types recursively join every argument. Source-ADT
-arguments recursively join only where checked variance metadata marks the
-parameter covariant; other classifications and unavailable metadata require
-exact arguments. Constructor refinements join into a declaration-ordered
-variant set, independent of source order. A join containing every declared
+compiler-owned immutable types recursively join every argument. For source
+ADTs, covariant arguments use the bounded join and contravariant arguments use
+the bounded meet. Invariant or irrelevant arguments require exact admission,
+as do arguments whose variance metadata is missing or unusable. Structural
+function joins and other positive contributions may use the applicable
+[bounded rules](#bounded-joins-and-meets), including contributed-candidate
+fallback. Constructor refinements join into a declaration-ordered variant set,
+independent of source order. A join containing every declared
 variant, or a join of a refinement and its base ADT, becomes the base ADT. A
 contribution that produces its own diagnostic does not change the accumulated
 type, so a later successful contribution joins with only the preceding
@@ -235,13 +238,19 @@ Complete record contributions join structurally only when they have identical
 field-name sets. In that case, inference matches fields by name and recursively
 applies the same bounded join to every corresponding field. Field declaration
 order and contribution order do not change the resolved type or its
-presentation. The contribution is committed only when every field joins. A
-different field-name set or an unavailable recursive field join leaves the
-accumulated type, presentation, and alias provenance unchanged. Record-width
-assignment does not permit context-free inference to drop fields. This
-state-preservation rule also applies to unannotated `if` and `match` results
-and to omitted private results: a rejected record branch reports its mismatch,
-and later compatible branches continue from the last admitted record type.
+presentation. The contribution is admitted only when every corresponding
+field is structurally admissible. An exact-argument mismatch or another
+structurally inadmissible recursive field leaves the accumulated type,
+presentation, and alias provenance unchanged. A compatible recursive field
+whose bounded join has no unique result remains admitted and keeps the
+enclosing result unresolved until a later contribution or explicit context
+completes it. Records with different field-name sets do not synthesize a merged
+field set. They use the contributed-candidate fallback described below, which
+can select a unique width-compatible record only when that exact record was
+contributed. This state-preservation rule also applies to unannotated `if` and
+`match` results and to omitted private results: a rejected record branch
+reports its mismatch, and later compatible branches continue from the last
+admitted record type.
 For a complete single-field record nested to depth `D`, deterministic work
 counters visit `D + 1` type nodes during join setup, contribution acceptance,
 and result materialization. Rejecting an incompatible leaf visits the same
@@ -640,9 +649,16 @@ An explicit enclosing expected type continues to flow to every arm. A later
 result that cannot join reports the ordinary compatibility diagnostic against
 the base ADT. A failed compiler-owned contribution with the same root leaves
 the finite join unchanged so a later compatible result can continue it. A
-result with a different root or a source-ADT type that cannot join abandons the
-finite join: recovery uses the base ADT, and a later compatible refinement does
-not resume it.
+result with a different root, or a source-ADT result whose outer shape or exact
+argument constraint is incompatible, abandons the finite join. Recovery uses
+the base ADT, and a later compatible refinement does not resume it. A
+diagnostically failed source-ADT result uses the same recovery after exclusion
+from the admitted join. A compatible-shape, same-root source-ADT result whose
+recursive bounded join or meet is not yet unique does not abandon the join.
+Inference retains that result with the other bounded candidates so a later
+contribution can resolve it. If the control-flow aggregate ends without a
+unique result, its omitted local or private result is `unknown` and reports the
+applicable incomplete-inference diagnostic.
 When the first typed arm cannot start an ADT-refinement join, it supplies the
 initial result type for the existing compatibility and mismatch rules. When
 that type is a concrete base ADT, it supplies context to later arms, including
@@ -1426,12 +1442,142 @@ aggregate or omitted private result.
 
 When contributions have the same resolved source-ADT constructor and arity,
 context-free inference reads that declaration's checked classifications in
-parameter order. A covariant argument recursively uses the same bounded join,
-including through source ADTs and compiler-owned immutable constructors.
-Invariant, irrelevant, and contravariant arguments must match exactly.
-Missing, invalid, inaccessible, or ambiguous classification metadata also
-requires exact arguments. Local and imported declarations use the same rule
-because lookup uses resolved nominal identity rather than displayed spelling.
+parameter order. A covariant argument recursively uses the bounded join. A
+contravariant argument uses the bounded meet. Invariant and irrelevant
+arguments must match exactly without context. Missing, invalid, inaccessible,
+or ambiguous classification metadata also requires exact arguments. Local and
+imported declarations use the same rule because lookup uses resolved nominal
+identity rather than displayed spelling.
+
+### Bounded joins and meets
+
+Bounded inference retains every successfully typed, structurally admissible
+contribution. For a same-constructor source ADT, invariant and irrelevant
+arguments must match exactly before the contribution is admitted. An
+exact-argument mismatch reports `type.mismatch` at that contribution and leaves
+the retained bounds and presentation state unchanged. Records with different
+field sets remain eligible for width fallback, but every field path shared by
+the records must satisfy this exact-argument admission rule. When the same-constructor,
+identical-field, and structural-function rules do not produce a join, the
+contributed-candidate fallback selects the unique contributed type that accepts
+every contribution and is assignable to every other valid candidate. A bounded
+meet applies the dual candidate rule: the selected contributed type is accepted
+by every contribution and accepts every other valid candidate. Resolved
+identity, rather than alias spelling, determines candidate equality.
+Successfully admitted exact arguments and bounded candidates reconcile alias
+preferences across all retained contributions, including while a sibling bound
+remains unresolved. The contributed-candidate fallback also reconciles shared
+parts of every admitted contribution, not only contributions whose complete
+shape remains a candidate for the result. A record-width contribution that
+cannot itself become the selected shape can therefore supply an alias
+preference for a shared field. Conflicting preferences use the canonical
+presentation, and contribution order does not change that presentation. A
+rejected or diagnostically failed contribution does not change the retained
+contributions or presentation state.
+
+Structural functions join only when their fixed parameter counts and variadic
+presence match. Every fixed and variadic input uses the bounded meet. The
+result uses the bounded join. When every effect list is concrete, the lists form
+a sorted set union. If any effect list contains a row tail, every contribution
+must have the same complete effect list. The join preserves that list and does
+not synthesize a row-bearing effect set from differing contributions. Every
+recursive component must resolve. If a component has no unique result, inference
+does not construct a function with an `unknown` component. Compatible explicit
+context can select a result when a source-expressible bounded result exists.
+When no compatible written type exists, as for a meet of disjoint singleton
+refinements, an explicit annotation receives the ordinary incompatibility
+diagnostic. An omitted local or private result that remains unresolved
+reports its existing incomplete-inference diagnostic with `unknown` as the
+inferred type. A contribution whose function shape is incompatible instead
+reports `type.mismatch` at that contribution and does not change the retained
+join. Records with different field sets and other positive
+contributions use the contributed-candidate rule after the same-constructor and
+identical-field rules. Record-width function inputs therefore select the wider
+contributed record, while record-width function results select the narrower
+contributed record. The checked
+[`bounded function inference`](../../examples/specification/check/bounded-function-inference/)
+case covers refinement inputs, effect union, explicit-context compatibility,
+delayed candidate selection, and canonical alias presentation when candidate
+and non-candidate record shapes contribute conflicting aliases. Semantic
+regression coverage independently checks context-free inferred signatures and
+every contribution order. The
+[`diagnostic companion`](../../examples/specification/check/bounded-function-inference-diagnostics/)
+checks unresolved local and private results plus incompatible explicit context.
+
+The contributed-candidate fallback performs at most quadratic assignment
+comparisons in the number of retained contributions. The deterministic
+workload contributes 8, 16, and 32 records with one common field and one
+distinct field, both with and without a final contributed record that resolves
+the join. For `N` contributions, the comparison count must not exceed `N * N`;
+after doubling the input, it must not exceed four times the preceding count
+plus the larger input size.
+
+A companion structural-function workload contributes functions whose input
+records have widths from 1 through `N`, so its generated source types contain
+`S(N) = N * (N + 1) / 2` record fields and have maximum width `N`. Its work
+metric includes candidate admission and selection, normalized-key nodes,
+record-index construction, successful and failed field lookups, presentation
+reconciliation, and selected-result materialization. The workload compares
+`N = 8`, `N = 16`, and `N = 32`. It requires total work to remain linear in
+`S(N)`. After doubling `N`, work must not exceed four times the preceding work
+plus a linear allowance in the larger width. This excludes repeated cubic or
+quartic traversal in the maximum width while permitting work proportional to
+the quadratic source-type input. Elapsed time is observational and is not an
+acceptance threshold.
+
+Repeated normalized function results do not cause a nested result solve after
+each admission. The deterministic 16, 32, and 64 contribution workload compares
+outer functions with an `Int` result against outer functions with the same
+structural-function result. Its work metric counts every candidate iteration
+and every normalized-key type node, including keys built for cache hits. The
+nested workload adds only the constant work of its initial result solve beyond
+the non-nested control; repeated admissions add no nested candidate solve.
+After doubling the input, candidate iterations can grow by at most four times
+plus the larger input size, and normalized-key work can grow by at most twice
+plus a constant allowance. The workload also checks the resolved identity,
+presentation, and linear retained-state bound. Elapsed time remains
+observational.
+
+Distinct structural-function results have a separate deterministic workload.
+It contributes functions with one `Int` input and descending-width record
+results, including a rejected incompatible result and alternating aliases of
+one resolved field identity. At width `N`, the admitted generated result types
+contain `S(N) = N * (N + 1) / 2 + 3 * N + 5` field occurrences. The work
+metric counts candidate iterations, normalized-key nodes, candidate ordering,
+result materialization, record-field matching, and presentation reconciliation.
+For `N = 16`, `N = 32`, and `N = 64`, total work must not exceed `200 * S(N)`,
+temporary relation state must not exceed 8 entries or 1024 key bytes, and the
+rejected result must leave the resolved result and retained state unchanged.
+After doubling `N`, candidate iterations must not exceed four times the
+preceding count plus `N`, total work must not exceed seven times the preceding
+count plus `64 * N`, and retained state must not exceed four times the
+preceding count plus `8 * N`. The final result identity and presentation are
+also checked. Elapsed time remains observational.
+
+The retained fallback state grows at most linearly in the number and owned size
+of admitted contributions. The deterministic 8, 16, and 32 contribution
+workload counts retained candidate slots and all owned type and text material.
+After doubling the input, the count must not exceed twice the preceding count
+plus a constant allowance. Candidate comparison also handles deeply nested
+records, named arguments, and functions without using the host call stack.
+
+Recursive bounded function inference uses explicit linear work frames. The
+deterministic workload joins two functions whose result contains a function
+below 512, 1024, and 2048 covariant source-ADT wrappers. At depth `D`, the
+join visits exactly `D + 4` bounded frames. Each doubled depth permits at most
+twice the preceding frame count plus one. Elapsed time is observational and is
+not an acceptance threshold.
+
+Direct function-return chains also use linear work and retained state. The
+companion deterministic workload joins two zero-parameter function chains at
+depths 512, 1024, and 2048. Their leaf functions differ only by the `stdio`
+effect, and the resolved leaf must contain that effect. The workload counts
+type-clone nodes, bounded frames, and retained state while checking that setup,
+materialization, and destruction complete on a 128 KiB worker stack. After
+doubling the depth, clone nodes must not exceed twice the preceding count plus
+16, bounded frames must not exceed twice the preceding count plus 4, and
+retained state must not exceed twice the preceding count plus 32. Elapsed time
+is not an acceptance threshold.
 
 Same-constructor contributions to compiler-owned immutable `Option<T>`,
 `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>` recursively join every
@@ -1536,12 +1682,15 @@ still-unknown argument of an omitted local, including through a direct local
 alias. The aggregate surface then applies its recovery rule. Collections,
 dictionaries, and repeated constructor payloads retain the last admitted state,
 so a later valid contribution can continue the join. An unannotated `if` or
-`match` retains that state after a failed same-root compiler-owned contribution,
-but a failed source-ADT contribution abandons its finite control-flow join as
-described above. Permuting successful contributions produces the same resolved
-type and presentation. Atomic validation applies to compiler-owned constructors
-and covariant source-ADT parameters; continuation after failure applies only
-when the aggregate surface retains the join.
+`match` retains that state after a failed same-root compiler-owned contribution.
+A structurally inadmissible or diagnostically failed source-ADT contribution
+abandons its finite control-flow join as described above. A compatible-shape,
+same-root source-ADT contribution with a recursively unresolved bounded result
+remains admitted and can be completed by a later candidate. Permuting
+successful contributions produces the same resolved type and presentation.
+Atomic validation applies to compiler-owned constructors and source-ADT
+parameters; continuation after an inadmissible contribution applies only when
+the aggregate surface retains the join.
 
 Projecting an admitted aggregate context through nested compiler-owned
 constructors has bounded linear total work and retained state. The deterministic
@@ -1625,9 +1774,9 @@ classification. A direct payload such as `Box<A>` makes `A` covariant, so the
 corresponding inferred `Box<State::Ready>` also widens to `Box<State>`. A
 parameter used in both input and output positions is invariant and rejects the
 same widening. Context-free aggregate inference consumes checked source-ADT
-covariance and the covariance of compiler-owned immutable constructors. It
-also joins complete records with identical field-name sets as described above.
-It does not infer a contravariant meet or structural function join.
+classifications and the covariance of compiler-owned immutable constructors.
+It also joins complete records with identical field-name sets, structural
+functions, and other positive contributions under the bounded rules above.
 
 ### Source ADT parameter classifications
 
@@ -1898,8 +2047,14 @@ module and to aliases of that declaration. Source aliases instead retain their
 target declaration's checked classifications. The rule does not relate distinct
 nominal constructors and does not coerce runtime values. Without a concrete
 expected type, the same covariance recursively joins arguments only for
-same-constructor contributions under the inference rules above. Other
-context-free joins remain unavailable.
+same-constructor compiler-owned contributions under the inference rules above.
+For same-constructor source ADTs, covariant arguments use the bounded join and
+contravariant arguments use the bounded meet; invariant and irrelevant
+arguments, or arguments with unavailable checked metadata, still require exact
+admission. Structural functions and other positive contributions can also join
+when their bounded structural or contributed-candidate rules select one unique
+result. A context-free join remains unavailable when those rules cannot select
+a unique result, so inference requires compatible explicit context.
 Recovery still lets `unknown` match a complete argument. `Path` and `String` are distinct named types at
 assignment boundaries; the runtime path representation is not source-visible.
 Function assignment checks fixed parameter count, parameter types, variadic
@@ -2099,6 +2254,9 @@ case covers that boundary. Schema predicates do not accept `%`.
 - Source-ADT covariant inference, checked variance parameter order, and
   resolved declaration identity:
   `crates/veln-sema/src/tests/source_adt_variance_inference.rs`.
+- Bounded function inference, contributed-candidate comparison scaling, and
+  deep recursive frame scaling:
+  `crates/veln-sema/src/tests/bounded_function_inference.rs`.
 - Source-ADT variance production and assignment lookup scaling:
   `crates/veln-sema/src/adt/tests/variance.rs`, in
   `nested_pair_comb_has_linear_factor_and_dependency_work` and

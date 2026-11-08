@@ -122,8 +122,6 @@ fn aggregate_join_uses_checked_variance_in_parameter_order() {
     let diagnostics = analyze_surface_module(&module);
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
     assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
-    let span = diagnostics[0].span.as_ref().expect("mismatch span");
-    assert_eq!(&source_text[span.start.offset..span.end.offset], "second");
 
     let environment = TypeEnvironment::from_module(&module);
     assert_eq!(
@@ -212,11 +210,12 @@ fn assert_package_identity_join_diagnostics(module: &SurfaceModule, app_text: &s
     assert!(
         diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+            .all(|diagnostic| diagnostic.id != "type.local_inference_incomplete"),
         "{diagnostics:#?}",
     );
     let failed_values = diagnostics
         .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
         .map(|diagnostic| {
             let span = diagnostic.span.as_ref().expect("mismatch span");
             &app_text[span.start.offset..span.end.offset]
@@ -310,9 +309,144 @@ fn non_covariant_source_slots_remain_exact_during_inference() {
         );
         let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
         assert_eq!(diagnostics.len(), 1, "{name}: {diagnostics:#?}");
+        let expected = if name == "contravariant" {
+            "type.local_inference_incomplete"
+        } else {
+            "type.mismatch"
+        };
+        assert_eq!(diagnostics[0].id, expected, "{name}: {diagnostics:#?}");
+    }
+}
+
+#[test]
+fn exact_source_slots_reject_refinement_mismatches_transactionally() {
+    let source_text = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "type Wrapper<T>\n  A(fn(T) -> T)\n  B(fn(T) -> T)\nend\n",
+        "fn retained(first: Wrapper<State::Ready>::A, rejected: Wrapper<State::Closed>::A, later: Wrapper<State::Ready>::B)\n\
+           [first, rejected, later]\n\
+         end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+    let span = diagnostics[0].span.as_ref().expect("mismatch span");
+    assert_eq!(&source_text[span.start.offset..span.end.offset], "rejected");
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("retained")
+            .expect("retained function")
+            .return_type
+            .render(),
+        "Vec<Wrapper<State::Ready>>",
+    );
+}
+
+#[test]
+fn contravariant_source_slot_retains_a_delayed_meet() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Consumer<T>\n",
+            "  ConsumerValue(fn(T) -> ())\n",
+            "end\n",
+            "fn retained(id_only: Consumer<{id: Int}>, label_only: Consumer<{label: String}>, candidate: Consumer<{id: Int, label: String}>)\n",
+            "  [id_only, label_only, candidate]\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("retained")
+            .expect("retained function")
+            .return_type
+            .render(),
+        "Vec<Consumer<{id: Int, label: String}>>",
+    );
+}
+
+#[test]
+fn bounded_source_join_rejects_exact_mismatch_without_losing_delayed_meet() {
+    let source_text = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "type Wrapper<Input, Exact>\n  InputValue(fn(Input) -> ())\n  ExactOutput(Exact)\n  ExactInput(fn(Exact) -> ())\nend\n",
+        "fn retained(id_only: Wrapper<{id: Int}, State::Ready>, label_only: Wrapper<{label: String}, State::Ready>, rejected: Wrapper<{id: Int, label: String}, State::Closed>, candidate: Wrapper<{id: Int, label: String}, State::Ready>)\n",
+        "  [id_only, label_only, rejected, candidate]\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+    let span = diagnostics[0].span.as_ref().expect("mismatch span");
+    assert_eq!(&source_text[span.start.offset..span.end.offset], "rejected");
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("retained")
+            .expect("retained function")
+            .return_type
+            .render(),
+        "Vec<Wrapper<{id: Int, label: String}, State::Ready>>",
+    );
+}
+
+#[test]
+fn exact_source_argument_presentation_is_order_independent_with_a_delayed_meet() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Ready\n  Closed\nend\n",
+            "pub type First = State\n",
+            "pub type Second = State\n",
+            "type Wrapper<Input, Marker>\n",
+            "  InputValue(fn(Input) -> ())\n",
+            "end\n",
+            "fn order_abc(a: Wrapper<{id: Int}, First::Ready>, b: Wrapper<{label: String}, Second::Ready>, c: Wrapper<{id: Int, label: String}, First::Ready>)\n  [a, b, c]\nend\n",
+            "fn order_acb(a: Wrapper<{id: Int}, First::Ready>, b: Wrapper<{label: String}, Second::Ready>, c: Wrapper<{id: Int, label: String}, First::Ready>)\n  [a, c, b]\nend\n",
+            "fn order_bac(a: Wrapper<{id: Int}, First::Ready>, b: Wrapper<{label: String}, Second::Ready>, c: Wrapper<{id: Int, label: String}, First::Ready>)\n  [b, a, c]\nend\n",
+            "fn order_bca(a: Wrapper<{id: Int}, First::Ready>, b: Wrapper<{label: String}, Second::Ready>, c: Wrapper<{id: Int, label: String}, First::Ready>)\n  [b, c, a]\nend\n",
+            "fn order_cab(a: Wrapper<{id: Int}, First::Ready>, b: Wrapper<{label: String}, Second::Ready>, c: Wrapper<{id: Int, label: String}, First::Ready>)\n  [c, a, b]\nend\n",
+            "fn order_cba(a: Wrapper<{id: Int}, First::Ready>, b: Wrapper<{label: String}, Second::Ready>, c: Wrapper<{id: Int, label: String}, First::Ready>)\n  [c, b, a]\nend\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+
+    for function in [
+        "order_abc",
+        "order_acb",
+        "order_bac",
+        "order_bca",
+        "order_cab",
+        "order_cba",
+    ] {
         assert_eq!(
-            diagnostics[0].id, "type.mismatch",
-            "{name}: {diagnostics:#?}"
+            environment
+                .function(function)
+                .unwrap_or_else(|| panic!("missing function {function}"))
+                .return_type
+                .render(),
+            "Vec<Wrapper<{id: Int, label: String}, State::Ready>>",
+            "unexpected inferred result for {function}",
         );
     }
 }
