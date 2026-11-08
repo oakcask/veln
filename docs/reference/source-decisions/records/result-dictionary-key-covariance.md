@@ -24,9 +24,12 @@ compiler-owned classification to join both arguments of same-constructor
 dictionaries recursively. Each argument follows the current
 [bounded join rules](../../../specification/types.md#bounded-joins-and-meets),
 including retention of compatible unresolved contributions until a later
-contribution selects a result. This decision does not give either argument a
-separate inference rule or make key arguments invariant during context-free
-inference.
+contribution selects a result. Constructor generic constraint inference also
+uses that classification when a constructor payload template contains a type
+parameter inside `Dict`. Both dictionary arguments preserve the incoming
+constraint polarity because both parameters are covariant. This decision does
+not give either argument a separate inference rule or make key arguments
+invariant during context-free inference.
 
 Source-ADT composition requires checked metadata with the constructor's
 declared arity. For another source declaration, owner-aware lookup must resolve
