@@ -1947,24 +1947,38 @@ fn solve_type_parameter_constraints(
     constraints: &TypeParameterConstraints,
     adts: &AdtRegistry,
 ) -> Result<Option<Type>, unification::TypeParameterContributionConflict> {
-    let equality = if constraints.equality.is_empty() {
-        None
-    } else {
-        let first = &constraints.equality[0];
-        for actual in &constraints.equality[1..] {
-            if !is_assignable_nested_with_registry(first, actual, adts)
-                || !is_assignable_nested_with_registry(actual, first, adts)
-            {
-                return Err(unification::TypeParameterContributionConflict {
-                    expected: Box::new(first.clone()),
-                    actual: Box::new(actual.clone()),
-                });
-            }
-        }
-        let refs = constraints.equality.iter().collect::<Vec<_>>();
-        Some(merge_candidate_presentations(refs))
+    let equality = solve_equality_constraints(&constraints.equality, adts)?;
+    let selected = select_constraint_candidate(constraints, equality, adts);
+    selected
+        .map(|selected| validate_constraint_bounds(constraints, selected, adts))
+        .transpose()
+}
+
+fn solve_equality_constraints(
+    equality: &[Type],
+    adts: &AdtRegistry,
+) -> Result<Option<Type>, unification::TypeParameterContributionConflict> {
+    let Some((first, rest)) = equality.split_first() else {
+        return Ok(None);
     };
-    let selected = if let Some(equality) = equality {
+    for actual in rest {
+        if !is_assignable_nested_with_registry(first, actual, adts)
+            || !is_assignable_nested_with_registry(actual, first, adts)
+        {
+            return Err(type_parameter_constraint_conflict(first, actual));
+        }
+    }
+    Ok(Some(merge_candidate_presentations(
+        equality.iter().collect(),
+    )))
+}
+
+fn select_constraint_candidate(
+    constraints: &TypeParameterConstraints,
+    equality: Option<Type>,
+    adts: &AdtRegistry,
+) -> Option<Type> {
+    if let Some(equality) = equality {
         Some(equality)
     } else if !constraints.lower.is_empty() {
         let refs = constraints.lower.iter().collect::<Vec<_>>();
@@ -1974,26 +1988,33 @@ fn solve_type_parameter_constraints(
         bounded_meet_refs(adts, &refs)
     } else {
         None
-    };
-    let Some(mut selected) = selected else {
-        return Ok(None);
-    };
+    }
+}
+
+fn validate_constraint_bounds(
+    constraints: &TypeParameterConstraints,
+    mut selected: Type,
+    adts: &AdtRegistry,
+) -> Result<Type, unification::TypeParameterContributionConflict> {
     for lower in &constraints.lower {
         if !is_assignable_nested_with_registry(&selected, lower, adts) {
-            return Err(unification::TypeParameterContributionConflict {
-                expected: Box::new(selected),
-                actual: Box::new(lower.clone()),
-            });
+            return Err(type_parameter_constraint_conflict(&selected, lower));
         }
     }
     for upper in &constraints.upper {
         if !is_assignable_nested_with_registry(upper, &selected, adts) {
-            return Err(unification::TypeParameterContributionConflict {
-                expected: Box::new(upper.clone()),
-                actual: Box::new(selected),
-            });
+            return Err(type_parameter_constraint_conflict(upper, &selected));
         }
     }
+    reconcile_constraint_presentations(constraints, &mut selected, adts);
+    Ok(selected)
+}
+
+fn reconcile_constraint_presentations(
+    constraints: &TypeParameterConstraints,
+    selected: &mut Type,
+    adts: &AdtRegistry,
+) {
     let mut presentation = TypePresentationJoin::default();
     for contribution in constraints
         .lower
@@ -2001,13 +2022,22 @@ fn solve_type_parameter_constraints(
         .chain(&constraints.upper)
         .chain(&constraints.equality)
     {
-        if is_assignable_nested_with_registry(&selected, contribution, adts)
-            && is_assignable_nested_with_registry(contribution, &selected, adts)
+        if is_assignable_nested_with_registry(selected, contribution, adts)
+            && is_assignable_nested_with_registry(contribution, selected, adts)
         {
-            presentation.merge(&mut selected, contribution);
+            presentation.merge(selected, contribution);
         }
     }
-    Ok(Some(selected))
+}
+
+fn type_parameter_constraint_conflict(
+    expected: &Type,
+    actual: &Type,
+) -> unification::TypeParameterContributionConflict {
+    unification::TypeParameterContributionConflict {
+        expected: Box::new(expected.clone()),
+        actual: Box::new(actual.clone()),
+    }
 }
 
 fn type_shape(ty: &Type) -> (usize, bool) {
