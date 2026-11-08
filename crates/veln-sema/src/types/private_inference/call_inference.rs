@@ -211,8 +211,29 @@ fn infer_private_constructor_payload(
         *context.failures += 1;
         return;
     }
-    let joined = type_args.try_join(field, &inferred_actual, context.adts);
-    if expected.is_none() && !joined && type_args.has_join(field) {
+    let admission = type_args.lower_bound_admission(field, &inferred_actual, context.adts);
+    let joined = matches!(
+        admission,
+        crate::aggregate_type_join::ConstructorLowerBoundAdmission::Admitted
+    );
+    if expected.is_some()
+        && !context.expected_is_admitted
+        && !crate::type_relations::is_assignable_nested_with_registry(
+            &payload_context.expected,
+            &inferred_actual,
+            context.adts,
+        )
+        && !unification::is_direct_variant_carrier(&payload_context.expected, &inferred_actual)
+    {
+        *context.failures += 1;
+        return;
+    }
+    if expected.is_none()
+        && matches!(
+            admission,
+            crate::aggregate_type_join::ConstructorLowerBoundAdmission::Rejected
+        )
+    {
         *context.failures += 1;
         return;
     }
@@ -422,32 +443,21 @@ impl PrivateConstructorTypeArgInference {
             .payload_can_infer_without_context(constructor, index, adts)
     }
 
-    fn try_join(
-        &mut self,
+    fn lower_bound_admission(
+        &self,
         field: Option<&AdtPayloadField>,
         actual: &Type,
         adts: &AdtRegistry,
-    ) -> bool {
-        let _ = (actual, adts);
+    ) -> crate::aggregate_type_join::ConstructorLowerBoundAdmission {
         let Some(AdtPayloadField {
             ty: AdtPayloadType::TypeParameter(type_index),
             ..
         }) = field
         else {
-            return false;
+            return crate::aggregate_type_join::ConstructorLowerBoundAdmission::NoPrior;
         };
-        self.constraints.has_lower_bound(*type_index)
-    }
-
-    fn has_join(&self, field: Option<&AdtPayloadField>) -> bool {
-        let Some(AdtPayloadField {
-            ty: AdtPayloadType::TypeParameter(type_index),
-            ..
-        }) = field
-        else {
-            return false;
-        };
-        self.constraints.has_lower_bound(*type_index)
+        self.constraints
+            .lower_bound_admission(*type_index, actual, adts)
     }
 
     #[allow(clippy::too_many_arguments)]

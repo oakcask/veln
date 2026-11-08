@@ -31,6 +31,14 @@ type Mixed<T>
 	MixedValue(T, fn(T) -> (), fn(T) -> T)
 end
 
+type Pair<T>
+	Paired(T, T)
+end
+
+type Upper<T>
+	UpperValue(fn(T) -> (), fn(T) -> ())
+end
+
 fn accepts_state(value: State) -> ()
 	()
 end
@@ -41,6 +49,14 @@ end
 
 fn ready_identity(value: State::Ready) -> State::Ready
 	value
+end
+
+fn accepts_phantom_int(value: Phantom<Int>) -> ()
+	()
+end
+
+fn accepts_phantom_string(value: Phantom<String>) -> ()
+	()
 end
 
 fn positive_forward()
@@ -67,6 +83,14 @@ fn contextual(value: Phantom<State::Ready>) -> Irrelevant<State::Closed>
 	IrrelevantValue(value)
 end
 
+fn contextual_join(first: Phantom<Int>, second: Phantom<String>)
+	Paired(first, second)
+end
+
+fn contextual_meet()
+	UpperValue(accepts_phantom_int, accepts_phantom_string)
+end
+
 fn needs_positive(value: Positive<State::Ready | State::Closed>) -> ()
 	()
 end
@@ -83,6 +107,38 @@ fn needs_mixed(value: Mixed<State::Ready>) -> ()
 	()
 end
 
+fn needs_pair(value: Pair<Phantom<State::Ready>>) -> ()
+	()
+end
+
+fn needs_upper(value: Upper<Phantom<State::Ready>>) -> ()
+	()
+end
+
+fn ordinary_context_free(value: Phantom<State::Ready>) -> ()
+	let positive = PositiveValue({left: Ready, right: Closed})
+	let PositiveValue(payload) = positive
+	match payload.left
+		Ready => ()
+		Closed => ()
+	end
+	let negative = NegativeValue(accepts_state, accepts_ready)
+	let NegativeValue(first, second) = negative
+	let first_ready: fn(State::Ready) -> () = first
+	let second_ready: fn(State::Ready) -> () = second
+	first_ready(Ready)
+	second_ready(Ready)
+	let exact = ExactValue(ready_identity)
+	let ExactValue(exact_callback) = exact
+	exact_callback(Ready)
+	let mixed = MixedValue(Ready, accepts_state, ready_identity)
+	let MixedValue(mixed_value, _, _) = mixed
+	match mixed_value
+		Ready => ()
+	end
+	let contextual_irrelevant: Irrelevant<State::Closed> = IrrelevantValue(value)
+end
+
 pub fn main() -> ()
 	let value: Phantom<State::Ready> = Empty
 	needs_positive(positive_forward())
@@ -93,4 +149,13 @@ pub fn main() -> ()
 	needs_exact(exact_private(ready_identity))
 	needs_mixed(mixed_private(ready_identity))
 	let explicit: Irrelevant<State::Closed> = contextual(value)
+	let phantom_int: Phantom<Int> = Empty
+	let phantom_string: Phantom<String> = Empty
+	let ordinary_join: Pair<Phantom<State::Ready>> = Paired(phantom_int, phantom_string)
+	let ordinary_meet: Upper<Phantom<State::Ready>> = UpperValue(accepts_phantom_int, accepts_phantom_string)
+	needs_pair(ordinary_join)
+	needs_upper(ordinary_meet)
+	needs_pair(contextual_join(phantom_int, phantom_string))
+	needs_upper(contextual_meet())
+	ordinary_context_free(value)
 end

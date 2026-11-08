@@ -11,27 +11,8 @@ This proposal contains the remaining work for named generic
 variance. The remaining work adds dependency invalidation, detailed nested
 incompatibility context, stable
 formatter, package, LSP, and MCP presentation, and whole-analysis and
-language-service failure preservation. Complete contributed types already use
-the bounded joins and meets defined by the
-[type specification](../specification/types.md#bounded-joins-and-meets); this proposal
-does not reclassify those rules as future work. This proposal does not add
+language-service failure preservation. This proposal does not add
 declaration-site variance modifiers.
-
-## Related Work For Generic Constraints
-
-The inspected primary source is the Rust Project's
-[variance discussion in the Rustonomicon](https://doc.rust-lang.org/nomicon/subtyping.html#variance).
-Its variance table classifies function inputs as contravariant and function
-results as covariant. Its function examples explain that a replacement can
-return a more specific result but must accept every input accepted by the
-expected function.
-
-Veln adopts that polarity for constraints produced by nested constructor
-payloads, but not Rust's type relation as a whole. Rust's lifetime subtyping and
-ownership model do not determine joins or meets for Veln's nominal ADTs and
-finite variant refinements. Veln therefore selects only bounded results
-available under the current type specification and requires explicit context
-when no such result exists.
 
 ## Remaining Invalidation, Presentation, And Failure
 

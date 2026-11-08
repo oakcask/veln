@@ -26,6 +26,13 @@ pub(crate) struct ConstructorTypeArgConstraints {
     parameters: Vec<TypeParameterConstraints>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ConstructorLowerBoundAdmission {
+    NoPrior,
+    Admitted,
+    Rejected,
+}
+
 #[derive(Default)]
 struct TypeParameterConstraints {
     lower: Vec<Type>,
@@ -766,6 +773,29 @@ impl AggregateTypeJoin {
             contributions.push(right.clone());
         }
         true
+    }
+
+    fn can_admit(&self, adts: &AdtRegistry, right: &Type) -> bool {
+        if right == &Type::Unknown {
+            return true;
+        }
+        if let Some(bounded) = &self.bounded {
+            return bounded.shapes_are_admissible(adts, right);
+        }
+        if self.prepare(adts, right).is_some() {
+            return true;
+        }
+        let Some(retained) = self.optimized_contributions.as_deref() else {
+            return false;
+        };
+        if !bounded_shapes_are_admissible(adts, retained, right) {
+            return false;
+        }
+        let mut contributions = retained.to_vec();
+        contributions.push(right.clone());
+        let bounded = BoundedJoin::from_contributions(adts, contributions);
+        bounded.resolved.is_some()
+            || can_retain_unresolved_contributions(adts, &bounded.contributions)
     }
 
     #[cfg(test)]
@@ -1632,10 +1662,39 @@ impl ConstructorTypeArgConstraints {
         }
     }
 
-    pub(crate) fn has_lower_bound(&self, parameter: usize) -> bool {
-        self.parameters
-            .get(parameter)
-            .is_some_and(|constraints| !constraints.lower.is_empty())
+    pub(crate) fn lower_bound_admission(
+        &self,
+        parameter: usize,
+        actual: &Type,
+        adts: &AdtRegistry,
+    ) -> ConstructorLowerBoundAdmission {
+        let Some(constraints) = self.parameters.get(parameter) else {
+            return ConstructorLowerBoundAdmission::NoPrior;
+        };
+        if constraints.lower.is_empty() {
+            return ConstructorLowerBoundAdmission::NoPrior;
+        }
+        let first = &constraints.lower[0];
+        if matches!(
+            (adt_type_parts(first), adt_type_parts(actual)),
+            (Some(first), Some(actual))
+                if !same_type_identity(
+                    first.name,
+                    first.identity,
+                    actual.name,
+                    actual.identity,
+                )
+        ) {
+            return ConstructorLowerBoundAdmission::Admitted;
+        }
+        let Some(joined) = constraints.lower_join.as_ref() else {
+            return ConstructorLowerBoundAdmission::Admitted;
+        };
+        if joined.can_admit(adts, actual) {
+            ConstructorLowerBoundAdmission::Admitted
+        } else {
+            ConstructorLowerBoundAdmission::Rejected
+        }
     }
 
     pub(crate) fn contribute_payload(
@@ -1947,7 +2006,7 @@ fn solve_type_parameter_constraints(
     constraints: &TypeParameterConstraints,
     adts: &AdtRegistry,
 ) -> Result<Option<Type>, unification::TypeParameterContributionConflict> {
-    let equality = solve_equality_constraints(&constraints.equality, adts)?;
+    let equality = solve_equality_constraints(&constraints.equality)?;
     let selected = select_constraint_candidate(constraints, equality, adts);
     selected
         .map(|selected| validate_constraint_bounds(constraints, selected, adts))
@@ -1956,15 +2015,12 @@ fn solve_type_parameter_constraints(
 
 fn solve_equality_constraints(
     equality: &[Type],
-    adts: &AdtRegistry,
 ) -> Result<Option<Type>, unification::TypeParameterContributionConflict> {
     let Some((first, rest)) = equality.split_first() else {
         return Ok(None);
     };
     for actual in rest {
-        if !is_assignable_nested_with_registry(first, actual, adts)
-            || !is_assignable_nested_with_registry(actual, first, adts)
-        {
+        if !invariant_args_match(std::slice::from_ref(first), std::slice::from_ref(actual)) {
             return Err(type_parameter_constraint_conflict(first, actual));
         }
     }
