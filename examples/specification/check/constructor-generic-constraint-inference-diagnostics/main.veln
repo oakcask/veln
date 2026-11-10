@@ -1,0 +1,78 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+type Pair<T>
+	Paired(T, T)
+end
+
+type Upper<T>
+	UpperValue(fn(T) -> (), fn(T) -> ())
+end
+
+type Phantom<T>
+	Empty
+end
+
+type Irrelevant<T>
+	IrrelevantValue(Phantom<T>)
+end
+
+type Exact<T>
+	ExactValue(fn(T) -> T, T, T)
+end
+
+type Other
+	OtherValue
+end
+
+type Box<T>
+	Boxed(T)
+end
+
+type Outer<T>
+	Out(T, Box<T>, T)
+end
+
+type Structured<T>
+	Shaped(T, {guard: Option<Int>, value: T}, T)
+end
+
+fn accepts_int(value: Int) -> ()
+	()
+end
+
+fn accepts_string(value: String) -> ()
+	()
+end
+
+fn ready_identity(value: State::Ready) -> State::Ready
+	value
+end
+
+fn rollback(callback: fn(State::Ready) -> State::Ready, rejected: State::Closed, later: State::Ready)
+	ExactValue(callback, rejected, later)
+end
+
+fn rejected_named_shape(rejected: Other)
+	Out(Ready, rejected, Closed)
+end
+
+fn rejected_structural_shape(rejected: {wrong: String})
+	Shaped(Ready, rejected, Closed)
+end
+
+pub fn main() -> ()
+	let value: Phantom<State::Ready> = Empty
+	let missing = IrrelevantValue(value)
+	let unavailable_join = Paired(1, "text")
+	let unavailable_meet = UpperValue(accepts_int, accepts_string)
+	let retained = rollback(ready_identity, Closed, Ready)
+	let ordinary_retained: Exact<State::Ready> = ExactValue(ready_identity, Closed, Ready)
+	let rejected_other: Other = OtherValue
+	let rejected_record = {wrong: "text"}
+	let ordinary_named: Outer<State> = Out(Ready, rejected_other, Closed)
+	let ordinary_structural: Structured<State> = Shaped(Ready, rejected_record, Closed)
+end

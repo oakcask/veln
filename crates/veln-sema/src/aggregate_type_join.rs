@@ -22,6 +22,50 @@ pub(crate) struct AggregateTypeJoin {
     projection_cache: RefCell<context_projection::ProjectionCache>,
 }
 
+pub(crate) struct ConstructorTypeArgConstraints {
+    parameters: Vec<TypeParameterConstraints>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ConstructorLowerBoundAdmission {
+    NoPrior,
+    Admitted,
+    Rejected,
+}
+
+#[derive(Default)]
+struct TypeParameterConstraints {
+    lower: CanonicalConstraintBound,
+    upper: CanonicalConstraintBound,
+    equality: Option<CanonicalConstraint>,
+    resolved: Option<Type>,
+    lower_join: Option<AggregateTypeJoin>,
+}
+
+#[derive(Clone)]
+struct CanonicalConstraint {
+    ty: Type,
+    presentation: TypePresentationJoin,
+}
+
+struct ConstraintListNode {
+    constraint: CanonicalConstraint,
+    previous: Option<Arc<ConstraintListNode>>,
+}
+
+#[derive(Clone, Default)]
+struct CanonicalConstraintBound {
+    selected: Option<CanonicalConstraint>,
+    unresolved: Option<Arc<ConstraintListNode>>,
+}
+
+#[derive(Clone)]
+struct ConstructorConstraintContribution {
+    parameter: usize,
+    polarity: Variance,
+    ty: Type,
+}
+
 struct BoundedJoin {
     contributions: Vec<Type>,
     resolved: Option<Type>,
@@ -746,6 +790,49 @@ impl AggregateTypeJoin {
             contributions.push(right.clone());
         }
         true
+    }
+
+    fn can_admit(&self, adts: &AdtRegistry, right: &Type) -> bool {
+        if right == &Type::Unknown {
+            return true;
+        }
+        if let Some(bounded) = &self.bounded {
+            return bounded.shapes_are_admissible(adts, right);
+        }
+        if self.prepare(adts, right).is_some() {
+            return true;
+        }
+        let Some(retained) = self.optimized_contributions.as_deref() else {
+            return false;
+        };
+        if !bounded_shapes_are_admissible(adts, retained, right) {
+            return false;
+        }
+        let mut contributions = retained.to_vec();
+        contributions.push(right.clone());
+        let bounded = BoundedJoin::from_contributions(adts, contributions);
+        bounded.resolved.is_some()
+            || can_retain_unresolved_contributions(adts, &bounded.contributions)
+    }
+
+    fn constraint_contributions(&self) -> Vec<Type> {
+        if let Some(bounded) = &self.bounded {
+            return bounded.contributions.clone();
+        }
+        self.optimized_contributions
+            .clone()
+            .unwrap_or_else(|| self.resolved_result_type().into_iter().collect())
+    }
+
+    fn first_constraint_contribution(&self) -> Option<&Type> {
+        self.bounded
+            .as_ref()
+            .and_then(|bounded| bounded.contributions.first())
+            .or_else(|| {
+                self.optimized_contributions
+                    .as_ref()
+                    .and_then(|contributions| contributions.first())
+            })
     }
 
     #[cfg(test)]
@@ -1556,47 +1643,735 @@ fn initial_argument_state<'a>(
     (args, pending)
 }
 
-pub(crate) fn merge_invariant_payload_type_args(
-    inferred: &mut [Type],
-    joined: &mut [Option<AggregateTypeJoin>],
-    invariant: &mut [bool],
-    presentations: &mut [TypePresentationJoin],
-    constructor: AdtConstructor<'_>,
-    index: usize,
-    actual: &Type,
-) -> Result<(), unification::TypeParameterContributionConflict> {
-    let mut contributions = Vec::new();
-    adt::visit_type_arg_contributions_from_payload(
-        constructor,
-        index,
-        actual,
-        |type_index, contribution| {
-            record_work(1);
-            contributions.push((type_index, contribution.clone()));
-        },
-    );
-    let constraints = unification::merge_type_parameter_contributions_transactionally(
-        &contributions,
-        |type_index| {
-            inferred.get(type_index).map(|inferred| {
-                (
-                    joined[type_index]
-                        .as_ref()
-                        .map(AggregateTypeJoin::result_type)
-                        .unwrap_or_else(|| inferred.clone()),
-                    presentations[type_index].clone(),
-                )
-            })
-        },
-    )?;
-    for (type_index, constraint, presentation) in constraints {
-        record_work(1);
-        inferred[type_index] = constraint;
-        joined[type_index] = None;
-        invariant[type_index] = true;
-        presentations[type_index] = presentation;
+impl ConstructorTypeArgConstraints {
+    pub(crate) fn new(constructor: AdtConstructor<'_>) -> Self {
+        let parameter_count = constructor.descriptor.type_parameters.len();
+        record_work(parameter_count);
+        Self {
+            parameters: (0..parameter_count)
+                .map(|_| TypeParameterConstraints::default())
+                .collect(),
+        }
     }
-    Ok(())
+
+    pub(crate) fn payload_expected(
+        &self,
+        expected: Option<&Type>,
+        constructor: AdtConstructor<'_>,
+        payload_index: usize,
+    ) -> Type {
+        expected
+            .and_then(|expected| {
+                let expected_args = unification::adt_args(expected, constructor.descriptor)?;
+                adt::payload_type_with_resolved_args(constructor, payload_index, |type_index| {
+                    expected_args[type_index].clone()
+                })
+            })
+            .or_else(|| {
+                adt::payload_type_with_resolved_args(constructor, payload_index, |type_index| {
+                    self.result(type_index, None)
+                })
+            })
+            .unwrap_or(Type::Unknown)
+    }
+
+    pub(crate) fn payload_can_infer_without_context(
+        &self,
+        constructor: AdtConstructor<'_>,
+        payload_index: usize,
+        adts: &AdtRegistry,
+    ) -> bool {
+        let Some(field) = constructor.variant.payload_fields.get(payload_index) else {
+            return false;
+        };
+        match &field.ty {
+            crate::adt::descriptors::AdtPayloadType::TypeParameter(_) => true,
+            crate::adt::descriptors::AdtPayloadType::SelfType => checked_parameter_variances(
+                &constructor.descriptor.identity(),
+                constructor.descriptor.type_parameters.len(),
+                adts,
+            )
+            .iter()
+            .any(|variance| *variance != Variance::Invariant),
+            crate::adt::descriptors::AdtPayloadType::Concrete(template) => {
+                template_has_non_invariant_parameter(template, Variance::Covariant, adts)
+            }
+        }
+    }
+
+    pub(crate) fn lower_bound_admission(
+        &self,
+        parameter: usize,
+        actual: &Type,
+        adts: &AdtRegistry,
+    ) -> ConstructorLowerBoundAdmission {
+        let Some(constraints) = self.parameters.get(parameter) else {
+            return ConstructorLowerBoundAdmission::NoPrior;
+        };
+        if constraints.lower_join.is_none() && !constraints.lower.has_constraints() {
+            return ConstructorLowerBoundAdmission::NoPrior;
+        }
+        let first = constraints
+            .lower_join
+            .as_ref()
+            .and_then(AggregateTypeJoin::first_constraint_contribution)
+            .or_else(|| constraints.lower.first());
+        let Some(first) = first else {
+            return ConstructorLowerBoundAdmission::Admitted;
+        };
+        if matches!(
+            (adt_type_parts(first), adt_type_parts(actual)),
+            (Some(first), Some(actual))
+                if !same_type_identity(
+                    first.name,
+                    first.identity,
+                    actual.name,
+                    actual.identity,
+                )
+        ) {
+            return ConstructorLowerBoundAdmission::Admitted;
+        }
+        let admitted = constraints.lower_join.as_ref().map_or_else(
+            || constraints.lower.can_admit_lower(actual, adts),
+            |joined| joined.can_admit(adts, actual),
+        );
+        if admitted {
+            ConstructorLowerBoundAdmission::Admitted
+        } else {
+            ConstructorLowerBoundAdmission::Rejected
+        }
+    }
+
+    pub(crate) fn contribute_payload(
+        &mut self,
+        constructor: AdtConstructor<'_>,
+        payload_index: usize,
+        actual: &Type,
+        adts: &AdtRegistry,
+    ) -> Result<(), unification::TypeParameterContributionConflict> {
+        let field = constructor.variant.payload_fields.get(payload_index);
+        if !field.is_some_and(|field| {
+            matches!(
+                field.ty,
+                crate::adt::descriptors::AdtPayloadType::TypeParameter(_)
+            )
+        }) {
+            let expected_shape =
+                adt::payload_type_with_resolved_args(constructor, payload_index, |_| Type::Unknown)
+                    .unwrap_or(Type::Unknown);
+            if !is_assignable_nested_with_registry(&expected_shape, actual, adts) {
+                let expected = self.payload_expected(None, constructor, payload_index);
+                return Err(type_parameter_constraint_conflict(&expected, actual));
+            }
+        }
+        let mut contributions = Vec::new();
+        collect_constructor_payload_constraints(
+            constructor,
+            payload_index,
+            actual,
+            adts,
+            &mut contributions,
+        );
+        if contributions
+            .iter()
+            .all(|contribution| contribution.polarity == Variance::Covariant)
+            && contributions.iter().all(|contribution| {
+                self.parameters
+                    .get(contribution.parameter)
+                    .is_some_and(TypeParameterConstraints::can_admit_fast_lower)
+            })
+        {
+            for contribution in contributions {
+                self.parameters[contribution.parameter].admit_fast_lower(contribution.ty, adts);
+            }
+            return Ok(());
+        }
+        let mut trial = HashMap::<usize, TypeParameterConstraints>::new();
+        for contribution in contributions {
+            let Some(current) = self.parameters.get(contribution.parameter) else {
+                continue;
+            };
+            let parameter = trial
+                .entry(contribution.parameter)
+                .or_insert_with(|| current.clone_for_trial());
+            match contribution.polarity {
+                Variance::Covariant => {
+                    parameter
+                        .lower
+                        .admit(contribution.ty, BoundDirection::Join, adts)
+                }
+                Variance::Contravariant => {
+                    parameter
+                        .upper
+                        .admit(contribution.ty, BoundDirection::Meet, adts)
+                }
+                Variance::Invariant => parameter.admit_equality(contribution.ty)?,
+                Variance::Irrelevant => {}
+            }
+        }
+        for parameter in trial.values_mut() {
+            parameter.resolved = solve_type_parameter_constraints(parameter, adts)?;
+        }
+        for (index, parameter) in trial {
+            self.parameters[index] = parameter;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn finish(
+        &self,
+        expected: Option<&Type>,
+        constructor: AdtConstructor<'_>,
+    ) -> Vec<Type> {
+        let expected_args =
+            expected.and_then(|expected| unification::adt_args(expected, constructor.descriptor));
+        (0..self.parameters.len())
+            .map(|index| self.result(index, expected_args))
+            .collect()
+    }
+
+    fn result(&self, index: usize, expected_args: Option<&[Type]>) -> Type {
+        self.parameters
+            .get(index)
+            .and_then(TypeParameterConstraints::inferred_result)
+            .or_else(|| expected_args.and_then(|args| args.get(index).cloned()))
+            .unwrap_or(Type::Unknown)
+    }
+}
+
+impl TypeParameterConstraints {
+    fn clone_for_trial(&self) -> Self {
+        let lower = self.lower_join.as_ref().map_or_else(
+            || self.lower.clone_for_trial(),
+            CanonicalConstraintBound::from_join,
+        );
+        Self {
+            lower,
+            upper: self.upper.clone_for_trial(),
+            equality: self.equality.clone(),
+            resolved: self.resolved.clone(),
+            lower_join: None,
+        }
+    }
+
+    fn can_admit_fast_lower(&self) -> bool {
+        !self.upper.has_constraints()
+            && self.equality.is_none()
+            && (self.lower_join.is_some() || !self.lower.has_constraints())
+    }
+
+    fn admit_fast_lower(&mut self, contribution: Type, adts: &AdtRegistry) {
+        if self.lower_join.is_none() && !self.lower.has_constraints() {
+            self.lower_join = AggregateTypeJoin::new(adts, &contribution);
+            if self.lower_join.is_none() {
+                self.resolved = Some(contribution.clone());
+                self.lower.selected = Some(CanonicalConstraint::new(contribution));
+            } else {
+                self.resolved = None;
+            }
+            return;
+        }
+        let Some(joined) = self.lower_join.as_mut() else {
+            self.lower.admit(contribution, BoundDirection::Join, adts);
+            self.resolved = self.lower.candidate().cloned();
+            return;
+        };
+        if joined.try_join(adts, &contribution) {
+            self.resolved = None;
+            return;
+        }
+        let mut contributions = joined.constraint_contributions();
+        contributions.push(contribution);
+        self.lower = CanonicalConstraintBound::from_lower_contributions(contributions, adts);
+        self.lower_join = None;
+        self.resolved = self.lower.candidate().cloned();
+    }
+
+    fn admit_equality(
+        &mut self,
+        contribution: Type,
+    ) -> Result<(), unification::TypeParameterContributionConflict> {
+        let Some(current) = self.equality.as_mut() else {
+            self.equality = Some(CanonicalConstraint::new(contribution));
+            return Ok(());
+        };
+        record_work(1);
+        if !invariant_args_match(
+            std::slice::from_ref(&current.ty),
+            std::slice::from_ref(&contribution),
+        ) {
+            return Err(type_parameter_constraint_conflict(
+                &current.ty,
+                &contribution,
+            ));
+        }
+        record_work(1);
+        current.merge(CanonicalConstraint::new(contribution));
+        Ok(())
+    }
+
+    fn inferred_result(&self) -> Option<Type> {
+        self.lower_join
+            .as_ref()
+            .and_then(AggregateTypeJoin::resolved_result_type)
+            .or_else(|| self.resolved.clone())
+    }
+}
+
+impl CanonicalConstraint {
+    fn new(ty: Type) -> Self {
+        Self {
+            ty,
+            presentation: TypePresentationJoin::default(),
+        }
+    }
+
+    fn merge(&mut self, other: Self) {
+        self.presentation.merge(&mut self.ty, &other.ty);
+        self.presentation.absorb(&mut self.ty, &other.presentation);
+    }
+}
+
+impl CanonicalConstraintBound {
+    fn from_join(joined: &AggregateTypeJoin) -> Self {
+        if let Some(selected) = joined.resolved_result_type() {
+            let mut selected = CanonicalConstraint::new(selected);
+            for contribution in joined.constraint_contributions() {
+                if invariant_args_match(
+                    std::slice::from_ref(&selected.ty),
+                    std::slice::from_ref(&contribution),
+                ) {
+                    selected.merge(CanonicalConstraint::new(contribution));
+                }
+            }
+            return Self {
+                selected: Some(selected),
+                unresolved: None,
+            };
+        }
+        let mut bound = Self::default();
+        for contribution in joined.constraint_contributions() {
+            bound.push_unresolved(CanonicalConstraint::new(contribution));
+        }
+        bound
+    }
+
+    fn from_lower_contributions(contributions: Vec<Type>, adts: &AdtRegistry) -> Self {
+        let mut bound = Self::default();
+        for contribution in contributions {
+            bound.admit(contribution, BoundDirection::Join, adts);
+        }
+        bound
+    }
+    fn clone_for_trial(&self) -> Self {
+        self.clone()
+    }
+
+    fn has_constraints(&self) -> bool {
+        self.selected.is_some() || self.unresolved.is_some()
+    }
+
+    fn first(&self) -> Option<&Type> {
+        self.selected
+            .as_ref()
+            .map(|selected| &selected.ty)
+            .or_else(|| self.unresolved.as_ref().map(|node| &node.constraint.ty))
+    }
+
+    fn refs(&self) -> Vec<&Type> {
+        self.constraints()
+            .into_iter()
+            .map(|constraint| &constraint.ty)
+            .collect()
+    }
+
+    fn candidate(&self) -> Option<&Type> {
+        self.selected.as_ref().map(|selected| &selected.ty)
+    }
+
+    fn can_admit_lower(&self, actual: &Type, adts: &AdtRegistry) -> bool {
+        if self.unresolved.is_some() {
+            return true;
+        }
+        let Some(selected) = &self.selected else {
+            return true;
+        };
+        if invariant_args_match(
+            std::slice::from_ref(&selected.ty),
+            std::slice::from_ref(actual),
+        ) {
+            return true;
+        }
+        bounded_join_refs(adts, &[&selected.ty, actual]).is_some()
+    }
+
+    fn admit(&mut self, contribution: Type, direction: BoundDirection, adts: &AdtRegistry) {
+        if !self.has_constraints() {
+            self.selected = Some(CanonicalConstraint::new(contribution));
+            return;
+        }
+        let contribution = CanonicalConstraint::new(contribution);
+        if self.merge_equivalent(contribution.clone()) {
+            return;
+        }
+
+        if let Some(unresolved) = &self.unresolved
+            && !constraint_pair_has_bound(
+                &contribution.ty,
+                &unresolved.constraint.ty,
+                direction,
+                adts,
+            )
+        {
+            self.push_unresolved(contribution);
+            return;
+        }
+
+        let mut constraints = self.constraints();
+        constraints.push(&contribution);
+        let candidates = constraints
+            .iter()
+            .map(|constraint| &constraint.ty)
+            .collect::<Vec<_>>();
+        record_work(candidates.len());
+        let resolved = match direction {
+            BoundDirection::Join => bounded_join_refs(adts, &candidates),
+            BoundDirection::Meet => bounded_meet_refs(adts, &candidates),
+        };
+        if let Some(resolved) = resolved {
+            let mut selected = CanonicalConstraint::new(resolved);
+            for constraint in constraints {
+                if invariant_args_match(
+                    std::slice::from_ref(&selected.ty),
+                    std::slice::from_ref(&constraint.ty),
+                ) {
+                    selected.merge(constraint.clone());
+                }
+            }
+            self.selected = Some(selected);
+            self.unresolved = None;
+        } else {
+            if let Some(selected) = self.selected.take() {
+                self.push_unresolved(selected);
+            }
+            self.push_unresolved(contribution);
+        }
+    }
+
+    fn merge_equivalent(&mut self, contribution: CanonicalConstraint) -> bool {
+        record_work(1);
+        if let Some(selected) = self.selected.as_mut() {
+            if invariant_args_match(
+                std::slice::from_ref(&selected.ty),
+                std::slice::from_ref(&contribution.ty),
+            ) {
+                selected.merge(contribution);
+                return true;
+            }
+            return false;
+        }
+        let Some(head) = self.unresolved.as_ref() else {
+            return false;
+        };
+        if !invariant_args_match(
+            std::slice::from_ref(&head.constraint.ty),
+            std::slice::from_ref(&contribution.ty),
+        ) {
+            return false;
+        }
+        let mut constraint = head.constraint.clone();
+        constraint.merge(contribution);
+        self.unresolved = Some(Arc::new(ConstraintListNode {
+            constraint,
+            previous: head.previous.clone(),
+        }));
+        true
+    }
+
+    fn push_unresolved(&mut self, constraint: CanonicalConstraint) {
+        self.unresolved = Some(Arc::new(ConstraintListNode {
+            constraint,
+            previous: self.unresolved.clone(),
+        }));
+    }
+
+    fn constraints(&self) -> Vec<&CanonicalConstraint> {
+        if let Some(selected) = &self.selected {
+            return vec![selected];
+        }
+        let mut constraints = Vec::new();
+        let mut current = self.unresolved.as_deref();
+        while let Some(node) = current {
+            constraints.push(&node.constraint);
+            current = node.previous.as_deref();
+        }
+        constraints
+    }
+}
+
+fn collect_constructor_payload_constraints(
+    constructor: AdtConstructor<'_>,
+    payload_index: usize,
+    actual: &Type,
+    adts: &AdtRegistry,
+    contributions: &mut Vec<ConstructorConstraintContribution>,
+) {
+    let Some(field) = constructor.variant.payload_fields.get(payload_index) else {
+        return;
+    };
+    match &field.ty {
+        crate::adt::descriptors::AdtPayloadType::TypeParameter(parameter) => {
+            contributions.push(ConstructorConstraintContribution {
+                parameter: *parameter,
+                polarity: Variance::Covariant,
+                ty: actual.clone(),
+            });
+        }
+        crate::adt::descriptors::AdtPayloadType::SelfType => {
+            let Some(actual_args) = unification::adt_args(actual, constructor.descriptor) else {
+                return;
+            };
+            let variances = checked_parameter_variances(
+                &constructor.descriptor.identity(),
+                actual_args.len(),
+                adts,
+            );
+            for (parameter, (actual, polarity)) in actual_args.iter().zip(variances).enumerate() {
+                contributions.push(ConstructorConstraintContribution {
+                    parameter,
+                    polarity,
+                    ty: actual.clone(),
+                });
+            }
+        }
+        crate::adt::descriptors::AdtPayloadType::Concrete(template) => {
+            collect_template_constraints(
+                template,
+                actual,
+                Variance::Covariant,
+                adts,
+                contributions,
+            );
+        }
+    }
+}
+
+fn collect_template_constraints(
+    template: &Type,
+    actual: &Type,
+    polarity: Variance,
+    adts: &AdtRegistry,
+    contributions: &mut Vec<ConstructorConstraintContribution>,
+) {
+    match (template, actual) {
+        (Type::Named { name, args, .. }, actual)
+            if name.starts_with("$param") && args.is_empty() =>
+        {
+            if let Ok(parameter) = name.trim_start_matches("$param").parse::<usize>() {
+                contributions.push(ConstructorConstraintContribution {
+                    parameter,
+                    polarity,
+                    ty: actual.clone(),
+                });
+            }
+        }
+        (
+            Type::Named {
+                name,
+                identity,
+                args,
+            }
+            | Type::VariantRefinement {
+                name,
+                identity,
+                args,
+                ..
+            },
+            Type::Named {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+            }
+            | Type::VariantRefinement {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+                ..
+            },
+        ) if same_type_identity(name, identity, actual_name, actual_identity)
+            && args.len() == actual_args.len() =>
+        {
+            let variances = checked_parameter_variances(identity, args.len(), adts);
+            for ((template, actual), nested) in args.iter().zip(actual_args).zip(variances) {
+                collect_template_constraints(
+                    template,
+                    actual,
+                    polarity.compose(nested),
+                    adts,
+                    contributions,
+                );
+            }
+        }
+        (Type::Record(fields), Type::Record(actual_fields)) => {
+            for (name, template) in fields {
+                if let Some((_, actual)) = actual_fields
+                    .iter()
+                    .find(|(actual_name, _)| actual_name == name)
+                {
+                    collect_template_constraints(template, actual, polarity, adts, contributions);
+                }
+            }
+        }
+        (
+            Type::Function {
+                params,
+                variadic,
+                return_type,
+                ..
+            },
+            Type::Function {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                ..
+            },
+        ) if params.len() == actual_params.len()
+            && variadic.is_some() == actual_variadic.is_some() =>
+        {
+            let input_polarity = polarity.compose(Variance::Contravariant);
+            for (template, actual) in params.iter().zip(actual_params) {
+                collect_template_constraints(template, actual, input_polarity, adts, contributions);
+            }
+            if let (Some(template), Some(actual)) =
+                (variadic.as_deref(), actual_variadic.as_deref())
+            {
+                collect_template_constraints(template, actual, input_polarity, adts, contributions);
+            }
+            collect_template_constraints(return_type, actual_return, polarity, adts, contributions);
+        }
+        _ => {}
+    }
+}
+
+fn template_has_non_invariant_parameter(
+    template: &Type,
+    polarity: Variance,
+    adts: &AdtRegistry,
+) -> bool {
+    match template {
+        Type::Named { name, args, .. } if name.starts_with("$param") && args.is_empty() => {
+            polarity != Variance::Invariant
+        }
+        Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
+            let variances = checked_parameter_variances(identity, args.len(), adts);
+            args.iter().zip(variances).any(|(argument, nested)| {
+                template_has_non_invariant_parameter(argument, polarity.compose(nested), adts)
+            })
+        }
+        Type::Record(fields) => fields
+            .iter()
+            .any(|(_, field)| template_has_non_invariant_parameter(field, polarity, adts)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            let input_polarity = polarity.compose(Variance::Contravariant);
+            params.iter().any(|parameter| {
+                template_has_non_invariant_parameter(parameter, input_polarity, adts)
+            }) || variadic.as_deref().is_some_and(|parameter| {
+                template_has_non_invariant_parameter(parameter, input_polarity, adts)
+            }) || template_has_non_invariant_parameter(return_type, polarity, adts)
+        }
+        Type::Unknown => false,
+    }
+}
+
+fn checked_parameter_variances(identity: &str, arity: usize, adts: &AdtRegistry) -> Vec<Variance> {
+    if Type::is_compiler_covariant_identity(identity) {
+        return vec![Variance::Covariant; arity];
+    }
+    adts.parameter_variances_for_identity(identity, arity)
+        .filter(|variances| variances.len() == arity)
+        .map(<[Variance]>::to_vec)
+        .unwrap_or_else(|| vec![Variance::Invariant; arity])
+}
+
+fn solve_type_parameter_constraints(
+    constraints: &TypeParameterConstraints,
+    adts: &AdtRegistry,
+) -> Result<Option<Type>, unification::TypeParameterContributionConflict> {
+    let selected = select_constraint_candidate(constraints);
+    selected
+        .map(|selected| validate_constraint_bounds(constraints, selected, adts))
+        .transpose()
+}
+
+fn select_constraint_candidate(
+    constraints: &TypeParameterConstraints,
+) -> Option<CanonicalConstraint> {
+    if let Some(equality) = &constraints.equality {
+        Some(equality.clone())
+    } else if constraints.lower.has_constraints() {
+        constraints.lower.selected.clone()
+    } else if constraints.upper.has_constraints() {
+        constraints.upper.selected.clone()
+    } else {
+        None
+    }
+}
+
+fn validate_constraint_bounds(
+    constraints: &TypeParameterConstraints,
+    mut selected: CanonicalConstraint,
+    adts: &AdtRegistry,
+) -> Result<Type, unification::TypeParameterContributionConflict> {
+    for lower in constraints.lower.refs() {
+        record_work(1);
+        if !is_assignable_nested_with_registry(&selected.ty, lower, adts) {
+            return Err(type_parameter_constraint_conflict(&selected.ty, lower));
+        }
+    }
+    for upper in constraints.upper.refs() {
+        record_work(1);
+        if !is_assignable_nested_with_registry(upper, &selected.ty, adts) {
+            return Err(type_parameter_constraint_conflict(upper, &selected.ty));
+        }
+    }
+    reconcile_constraint_presentations(constraints, &mut selected, adts);
+    Ok(selected.ty)
+}
+
+fn reconcile_constraint_presentations(
+    constraints: &TypeParameterConstraints,
+    selected: &mut CanonicalConstraint,
+    adts: &AdtRegistry,
+) {
+    let contributions = constraints
+        .lower
+        .constraints()
+        .into_iter()
+        .chain(constraints.upper.constraints())
+        .chain(constraints.equality.iter());
+    for contribution in contributions {
+        record_work(1);
+        if is_assignable_nested_with_registry(&selected.ty, &contribution.ty, adts)
+            && is_assignable_nested_with_registry(&contribution.ty, &selected.ty, adts)
+        {
+            selected.merge(contribution.clone());
+        }
+    }
+}
+
+fn type_parameter_constraint_conflict(
+    expected: &Type,
+    actual: &Type,
+) -> unification::TypeParameterContributionConflict {
+    unification::TypeParameterContributionConflict {
+        expected: Box::new(expected.clone()),
+        actual: Box::new(actual.clone()),
+    }
 }
 
 fn type_shape(ty: &Type) -> (usize, bool) {
@@ -1759,6 +2534,49 @@ fn bounded_join_iterative(
             } => build_function_bound(&mut results, parameter_count, has_variadic, effects),
         }
     }
+    debug_assert_eq!(results.len(), 1);
+    results.pop().flatten()
+}
+
+fn bounded_meet_refs(adts: &AdtRegistry, contributions: &[&Type]) -> Option<Type> {
+    let mut relation_cache = HashMap::new();
+    reset_relation_cache_current_key_bytes();
+    let mut tasks = vec![BoundTask::Evaluate {
+        contributions: contributions.to_vec(),
+        direction: BoundDirection::Meet,
+    }];
+    let mut results = Vec::new();
+    let mut function_presence_cache = HashMap::new();
+    while let Some(task) = tasks.pop() {
+        match task {
+            BoundTask::Ready(result) => results.push(result),
+            BoundTask::Evaluate {
+                contributions,
+                direction,
+            } => evaluate_bound_task(
+                adts,
+                &mut tasks,
+                &mut results,
+                contributions,
+                direction,
+                &mut relation_cache,
+                &mut function_presence_cache,
+            ),
+            BoundTask::BuildRecord { names } => build_record_bound(&mut results, names),
+            BoundTask::BuildNamed {
+                name,
+                identity,
+                variants,
+                argument_count,
+            } => build_named_bound(&mut results, name, identity, variants, argument_count),
+            BoundTask::BuildFunction {
+                parameter_count,
+                has_variadic,
+                effects,
+            } => build_function_bound(&mut results, parameter_count, has_variadic, effects),
+        }
+    }
+    reset_relation_cache_current_key_bytes();
     debug_assert_eq!(results.len(), 1);
     results.pop().flatten()
 }
@@ -2784,6 +3602,22 @@ fn candidate_relation(
     match direction {
         BoundDirection::Join => candidate_assignable(candidate, contribution, adts),
         BoundDirection::Meet => candidate_assignable(contribution, candidate, adts),
+    }
+}
+
+fn constraint_pair_has_bound(
+    candidate: &Type,
+    contribution: &Type,
+    direction: BoundDirection,
+    adts: &AdtRegistry,
+) -> bool {
+    if candidate_relation(candidate, contribution, direction, adts) {
+        return true;
+    }
+    let pair = [candidate, contribution];
+    match direction {
+        BoundDirection::Join => bounded_join_refs(adts, &pair).is_some(),
+        BoundDirection::Meet => bounded_meet_refs(adts, &pair).is_some(),
     }
 }
 

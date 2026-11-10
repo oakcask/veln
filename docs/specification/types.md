@@ -1642,30 +1642,51 @@ change the joined arguments or resolved identity. The checked
 [`compiler-owned alias presentation`](../../examples/specification/check/compiler-owned-covariant-alias-presentation/)
 case covers the conflicting-alias result in both contribution orders.
 
-The join applies when repeated constructor payloads use a type parameter
-directly and those direct occurrences contribute complete types supported by
-the bounded join, including source ADTs and compiler-owned immutable
-constructors. Each complete direct occurrence is inferred independently before
-it contributes. A later direct context-dependent expression instead uses the
-accumulated concrete argument as its expected type when one is available.
-If the same parameter also occurs inside a named payload, that nested
-occurrence establishes an exact inference constraint independently of the
-named constructor's assignment or inference variance. For example, given
-`Built(A, Vec<A>)`,
-`Built(Ready, [Ready])` infers `Container<State::Ready>::Built`, while
-`Built(Ready, [Closed])` reports `type.mismatch`, even though compiler-owned
-`Vec<T>` is covariant at an assignment boundary. Reversing the two payload
-positions does not change either result.
+Constructor payload inference collects a constraint from every direct or
+nested occurrence of a type parameter. Constraint traversal starts positive at
+each constructor payload template. A record field and a function result
+preserve the current polarity. A fixed or variadic function input reverses it.
+An argument of a resolved named constructor composes it with that constructor
+parameter's checked classification. Missing or unusable classification
+metadata makes the nested argument invariant. These are the same composition
+rules used by [source ADT parameter classifications](#source-adt-parameter-classifications).
+
+| Effective occurrence | Inference constraint |
+| --- | --- |
+| Positive | A lower bound selected by the bounded join. |
+| Negative | An upper bound selected by the bounded meet. |
+| Invariant | An equality constraint on one complete type. |
+| Irrelevant | No constraint. |
+
+An equality constraint fixes the argument. Every lower bound must be assignable
+to that argument, and the argument must be assignable to every upper bound.
+Without equality, one or more lower bounds select their bounded join; that
+result must satisfy every upper bound. Upper bounds alone select their bounded
+meet. Constraint selection considers the complete set of accepted bounds. A
+prefix whose structural bounds have no bounded result remains unresolved; a
+later bound can make the complete set resolvable. The selected result must then
+satisfy every accumulated bound. This transition and its result are independent
+of payload order. If there is no effective concrete constraint, or the complete
+set has no required join or meet, the constructor keeps its existing
+explicit-context requirement and reports the existing ambiguity without
+context. It does not synthesize a union, intersection, bottom type, or `unknown`
+argument. An explicit expected constructor type can supply an argument that
+irrelevant occurrences or unavailable bounds do not infer.
 
 All occurrences contributed by one payload are accepted or rejected together.
 If one occurrence conflicts, no occurrence from that payload constrains the
 constructor type argument. A later valid payload therefore continues from the
 last successfully inferred type instead of from a partial result of the failed
-payload. This rule also applies when the rejected payload contains repeated
-occurrences inside one named type that contributes an exact inference
-constraint.
+payload. This rule also applies when one payload contributes several lower,
+upper, or equality constraints through nested types.
+Constraint collection also validates the complete concrete payload shape. A
+different outer named constructor, a missing required record field, or an
+incompatible function shape rejects the payload even when another nested
+occurrence could contribute a constraint. That rejection leaves the retained
+constraints and constructor result unchanged, so later valid payloads continue
+from the last accepted result.
 
-Successful direct and exact nested contributions also reconcile alias
+Successful direct and nested contributions reconcile alias
 presentation for the inferred type argument. Different alias preferences make
 the target ADT's canonical name permanent for that inference, even when a later
 contribution repeats one alias. The result is independent of payload order and
@@ -1674,6 +1695,14 @@ transaction does not contribute alias provenance, so it cannot create or clear
 a presentation conflict. The checked
 [`invariant alias presentation diagnostic`](../../examples/specification/check/adt-variant-refinement-invariant-alias-presentation-diagnostics-human/)
 case covers the canonical result for both contribution orders.
+
+The checked
+[`constructor generic constraint inference`](../../examples/specification/check/constructor-generic-constraint-inference/)
+and
+[`constructor generic constraint diagnostics`](../../examples/specification/check/constructor-generic-constraint-inference-diagnostics/)
+cases exercise ordinary constructor checking, inferred private signatures,
+context requirements, unavailable bounds, and rejected payloads through the
+public `check --json` command.
 
 A same-constructor covariant join is transactional across all arguments. If a
 later nested argument cannot join, the join validates the complete contribution
@@ -1709,6 +1738,29 @@ nested `Option` arguments in a source-ADT payload, then projects the concrete
 `Int` argument through that payload in both inference pipelines. Its total work
 and retained type nodes obey the same adjacent-size linear bound. Elapsed time
 is observational and is not an acceptance threshold.
+
+A repeated-parameter workload measures 32, 64, and 128 successful constraints
+on one constructor parameter in both inference pipelines. It measures direct
+lower bounds, upper-only occurrences through repeated `fn(T) -> ()` payloads,
+equality occurrences through repeated uses of an invariant named constructor,
+and mixed lower-and-upper occurrences through repeated `fn(T) -> T` payloads.
+Separate workloads measure 16, 32, and 64 pairwise-incomparable nominal lower
+bounds and upper bounds whose required join or meet remains unavailable. The
+work metric includes retained-type clones, constraint comparisons, join and
+meet updates, bound validation, and presentation reconciliation. In both the
+resolvable and unavailable workloads, each doubled size may use at most twice
+the preceding work plus a fixed allowance of 128. Elapsed time is observational
+and is not an acceptance threshold.
+
+A structural-transition workload alternates two function lower bounds whose
+pair has no bounded result, then adds a function bound that makes the complete
+set resolvable. It measures 8, 16, and 32 repetitions in ordinary body
+inference and omitted private-result inference. The work metric also includes
+bounded-candidate ordering, relation-key construction, result materialization,
+and relation-cache retained state. Each doubled size may use at most twice the
+preceding work plus 256. The result must be the same resolved function type in
+both inference pipelines. Elapsed time is observational and is not an
+acceptance threshold.
 
 Complementary workloads project repeated list and dictionary members through
 wide record and function contexts. Wrapped workloads put each structural

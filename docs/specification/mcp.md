@@ -1032,6 +1032,13 @@ saved workspace results, supported symbol classes, recovery identities,
 unsupported boundaries, and anonymous boundaries under
 `examples/specification/mcp/rename-*`.
 The checked
+[`language-reference-resources`](../../examples/specification/mcp/language-reference-resources/)
+transcript covers language index and topic discovery, exact reads, documentation
+tool projections, search, and unknown or stale snapshot failures. A catalog
+content change rotates the checked snapshot URI in that transcript while
+preserving the MCP list, read, and documentation-tool contracts described
+above.
+The checked
 [`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
 transcript covers discovery and exact reads for the embedded package catalog,
 including the public `net::system()`, `observe::noop()`, and

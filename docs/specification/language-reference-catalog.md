@@ -77,6 +77,12 @@ unions without symbolic effect-row synthesis, contributed-candidate fallback,
 retention of compatible unresolved contributions, and transactional exclusion
 of structurally inadmissible, exact-argument-rejected, or diagnostically failed
 contributions,
+constructor generic argument constraints collected from direct and nested
+parameter occurrences, with record and result positions preserving polarity,
+function inputs reversing it, and resolved named arguments composing it with
+checked parameter classifications; positive occurrences add lower bounds,
+negative occurrences add upper bounds, invariant occurrences require equality,
+and irrelevant occurrences add no constraint,
 and describes how an unrefined compiler-owned immutable join supplies
 argument-specific context to a later context-dependent expression without
 re-resolving an earlier expression that emitted a diagnostic. It also covers
@@ -112,7 +118,8 @@ Calls, indexing, constructed records, and other computed expressions do not
 become module-value field roots.
 The selected examples demonstrate refined call typing, complete structural and
 source-ADT variance assignment, source-ADT and compiler-owned covariant
-inference, bounded structural function inference, identical-field and
+inference, nested constructor generic constraint inference, bounded structural
+function inference, identical-field and
 record-width structural inference, failed-contribution preservation,
 control-flow result joins, alias-qualified identity and
 presentation, generic alias boundaries, structural visibility, publication

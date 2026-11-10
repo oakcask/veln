@@ -1,0 +1,117 @@
+# Integration contract: `veln check --json` renders unavailable bounds through
+# the existing ambiguity diagnostic and preserves a focused rejected-payload mismatch.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 9
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `State::Ready`, but found `State::Closed`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 56
+column = 23
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Box<State::Ready | State::Closed>`, but found `Other`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 60
+column = 13
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{guard: Option<Int>, value: State::Ready | State::Closed}`, but found `{wrong: String}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 64
+column = 16
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `IrrelevantValue` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 69
+column = 16
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Paired` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 70
+column = 25
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `UpperValue` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 71
+column = 25
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `State::Ready`, but found `State::Closed`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 73
+column = 74
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Box<State>`, but found `Other`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 76
+column = 48
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{guard: Option<Int>, value: State}`, but found `{wrong: String}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 77
+column = 61
