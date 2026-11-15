@@ -747,6 +747,27 @@ struct DistinctFunctionReturnMeasurement {
 }
 
 fn distinct_function_return_measurement(size: usize) -> DistinctFunctionReturnMeasurement {
+    let (environment, state_identity) = distinct_return_environment();
+    reset_distinct_return_work();
+    let started = std::time::Instant::now();
+    let mut joined = start_distinct_return_join(&environment, &state_identity, size);
+    admit_initial_distinct_returns(&mut joined, &environment, &state_identity, size);
+    assert_distinct_return_rejection_is_transactional(&mut joined, &environment);
+    let replacement_width =
+        admit_distinct_return_replacement(&mut joined, &environment, &state_identity, size);
+    admit_descending_distinct_returns(
+        &mut joined,
+        &environment,
+        &state_identity,
+        replacement_width,
+    );
+    let elapsed = started.elapsed();
+    assert_distinct_return_result(&joined, &state_identity);
+
+    collect_distinct_return_measurement(size, &joined, elapsed)
+}
+
+fn distinct_return_environment() -> (TypeEnvironment, String) {
     let source = SourceFile::new(
         "main.veln",
         "type State\n  Ready\n  Closed\nend\npub type First = State\npub type Second = State\n",
@@ -761,67 +782,138 @@ fn distinct_function_return_measurement(size: usize) -> DistinctFunctionReturnMe
         .find(|descriptor| descriptor.type_name == "State")
         .expect("State descriptor")
         .identity();
-    let state = |name: &str| Type::resolved_named(name, &state_identity, Vec::new());
-    let record = |width: usize, suffix: Option<&str>, alias: &str| {
-        let mut fields = vec![("state".to_string(), state(alias))];
-        fields.extend((0..width).map(|index| (format!("field_{index:03}"), Type::int())));
-        if let Some(suffix) = suffix {
-            fields.push((suffix.to_string(), Type::int()));
-        }
-        Type::Record(fields)
-    };
-    let function = |return_type| Type::Function {
+    (environment, state_identity)
+}
+
+fn distinct_return_record(
+    width: usize,
+    suffix: Option<&str>,
+    alias: &str,
+    state_identity: &str,
+) -> Type {
+    let mut fields = vec![(
+        "state".to_string(),
+        Type::resolved_named(alias, state_identity, Vec::new()),
+    )];
+    fields.extend((0..width).map(|index| (format!("field_{index:03}"), Type::int())));
+    if let Some(suffix) = suffix {
+        fields.push((suffix.to_string(), Type::int()));
+    }
+    Type::Record(fields)
+}
+
+fn function_returning(return_type: Type) -> Type {
+    Type::Function {
         params: vec![Type::int()],
         variadic: None,
         return_type: Box::new(return_type),
         effects: Vec::new(),
-    };
+    }
+}
 
+fn reset_distinct_return_work() {
     crate::aggregate_type_join::reset_bounded_candidate_work();
     crate::type_relations::reset_record_field_match_work();
     crate::type_relations::reset_type_presentation_work();
-    let started = std::time::Instant::now();
-    let initial = function(record(size, Some("left"), "First"));
-    let mut joined =
-        crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
-            .expect("bounded function join");
-    assert!(joined.try_join(
-        &environment.adts,
-        &function(record(size, Some("right"), "Second")),
-    ));
-    assert!(!joined.has_resolved_result());
-    assert!(joined.try_join(&environment.adts, &function(record(size, None, "First")),));
-    assert!(joined.has_resolved_result());
+}
 
+fn start_distinct_return_join(
+    environment: &TypeEnvironment,
+    state_identity: &str,
+    size: usize,
+) -> crate::aggregate_type_join::AggregateTypeJoin {
+    let initial = function_returning(distinct_return_record(
+        size,
+        Some("left"),
+        "First",
+        state_identity,
+    ));
+    crate::aggregate_type_join::AggregateTypeJoin::new(&environment.adts, &initial)
+        .expect("bounded function join")
+}
+
+fn admit_initial_distinct_returns(
+    joined: &mut crate::aggregate_type_join::AggregateTypeJoin,
+    environment: &TypeEnvironment,
+    state_identity: &str,
+    size: usize,
+) {
+    let right = function_returning(distinct_return_record(
+        size,
+        Some("right"),
+        "Second",
+        state_identity,
+    ));
+    assert!(joined.try_join(&environment.adts, &right));
+    assert!(!joined.has_resolved_result());
+
+    let common = function_returning(distinct_return_record(size, None, "First", state_identity));
+    assert!(joined.try_join(&environment.adts, &common));
+    assert!(joined.has_resolved_result());
+}
+
+fn assert_distinct_return_rejection_is_transactional(
+    joined: &mut crate::aggregate_type_join::AggregateTypeJoin,
+    environment: &TypeEnvironment,
+) {
     let before_rejection = joined.result_type();
     let retained_before_rejection = joined.bounded_retained_state();
-    let rejected = function(Type::Record(vec![("state".to_string(), Type::string())]));
+    let rejected = function_returning(Type::Record(vec![("state".to_string(), Type::string())]));
     assert!(!joined.try_join(&environment.adts, &rejected));
     assert_eq!(joined.result_type(), before_rejection);
     assert_eq!(joined.bounded_retained_state(), retained_before_rejection);
     crate::semantic_model::drop_type_iteratively(before_rejection);
+}
 
+fn admit_distinct_return_replacement(
+    joined: &mut crate::aggregate_type_join::AggregateTypeJoin,
+    environment: &TypeEnvironment,
+    state_identity: &str,
+    size: usize,
+) -> usize {
     let replacement_width = size - 1;
-    assert!(joined.try_join(
-        &environment.adts,
-        &function(record(replacement_width, None, "Second")),
+    let replacement_candidate = function_returning(distinct_return_record(
+        replacement_width,
+        None,
+        "Second",
+        state_identity,
     ));
+    assert!(joined.try_join(&environment.adts, &replacement_candidate));
     let replacement = joined.result_type();
-    let Type::Function { return_type, .. } = &replacement else {
+    assert_record_return_width(&replacement, replacement_width + 1);
+    crate::semantic_model::drop_type_iteratively(replacement);
+    replacement_width
+}
+
+fn assert_record_return_width(function: &Type, expected_width: usize) {
+    let Type::Function { return_type, .. } = function else {
         panic!("expected replacement function result");
     };
     let Type::Record(fields) = return_type.as_ref() else {
         panic!("expected replacement record return");
     };
-    assert_eq!(fields.len(), replacement_width + 1);
-    crate::semantic_model::drop_type_iteratively(replacement);
+    assert_eq!(fields.len(), expected_width);
+}
 
+fn admit_descending_distinct_returns(
+    joined: &mut crate::aggregate_type_join::AggregateTypeJoin,
+    environment: &TypeEnvironment,
+    state_identity: &str,
+    replacement_width: usize,
+) {
     for width in (0..replacement_width).rev() {
         let alias = if width % 2 == 0 { "First" } else { "Second" };
-        assert!(joined.try_join(&environment.adts, &function(record(width, None, alias)),));
+        let candidate =
+            function_returning(distinct_return_record(width, None, alias, state_identity));
+        assert!(joined.try_join(&environment.adts, &candidate));
     }
+}
+
+fn assert_distinct_return_result(
+    joined: &crate::aggregate_type_join::AggregateTypeJoin,
+    state_identity: &str,
+) {
     let resolved = joined.result_type();
-    let elapsed = started.elapsed();
     assert_eq!(resolved.render(), "fn(Int) -> {state: State}");
     let Type::Function { return_type, .. } = &resolved else {
         panic!("expected function result");
@@ -833,9 +925,15 @@ fn distinct_function_return_measurement(size: usize) -> DistinctFunctionReturnMe
         panic!("expected resolved State field");
     };
     assert_eq!(name, "State");
-    assert_eq!(identity, &state_identity);
+    assert_eq!(identity, state_identity);
     crate::semantic_model::drop_type_iteratively(resolved);
+}
 
+fn collect_distinct_return_measurement(
+    size: usize,
+    joined: &crate::aggregate_type_join::AggregateTypeJoin,
+    elapsed: std::time::Duration,
+) -> DistinctFunctionReturnMeasurement {
     let candidate_work = crate::aggregate_type_join::take_bounded_candidate_work();
     let record_work = crate::type_relations::take_record_field_match_work();
     let presentation_work = crate::type_relations::take_type_presentation_work();

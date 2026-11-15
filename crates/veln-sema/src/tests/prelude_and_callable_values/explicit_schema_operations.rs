@@ -2336,7 +2336,7 @@ fn private_schema_operation_diagnostics_preserve_operation_and_companion_context
 
 #[test]
 fn companion_private_target_schema_access_preserves_boundaries() {
-    for (companion_path, companion_text, expected_message) in [
+    for (companion_path, companion_text, expected_message, expected_target) in [
         (
             "math.test.veln",
             concat!(
@@ -2347,6 +2347,7 @@ fn companion_private_target_schema_access_preserves_boundaries() {
                 "end\n",
             ),
             "schema decode expression cannot resolve `math::Packet` as an eligible binary schema",
+            None,
         ),
         (
             "math.test.veln",
@@ -2359,6 +2360,7 @@ fn companion_private_target_schema_access_preserves_boundaries() {
                 "end\n",
             ),
             "schema decode expression cannot resolve `Packet` as an eligible binary schema",
+            None,
         ),
         (
             "other.test.veln",
@@ -2371,6 +2373,7 @@ fn companion_private_target_schema_access_preserves_boundaries() {
                 "end\n",
             ),
             "schema decode expression schema `math::Packet` is private",
+            Some("other"),
         ),
         (
             "math_test.veln",
@@ -2383,6 +2386,7 @@ fn companion_private_target_schema_access_preserves_boundaries() {
                 "end\n",
             ),
             "schema decode expression schema `math::Packet` is private",
+            None,
         ),
         (
             "math.test.veln",
@@ -2395,78 +2399,74 @@ fn companion_private_target_schema_access_preserves_boundaries() {
                 "end\n",
             ),
             "schema decode expression schema `support::Packet` is private",
+            Some("math"),
         ),
     ] {
-        let companion_source = SourceFile::new(companion_path, companion_text);
-        let target_source = SourceFile::new(
-            "math.veln",
-            concat!(
-                "mod math\n",
-                "use support\n",
-                "schema Packet\n",
-                "  format binary\n",
-                "\n",
-                "  length: UInt8\n",
-                "end\n",
-            ),
+        assert_private_target_schema_access(
+            companion_path,
+            companion_text,
+            expected_message,
+            expected_target,
         );
-        let support_source = SourceFile::new(
-            "support.veln",
-            concat!(
-                "mod support\n",
-                "schema Packet\n",
-                "  format binary\n",
-                "\n",
-                "  length: UInt8\n",
-                "end\n",
-            ),
-        );
-        let companion = lower_surface_ast(&parse(&companion_source).tree);
-        let target = lower_surface_ast(&parse(&target_source).tree);
-        let support = lower_surface_ast(&parse(&support_source).tree);
-        let module = SurfaceModule {
-            module: companion.module,
-            uses: companion.uses.into_iter().chain(target.uses).collect(),
-            aliases: Vec::new(),
-            effects: Vec::new(),
-            handlers: Vec::new(),
-            types: Vec::new(),
-            schemas: target.schemas.into_iter().chain(support.schemas).collect(),
-            module_values: Vec::new(),
-            functions: companion.functions,
-            invalid_names: Vec::new(),
-        };
-
-        let lowered = lower_checked_surface_module(&module);
-
-        let diagnostic = lowered
-            .diagnostics
-            .iter()
-            .find(|diagnostic| {
-                diagnostic.id == "schema.decode_expression"
-                    && diagnostic.message == expected_message
-            })
-            .unwrap_or_else(|| panic!("{:#?}", lowered.diagnostics));
-        if matches!(companion_path, "other.test.veln" | "math.test.veln")
-            && expected_message.contains(" is private")
-        {
-            let details = diagnostic.details.to_json();
-            let expected_target = if companion_path == "other.test.veln" {
-                "other"
-            } else {
-                "math"
-            };
-            assert!(
-                details.contains(&format!(
-                    "\"companion_target_module\":\"{expected_target}\""
-                )),
-                "{details}"
-            );
-            assert!(diagnostic.related.iter().any(|related| {
-                let related = related.to_json();
-                related.contains("\"kind\":\"companion_target\"")
-                    && related.contains(&format!("`{expected_target}`"))
-            }));
-        }
     }
+}
+
+fn assert_private_target_schema_access(
+    companion_path: &str,
+    companion_text: &str,
+    expected_message: &str,
+    expected_target: Option<&str>,
+) {
+    let companion = parse_surface_module(companion_path, companion_text);
+    let target = parse_surface_module(
+        "math.veln",
+        "mod math\nuse support\nschema Packet\n  format binary\n\n  length: UInt8\nend\n",
+    );
+    let support = parse_surface_module(
+        "support.veln",
+        "mod support\nschema Packet\n  format binary\n\n  length: UInt8\nend\n",
+    );
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses.into_iter().chain(target.uses).collect(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: Vec::new(),
+        schemas: target.schemas.into_iter().chain(support.schemas).collect(),
+        module_values: Vec::new(),
+        functions: companion.functions,
+        invalid_names: Vec::new(),
+    };
+    let lowered = lower_checked_surface_module(&module);
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "schema.decode_expression" && diagnostic.message == expected_message
+        })
+        .unwrap_or_else(|| panic!("{:#?}", lowered.diagnostics));
+
+    if let Some(expected_target) = expected_target {
+        assert_companion_target_context(diagnostic, expected_target);
+    }
+}
+
+fn parse_surface_module(path: &str, text: &str) -> SurfaceModule {
+    lower_surface_ast(&parse(&SourceFile::new(path, text)).tree)
+}
+
+fn assert_companion_target_context(diagnostic: &Diagnostic, expected_target: &str) {
+    let details = diagnostic.details.to_json();
+    assert!(
+        details.contains(&format!(
+            "\"companion_target_module\":\"{expected_target}\""
+        )),
+        "{details}"
+    );
+    assert!(diagnostic.related.iter().any(|related| {
+        let related = related.to_json();
+        related.contains("\"kind\":\"companion_target\"")
+            && related.contains(&format!("`{expected_target}`"))
+    }));
 }
