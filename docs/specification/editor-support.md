@@ -908,12 +908,15 @@ and distribution source bytes produce the same dependency `veln-pkg:` URI
 across those source fields and physical roots. A manifest or included-source
 byte change produces a different snapshot URI.
 
-Before publishing diagnostics for a consumer update, the server captures its
-retained path dependencies again. Equal captured manifest and distribution
+Before publishing diagnostics for a consumer update, the server captures the
+consumer project and its direct dependencies once. Diagnostic analysis and the
+retained navigation state consume that same capture. A dependency change after
+capture cannot make one publication analyze a different dependency revision
+from the revision used by navigation. Equal captured manifest and distribution
 source bytes keep the existing prepared dependency layer. Changed bytes replace
-that layer, invalidate navigation derived from it, and make the next consumer
-analysis use newly derived source-ADT variance classifications. Declaration
-identity and generic arity do not suppress this refresh. The
+that layer, invalidate navigation derived from it, and make the captured
+consumer analysis use newly derived source-ADT variance classifications.
+Declaration identity and generic arity do not suppress this refresh. The
 [package virtual-source lifetime](package-virtual-sources.md#package-virtual-sources)
 defines how earlier snapshot URIs remain resolvable.
 If project rediscovery fails, the current dependency layer stays active. After

@@ -228,6 +228,13 @@ impl EffectiveProjectSnapshot {
             })
     }
 
+    /// Lists canonical direct-dependency virtual-source URIs and retained bytes.
+    pub fn direct_dependency_virtual_sources(&self) -> impl Iterator<Item = (&str, &[u8])> {
+        self.direct_dependencies
+            .iter()
+            .flat_map(DirectDependencySnapshot::virtual_sources)
+    }
+
     pub fn workspace_source(&self, path: &SourcePath) -> Option<&SourceFile> {
         self.sources.iter().find(|source| source.path() == path)
     }
@@ -318,6 +325,17 @@ impl DirectDependencySnapshot {
 
     fn resolve_virtual_source(&self, uri: &str) -> Option<&[u8]> {
         self.virtual_sources.resolve(uri)
+    }
+
+    fn virtual_sources(&self) -> impl Iterator<Item = (&str, &[u8])> {
+        self.virtual_sources.entries().map(|entry| {
+            (
+                entry.uri(),
+                self.virtual_sources
+                    .resolve(entry.uri())
+                    .expect("direct dependency catalog resolves every listed source"),
+            )
+        })
     }
 
     fn matches_capture(&self, other: &Self) -> bool {

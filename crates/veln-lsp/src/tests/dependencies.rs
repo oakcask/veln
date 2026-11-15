@@ -1284,10 +1284,12 @@ fn dependency_variance_metadata_refreshes_across_payload_revisions() {
     ));
 
     project.write("vendor/lib/math.veln", mixed);
-    let rejected = server.handle_message(&format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didChange","params":{{"textDocument":{{"uri":"{main_uri}"}},"contentChanges":[{{"text":"{}"}}]}}}}"#,
-        escape_json(&format!("{consumer}\n")),
-    ));
+    let captured_mixed = capture_workspace_project(&project.root).unwrap();
+    project.write("vendor/lib/math.veln", positive);
+    let rejected = server.publish_workspace_diagnostics_for_captured_project(
+        project.root.clone(),
+        captured_mixed,
+    );
     let rejected_publish = publish_for_uri(&rejected, &main_uri);
     assert_eq!(rejected_publish.matches(r#""code":"type.mismatch""#).count(), 1);
     let mixed_snapshot = server
@@ -1304,10 +1306,12 @@ fn dependency_variance_metadata_refreshes_across_payload_revisions() {
     assert_virtual_document_text(&mut server, "8", &mixed_virtual_uri, mixed);
 
     project.write("vendor/lib/math.veln", positive);
-    let accepted = server.handle_message(&format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didChange","params":{{"textDocument":{{"uri":"{main_uri}"}},"contentChanges":[{{"text":"{}"}}]}}}}"#,
-        escape_json(&format!("{consumer}\n\n")),
-    ));
+    let captured_positive = capture_workspace_project(&project.root).unwrap();
+    project.write("vendor/lib/math.veln", mixed);
+    let accepted = server.publish_workspace_diagnostics_for_captured_project(
+        project.root.clone(),
+        captured_positive,
+    );
     assert_contains_json(publish_for_uri(&accepted, &main_uri), r#""diagnostics":[]"#);
     assert!(!Arc::ptr_eq(
         server
@@ -1320,6 +1324,101 @@ fn dependency_variance_metadata_refreshes_across_payload_revisions() {
     let restored_virtual_uri =
         package_virtual_definition_uri(&restored_definition[0], "example%2Fpkg", "math.veln");
     assert_eq!(restored_virtual_uri, initial_virtual_uri);
+    assert_eq!(server.retired_virtual_sources.len(), 1);
+
+    let mut previous_snapshot = server
+        .project_snapshots
+        .get(&project.root)
+        .cloned()
+        .unwrap();
+    for revision in 0..12 {
+        let (captured_text, later_disk_text, expected_uri, expected_diagnostic) =
+            if revision % 2 == 0 {
+                (mixed, positive, &mixed_virtual_uri, true)
+            } else {
+                (positive, mixed, &initial_virtual_uri, false)
+            };
+        project.write("vendor/lib/math.veln", captured_text);
+        let captured = capture_workspace_project(&project.root).unwrap();
+        project.write("vendor/lib/math.veln", later_disk_text);
+        let published = server.publish_workspace_diagnostics_for_captured_project(
+            project.root.clone(),
+            captured,
+        );
+        let publication = publish_for_uri(&published, &main_uri);
+        assert_eq!(
+            publication.contains(r#""code":"type.mismatch""#),
+            expected_diagnostic,
+            "revision {revision}: {publication}",
+        );
+        let current_snapshot = server
+            .project_snapshots
+            .get(&project.root)
+            .cloned()
+            .unwrap();
+        assert!(!Arc::ptr_eq(&current_snapshot, &previous_snapshot));
+        previous_snapshot = current_snapshot;
+        let definition = server.handle_message(&definition_request(&main_uri, 2, 23));
+        let virtual_uri =
+            package_virtual_definition_uri(&definition[0], "example%2Fpkg", "math.veln");
+        assert_eq!(&virtual_uri, expected_uri);
+        assert_virtual_document_text(
+            &mut server,
+            &format!("{}", 20 + revision),
+            &virtual_uri,
+            captured_text,
+        );
+        assert_eq!(server.retired_virtual_sources.len(), 1);
+    }
+
+    project.write("vendor/lib/math.veln", positive);
+    let unchanged_capture = capture_workspace_project(&project.root).unwrap();
+    let before_unchanged = server
+        .project_snapshots
+        .get(&project.root)
+        .cloned()
+        .unwrap();
+    let unchanged = server.publish_workspace_diagnostics_for_captured_project(
+        project.root.clone(),
+        unchanged_capture,
+    );
+    assert_contains_json(publish_for_uri(&unchanged, &main_uri), r#""diagnostics":[]"#);
+    assert!(Arc::ptr_eq(
+        server.project_snapshots.get(&project.root).unwrap(),
+        &before_unchanged,
+    ));
+    assert_eq!(server.retired_virtual_sources.len(), 1);
+}
+
+#[test]
+fn project_rediscovery_failure_keeps_the_current_dependency_layer() {
+    let mut server = Server::default();
+    let project = path_dependency_project(
+        "dependency-refresh-discovery-failure",
+        "vendor/lib",
+        "pub fn exposed(value: Int) -> Int\n  value\nend\n",
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+    let definition = server.handle_message(&definition_request(&main_uri, 3, 10));
+    let virtual_uri = package_virtual_definition_uri(&definition[0], "example%2Fpkg", "math.veln");
+    let retained = server.project_snapshots.get(&project.root).cloned().unwrap();
+
+    fs::remove_dir_all(&project.root).unwrap();
+    server.publish_workspace_diagnostics_for_root(project.root.clone());
+
+    assert!(Arc::ptr_eq(
+        server.project_snapshots.get(&project.root).unwrap(),
+        &retained,
+    ));
+    assert!(server.retired_virtual_sources.is_empty());
+    assert_virtual_document_text(
+        &mut server,
+        "40",
+        &virtual_uri,
+        "pub fn exposed(value: Int) -> Int\n  value\nend\n",
+    );
 }
 
 fn path_dependency_project(name: &str, source_root: &str, retained_text: &str) -> TempProject {

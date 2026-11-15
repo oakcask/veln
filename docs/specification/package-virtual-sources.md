@@ -38,11 +38,16 @@ decode, normalize, or rewrite the input. It does not consult a materialization
 path or the filesystem. Therefore an unknown identity, digest, or source path
 has the same not-found result as a malformed or noncanonical URI.
 
-The LSP resolver retains catalogs from dependency layers that it replaces
-during consumer updates. Navigation after a dependency payload change uses the
-new snapshot URI. A previously returned snapshot URI remains resolvable to its
-original bytes while that LSP project-snapshot state is retained, including
-after a later payload restores the original snapshot URI.
+The LSP resolver retains one URI-to-bytes entry for each distinct dependency
+virtual source exposed by a replaced layer and not available from the current
+layer. It does not retain the replaced prepared analysis snapshot. Navigation
+after a dependency payload change uses the new snapshot URI. A previously
+returned snapshot URI remains resolvable to its original bytes while that LSP
+project-snapshot state is retained. If a later payload restores an earlier
+snapshot URI, the current layer supplies that URI and the resolver removes its
+redundant retired entry. Repeated transitions between the same payloads
+therefore do not increase retained virtual-source storage or make lookup depend
+on the number of transitions.
 
 Noncanonical inputs include a non-lowercase scheme; any authority, user
 information, host, port, query, or fragment; encoded ASCII unreserved bytes;
@@ -54,5 +59,6 @@ digest with any other length or spelling.
 
 The catalog implementation and URI boundary tests are in
 `crates/veln-language-service/src/virtual_source.rs`.
-The dependency-payload revision and earlier-URI retention regression is in
+The dependency-payload revision, coupled diagnostic and navigation capture,
+repeated-revision storage, and earlier-URI retention regression is in
 `crates/veln-lsp/src/tests/dependencies.rs`.
