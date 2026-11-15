@@ -922,8 +922,11 @@ defines how earlier snapshot URIs remain resolvable.
 If project rediscovery fails, the server publishes an empty diagnostic list for
 each URI previously published for that project, and the current dependency
 layer stays active. After successful rediscovery, a dependency that fails
-identity, source-root, snapshot, manifest, export, or catalog validation is
-absent from the replacement layer.
+identity, source-root, snapshot, manifest, or catalog validation is absent from
+the replacement layer. An export-validation failure also removes the dependency
+unless every reported failure is a source-path invalid-case diagnostic. Those
+diagnostics exclude only the affected exports, so valid sibling exports remain
+available from the replacement layer.
 
 The retained standard input has the reserved `std` identity and the same
 snapshot, export, and catalog boundaries. Bare and `prelude::` calls resolve

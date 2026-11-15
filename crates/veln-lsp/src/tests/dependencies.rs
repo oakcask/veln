@@ -842,6 +842,37 @@ fn invalid_cased_dependency_export_does_not_discard_valid_sibling_navigation() {
 
     let invalid = server.handle_message(&definition_request(&main_uri, 4, 22));
     assert_null_result(&invalid[0]);
+
+    project.write(
+        "vendor/pkg/ok.veln",
+        "pub fn value() -> Int\n  3\nend\n",
+    );
+    let refreshed = capture_workspace_project(&project.root).unwrap();
+    let published = server.publish_workspace_diagnostics_for_captured_project(
+        project.root.clone(),
+        refreshed,
+    );
+    let publication = publish_for_uri(&published, &main_uri);
+    assert_contains_json(publication, r#""code":"module.unexported_import""#);
+    assert_not_contains_json(publication, "unresolved call_target `ok::value`");
+
+    let refreshed_valid = server.handle_message(&definition_request(&main_uri, 4, 7));
+    assert_single_response(
+        &refreshed_valid,
+        r#""range":{"start":{"line":0,"character":7},"end":{"line":0,"character":12}}"#,
+    );
+    let refreshed_virtual_uri =
+        package_virtual_definition_uri(&refreshed_valid[0], "example%2Fpkg", "ok.veln");
+    assert_ne!(refreshed_virtual_uri, virtual_uri);
+    assert_virtual_document_text(
+        &mut server,
+        "4",
+        &refreshed_virtual_uri,
+        "pub fn value() -> Int\n  3\nend\n",
+    );
+
+    let refreshed_invalid = server.handle_message(&definition_request(&main_uri, 4, 22));
+    assert_null_result(&refreshed_invalid[0]);
 }
 
 #[test]
