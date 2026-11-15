@@ -133,6 +133,15 @@ resolved ADT identities or canonical generic arguments is also a semantic
 error. It blocks command success and quarantines the complete containing
 function, effect operation, handler, or ADT-constructor signature according to
 the same type and diagnostic contracts.
+A rejected named-generic or function variance comparison blocks the complete
+checked program. `check` reports every applicable mismatch from the analysis;
+it does not publish a successful checked result or a partial package signature.
+The failure remains whole-project even when a command that later selects an
+entry would not reach the rejected declaration. The checked
+[`JSON`](../../examples/specification/check/generic-function-variance-whole-analysis-json/)
+and
+[`human`](../../examples/specification/check/generic-function-variance-whole-analysis-human/)
+cases cover both nested comparison directions and the complete diagnostic set.
 A `format binary` schema field whose generated decoder cannot establish a
 resolved finite ADT refinement also fails the semantic gate. The
 [execution specification](execution.md#schema-execution) defines the decoder

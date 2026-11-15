@@ -993,7 +993,13 @@ and
 [`JSON`](../../examples/specification/check/variance-nested-incompatibility-json/)
 companions cover every path kind, reversed input comparison, expected
 declaration context, direct refinement exclusion, and the generated schema
-encode boundary.
+encode boundary. The whole-analysis
+[`human`](../../examples/specification/check/generic-function-variance-whole-analysis-human/)
+and
+[`JSON`](../../examples/specification/check/generic-function-variance-whole-analysis-json/)
+companions check that independent function-input and named-argument failures
+are both retained when the analysis publishes no checked program or partial
+package signature.
 
 Generated schema encode boundaries additionally inspect corresponding fields
 of anonymous records and corresponding arguments of `Option`, `List`, `Vec`,
