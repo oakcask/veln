@@ -913,8 +913,13 @@ retained path dependencies again. Equal captured manifest and distribution
 source bytes keep the existing prepared dependency layer. Changed bytes replace
 that layer, invalidate navigation derived from it, and make the next consumer
 analysis use newly derived source-ADT variance classifications. Declaration
-identity and generic arity do not suppress this refresh. Earlier snapshot URIs
-remain retained and continue to resolve to their original bytes.
+identity and generic arity do not suppress this refresh. The
+[package virtual-source lifetime](package-virtual-sources.md#package-virtual-sources)
+defines how earlier snapshot URIs remain resolvable.
+If project rediscovery fails, the current dependency layer stays active. After
+successful rediscovery, a dependency that fails identity, source-root,
+snapshot, manifest, export, or catalog validation is absent from the replacement
+layer.
 
 The retained standard input has the reserved `std` identity and the same
 snapshot, export, and catalog boundaries. Bare and `prelude::` calls resolve

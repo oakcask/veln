@@ -38,6 +38,12 @@ decode, normalize, or rewrite the input. It does not consult a materialization
 path or the filesystem. Therefore an unknown identity, digest, or source path
 has the same not-found result as a malformed or noncanonical URI.
 
+The LSP resolver retains catalogs from dependency layers that it replaces
+during consumer updates. Navigation after a dependency payload change uses the
+new snapshot URI. A previously returned snapshot URI remains resolvable to its
+original bytes while that LSP project-snapshot state is retained, including
+after a later payload restores the original snapshot URI.
+
 Noncanonical inputs include a non-lowercase scheme; any authority, user
 information, host, port, query, or fragment; encoded ASCII unreserved bytes;
 lowercase escape digits; a decoded package separator; an encoded source
@@ -48,3 +54,5 @@ digest with any other length or spelling.
 
 The catalog implementation and URI boundary tests are in
 `crates/veln-language-service/src/virtual_source.rs`.
+The dependency-payload revision and earlier-URI retention regression is in
+`crates/veln-lsp/src/tests/dependencies.rs`.
