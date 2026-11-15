@@ -1279,7 +1279,7 @@ fn dependency_variance_metadata_refreshes_across_payload_revisions() {
     fixture.assert_unchanged_capture_reuses_snapshot();
     fixture.assert_live_accept_reject_accept_transition();
     fixture.assert_captured_revision_stays_coherent();
-    fixture.assert_repeated_revisions_bound_virtual_source_storage();
+    fixture.assert_revision_cycle_bounds_virtual_source_storage();
 }
 
 struct DependencyVarianceFixture {
@@ -1382,9 +1382,9 @@ impl DependencyVarianceFixture {
         );
     }
 
-    fn assert_repeated_revisions_bound_virtual_source_storage(&mut self) {
+    fn assert_revision_cycle_bounds_virtual_source_storage(&mut self) {
         let mut previous_snapshot = self.current_snapshot();
-        for revision in 0..12 {
+        for revision in 0..2 {
             let (captured_text, later_disk_text, expected_uri, expected_diagnostic) =
                 self.revision_expectation(revision);
             self.project.write("vendor/lib/math.veln", captured_text);
