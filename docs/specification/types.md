@@ -1650,6 +1650,10 @@ An argument of a resolved named constructor composes it with that constructor
 parameter's checked classification. Missing or unusable classification
 metadata makes the nested argument invariant. These are the same composition
 rules used by [source ADT parameter classifications](#source-adt-parameter-classifications).
+The supporting
+[constructor constraint polarity decision](../reference/source-decisions/records/result-constructor-constraint-polarity.md)
+records why function polarity is adopted without importing another language's
+complete type relation.
 
 | Effective occurrence | Inference constraint |
 | --- | --- |
