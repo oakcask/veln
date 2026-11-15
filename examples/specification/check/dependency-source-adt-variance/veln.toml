@@ -1,0 +1,5 @@
+[package]
+name = "consumer/pkg"
+
+[dependencies."example/pkg"]
+path = "vendor/example"

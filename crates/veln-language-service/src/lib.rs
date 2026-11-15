@@ -113,6 +113,18 @@ impl EffectiveProjectSnapshot {
         }
     }
 
+    pub fn has_direct_dependency_layer(
+        &self,
+        direct_dependencies: &[DirectDependencySnapshot],
+    ) -> bool {
+        self.direct_dependencies.len() == direct_dependencies.len()
+            && self
+                .direct_dependencies
+                .iter()
+                .zip(direct_dependencies)
+                .all(|(retained, captured)| retained.matches_capture(captured))
+    }
+
     pub fn with_workspace_overlays(&self, overlays: impl IntoIterator<Item = SourceFile>) -> Self {
         let mut sources = self.sources.clone();
         for overlay in overlays {
@@ -306,6 +318,13 @@ impl DirectDependencySnapshot {
 
     fn resolve_virtual_source(&self, uri: &str) -> Option<&[u8]> {
         self.virtual_sources.resolve(uri)
+    }
+
+    fn matches_capture(&self, other: &Self) -> bool {
+        self.identity == other.identity
+            && self.snapshot == other.snapshot
+            && self.exported_sources == other.exported_sources
+            && self.standard_library == other.standard_library
     }
 }
 

@@ -908,6 +908,14 @@ and distribution source bytes produce the same dependency `veln-pkg:` URI
 across those source fields and physical roots. A manifest or included-source
 byte change produces a different snapshot URI.
 
+Before publishing diagnostics for a consumer update, the server captures its
+retained path dependencies again. Equal captured manifest and distribution
+source bytes keep the existing prepared dependency layer. Changed bytes replace
+that layer, invalidate navigation derived from it, and make the next consumer
+analysis use newly derived source-ADT variance classifications. Declaration
+identity and generic arity do not suppress this refresh. Earlier snapshot URIs
+remain retained and continue to resolve to their original bytes.
+
 The retained standard input has the reserved `std` identity and the same
 snapshot, export, and catalog boundaries. Bare and `prelude::` calls resolve
 public functions and supported public function aliases from the exported

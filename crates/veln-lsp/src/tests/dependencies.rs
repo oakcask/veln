@@ -1210,6 +1210,118 @@ fn dependency_definition_round_trips_through_retained_virtual_document() {
     assert_dependency_virtual_document_boundaries(&mut server, &main_uri, &virtual_uri, retained_text);
 }
 
+#[test]
+fn dependency_variance_metadata_refreshes_across_payload_revisions() {
+    let mut server = Server::default();
+    let project = TempProject::new("dependency-variance-refresh");
+    let positive = concat!(
+        "pub type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n\n",
+        "pub type Producer<T>\n",
+        "  Produced({value: T, consume: fn() -> ()})\n",
+        "end\n",
+    );
+    let mixed = concat!(
+        "pub type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n\n",
+        "pub type Producer<T>\n",
+        "  Produced({value: T, consume: fn(T) -> ()})\n",
+        "end\n",
+    );
+    let consumer = concat!(
+        "use math from \"example/pkg\"\n\n",
+        "fn verify(value: math::Producer<math::State::Ready>) -> ()\n",
+        "  let widened: math::Producer<math::State> = value\n",
+        "  ()\n",
+        "end\n",
+    );
+    project.write(
+        "veln.toml",
+        concat!(
+            "[package]\nname = \"app\"\n\n",
+            "[dependencies.\"example/pkg\"]\npath = \"vendor/lib\"\n",
+        ),
+    );
+    project.write("main.veln", consumer);
+    project.write(
+        "vendor/lib/veln.toml",
+        concat!(
+            "[package]\nname = \"example/pkg\"\n\n",
+            "[lib]\nexports = [\"math.veln\"]\n",
+        ),
+    );
+    project.write("vendor/lib/math.veln", positive);
+
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let initialized = server.handle_message(&initialize_request(&root_uri));
+    assert_contains_json(publish_for_uri(&initialized, &main_uri), r#""diagnostics":[]"#);
+    let initial_definition = server.handle_message(&definition_request(&main_uri, 2, 23));
+    let initial_virtual_uri =
+        package_virtual_definition_uri(&initial_definition[0], "example%2Fpkg", "math.veln");
+    let initial_snapshot = server
+        .project_snapshots
+        .get(&project.root)
+        .cloned()
+        .expect("initial dependency snapshot should be retained");
+
+    project.write("vendor/lib/math.veln", positive);
+    let unchanged = server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"{}"}}}}}}"#,
+        escape_json(consumer),
+    ));
+    assert_contains_json(publish_for_uri(&unchanged, &main_uri), r#""diagnostics":[]"#);
+    assert!(Arc::ptr_eq(
+        server
+            .project_snapshots
+            .get(&project.root)
+            .expect("unchanged dependency snapshot should remain retained"),
+        &initial_snapshot,
+    ));
+
+    project.write("vendor/lib/math.veln", mixed);
+    let rejected = server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didChange","params":{{"textDocument":{{"uri":"{main_uri}"}},"contentChanges":[{{"text":"{}"}}]}}}}"#,
+        escape_json(&format!("{consumer}\n")),
+    ));
+    let rejected_publish = publish_for_uri(&rejected, &main_uri);
+    assert_eq!(rejected_publish.matches(r#""code":"type.mismatch""#).count(), 1);
+    let mixed_snapshot = server
+        .project_snapshots
+        .get(&project.root)
+        .cloned()
+        .expect("changed dependency snapshot should be retained");
+    assert!(!Arc::ptr_eq(&mixed_snapshot, &initial_snapshot));
+    let mixed_definition = server.handle_message(&definition_request(&main_uri, 2, 23));
+    let mixed_virtual_uri =
+        package_virtual_definition_uri(&mixed_definition[0], "example%2Fpkg", "math.veln");
+    assert_ne!(mixed_virtual_uri, initial_virtual_uri);
+    assert_virtual_document_text(&mut server, "7", &initial_virtual_uri, positive);
+    assert_virtual_document_text(&mut server, "8", &mixed_virtual_uri, mixed);
+
+    project.write("vendor/lib/math.veln", positive);
+    let accepted = server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didChange","params":{{"textDocument":{{"uri":"{main_uri}"}},"contentChanges":[{{"text":"{}"}}]}}}}"#,
+        escape_json(&format!("{consumer}\n\n")),
+    ));
+    assert_contains_json(publish_for_uri(&accepted, &main_uri), r#""diagnostics":[]"#);
+    assert!(!Arc::ptr_eq(
+        server
+            .project_snapshots
+            .get(&project.root)
+            .expect("restored dependency snapshot should be retained"),
+        &mixed_snapshot,
+    ));
+    let restored_definition = server.handle_message(&definition_request(&main_uri, 2, 23));
+    let restored_virtual_uri =
+        package_virtual_definition_uri(&restored_definition[0], "example%2Fpkg", "math.veln");
+    assert_eq!(restored_virtual_uri, initial_virtual_uri);
+}
+
 fn path_dependency_project(name: &str, source_root: &str, retained_text: &str) -> TempProject {
     let project = TempProject::new(name);
     project.write(

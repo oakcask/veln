@@ -1,0 +1,6 @@
+use math from "example/pkg"
+
+fn verify(value: math::Producer<math::State::Ready>) -> ()
+	let widened: math::Producer<math::State> = value
+	()
+end

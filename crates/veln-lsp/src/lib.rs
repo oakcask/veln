@@ -106,6 +106,7 @@ struct Server {
     published_diagnostic_uris: BTreeMap<PathBuf, BTreeSet<String>>,
     project_snapshots: BTreeMap<PathBuf, Arc<EffectiveProjectSnapshot>>,
     overlaid_project_snapshots: BTreeMap<PathBuf, Arc<EffectiveProjectSnapshot>>,
+    retired_project_snapshots: Vec<Arc<EffectiveProjectSnapshot>>,
     should_exit: bool,
     #[cfg(test)]
     test_standard_library: Option<DirectDependencySnapshot>,
@@ -304,6 +305,7 @@ impl Server {
         let Some(bytes) = self
             .project_snapshots
             .values()
+            .chain(self.retired_project_snapshots.iter())
             .find_map(|snapshot| snapshot.resolve_virtual_source(&uri))
         else {
             return vec![error_response(
@@ -443,6 +445,7 @@ impl Server {
     }
 
     fn publish_workspace_diagnostics_for_root(&mut self, root: PathBuf) -> Vec<String> {
+        self.refresh_project_dependency_layer(&root);
         let (diagnostics_by_path, diagnostic_sources) = self.workspace_diagnostics_for_root(&root);
         let visible_root = visible_workspace_root(&root, &self.workspace_root_aliases);
         let mut next_uris = BTreeSet::new();
@@ -539,6 +542,7 @@ impl Server {
     fn capture_project_snapshots(&mut self) {
         self.project_snapshots.clear();
         self.overlaid_project_snapshots.clear();
+        self.retired_project_snapshots.clear();
         for root in self.workspace_roots.clone() {
             if let Some(snapshot) = retained_project_snapshot(
                 &root,
@@ -550,6 +554,27 @@ impl Server {
                 self.refresh_overlaid_project_snapshot(&root);
             }
         }
+    }
+
+    fn refresh_project_dependency_layer(&mut self, root: &Path) {
+        let Some(current) = self.project_snapshots.get(root).cloned() else {
+            return;
+        };
+        let Ok(project) = Project::discover(root.to_path_buf(), &[]) else {
+            return;
+        };
+        let direct_dependencies = project
+            .manifest
+            .as_ref()
+            .map(|manifest| retained_direct_dependencies(root, manifest))
+            .unwrap_or_default();
+        if current.has_direct_dependency_layer(&direct_dependencies) {
+            return;
+        }
+        let refreshed = Arc::new(current.with_direct_dependency_layer(direct_dependencies));
+        self.retired_project_snapshots.push(current);
+        self.project_snapshots.insert(root.to_path_buf(), refreshed);
+        self.refresh_overlaid_project_snapshot(root);
     }
 
     fn refresh_overlaid_project_snapshot(&mut self, root: &Path) {
