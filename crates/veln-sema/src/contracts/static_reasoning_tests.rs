@@ -207,6 +207,32 @@ fn high_arity_case_split_accepts_complementary_comparison_clauses() {
 }
 
 #[test]
+fn exhaustive_case_split_assignments_require_each_basis_predicate_once() {
+    let complete = [
+        "value.a and value.b",
+        "value.b and not value.a",
+        "not value.b and value.a",
+        "not value.a and not value.b",
+    ];
+    let bases = ["value.a", "value.b"];
+
+    assert!(exhaustive_case_split_is_complete(&complete, &bases));
+    assert!(!exhaustive_case_split_is_complete(
+        &complete[..complete.len() - 1],
+        &bases,
+    ));
+    assert!(!exhaustive_case_split_is_complete(
+        &[
+            "value.a and value.b",
+            "value.a and value.a",
+            "not value.b and value.a",
+            "not value.a and not value.b",
+        ],
+        &bases,
+    ));
+}
+
+#[test]
 fn boolean_formula_comparison_proves_commutative_conjunction() {
     assert_eq!(
         static_boolean_formula_comparison(

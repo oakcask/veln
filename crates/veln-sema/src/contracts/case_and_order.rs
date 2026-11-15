@@ -37,74 +37,16 @@ pub(super) fn exhaustive_case_split_is_complete(disjuncts: &[&str], bases: &[&st
     let Some(expected_clause_count) = 1usize.checked_shl(bases.len() as u32) else {
         return false;
     };
-    let indexed_bases = bases
-        .iter()
-        .map(|base| {
-            let (normalized_shape, normalized_polarity) = normalized_predicate_polarity(base);
-            (
-                *base,
-                predicate_shape(base),
-                normalized_shape,
-                normalized_polarity,
-            )
-        })
-        .collect::<Vec<_>>();
+    let basis = CaseSplitBasis::new(bases);
     let mut conjunct_static_values = HashMap::new();
     let mut covered = vec![false; expected_clause_count];
     let mut covered_count = 0;
 
-    'disjuncts: for disjunct in disjuncts {
+    for disjunct in disjuncts {
         let conjuncts = non_static_conjuncts_cached(disjunct, &mut conjunct_static_values);
-        if conjuncts.len() != bases.len() {
+        let Some(mask) = basis.assignment_mask(&conjuncts) else {
             continue;
-        }
-        let mut polarities = vec![None; bases.len()];
-        for conjunct in conjuncts {
-            let conjunct_shape = predicate_shape(conjunct);
-            let exact_index =
-                indexed_bases
-                    .iter()
-                    .enumerate()
-                    .position(|(index, (_, shape, _, _))| {
-                        polarities[index].is_none() && shape == &conjunct_shape
-                    });
-            if let Some(index) = exact_index {
-                polarities[index] = Some(true);
-                continue;
-            }
-
-            let (normalized_shape, normalized_polarity) = normalized_predicate_polarity(conjunct);
-            let complementary_index = indexed_bases
-                .iter()
-                .enumerate()
-                .position(|(index, (_, _, base_shape, base_polarity))| {
-                    polarities[index].is_none()
-                        && base_shape == &normalized_shape
-                        && *base_polarity != normalized_polarity
-                })
-                .or_else(|| {
-                    indexed_bases
-                        .iter()
-                        .enumerate()
-                        .position(|(index, (base, _, _, _))| {
-                            polarities[index].is_none() && complementary_comparisons(conjunct, base)
-                        })
-                });
-            let Some(index) = complementary_index else {
-                continue 'disjuncts;
-            };
-            polarities[index] = Some(false);
-        }
-        let mut mask = 0usize;
-        for polarity in polarities {
-            match polarity {
-                Some(polarity) => {
-                    mask = (mask << 1) | usize::from(polarity);
-                    continue;
-                }
-                None => continue 'disjuncts,
-            }
-        }
+        };
         if !covered[mask] {
             covered[mask] = true;
             covered_count += 1;
@@ -115,6 +57,85 @@ pub(super) fn exhaustive_case_split_is_complete(disjuncts: &[&str], bases: &[&st
     }
 
     false
+}
+
+struct CaseSplitBasis<'a> {
+    predicates: Vec<CaseSplitPredicate<'a>>,
+}
+
+struct CaseSplitPredicate<'a> {
+    source: &'a str,
+    shape: String,
+    normalized_shape: String,
+    normalized_polarity: bool,
+}
+
+impl<'a> CaseSplitBasis<'a> {
+    fn new(bases: &[&'a str]) -> Self {
+        let predicates = bases
+            .iter()
+            .map(|base| {
+                let (normalized_shape, normalized_polarity) = normalized_predicate_polarity(base);
+                CaseSplitPredicate {
+                    source: base,
+                    shape: predicate_shape(base),
+                    normalized_shape,
+                    normalized_polarity,
+                }
+            })
+            .collect();
+        Self { predicates }
+    }
+
+    fn assignment_mask(&self, conjuncts: &[&str]) -> Option<usize> {
+        if conjuncts.len() != self.predicates.len() {
+            return None;
+        }
+        let mut polarities = vec![None; self.predicates.len()];
+        for conjunct in conjuncts {
+            let (index, polarity) = self.unassigned_polarity(conjunct, &polarities)?;
+            polarities[index] = Some(polarity);
+        }
+        polarities.into_iter().try_fold(0usize, |mask, polarity| {
+            polarity.map(|polarity| (mask << 1) | usize::from(polarity))
+        })
+    }
+
+    fn unassigned_polarity(
+        &self,
+        conjunct: &str,
+        polarities: &[Option<bool>],
+    ) -> Option<(usize, bool)> {
+        let conjunct_shape = predicate_shape(conjunct);
+        if let Some(index) = self
+            .predicates
+            .iter()
+            .enumerate()
+            .position(|(index, base)| polarities[index].is_none() && base.shape == conjunct_shape)
+        {
+            return Some((index, true));
+        }
+
+        let (normalized_shape, normalized_polarity) = normalized_predicate_polarity(conjunct);
+        self.predicates
+            .iter()
+            .enumerate()
+            .position(|(index, base)| {
+                polarities[index].is_none()
+                    && base.normalized_shape == normalized_shape
+                    && base.normalized_polarity != normalized_polarity
+            })
+            .or_else(|| {
+                self.predicates
+                    .iter()
+                    .enumerate()
+                    .position(|(index, base)| {
+                        polarities[index].is_none()
+                            && complementary_comparisons(conjunct, base.source)
+                    })
+            })
+            .map(|index| (index, false))
+    }
 }
 
 fn non_static_conjuncts_cached<'a>(
