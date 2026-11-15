@@ -37,6 +37,82 @@ struct RankedSymbolCandidate {
     binding_type: Type,
 }
 
+fn nested_failure_json(
+    failure: &AssignabilityFailure,
+    expected_declaration: Option<&SourceSpan>,
+) -> JsonValue {
+    JsonValue::object([
+        (
+            "path",
+            JsonValue::array(failure.path.iter().map(path_segment_json)),
+        ),
+        (
+            "comparison_direction",
+            JsonValue::string(comparison_direction_id(failure.direction)),
+        ),
+        (
+            "expected_declaration",
+            expected_declaration.map_or(JsonValue::Null, span_json),
+        ),
+    ])
+}
+
+fn path_segment_json(segment: &AssignabilityPathSegment) -> JsonValue {
+    match segment {
+        AssignabilityPathSegment::NamedArgument(index) => JsonValue::object([
+            ("kind", JsonValue::string("named_argument")),
+            ("index", JsonValue::Number(*index as i64)),
+        ]),
+        AssignabilityPathSegment::RecordField(name) => JsonValue::object([
+            ("kind", JsonValue::string("record_field")),
+            ("name", JsonValue::string(name)),
+        ]),
+        AssignabilityPathSegment::FunctionInput(index) => JsonValue::object([
+            ("kind", JsonValue::string("function_input")),
+            ("index", JsonValue::Number(*index as i64)),
+        ]),
+        AssignabilityPathSegment::VariadicElement => {
+            JsonValue::object([("kind", JsonValue::string("variadic_element"))])
+        }
+        AssignabilityPathSegment::FunctionResult => {
+            JsonValue::object([("kind", JsonValue::string("function_result"))])
+        }
+        AssignabilityPathSegment::EffectSet => {
+            JsonValue::object([("kind", JsonValue::string("effect_set"))])
+        }
+    }
+}
+
+fn comparison_direction_id(direction: ComparisonDirection) -> &'static str {
+    match direction {
+        ComparisonDirection::ExpectedAcceptsActual => "expected_accepts_actual",
+        ComparisonDirection::ActualAcceptsExpected => "actual_accepts_expected",
+        ComparisonDirection::ExactMatch => "exact_match",
+    }
+}
+
+fn comparison_direction_text(direction: ComparisonDirection) -> &'static str {
+    match direction {
+        ComparisonDirection::ExpectedAcceptsActual => "expected type accepts actual type",
+        ComparisonDirection::ActualAcceptsExpected => "actual type accepts expected type",
+        ComparisonDirection::ExactMatch => "types must match exactly",
+    }
+}
+
+fn nested_path_text(path: &[AssignabilityPathSegment]) -> String {
+    path.iter()
+        .map(|segment| match segment {
+            AssignabilityPathSegment::NamedArgument(index) => format!("named argument {index}"),
+            AssignabilityPathSegment::RecordField(name) => format!("record field `{name}`"),
+            AssignabilityPathSegment::FunctionInput(index) => format!("function input {index}"),
+            AssignabilityPathSegment::VariadicElement => "variadic element".to_string(),
+            AssignabilityPathSegment::FunctionResult => "function result".to_string(),
+            AssignabilityPathSegment::EffectSet => "effect set".to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join(" -> ")
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(in crate::analysis) fn check_contextual_assignable_nested(
         &mut self,
@@ -216,7 +292,31 @@ impl<'a> FunctionChecker<'a> {
         expected_source: &ExpectedType,
         constraint: &'static str,
     ) {
-        let diagnostic = Diagnostic::new(
+        let nested_failure =
+            assignability_failure_with_registry(expected, actual, &self.environment.adts)
+                .filter(|failure| !failure.path.is_empty());
+        let mut details = type_details(
+            expr.node_id.display("expr"),
+            expected.render(),
+            actual.render(),
+            expected_source.source.as_type_source(),
+            "inferred_expression",
+            constraint,
+            [
+                self.function.node_id.display("fn"),
+                expected_source.origin_node_id.display("expr"),
+                expr.node_id.display("expr"),
+            ],
+        );
+        if let Some(failure) = &nested_failure
+            && let JsonValue::Object(entries) = &mut details
+        {
+            entries.push((
+                "nested_incompatibility".to_string(),
+                nested_failure_json(failure, expected_source.origin_span.as_ref()),
+            ));
+        }
+        let mut diagnostic = Diagnostic::new(
             "type.mismatch",
             Severity::Error,
             DiagnosticKind::Type,
@@ -226,20 +326,36 @@ impl<'a> FunctionChecker<'a> {
                 actual.render()
             ),
             Some(expr.span.clone()),
-            type_details(
-                expr.node_id.display("expr"),
-                expected.render(),
-                actual.render(),
-                expected_source.source.as_type_source(),
-                "inferred_expression",
-                constraint,
-                [
-                    self.function.node_id.display("fn"),
-                    expected_source.origin_node_id.display("expr"),
-                    expr.node_id.display("expr"),
-                ],
-            ),
+            details,
         );
+        if let Some(failure) = nested_failure {
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("nested_type_incompatibility")),
+                (
+                    "message",
+                    JsonValue::string(format!(
+                        "Nested type comparison failed at {} ({}).",
+                        nested_path_text(&failure.path),
+                        comparison_direction_text(failure.direction),
+                    )),
+                ),
+                (
+                    "path",
+                    JsonValue::array(failure.path.iter().map(path_segment_json)),
+                ),
+                (
+                    "comparison_direction",
+                    JsonValue::string(comparison_direction_id(failure.direction)),
+                ),
+            ]));
+            if let Some(origin_span) = &expected_source.origin_span {
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("expected_type_origin")),
+                    ("message", JsonValue::string(expected_source.origin_message)),
+                    ("span", span_json(origin_span)),
+                ]));
+            }
+        }
         self.diagnostics.push(diagnostic);
     }
 

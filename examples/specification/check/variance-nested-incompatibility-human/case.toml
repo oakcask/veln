@@ -1,0 +1,20 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "expected `Vec<State::Ready>`, but found `Vec<State>`",
+  "Nested type comparison failed at named argument 0 (expected type accepts actual type).",
+  "Nested type comparison failed at record field `alpha` (expected type accepts actual type).",
+  "Nested type comparison failed at function input 0 (actual type accepts expected type).",
+  "Nested type comparison failed at variadic element (actual type accepts expected type).",
+  "Nested type comparison failed at function result (expected type accepts actual type).",
+  "Nested type comparison failed at effect set (expected type accepts actual type).",
+  "Type annotation declared here.",
+  "value of type `State` is not assignable to variant type `State::Ready`",
+  "Schema encode value must match the schema-local visible record.",
+]
+
+[stderr]
+format = "empty"

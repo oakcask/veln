@@ -1,0 +1,41 @@
+type State
+	Ready
+	Closed
+end
+
+schema Packet
+	state: State::Ready
+end
+
+fn fixed_ready(value: State::Ready) -> State
+	value
+end
+
+fn variadic_ready(values: ...State::Ready) -> State
+	Ready
+end
+
+fn result_state() -> State
+	Ready
+end
+
+fn stdio_callback() -> () effects [stdio]
+	stdio::println("effect")
+end
+
+fn nested_failures(values: Vec<State>, fields: {zeta: State, alpha: State}) -> ()
+	let named: Vec<State::Ready> = values
+	let record: {zeta: State::Ready, alpha: State::Ready} = fields
+	let fixed: fn(State) -> State = fixed_ready
+	let variadic: fn(...State) -> State = variadic_ready
+	let result: fn() -> State::Ready = result_state
+	let effectful: fn() -> () = stdio_callback
+end
+
+fn direct_exclusion(value: State) -> State::Ready
+	value
+end
+
+fn generated_encode_boundary(value: State) -> Result<{state: State::Ready}, String>
+	encode Packet from {state: value}
+end

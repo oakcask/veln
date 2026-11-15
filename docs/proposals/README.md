@@ -17,9 +17,8 @@ also states it.
 ## Ready
 
 - Complete the remaining dependency variance-metadata invalidation, stable
-  formatter, package, LSP, and MCP presentation, nested incompatibility
-  diagnostics, and whole-analysis and language-service failure preservation
-  for generic and function variance:
+  formatter, package, LSP, and MCP presentation, and whole-analysis and
+  language-service failure preservation for generic and function variance:
   [generic-and-function-variance.md](generic-and-function-variance.md).
 
 ## Design In Progress

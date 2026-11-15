@@ -121,6 +121,308 @@ pub(crate) fn is_assignable_with_registry(
     Assignability::with_registry(adts).is_assignable(expected, actual)
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum AssignabilityPathSegment {
+    NamedArgument(usize),
+    RecordField(String),
+    FunctionInput(usize),
+    VariadicElement,
+    FunctionResult,
+    EffectSet,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ComparisonDirection {
+    ExpectedAcceptsActual,
+    ActualAcceptsExpected,
+    ExactMatch,
+}
+
+impl ComparisonDirection {
+    fn reversed(self) -> Self {
+        match self {
+            Self::ExpectedAcceptsActual => Self::ActualAcceptsExpected,
+            Self::ActualAcceptsExpected => Self::ExpectedAcceptsActual,
+            Self::ExactMatch => Self::ExactMatch,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct AssignabilityFailure {
+    pub(crate) path: Vec<AssignabilityPathSegment>,
+    pub(crate) direction: ComparisonDirection,
+}
+
+pub(crate) fn assignability_failure_with_registry(
+    expected: &Type,
+    actual: &Type,
+    adts: &dyn ParameterVarianceLookup,
+) -> Option<AssignabilityFailure> {
+    first_assignability_failure(
+        expected,
+        actual,
+        adts,
+        Vec::new(),
+        ComparisonDirection::ExpectedAcceptsActual,
+    )
+}
+
+fn first_assignability_failure(
+    expected: &Type,
+    actual: &Type,
+    adts: &dyn ParameterVarianceLookup,
+    path: Vec<AssignabilityPathSegment>,
+    direction: ComparisonDirection,
+) -> Option<AssignabilityFailure> {
+    if expected == &Type::Unknown || actual == &Type::Unknown || expected == actual {
+        return None;
+    }
+
+    match (expected, actual) {
+        (
+            Type::Named {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+            }
+            | Type::VariantRefinement {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+                ..
+            },
+            Type::Named {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+            }
+            | Type::VariantRefinement {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+                ..
+            },
+        ) if same_type_identity(
+            expected_name,
+            expected_identity,
+            actual_name,
+            actual_identity,
+        ) =>
+        {
+            if matches!(expected, Type::VariantRefinement { .. })
+                && matches!(actual, Type::Named { .. })
+            {
+                return Some(AssignabilityFailure { path, direction });
+            }
+            if let Some(failure) = first_named_argument_failure(
+                expected_identity,
+                expected_args,
+                actual_identity,
+                actual_args,
+                adts,
+                path.clone(),
+                direction,
+            ) {
+                return Some(failure);
+            }
+            if let (
+                Type::VariantRefinement {
+                    variants: expected_variants,
+                    ..
+                },
+                Type::VariantRefinement {
+                    variants: actual_variants,
+                    ..
+                },
+            ) = (expected, actual)
+            {
+                let expected_variants = expected_variants.iter().collect::<HashSet<_>>();
+                if actual_variants
+                    .iter()
+                    .any(|variant| !expected_variants.contains(variant))
+                {
+                    return Some(AssignabilityFailure { path, direction });
+                }
+            }
+            None
+        }
+        (Type::Record(expected_fields), Type::Record(actual_fields)) => {
+            let actual_by_name = index_record_fields(actual_fields);
+            let mut expected_by_name = expected_fields.iter().collect::<Vec<_>>();
+            expected_by_name.sort_by(|left, right| left.0.cmp(&right.0));
+            for (name, expected_ty) in expected_by_name {
+                let mut nested_path = path.clone();
+                nested_path.push(AssignabilityPathSegment::RecordField(name.clone()));
+                let Some(actual_ty) = indexed_record_field(&actual_by_name, name) else {
+                    return Some(AssignabilityFailure {
+                        path: nested_path,
+                        direction,
+                    });
+                };
+                if let Some(failure) = first_assignability_failure(
+                    expected_ty,
+                    actual_ty,
+                    adts,
+                    nested_path,
+                    direction,
+                ) {
+                    return Some(failure);
+                }
+            }
+            None
+        }
+        (
+            Type::Function {
+                params: expected_params,
+                variadic: expected_variadic,
+                return_type: expected_return,
+                effects: expected_effects,
+            },
+            Type::Function {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                effects: actual_effects,
+            },
+        ) => {
+            let shared_params = expected_params.len().min(actual_params.len());
+            for index in 0..shared_params {
+                let mut nested_path = path.clone();
+                nested_path.push(AssignabilityPathSegment::FunctionInput(index));
+                if let Some(failure) = first_assignability_failure(
+                    &actual_params[index],
+                    &expected_params[index],
+                    adts,
+                    nested_path,
+                    direction.reversed(),
+                ) {
+                    return Some(failure);
+                }
+            }
+            if expected_params.len() != actual_params.len() {
+                let mut nested_path = path.clone();
+                nested_path.push(AssignabilityPathSegment::FunctionInput(shared_params));
+                return Some(AssignabilityFailure {
+                    path: nested_path,
+                    direction: direction.reversed(),
+                });
+            }
+            match (expected_variadic.as_deref(), actual_variadic.as_deref()) {
+                (Some(expected), Some(actual)) => {
+                    let mut nested_path = path.clone();
+                    nested_path.push(AssignabilityPathSegment::VariadicElement);
+                    if let Some(failure) = first_assignability_failure(
+                        actual,
+                        expected,
+                        adts,
+                        nested_path,
+                        direction.reversed(),
+                    ) {
+                        return Some(failure);
+                    }
+                }
+                (None, None) => {}
+                _ => {
+                    let mut nested_path = path.clone();
+                    nested_path.push(AssignabilityPathSegment::VariadicElement);
+                    return Some(AssignabilityFailure {
+                        path: nested_path,
+                        direction: direction.reversed(),
+                    });
+                }
+            }
+            let mut result_path = path.clone();
+            result_path.push(AssignabilityPathSegment::FunctionResult);
+            if let Some(failure) = first_assignability_failure(
+                expected_return,
+                actual_return,
+                adts,
+                result_path,
+                direction,
+            ) {
+                return Some(failure);
+            }
+            if !effects_are_assignable(expected_effects, actual_effects) {
+                let mut nested_path = path;
+                nested_path.push(AssignabilityPathSegment::EffectSet);
+                return Some(AssignabilityFailure {
+                    path: nested_path,
+                    direction,
+                });
+            }
+            None
+        }
+        _ => Some(AssignabilityFailure { path, direction }),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn first_named_argument_failure(
+    expected_identity: &str,
+    expected_args: &TypeArgs,
+    actual_identity: &str,
+    actual_args: &TypeArgs,
+    adts: &dyn ParameterVarianceLookup,
+    path: Vec<AssignabilityPathSegment>,
+    direction: ComparisonDirection,
+) -> Option<AssignabilityFailure> {
+    if expected_args.len() != actual_args.len() {
+        let mut nested_path = path;
+        nested_path.push(AssignabilityPathSegment::NamedArgument(
+            expected_args.len().min(actual_args.len()),
+        ));
+        return Some(AssignabilityFailure {
+            path: nested_path,
+            direction,
+        });
+    }
+    let compiler_variance = match (
+        Type::is_compiler_covariant_identity(expected_identity),
+        Type::is_compiler_covariant_identity(actual_identity),
+    ) {
+        (true, true) => Some(Variance::Covariant),
+        (true, false) | (false, true) => return Some(AssignabilityFailure { path, direction }),
+        (false, false) => None,
+    };
+    let registry_variances = (expected_identity == actual_identity)
+        .then(|| adts.parameter_variances_for_identity(expected_identity, expected_args.len()));
+    for (index, (expected, actual)) in expected_args.iter().zip(actual_args).enumerate() {
+        let variance = compiler_variance
+            .or_else(|| {
+                registry_variances
+                    .flatten()
+                    .and_then(|variances| variances.get(index).copied())
+            })
+            .unwrap_or(Variance::Invariant);
+        let mut nested_path = path.clone();
+        nested_path.push(AssignabilityPathSegment::NamedArgument(index));
+        let failure = match variance {
+            Variance::Covariant => {
+                first_assignability_failure(expected, actual, adts, nested_path, direction)
+            }
+            Variance::Contravariant => first_assignability_failure(
+                actual,
+                expected,
+                adts,
+                nested_path,
+                direction.reversed(),
+            ),
+            Variance::Invariant if !invariant_types_match(expected, actual) => {
+                Some(AssignabilityFailure {
+                    path: nested_path,
+                    direction: ComparisonDirection::ExactMatch,
+                })
+            }
+            Variance::Invariant | Variance::Irrelevant => None,
+        };
+        if failure.is_some() {
+            return failure;
+        }
+    }
+    None
+}
+
 pub(crate) fn is_assignable_nested_with_registry(
     expected: &Type,
     actual: &Type,
