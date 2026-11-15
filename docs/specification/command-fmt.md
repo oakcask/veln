@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The veln fmt command parsing gate, formatting behavior, source discovery behavior, or write policy changes.
+update-when: The veln fmt command parsing gate, formatting behavior, source discovery behavior, write policy, or executable formatting evidence changes.
 specification-coverage: usage=#format-command; behavior=#formatting-rules; limits=#limits-and-errors
 ---
 
