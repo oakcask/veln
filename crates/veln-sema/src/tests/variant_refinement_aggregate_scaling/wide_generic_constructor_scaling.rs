@@ -344,3 +344,71 @@ fn unresolved_structural_constructor_constraints_resolve_with_linear_work() {
         "doubling unresolved structural constraints must add only linear incremental clone, comparison, bound-update, and presentation work: {work:?}",
     );
 }
+
+fn repeated_pair_resolvable_structural_source(repetitions: usize) -> String {
+    let payloads = (0..repetitions)
+        .map(|index| format!("p{index}: fn(T) -> ()"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let arguments = (0..repetitions)
+        .map(|index| {
+            if index % 2 == 0 {
+                "accepts_closed"
+            } else {
+                "accepts_ready"
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "type State\n  Ready\n  Closed\nend\n\
+         type Other\n  OtherValue\nend\n\
+         type Repeated<T>\n  Made(fn(T) -> (), fn(T) -> (), {payloads})\nend\n\
+         fn accepts_other(value: fn({{a: Int, b: Int}}) -> Other) -> ()\n  ()\nend\n\
+         fn accepts_ready(value: fn({{a: Int, b: Int}}) -> State::Ready) -> ()\n  ()\nend\n\
+         fn accepts_closed(value: fn({{a: Int, b: Int}}) -> State::Closed) -> ()\n  ()\nend\n\
+         fn inferred()\n  Made(accepts_other, accepts_ready, {arguments})\nend\n\
+         fn ordinary() -> ()\n  let unavailable = Made(accepts_other, accepts_ready, {arguments})\nend\n",
+    )
+}
+
+fn measure_repeated_pair_resolvable_structural_work(repetitions: usize) -> usize {
+    let source = SourceFile::new(
+        "main.veln",
+        repeated_pair_resolvable_structural_source(repetitions),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::aggregate_type_join::reset_work();
+    crate::aggregate_type_join::reset_bounded_frames();
+    crate::aggregate_type_join::reset_bounded_candidate_work();
+    let (diagnostics, cloned_type_nodes) =
+        crate::semantic_model::measure_type_clone_nodes(|| analyze_surface_module(&module));
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "type.inference_ambiguous" | "type.private_inference_incomplete"
+            )
+        }),
+        "{diagnostics:#?}",
+    );
+    let bounded = crate::aggregate_type_join::take_bounded_candidate_work();
+    crate::aggregate_type_join::take_work()
+        + crate::aggregate_type_join::take_bounded_frames()
+        + cloned_type_nodes
+        + bounded.candidate_iterations
+        + bounded.relation_key_nodes
+        + bounded.candidate_order_nodes
+        + bounded.result_materialization_units
+}
+
+#[test]
+fn repeated_pair_resolvable_structural_constraints_have_linear_work() {
+    let work = [16, 32, 64].map(measure_repeated_pair_resolvable_structural_work);
+    assert!(
+        work[1] <= work[0] * 2 + 256 && work[2] <= work[1] * 2 + 256,
+        "repeated pair-resolvable structural constraints must not rescan the retained prefix: {work:?}",
+    );
+}

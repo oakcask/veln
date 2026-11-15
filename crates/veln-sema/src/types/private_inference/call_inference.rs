@@ -256,6 +256,7 @@ fn infer_private_constructor_payload(
             constructor,
             index,
             &inferred_actual,
+            expected,
             joined,
             merge_invariant,
             context.adts,
@@ -467,6 +468,7 @@ impl PrivateConstructorTypeArgInference {
         constructor: AdtConstructor<'_>,
         index: usize,
         actual: &Type,
+        expected: Option<&Type>,
         _joined: bool,
         _merge_invariant: bool,
         adts: &AdtRegistry,
@@ -476,7 +478,7 @@ impl PrivateConstructorTypeArgInference {
         };
         let _ = field;
         self.constraints
-            .contribute_payload(constructor, index, actual, adts)
+            .contribute_payload(constructor, index, actual, expected, adts)
     }
 
     fn finish(self, expected: Option<&Type>, constructor: AdtConstructor<'_>) -> Vec<Type> {

@@ -1671,11 +1671,14 @@ set has no required join or meet, the constructor keeps its existing
 explicit-context requirement and reports the existing ambiguity without
 context. It does not synthesize a union, intersection, bottom type, or `unknown`
 argument. An explicit expected constructor type can supply an argument that
-irrelevant occurrences or unavailable bounds do not infer.
+irrelevant occurrences or unavailable bounds do not infer. Before using that
+argument, inference checks it against every retained lower, upper, and equality
+constraint. An incompatible payload reports its focused mismatch and leaves the
+previously admitted aggregate state unchanged.
 
 All occurrences contributed by one payload are accepted or rejected together.
 If one occurrence conflicts, no occurrence from that payload constrains the
-constructor type argument. A later valid payload therefore continues from the
+constructor type arguments. A later valid payload therefore continues from the
 last successfully inferred type instead of from a partial result of the failed
 payload. This rule also applies when one payload contributes several lower,
 upper, or equality constraints through nested types.
@@ -1760,6 +1763,17 @@ bounded-candidate ordering, relation-key construction, result materialization,
 and relation-cache retained state. Each doubled size may use at most twice the
 preceding work plus 256. The result must be the same resolved function type in
 both inference pipelines. Elapsed time is observational and is not an
+acceptance threshold.
+
+A repeated structural-bound workload retains an upper constraint, then starts
+its lower-bound stream with function results `Other` and `State::Ready`. It
+alternates `State::Closed` and `State::Ready` results after that prefix. Each
+new adjacent pair has a bounded result, but the retained `Other` result keeps
+the complete lower-bound set unresolved. The workload measures 16, 32, and 64
+repetitions in ordinary body inference and omitted private-result inference.
+Each doubled size may use at most twice the preceding deterministic work plus
+256. This rejects repeated full-prefix retries while leaving the existing
+ambiguity outcome unchanged. Elapsed time is observational and is not an
 acceptance threshold.
 
 Complementary workloads project repeated list and dictionary members through

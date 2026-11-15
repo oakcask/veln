@@ -76,3 +76,49 @@ pub fn main() -> ()
 	let ordinary_named: Outer<State> = Out(Ready, rejected_other, Closed)
 	let ordinary_structural: Structured<State> = Shaped(Ready, rejected_record, Closed)
 end
+
+type A
+	AValue
+end
+
+type B
+	BValue
+end
+
+type C
+	CValue
+end
+
+type Wrap<T>
+	Made({left: T, right: T}, Phantom<T>)
+end
+
+fn private_context_bounds(good: {left: A, right: A}, bad: {left: B, right: C}, later: {left: A, right: A})
+	[Made(good, Empty), Made(bad, Empty), Made(later, Empty)]
+end
+
+fn ordinary_context_bounds(good: {left: A, right: A}, bad: {left: B, right: C}, later: {left: A, right: A}) -> ()
+	let values = [Made(good, Empty), Made(bad, Empty), Made(later, Empty)]
+	()
+end
+
+type Invariant<T>
+	InvariantValue(fn(T) -> T)
+end
+
+type Atomic<A, B>
+	AtomicValue(A, B, {widen: A, exact: Invariant<B>}, {later_a: A, later_b: B})
+end
+
+fn private_atomic(rejected: {widen: State::Closed, exact: Invariant<State::Closed>}, later: {later_a: State::Ready, later_b: State::Ready})
+	AtomicValue(Ready, Ready, rejected, later)
+end
+
+fn needs_atomic_other(value: Atomic<Other, Other>) -> ()
+	()
+end
+
+fn ordinary_atomic(rejected: {widen: State::Closed, exact: Invariant<State::Closed>}, later: {later_a: State::Ready, later_b: State::Ready}) -> ()
+	let retained = AtomicValue(Ready, Ready, rejected, later)
+	needs_atomic_other(retained)
+end

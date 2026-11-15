@@ -15,7 +15,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 9
+equals = 14
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -115,3 +115,58 @@ message = "expected `{guard: Option<Int>, value: State}`, but found `{wrong: Str
 file = "main.veln"
 line = 77
 column = 61
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{left: A, right: A}`, but found `{left: B, right: C}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 97
+column = 27
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `A`, but found `C`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 101
+column = 40
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{widen: State::Ready, exact: Invariant<State::Ready>}`, but found `{widen: State::Closed, exact: Invariant<State::Closed>}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 114
+column = 28
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `State::Closed`, but found `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 122
+column = 43
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Atomic<Other, Other>`, but found `Atomic<State::Ready, State::Ready>::AtomicValue`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 123
+column = 21

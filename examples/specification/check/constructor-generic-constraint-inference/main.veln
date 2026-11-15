@@ -212,3 +212,24 @@ pub fn main() -> ()
 	needs_transition(private_transition(transition_payload))
 	ordinary_transition(transition_payload)
 end
+
+type Contravariant<T>
+	ContravariantValue(fn(T) -> ())
+end
+
+type Composed<T>
+	ComposedValue(fn(Contravariant<T>) -> (), fn(Contravariant<T>) -> ())
+end
+
+fn composed_forward(callbacks: {ready: fn(Contravariant<State::Ready>::ContravariantValue) -> (), closed: fn(Contravariant<State::Closed>::ContravariantValue) -> ()})
+	ComposedValue(callbacks.ready, callbacks.closed)
+end
+
+fn composed_reverse(callbacks: {ready: fn(Contravariant<State::Ready>::ContravariantValue) -> (), closed: fn(Contravariant<State::Closed>::ContravariantValue) -> ()})
+	ComposedValue(callbacks.closed, callbacks.ready)
+end
+
+fn composed_ordinary(callbacks: {ready: fn(Contravariant<State::Ready>::ContravariantValue) -> (), closed: fn(Contravariant<State::Closed>::ContravariantValue) -> ()}) -> ()
+	let forward: Composed<State::Ready | State::Closed> = ComposedValue(callbacks.ready, callbacks.closed)
+	let reverse: Composed<State::Ready | State::Closed> = ComposedValue(callbacks.closed, callbacks.ready)
+end

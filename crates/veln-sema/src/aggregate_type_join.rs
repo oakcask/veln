@@ -57,6 +57,7 @@ struct ConstraintListNode {
 struct CanonicalConstraintBound {
     selected: Option<CanonicalConstraint>,
     unresolved: Option<Arc<ConstraintListNode>>,
+    retry_witness: Option<Type>,
 }
 
 #[derive(Clone)]
@@ -1747,6 +1748,7 @@ impl ConstructorTypeArgConstraints {
         constructor: AdtConstructor<'_>,
         payload_index: usize,
         actual: &Type,
+        expected: Option<&Type>,
         adts: &AdtRegistry,
     ) -> Result<(), unification::TypeParameterContributionConflict> {
         let field = constructor.variant.payload_fields.get(payload_index);
@@ -1772,9 +1774,10 @@ impl ConstructorTypeArgConstraints {
             adts,
             &mut contributions,
         );
-        if contributions
-            .iter()
-            .all(|contribution| contribution.polarity == Variance::Covariant)
+        if expected.is_none()
+            && contributions
+                .iter()
+                .all(|contribution| contribution.polarity == Variance::Covariant)
             && contributions.iter().all(|contribution| {
                 self.parameters
                     .get(contribution.parameter)
@@ -1809,8 +1812,11 @@ impl ConstructorTypeArgConstraints {
                 Variance::Irrelevant => {}
             }
         }
-        for parameter in trial.values_mut() {
-            parameter.resolved = solve_type_parameter_constraints(parameter, adts)?;
+        let expected_args =
+            expected.and_then(|expected| unification::adt_args(expected, constructor.descriptor));
+        for (index, parameter) in &mut trial {
+            let fallback = expected_args.and_then(|args| args.get(*index));
+            parameter.resolved = solve_type_parameter_constraints(parameter, fallback, adts)?;
         }
         for (index, parameter) in trial {
             self.parameters[index] = parameter;
@@ -1947,6 +1953,7 @@ impl CanonicalConstraintBound {
             return Self {
                 selected: Some(selected),
                 unresolved: None,
+                retry_witness: None,
             };
         }
         let mut bound = Self::default();
@@ -2015,16 +2022,23 @@ impl CanonicalConstraintBound {
             return;
         }
 
-        if let Some(unresolved) = &self.unresolved
-            && !constraint_pair_has_bound(
-                &contribution.ty,
-                &unresolved.constraint.ty,
-                direction,
-                adts,
-            )
-        {
-            self.push_unresolved(contribution);
-            return;
+        if let Some(unresolved) = &self.unresolved {
+            let Some(pair_bound) =
+                constraint_pair_bound(&contribution.ty, &unresolved.constraint.ty, direction, adts)
+            else {
+                self.push_unresolved(contribution);
+                return;
+            };
+            if self.retry_witness.as_ref().is_some_and(|witness| {
+                invariant_args_match(
+                    std::slice::from_ref(witness),
+                    std::slice::from_ref(&pair_bound),
+                )
+            }) {
+                self.push_unresolved(contribution);
+                return;
+            }
+            self.retry_witness = Some(pair_bound);
         }
 
         let mut constraints = self.constraints();
@@ -2050,6 +2064,7 @@ impl CanonicalConstraintBound {
             }
             self.selected = Some(selected);
             self.unresolved = None;
+            self.retry_witness = None;
         } else {
             if let Some(selected) = self.selected.take() {
                 self.push_unresolved(selected);
@@ -2300,9 +2315,11 @@ fn checked_parameter_variances(identity: &str, arity: usize, adts: &AdtRegistry)
 
 fn solve_type_parameter_constraints(
     constraints: &TypeParameterConstraints,
+    fallback: Option<&Type>,
     adts: &AdtRegistry,
 ) -> Result<Option<Type>, unification::TypeParameterContributionConflict> {
-    let selected = select_constraint_candidate(constraints);
+    let selected = select_constraint_candidate(constraints)
+        .or_else(|| fallback.cloned().map(CanonicalConstraint::new));
     selected
         .map(|selected| validate_constraint_bounds(constraints, selected, adts))
         .transpose()
@@ -3605,19 +3622,22 @@ fn candidate_relation(
     }
 }
 
-fn constraint_pair_has_bound(
+fn constraint_pair_bound(
     candidate: &Type,
     contribution: &Type,
     direction: BoundDirection,
     adts: &AdtRegistry,
-) -> bool {
+) -> Option<Type> {
     if candidate_relation(candidate, contribution, direction, adts) {
-        return true;
+        return Some(match direction {
+            BoundDirection::Join => candidate.clone(),
+            BoundDirection::Meet => contribution.clone(),
+        });
     }
     let pair = [candidate, contribution];
     match direction {
-        BoundDirection::Join => bounded_join_refs(adts, &pair).is_some(),
-        BoundDirection::Meet => bounded_meet_refs(adts, &pair).is_some(),
+        BoundDirection::Join => bounded_join_refs(adts, &pair),
+        BoundDirection::Meet => bounded_meet_refs(adts, &pair),
     }
 }
 

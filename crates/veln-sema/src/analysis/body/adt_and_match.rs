@@ -595,6 +595,7 @@ impl<'a> FunctionChecker<'a> {
             index,
             constructor,
             type_args,
+            expected.map(|expected| &expected.ty),
             &arg_expected,
             &inferred,
             joined,
@@ -685,6 +686,7 @@ impl<'a> FunctionChecker<'a> {
         index: usize,
         constructor: AdtConstructor,
         type_args: &mut ConstructorTypeArgInference,
+        expected: Option<&Type>,
         arg_expected: &ExpectedType,
         inferred: &Type,
         joined: bool,
@@ -696,6 +698,7 @@ impl<'a> FunctionChecker<'a> {
                 constructor,
                 index,
                 inferred,
+                expected,
                 joined,
                 &self.environment.adts,
             )
@@ -2150,18 +2153,20 @@ impl ConstructorTypeArgInference {
         fallback.ty.clone()
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn commit(
         &mut self,
         field: &AdtPayloadField,
         constructor: AdtConstructor<'_>,
         index: usize,
         actual: &Type,
+        expected: Option<&Type>,
         _joined: bool,
         adts: &AdtRegistry,
     ) -> Result<(), unification::TypeParameterContributionConflict> {
         let _ = field;
         self.constraints
-            .contribute_payload(constructor, index, actual, adts)
+            .contribute_payload(constructor, index, actual, expected, adts)
     }
 
     fn finish(self, expected: Option<&Type>, constructor: AdtConstructor<'_>) -> Vec<Type> {

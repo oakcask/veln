@@ -167,6 +167,37 @@ fn nested_constructor_constraints_use_composed_polarity_in_both_consumers() {
 }
 
 #[test]
+fn function_input_and_named_contravariance_compose_to_positive_in_both_consumers() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Ready\n  Closed\n  Failed\nend\n",
+            "type Contravariant<T>\n  ContravariantValue(fn(T) -> ())\nend\n",
+            "type Composed<T>\n  ComposedValue(fn(Contravariant<T>) -> (), fn(Contravariant<T>) -> ())\nend\n",
+            "fn private_forward(callbacks: {ready: fn(Contravariant<State::Ready>::ContravariantValue) -> (), closed: fn(Contravariant<State::Closed>::ContravariantValue) -> ()})\n  ComposedValue(callbacks.ready, callbacks.closed)\nend\n",
+            "fn private_reverse(callbacks: {ready: fn(Contravariant<State::Ready>::ContravariantValue) -> (), closed: fn(Contravariant<State::Closed>::ContravariantValue) -> ()})\n  ComposedValue(callbacks.closed, callbacks.ready)\nend\n",
+            "fn needs_composed(value: Composed<State::Ready | State::Closed>) -> ()\n  ()\nend\n",
+            "fn ordinary(callbacks: {ready: fn(Contravariant<State::Ready>::ContravariantValue) -> (), closed: fn(Contravariant<State::Closed>::ContravariantValue) -> ()}) -> ()\n",
+            "  needs_composed(ComposedValue(callbacks.ready, callbacks.closed))\n",
+            "  needs_composed(ComposedValue(callbacks.closed, callbacks.ready))\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let environment = TypeEnvironment::from_module(&module);
+    assert_same_inferred_result(
+        &environment,
+        "private_forward",
+        "private_reverse",
+        "Composed<State::Ready | State::Closed>::ComposedValue",
+    );
+}
+
+#[test]
 fn ordinary_context_free_constraints_are_observed_after_construction() {
     let source = SourceFile::new(
         "main.veln",
@@ -560,6 +591,95 @@ fn explicit_context_resolves_otherwise_unavailable_bounds_in_both_consumers() {
     let module = lower_surface_ast(&parsed.tree);
     let diagnostics = analyze_surface_module(&module);
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn admitted_context_validates_unavailable_bounds_in_both_consumers() {
+    let source_text = concat!(
+        "type A\n  AValue\nend\n",
+        "type B\n  BValue\nend\n",
+        "type C\n  CValue\nend\n",
+        "type Phantom<T>\n  Empty\nend\n",
+        "type Wrap<T>\n  Made({left: T, right: T}, Phantom<T>)\nend\n",
+        "fn private_case(good: {left: A, right: A}, bad: {left: B, right: C}, later: {left: A, right: A})\n",
+        "  [Made(good, Empty), Made(bad, Empty), Made(later, Empty)]\n",
+        "end\n",
+        "fn ordinary_case(good: {left: A, right: A}, bad: {left: B, right: C}, later: {left: A, right: A}) -> ()\n",
+        "  let values = [Made(good, Empty), Made(bad, Empty), Made(later, Empty)]\n",
+        "  ()\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| &source_text[span.start.offset..span.end.offset] == "bad")
+        }),
+        "{diagnostics:#?}",
+    );
+}
+
+#[test]
+fn rejected_multi_parameter_payloads_are_atomic_in_both_consumers() {
+    let source_text = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "type Other\n  OtherValue\nend\n",
+        "type Invariant<T>\n  InvariantValue(fn(T) -> T)\nend\n",
+        "type Atomic<A, B>\n",
+        "  AtomicValue(A, B, {widen: A, exact: Invariant<B>}, {later_a: A, later_b: B})\n",
+        "end\n",
+        "fn private_case(rejected: {widen: State::Closed, exact: Invariant<State::Closed>}, later: {later_a: State::Ready, later_b: State::Ready})\n",
+        "  AtomicValue(Ready, Ready, rejected, later)\n",
+        "end\n",
+        "fn needs_other(value: Atomic<Other, Other>) -> ()\n  ()\nend\n",
+        "fn ordinary_case(rejected: {widen: State::Closed, exact: Invariant<State::Closed>}, later: {later_a: State::Ready, later_b: State::Ready}) -> ()\n",
+        "  let retained = AtomicValue(Ready, Ready, rejected, later)\n",
+        "  needs_other(retained)\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}",
+    );
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("private_case")
+            .unwrap()
+            .return_type
+            .render(),
+        "Atomic<State::Ready, State::Ready>::AtomicValue",
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.details.as_object().is_some_and(|details| {
+                details.iter().any(|(key, value)| {
+                    key == "actual_type"
+                        && *value
+                            == veln_diagnostics::JsonValue::string(
+                                "Atomic<State::Ready, State::Ready>::AtomicValue",
+                            )
+                })
+            })
+        }),
+        "{diagnostics:#?}",
+    );
 }
 
 #[test]
