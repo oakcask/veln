@@ -1766,10 +1766,13 @@ pair has no bounded result, then adds a function bound that makes the complete
 set resolvable. It measures 8, 16, and 32 repetitions in ordinary body
 inference and omitted private-result inference. The work metric also includes
 bounded-candidate ordering, relation-key construction, result materialization,
-and relation-cache retained state. Each doubled size may use at most twice the
-preceding work plus 256. The result must be the same resolved function type in
-both inference pipelines. Elapsed time is observational and is not an
-acceptance threshold.
+relation-cache retained state, and record-field matching. The record-field
+metric counts each actual field admitted to the match index and each template
+field lookup. It must increase at every measured width, and each doubled width
+may use at most twice the preceding field work plus 8. Total work at each
+doubled width may use at most twice the preceding total plus 256. The result
+must be the same resolved function type in both inference pipelines. Elapsed
+time is observational and is not an acceptance threshold.
 
 A repeated structural-bound workload retains an upper constraint, then starts
 its lower-bound stream with function results `Other` and `State::Ready`. It
