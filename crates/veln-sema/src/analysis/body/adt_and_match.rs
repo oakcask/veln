@@ -570,24 +570,13 @@ impl<'a> FunctionChecker<'a> {
         } else {
             actual
         };
-        let admission = type_args.lower_bound_admission(field, &inferred, &self.environment.adts);
-        let joined = matches!(
-            admission,
-            crate::aggregate_type_join::ConstructorLowerBoundAdmission::Admitted
-        );
-        let rejected = matches!(
-            admission,
-            crate::aggregate_type_join::ConstructorLowerBoundAdmission::Rejected
-        );
         self.check_constructor_payload(
             arg,
             field,
             &arg_expected,
             &inferred,
             has_context,
-            joined,
             type_args,
-            rejected,
         );
         self.commit_constructor_payload(
             arg,
@@ -598,7 +587,6 @@ impl<'a> FunctionChecker<'a> {
             expected.map(|expected| &expected.ty),
             &arg_expected,
             &inferred,
-            joined,
             diagnostic_count,
         );
     }
@@ -689,7 +677,6 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&Type>,
         arg_expected: &ExpectedType,
         inferred: &Type,
-        joined: bool,
         diagnostic_count: usize,
     ) {
         if self.diagnostics.len() == diagnostic_count
@@ -699,7 +686,6 @@ impl<'a> FunctionChecker<'a> {
                 index,
                 inferred,
                 expected,
-                joined,
                 &self.environment.adts,
             )
         {
@@ -721,9 +707,7 @@ impl<'a> FunctionChecker<'a> {
         expected: &ExpectedType,
         actual: &Type,
         has_context: bool,
-        joined: bool,
         type_args: &ConstructorTypeArgInference,
-        rejected: bool,
     ) {
         if matches!(
             field.ty,
@@ -743,10 +727,8 @@ impl<'a> FunctionChecker<'a> {
             );
             return;
         }
-        let join_failed = !has_context && rejected;
-        if (!has_context && joined)
-            || (!join_failed
-                && is_assignable_nested_with_registry(&expected.ty, actual, &self.environment.adts))
+        if !has_context
+            || is_assignable_nested_with_registry(&expected.ty, actual, &self.environment.adts)
         {
             return;
         }
@@ -754,23 +736,13 @@ impl<'a> FunctionChecker<'a> {
             ty: type_args.mismatch_expected(field, expected),
             ..expected.clone()
         };
-        if join_failed {
-            self.push_inferred_type_mismatch(
-                arg,
-                &mismatch_context.ty,
-                actual,
-                &mismatch_context,
-                "call_argument",
-            );
-        } else {
-            self.check_contextual_assignable_nested(
-                arg,
-                &mismatch_context.ty,
-                actual,
-                &mismatch_context,
-                "call_argument",
-            );
-        }
+        self.check_contextual_assignable_nested(
+            arg,
+            &mismatch_context.ty,
+            actual,
+            &mismatch_context,
+            "call_argument",
+        );
     }
 
     pub(super) fn infer_list(
@@ -2133,19 +2105,6 @@ impl ConstructorTypeArgInference {
             .payload_can_infer_without_context(constructor, index, adts)
     }
 
-    fn lower_bound_admission(
-        &self,
-        field: &AdtPayloadField,
-        actual: &Type,
-        adts: &AdtRegistry,
-    ) -> crate::aggregate_type_join::ConstructorLowerBoundAdmission {
-        let AdtPayloadType::TypeParameter(type_index) = field.ty else {
-            return crate::aggregate_type_join::ConstructorLowerBoundAdmission::NoPrior;
-        };
-        self.constraints
-            .lower_bound_admission(type_index, actual, adts)
-    }
-
     fn mismatch_expected(&self, field: &AdtPayloadField, fallback: &ExpectedType) -> Type {
         let AdtPayloadType::TypeParameter(_) = field.ty else {
             return fallback.ty.clone();
@@ -2161,7 +2120,6 @@ impl ConstructorTypeArgInference {
         index: usize,
         actual: &Type,
         expected: Option<&Type>,
-        _joined: bool,
         adts: &AdtRegistry,
     ) -> Result<(), unification::TypeParameterContributionConflict> {
         let _ = field;

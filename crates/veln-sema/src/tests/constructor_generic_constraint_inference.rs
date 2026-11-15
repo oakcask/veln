@@ -450,6 +450,155 @@ fn structural_bound_transition_keeps_explicit_and_ambiguity_controls() {
 }
 
 #[test]
+fn direct_named_lower_bounds_remain_unresolved_in_both_consumers_and_orders() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Invariant<T>\n  InvariantValue(fn(T) -> T)\nend\n",
+            "type Pair<T>\n  Paired(T, T)\nend\n",
+            "fn private_forward(first: Invariant<Int>, second: Invariant<String>)\n",
+            "  Paired(first, second)\n",
+            "end\n",
+            "fn private_reverse(first: Invariant<Int>, second: Invariant<String>)\n",
+            "  Paired(second, first)\n",
+            "end\n",
+            "pub fn ordinary(first: Invariant<Int>, second: Invariant<String>) -> ()\n",
+            "  let forward = Paired(first, second)\n",
+            "  let reverse = Paired(second, first)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.inference_ambiguous")
+            .count(),
+        4,
+        "{diagnostics:#?}",
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.private_inference_incomplete")
+            .count(),
+        2,
+        "{diagnostics:#?}",
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.mismatch"),
+        "{diagnostics:#?}",
+    );
+    let rendered = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.details.to_json())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        rendered
+            .iter()
+            .filter(|details| details.contains("\"inferred_type\":\"Pair<unknown>\""))
+            .count(),
+        4,
+        "{rendered:#?}",
+    );
+    assert_eq!(
+        rendered
+            .iter()
+            .filter(|details| details.contains("\"inferred_type\":\"Pair<unknown>::Paired\""))
+            .count(),
+        2,
+        "{rendered:#?}",
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert_same_inferred_result(
+        &environment,
+        "private_forward",
+        "private_reverse",
+        "Pair<unknown>::Paired",
+    );
+}
+
+#[test]
+fn direct_named_lower_bounds_validate_context_and_rollback_in_both_consumers() {
+    let source_text = concat!(
+        "type Invariant<T>\n  InvariantValue(fn(T) -> T)\nend\n",
+        "type Triple<T>\n  Grouped(T, T, T)\nend\n",
+        "fn private_int(first: Invariant<Int>, rejected: Invariant<String>, later: Invariant<Int>)\n",
+        "  Grouped(first, rejected, later)\n",
+        "end\n",
+        "fn private_string(first: Invariant<String>, rejected: Invariant<Int>, later: Invariant<String>)\n",
+        "  Grouped(first, rejected, later)\n",
+        "end\n",
+        "fn needs_int(value: Triple<Invariant<Int>>) -> ()\n  ()\nend\n",
+        "fn needs_string(value: Triple<Invariant<String>>) -> ()\n  ()\nend\n",
+        "pub fn ordinary(int_value: Invariant<Int>, string_value: Invariant<String>) -> ()\n",
+        "  let int_group: Triple<Invariant<Int>> = Grouped(int_value, string_value, int_value)\n",
+        "  let string_group: Triple<Invariant<String>> = Grouped(string_value, int_value, string_value)\n",
+        "  needs_int(int_group)\n",
+        "  needs_string(string_group)\n",
+        "  needs_int(private_int(int_value, string_value, int_value))\n",
+        "  needs_string(private_string(string_value, int_value, string_value))\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}",
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.message == "expected `Invariant<Int>`, but found `Invariant<String>`"
+            })
+            .count(),
+        2,
+        "{diagnostics:#?}",
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.message == "expected `Invariant<String>`, but found `Invariant<Int>`"
+            })
+            .count(),
+        2,
+        "{diagnostics:#?}",
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("private_int")
+            .unwrap()
+            .return_type
+            .render(),
+        "Triple<Invariant<Int>>",
+    );
+    assert_eq!(
+        environment
+            .function("private_string")
+            .unwrap()
+            .return_type
+            .render(),
+        "Triple<Invariant<String>>",
+    );
+}
+
+#[test]
 fn post_conflict_alias_permutations_are_canonical_in_both_consumers() {
     let source = SourceFile::new(
         "main.veln",

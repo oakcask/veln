@@ -26,13 +26,6 @@ pub(crate) struct ConstructorTypeArgConstraints {
     parameters: Vec<TypeParameterConstraints>,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ConstructorLowerBoundAdmission {
-    NoPrior,
-    Admitted,
-    Rejected,
-}
-
 #[derive(Default)]
 struct TypeParameterConstraints {
     lower: CanonicalConstraintBound,
@@ -793,29 +786,6 @@ impl AggregateTypeJoin {
         true
     }
 
-    fn can_admit(&self, adts: &AdtRegistry, right: &Type) -> bool {
-        if right == &Type::Unknown {
-            return true;
-        }
-        if let Some(bounded) = &self.bounded {
-            return bounded.shapes_are_admissible(adts, right);
-        }
-        if self.prepare(adts, right).is_some() {
-            return true;
-        }
-        let Some(retained) = self.optimized_contributions.as_deref() else {
-            return false;
-        };
-        if !bounded_shapes_are_admissible(adts, retained, right) {
-            return false;
-        }
-        let mut contributions = retained.to_vec();
-        contributions.push(right.clone());
-        let bounded = BoundedJoin::from_contributions(adts, contributions);
-        bounded.resolved.is_some()
-            || can_retain_unresolved_contributions(adts, &bounded.contributions)
-    }
-
     fn constraint_contributions(&self) -> Vec<Type> {
         if let Some(bounded) = &self.bounded {
             return bounded.contributions.clone();
@@ -823,17 +793,6 @@ impl AggregateTypeJoin {
         self.optimized_contributions
             .clone()
             .unwrap_or_else(|| self.resolved_result_type().into_iter().collect())
-    }
-
-    fn first_constraint_contribution(&self) -> Option<&Type> {
-        self.bounded
-            .as_ref()
-            .and_then(|bounded| bounded.contributions.first())
-            .or_else(|| {
-                self.optimized_contributions
-                    .as_ref()
-                    .and_then(|contributions| contributions.first())
-            })
     }
 
     #[cfg(test)]
@@ -1700,49 +1659,6 @@ impl ConstructorTypeArgConstraints {
         }
     }
 
-    pub(crate) fn lower_bound_admission(
-        &self,
-        parameter: usize,
-        actual: &Type,
-        adts: &AdtRegistry,
-    ) -> ConstructorLowerBoundAdmission {
-        let Some(constraints) = self.parameters.get(parameter) else {
-            return ConstructorLowerBoundAdmission::NoPrior;
-        };
-        if constraints.lower_join.is_none() && !constraints.lower.has_constraints() {
-            return ConstructorLowerBoundAdmission::NoPrior;
-        }
-        let first = constraints
-            .lower_join
-            .as_ref()
-            .and_then(AggregateTypeJoin::first_constraint_contribution)
-            .or_else(|| constraints.lower.first());
-        let Some(first) = first else {
-            return ConstructorLowerBoundAdmission::Admitted;
-        };
-        if matches!(
-            (adt_type_parts(first), adt_type_parts(actual)),
-            (Some(first), Some(actual))
-                if !same_type_identity(
-                    first.name,
-                    first.identity,
-                    actual.name,
-                    actual.identity,
-                )
-        ) {
-            return ConstructorLowerBoundAdmission::Admitted;
-        }
-        let admitted = constraints.lower_join.as_ref().map_or_else(
-            || constraints.lower.can_admit_lower(actual, adts),
-            |joined| joined.can_admit(adts, actual),
-        );
-        if admitted {
-            ConstructorLowerBoundAdmission::Admitted
-        } else {
-            ConstructorLowerBoundAdmission::Rejected
-        }
-    }
-
     pub(crate) fn contribute_payload(
         &mut self,
         constructor: AdtConstructor<'_>,
@@ -1978,13 +1894,6 @@ impl CanonicalConstraintBound {
         self.selected.is_some() || self.unresolved.is_some()
     }
 
-    fn first(&self) -> Option<&Type> {
-        self.selected
-            .as_ref()
-            .map(|selected| &selected.ty)
-            .or_else(|| self.unresolved.as_ref().map(|node| &node.constraint.ty))
-    }
-
     fn refs(&self) -> Vec<&Type> {
         self.constraints()
             .into_iter()
@@ -1994,22 +1903,6 @@ impl CanonicalConstraintBound {
 
     fn candidate(&self) -> Option<&Type> {
         self.selected.as_ref().map(|selected| &selected.ty)
-    }
-
-    fn can_admit_lower(&self, actual: &Type, adts: &AdtRegistry) -> bool {
-        if self.unresolved.is_some() {
-            return true;
-        }
-        let Some(selected) = &self.selected else {
-            return true;
-        };
-        if invariant_args_match(
-            std::slice::from_ref(&selected.ty),
-            std::slice::from_ref(actual),
-        ) {
-            return true;
-        }
-        bounded_join_refs(adts, &[&selected.ty, actual]).is_some()
     }
 
     fn admit(&mut self, contribution: Type, direction: BoundDirection, adts: &AdtRegistry) {

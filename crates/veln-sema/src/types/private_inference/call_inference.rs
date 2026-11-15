@@ -211,11 +211,6 @@ fn infer_private_constructor_payload(
         *context.failures += 1;
         return;
     }
-    let admission = type_args.lower_bound_admission(field, &inferred_actual, context.adts);
-    let joined = matches!(
-        admission,
-        crate::aggregate_type_join::ConstructorLowerBoundAdmission::Admitted
-    );
     if expected.is_some()
         && !context.expected_is_admitted
         && !crate::type_relations::is_assignable_nested_with_registry(
@@ -224,15 +219,6 @@ fn infer_private_constructor_payload(
             context.adts,
         )
         && !unification::is_direct_variant_carrier(&payload_context.expected, &inferred_actual)
-    {
-        *context.failures += 1;
-        return;
-    }
-    if expected.is_none()
-        && matches!(
-            admission,
-            crate::aggregate_type_join::ConstructorLowerBoundAdmission::Rejected
-        )
     {
         *context.failures += 1;
         return;
@@ -257,7 +243,6 @@ fn infer_private_constructor_payload(
             index,
             &inferred_actual,
             expected,
-            joined,
             merge_invariant,
             context.adts,
         )
@@ -444,23 +429,6 @@ impl PrivateConstructorTypeArgInference {
             .payload_can_infer_without_context(constructor, index, adts)
     }
 
-    fn lower_bound_admission(
-        &self,
-        field: Option<&AdtPayloadField>,
-        actual: &Type,
-        adts: &AdtRegistry,
-    ) -> crate::aggregate_type_join::ConstructorLowerBoundAdmission {
-        let Some(AdtPayloadField {
-            ty: AdtPayloadType::TypeParameter(type_index),
-            ..
-        }) = field
-        else {
-            return crate::aggregate_type_join::ConstructorLowerBoundAdmission::NoPrior;
-        };
-        self.constraints
-            .lower_bound_admission(*type_index, actual, adts)
-    }
-
     #[allow(clippy::too_many_arguments)]
     fn commit(
         &mut self,
@@ -469,7 +437,6 @@ impl PrivateConstructorTypeArgInference {
         index: usize,
         actual: &Type,
         expected: Option<&Type>,
-        _joined: bool,
         _merge_invariant: bool,
         adts: &AdtRegistry,
     ) -> Result<(), unification::TypeParameterContributionConflict> {

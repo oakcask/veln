@@ -122,3 +122,30 @@ fn ordinary_atomic(rejected: {widen: State::Closed, exact: Invariant<State::Clos
 	let retained = AtomicValue(Ready, Ready, rejected, later)
 	needs_atomic_other(retained)
 end
+
+type DirectTriple<T>
+	DirectGrouped(T, T, T)
+end
+
+fn direct_private_forward(first: Invariant<Int>, second: Invariant<String>)
+	Paired(first, second)
+end
+
+fn direct_private_reverse(first: Invariant<Int>, second: Invariant<String>)
+	Paired(second, first)
+end
+
+fn direct_private_context(first: Invariant<Int>, rejected: Invariant<String>, later: Invariant<Int>)
+	DirectGrouped(first, rejected, later)
+end
+
+fn needs_direct_int(value: DirectTriple<Invariant<Int>>) -> ()
+	()
+end
+
+pub fn direct_constraint_evidence(first: Invariant<Int>, second: Invariant<String>) -> ()
+	let ordinary_forward = Paired(first, second)
+	let ordinary_reverse = Paired(second, first)
+	let ordinary_context: DirectTriple<Invariant<Int>> = DirectGrouped(first, second, first)
+	needs_direct_int(direct_private_context(first, second, first))
+end
