@@ -440,6 +440,12 @@ diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md),
 including span-less `toolchain.invalid_symbol_case` entries with diagnostic
 kind `toolchain` and details for `provider`, `name`, `name_class`, and
 `required_initial`.
+Nested assignment incompatibilities preserve the ordered related-note `path`,
+`comparison_direction`, and any source declaration `span`. The path uses the
+same closed segment variants as the common diagnostic contract. A declaration
+span is absent for inferred and source-less expectations. When an
+`expected_type_origin` note is also present, it remains a separate note after
+the nested incompatibility context.
 For a project containing a module immutable value, `check_project` preserves
 finite-data initializer, annotation-visibility, imported-lookup,
 package-wide dependency-cycle, and non-callable-use diagnostics from shared

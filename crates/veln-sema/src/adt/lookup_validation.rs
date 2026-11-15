@@ -223,6 +223,7 @@ fn source_variant_descriptor(
         .map(|field| AdtPayloadField {
             name: field.name.clone(),
             ty: payload_descriptor_type_with_indices(&field.ty, decl, type_parameter_indices),
+            declaration_span: Some(field.ty_span.clone()),
         })
         .collect::<Vec<_>>();
     let coverage_case = if payload_fields.is_empty() {

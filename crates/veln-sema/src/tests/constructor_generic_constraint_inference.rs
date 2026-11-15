@@ -1,6 +1,17 @@
 use super::*;
 use crate::types::TypeEnvironment;
 
+fn json_field<'a>(
+    value: &'a veln_diagnostics::JsonValue,
+    key: &str,
+) -> &'a veln_diagnostics::JsonValue {
+    value
+        .as_object()
+        .and_then(|entries| entries.iter().find(|(name, _)| name == key))
+        .map(|(_, value)| value)
+        .unwrap_or_else(|| panic!("missing JSON field `{key}` in {value:#?}"))
+}
+
 fn assert_same_inferred_result(
     environment: &TypeEnvironment,
     first_name: &str,
@@ -774,6 +785,78 @@ fn admitted_context_validates_unavailable_bounds_in_both_consumers() {
         }),
         "{diagnostics:#?}",
     );
+}
+
+#[test]
+fn source_constructor_payload_provenance_survives_context_projection() {
+    let source_text = concat!(
+        "type State\n  Ready\n  Closed\nend\n",
+        "type Container\n  Made(Vec<State::Ready>)\nend\n",
+        "fn inferred(value: Vec<State>)\n  Made(value)\nend\n",
+        "fn contextual(value: Vec<State>) -> Container\n  Made(value)\nend\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+
+    for diagnostic in &diagnostics {
+        assert_eq!(diagnostic.id, "type.mismatch", "{diagnostic:#?}");
+        let nested = json_field(&diagnostic.details, "nested_incompatibility");
+        let declaration = json_field(nested, "expected_declaration");
+        assert_eq!(
+            json_field(declaration, "file").as_text(),
+            Some("main.veln"),
+            "{diagnostic:#?}",
+        );
+        let start = json_field(declaration, "start");
+        assert!(
+            matches!(
+                json_field(start, "line"),
+                veln_diagnostics::JsonValue::Number(6)
+            ),
+            "payload declaration line changed: {diagnostic:#?}",
+        );
+        assert!(
+            matches!(
+                json_field(start, "column"),
+                veln_diagnostics::JsonValue::Number(8)
+            ),
+            "payload declaration column changed: {diagnostic:#?}",
+        );
+        let nested_related = diagnostic
+            .related
+            .iter()
+            .find(|related| {
+                matches!(
+                    related,
+                    veln_diagnostics::JsonValue::Object(entries)
+                        if entries.iter().any(|(key, value)| {
+                            key == "kind"
+                                && value.as_text() == Some("nested_type_incompatibility")
+                        })
+                )
+            })
+            .unwrap_or_else(|| panic!("missing nested related context: {diagnostic:#?}"));
+        let related_span = json_field(nested_related, "span");
+        let related_start = json_field(related_span, "start");
+        assert!(
+            matches!(
+                json_field(related_start, "line"),
+                veln_diagnostics::JsonValue::Number(6)
+            ),
+            "related payload declaration line changed: {diagnostic:#?}",
+        );
+        assert!(
+            matches!(
+                json_field(related_start, "column"),
+                veln_diagnostics::JsonValue::Number(8)
+            ),
+            "related payload declaration column changed: {diagnostic:#?}",
+        );
+    }
 }
 
 #[test]

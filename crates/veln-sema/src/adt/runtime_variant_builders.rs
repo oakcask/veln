@@ -21,6 +21,7 @@ pub(super) fn runtime_diagnostic_variant(
 
 pub(super) fn field(name: &str, ty: Type) -> AdtPayloadField {
     AdtPayloadField {
+        declaration_span: None,
         name: name.to_string(),
         ty: AdtPayloadType::Concrete(ty),
     }

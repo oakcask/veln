@@ -1990,11 +1990,27 @@ a `type.variant_mismatch`, and each rendered side retains its own alias
 spelling. If the resolved nested refinements differ, or a nested record,
 named-type argument, ADT payload, or function position otherwise fails
 compatibility, there is no truthful top-level variant exclusion and the
-comparison uses the ordinary `type.mismatch` diagnostic instead. Generated schema encode
-boundaries are the exception: they inspect supported record and container
-positions and report `type.variant_mismatch` for an innermost base-to-refinement
-or excluded-variant comparison when all other inspected positions are
-assignable. The schema expectation reaches list and vector literal items,
+comparison uses the ordinary `type.mismatch` diagnostic instead. For that
+ordinary nested mismatch, the checker selects the first failed position in a
+stable compatibility order. Named arguments use declaration order, record
+fields use field-name order, and functions compare fixed inputs, the variadic
+element, the result, and the effect set in that order. Function inputs and
+contravariant named arguments reverse the comparison direction. Invariant
+arguments require an exact match. For named types with the same resolved
+identity, argument comparison precedes an outer base-to-refinement or
+finite-refinement exclusion. A failed argument therefore selects the ordinary
+`type.mismatch`; an outer `type.variant_mismatch` remains eligible only when
+the arguments are compatible. Resolved identities determine the position, so
+alias spelling and inference traversal do not change it. This selection does
+not change assignment compatibility; the
+[diagnostic contract](diagnostics-json.md#diagnostic-families) defines how the
+failed path and comparison direction appear in human and JSON output.
+
+Generated schema encode boundaries are the exception: they inspect supported
+record and container positions and report `type.variant_mismatch` for an
+innermost base-to-refinement or excluded-variant comparison when all other
+inspected positions are assignable. The schema expectation reaches list and
+vector literal items,
 dictionary literal values, and the payload argument of `Some`, `Ok`, or `Err`
 while the supplied record is checked. The exception follows a generated encode
 helper through an immutable local binding initialized from that helper. It does

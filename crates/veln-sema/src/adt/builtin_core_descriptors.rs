@@ -24,6 +24,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::OptionSome,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "value".to_string(),
                         ty: AdtPayloadType::TypeParameter(0),
                     }],
@@ -58,6 +59,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::ResultOk,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "value".to_string(),
                         ty: AdtPayloadType::TypeParameter(0),
                     }],
@@ -69,6 +71,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::ResultErr,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "error".to_string(),
                         ty: AdtPayloadType::TypeParameter(1),
                     }],
@@ -107,10 +110,12 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
                     kind: AdtVariantKind::ListCons,
                     payload_fields: vec![
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "head".to_string(),
                             ty: AdtPayloadType::TypeParameter(0),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "tail".to_string(),
                             ty: AdtPayloadType::SelfType,
                         },
@@ -138,6 +143,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "bytes".to_string(),
                         ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
                     }],
@@ -172,6 +178,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "bytes".to_string(),
                         ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
                     }],
@@ -214,6 +221,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "stream".to_string(),
                         ty: AdtPayloadType::Concrete(Type::named("NetStream", Vec::new())),
                     }],
@@ -264,6 +272,7 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "bytes".to_string(),
                         ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
                     }],

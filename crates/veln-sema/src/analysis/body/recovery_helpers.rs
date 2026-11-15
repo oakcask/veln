@@ -118,6 +118,7 @@ pub(super) fn collection_item_expected(
         origin_span: expected
             .and_then(|expected| expected.origin_span.clone())
             .or(Some(origin_span)),
+        declaration_span: expected.and_then(|expected| expected.declaration_span.clone()),
         origin_message: expected.map_or(inferred_message, |expected| expected.origin_message),
     }
 }

@@ -51,6 +51,7 @@ impl<'a> FunctionChecker<'a> {
         .then(|| TypeOrigin {
             node_id: param.node_id,
             span: param.span.clone(),
+            declaration_span: Some(param.span.clone()),
             source: ExpectedTypeSource::DeclaredParameter,
             message: "Parameter type declared here.",
         });

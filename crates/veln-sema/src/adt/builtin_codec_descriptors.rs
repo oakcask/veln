@@ -24,14 +24,17 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "id".to_string(),
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "offset".to_string(),
                             ty: AdtPayloadType::Concrete(Type::named("ByteOffset", Vec::new())),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "field_path".to_string(),
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
@@ -45,18 +48,22 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "id".to_string(),
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "offset".to_string(),
                             ty: AdtPayloadType::Concrete(Type::named("ByteOffset", Vec::new())),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "field_path".to_string(),
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "reason".to_string(),
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
@@ -84,6 +91,7 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "count".to_string(),
                         ty: AdtPayloadType::Concrete(Type::named("ByteCount", Vec::new())),
                     }],
@@ -119,10 +127,12 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "value".to_string(),
                             ty: AdtPayloadType::TypeParameter(0),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "consumed".to_string(),
                             ty: AdtPayloadType::Concrete(Type::named("ByteCount", Vec::new())),
                         },
@@ -135,6 +145,7 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "readiness".to_string(),
                         ty: AdtPayloadType::Concrete(Type::named("DecodeReadiness", Vec::new())),
                     }],
@@ -146,6 +157,7 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "error".to_string(),
                         ty: AdtPayloadType::Concrete(Type::named("DecodeError", Vec::new())),
                     }],
@@ -172,6 +184,7 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "value".to_string(),
                         ty: AdtPayloadType::TypeParameter(0),
                     }],
@@ -184,10 +197,12 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "tag".to_string(),
                             ty: AdtPayloadType::Concrete(Type::int()),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "payload".to_string(),
                             ty: AdtPayloadType::Concrete(Type::named("ByteView", Vec::new())),
                         },
@@ -215,14 +230,17 @@ pub(super) fn codec_builtin_descriptors() -> Vec<AdtDescriptor> {
                 kind: AdtVariantKind::Source,
                 payload_fields: vec![
                     AdtPayloadField {
+                        declaration_span: None,
                         name: "id".to_string(),
                         ty: AdtPayloadType::Concrete(Type::string()),
                     },
                     AdtPayloadField {
+                        declaration_span: None,
                         name: "field_path".to_string(),
                         ty: AdtPayloadType::Concrete(Type::string()),
                     },
                     AdtPayloadField {
+                        declaration_span: None,
                         name: "reason".to_string(),
                         ty: AdtPayloadType::Concrete(Type::string()),
                     },

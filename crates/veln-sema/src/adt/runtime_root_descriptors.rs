@@ -22,14 +22,17 @@ pub(super) fn runtime_root_descriptors() -> Vec<AdtDescriptor> {
             kind: AdtVariantKind::Source,
             payload_fields: vec![
                 AdtPayloadField {
+                    declaration_span: None,
                     name: "id".to_string(),
                     ty: AdtPayloadType::Concrete(Type::string()),
                 },
                 AdtPayloadField {
+                    declaration_span: None,
                     name: "message".to_string(),
                     ty: AdtPayloadType::Concrete(Type::string()),
                 },
                 AdtPayloadField {
+                    declaration_span: None,
                     name: "detail".to_string(),
                     ty: AdtPayloadType::Concrete(Type::named(
                         "RuntimeDiagnosticDetail",

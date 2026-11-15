@@ -14,6 +14,7 @@ pub(crate) type FunctionKey = (Option<String>, Option<String>, String);
 pub(crate) struct CallOrigin {
     pub(crate) node_id: NodeId,
     pub(crate) span: SourceSpan,
+    pub(crate) declaration_span: Option<SourceSpan>,
     pub(crate) symbol: String,
     pub(crate) effects: Vec<String>,
     pub(crate) schema_encode: bool,
@@ -46,6 +47,7 @@ pub(crate) struct Binding {
 pub(crate) struct TypeOrigin {
     pub(crate) node_id: NodeId,
     pub(crate) span: SourceSpan,
+    pub(crate) declaration_span: Option<SourceSpan>,
     pub(crate) source: ExpectedTypeSource,
     pub(crate) message: &'static str,
 }
@@ -164,6 +166,7 @@ pub(crate) struct ExpectedType {
     pub(crate) source: ExpectedTypeSource,
     pub(crate) origin_node_id: NodeId,
     pub(crate) origin_span: Option<SourceSpan>,
+    pub(crate) declaration_span: Option<SourceSpan>,
     pub(crate) origin_message: &'static str,
 }
 

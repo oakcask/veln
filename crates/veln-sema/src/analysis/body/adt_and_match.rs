@@ -607,6 +607,7 @@ impl<'a> FunctionChecker<'a> {
             source: ExpectedTypeSource::Inferred,
             origin_node_id: call.node_id,
             origin_span: Some(call.span.clone()),
+            declaration_span: None,
             origin_message: "Constructor payload inferred here.",
         });
         let admitted_expected = expected.is_some_and(|expected| {
@@ -655,6 +656,7 @@ impl<'a> FunctionChecker<'a> {
             || (payload_infers_without_context && projected_payload_context == Type::Unknown);
         if expected.is_none() && projected_payload_context != Type::Unknown {
             arg_expected.source = ExpectedTypeSource::AdmittedAggregate;
+            arg_expected.declaration_span = None;
         }
         arg_expected.ty = if direct_payload_joins_independently {
             Type::Unknown
@@ -663,6 +665,14 @@ impl<'a> FunctionChecker<'a> {
         } else {
             projected_payload_context
         };
+        if arg_expected.ty != Type::Unknown
+            && matches!(
+                field.ty,
+                AdtPayloadType::SelfType | AdtPayloadType::Concrete(_)
+            )
+        {
+            arg_expected.declaration_span = field.declaration_span.clone();
+        }
         arg_expected
     }
 
@@ -834,6 +844,7 @@ impl<'a> FunctionChecker<'a> {
         );
         if joined_items.is_some() && item_expected.ty != Type::Unknown {
             item_expected.source = ExpectedTypeSource::AdmittedAggregate;
+            item_expected.declaration_span = None;
         }
         let diagnostic_count = self.diagnostics.len();
         self.begin_binding_inference_transaction();
@@ -1148,6 +1159,7 @@ impl<'a> FunctionChecker<'a> {
             source: ExpectedTypeSource::Inferred,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
+            declaration_span: None,
             origin_message: "Match constructor patterns inferred the scrutinee type here.",
         });
         prechecked_scrutinee_type

@@ -7,6 +7,50 @@ use crate::semantic_model::TypeArgs;
 thread_local! {
     static VARIANT_SET_LOOKUPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static RECORD_FIELD_MATCH_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static ASSIGNABILITY_TRACE_WORK: std::cell::Cell<AssignabilityTraceWork> =
+        const { std::cell::Cell::new(AssignabilityTraceWork {
+            visited_comparisons: 0,
+            max_retained_state: 0,
+        }) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct AssignabilityTraceWork {
+    pub(crate) visited_comparisons: usize,
+    pub(crate) max_retained_state: usize,
+}
+
+#[cfg(test)]
+pub(crate) fn reset_assignability_trace_work() {
+    ASSIGNABILITY_TRACE_WORK.with(|work| work.set(AssignabilityTraceWork::default()));
+}
+
+#[cfg(test)]
+pub(crate) fn take_assignability_trace_work() -> AssignabilityTraceWork {
+    ASSIGNABILITY_TRACE_WORK.with(|work| work.replace(AssignabilityTraceWork::default()))
+}
+
+#[inline(always)]
+fn record_assignability_trace_comparison() {
+    #[cfg(test)]
+    ASSIGNABILITY_TRACE_WORK.with(|work| {
+        let mut current = work.get();
+        current.visited_comparisons += 1;
+        work.set(current);
+    });
+}
+
+#[inline(always)]
+fn record_assignability_trace_retained_state(retained: usize) {
+    #[cfg(test)]
+    ASSIGNABILITY_TRACE_WORK.with(|work| {
+        let mut current = work.get();
+        current.max_retained_state = current.max_retained_state.max(retained);
+        work.set(current);
+    });
+    #[cfg(not(test))]
+    let _ = retained;
 }
 
 #[cfg(test)]
@@ -119,6 +163,450 @@ pub(crate) fn is_assignable_with_registry(
     adts: &dyn ParameterVarianceLookup,
 ) -> bool {
     Assignability::with_registry(adts).is_assignable(expected, actual)
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum AssignabilityPathSegment {
+    NamedArgument(usize),
+    RecordField(String),
+    FunctionInput(usize),
+    VariadicElement,
+    FunctionResult,
+    EffectSet,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ComparisonDirection {
+    ExpectedAcceptsActual,
+    ActualAcceptsExpected,
+    ExactMatch,
+}
+
+impl ComparisonDirection {
+    fn reversed(self) -> Self {
+        match self {
+            Self::ExpectedAcceptsActual => Self::ActualAcceptsExpected,
+            Self::ActualAcceptsExpected => Self::ExpectedAcceptsActual,
+            Self::ExactMatch => Self::ExactMatch,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct AssignabilityFailure {
+    pub(crate) path: Vec<AssignabilityPathSegment>,
+    pub(crate) direction: ComparisonDirection,
+}
+
+pub(crate) fn assignability_failure_with_registry(
+    expected: &Type,
+    actual: &Type,
+    adts: &dyn ParameterVarianceLookup,
+) -> Option<AssignabilityFailure> {
+    let mut trace = FailureTrace::new(adts);
+    trace.pending.push(FailureTraceTask::Compare {
+        expected,
+        actual,
+        path: None,
+        direction: ComparisonDirection::ExpectedAcceptsActual,
+    });
+    trace.run()
+}
+
+#[derive(Clone, Copy)]
+enum FailureTraceTask<'a> {
+    Compare {
+        expected: &'a Type,
+        actual: &'a Type,
+        path: Option<usize>,
+        direction: ComparisonDirection,
+    },
+    Fail {
+        path: Option<usize>,
+        direction: ComparisonDirection,
+    },
+}
+
+struct FailureTracePathNode {
+    parent: Option<usize>,
+    segment: AssignabilityPathSegment,
+}
+
+enum NamedCompilerVariance {
+    Covariant,
+    Registry,
+    Incompatible,
+}
+
+struct TraceNamedParts<'a> {
+    ty: &'a Type,
+    identity: &'a str,
+    args: &'a TypeArgs,
+}
+
+fn named_compiler_variance(
+    expected_identity: &str,
+    actual_identity: &str,
+) -> NamedCompilerVariance {
+    match (
+        Type::is_compiler_covariant_identity(expected_identity),
+        Type::is_compiler_covariant_identity(actual_identity),
+    ) {
+        (true, true) => NamedCompilerVariance::Covariant,
+        (true, false) | (false, true) => NamedCompilerVariance::Incompatible,
+        (false, false) => NamedCompilerVariance::Registry,
+    }
+}
+
+struct FailureTrace<'a> {
+    adts: &'a dyn ParameterVarianceLookup,
+    pending: Vec<FailureTraceTask<'a>>,
+    paths: Vec<FailureTracePathNode>,
+}
+
+impl<'a> FailureTrace<'a> {
+    fn new(adts: &'a dyn ParameterVarianceLookup) -> Self {
+        Self {
+            adts,
+            pending: Vec::new(),
+            paths: Vec::new(),
+        }
+    }
+
+    fn run(&mut self) -> Option<AssignabilityFailure> {
+        while let Some(task) = self.pending.pop() {
+            match task {
+                FailureTraceTask::Compare {
+                    expected,
+                    actual,
+                    path,
+                    direction,
+                } => {
+                    record_assignability_trace_comparison();
+                    self.push_comparison(expected, actual, path, direction);
+                }
+                FailureTraceTask::Fail { path, direction } => {
+                    return Some(AssignabilityFailure {
+                        path: self.materialize_path(path),
+                        direction,
+                    });
+                }
+            }
+            record_assignability_trace_retained_state(self.pending.len() + self.paths.len());
+        }
+        None
+    }
+
+    fn child_path(
+        &mut self,
+        parent: Option<usize>,
+        segment: AssignabilityPathSegment,
+    ) -> Option<usize> {
+        let index = self.paths.len();
+        self.paths.push(FailureTracePathNode { parent, segment });
+        Some(index)
+    }
+
+    fn materialize_path(&self, mut path: Option<usize>) -> Vec<AssignabilityPathSegment> {
+        let mut segments = Vec::new();
+        while let Some(index) = path {
+            let node = &self.paths[index];
+            segments.push(node.segment.clone());
+            path = node.parent;
+        }
+        segments.reverse();
+        segments
+    }
+
+    fn push_failure(&mut self, path: Option<usize>, direction: ComparisonDirection) {
+        self.pending
+            .push(FailureTraceTask::Fail { path, direction });
+    }
+
+    fn push_pair(
+        &mut self,
+        expected: &'a Type,
+        actual: &'a Type,
+        path: Option<usize>,
+        direction: ComparisonDirection,
+    ) {
+        self.pending.push(FailureTraceTask::Compare {
+            expected,
+            actual,
+            path,
+            direction,
+        });
+    }
+
+    fn push_comparison(
+        &mut self,
+        expected: &'a Type,
+        actual: &'a Type,
+        path: Option<usize>,
+        direction: ComparisonDirection,
+    ) {
+        if matches!(expected, Type::Unknown)
+            || matches!(actual, Type::Unknown)
+            || std::ptr::eq(expected, actual)
+        {
+            return;
+        }
+
+        match (expected, actual) {
+            (
+                Type::Named {
+                    name: expected_name,
+                    identity: expected_identity,
+                    args: expected_args,
+                }
+                | Type::VariantRefinement {
+                    name: expected_name,
+                    identity: expected_identity,
+                    args: expected_args,
+                    ..
+                },
+                Type::Named {
+                    name: actual_name,
+                    identity: actual_identity,
+                    args: actual_args,
+                }
+                | Type::VariantRefinement {
+                    name: actual_name,
+                    identity: actual_identity,
+                    args: actual_args,
+                    ..
+                },
+            ) if same_type_identity(
+                expected_name,
+                expected_identity,
+                actual_name,
+                actual_identity,
+            ) =>
+            {
+                self.push_named_comparison(
+                    TraceNamedParts {
+                        ty: expected,
+                        identity: expected_identity,
+                        args: expected_args,
+                    },
+                    TraceNamedParts {
+                        ty: actual,
+                        identity: actual_identity,
+                        args: actual_args,
+                    },
+                    path,
+                    direction,
+                )
+            }
+            (Type::Record(expected_fields), Type::Record(actual_fields)) => {
+                self.push_record_fields(expected_fields, actual_fields, path, direction)
+            }
+            (
+                Type::Function {
+                    params: expected_params,
+                    variadic: expected_variadic,
+                    return_type: expected_return,
+                    effects: expected_effects,
+                },
+                Type::Function {
+                    params: actual_params,
+                    variadic: actual_variadic,
+                    return_type: actual_return,
+                    effects: actual_effects,
+                },
+            ) => self.push_function_parts(
+                FunctionAssignableParts {
+                    params: expected_params,
+                    variadic: expected_variadic,
+                    return_type: expected_return,
+                    effects: expected_effects,
+                },
+                FunctionAssignableParts {
+                    params: actual_params,
+                    variadic: actual_variadic,
+                    return_type: actual_return,
+                    effects: actual_effects,
+                },
+                path,
+                direction,
+            ),
+            _ => self.push_failure(path, direction),
+        }
+    }
+
+    fn push_named_comparison(
+        &mut self,
+        expected: TraceNamedParts<'a>,
+        actual: TraceNamedParts<'a>,
+        path: Option<usize>,
+        direction: ComparisonDirection,
+    ) {
+        let outer_refinement_failure = match (expected.ty, actual.ty) {
+            (Type::VariantRefinement { .. }, Type::Named { .. }) => true,
+            (
+                Type::VariantRefinement {
+                    variants: expected_variants,
+                    ..
+                },
+                Type::VariantRefinement {
+                    variants: actual_variants,
+                    ..
+                },
+            ) => {
+                let expected_variants = expected_variants.iter().collect::<HashSet<_>>();
+                actual_variants
+                    .iter()
+                    .any(|variant| !expected_variants.contains(variant))
+            }
+            _ => false,
+        };
+        if outer_refinement_failure {
+            self.push_failure(path, direction);
+        }
+        self.push_named_arguments(
+            expected.identity,
+            expected.args,
+            actual.identity,
+            actual.args,
+            path,
+            direction,
+        );
+    }
+
+    fn push_record_fields(
+        &mut self,
+        expected_fields: &'a [(String, Type)],
+        actual_fields: &'a [(String, Type)],
+        path: Option<usize>,
+        direction: ComparisonDirection,
+    ) {
+        let actual_by_name = index_record_fields(actual_fields);
+        let mut expected_by_name = expected_fields.iter().collect::<Vec<_>>();
+        expected_by_name.sort_by(|left, right| left.0.cmp(&right.0));
+        for (name, expected_ty) in expected_by_name.into_iter().rev() {
+            let nested_path =
+                self.child_path(path, AssignabilityPathSegment::RecordField(name.clone()));
+            if let Some(actual_ty) = indexed_record_field(&actual_by_name, name) {
+                self.push_pair(expected_ty, actual_ty, nested_path, direction);
+            } else {
+                self.push_failure(nested_path, direction);
+            }
+        }
+    }
+
+    fn push_named_arguments(
+        &mut self,
+        expected_identity: &str,
+        expected_args: &'a TypeArgs,
+        actual_identity: &str,
+        actual_args: &'a TypeArgs,
+        path: Option<usize>,
+        direction: ComparisonDirection,
+    ) {
+        if expected_args.len() != actual_args.len() {
+            let nested_path = self.child_path(
+                path,
+                AssignabilityPathSegment::NamedArgument(expected_args.len().min(actual_args.len())),
+            );
+            self.push_failure(nested_path, direction);
+            return;
+        }
+        if expected_args.ptr_eq(actual_args) {
+            return;
+        }
+        let compiler_variance = match named_compiler_variance(expected_identity, actual_identity) {
+            NamedCompilerVariance::Covariant => Some(Variance::Covariant),
+            NamedCompilerVariance::Incompatible => {
+                self.push_failure(path, direction);
+                return;
+            }
+            NamedCompilerVariance::Registry => None,
+        };
+        let registry_variances = (expected_identity == actual_identity).then(|| {
+            self.adts
+                .parameter_variances_for_identity(expected_identity, expected_args.len())
+        });
+        for (index, (expected, actual)) in expected_args.iter().zip(actual_args).enumerate().rev() {
+            let variance = compiler_variance
+                .or_else(|| {
+                    registry_variances
+                        .flatten()
+                        .and_then(|variances| variances.get(index).copied())
+                })
+                .unwrap_or(Variance::Invariant);
+            let nested_path = self.child_path(path, AssignabilityPathSegment::NamedArgument(index));
+            self.push_named_argument(expected, actual, nested_path, direction, variance);
+        }
+    }
+
+    fn push_named_argument(
+        &mut self,
+        expected: &'a Type,
+        actual: &'a Type,
+        path: Option<usize>,
+        direction: ComparisonDirection,
+        variance: Variance,
+    ) {
+        match variance {
+            Variance::Covariant => self.push_pair(expected, actual, path, direction),
+            Variance::Contravariant => {
+                self.push_pair(actual, expected, path, direction.reversed());
+            }
+            Variance::Invariant if !invariant_types_match(expected, actual) => {
+                self.push_failure(path, ComparisonDirection::ExactMatch);
+            }
+            Variance::Invariant | Variance::Irrelevant => {}
+        }
+    }
+
+    fn push_function_parts(
+        &mut self,
+        expected: FunctionAssignableParts<'a>,
+        actual: FunctionAssignableParts<'a>,
+        path: Option<usize>,
+        direction: ComparisonDirection,
+    ) {
+        let shared_params = expected.params.len().min(actual.params.len());
+        if expected.params.len() != actual.params.len() {
+            let nested_path =
+                self.child_path(path, AssignabilityPathSegment::FunctionInput(shared_params));
+            self.push_failure(nested_path, direction.reversed());
+        } else {
+            if !effects_are_assignable(expected.effects, actual.effects) {
+                let nested_path = self.child_path(path, AssignabilityPathSegment::EffectSet);
+                self.push_failure(nested_path, direction);
+            }
+            let result_path = self.child_path(path, AssignabilityPathSegment::FunctionResult);
+            self.push_pair(
+                expected.return_type,
+                actual.return_type,
+                result_path,
+                direction,
+            );
+            match (expected.variadic.as_deref(), actual.variadic.as_deref()) {
+                (Some(expected), Some(actual)) => {
+                    let nested_path =
+                        self.child_path(path, AssignabilityPathSegment::VariadicElement);
+                    self.push_pair(actual, expected, nested_path, direction.reversed());
+                }
+                (None, None) => {}
+                _ => {
+                    let nested_path =
+                        self.child_path(path, AssignabilityPathSegment::VariadicElement);
+                    self.push_failure(nested_path, direction.reversed());
+                }
+            }
+        }
+        for index in (0..shared_params).rev() {
+            let nested_path = self.child_path(path, AssignabilityPathSegment::FunctionInput(index));
+            self.push_pair(
+                &actual.params[index],
+                &expected.params[index],
+                nested_path,
+                direction.reversed(),
+            );
+        }
+    }
 }
 
 pub(crate) fn is_assignable_nested_with_registry(

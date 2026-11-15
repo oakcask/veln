@@ -542,6 +542,7 @@ impl<'a> FunctionChecker<'a> {
                     source,
                     origin_node_id,
                     origin_span: Some(origin_span.clone()),
+                    declaration_span: Some(origin_span.clone()),
                     origin_message,
                 })
             }
@@ -577,6 +578,7 @@ impl<'a> FunctionChecker<'a> {
                 source: ExpectedTypeSource::DeclaredReturn,
                 origin_node_id,
                 origin_span: Some(self.function.span.clone()),
+                declaration_span: Some(self.function.span.clone()),
                 origin_message: "Return type declared here.",
             })
             .or_else(|| {
@@ -594,6 +596,7 @@ impl<'a> FunctionChecker<'a> {
                         source: ExpectedTypeSource::Inferred,
                         origin_node_id,
                         origin_span: Some(self.function.span.clone()),
+                        declaration_span: None,
                         origin_message: "Private return type inferred here.",
                     })
             })

@@ -23,10 +23,12 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                 kind: AdtVariantKind::Source,
                 payload_fields: vec![
                     AdtPayloadField {
+                        declaration_span: None,
                         name: "kind".to_string(),
                         ty: AdtPayloadType::Concrete(Type::string()),
                     },
                     AdtPayloadField {
+                        declaration_span: None,
                         name: "name".to_string(),
                         ty: AdtPayloadType::Concrete(Type::string()),
                     },
@@ -54,14 +56,17 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "expected_count".to_string(),
                             ty: AdtPayloadType::Concrete(Type::named("ByteCount", Vec::new())),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "available_count".to_string(),
                             ty: AdtPayloadType::Concrete(Type::named("ByteCount", Vec::new())),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "readiness".to_string(),
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
@@ -75,10 +80,12 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "requested_count".to_string(),
                             ty: AdtPayloadType::Concrete(Type::named("ByteCount", Vec::new())),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "available_count".to_string(),
                             ty: AdtPayloadType::Concrete(Type::named("ByteCount", Vec::new())),
                         },
@@ -92,10 +99,12 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "expected_value".to_string(),
                             ty: AdtPayloadType::Concrete(Type::int()),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "actual_value".to_string(),
                             ty: AdtPayloadType::Concrete(Type::int()),
                         },
@@ -108,6 +117,7 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "reason".to_string(),
                         ty: AdtPayloadType::Concrete(Type::string()),
                     }],
@@ -135,18 +145,22 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "data".to_string(),
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "preview_byte_count".to_string(),
                             ty: AdtPayloadType::Concrete(Type::named("ByteCount", Vec::new())),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "total_byte_count".to_string(),
                             ty: AdtPayloadType::Concrete(Type::named("ByteCount", Vec::new())),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "truncated".to_string(),
                             ty: AdtPayloadType::Concrete(Type::bool()),
                         },
@@ -182,6 +196,7 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "chunks".to_string(),
                         ty: AdtPayloadType::Concrete(Type::list(Type::named(
                             "ByteChunk",
@@ -197,6 +212,7 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "chunks".to_string(),
                             ty: AdtPayloadType::Concrete(Type::list(Type::named(
                                 "ByteChunk",
@@ -204,10 +220,12 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                             ))),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "produced".to_string(),
                             ty: AdtPayloadType::Concrete(Type::named("ByteCount", Vec::new())),
                         },
                         AdtPayloadField {
+                            declaration_span: None,
                             name: "state".to_string(),
                             ty: AdtPayloadType::TypeParameter(0),
                         },
@@ -220,6 +238,7 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
                     name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
+                        declaration_span: None,
                         name: "error".to_string(),
                         ty: AdtPayloadType::Concrete(Type::named("EncodeError", Vec::new())),
                     }],

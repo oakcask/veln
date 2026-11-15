@@ -74,6 +74,7 @@ fn publish_runtime_detail_families(mut descriptors: Vec<AdtDescriptor>) -> Vec<A
             name_class: SourceLessNameClass::Constructor,
             kind: AdtVariantKind::Source,
             payload_fields: vec![AdtPayloadField {
+                declaration_span: None,
                 name: "detail".to_string(),
                 ty: AdtPayloadType::Concrete(Type::named("Http2DiagnosticDetail", Vec::new())),
             }],
@@ -85,6 +86,7 @@ fn publish_runtime_detail_families(mut descriptors: Vec<AdtDescriptor>) -> Vec<A
             name_class: SourceLessNameClass::Constructor,
             kind: AdtVariantKind::Source,
             payload_fields: vec![AdtPayloadField {
+                declaration_span: None,
                 name: "detail".to_string(),
                 ty: AdtPayloadType::Concrete(Type::named("HpackDiagnosticDetail", Vec::new())),
             }],

@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln check --json` diagnostic schema, human `veln check` rendering, stable check detail fields, check diagnostic producers, or source-visible runtime diagnostic projection changes.
+update-when: The `veln check --json` diagnostic schema, human `veln check` rendering, stable check detail fields, check diagnostic producers, executable check diagnostic evidence, or source-visible runtime diagnostic projection changes.
 specification-coverage: usage=#usage; behavior=#diagnostic-families; limits=#limits
 ---
 
@@ -942,6 +942,53 @@ diagnostic renders the joined type with the compiler-owned canonical name. The
 checked
 [`compiler-owned alias presentation diagnostic`](../../examples/specification/check/compiler-owned-covariant-alias-presentation/)
 covers `actual_type` rendering for both contribution orders.
+
+An ordinary `type.mismatch` caused by a nested assignment keeps the failed
+value expression as its primary span and keeps the complete outer types in
+`actual_type` and `expected_type`. Its `nested_incompatibility` detail contains
+the first failed `path`, the `comparison_direction`, and the
+`expected_declaration` span when the expectation came from a source
+declaration or annotation. `expected_declaration` is `null` when no source
+declaration constraint contributes and the expectation was inferred from an
+expression or aggregate, or when a generated schema operation supplied the
+expected type. A source constructor's concrete
+payload type keeps the payload declaration span in context-free and
+outer-context projections; the constructor call or outer annotation remains
+the separate expected-type origin. This does not suppress an
+`expected_type_origin` related note: that note can still identify the
+inference or operation boundary that supplied the expectation. Each path
+element is one of the following tagged objects:
+
+- `named_argument` or `function_input`, with a zero-based `index`;
+- `record_field`, with a `name`;
+- `variadic_element`, `function_result`, or `effect_set`.
+
+The direction is `expected_accepts_actual` for ordinary covariant comparison,
+`actual_accepts_expected` after a function-input, variadic-input, or
+contravariant-parameter reversal, and `exact_match` for an invariant argument.
+Each nested contravariant position reverses the current direction, so two
+reversals restore `expected_accepts_actual`. For named types with the same
+resolved identity, an incompatible argument is selected before an outer
+base-to-refinement or finite-refinement exclusion. That argument failure emits
+the ordinary `type.mismatch` with its nested path; only compatible arguments
+leave the outer exclusion eligible for `type.variant_mismatch`.
+A `nested_type_incompatibility` related note renders the same path and
+direction. When `expected_declaration` identifies a source declaration, the
+related note carries that declaration span; otherwise, it has no span. A
+separate `expected_type_origin` note identifies the annotation, inference
+boundary, or generated operation that supplied the expected type and carries
+that origin's span. Named arguments are inspected in
+declaration-parameter order. Record fields are inspected in field-name order.
+Functions inspect fixed inputs, the variadic element, the result, and the
+effect set in that order. Resolved identities and checked variance determine
+these facts, so alias spelling and inference traversal do not change the path
+or direction. The checked
+[`human`](../../examples/specification/check/variance-nested-incompatibility-human/)
+and
+[`JSON`](../../examples/specification/check/variance-nested-incompatibility-json/)
+companions cover every path kind, reversed input comparison, expected
+declaration context, direct refinement exclusion, and the generated schema
+encode boundary.
 
 Generated schema encode boundaries additionally inspect corresponding fields
 of anonymous records and corresponding arguments of `Option`, `List`, `Vec`,

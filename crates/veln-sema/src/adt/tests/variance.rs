@@ -3,6 +3,8 @@ use std::collections::BTreeMap;
 use crate::adt::registry::AdtRegistry;
 use crate::adt::registry::parameter_variance_lookup_counters;
 use crate::adt::variance::{Variance, variance_solver_counters};
+use crate::semantic_model::Type;
+use crate::type_relations::{AssignabilityPathSegment, assignability_failure_with_registry};
 
 use super::{lookup_descriptor, registry};
 
@@ -242,6 +244,445 @@ fn assignment_composes_checked_variance_through_structural_polarity() {
         &actual,
         &fixture.registry,
     ));
+}
+
+#[test]
+fn nested_assignability_trace_covers_each_path_and_comparison_direction() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, ComparisonDirection as Direction,
+        assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let narrow = fixture.narrow.clone();
+    let wide = fixture.wide.clone();
+    let failure = |expected: Type, actual: Type| {
+        assignability_failure_with_registry(&expected, &actual, &fixture.registry)
+            .expect("comparison must fail")
+    };
+
+    assert_eq!(
+        failure(Type::vec(narrow.clone()), Type::vec(wide.clone())),
+        crate::type_relations::AssignabilityFailure {
+            path: vec![Segment::NamedArgument(0)],
+            direction: Direction::ExpectedAcceptsActual,
+        }
+    );
+    assert_eq!(
+        failure(
+            Type::resolved_variant_refinement(
+                "Option",
+                Type::COMPILER_OPTION_IDENTITY,
+                vec![narrow.clone()],
+                vec!["Some".to_string()],
+            ),
+            Type::resolved_variant_refinement(
+                "Option",
+                Type::COMPILER_OPTION_IDENTITY,
+                vec![wide.clone()],
+                vec!["None".to_string()],
+            ),
+        )
+        .path,
+        vec![Segment::NamedArgument(0)]
+    );
+    assert_eq!(
+        failure(
+            fixture.instance("Fixed", narrow.clone()),
+            fixture.instance("Fixed", wide.clone()),
+        ),
+        crate::type_relations::AssignabilityFailure {
+            path: vec![Segment::NamedArgument(0)],
+            direction: Direction::ExactMatch,
+        }
+    );
+    assert_eq!(
+        failure(
+            Type::Record(vec![("state".to_string(), narrow.clone())]),
+            Type::Record(vec![("state".to_string(), wide.clone())]),
+        )
+        .path,
+        vec![Segment::RecordField("state".to_string())]
+    );
+    assert_eq!(
+        failure(
+            Type::function(vec![wide.clone()], Type::unit(), Vec::new()),
+            Type::function(vec![narrow.clone()], Type::unit(), Vec::new()),
+        ),
+        crate::type_relations::AssignabilityFailure {
+            path: vec![Segment::FunctionInput(0)],
+            direction: Direction::ActualAcceptsExpected,
+        }
+    );
+    assert_eq!(
+        failure(
+            Type::variadic_function(Vec::new(), wide.clone(), Type::unit(), Vec::new()),
+            Type::variadic_function(Vec::new(), narrow.clone(), Type::unit(), Vec::new()),
+        ),
+        crate::type_relations::AssignabilityFailure {
+            path: vec![Segment::VariadicElement],
+            direction: Direction::ActualAcceptsExpected,
+        }
+    );
+    assert_eq!(
+        failure(
+            Type::function(Vec::new(), narrow.clone(), Vec::new()),
+            Type::function(Vec::new(), wide.clone(), Vec::new()),
+        )
+        .path,
+        vec![Segment::FunctionResult]
+    );
+    assert_eq!(
+        failure(
+            Type::function(Vec::new(), Type::unit(), Vec::new()),
+            Type::function(Vec::new(), Type::unit(), vec!["stdio".to_string()]),
+        )
+        .path,
+        vec![Segment::EffectSet]
+    );
+}
+
+#[test]
+fn nested_assignability_trace_reverses_contravariant_named_argument_direction() {
+    use crate::type_relations::{
+        AssignabilityFailure, AssignabilityPathSegment as Segment,
+        ComparisonDirection as Direction, assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let failure = assignability_failure_with_registry(
+        &fixture.instance("Negative", fixture.wide.clone()),
+        &fixture.instance("Negative", fixture.narrow.clone()),
+        &fixture.registry,
+    )
+    .expect("the contravariant named argument comparison must fail");
+
+    assert_eq!(
+        failure,
+        AssignabilityFailure {
+            path: vec![Segment::NamedArgument(0)],
+            direction: Direction::ActualAcceptsExpected,
+        }
+    );
+}
+
+#[test]
+fn nested_assignability_trace_checks_arguments_before_refinement_exclusions() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, ComparisonDirection as Direction,
+        assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let expected = Type::resolved_variant_refinement(
+        "Option",
+        Type::COMPILER_OPTION_IDENTITY,
+        vec![fixture.narrow.clone()],
+        vec!["Some".to_string()],
+    );
+    let actual = |argument: Type, refined: bool| {
+        if refined {
+            Type::resolved_variant_refinement(
+                "Option",
+                Type::COMPILER_OPTION_IDENTITY,
+                vec![argument],
+                vec!["None".to_string()],
+            )
+        } else {
+            Type::resolved_named("Option", Type::COMPILER_OPTION_IDENTITY, vec![argument])
+        }
+    };
+
+    for refined in [false, true] {
+        let compatible = assignability_failure_with_registry(
+            &expected,
+            &actual(fixture.narrow.clone(), refined),
+            &fixture.registry,
+        )
+        .expect("the outer refinement exclusion must fail");
+        assert!(compatible.path.is_empty(), "{compatible:?}");
+
+        let incompatible = assignability_failure_with_registry(
+            &expected,
+            &actual(fixture.wide.clone(), refined),
+            &fixture.registry,
+        )
+        .expect("the covariant argument must fail first");
+        assert_eq!(
+            incompatible,
+            crate::type_relations::AssignabilityFailure {
+                path: vec![Segment::NamedArgument(0)],
+                direction: Direction::ExpectedAcceptsActual,
+            },
+            "actual refined={refined}",
+        );
+    }
+}
+
+fn deep_trace_type(depth: usize, leaf: Type) -> Type {
+    (0..depth).fold(leaf, |nested, _| Type::vec(nested))
+}
+
+fn measure_deep_assignability_trace(
+    fixture: &VarianceAssignmentFixture,
+    depth: usize,
+) -> (usize, crate::type_relations::AssignabilityTraceWork) {
+    let expected = deep_trace_type(depth, fixture.narrow.clone());
+    let actual = deep_trace_type(depth, fixture.wide.clone());
+    crate::type_relations::reset_assignability_trace_work();
+    let failure = assignability_failure_with_registry(&expected, &actual, &fixture.registry)
+        .expect("the independently allocated leaf types must fail");
+    let work = crate::type_relations::take_assignability_trace_work();
+    let path_len = failure.path.len();
+    assert!(
+        failure
+            .path
+            .iter()
+            .all(|segment| *segment == AssignabilityPathSegment::NamedArgument(0)),
+        "{failure:?}",
+    );
+    crate::semantic_model::drop_type_iteratively(expected);
+    crate::semantic_model::drop_type_iteratively(actual);
+    (path_len, work)
+}
+
+#[test]
+fn deep_assignability_trace_work_and_retained_state_are_linear() {
+    let fixture = VarianceAssignmentFixture::new();
+    let depths = [512, 1_024, 2_048];
+    let measurements = depths.map(|depth| measure_deep_assignability_trace(&fixture, depth));
+
+    for (depth, (path_len, work)) in depths.into_iter().zip(measurements) {
+        assert_eq!(path_len, depth);
+        assert_eq!(work.visited_comparisons, depth + 1, "depth={depth}");
+        assert!(
+            work.max_retained_state <= depth + 2,
+            "depth={depth} work={work:?}",
+        );
+    }
+    for adjacent in measurements.windows(2) {
+        assert!(
+            adjacent[1].1.visited_comparisons <= adjacent[0].1.visited_comparisons * 2 + 1,
+            "{measurements:?}",
+        );
+        assert!(
+            adjacent[1].1.max_retained_state <= adjacent[0].1.max_retained_state * 2 + 1,
+            "{measurements:?}",
+        );
+    }
+}
+
+#[test]
+fn deep_rejected_assignability_trace_is_stack_safe() {
+    std::thread::Builder::new()
+        .name("deep-assignability-trace".to_string())
+        .stack_size(128 * 1024)
+        .spawn(|| {
+            let fixture = VarianceAssignmentFixture::new();
+            let (path_len, _) = measure_deep_assignability_trace(&fixture, 12_000);
+            assert_eq!(path_len, 12_000);
+        })
+        .expect("spawn bounded-stack assignability trace")
+        .join()
+        .expect("bounded-stack assignability trace");
+}
+
+#[test]
+fn nested_assignability_trace_uses_field_name_order_independently_of_input_order() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let narrow = fixture.narrow.clone();
+    let wide = fixture.wide.clone();
+    for reverse_expected in [false, true] {
+        for reverse_actual in [false, true] {
+            let mut expected_fields = vec![
+                ("zeta".to_string(), narrow.clone()),
+                ("alpha".to_string(), narrow.clone()),
+            ];
+            let mut actual_fields = vec![
+                ("zeta".to_string(), wide.clone()),
+                ("alpha".to_string(), wide.clone()),
+            ];
+            if reverse_expected {
+                expected_fields.reverse();
+            }
+            if reverse_actual {
+                actual_fields.reverse();
+            }
+            let record_failure = assignability_failure_with_registry(
+                &Type::Record(expected_fields),
+                &Type::Record(actual_fields),
+                &fixture.registry,
+            )
+            .expect("both fields fail");
+            assert_eq!(
+                record_failure.path,
+                vec![Segment::RecordField("alpha".to_string())],
+                "reverse_expected={reverse_expected} reverse_actual={reverse_actual}",
+            );
+        }
+    }
+}
+
+#[test]
+fn nested_assignability_trace_uses_argument_order_independently_of_alias_spelling() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let narrow = fixture.narrow.clone();
+    let wide = fixture.wide.clone();
+    let argument_failure = assignability_failure_with_registry(
+        &Type::result(narrow.clone(), narrow.clone()),
+        &Type::result(wide.clone(), wide.clone()),
+        &fixture.registry,
+    )
+    .expect("both declared arguments fail");
+    assert_eq!(argument_failure.path, vec![Segment::NamedArgument(0)]);
+    let alias_spelled_expected = match Type::vec(narrow.clone()) {
+        Type::Named { identity, args, .. } => {
+            Type::resolved_named("SequenceAlias", identity, args.into_vec())
+        }
+        _ => unreachable!(),
+    };
+    let alias_failure = assignability_failure_with_registry(
+        &alias_spelled_expected,
+        &Type::vec(wide.clone()),
+        &fixture.registry,
+    )
+    .expect("alias spelling does not change the failed slot");
+    assert_eq!(alias_failure, argument_failure);
+}
+
+#[test]
+fn nested_assignability_trace_uses_function_contract_order() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let narrow = fixture.narrow.clone();
+    let wide = fixture.wide.clone();
+    let function_failure = assignability_failure_with_registry(
+        &Type::variadic_function(
+            vec![wide.clone(), wide.clone()],
+            wide.clone(),
+            narrow.clone(),
+            Vec::new(),
+        ),
+        &Type::variadic_function(
+            vec![narrow.clone(), narrow.clone()],
+            narrow.clone(),
+            wide.clone(),
+            vec!["stdio".to_string()],
+        ),
+        &fixture.registry,
+    )
+    .expect("fixed inputs, variadic element, result, and effects fail");
+    assert_eq!(function_failure.path, vec![Segment::FunctionInput(0)]);
+}
+
+#[test]
+fn nested_assignability_trace_checks_variadic_input_before_result_and_effects() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let variadic_failure = assignability_failure_with_registry(
+        &Type::variadic_function(
+            Vec::new(),
+            fixture.wide.clone(),
+            fixture.narrow.clone(),
+            Vec::new(),
+        ),
+        &Type::variadic_function(
+            Vec::new(),
+            fixture.narrow.clone(),
+            fixture.wide.clone(),
+            vec!["stdio".to_string()],
+        ),
+        &fixture.registry,
+    )
+    .expect("variadic element, result, and effects fail");
+    assert_eq!(variadic_failure.path, vec![Segment::VariadicElement]);
+}
+
+#[test]
+fn nested_assignability_trace_checks_result_before_effects() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let result_failure = assignability_failure_with_registry(
+        &Type::variadic_function(
+            vec![fixture.narrow.clone()],
+            fixture.narrow.clone(),
+            fixture.narrow.clone(),
+            Vec::new(),
+        ),
+        &Type::variadic_function(
+            vec![fixture.narrow.clone()],
+            fixture.narrow.clone(),
+            fixture.wide.clone(),
+            vec!["stdio".to_string()],
+        ),
+        &fixture.registry,
+    )
+    .expect("result and effects fail after compatible fixed and variadic inputs");
+    assert_eq!(result_failure.path, vec![Segment::FunctionResult]);
+}
+
+#[test]
+fn nested_assignability_trace_restores_direction_after_two_input_reversals() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, ComparisonDirection as Direction,
+        assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let failure = assignability_failure_with_registry(
+        &Type::function(
+            vec![Type::function(
+                vec![fixture.narrow.clone()],
+                Type::unit(),
+                Vec::new(),
+            )],
+            Type::unit(),
+            Vec::new(),
+        ),
+        &Type::function(
+            vec![Type::function(
+                vec![fixture.wide.clone()],
+                Type::unit(),
+                Vec::new(),
+            )],
+            Type::unit(),
+            Vec::new(),
+        ),
+        &fixture.registry,
+    )
+    .expect("the nested input comparison must fail");
+    assert_eq!(
+        failure,
+        crate::type_relations::AssignabilityFailure {
+            path: vec![Segment::FunctionInput(0), Segment::FunctionInput(0)],
+            direction: Direction::ExpectedAcceptsActual,
+        }
+    );
 }
 
 #[test]
@@ -692,6 +1133,7 @@ fn nested_vec_payload_descriptor(depth: usize) -> crate::adt::descriptors::AdtDe
         payload = crate::semantic_model::Type::vec(payload);
     }
     descriptor.variants[0].payload_fields = vec![crate::adt::descriptors::AdtPayloadField {
+        declaration_span: None,
         name: "value".to_string(),
         ty: crate::adt::descriptors::AdtPayloadType::Concrete(payload),
     }];

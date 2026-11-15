@@ -7,6 +7,7 @@ impl<'a> FunctionChecker<'a> {
             source: ExpectedTypeSource::Inferred,
             origin_node_id: if_expr.node_id,
             origin_span: Some(if_expr.span.clone()),
+            declaration_span: None,
             origin_message: "If condition expected `Bool` here.",
         };
         let actual = self.infer_expr(condition, Some(&expected));
@@ -125,6 +126,7 @@ impl<'a> FunctionChecker<'a> {
                 },
                 origin_node_id: result_expr.node_id,
                 origin_span: Some(result_expr.span.clone()),
+                declaration_span: None,
                 origin_message,
             })
         } else {
@@ -154,6 +156,7 @@ impl<'a> FunctionChecker<'a> {
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: result_expr.node_id,
                 origin_span: Some(result_expr.span.clone()),
+                declaration_span: None,
                 origin_message,
             };
             if recovering_from_failed_join || type_contains_unknown(actual) {

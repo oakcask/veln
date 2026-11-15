@@ -184,6 +184,19 @@
                     },
                     "variant": {
                       "type": "string"
+                    },
+                    "path": {
+                      "items": {
+                        "$ref": "#/$defs/assignability_path_segment"
+                      },
+                      "type": "array"
+                    },
+                    "comparison_direction": {
+                      "enum": [
+                        "expected_accepts_actual",
+                        "actual_accepts_expected",
+                        "exact_match"
+                      ]
                     }
                   },
                   "type": "object"
@@ -254,6 +267,47 @@
     }
   ],
   "$defs": {
+    "assignability_path_segment": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": ["named_argument", "function_input"]
+            },
+            "index": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": ["kind", "index"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "record_field"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": ["kind", "name"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": ["variadic_element", "function_result", "effect_set"]
+            }
+          },
+          "required": ["kind"],
+          "type": "object"
+        }
+      ]
+    },
     "position": {
       "additionalProperties": false,
       "properties": {

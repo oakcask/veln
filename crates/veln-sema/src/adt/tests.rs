@@ -7,7 +7,7 @@ use crate::standard_symbols::{
 };
 
 use super::descriptors::{AdtDescriptor, AdtVariantDescriptor, AdtVariantKind};
-use super::lookup_validation::validate_adt_lookup_descriptors;
+use super::lookup_validation::{source_descriptor, validate_adt_lookup_descriptors};
 use super::registry::{
     AdtRegistry, ConstructorLookup, VariantLookup, constructor_lookup_counters,
     descriptor_lookup_counters, type_alias_resolution_counters,
@@ -54,6 +54,44 @@ fn empty_module() -> SurfaceModule {
         functions: Vec::new(),
         invalid_names: Vec::new(),
     }
+}
+
+#[test]
+fn source_payload_fields_preserve_type_declaration_spans() {
+    let source =
+        veln_source::SourceFile::new("main.veln", "type Container\n  Made(Vec<Int>)\nend\n");
+    let parsed = veln_syntax::parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = veln_ast::lower_surface_ast(&parsed.tree);
+    let expected = module.types[0].variants[0].fields[0].ty_span.clone();
+    let descriptor = source_descriptor(&module.types[0]).expect("source descriptor");
+    let payload = &descriptor.variants[0].payload_fields[0];
+
+    assert_eq!(payload.declaration_span.as_ref(), Some(&expected));
+}
+
+#[test]
+fn source_less_payload_fields_have_no_declaration_spans() {
+    let descriptors = raw_builtin_descriptors_for_test();
+    assert!(
+        descriptors
+            .iter()
+            .flat_map(|descriptor| &descriptor.variants)
+            .flat_map(|variant| &variant.payload_fields)
+            .all(|field| field.declaration_span.is_none())
+    );
+
+    let runtime_variants = runtime_base_variants()
+        .into_iter()
+        .chain(runtime_hpack_variants())
+        .chain(runtime_connection_variants())
+        .chain(runtime_peer_limit_variants())
+        .chain(runtime_protocol_variants());
+    assert!(
+        runtime_variants
+            .flat_map(|variant| variant.payload_fields)
+            .all(|field| field.declaration_span.is_none())
+    );
 }
 
 fn lookup_descriptor(module: &str, arity: usize) -> AdtDescriptor {
