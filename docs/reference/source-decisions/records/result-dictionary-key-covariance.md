@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: supporting
-update-when: Compiler-owned Dict variance metadata or its assignment or context-free inference consumption, source-ADT variance composition, dictionary lookup equality, persistent dictionary updates, or widened-dictionary companion coverage changes.
+update-when: Compiler-owned Dict variance metadata or its assignment, context-free inference, or constructor generic constraint inference consumption, source-ADT variance composition, dictionary lookup equality, persistent dictionary updates, or widened-dictionary companion coverage changes.
 ---
 
 # Dictionary Key Covariance
