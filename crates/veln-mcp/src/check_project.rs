@@ -41,6 +41,15 @@ pub(crate) use capture::{
 
 const SNAPSHOT_ATTEMPTS: usize = 3;
 
+pub(crate) fn dependency_revision_key(dependencies: &[CapturedDependencyProject]) -> Value {
+    json!(
+        dependencies
+            .iter()
+            .map(capture::dependency_snapshot_key)
+            .collect::<Vec<_>>()
+    )
+}
+
 pub(crate) fn check_project(
     base: &WorkspaceBase,
     selection: &Selection,
@@ -86,8 +95,9 @@ pub(crate) fn check_project(
         "diagnostics": diagnostics,
         "summary": summary(&diagnostics),
     });
-    if !publication_failed && let Err(error) = language_resources.admit_dependencies(&dependencies)
-    {
+    if publication_failed {
+        language_resources.reject_dependency_analysis(&dependencies);
+    } else if let Err(error) = language_resources.admit_analyzed_dependencies(&dependencies) {
         return error.into();
     }
     ToolOutcome::Success(structured)

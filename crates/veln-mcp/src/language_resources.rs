@@ -20,6 +20,7 @@ pub(crate) use self::package_resources::{
 pub(crate) use self::standard_library::StandardLibraryResources;
 pub(crate) use self::topics::LanguageTopic;
 use self::topics::language_topics;
+use crate::check_project::dependency_revision_key;
 use crate::reference_pagination::ReferencePagination;
 
 mod dependencies;
@@ -52,6 +53,13 @@ struct WorkspaceNavigation {
     workspace_key: Value,
     documentation_revisions: Vec<DocumentationRevisionKey>,
     snapshot: Arc<EffectiveProjectSnapshot>,
+}
+
+#[derive(Clone)]
+struct AnalyzedDependencies {
+    keys: Vec<RetainedPackageKey>,
+    documentation_revisions: Vec<DocumentationRevisionKey>,
+    snapshots: Vec<DirectDependencySnapshot>,
 }
 
 #[cfg(test)]
@@ -108,6 +116,8 @@ pub(crate) struct LanguageResources {
     dependency_navigation: Option<(Vec<RetainedPackageKey>, EffectiveProjectSnapshot)>,
     workspace_navigation: Option<WorkspaceNavigation>,
     read_only_workspace_navigation: Option<(Value, Arc<EffectiveProjectSnapshot>)>,
+    analyzed_dependencies: BTreeMap<Vec<(String, String)>, AnalyzedDependencies>,
+    rejected_dependency_revisions: BTreeMap<Vec<(String, String)>, Value>,
     reference_pagination: ReferencePagination,
 }
 
@@ -295,6 +305,8 @@ impl LanguageResources {
             dependency_navigation: None,
             workspace_navigation: None,
             read_only_workspace_navigation: None,
+            analyzed_dependencies: BTreeMap::new(),
+            rejected_dependency_revisions: BTreeMap::new(),
             reference_pagination: ReferencePagination::new()?,
         })
     }
@@ -391,6 +403,34 @@ impl LanguageResources {
             revision_keys,
             snapshots,
         })
+    }
+
+    pub(crate) fn admit_analyzed_dependencies(
+        &mut self,
+        dependencies: &[CapturedDependencyProject],
+    ) -> Result<(), ResourceCapacityError> {
+        let admitted = self.admit_dependencies(dependencies)?;
+        let identity = dependency_identity(dependencies);
+        self.rejected_dependency_revisions.remove(&identity);
+        self.analyzed_dependencies.insert(
+            identity,
+            AnalyzedDependencies {
+                keys: admitted.keys,
+                documentation_revisions: admitted.revision_keys,
+                snapshots: admitted.snapshots,
+            },
+        );
+        Ok(())
+    }
+
+    pub(crate) fn reject_dependency_analysis(
+        &mut self,
+        dependencies: &[CapturedDependencyProject],
+    ) {
+        self.rejected_dependency_revisions.insert(
+            dependency_identity(dependencies),
+            dependency_revision_key(dependencies),
+        );
     }
 
     fn ensure_dependency_capacity(
@@ -564,7 +604,17 @@ impl LanguageResources {
             return Ok(Arc::clone(&cached.snapshot));
         }
 
-        let dependencies = self.admit_dependencies(captured_dependencies)?;
+        let dependencies = if let Some(dependencies) =
+            self.retained_analyzed_dependencies(captured_dependencies)
+        {
+            AdmittedDependencies {
+                keys: dependencies.keys,
+                revision_keys: dependencies.documentation_revisions,
+                snapshots: dependencies.snapshots,
+            }
+        } else {
+            self.admit_dependencies(captured_dependencies)?
+        };
         let dependency_keys = dependencies.keys;
         let documentation_revisions = dependencies.revision_keys;
         let snapshot = if dependencies.snapshots.is_empty() {
@@ -611,10 +661,15 @@ impl LanguageResources {
             return Arc::clone(snapshot);
         }
 
-        let dependencies = captured_dependencies
-            .iter()
-            .filter_map(captured_dependency_navigation)
-            .collect::<Vec<_>>();
+        let dependencies = self
+            .retained_analyzed_dependencies(captured_dependencies)
+            .map(|dependencies| dependencies.snapshots)
+            .unwrap_or_else(|| {
+                captured_dependencies
+                    .iter()
+                    .filter_map(captured_dependency_navigation)
+                    .collect::<Vec<_>>()
+            });
         let snapshot = if dependencies.is_empty() {
             self.with_standard_library_navigation(files)
         } else {
@@ -649,6 +704,25 @@ impl LanguageResources {
             )
             .find_map(|documentation| documentation.declaration_uri_for_location(location))
     }
+
+    fn retained_analyzed_dependencies(
+        &self,
+        dependencies: &[CapturedDependencyProject],
+    ) -> Option<AnalyzedDependencies> {
+        let identity = dependency_identity(dependencies);
+        let rejected = self.rejected_dependency_revisions.get(&identity)?;
+        if rejected != &dependency_revision_key(dependencies) {
+            return None;
+        }
+        self.analyzed_dependencies.get(&identity).cloned()
+    }
+}
+
+fn dependency_identity(dependencies: &[CapturedDependencyProject]) -> Vec<(String, String)> {
+    dependencies
+        .iter()
+        .map(|dependency| (dependency.package.clone(), dependency.source.clone()))
+        .collect()
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

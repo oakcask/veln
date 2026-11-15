@@ -986,10 +986,48 @@ fn assert_package_tool_state_preserved_across_capture_failure() {
 fn assert_package_tool_state_preserved_across_analysis_failure() {
     let workspace = TempWorkspace::new("package-tool-analysis-failure-state");
     write_documented_workspace(&workspace);
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use api from \"example/dep\"\n\n",
+            "fn main() -> Int\n",
+            "  api::answer(\"stable\")\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/api.veln",
+        concat!(
+            "## Module api handles packet transport.\n\n",
+            "## stable catalog text\n",
+            "pub fn answer(value: String) -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
     let mut server = initialized_server_with_embedded_resources(&workspace);
     assert_eq!(
         server.check_project_tool(&json!({"project":"."}))["isError"],
         false
+    );
+    let accepted_definition =
+        server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
+    assert_eq!(
+        accepted_definition["isError"], false,
+        "{accepted_definition:#}"
+    );
+    let accepted_completion =
+        server.completion_tool(&json!({"source":"main.veln","line":4,"column":9}));
+    assert_eq!(
+        accepted_completion["isError"], false,
+        "{accepted_completion:#}"
+    );
+    let accepted_signature =
+        server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":22}));
+    assert_eq!(
+        accepted_signature["structuredContent"]["signature"]["label"],
+        "fn answer(value: String) -> Int",
+        "{accepted_signature:#}"
     );
     let before = package_publication_state(&mut server, "example/dep", "stable catalog text");
     let before_sources = before["source_resources"].as_array().unwrap();
@@ -1010,7 +1048,7 @@ fn assert_package_tool_state_preserved_across_analysis_failure() {
         "pub fn rejected(value: Producer<String>) -> Producer<Int>\n",
         "  value\n",
         "end\n",
-        "pub fn answer() -> Int\n",
+        "pub fn answer(value: Int) -> Int\n",
         "  1\n",
         "end\n",
     );
@@ -1046,6 +1084,62 @@ fn assert_package_tool_state_preserved_across_analysis_failure() {
             json!({"query": "analysis rejected text", "scope": "package", "limit": 50}),
         )["structuredContent"]["results"],
         json!([])
+    );
+
+    let retained_definition =
+        server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
+    assert_eq!(retained_definition, accepted_definition);
+    let retained_completion =
+        server.completion_tool(&json!({"source":"main.veln","line":4,"column":9}));
+    assert_eq!(retained_completion, accepted_completion);
+    let retained_signature =
+        server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":22}));
+    assert_eq!(retained_signature, accepted_signature);
+    assert_eq!(
+        package_publication_state(&mut server, "example/dep", "stable catalog text"),
+        before
+    );
+
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use api from \"example/dep\"\n\n",
+            "fn main() -> Int\n",
+            "  api::answer(true)\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/api.veln",
+        concat!(
+            "## Module api handles packet transport.\n\n",
+            "## recovered catalog text\n",
+            "pub fn answer(value: Bool) -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    refresh_workspace(&mut server);
+    let recovered = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(recovered["isError"], false, "{recovered:#}");
+    assert_eq!(
+        recovered["structuredContent"]["summary"]["diagnostic_count"],
+        0
+    );
+    let recovered_signature =
+        server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":19}));
+    assert_eq!(
+        recovered_signature["structuredContent"]["signature"]["label"],
+        "fn answer(value: Bool) -> Int",
+        "{recovered_signature:#}"
+    );
+    assert_eq!(
+        package_publication_state(&mut server, "example/dep", "recovered catalog text")
+            ["package_search"]["results"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
     );
 }
 
