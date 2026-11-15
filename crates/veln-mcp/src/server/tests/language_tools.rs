@@ -1010,36 +1010,7 @@ fn assert_package_tool_state_preserved_across_analysis_failure() {
         server.check_project_tool(&json!({"project":"."}))["isError"],
         false
     );
-    let accepted_definition =
-        server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
-    assert_eq!(
-        accepted_definition["isError"], false,
-        "{accepted_definition:#}"
-    );
-    let accepted_completion =
-        server.completion_tool(&json!({"source":"main.veln","line":4,"column":9}));
-    assert_eq!(
-        accepted_completion["isError"], false,
-        "{accepted_completion:#}"
-    );
-    let accepted_signature =
-        server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":22}));
-    assert_eq!(
-        accepted_signature["structuredContent"]["signature"]["label"],
-        "fn answer(value: String) -> Int",
-        "{accepted_signature:#}"
-    );
-    let before = package_publication_state(&mut server, "example/dep", "stable catalog text");
-    let before_sources = before["source_resources"].as_array().unwrap();
-    assert_eq!(before_sources.len(), 1, "{before:#}");
-    let accepted_source_uri = before_sources[0]["metadata"]["uri"]
-        .as_str()
-        .unwrap()
-        .to_string();
-    let accepted_source = before_sources[0]["read"]["text"]
-        .as_str()
-        .unwrap()
-        .to_string();
+    let accepted = accepted_package_tool_state(&mut server);
     let rejected_source = concat!(
         "pub type Producer<T>\n",
         "  Produced(T)\n",
@@ -1054,51 +1025,7 @@ fn assert_package_tool_state_preserved_across_analysis_failure() {
     );
     workspace.write("vendor/dep/api.veln", rejected_source);
     refresh_workspace(&mut server);
-    let failed = server.check_project_tool(&json!({"project":"."}));
-    assert_eq!(failed["isError"], false, "{failed:#}");
-    assert!(
-        failed["structuredContent"]["diagnostics"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|diagnostic| diagnostic["id"] == "type.mismatch"),
-        "{failed:#}"
-    );
-    let after = package_publication_state(&mut server, "example/dep", "stable catalog text");
-    assert_eq!(after, before);
-    let after_sources = after["source_resources"].as_array().unwrap();
-    assert!(after_sources.iter().any(|source| {
-        source["metadata"]["uri"] == accepted_source_uri
-            && source["read"]["text"] == accepted_source
-    }));
-    assert!(
-        after_sources
-            .iter()
-            .all(|source| source["read"]["text"] != rejected_source)
-    );
-    let accepted_read = read_resource_contents(&mut server, &accepted_source_uri);
-    assert_eq!(accepted_read["text"], accepted_source);
-    assert_eq!(
-        search(
-            &mut server,
-            json!({"query": "analysis rejected text", "scope": "package", "limit": 50}),
-        )["structuredContent"]["results"],
-        json!([])
-    );
-
-    let retained_definition =
-        server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
-    assert_eq!(retained_definition, accepted_definition);
-    let retained_completion =
-        server.completion_tool(&json!({"source":"main.veln","line":4,"column":9}));
-    assert_eq!(retained_completion, accepted_completion);
-    let retained_signature =
-        server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":22}));
-    assert_eq!(retained_signature, accepted_signature);
-    assert_eq!(
-        package_publication_state(&mut server, "example/dep", "stable catalog text"),
-        before
-    );
+    assert_rejected_package_tool_state(&mut server, &accepted, rejected_source);
 
     workspace.write(
         "main.veln",
@@ -1120,6 +1047,112 @@ fn assert_package_tool_state_preserved_across_analysis_failure() {
         ),
     );
     refresh_workspace(&mut server);
+    assert_recovered_package_tool_state(&mut server);
+}
+
+struct AcceptedPackageToolState {
+    definition: Value,
+    completion: Value,
+    signature: Value,
+    publication: Value,
+    source_uri: String,
+    source_text: String,
+}
+
+fn accepted_package_tool_state(server: &mut Server) -> AcceptedPackageToolState {
+    let accepted_definition =
+        server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
+    assert_eq!(
+        accepted_definition["isError"], false,
+        "{accepted_definition:#}"
+    );
+    let accepted_completion =
+        server.completion_tool(&json!({"source":"main.veln","line":4,"column":9}));
+    assert_eq!(
+        accepted_completion["isError"], false,
+        "{accepted_completion:#}"
+    );
+    let accepted_signature =
+        server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":22}));
+    assert_eq!(
+        accepted_signature["structuredContent"]["signature"]["label"],
+        "fn answer(value: String) -> Int",
+        "{accepted_signature:#}"
+    );
+    let before = package_publication_state(server, "example/dep", "stable catalog text");
+    let before_sources = before["source_resources"].as_array().unwrap();
+    assert_eq!(before_sources.len(), 1, "{before:#}");
+    let accepted_source_uri = before_sources[0]["metadata"]["uri"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let accepted_source = before_sources[0]["read"]["text"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    AcceptedPackageToolState {
+        definition: accepted_definition,
+        completion: accepted_completion,
+        signature: accepted_signature,
+        publication: before,
+        source_uri: accepted_source_uri,
+        source_text: accepted_source,
+    }
+}
+
+fn assert_rejected_package_tool_state(
+    server: &mut Server,
+    accepted: &AcceptedPackageToolState,
+    rejected_source: &str,
+) {
+    let failed = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(failed["isError"], false, "{failed:#}");
+    assert!(
+        failed["structuredContent"]["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|diagnostic| diagnostic["id"] == "type.mismatch"),
+        "{failed:#}"
+    );
+    let after = package_publication_state(server, "example/dep", "stable catalog text");
+    assert_eq!(after, accepted.publication);
+    let after_sources = after["source_resources"].as_array().unwrap();
+    assert!(after_sources.iter().any(|source| {
+        source["metadata"]["uri"] == accepted.source_uri
+            && source["read"]["text"] == accepted.source_text
+    }));
+    assert!(
+        after_sources
+            .iter()
+            .all(|source| source["read"]["text"] != rejected_source)
+    );
+    let accepted_read = read_resource_contents(server, &accepted.source_uri);
+    assert_eq!(accepted_read["text"], accepted.source_text);
+    assert_eq!(
+        search(
+            server,
+            json!({"query": "analysis rejected text", "scope": "package", "limit": 50}),
+        )["structuredContent"]["results"],
+        json!([])
+    );
+
+    let retained_definition =
+        server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
+    assert_eq!(retained_definition, accepted.definition);
+    let retained_completion =
+        server.completion_tool(&json!({"source":"main.veln","line":4,"column":9}));
+    assert_eq!(retained_completion, accepted.completion);
+    let retained_signature =
+        server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":22}));
+    assert_eq!(retained_signature, accepted.signature);
+    assert_eq!(
+        package_publication_state(server, "example/dep", "stable catalog text"),
+        accepted.publication
+    );
+}
+
+fn assert_recovered_package_tool_state(server: &mut Server) {
     let recovered = server.check_project_tool(&json!({"project":"."}));
     assert_eq!(recovered["isError"], false, "{recovered:#}");
     assert_eq!(
@@ -1134,7 +1167,7 @@ fn assert_package_tool_state_preserved_across_analysis_failure() {
         "{recovered_signature:#}"
     );
     assert_eq!(
-        package_publication_state(&mut server, "example/dep", "recovered catalog text")
+        package_publication_state(server, "example/dep", "recovered catalog text")
             ["package_search"]["results"]
             .as_array()
             .unwrap()

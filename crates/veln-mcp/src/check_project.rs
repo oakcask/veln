@@ -41,15 +41,6 @@ pub(crate) use capture::{
 
 const SNAPSHOT_ATTEMPTS: usize = 3;
 
-pub(crate) fn dependency_revision_key(dependencies: &[CapturedDependencyProject]) -> Value {
-    json!(
-        dependencies
-            .iter()
-            .map(capture::dependency_snapshot_key)
-            .collect::<Vec<_>>()
-    )
-}
-
 pub(crate) fn check_project(
     base: &WorkspaceBase,
     selection: &Selection,
