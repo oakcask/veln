@@ -19,6 +19,62 @@ fn result(environment: &TypeEnvironment, name: &str) -> String {
         .render()
 }
 
+fn assert_aggregate_inferred_nested_facts_are_stable(
+    source_text: &str,
+    diagnostics: &[Diagnostic],
+) {
+    let rejected = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic
+                .span
+                .as_ref()
+                .is_some_and(|span| &source_text[span.start.offset..span.end.offset] == "rejected")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(rejected.len(), 2, "{diagnostics:#?}");
+    assert!(
+        rejected
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+
+    let mut nested_facts = Vec::new();
+    for diagnostic in rejected {
+        let veln_diagnostics::JsonValue::Object(details) = &diagnostic.details else {
+            panic!("type mismatch details must be an object: {diagnostic:#?}");
+        };
+        let nested = details
+            .iter()
+            .find_map(|(key, value)| (key == "nested_incompatibility").then_some(value))
+            .unwrap_or_else(|| panic!("missing nested incompatibility: {diagnostic:#?}"));
+        let veln_diagnostics::JsonValue::Object(nested) = nested else {
+            panic!("nested incompatibility must be an object: {diagnostic:#?}");
+        };
+        nested_facts.push(nested.clone());
+        assert_eq!(
+            nested
+                .iter()
+                .find_map(|(key, value)| (key == "expected_declaration").then_some(value)),
+            Some(&veln_diagnostics::JsonValue::Null),
+            "aggregate-inferred expectations must not claim declaration provenance: {diagnostic:#?}"
+        );
+        let veln_diagnostics::JsonValue::Object(related) = &diagnostic.related[0] else {
+            panic!("nested related context must be an object: {diagnostic:#?}");
+        };
+        assert!(
+            related.iter().all(|(key, _)| key != "span"),
+            "aggregate-inferred expectations must not invent a related declaration span: {diagnostic:#?}"
+        );
+    }
+    assert_eq!(
+        nested_facts[0], nested_facts[1],
+        "optimized and bounded traversal must report the same nested path and direction"
+    );
+}
+
 #[test]
 fn structural_function_joins_are_order_independent_across_bounded_components() {
     let source = concat!(
@@ -337,49 +393,7 @@ fn record_width_rejection_preserves_exact_arguments_and_alias_state() {
         "fn bounded_crossed(first: fn() -> {guard: Invariant<Int>, state: First::Ready}, second: fn() -> {guard: Invariant<Int>, state: First::Ready, right: Bool}, rejected: fn() -> {guard: Invariant<String>, state: Second::Ready, bad: String}, later: fn() -> {guard: Invariant<Int>, state: First::Ready})\n  [first, second, rejected, later]\nend\n",
     );
     let (module, diagnostics) = analyze(source_text);
-    let rejected = diagnostics
-        .iter()
-        .filter(|diagnostic| {
-            diagnostic
-                .span
-                .as_ref()
-                .is_some_and(|span| &source_text[span.start.offset..span.end.offset] == "rejected")
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(rejected.len(), 2, "{diagnostics:#?}");
-    assert!(
-        rejected
-            .iter()
-            .all(|diagnostic| diagnostic.id == "type.mismatch"),
-        "{diagnostics:#?}"
-    );
-    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
-    for diagnostic in &rejected {
-        let veln_diagnostics::JsonValue::Object(details) = &diagnostic.details else {
-            panic!("type mismatch details must be an object: {diagnostic:#?}");
-        };
-        let nested = details
-            .iter()
-            .find_map(|(key, value)| (key == "nested_incompatibility").then_some(value))
-            .unwrap_or_else(|| panic!("missing nested incompatibility: {diagnostic:#?}"));
-        let veln_diagnostics::JsonValue::Object(nested) = nested else {
-            panic!("nested incompatibility must be an object: {diagnostic:#?}");
-        };
-        assert_eq!(
-            nested
-                .iter()
-                .find_map(|(key, value)| (key == "expected_declaration").then_some(value)),
-            Some(&veln_diagnostics::JsonValue::Null),
-            "aggregate-inferred expectations must not claim declaration provenance: {diagnostic:#?}"
-        );
-        let veln_diagnostics::JsonValue::Object(related) = &diagnostic.related[0] else {
-            panic!("nested related context must be an object: {diagnostic:#?}");
-        };
-        assert!(
-            related.iter().all(|(key, _)| key != "span"),
-            "aggregate-inferred expectations must not invent a related declaration span: {diagnostic:#?}"
-        );
-    }
+    assert_aggregate_inferred_nested_facts_are_stable(source_text, &diagnostics);
 
     let environment = TypeEnvironment::from_module(&module);
     let optimized_baseline = environment

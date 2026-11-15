@@ -344,6 +344,30 @@ fn nested_assignability_trace_covers_each_path_and_comparison_direction() {
 }
 
 #[test]
+fn nested_assignability_trace_reverses_contravariant_named_argument_direction() {
+    use crate::type_relations::{
+        AssignabilityFailure, AssignabilityPathSegment as Segment,
+        ComparisonDirection as Direction, assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let failure = assignability_failure_with_registry(
+        &fixture.instance("Negative", fixture.wide.clone()),
+        &fixture.instance("Negative", fixture.narrow.clone()),
+        &fixture.registry,
+    )
+    .expect("the contravariant named argument comparison must fail");
+
+    assert_eq!(
+        failure,
+        AssignabilityFailure {
+            path: vec![Segment::NamedArgument(0)],
+            direction: Direction::ActualAcceptsExpected,
+        }
+    );
+}
+
+#[test]
 fn nested_assignability_trace_checks_arguments_before_refinement_exclusions() {
     use crate::semantic_model::Type;
     use crate::type_relations::{
@@ -565,20 +589,43 @@ fn nested_assignability_trace_uses_function_contract_order() {
     )
     .expect("fixed inputs, variadic element, result, and effects fail");
     assert_eq!(function_failure.path, vec![Segment::FunctionInput(0)]);
+}
 
+#[test]
+fn nested_assignability_trace_checks_variadic_input_before_result_and_effects() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
     let variadic_failure = assignability_failure_with_registry(
-        &Type::variadic_function(Vec::new(), wide.clone(), narrow, Vec::new()),
+        &Type::variadic_function(
+            Vec::new(),
+            fixture.wide.clone(),
+            fixture.narrow.clone(),
+            Vec::new(),
+        ),
         &Type::variadic_function(
             Vec::new(),
             fixture.narrow.clone(),
-            wide,
+            fixture.wide.clone(),
             vec!["stdio".to_string()],
         ),
         &fixture.registry,
     )
     .expect("variadic element, result, and effects fail");
     assert_eq!(variadic_failure.path, vec![Segment::VariadicElement]);
+}
 
+#[test]
+fn nested_assignability_trace_checks_result_before_effects() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
     let result_failure = assignability_failure_with_registry(
         &Type::variadic_function(
             vec![fixture.narrow.clone()],
