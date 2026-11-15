@@ -1996,9 +1996,13 @@ stable compatibility order. Named arguments use declaration order, record
 fields use field-name order, and functions compare fixed inputs, the variadic
 element, the result, and the effect set in that order. Function inputs and
 contravariant named arguments reverse the comparison direction. Invariant
-arguments require an exact match. Resolved identities determine the position,
-so alias spelling and inference traversal do not change it. This selection
-does not change assignment compatibility; the
+arguments require an exact match. For named types with the same resolved
+identity, argument comparison precedes an outer base-to-refinement or
+finite-refinement exclusion. A failed argument therefore selects the ordinary
+`type.mismatch`; an outer `type.variant_mismatch` remains eligible only when
+the arguments are compatible. Resolved identities determine the position, so
+alias spelling and inference traversal do not change it. This selection does
+not change assignment compatibility; the
 [diagnostic contract](diagnostics-json.md#diagnostic-families) defines how the
 failed path and comparison direction appear in human and JSON output.
 

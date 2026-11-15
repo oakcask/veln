@@ -958,6 +958,12 @@ objects:
 The direction is `expected_accepts_actual` for ordinary covariant comparison,
 `actual_accepts_expected` after a function-input, variadic-input, or
 contravariant-parameter reversal, and `exact_match` for an invariant argument.
+Each nested contravariant position reverses the current direction, so two
+reversals restore `expected_accepts_actual`. For named types with the same
+resolved identity, an incompatible argument is selected before an outer
+base-to-refinement or finite-refinement exclusion. That argument failure emits
+the ordinary `type.mismatch` with its nested path; only compatible arguments
+leave the outer exclusion eligible for `type.variant_mismatch`.
 A `nested_type_incompatibility` related note renders the same path and
 direction. An `expected_type_origin` note identifies the declaration or
 annotation that supplied the expected type. Named arguments are inspected in
