@@ -105,6 +105,8 @@ fn explicit_schema_validate_expression_checks_nested_record_identity_arguments_a
             "  validate NestedPacket from value at base\n  ()\nend\n",
             "fn wrong_generic(value: {nested: {state: State, detail: {box: Box<String>}}}, base: ByteOffset) -> ()\n",
             "  validate NestedPacket from value at base\n  ()\nend\n",
+            "fn wrong_encode_generic(value: {nested: {state: State::Connected, detail: {box: Box<String>::Open}}}) -> ()\n",
+            "  encode NestedPacket from value\n  ()\nend\n",
             "fn wrong_shape(value: {nested: {state: State, detail: {value: Int}}}, base: ByteOffset) -> ()\n",
             "  validate NestedPacket from value at base\n  ()\nend\n",
         ),
@@ -118,13 +120,37 @@ fn explicit_schema_validate_expression_checks_nested_record_identity_arguments_a
         .iter()
         .filter(|diagnostic| diagnostic.id == "type.mismatch")
         .collect::<Vec<_>>();
-    assert_eq!(mismatches.len(), 3, "{:#?}", lowered.diagnostics);
+    assert_eq!(mismatches.len(), 4, "{:#?}", lowered.diagnostics);
     for expected in ["OtherState", "Box<String>", "box"] {
         assert!(
             mismatches
                 .iter()
                 .any(|diagnostic| diagnostic.message.contains(expected)),
             "missing mismatch for {expected}: {mismatches:#?}"
+        );
+    }
+    let generic_mismatches = mismatches
+        .iter()
+        .filter(|diagnostic| diagnostic.message.contains("Box<String>"))
+        .collect::<Vec<_>>();
+    assert_eq!(generic_mismatches.len(), 2, "{generic_mismatches:#?}");
+    for generic_mismatch in generic_mismatches {
+        let veln_diagnostics::JsonValue::Object(details) = &generic_mismatch.details else {
+            panic!("generic mismatch details must be an object: {generic_mismatch:#?}");
+        };
+        let nested = details
+            .iter()
+            .find_map(|(key, value)| (key == "nested_incompatibility").then_some(value))
+            .expect("generic mismatch must carry nested incompatibility");
+        let veln_diagnostics::JsonValue::Object(nested) = nested else {
+            panic!("nested incompatibility must be an object: {generic_mismatch:#?}");
+        };
+        assert_eq!(
+            nested
+                .iter()
+                .find_map(|(key, value)| (key == "expected_declaration").then_some(value)),
+            Some(&veln_diagnostics::JsonValue::Null),
+            "schema expression provenance is not a declaration"
         );
     }
     assert!(

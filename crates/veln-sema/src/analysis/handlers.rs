@@ -458,6 +458,7 @@ fn clause_body_diagnostics(
         source: ExpectedTypeSource::DeclaredReturn,
         origin_node_id: operation.node_id,
         origin_span: Some(operation.name_span.clone()),
+        declaration_span: Some(operation.name_span.clone()),
         origin_message: "Operation result type is declared here.",
     };
     let actual = checker.infer_expr(&clause.body, Some(&expected));

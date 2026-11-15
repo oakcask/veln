@@ -313,7 +313,7 @@ impl<'a> FunctionChecker<'a> {
         {
             entries.push((
                 "nested_incompatibility".to_string(),
-                nested_failure_json(failure, expected_source.origin_span.as_ref()),
+                nested_failure_json(failure, expected_source.declaration_span.as_ref()),
             ));
         }
         let mut diagnostic = Diagnostic::new(

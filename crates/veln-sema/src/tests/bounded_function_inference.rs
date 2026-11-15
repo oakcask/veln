@@ -354,6 +354,25 @@ fn record_width_rejection_preserves_exact_arguments_and_alias_state() {
         "{diagnostics:#?}"
     );
     assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    for diagnostic in &rejected {
+        let veln_diagnostics::JsonValue::Object(details) = &diagnostic.details else {
+            panic!("type mismatch details must be an object: {diagnostic:#?}");
+        };
+        let nested = details
+            .iter()
+            .find_map(|(key, value)| (key == "nested_incompatibility").then_some(value))
+            .unwrap_or_else(|| panic!("missing nested incompatibility: {diagnostic:#?}"));
+        let veln_diagnostics::JsonValue::Object(nested) = nested else {
+            panic!("nested incompatibility must be an object: {diagnostic:#?}");
+        };
+        assert_eq!(
+            nested
+                .iter()
+                .find_map(|(key, value)| (key == "expected_declaration").then_some(value)),
+            Some(&veln_diagnostics::JsonValue::Null),
+            "aggregate-inferred expectations must not claim declaration provenance: {diagnostic:#?}"
+        );
+    }
 
     let environment = TypeEnvironment::from_module(&module);
     let optimized_baseline = environment

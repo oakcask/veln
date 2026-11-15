@@ -308,6 +308,7 @@ impl<'a> FunctionChecker<'a> {
         );
         if admitted {
             expected.source = ExpectedTypeSource::AdmittedAggregate;
+            expected.declaration_span = None;
         }
         expected
     }
@@ -416,6 +417,7 @@ impl<'a> FunctionChecker<'a> {
             source: ExpectedTypeSource::Inferred,
             origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
             origin_span: expected.and_then(|expected| expected.origin_span.clone()),
+            declaration_span: None,
             origin_message: expected.map_or(
                 "Result propagation expected type inferred here.",
                 |expected| expected.origin_message,
@@ -465,6 +467,7 @@ impl<'a> FunctionChecker<'a> {
             source: ExpectedTypeSource::Inferred,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
+            declaration_span: None,
             origin_message: "Operator operand type inferred here.",
         };
         let actual = self.infer_expr(expr, Some(&expected));
@@ -527,6 +530,7 @@ impl<'a> FunctionChecker<'a> {
             source: ExpectedTypeSource::Inferred,
             origin_node_id: left.node_id,
             origin_span: Some(left.span.clone()),
+            declaration_span: None,
             origin_message: "Operator operand type inferred here.",
         };
         let actual_left = self.infer_expr(left, Some(&expected));
@@ -611,6 +615,7 @@ impl<'a> FunctionChecker<'a> {
             source: ExpectedTypeSource::Inferred,
             origin_node_id: arg.node_id,
             origin_span: Some(arg.span.clone()),
+            declaration_span: None,
             origin_message: "Builtin operator parameter type inferred here.",
         };
         let actual = self.infer_expr(arg, Some(&expected));
@@ -633,6 +638,7 @@ impl<'a> FunctionChecker<'a> {
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: arg.node_id,
                 origin_span: Some(arg.span.clone()),
+                declaration_span: None,
                 origin_message: "Builtin operator parameter type inferred here.",
             };
             let actual = self.infer_expr(arg, Some(&expected));
@@ -758,6 +764,7 @@ fn record_field_expected(
             source: expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
             origin_node_id: expected.map_or(field.node_id, |expected| expected.origin_node_id),
             origin_span: expected.and_then(|expected| expected.origin_span.clone()),
+            declaration_span: expected.and_then(|expected| expected.declaration_span.clone()),
             origin_message: expected.map_or("Expected type inferred here.", |expected| {
                 expected.origin_message
             }),

@@ -243,6 +243,7 @@ fn type_binding_call_signature(
         origin: CallOrigin {
             node_id: callee.node_id,
             span: callee.span.clone(),
+            declaration_span: None,
             symbol: name.clone(),
             effects,
             schema_encode: binding.schema_encode_callable,
@@ -453,6 +454,7 @@ fn function_type_call_signature(
         origin: CallOrigin {
             node_id: function.node_id,
             span: function.span.clone(),
+            declaration_span: Some(function.span.clone()),
             symbol,
             effects: function.effects.clone(),
             schema_encode: function

@@ -266,6 +266,7 @@ impl<'a> FunctionChecker<'a> {
                 expected.origin_span.as_ref().map(|span| TypeOrigin {
                     node_id: expected.origin_node_id,
                     span: span.clone(),
+                    declaration_span: expected.declaration_span.clone(),
                     source: expected.source,
                     message: expected.origin_message,
                 })

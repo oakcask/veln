@@ -102,6 +102,7 @@ impl<'a> FunctionChecker<'a> {
                 source: ExpectedTypeSource::Inferred,
                 origin_node_id: callee.node_id,
                 origin_span: Some(callee.span.clone()),
+                declaration_span: None,
                 origin_message: "Prelude helper parameter type inferred here.",
             };
             let actual = self.infer_expr(arg, Some(&expected));

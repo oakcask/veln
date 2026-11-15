@@ -406,6 +406,7 @@ impl<'a> FunctionChecker<'a> {
         let origin = CallOrigin {
             node_id: callee.node_id,
             span: callee.span.clone(),
+            declaration_span: None,
             symbol: name.clone(),
             effects,
             schema_encode: binding.schema_encode_callable,
@@ -672,6 +673,9 @@ impl<'a> FunctionChecker<'a> {
                     },
                     origin_node_id: origin.node_id,
                     origin_span: Some(origin.span.clone()),
+                    declaration_span: (!origin.schema_encode)
+                        .then(|| origin.declaration_span.clone())
+                        .flatten(),
                     origin_message: "Callee parameter type declared here.",
                 },
                 |type_origin| ExpectedType {
@@ -679,6 +683,7 @@ impl<'a> FunctionChecker<'a> {
                     source: type_origin.source,
                     origin_node_id: type_origin.node_id,
                     origin_span: Some(type_origin.span.clone()),
+                    declaration_span: type_origin.declaration_span.clone(),
                     origin_message: type_origin.message,
                 },
             );

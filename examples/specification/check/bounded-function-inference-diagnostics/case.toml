@@ -22,3 +22,11 @@ equals = "error"
 [[json_assert]]
 path = "summary.diagnostic_count"
 equals = 5
+
+[[json_assert]]
+path = "diagnostics.4.details.expected_type_source"
+equals = "inferred_expression"
+
+[[json_assert]]
+path = "diagnostics.4.details.nested_incompatibility.expected_declaration"
+equals = null

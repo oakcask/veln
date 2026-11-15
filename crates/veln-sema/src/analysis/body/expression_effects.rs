@@ -318,6 +318,7 @@ impl<'a> FunctionChecker<'a> {
         let origin = CallOrigin {
             node_id: operation.node_id,
             span: operation.name_span.clone(),
+            declaration_span: Some(operation.name_span.clone()),
             symbol: format!("{}::{operation_name}", effect.qualified_name),
             effects: vec![effect.qualified_name.clone()],
             schema_encode: false,
@@ -394,6 +395,7 @@ impl<'a> FunctionChecker<'a> {
             &CallOrigin {
                 node_id: expr.node_id,
                 span: handler_span.clone(),
+                declaration_span: None,
                 symbol: handler.qualified_name.clone(),
                 effects: handler.effects.clone(),
                 schema_encode: false,
@@ -433,6 +435,7 @@ impl<'a> FunctionChecker<'a> {
             source: ExpectedTypeSource::DeclaredParameter,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
+            declaration_span: None,
             origin_message: "Schema decode input must be a ByteView.",
         };
         let input_actual = self.infer_expr(input, Some(&input_expected));
@@ -449,6 +452,7 @@ impl<'a> FunctionChecker<'a> {
             source: ExpectedTypeSource::DeclaredParameter,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
+            declaration_span: None,
             origin_message: "Schema decode base offset must be a ByteOffset.",
         };
         let base_actual = self.infer_expr(base, Some(&base_expected));
@@ -513,6 +517,7 @@ impl<'a> FunctionChecker<'a> {
             source: ExpectedTypeSource::SchemaEncodeParameter,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
+            declaration_span: None,
             origin_message: "Schema encode value must match the schema-local visible record.",
         };
         let value_actual = self.infer_expr(value, Some(&value_expected));
@@ -576,6 +581,7 @@ impl<'a> FunctionChecker<'a> {
                 source: ExpectedTypeSource::DeclaredParameter,
                 origin_node_id: expr.node_id,
                 origin_span: Some(expr.span.clone()),
+                declaration_span: None,
                 origin_message: "Schema validation value must match the erased schema record.",
             });
         let value_actual = self.infer_expr(value, value_expected.as_ref());
@@ -593,6 +599,7 @@ impl<'a> FunctionChecker<'a> {
             source: ExpectedTypeSource::DeclaredParameter,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
+            declaration_span: None,
             origin_message: "Schema validation offset must be a ByteOffset.",
         };
         let offset_actual = self.infer_expr(base, Some(&offset_expected));
