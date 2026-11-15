@@ -1,0 +1,24 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stdout]
+format = "text"
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result/signatures/0"
+equals = {"label":"fn present(produced: Covariant<String>, consumed: Contravariant<String>, fixed: Invariant<String>, ignored: Irrelevant<String>, transform: fn(Int) -> String, result: fn(String) -> Int) -> fn(String) -> Int","parameters":[{"label":"produced: Covariant<String>"},{"label":"consumed: Contravariant<String>"},{"label":"fixed: Invariant<String>"},{"label":"ignored: Irrelevant<String>"},{"label":"transform: fn(Int) -> String"},{"label":"result: fn(String) -> Int"}]}
+
+[[lsp_assert]]
+id = 2
+path = "/result/activeSignature"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/activeParameter"
+equals = 0

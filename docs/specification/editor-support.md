@@ -173,8 +173,11 @@ provenance, and target module. Items sort by label and declaration kind.
 function call. The result has `activeSignature` 0, the zero-based active
 parameter index, the complete function signature as the signature label, and
 one parameter entry per declared parameter. Each parameter entry labels the
-parameter with its name and type. A valid retained-source position that does
-not resolve to a supported source function call returns `null`.
+parameter with its name and type. Generic ADT names and function types keep
+their ordinary source presentation in both label forms. Inferred source-ADT
+parameter classifications and function input or result variance do not add
+modifiers or replace a written type name. A valid retained-source position
+that does not resolve to a supported source function call returns `null`.
 Bare ordinary calls and qualified source-function calls are supported. A
 qualified function named `handle` resolves as a call target, while the bare
 `handle (expression) with handler()` operator returns `null` at its grouping
@@ -1154,6 +1157,10 @@ failures, bare ordinary and qualified `handle` function calls, the bare
 `handle` operator boundary, and repeated successful results for the same
 retained source after those failures.
 The checked
+[`variance-presentation`](../../examples/specification/lsp/variance-presentation/)
+transcript pins the complete signature label and every parameter label for
+covariant, contravariant, invariant, and irrelevant source ADTs plus function
+input and result types. The checked
 [`adt-variant-refinement-semantic-tokens`](../../examples/specification/lsp/adt-variant-refinement-semantic-tokens/)
 transcript pins qualified and alias-qualified singleton, union, nested, local,
 and expression-type-argument token classes and modifiers. A non-BMP scalar

@@ -1,0 +1,36 @@
+# Veln Project
+
+## Modules
+
+### main
+
+Source: `main.veln`
+
+#### Public API
+
+##### type Covariant<T>
+
+Public constructors:
+
+- `CovariantValue { value: T }`
+
+##### type Contravariant<T>
+
+Public constructors:
+
+- `ContravariantValue { value: fn(T) -> () }`
+
+##### type Invariant<T>
+
+Public constructors:
+
+- `InvariantValue { value: fn(T) -> T }`
+
+##### type Irrelevant<T>
+
+Public constructors:
+
+- `IrrelevantValue`
+
+##### fn present(produced: Covariant<String>, consumed: Contravariant<String>, fixed: Invariant<String>, ignored: Irrelevant<String>, transform: fn(Int) -> String, result: fn(String) -> Int) -> fn(String) -> Int
+

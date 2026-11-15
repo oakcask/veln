@@ -163,6 +163,11 @@ An effect is one declaration in the catalog; its operations are represented in
 that declaration's canonical signature rather than as separate declarations.
 Public function and ADT signatures preserve source-written variant-refinement
 annotations, including refinements inside named arguments and function types.
+They keep ordinary source-visible generic ADT names and type parameters.
+Inferred covariant, contravariant, invariant, and irrelevant classifications
+do not add modifiers or substitute another type name in catalog JSON or
+rendered Markdown. Function inputs and results retain the ordinary
+`fn(...) -> ...` type presentation.
 A private refinement exposure in a public function signature or a public
 variant payload of a public source ADT fails the semantic-visibility gate. The
 package-atomic failure result contains no catalog, declaration URI, or
@@ -337,6 +342,8 @@ asking clients to construct resource identifiers or re-resolve by spelling.
 The public API is in
 `crates/veln-language-service/src/package_documentation.rs`; catalog identity,
 publication, and gate tests are in its `package_documentation/tests/` modules.
+The `variance_presentation` test checks exact ADT, constructor, and function
+signatures in the catalog model, canonical JSON bytes, and rendered Markdown.
 The `module_value_publication` tests check public declaration content and
 lookup, initializer-independent declaration identity, snapshot and
 documentation digest rotation, package-atomic failure, and causal diagnostic
