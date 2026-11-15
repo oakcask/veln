@@ -61,6 +61,10 @@ path = "diagnostics.2.details.nested_incompatibility.path.0.kind"
 equals = "function_input"
 
 [[json_assert]]
+path = "diagnostics.2.details.nested_incompatibility.path.0.index"
+equals = 0
+
+[[json_assert]]
 path = "diagnostics.2.details.nested_incompatibility.comparison_direction"
 equals = "actual_accepts_expected"
 
