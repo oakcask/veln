@@ -1,5 +1,5 @@
-# Integration contract: `veln run` must stop at whole-analysis function and
-# named-generic variance failures. The output sentinel, JVM cache, and fake-Java
+# Integration contract: `veln run` must stop at a whole-analysis function
+# effect-set failure. The output sentinel, JVM cache, and fake-Java
 # marker independently detect accidental execution after semantic rejection.
 command = ["run", "--json", "main", "main.veln"]
 source_errors = "expected"
@@ -24,7 +24,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 2
+equals = 1
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -32,15 +32,7 @@ equals = "type.mismatch"
 
 [[json_assert]]
 path = "diagnostics.0.details.nested_incompatibility.path.0.kind"
-equals = "function_input"
-
-[[json_assert]]
-path = "diagnostics.1.id"
-equals = "type.mismatch"
-
-[[json_assert]]
-path = "diagnostics.1.details.nested_incompatibility.path.0.kind"
-equals = "named_argument"
+equals = "effect_set"
 
 [[file_assert]]
 path = ".veln-harness-cache/jvm"

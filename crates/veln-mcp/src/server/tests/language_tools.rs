@@ -869,6 +869,63 @@ fn package_surfaces_are_preserved_across_generic_variance_analysis_failure() {
     assert_package_tool_state_preserved_across_analysis_failure();
 }
 
+#[test]
+fn first_rejected_dependency_revision_cannot_escape_cached_navigation() {
+    let workspace = TempWorkspace::new("first-rejected-dependency-navigation");
+    write_rejected_effect_dependency_workspace(&workspace, "vendor/dep", "rejected first text");
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+
+    let cached_signature =
+        server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":15}));
+    assert_eq!(
+        cached_signature["structuredContent"]["signature"]["label"],
+        "fn answer(value: Int) -> Int"
+    );
+
+    let rejected = server.check_project_tool(&json!({"project":"."}));
+    assert_effect_set_rejection(&rejected);
+
+    let definition = server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
+    assert!(definition["structuredContent"]["definition"].is_null());
+    let signature = server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":15}));
+    assert!(signature["structuredContent"]["signature"].is_null());
+    assert_rejected_dependency_text_is_unpublished(&mut server, "rejected first text");
+}
+
+#[test]
+fn rejected_dependency_with_changed_source_identity_retains_accepted_navigation() {
+    let workspace = TempWorkspace::new("changed-rejected-dependency-identity");
+    write_documented_workspace(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+    assert_eq!(
+        server.check_project_tool(&json!({"project":"."}))["isError"],
+        false
+    );
+    let accepted_definition =
+        server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
+    let accepted_signature =
+        server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":15}));
+
+    write_rejected_effect_dependency_workspace(
+        &workspace,
+        "vendor/replacement",
+        "rejected replacement text",
+    );
+    refresh_workspace(&mut server);
+    let rejected = server.check_project_tool(&json!({"project":"."}));
+    assert_effect_set_rejection(&rejected);
+
+    assert_eq!(
+        server.definition_tool(&json!({"source":"main.veln","line":4,"column":9})),
+        accepted_definition
+    );
+    assert_eq!(
+        server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":15})),
+        accepted_signature
+    );
+    assert_rejected_dependency_text_is_unpublished(&mut server, "rejected replacement text");
+}
+
 fn assert_package_tool_state_preserved_across_capacity_failure() {
     let workspace = TempWorkspace::new("package-tool-failure-state");
     write_documented_workspace(&workspace);
@@ -1015,8 +1072,12 @@ fn assert_package_tool_state_preserved_across_analysis_failure() {
         "pub type Producer<T>\n",
         "  Produced(T)\n",
         "end\n",
+        "fn effectful() -> () effects [stdio]\n",
+        "  stdio::println(\"blocked\")\n",
+        "end\n",
         "## analysis rejected text\n",
         "pub fn rejected(value: Producer<String>) -> Producer<Int>\n",
+        "  let pure: fn() -> () = effectful\n",
         "  value\n",
         "end\n",
         "pub fn answer(value: Int) -> Int\n",
@@ -1115,6 +1176,7 @@ fn assert_rejected_package_tool_state(
             .any(|diagnostic| diagnostic["id"] == "type.mismatch"),
         "{failed:#}"
     );
+    assert_effect_set_rejection(&failed);
     let after = package_publication_state(server, "example/dep", "stable catalog text");
     assert_eq!(after, accepted.publication);
     let after_sources = after["source_resources"].as_array().unwrap();
@@ -1136,6 +1198,13 @@ fn assert_rejected_package_tool_state(
         )["structuredContent"]["results"],
         json!([])
     );
+    assert_eq!(
+        search(
+            server,
+            json!({"query": "fn answer(value: Int) -> Int", "scope": "package", "limit": 50}),
+        )["structuredContent"]["results"],
+        json!([])
+    );
 
     let retained_definition =
         server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
@@ -1150,6 +1219,52 @@ fn assert_rejected_package_tool_state(
         package_publication_state(server, "example/dep", "stable catalog text"),
         accepted.publication
     );
+}
+
+fn assert_effect_set_rejection(result: &Value) {
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert!(
+        result["structuredContent"]["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|diagnostic| {
+                diagnostic["details"]["nested_incompatibility"]["path"]
+                    .as_array()
+                    .is_some_and(|path| path.iter().any(|part| part["kind"] == "effect_set"))
+            }),
+        "{result:#}"
+    );
+}
+
+fn assert_rejected_dependency_text_is_unpublished(server: &mut Server, rejected_text: &str) {
+    assert_eq!(
+        search(
+            server,
+            json!({"query": rejected_text, "scope": "package", "limit": 50}),
+        )["structuredContent"]["results"],
+        json!([])
+    );
+    let listed = server
+        .handle_request(json!({"jsonrpc":"2.0","id":"rejected-list","method":"resources/list"}))
+        .unwrap();
+    let dependency_uris = listed["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|resource| resource["uri"].as_str())
+        .filter(|uri| uri.contains("example%2Fdep"))
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    for uri in dependency_uris {
+        let read = read_resource_contents(server, &uri);
+        assert!(
+            !read["text"]
+                .as_str()
+                .is_some_and(|text| text.contains(rejected_text)),
+            "rejected text escaped through {uri}: {read:#}"
+        );
+    }
 }
 
 fn assert_recovered_package_tool_state(server: &mut Server) {
@@ -1657,6 +1772,43 @@ fn write_documented_workspace(workspace: &TempWorkspace) {
         "use api from \"example/dep\"\n\nfn main() -> Int\n  api::answer()\nend\n",
     );
     write_dependency(workspace, "stable catalog text");
+}
+
+fn write_rejected_effect_dependency_workspace(
+    workspace: &TempWorkspace,
+    dependency_root: &str,
+    rejected_text: &str,
+) {
+    workspace.write(
+        "veln.toml",
+        &format!("[dependencies.\"example/dep\"]\npath = \"{dependency_root}\"\n"),
+    );
+    workspace.write(
+        "main.veln",
+        "use api from \"example/dep\"\n\nfn main() -> Int\n  api::answer()\nend\n",
+    );
+    workspace.write(
+        &format!("{dependency_root}/veln.toml"),
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"api.veln\"]\n",
+    );
+    workspace.write(
+        &format!("{dependency_root}/api.veln"),
+        &format!(
+            concat!(
+                "fn effectful() -> () effects [stdio]\n",
+                "  stdio::println(\"blocked\")\n",
+                "end\n",
+                "fn rejected() -> ()\n",
+                "  let pure: fn() -> () = effectful\n",
+                "end\n",
+                "## {}\n",
+                "pub fn answer(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+            ),
+            rejected_text
+        ),
+    );
 }
 
 fn install_test_standard_library_docs(server: &mut Server) {

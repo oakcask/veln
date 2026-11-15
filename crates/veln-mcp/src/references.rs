@@ -101,6 +101,7 @@ fn collect_references(
     let snapshot = language_resources.navigation_snapshot(
         captured.project.files,
         &captured.dependencies,
+        scope.dependency_analysis_scope(),
         workspace_key,
     )?;
     Ok(navigate(

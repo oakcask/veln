@@ -47,8 +47,9 @@ The following behavior is fixed for the implemented slice:
   [diagnostics-json.md](diagnostics-json.md).
 - Human diagnostics keep the primary message focused on the failed fact at the
   reported span; causes, provenance, and repair hints belong in related notes.
-- A named-generic or function variance mismatch makes the complete checked
-  program and package-documentation catalog unavailable. Analysis retains all
+- A named-generic argument or function input, variadic-element, result, or
+  effect-set mismatch makes the complete checked program and package-documentation
+  catalog unavailable. Analysis retains all
   applicable mismatches instead of publishing a partial package signature;
   `veln run` applies this gate before entry reachability and does not execute
   the rejected program. See [types.md](types.md#compatibility-and-limits),

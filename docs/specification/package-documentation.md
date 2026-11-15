@@ -266,8 +266,8 @@ The implemented gates are:
   `type.variant_refinement_private`, and publishes no declaration identity or
   signature;
 - semantic variance: every `type.mismatch` whose nested incompatibility path
-  contains a named argument, function input, variadic element, or function
-  result fails the complete catalog. Generation retains every such mismatch
+  contains a named argument, function input, variadic element, function result,
+  or effect set fails the complete catalog. Generation retains every such mismatch
   from the package analysis with `gate: "semantic_variance"`. It publishes no
   accepted sibling declaration or partial signature, including when the
   mismatch belongs to a private or otherwise non-exported declaration;

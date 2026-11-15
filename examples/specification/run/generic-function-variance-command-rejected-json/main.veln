@@ -1,22 +1,12 @@
-type State
-	Ready
-	Closed
-end
-
-type Producer<T>
-	Produced(value: T)
-end
-
 pub fn main() -> () effects [stdio]
 	stdio::println("forbidden")
 	()
 end
 
-fn ready(value: State::Ready) -> Int
-	1
+fn effectful() -> () effects [stdio]
+	stdio::println("effect")
 end
 
-fn rejected(value: Producer<State>) -> Producer<State::Ready>
-	let callback: fn(State) -> Int = ready
-	value
+fn rejected() -> ()
+	let pure: fn() -> () = effectful
 end

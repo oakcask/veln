@@ -1161,7 +1161,7 @@ fn shared_conflicting_uri(
     column: usize,
     requested_name: &str,
 ) -> String {
-    let Ok((captured, captured_source, _)) = crate::check_project::capture_navigation_source(
+    let Ok((captured, captured_source, scope)) = crate::check_project::capture_navigation_source(
         &server.base,
         &server.selection,
         source,
@@ -1172,6 +1172,7 @@ fn shared_conflicting_uri(
     let snapshot = server.language_resources.read_only_navigation_snapshot(
         captured.project.files,
         &captured.dependencies,
+        scope.dependency_analysis_scope(),
         captured.key,
     );
     let result = navigate_for_rename(

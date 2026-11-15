@@ -119,8 +119,12 @@ fn whole_project_variance_failures_publish_diagnostics_without_checked_programs(
                     "fn ready(value: State::Ready) -> Int\n",
                     "  1\n",
                     "end\n",
+                    "fn effectful() -> () effects [stdio]\n",
+                    "  stdio::println(\"blocked\")\n",
+                    "end\n",
                     "pub fn main(value: Producer<State>) -> Producer<State::Ready>\n",
                     "  let callback: fn(State) -> Int = ready\n",
+                    "  let pure: fn() -> () = effectful\n",
                     "  value\n",
                     "end\n",
                 ),
@@ -136,9 +140,40 @@ fn whole_project_variance_failures_publish_diagnostics_without_checked_programs(
             .iter()
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
-        ["type.mismatch", "type.mismatch"],
+        ["type.mismatch", "type.mismatch", "type.mismatch"],
         "{diagnostics:#?}"
     );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .details
+            .as_object()
+            .and_then(|details| {
+                details
+                    .iter()
+                    .find(|(key, _)| key == "nested_incompatibility")
+                    .map(|(_, value)| value)
+            })
+            .and_then(|nested| nested.as_object())
+            .and_then(|nested| {
+                nested
+                    .iter()
+                    .find(|(key, _)| key == "path")
+                    .map(|(_, value)| value)
+            })
+            .and_then(|path| path.as_array())
+            .is_some_and(|path| {
+                path.iter().any(|part| {
+                    part.as_object()
+                        .and_then(|part| {
+                            part.iter()
+                                .find(|(key, _)| key == "kind")
+                                .map(|(_, value)| value)
+                        })
+                        .and_then(|kind| kind.as_text())
+                        == Some("effect_set")
+                })
+            })
+    }));
     assert!(analysis.checked.core.is_none());
     assert!(analysis.checked.ir.is_none());
 

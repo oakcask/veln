@@ -363,7 +363,11 @@ pub fn is_generic_or_function_variance_failure(diagnostic: &Diagnostic) -> bool 
         .any(|kind| {
             matches!(
                 kind,
-                "named_argument" | "function_input" | "variadic_element" | "function_result"
+                "named_argument"
+                    | "function_input"
+                    | "variadic_element"
+                    | "function_result"
+                    | "effect_set"
             )
         })
 }

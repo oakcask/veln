@@ -36,7 +36,7 @@ pub(crate) fn rename(
         .expect("rename input schema requires a string source");
     let line = coordinate(&arguments["line"]);
     let column = coordinate(&arguments["column"]);
-    let (captured, captured_source, _) =
+    let (captured, captured_source, scope) =
         match capture_navigation_source(base, selection, source, capture_cache) {
             Ok(captured) => captured,
             Err(failure) => return failure,
@@ -59,6 +59,7 @@ pub(crate) fn rename(
     let snapshot = language_resources.read_only_navigation_snapshot(
         captured.project.files,
         &captured.dependencies,
+        scope.dependency_analysis_scope(),
         workspace_key,
     );
     let Some(result) = navigate_for_rename(

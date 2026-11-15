@@ -91,7 +91,7 @@ fn with_position(
         .expect("presentation input schema requires a source");
     let line = coordinate(&arguments["line"]);
     let column = coordinate(&arguments["column"]);
-    let (captured, captured_source, _) =
+    let (captured, captured_source, scope) =
         match capture_navigation_source(base, selection, source, capture_cache) {
             Ok(captured) => captured,
             Err(failure) => return failure,
@@ -119,6 +119,7 @@ fn with_position(
     let snapshot = language_resources.read_only_navigation_snapshot(
         captured.project.files,
         &captured.dependencies,
+        scope.dependency_analysis_scope(),
         captured.key,
     );
     ToolOutcome::Success(render(

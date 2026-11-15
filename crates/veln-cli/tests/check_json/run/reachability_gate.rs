@@ -505,6 +505,37 @@ fn run_rejects_unreachable_generic_and_function_variance_failures() {
 }
 
 #[test]
+fn run_rejects_unreachable_function_effect_set_failure() {
+    let project = TestProject::new("run-unreachable-effect-set-diagnostic");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn effectful() -> () effects [stdio]\n",
+            "  stdio::println(\"forbidden\")\n",
+            "end\n",
+            "fn rejected() -> ()\n",
+            "  let pure: fn() -> () = effectful\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run_with_path(&["main", "main.veln"], "");
+    let stderr = stderr(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr,
+        &["Nested type comparison failed at effect set (expected type accepts actual type)."],
+    );
+    assert!(!stderr.contains("java` was not found"), "{stderr}");
+    assert!(!stderr.contains("forbidden"), "{stderr}");
+}
+
+#[test]
 fn run_ignores_function_shadowed_by_local_binding() {
     let project = TestProject::new("run-local-shadowed-function");
     project.write(

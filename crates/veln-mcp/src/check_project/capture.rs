@@ -95,6 +95,22 @@ pub(crate) enum NavigationScope {
 }
 
 impl NavigationScope {
+    pub(crate) fn dependency_analysis_scope(
+        &self,
+    ) -> crate::language_resources::DependencyAnalysisScope {
+        match self {
+            Self::Project { project } => {
+                crate::language_resources::DependencyAnalysisScope::Project(project.clone())
+            }
+            Self::SingleFile { project, source } => {
+                crate::language_resources::DependencyAnalysisScope::SingleFile {
+                    project: project.clone(),
+                    source: source.clone(),
+                }
+            }
+        }
+    }
+
     pub(crate) fn metadata(&self, generation: u64) -> Value {
         match self {
             Self::Project { project } => json!({

@@ -11,7 +11,12 @@ fn ready(value: State::Ready) -> Int
 	1
 end
 
+fn effectful() -> () effects [stdio]
+	stdio::println("blocked")
+end
+
 pub fn rejected(value: Producer<State>) -> Producer<State::Ready>
 	let callback: fn(State) -> Int = ready
+	let pure: fn() -> () = effectful
 	value
 end

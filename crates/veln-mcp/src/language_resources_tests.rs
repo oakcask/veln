@@ -1,10 +1,93 @@
 use super::*;
+use std::path::PathBuf;
+use veln_project::{Project, parse_manifest_text};
+use veln_source::SourceFile;
 
 #[test]
 fn checked_resources_use_the_default_retained_package_capacity() {
     let resources = LanguageResources::checked().unwrap();
 
     assert_eq!(resources.retained_package_capacity(), 256);
+}
+
+#[test]
+fn rejected_dependency_revision_tracking_is_bounded_and_eviction_remains_rejected() {
+    let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
+    resources.set_test_rejected_dependency_revision_capacity(1);
+    let scope = DependencyAnalysisScope::Project(".".to_string());
+    let first = test_dependency("example/first", "rejected first");
+    let second = test_dependency("example/second", "rejected second");
+
+    resources.reject_dependency_analysis(&first);
+    resources.reject_dependency_analysis(&second);
+
+    assert_eq!(resources.retained_rejected_dependency_revisions(), 1);
+    assert!(matches!(
+        resources.dependency_analysis_selection(&scope, &first),
+        DependencyAnalysisSelection::Rejected(None)
+    ));
+    resources
+        .navigation_snapshot(
+            Vec::new(),
+            &first,
+            scope.clone(),
+            json!("rejected-mutating"),
+        )
+        .unwrap();
+    resources.read_only_navigation_snapshot(
+        Vec::new(),
+        &first,
+        scope.clone(),
+        json!("rejected-read-only"),
+    );
+    assert!(
+        resources.list_result()["resources"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|resource| !resource["uri"]
+                .as_str()
+                .unwrap()
+                .contains("example%2Ffirst"))
+    );
+
+    resources
+        .admit_analyzed_dependencies(scope.clone(), &first)
+        .unwrap();
+    assert!(resources.workspace_navigation.is_none());
+    assert!(resources.read_only_workspace_navigation.is_none());
+    assert!(matches!(
+        resources.dependency_analysis_selection(&scope, &first),
+        DependencyAnalysisSelection::Admitted(_)
+    ));
+    assert!(
+        resources.list_result()["resources"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|resource| resource["uri"]
+                .as_str()
+                .unwrap()
+                .contains("example%2Ffirst"))
+    );
+}
+
+fn test_dependency(identity: &str, body: &str) -> Vec<CapturedDependencyProject> {
+    vec![CapturedDependencyProject {
+        package: identity.to_string(),
+        source: format!("vendor/{identity}"),
+        project: Some(Project {
+            root: PathBuf::new(),
+            files: vec![SourceFile::new(
+                "dep.veln",
+                format!("pub fn value() -> Int\n  # {body}\n  1\nend\n"),
+            )],
+            manifest: Some(parse_manifest_text(
+                "veln.toml",
+                &format!("[package]\nname = \"{identity}\"\n[lib]\nexports = [\"dep.veln\"]\n"),
+            )),
+        }),
+    }]
 }
 
 #[test]

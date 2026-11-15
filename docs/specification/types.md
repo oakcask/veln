@@ -2058,9 +2058,10 @@ case and its
 [`diagnostic companion`](../../examples/specification/check/source-adt-variance-assignment-diagnostics/).
 They cover all four classifications, aliases, imported declarations, nested
 structural polarity, refinements, and distinct nominal owners.
-If a whole-project analysis contains a rejected named-generic or function
-variance comparison, the complete checked program and package signature are
-unavailable. The tool reports every applicable mismatch instead of publishing
+If a whole-project analysis contains a rejected named-generic argument or
+function input, variadic-element, result, or effect-set comparison, the
+complete checked program and package signature are unavailable. The tool
+reports every applicable mismatch instead of publishing
 the successful portion of that analysis. This boundary is independent of
 reachability: an invalid declaration outside the selected run entry still
 rejects execution. The focused

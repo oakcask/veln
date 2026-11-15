@@ -221,8 +221,9 @@ type-checking contract defines the comparison and quarantine boundary, and the
 [diagnostic contract](diagnostics-json.md#diagnostic-families) defines the
 focused failure and independently retained diagnostics.
 
-A named-generic or function comparison whose nested variance path is
-incompatible blocks the whole checked program. `veln run` reports the
+A named-generic argument or function input, variadic-element, result, or
+effect-set comparison whose nested variance path is incompatible blocks the
+whole checked program. `veln run` reports the
 applicable mismatch before entry selection and does not start backend or user
 execution, even when the rejected declaration is not reachable from the
 selected entry. The

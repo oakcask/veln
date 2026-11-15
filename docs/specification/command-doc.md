@@ -75,9 +75,9 @@ a valid private value is omitted.
 
 Variant-refinement errors remain semantic diagnostics when recovery retains a
 type or constructor identity. Such an error produces no generated document.
-A named-generic or function variance failure defined by the
-[type specification](types.md#compatibility-and-limits) also blocks the
-complete document. The command reports every applicable mismatch, writes no
+A named-generic argument or function input, variadic-element, result, or
+effect-set failure defined by the [type specification](types.md#compatibility-and-limits)
+also blocks the complete document. The command reports every applicable mismatch, writes no
 document, and does not emit unaffected declarations or signatures as partial
 output. The
 [package-documentation generation gates](package-documentation.md#generation-gates)

@@ -87,8 +87,9 @@ referenced type or constructor identity. The shared envelope preserves the
 same diagnostic id, details, primary span, and related notes as human output,
 and the rejected run creates no backend artifact or Java process.
 
-A named-generic or function variance mismatch also uses the shared diagnostic
-envelope. The command retains every applicable mismatch from the whole-project
+A named-generic argument or function input, variadic-element, result, or
+effect-set mismatch also uses the shared diagnostic envelope. The command
+retains every applicable mismatch from the whole-project
 analysis and does not add run-report `stdout` or `stderr` fields. This gate
 applies before entry selection, including when the declaration that contains
 the mismatch is unreachable from the selected entry.

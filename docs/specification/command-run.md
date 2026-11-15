@@ -49,8 +49,8 @@ cannot replace the JVM launch target.
 
 Named-generic and function variance failures are an exception to the local
 reachability boundary. A `type.mismatch` whose nested incompatibility path
-contains a named argument, function input, variadic element, or function
-result blocks the complete checked program. `run` reports every such mismatch
+contains a named argument, function input, variadic element, function result,
+or effect set blocks the complete checked program. `run` reports every such mismatch
 from the selected whole-project analysis before entry selection and does not
 generate an artifact or launch Java, even when the rejected declaration is
 unreachable from the entry.

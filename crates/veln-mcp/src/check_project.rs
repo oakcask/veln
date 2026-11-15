@@ -17,7 +17,7 @@ use veln_diagnostics::diagnostic_to_json;
 use veln_project::{Project, parse_manifest_text};
 use veln_source::SourceFile;
 
-use crate::language_resources::LanguageResources;
+use crate::language_resources::{DependencyAnalysisScope, LanguageResources};
 use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{
     FileIdentity, SelectedRootIdentity, SelectedRootKind, Selection, WorkspaceBase,
@@ -88,7 +88,9 @@ pub(crate) fn check_project(
     });
     if publication_failed {
         language_resources.reject_dependency_analysis(&dependencies);
-    } else if let Err(error) = language_resources.admit_analyzed_dependencies(&dependencies) {
+    } else if let Err(error) = language_resources
+        .admit_analyzed_dependencies(target.dependency_analysis_scope(), &dependencies)
+    {
         return error.into();
     }
     ToolOutcome::Success(structured)
@@ -110,6 +112,16 @@ enum AnalysisMode {
 }
 
 impl Target {
+    fn dependency_analysis_scope(&self) -> DependencyAnalysisScope {
+        match &self.mode {
+            AnalysisMode::Project => DependencyAnalysisScope::Project(self.root_display.clone()),
+            AnalysisMode::SingleFile { source } => DependencyAnalysisScope::SingleFile {
+                project: self.root_display.clone(),
+                source: source.clone(),
+            },
+        }
+    }
+
     fn metadata(&self, generation: u64) -> Value {
         match &self.mode {
             AnalysisMode::Project => json!({

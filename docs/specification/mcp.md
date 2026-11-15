@@ -462,19 +462,28 @@ For `type.variant_refinement_unknown`, `check_project` preserves the closed
 `variant` for each visible-variant entry. Source-backed entries also preserve
 their declaration spans; source-less entries do not invent spans.
 When analysis returns `type.variant_refinement_private`, or a `type.mismatch`
-whose nested comparison identifies an incompatible named-generic argument or
-function input, variadic element, or result, `check_project` returns the
-diagnostic but does not admit the captured dependency snapshot.
+whose nested comparison identifies an incompatible named-generic argument,
+function input, variadic element, function result, or effect set,
+`check_project` returns the diagnostic but does not admit the captured
+dependency snapshot.
 Previously retained dependency source, package-documentation, search, and
-exact-read state remains unchanged. When the same dependency identities already
-have a successful analyzed snapshot, `definition`, `completion`, and
-`signature_help` continue to use that snapshot after the variance rejection.
+exact-read state remains unchanged. When the same selected project or
+single-file analysis scope already has a successful analyzed snapshot,
+`definition`, `completion`, and `signature_help` continue to use that snapshot
+after the variance rejection, including when the rejected manifest selects a
+different dependency source.
 They do not expose declarations or signatures from the rejected dependency
 revision. A later successful `check_project` replaces the retained navigation
 snapshot with the newly analyzed revision. Stable-capture failure preserves the
 same state. The rejected snapshot contributes no package signature, source
 resource, or search result. Other language diagnostics do not imply this atomic
 admission rule and can still produce a coherent diagnostic-bearing snapshot.
+If the selected analysis scope has no successful snapshot, navigation after a
+rejection omits the captured dependencies instead of using their raw source.
+The server retains at most 256 exact fixed-size rejected-revision identities.
+After that set saturates, an unknown dependency revision remains non-publishing
+until a successful `check_project` explicitly admits that revision. Revision
+tracking does not retain manifest or source payloads.
 If dependency resource admission exceeds the retained source-snapshot or
 documentation-revision capacity after analysis succeeds, `check_project`
 returns `resource_capacity` and publishes no partial diagnostics, summary, or
