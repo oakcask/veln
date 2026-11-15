@@ -902,7 +902,9 @@ constraint, or alias presentation, so a later payload is checked against only
 the constraints that were complete before the rejected payload. The checked
 [`constructor generic constraint diagnostic case`](../../examples/specification/check/constructor-generic-constraint-inference-diagnostics/)
 covers this boundary in ordinary and private inference, including atomic
-rollback when one payload contributes to several constructor type arguments.
+rollback when one payload contributes to several constructor type arguments
+and context-free ambiguity for direct named lower bounds without a bounded
+join.
 When a required bounded join or meet is unavailable, or no effective occurrence
 constrains an argument, a context-free constructor reports
 `type.inference_ambiguous` instead of a payload mismatch. If an earlier error
