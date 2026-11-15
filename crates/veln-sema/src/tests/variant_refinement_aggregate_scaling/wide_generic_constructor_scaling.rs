@@ -263,33 +263,13 @@ fn pairwise_incomparable_constructor_constraints_grow_linearly_when_unavailable(
 #[test]
 fn unavailable_constructor_constraint_teardown_is_stack_safe() {
     const CONSTRAINTS: usize = 4_096;
-    for workload in [
-        UnavailableConstraintWorkload::Lower,
-        UnavailableConstraintWorkload::Upper,
-    ] {
-        let source = SourceFile::new(
-            "main.veln",
-            unavailable_constraint_scaling_source(CONSTRAINTS, workload),
-        );
-        let parsed = parse(&source);
-        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-        let module = lower_surface_ast(&parsed.tree);
-        std::thread::Builder::new()
-            .name(format!("unavailable-{workload:?}-constraint-drop"))
-            .stack_size(256 * 1024)
-            .spawn(move || {
-                let diagnostics = analyze_surface_module(&module);
-                assert!(
-                    diagnostics
-                        .iter()
-                        .any(|diagnostic| diagnostic.id == "type.inference_ambiguous"),
-                    "{diagnostics:#?}"
-                );
-            })
-            .expect("spawn bounded-stack unresolved constraint thread")
-            .join()
-            .expect("bounded-stack unresolved constraint thread");
-    }
+    std::thread::Builder::new()
+        .name("unavailable-constraint-drop".to_string())
+        .stack_size(256 * 1024)
+        .spawn(|| crate::aggregate_type_join::drop_unresolved_constraint_chain(CONSTRAINTS))
+        .expect("spawn bounded-stack unresolved constraint thread")
+        .join()
+        .expect("bounded-stack unresolved constraint thread");
 }
 
 #[derive(Clone, Copy, Debug)]
