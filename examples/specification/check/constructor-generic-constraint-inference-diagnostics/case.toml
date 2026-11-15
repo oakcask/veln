@@ -15,7 +15,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 22
+equals = 24
 
 [[json_assert]]
 path = "diagnostics.14.details.inferred_type"
@@ -40,6 +40,22 @@ equals = "Pair<unknown>"
 [[json_assert]]
 path = "diagnostics.20.details.inferred_type"
 equals = "Pair<unknown>"
+
+[[json_assert]]
+path = "diagnostics.22.details.inferred_type"
+equals = "Irrelevant<unknown>"
+
+[[json_assert]]
+path = "diagnostics.23.details.slot_kind"
+equals = "private_return"
+
+[[json_assert]]
+path = "diagnostics.23.details.missing_fact"
+equals = "return_type"
+
+[[json_assert]]
+path = "diagnostics.23.details.inferred_type"
+equals = "Irrelevant<unknown>::IrrelevantValue"
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -282,3 +298,25 @@ message = "expected `Invariant<Int>`, but found `Invariant<String>`"
 file = "main.veln"
 line = 149
 column = 76
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `IrrelevantValue` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 154
+column = 2
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private function has no inferred return type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 153
+column = 1

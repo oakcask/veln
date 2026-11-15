@@ -292,7 +292,16 @@ fn unavailable_constructor_constraint_teardown_is_stack_safe() {
     }
 }
 
-fn resolving_structural_constraint_source(repetitions: usize) -> String {
+#[derive(Clone, Copy, Debug)]
+enum StructuralConstraintConsumer {
+    Private,
+    Ordinary,
+}
+
+fn resolving_structural_constraint_source(
+    repetitions: usize,
+    consumer: StructuralConstraintConsumer,
+) -> String {
     let template_fields = (0..repetitions * 2)
         .map(|index| format!("p{index}: Box<T>"))
         .chain(std::iter::once("complete: Box<T>".to_owned()))
@@ -311,19 +320,31 @@ fn resolving_structural_constraint_source(repetitions: usize) -> String {
         ))
         .collect::<Vec<_>>()
         .join(", ");
+    let consumer_source = match consumer {
+        StructuralConstraintConsumer::Private => {
+            format!(
+                "fn inferred(payload: {{upper: fn(fn({{a: Int, b: Int}}) -> State) -> (), {actual_fields}}})\n  Made(payload)\nend\n"
+            )
+        }
+        StructuralConstraintConsumer::Ordinary => format!(
+            "fn ordinary(payload: {{upper: fn(fn({{a: Int, b: Int}}) -> State) -> (), {actual_fields}}}) -> ()\n  let value = Made(payload)\nend\n"
+        ),
+    };
     format!(
         "type State\n  Ready\n  Closed\n  Failed\nend\n\
          type Box<T>\n  Boxed(T)\nend\n\
          type Repeated<T>\n  Made({{upper: fn(T) -> (), {template_fields}}})\nend\n\
-         fn inferred(payload: {{upper: fn(fn({{a: Int, b: Int}}) -> State) -> (), {actual_fields}}})\n  Made(payload)\nend\n\
-         fn ordinary(payload: {{upper: fn(fn({{a: Int, b: Int}}) -> State) -> (), {actual_fields}}}) -> ()\n  let value = Made(payload)\nend\n",
+         {consumer_source}",
     )
 }
 
-fn measure_resolving_structural_constraint_work(repetitions: usize) -> usize {
+fn measure_resolving_structural_constraint_work(
+    repetitions: usize,
+    consumer: StructuralConstraintConsumer,
+) -> (usize, usize) {
     let source = SourceFile::new(
         "main.veln",
-        resolving_structural_constraint_source(repetitions),
+        resolving_structural_constraint_source(repetitions, consumer),
     );
     let parsed = parse(&source);
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
@@ -331,6 +352,7 @@ fn measure_resolving_structural_constraint_work(repetitions: usize) -> usize {
     crate::aggregate_type_join::reset_work();
     crate::aggregate_type_join::reset_bounded_frames();
     crate::aggregate_type_join::reset_bounded_candidate_work();
+    crate::aggregate_type_join::reset_constraint_record_field_work();
     crate::type_relations::reset_type_presentation_work();
     let started = std::time::Instant::now();
     let (diagnostics, cloned_type_nodes) =
@@ -338,6 +360,8 @@ fn measure_resolving_structural_constraint_work(repetitions: usize) -> usize {
     let elapsed = started.elapsed();
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     let inference_work = crate::aggregate_type_join::take_work();
+    let constraint_record_field_work =
+        crate::aggregate_type_join::take_constraint_record_field_work();
     let bounded_frames = crate::aggregate_type_join::take_bounded_frames();
     let bounded = crate::aggregate_type_join::take_bounded_candidate_work();
     let bounded_work = bounded.candidate_iterations
@@ -351,30 +375,50 @@ fn measure_resolving_structural_constraint_work(repetitions: usize) -> usize {
         + presentation.conflict_insertions
         + presentation.child_lookups
         + presentation.child_insertions;
-    let total =
-        inference_work + cloned_type_nodes + bounded_frames + bounded_work + presentation_work;
+    let total = inference_work
+        + cloned_type_nodes
+        + bounded_frames
+        + bounded_work
+        + presentation_work
+        + constraint_record_field_work;
     eprintln!(
-        "resolving structural repetitions {repetitions}: {elapsed:?}, total={total}, inference={inference_work}, clones={cloned_type_nodes}, bounds={bounded_frames}, candidates={bounded_work}, presentation={presentation_work}",
+        "{consumer:?} resolving structural repetitions {repetitions}: {elapsed:?}, total={total}, inference={inference_work}, constraint_record_fields={constraint_record_field_work}, clones={cloned_type_nodes}, bounds={bounded_frames}, candidates={bounded_work}, presentation={presentation_work}",
     );
-    let environment = TypeEnvironment::from_module(&module);
-    assert_eq!(
-        environment
-            .function("inferred")
-            .unwrap()
-            .return_type
-            .render(),
-        "Repeated<fn({a: Int, b: Int}) -> State::Ready | State::Closed>::Made",
-    );
-    total
+    if matches!(consumer, StructuralConstraintConsumer::Private) {
+        let environment = TypeEnvironment::from_module(&module);
+        assert_eq!(
+            environment
+                .function("inferred")
+                .unwrap()
+                .return_type
+                .render(),
+            "Repeated<fn({a: Int, b: Int}) -> State::Ready | State::Closed>::Made",
+        );
+    }
+    (total, constraint_record_field_work)
 }
 
 #[test]
 fn unresolved_structural_constructor_constraints_resolve_with_linear_work() {
-    let work = [8, 16, 32].map(measure_resolving_structural_constraint_work);
-    assert!(
-        work[1] <= work[0] * 2 + 256 && work[2] <= work[1] * 2 + 256,
-        "doubling unresolved structural constraints must add only linear incremental clone, comparison, bound-update, and presentation work: {work:?}",
-    );
+    for consumer in [
+        StructuralConstraintConsumer::Private,
+        StructuralConstraintConsumer::Ordinary,
+    ] {
+        let work =
+            [8, 16, 32].map(|width| measure_resolving_structural_constraint_work(width, consumer));
+        assert!(
+            work[1].0 <= work[0].0 * 2 + 256 && work[2].0 <= work[1].0 * 2 + 256,
+            "doubling unresolved structural constraints in {consumer:?} inference must add only linear incremental clone, comparison, bound-update, and presentation work: {work:?}",
+        );
+        assert!(
+            work[0].1 > 0
+                && work[1].1 > work[0].1
+                && work[2].1 > work[1].1
+                && work[1].1 <= work[0].1 * 2 + 8
+                && work[2].1 <= work[1].1 * 2 + 8,
+            "doubling record width in {consumer:?} constraint traversal must add only linear field-index and lookup work: {work:?}",
+        );
+    }
 }
 
 fn repeated_pair_resolvable_structural_source(repetitions: usize) -> String {

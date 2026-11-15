@@ -1046,6 +1046,9 @@ fn irrelevant_occurrences_need_context_and_invariant_occurrences_roll_back() {
             "fn contextual(value: Phantom<State::Ready>) -> Irrelevant<State::Closed>\n",
             "  IrrelevantValue(value)\n",
             "end\n",
+            "fn omitted_private(value: Phantom<State::Ready>)\n",
+            "  IrrelevantValue(value)\n",
+            "end\n",
             "fn rollback(callback: fn(State::Ready) -> State::Ready, rejected: State::Closed)\n",
             "  ExactValue(callback, rejected)\n",
             "end\n",
@@ -1060,7 +1063,22 @@ fn irrelevant_occurrences_need_context_and_invariant_occurrences_roll_back() {
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.inference_ambiguous")
             .count(),
-        1,
+        2,
+        "{diagnostics:#?}"
+    );
+    let private_incomplete = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.private_inference_incomplete")
+        .collect::<Vec<_>>();
+    assert_eq!(private_incomplete.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        private_incomplete[0].message,
+        "private function has no inferred return type"
+    );
+    assert!(
+        private_incomplete[0].details.to_json().contains(
+            "\"slot_kind\":\"private_return\",\"missing_fact\":\"return_type\",\"inferred_type\":\"Irrelevant<unknown>::IrrelevantValue\""
+        ),
         "{diagnostics:#?}"
     );
     assert_eq!(

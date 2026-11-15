@@ -149,3 +149,11 @@ pub fn direct_constraint_evidence(first: Invariant<Int>, second: Invariant<Strin
 	let ordinary_context: DirectTriple<Invariant<Int>> = DirectGrouped(first, second, first)
 	needs_direct_int(direct_private_context(first, second, first))
 end
+
+fn irrelevant_private(value: Phantom<State::Ready>)
+	IrrelevantValue(value)
+end
+
+fn irrelevant_contextual(value: Phantom<State::Ready>) -> Irrelevant<State::Closed>
+	IrrelevantValue(value)
+end

@@ -10,6 +10,7 @@ thread_local! {
     static FALLBACK_COMPARISONS: Cell<usize> = const { Cell::new(0) };
     static BOUNDED_FRAMES: Cell<usize> = const { Cell::new(0) };
     static FUNCTION_SCAN_NODES: Cell<usize> = const { Cell::new(0) };
+    static CONSTRAINT_RECORD_FIELD_WORK: Cell<usize> = const { Cell::new(0) };
     static RELATION_CACHE_CURRENT_KEY_BYTES: Cell<usize> = const { Cell::new(0) };
     static BOUNDED_CANDIDATE_WORK: Cell<BoundedCandidateWork> =
         const { Cell::new(BoundedCandidateWork {
@@ -161,6 +162,22 @@ pub(crate) fn reset_function_scan_nodes() {
 #[cfg(test)]
 pub(crate) fn take_function_scan_nodes() -> usize {
     FUNCTION_SCAN_NODES.with(|nodes| nodes.replace(0))
+}
+
+#[inline(always)]
+pub(super) fn record_constraint_record_field_work() {
+    #[cfg(test)]
+    CONSTRAINT_RECORD_FIELD_WORK.with(|work| work.set(work.get() + 1));
+}
+
+#[cfg(test)]
+pub(crate) fn reset_constraint_record_field_work() {
+    CONSTRAINT_RECORD_FIELD_WORK.with(|work| work.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_constraint_record_field_work() -> usize {
+    CONSTRAINT_RECORD_FIELD_WORK.with(|work| work.replace(0))
 }
 
 #[cfg(test)]

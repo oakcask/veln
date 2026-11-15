@@ -13,16 +13,18 @@ pub(crate) use metrics::record_work;
 #[cfg(test)]
 pub(crate) use metrics::{
     BoundedCandidateWork, DeepJoinWork, reset_bounded_candidate_work, reset_bounded_frames,
-    reset_deep_work, reset_fallback_comparisons, reset_function_scan_nodes, reset_work,
-    take_bounded_candidate_work, take_bounded_frames, take_deep_work, take_fallback_comparisons,
+    reset_constraint_record_field_work, reset_deep_work, reset_fallback_comparisons,
+    reset_function_scan_nodes, reset_work, take_bounded_candidate_work, take_bounded_frames,
+    take_constraint_record_field_work, take_deep_work, take_fallback_comparisons,
     take_function_scan_nodes, take_work,
 };
 use metrics::{
     record_bounded_candidate_iteration, record_bounded_frame,
     record_bounded_result_materialization, record_candidate_order_node, record_fallback_comparison,
-    record_function_scan_node, record_materialization, record_node_visit, record_presentation_work,
-    record_relation_cache_insert, record_relation_key_node, record_retained_nodes,
-    record_setup_type_node, reset_relation_cache_current_key_bytes,
+    record_constraint_record_field_work, record_function_scan_node, record_materialization,
+    record_node_visit, record_presentation_work, record_relation_cache_insert,
+    record_relation_key_node, record_retained_nodes, record_setup_type_node,
+    reset_relation_cache_current_key_bytes,
 };
 
 struct JoinNode {

@@ -143,11 +143,14 @@ fn collect_record_constraints(
     let Type::Record(actual_fields) = actual else {
         return true;
     };
+    let mut actual_fields_by_name = HashMap::with_capacity(actual_fields.len());
+    for (name, actual) in actual_fields {
+        record_constraint_record_field_work();
+        actual_fields_by_name.entry(name.as_str()).or_insert(actual);
+    }
     for (name, template) in fields {
-        if let Some((_, actual)) = actual_fields
-            .iter()
-            .find(|(actual_name, _)| actual_name == name)
-        {
+        record_constraint_record_field_work();
+        if let Some(actual) = actual_fields_by_name.get(name.as_str()) {
             collect_template_constraints(template, actual, polarity, adts, contributions);
         }
     }
