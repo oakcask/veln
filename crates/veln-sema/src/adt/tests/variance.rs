@@ -466,7 +466,7 @@ fn deep_rejected_assignability_trace_is_stack_safe() {
 }
 
 #[test]
-fn nested_assignability_trace_uses_contract_order_instead_of_storage_order() {
+fn nested_assignability_trace_uses_field_name_order() {
     use crate::semantic_model::Type;
     use crate::type_relations::{
         AssignabilityPathSegment as Segment, assignability_failure_with_registry,
@@ -491,7 +491,18 @@ fn nested_assignability_trace_uses_contract_order_instead_of_storage_order() {
         record_failure.path,
         vec![Segment::RecordField("alpha".to_string())]
     );
+}
 
+#[test]
+fn nested_assignability_trace_uses_argument_order_independently_of_alias_spelling() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let narrow = fixture.narrow.clone();
+    let wide = fixture.wide.clone();
     let argument_failure = assignability_failure_with_registry(
         &Type::result(narrow.clone(), narrow.clone()),
         &Type::result(wide.clone(), wide.clone()),
@@ -512,7 +523,18 @@ fn nested_assignability_trace_uses_contract_order_instead_of_storage_order() {
     )
     .expect("alias spelling does not change the failed slot");
     assert_eq!(alias_failure, argument_failure);
+}
 
+#[test]
+fn nested_assignability_trace_uses_function_contract_order() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let narrow = fixture.narrow.clone();
+    let wide = fixture.wide.clone();
     let function_failure = assignability_failure_with_registry(
         &Type::function(vec![wide.clone(), wide.clone()], narrow.clone(), Vec::new()),
         &Type::function(
