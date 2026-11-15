@@ -46,6 +46,18 @@ struct ConstraintListNode {
     previous: Option<Arc<ConstraintListNode>>,
 }
 
+impl Drop for ConstraintListNode {
+    fn drop(&mut self) {
+        let mut previous = self.previous.take();
+        while let Some(node) = previous {
+            let Ok(mut node) = Arc::try_unwrap(node) else {
+                break;
+            };
+            previous = node.previous.take();
+        }
+    }
+}
+
 #[derive(Clone, Default)]
 struct CanonicalConstraintBound {
     selected: Option<CanonicalConstraint>,
