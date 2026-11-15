@@ -865,7 +865,7 @@ fn package_tool_state_is_preserved_across_capacity_and_capture_failures() {
 }
 
 #[test]
-fn package_surfaces_are_preserved_across_variant_refinement_analysis_failure() {
+fn package_surfaces_are_preserved_across_generic_variance_analysis_failure() {
     assert_package_tool_state_preserved_across_analysis_failure();
 }
 
@@ -912,6 +912,25 @@ fn assert_package_tool_state_preserved_across_capacity_failure() {
 fn assert_package_tool_state_preserved_across_capture_failure() {
     let capture_workspace = TempWorkspace::new("package-tool-capture-failure-state");
     write_documented_workspace(&capture_workspace);
+    capture_workspace.write(
+        "vendor/dep/api.veln",
+        concat!(
+            "## stable catalog text\n",
+            "pub type State\n",
+            "  pub Ready\n",
+            "  pub Closed\n",
+            "end\n",
+            "pub type Producer<T>\n",
+            "  pub Produced(value: T)\n",
+            "end\n",
+            "pub fn widen(value: Producer<State::Ready>) -> Producer<State>\n",
+            "  value\n",
+            "end\n",
+            "pub fn answer() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
     let mut capture_server = initialized_server_with_embedded_resources(&capture_workspace);
     assert_eq!(
         capture_server.check_project_tool(&json!({"project":"."}))["isError"],
@@ -931,6 +950,16 @@ fn assert_package_tool_state_preserved_across_capture_failure() {
             format!(
                 concat!(
                     "## Changed during capture mentions capture rejected text.\n",
+                    "pub type State\n",
+                    "  pub Ready\n",
+                    "  pub Closed\n",
+                    "end\n",
+                    "pub type Producer<T>\n",
+                    "  pub Produced(value: T)\n",
+                    "end\n",
+                    "pub fn widen(value: Producer<State::Ready>) -> Producer<State>\n",
+                    "  value\n",
+                    "end\n",
                     "pub fn answer() -> Int\n",
                     "\t{}\n",
                     "end\n",
@@ -974,16 +1003,13 @@ fn assert_package_tool_state_preserved_across_analysis_failure() {
         .unwrap()
         .to_string();
     let rejected_source = concat!(
-        "pub type State\n",
-        "  Hidden\n",
-        "end\n",
-        "pub type Box<A>\n",
-        "  pub Boxed(value: A)\n",
-        "end\n",
-        "pub type InvalidEnvelope\n",
-        "  pub Wrapped(value: Box<State::Hidden>)\n",
+        "pub type Producer<T>\n",
+        "  Produced(T)\n",
         "end\n",
         "## analysis rejected text\n",
+        "pub fn rejected(value: Producer<String>) -> Producer<Int>\n",
+        "  value\n",
+        "end\n",
         "pub fn answer() -> Int\n",
         "  1\n",
         "end\n",
@@ -997,7 +1023,7 @@ fn assert_package_tool_state_preserved_across_analysis_failure() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|diagnostic| diagnostic["id"] == "type.variant_refinement_private"),
+            .any(|diagnostic| diagnostic["id"] == "type.mismatch"),
         "{failed:#}"
     );
     let after = package_publication_state(&mut server, "example/dep", "stable catalog text");

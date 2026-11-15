@@ -1,0 +1,17 @@
+pub type State
+	pub Ready
+	pub Closed
+end
+
+pub type Producer<T>
+	pub Produced(value: T)
+end
+
+fn ready(value: State::Ready) -> Int
+	1
+end
+
+pub fn rejected(value: Producer<State>) -> Producer<State::Ready>
+	let callback: fn(State) -> Int = ready
+	value
+end

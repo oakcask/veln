@@ -11,6 +11,7 @@ use rustix::fs::{FileType, Mode, OFlags, RawDir, ResolveFlags, openat2};
 use serde_json::{Value, json};
 use veln_analysis::{
     CapturedDependencyProject, DoctestMode, checked_project_diagnostics_with_captured_dependencies,
+    is_generic_or_function_variance_failure,
 };
 use veln_diagnostics::diagnostic_to_json;
 use veln_project::{Project, parse_manifest_text};
@@ -71,9 +72,10 @@ pub(crate) fn check_project(
         DoctestMode::Exclude,
         captured.dependencies,
     );
-    let visibility_failed = checked_diagnostics
-        .iter()
-        .any(|diagnostic| diagnostic.id == "type.variant_refinement_private");
+    let publication_failed = checked_diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.variant_refinement_private"
+            || is_generic_or_function_variance_failure(diagnostic)
+    });
     let diagnostics = checked_diagnostics
         .iter()
         .map(diagnostic_to_serde)
@@ -84,7 +86,8 @@ pub(crate) fn check_project(
         "diagnostics": diagnostics,
         "summary": summary(&diagnostics),
     });
-    if !visibility_failed && let Err(error) = language_resources.admit_dependencies(&dependencies) {
+    if !publication_failed && let Err(error) = language_resources.admit_dependencies(&dependencies)
+    {
         return error.into();
     }
     ToolOutcome::Success(structured)

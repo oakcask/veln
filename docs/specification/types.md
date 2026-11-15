@@ -2058,6 +2058,16 @@ case and its
 [`diagnostic companion`](../../examples/specification/check/source-adt-variance-assignment-diagnostics/).
 They cover all four classifications, aliases, imported declarations, nested
 structural polarity, refinements, and distinct nominal owners.
+If a whole-project analysis contains a rejected named-generic or function
+variance comparison, the complete checked program and package signature are
+unavailable. The tool reports every applicable mismatch instead of publishing
+the successful portion of that analysis. This boundary is independent of
+reachability: an invalid declaration outside the selected run entry still
+rejects execution. The focused
+[`JSON`](../../examples/specification/check/generic-function-variance-whole-analysis-json/)
+and
+[`human`](../../examples/specification/check/generic-function-variance-whole-analysis-human/)
+cases corroborate the complete failure and its nested comparison paths.
 Context-free covariant joins for local and imported source ADTs are checked by
 the accepted
 [`source-adt-variance-inference`](../../examples/specification/check/source-adt-variance-inference/)

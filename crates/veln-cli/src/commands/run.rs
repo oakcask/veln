@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 
 use veln_analysis::{
     AnalysisTiming, DoctestMode, ProjectAnalysis, analyze_project, analyze_project_with_timings,
+    is_generic_or_function_variance_failure,
 };
 use veln_ast::{FunctionKind, InvalidName, NameClass, NameOccurrence};
 #[cfg(test)]
@@ -113,7 +114,7 @@ fn prepare_run_program(
 ) -> Result<Option<PreparedRun>, String> {
     let analysis = analyze_run_project(root, inputs, timings.as_mut())?;
     write_harness_source_diagnostic_artifact(&analysis.checked_diagnostics())?;
-    if report_source_errors(json, &analysis)? {
+    if report_whole_project_errors(json, &analysis)? {
         write_timings(timings)?;
         return Ok(None);
     }
@@ -250,9 +251,15 @@ fn test_only_run_input_diagnostic(path: &str) -> Diagnostic {
     )
 }
 
-fn report_source_errors(json: bool, analysis: &ProjectAnalysis) -> Result<bool, String> {
+fn report_whole_project_errors(json: bool, analysis: &ProjectAnalysis) -> Result<bool, String> {
     let mut diagnostics = analysis.source_diagnostics();
     diagnostics.extend(source_module_header_invalid_case_diagnostics(analysis));
+    diagnostics.extend(
+        analysis
+            .checked_diagnostics()
+            .into_iter()
+            .filter(is_generic_or_function_variance_failure),
+    );
     if has_error(&diagnostics) {
         report_pre_execution_diagnostics(json, diagnostics)?;
         return Ok(true);

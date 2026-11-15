@@ -102,6 +102,52 @@ fn combined_source_and_delayed_parse_diagnostics_follow_written_order() {
 }
 
 #[test]
+fn whole_project_variance_failures_publish_diagnostics_without_checked_programs() {
+    let analysis = analyze_project(
+        Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "pub type State\n",
+                    "  pub Ready\n",
+                    "  pub Closed\n",
+                    "end\n",
+                    "pub type Producer<T>\n",
+                    "  pub Produced(T)\n",
+                    "end\n",
+                    "fn ready(value: State::Ready) -> Int\n",
+                    "  1\n",
+                    "end\n",
+                    "pub fn main(value: Producer<State>) -> Producer<State::Ready>\n",
+                    "  let callback: fn(State) -> Int = ready\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        },
+        DoctestMode::Exclude,
+    );
+
+    let diagnostics = analysis.checked_diagnostics();
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["type.mismatch", "type.mismatch"],
+        "{diagnostics:#?}"
+    );
+    assert!(analysis.checked.core.is_none());
+    assert!(analysis.checked.ir.is_none());
+
+    let reachable = analysis.lower_reachable_entry("main", FunctionKind::Function);
+    assert!(reachable.lowered.core.is_none());
+    assert!(reachable.lowered.ir.is_none());
+}
+
+#[test]
 fn separated_reachable_lowering_matches_combined_lowering_outputs() {
     let analysis = analyze_project(
         Project {

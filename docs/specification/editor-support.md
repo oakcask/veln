@@ -923,8 +923,11 @@ Declaration identity and generic arity do not suppress this refresh. The
 [package virtual-source lifetime](package-virtual-sources.md#package-virtual-sources)
 defines how earlier snapshot URIs remain resolvable.
 If project rediscovery fails, the server publishes an empty diagnostic list for
-each URI previously published for that project, and the current dependency
-layer stays active. After successful rediscovery, a dependency that fails
+each URI previously published for that project, and the complete current
+dependency layer stays active. Definitions, signatures, and virtual-source
+reads therefore continue to use the prior successful snapshot, including when
+that snapshot carries source-ADT and function variance facts. No source or
+signature from the failed discovery is exposed. After successful rediscovery, a dependency that fails
 identity, source-root, snapshot, manifest, or catalog validation is absent from
 the replacement layer. An export-validation failure also removes the dependency
 unless every reported failure is a source-path invalid-case diagnostic. Those

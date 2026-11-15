@@ -183,7 +183,10 @@ none of that operation's new source snapshots or revisions, publishes no new
 resources or search candidates, does not change the current revision selection,
 and preserves the previous public state. Capture failure, validation failure,
 tool domain failure, and invalid tool parameters admit no new dependency
-resources.
+resources. A stable-capture failure after a successful variance-bearing package
+publication preserves the prior package signatures, source resources, exact
+reads, search results, navigation selection, and cursors. Bytes and signatures
+seen only during the failed capture are not published.
 
 Dependency source resources use the canonical `veln-pkg:` URI from the
 admitted dependency snapshot virtual-source catalog. Their `name` is the
@@ -457,12 +460,15 @@ For `type.variant_refinement_unknown`, `check_project` preserves the closed
 `resolved_identity` for the resolved ADT and each visible variant, and
 `variant` for each visible-variant entry. Source-backed entries also preserve
 their declaration spans; source-less entries do not invent spans.
-When analysis returns `type.variant_refinement_private`, `check_project`
-returns the diagnostic but does not admit the captured dependency snapshot.
+When analysis returns `type.variant_refinement_private`, or a `type.mismatch`
+whose nested comparison identifies an incompatible named-generic argument or
+function input, variadic element, or result, `check_project` returns the
+diagnostic but does not admit the captured dependency snapshot.
 Previously retained dependency source, package-documentation, search, and
 exact-read state remains unchanged. Stable-capture failure preserves the same
-state. Other language diagnostics do not imply this visibility-specific
-admission rule.
+state. The rejected snapshot contributes no package signature, source resource,
+or search result. Other language diagnostics do not imply this atomic
+admission rule and can still produce a coherent diagnostic-bearing snapshot.
 If dependency resource admission exceeds the retained source-snapshot or
 documentation-revision capacity after analysis succeeds, `check_project`
 returns `resource_capacity` and publishes no partial diagnostics, summary, or

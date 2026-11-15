@@ -337,6 +337,37 @@ pub fn checked_project_diagnostics_with_captured_dependencies(
         .checked_diagnostics()
 }
 
+pub fn is_generic_or_function_variance_failure(diagnostic: &Diagnostic) -> bool {
+    if diagnostic.id != "type.mismatch" {
+        return false;
+    }
+    let Some(details) = diagnostic.details.as_object() else {
+        return false;
+    };
+    let Some(nested) = details
+        .iter()
+        .find(|(key, _)| key == "nested_incompatibility")
+        .and_then(|(_, value)| value.as_object())
+    else {
+        return false;
+    };
+    nested
+        .iter()
+        .find(|(key, _)| key == "path")
+        .and_then(|(_, value)| value.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|part| part.as_object())
+        .filter_map(|part| part.iter().find(|(key, _)| key == "kind"))
+        .filter_map(|(_, kind)| kind.as_text())
+        .any(|kind| {
+            matches!(
+                kind,
+                "named_argument" | "function_input" | "variadic_element" | "function_result"
+            )
+        })
+}
+
 pub fn analyze_project_with_captured_dependencies(
     project: Project,
     doctest_mode: DoctestMode,

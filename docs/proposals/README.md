@@ -16,9 +16,7 @@ also states it.
 
 ## Ready
 
-- Complete the remaining whole-analysis and language-service failure
-  preservation for generic and function variance:
-  [generic-and-function-variance.md](generic-and-function-variance.md).
+There is no Ready proposal.
 
 ## Design In Progress
 

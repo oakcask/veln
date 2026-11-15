@@ -7,7 +7,7 @@ use veln_analysis::{
     CapturedDependencyIndex, CapturedDependencyProject, DoctestMode, ProjectAnalysis,
     analyze_project, analyze_project_with_captured_dependency_index,
     derive_export_source_module_path, derive_source_module_path,
-    is_source_path_invalid_case_diagnostic,
+    is_generic_or_function_variance_failure, is_source_path_invalid_case_diagnostic,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, Severity, write_json_string};
 use veln_project::{

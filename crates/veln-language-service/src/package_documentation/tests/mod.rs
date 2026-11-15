@@ -168,5 +168,6 @@ mod module_value_classification_scaling;
 mod module_value_dependency_boundaries;
 mod module_value_publication;
 mod navigation_and_manifest;
+mod variance_failure_preservation;
 mod variance_presentation;
 mod variant_refinement_visibility;

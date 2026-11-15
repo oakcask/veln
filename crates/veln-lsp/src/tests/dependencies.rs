@@ -1522,15 +1522,13 @@ fn did_change_request(uri: &str, text: &str) -> String {
 #[test]
 fn project_rediscovery_failure_keeps_the_current_dependency_layer() {
     let mut server = Server::default();
-    let project = path_dependency_project(
-        "dependency-refresh-discovery-failure",
-        "vendor/lib",
-        "pub fn exposed(value: Int) -> Int\n  value\nend\n",
-    );
+    let positive = dependency_variance_positive_source();
+    let consumer = dependency_variance_consumer_source();
+    let project = dependency_variance_project(positive, consumer);
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
-    let definition = server.handle_message(&definition_request(&main_uri, 3, 10));
+    let definition = server.handle_message(&definition_request(&main_uri, 2, 23));
     let virtual_uri = package_virtual_definition_uri(&definition[0], "example%2Fpkg", "math.veln");
     let retained = server.project_snapshots.get(&project.root).cloned().unwrap();
 
@@ -1546,7 +1544,11 @@ fn project_rediscovery_failure_keeps_the_current_dependency_layer() {
         &mut server,
         "40",
         &virtual_uri,
-        "pub fn exposed(value: Int) -> Int\n  value\nend\n",
+        positive,
+    );
+    assert_eq!(
+        server.handle_message(&definition_request(&main_uri, 2, 23)),
+        definition
     );
 }
 
