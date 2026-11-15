@@ -3,6 +3,8 @@ use std::collections::BTreeMap;
 use crate::adt::registry::AdtRegistry;
 use crate::adt::registry::parameter_variance_lookup_counters;
 use crate::adt::variance::{Variance, variance_solver_counters};
+use crate::semantic_model::Type;
+use crate::type_relations::{AssignabilityPathSegment, assignability_failure_with_registry};
 
 use super::{lookup_descriptor, registry};
 
@@ -339,6 +341,128 @@ fn nested_assignability_trace_covers_each_path_and_comparison_direction() {
         .path,
         vec![Segment::EffectSet]
     );
+}
+
+#[test]
+fn nested_assignability_trace_checks_arguments_before_refinement_exclusions() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, ComparisonDirection as Direction,
+        assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let expected = Type::resolved_variant_refinement(
+        "Option",
+        Type::COMPILER_OPTION_IDENTITY,
+        vec![fixture.narrow.clone()],
+        vec!["Some".to_string()],
+    );
+    let actual = |argument: Type, refined: bool| {
+        if refined {
+            Type::resolved_variant_refinement(
+                "Option",
+                Type::COMPILER_OPTION_IDENTITY,
+                vec![argument],
+                vec!["None".to_string()],
+            )
+        } else {
+            Type::resolved_named("Option", Type::COMPILER_OPTION_IDENTITY, vec![argument])
+        }
+    };
+
+    for refined in [false, true] {
+        let compatible = assignability_failure_with_registry(
+            &expected,
+            &actual(fixture.narrow.clone(), refined),
+            &fixture.registry,
+        )
+        .expect("the outer refinement exclusion must fail");
+        assert!(compatible.path.is_empty(), "{compatible:?}");
+
+        let incompatible = assignability_failure_with_registry(
+            &expected,
+            &actual(fixture.wide.clone(), refined),
+            &fixture.registry,
+        )
+        .expect("the covariant argument must fail first");
+        assert_eq!(
+            incompatible,
+            crate::type_relations::AssignabilityFailure {
+                path: vec![Segment::NamedArgument(0)],
+                direction: Direction::ExpectedAcceptsActual,
+            },
+            "actual refined={refined}",
+        );
+    }
+}
+
+fn deep_trace_type(depth: usize, leaf: Type) -> Type {
+    (0..depth).fold(leaf, |nested, _| Type::vec(nested))
+}
+
+fn measure_deep_assignability_trace(
+    fixture: &VarianceAssignmentFixture,
+    depth: usize,
+) -> (usize, crate::type_relations::AssignabilityTraceWork) {
+    let expected = deep_trace_type(depth, fixture.narrow.clone());
+    let actual = deep_trace_type(depth, fixture.wide.clone());
+    crate::type_relations::reset_assignability_trace_work();
+    let failure = assignability_failure_with_registry(&expected, &actual, &fixture.registry)
+        .expect("the independently allocated leaf types must fail");
+    let work = crate::type_relations::take_assignability_trace_work();
+    let path_len = failure.path.len();
+    assert!(
+        failure
+            .path
+            .iter()
+            .all(|segment| *segment == AssignabilityPathSegment::NamedArgument(0)),
+        "{failure:?}",
+    );
+    crate::semantic_model::drop_type_iteratively(expected);
+    crate::semantic_model::drop_type_iteratively(actual);
+    (path_len, work)
+}
+
+#[test]
+fn deep_assignability_trace_work_and_retained_state_are_linear() {
+    let fixture = VarianceAssignmentFixture::new();
+    let depths = [512, 1_024, 2_048];
+    let measurements = depths.map(|depth| measure_deep_assignability_trace(&fixture, depth));
+
+    for (depth, (path_len, work)) in depths.into_iter().zip(measurements) {
+        assert_eq!(path_len, depth);
+        assert_eq!(work.visited_comparisons, depth + 1, "depth={depth}");
+        assert!(
+            work.max_retained_state <= depth + 2,
+            "depth={depth} work={work:?}",
+        );
+    }
+    for adjacent in measurements.windows(2) {
+        assert!(
+            adjacent[1].1.visited_comparisons <= adjacent[0].1.visited_comparisons * 2 + 1,
+            "{measurements:?}",
+        );
+        assert!(
+            adjacent[1].1.max_retained_state <= adjacent[0].1.max_retained_state * 2 + 1,
+            "{measurements:?}",
+        );
+    }
+}
+
+#[test]
+fn deep_rejected_assignability_trace_is_stack_safe() {
+    std::thread::Builder::new()
+        .name("deep-assignability-trace".to_string())
+        .stack_size(128 * 1024)
+        .spawn(|| {
+            let fixture = VarianceAssignmentFixture::new();
+            let (path_len, _) = measure_deep_assignability_trace(&fixture, 12_000);
+            assert_eq!(path_len, 12_000);
+        })
+        .expect("spawn bounded-stack assignability trace")
+        .join()
+        .expect("bounded-stack assignability trace");
 }
 
 #[test]

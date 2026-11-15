@@ -22,7 +22,7 @@ format = "empty"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 8
+equals = 9
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -78,20 +78,60 @@ equals = "effect_set"
 
 [[json_assert]]
 path = "diagnostics.6.id"
-equals = "type.variant_mismatch"
+equals = "type.mismatch"
 
 [[json_assert]]
-path = "diagnostics.6.details.excluded_variants.form"
-equals = "all_except_expected"
+path = "diagnostics.6.details.expected_type"
+equals = "Option<State::Ready>::Some"
+
+[[json_assert]]
+path = "diagnostics.6.details.actual_type"
+equals = "Option<State>"
+
+[[json_assert]]
+path = "diagnostics.6.details.nested_incompatibility.path.0.kind"
+equals = "named_argument"
+
+[[json_assert]]
+path = "diagnostics.6.details.nested_incompatibility.path.0.index"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.6.details.nested_incompatibility.comparison_direction"
+equals = "expected_accepts_actual"
+
+[[json_assert]]
+path = "diagnostics.6.details.nested_incompatibility.expected_declaration.file"
+equals = "main.veln"
+
+[[json_assert]]
+path = "diagnostics.6.related.0.kind"
+equals = "nested_type_incompatibility"
+
+[[json_assert]]
+path = "diagnostics.6.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.6.related.1.message"
+equals = "Return type declared here."
 
 [[json_assert]]
 path = "diagnostics.7.id"
 equals = "type.variant_mismatch"
 
 [[json_assert]]
-path = "diagnostics.7.details.constraint"
+path = "diagnostics.7.details.excluded_variants.form"
+equals = "all_except_expected"
+
+[[json_assert]]
+path = "diagnostics.8.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.8.details.constraint"
 equals = "record_field"
 
 [[json_assert]]
-path = "diagnostics.7.related.1.message"
+path = "diagnostics.8.related.1.message"
 equals = "Schema encode value must match the schema-local visible record."

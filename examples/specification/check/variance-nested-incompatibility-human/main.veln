@@ -32,6 +32,10 @@ fn nested_failures(values: Vec<State>, fields: {zeta: State, alpha: State}) -> (
 	let effectful: fn() -> () = stdio_callback
 end
 
+fn base_actual_argument_failure(value: Option<State>) -> Option<State::Ready>::Some
+	value
+end
+
 fn direct_exclusion(value: State) -> State::Ready
 	value
 end
