@@ -893,9 +893,16 @@ a payload, the diagnostic reports the conflicting selected and contributed
 types. When the complete concrete payload shape is incompatible, the diagnostic
 instead reports the resolved payload shape as expected and the supplied payload
 type as actual. This includes a different outer named constructor and a record
-that omits required fields. None of a rejected payload's occurrences update the
-accumulated constraints or alias presentation, so a later payload is checked
-against only the constraints that were complete before the rejected payload.
+that omits required fields. When an explicit expected constructor supplies an
+argument that the payload constraints cannot select, the checker validates that
+argument against every retained lower, upper, and equality constraint. An
+incompatible payload reports `type.mismatch` at that payload. None of a rejected
+payload's occurrences update any constructor type argument, accumulated
+constraint, or alias presentation, so a later payload is checked against only
+the constraints that were complete before the rejected payload. The checked
+[`constructor generic constraint diagnostic case`](../../examples/specification/check/constructor-generic-constraint-inference-diagnostics/)
+covers this boundary in ordinary and private inference, including atomic
+rollback when one payload contributes to several constructor type arguments.
 When a required bounded join or meet is unavailable, or no effective occurrence
 constrains an argument, a context-free constructor reports
 `type.inference_ambiguous` instead of a payload mismatch. If an earlier error
