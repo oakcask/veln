@@ -908,6 +908,26 @@ and distribution source bytes produce the same dependency `veln-pkg:` URI
 across those source fields and physical roots. A manifest or included-source
 byte change produces a different snapshot URI.
 
+Before publishing diagnostics for a consumer update, the server captures the
+consumer project and its direct dependencies once. Diagnostic analysis and the
+retained navigation state consume that same capture. A dependency change after
+capture cannot make one publication analyze a different dependency revision
+from the revision used by navigation. Equal captured manifest and distribution
+source bytes keep the existing prepared dependency layer. Changed bytes replace
+that layer, invalidate navigation derived from it, and make the captured
+consumer analysis use newly derived source-ADT variance classifications.
+Declaration identity and generic arity do not suppress this refresh. The
+[package virtual-source lifetime](package-virtual-sources.md#package-virtual-sources)
+defines how earlier snapshot URIs remain resolvable.
+If project rediscovery fails, the server publishes an empty diagnostic list for
+each URI previously published for that project, and the current dependency
+layer stays active. After successful rediscovery, a dependency that fails
+identity, source-root, snapshot, manifest, or catalog validation is absent from
+the replacement layer. An export-validation failure also removes the dependency
+unless every reported failure is a source-path invalid-case diagnostic. Those
+diagnostics exclude only the affected exports, so valid sibling exports remain
+available from the replacement layer.
+
 The retained standard input has the reserved `std` identity and the same
 snapshot, export, and catalog boundaries. Bare and `prelude::` calls resolve
 public functions and supported public function aliases from the exported

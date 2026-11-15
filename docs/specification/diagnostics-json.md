@@ -865,7 +865,12 @@ classification reports `type.mismatch`. Compiler-owned covariance requires the
 resolved compiler-owned identity. A source or imported constructor with the
 same displayed name instead uses its own checked classifications, and its
 aliases retain those classifications. Distinct nominal owners remain
-incompatible. During aggregate inference, a structurally inadmissible later
+incompatible. The checked
+[`dependency-source-adt-variance-diagnostics`](../../examples/specification/check/dependency-source-adt-variance-diagnostics/)
+case covers the rejection after a direct dependency payload selects an
+invariant classification. The [type rules](types.md#source-adt-parameter-classifications)
+own dependency classification and refresh behavior. During aggregate
+inference, a structurally inadmissible later
 contribution reports `type.mismatch` at that contribution. This includes an
 unrelated outer identity or a mismatched function arity or variadic shape. The
 rejected contribution changes no admitted aggregate join state. A later valid

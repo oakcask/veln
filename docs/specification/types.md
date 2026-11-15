@@ -1897,6 +1897,18 @@ used by any variant of `Ignored<T>` is irrelevant. Nesting any of those types
 composes its classification with the enclosing record, function, or named
 constructor position.
 
+For a retained path dependency, the classification belongs to the exact
+captured package payload. When a later consumer analysis captures different
+dependency bytes, the checker derives the classifications again and invalidates
+the dependent analysis even when the declaration identity and generic arity
+are unchanged. Reusing the same captured bytes keeps the prepared dependency
+layer. The package-shaped accepted
+[`dependency-source-adt-variance`](../../examples/specification/check/dependency-source-adt-variance/)
+case and its rejected
+[`diagnostic companion`](../../examples/specification/check/dependency-source-adt-variance-diagnostics/)
+corroborate the two payload contracts. The LSP session regression applies both
+revisions and the restoration to one unchanged consumer assignment.
+
 Variance production for a nested covariant `Pair` comb has bounded linear
 instrumented work. The scaling check compares nesting depths 128 and 256.
 When the depth doubles, the factor-evaluation count and dependency-edge count

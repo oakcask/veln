@@ -37,6 +37,13 @@ one accessible constructor before its retained classifications can participate.
 Registry construction replaces wrong-length internal metadata with invariant
 classifications. An unavailable, inaccessible, or ambiguous nested constructor
 also remains invariant instead of acquiring covariance from its displayed name.
+The metadata is valid for the exact captured declaration payload. Package
+identity, declaration identity, and generic arity do not justify reusing a
+classification after the dependency bytes change. A retained dependency layer
+therefore reuses its prepared classifications only for an equal capture and
+derives them again from a changed capture. The current
+[source-ADT parameter rules](../../../specification/types.md#source-adt-parameter-classifications)
+own this behavior.
 
 This decision depends on the lookup and update properties below. A backend or
 container design that does not preserve those properties must not inherit this
@@ -71,6 +78,15 @@ in `crates/veln-stdlib/veln/prelude.test.veln` widens refined key and value
 types. It queries present and absent keys, inserts and removes through the
 widened value, and checks that the original entries and their iteration order
 remain unchanged.
+
+The package-shaped
+[`dependency-source-adt-variance`](../../../../examples/specification/check/dependency-source-adt-variance/)
+case and its
+[`diagnostic companion`](../../../../examples/specification/check/dependency-source-adt-variance-diagnostics/)
+distinguish a positive-only payload from a payload that makes the same generic
+parameter invariant. The LSP dependency regression changes and restores those
+payloads for one consumer, which checks that retained metadata follows the
+captured bytes instead of the stable declaration identity.
 
 This reasoning does not generalize to a container that retains a comparator or
 another key-consuming callback specialized to its original key type. It also

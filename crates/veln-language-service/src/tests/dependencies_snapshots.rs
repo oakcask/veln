@@ -263,6 +263,54 @@
     }
 
     #[test]
+    fn unchanged_direct_dependency_capture_reuses_prepared_sources() {
+        let dependency_source = "pub fn answer() -> Int\n  42\nend\n";
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[("math.veln", dependency_source)],
+            ["math.veln"],
+        );
+        let source_text = concat!(
+            "use math from \"example/pkg\"\n\n",
+            "pub fn main() -> Int\n",
+            "  math::answer()\n",
+            "end\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source("main.veln", source_text)],
+            vec![dependency],
+        );
+
+        reset_dependency_source_indexes();
+        reset_dependency_source_parses();
+        reset_dependency_path_classifications();
+        assert!(query_snapshot(&snapshot, "main.veln", 4, 10).is_some());
+
+        let unchanged = dependency_snapshot(
+            "example/pkg",
+            &[("math.veln", dependency_source)],
+            ["math.veln"],
+        );
+        assert!(snapshot.has_direct_dependency_layer(&[unchanged]));
+        assert!(query_snapshot(&snapshot, "main.veln", 4, 10).is_some());
+        assert_eq!(dependency_source_indexes(), 1);
+        assert_eq!(dependency_source_parses(), 1);
+        assert_eq!(dependency_path_classifications(), 1);
+
+        let changed = dependency_snapshot(
+            "example/pkg",
+            &[("math.veln", "pub fn answer() -> Int\n  43\nend\n")],
+            ["math.veln"],
+        );
+        assert!(!snapshot.has_direct_dependency_layer(std::slice::from_ref(&changed)));
+        let refreshed = snapshot.with_direct_dependency_layer(vec![changed]);
+        assert!(query_snapshot(&refreshed, "main.veln", 4, 10).is_some());
+        assert_eq!(dependency_source_indexes(), 2);
+        assert_eq!(dependency_source_parses(), 2);
+        assert_eq!(dependency_path_classifications(), 2);
+    }
+
+    #[test]
     fn direct_dependency_layers_reuse_prepared_standard_library_sources() {
         let standard_library = standard_library_snapshot(
             &[("prelude.veln", "pub fn standard() -> Int\n  1\nend\n")],

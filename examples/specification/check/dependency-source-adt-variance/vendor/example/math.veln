@@ -1,0 +1,8 @@
+pub type State
+	Ready
+	Closed
+end
+
+pub type Producer<T>
+	Produced({value: T, consume: fn() -> ()})
+end

@@ -9,8 +9,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use veln_analysis::{
-    DoctestMode, checked_project_diagnostics, is_source_path_invalid_case_diagnostic,
-    parse_diagnostic_to_envelope, validate_manifest_exports,
+    CapturedDependencyProject, DoctestMode, checked_project_diagnostics_with_captured_dependencies,
+    is_source_path_invalid_case_diagnostic, parse_diagnostic_to_envelope,
+    validate_manifest_exports,
 };
 use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_diagnostics::Diagnostic;
@@ -106,11 +107,18 @@ struct Server {
     published_diagnostic_uris: BTreeMap<PathBuf, BTreeSet<String>>,
     project_snapshots: BTreeMap<PathBuf, Arc<EffectiveProjectSnapshot>>,
     overlaid_project_snapshots: BTreeMap<PathBuf, Arc<EffectiveProjectSnapshot>>,
+    retired_virtual_sources: BTreeMap<String, Vec<u8>>,
     should_exit: bool,
     #[cfg(test)]
     test_standard_library: Option<DirectDependencySnapshot>,
     #[cfg(test)]
     test_rename_navigations: Cell<usize>,
+}
+
+struct CapturedWorkspaceProject {
+    project: Project,
+    direct_dependencies: Vec<DirectDependencySnapshot>,
+    analysis_dependencies: Vec<CapturedDependencyProject>,
 }
 
 impl Server {
@@ -305,6 +313,7 @@ impl Server {
             .project_snapshots
             .values()
             .find_map(|snapshot| snapshot.resolve_virtual_source(&uri))
+            .or_else(|| self.retired_virtual_sources.get(&uri).map(Vec::as_slice))
         else {
             return vec![error_response(
                 &id,
@@ -443,7 +452,36 @@ impl Server {
     }
 
     fn publish_workspace_diagnostics_for_root(&mut self, root: PathBuf) -> Vec<String> {
-        let (diagnostics_by_path, diagnostic_sources) = self.workspace_diagnostics_for_root(&root);
+        let Some(captured) = capture_workspace_project(&root) else {
+            return self.publish_workspace_diagnostic_results(
+                root,
+                Default::default(),
+                Default::default(),
+            );
+        };
+        self.publish_workspace_diagnostics_for_captured_project(root, captured)
+    }
+
+    fn publish_workspace_diagnostics_for_captured_project(
+        &mut self,
+        root: PathBuf,
+        captured: CapturedWorkspaceProject,
+    ) -> Vec<String> {
+        self.refresh_project_dependency_layer(&root, captured.direct_dependencies);
+        let (diagnostics_by_path, diagnostic_sources) = self.workspace_diagnostics_for_root(
+            &root,
+            captured.project,
+            captured.analysis_dependencies,
+        );
+        self.publish_workspace_diagnostic_results(root, diagnostics_by_path, diagnostic_sources)
+    }
+
+    fn publish_workspace_diagnostic_results(
+        &mut self,
+        root: PathBuf,
+        diagnostics_by_path: BTreeMap<String, Vec<Diagnostic>>,
+        diagnostic_sources: DiagnosticSources,
+    ) -> Vec<String> {
         let visible_root = visible_workspace_root(&root, &self.workspace_root_aliases);
         let mut next_uris = BTreeSet::new();
         let mut responses = diagnostics_by_path
@@ -469,10 +507,9 @@ impl Server {
     fn workspace_diagnostics_for_root(
         &mut self,
         root: &Path,
+        mut project: Project,
+        dependencies: Vec<CapturedDependencyProject>,
     ) -> (BTreeMap<String, Vec<Diagnostic>>, DiagnosticSources) {
-        let Ok(mut project) = Project::discover(root.to_path_buf(), &[]) else {
-            return Default::default();
-        };
         self.overlay_open_workspace_documents(root, &mut project);
         let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
         let diagnostic_sources = project
@@ -487,7 +524,11 @@ impl Server {
                 (path, published)
             })
             .collect();
-        let diagnostics = checked_project_diagnostics(project.clone(), DoctestMode::Exclude);
+        let diagnostics = checked_project_diagnostics_with_captured_dependencies(
+            project.clone(),
+            DoctestMode::Exclude,
+            dependencies,
+        );
         let mut diagnostics_by_path = diagnostics_by_path(diagnostics);
         for source in &project.files {
             diagnostics_by_path
@@ -539,6 +580,7 @@ impl Server {
     fn capture_project_snapshots(&mut self) {
         self.project_snapshots.clear();
         self.overlaid_project_snapshots.clear();
+        self.retired_virtual_sources.clear();
         for root in self.workspace_roots.clone() {
             if let Some(snapshot) = retained_project_snapshot(
                 &root,
@@ -550,6 +592,30 @@ impl Server {
                 self.refresh_overlaid_project_snapshot(&root);
             }
         }
+    }
+
+    fn refresh_project_dependency_layer(
+        &mut self,
+        root: &Path,
+        direct_dependencies: Vec<DirectDependencySnapshot>,
+    ) {
+        let Some(current) = self.project_snapshots.get(root).cloned() else {
+            return;
+        };
+        if current.has_direct_dependency_layer(&direct_dependencies) {
+            return;
+        }
+        let refreshed = Arc::new(current.with_direct_dependency_layer(direct_dependencies));
+        for (uri, bytes) in current.direct_dependency_virtual_sources() {
+            self.retired_virtual_sources
+                .entry(uri.to_string())
+                .or_insert_with(|| bytes.to_vec());
+        }
+        for (uri, _) in refreshed.direct_dependency_virtual_sources() {
+            self.retired_virtual_sources.remove(uri);
+        }
+        self.project_snapshots.insert(root.to_path_buf(), refreshed);
+        self.refresh_overlaid_project_snapshot(root);
     }
 
     fn refresh_overlaid_project_snapshot(&mut self, root: &Path) {
@@ -679,12 +745,7 @@ fn retained_project_snapshot(
     root: &Path,
     #[cfg(test)] test_standard_library: Option<DirectDependencySnapshot>,
 ) -> Option<EffectiveProjectSnapshot> {
-    let project = Project::discover(root.to_path_buf(), &[]).ok()?;
-    let direct_dependencies = project
-        .manifest
-        .as_ref()
-        .map(|manifest| retained_direct_dependencies(root, manifest))
-        .unwrap_or_default();
+    let captured = capture_workspace_project(root)?;
     let standard_library = {
         #[cfg(test)]
         if let Some(standard_library) = test_standard_library {
@@ -698,8 +759,11 @@ fn retained_project_snapshot(
         }
     };
     Some(
-        EffectiveProjectSnapshot::with_direct_dependencies(project.files, direct_dependencies)
-            .with_standard_library(standard_library),
+        EffectiveProjectSnapshot::with_direct_dependencies(
+            captured.project.files,
+            captured.direct_dependencies,
+        )
+        .with_standard_library(standard_library),
     )
 }
 
@@ -746,53 +810,112 @@ fn build_retained_standard_library() -> Option<DirectDependencySnapshot> {
     DirectDependencySnapshot::from_validated_standard_library(snapshot, project.manifest?).ok()
 }
 
+fn capture_workspace_project(root: &Path) -> Option<CapturedWorkspaceProject> {
+    let project = Project::discover(root.to_path_buf(), &[]).ok()?;
+    let (direct_dependencies, analysis_dependencies) = project
+        .manifest
+        .as_ref()
+        .map(|manifest| capture_direct_dependencies(root, manifest))
+        .unwrap_or_default();
+    Some(CapturedWorkspaceProject {
+        project,
+        direct_dependencies,
+        analysis_dependencies,
+    })
+}
+
+fn capture_direct_dependencies(
+    root: &Path,
+    manifest: &ProjectManifest,
+) -> (
+    Vec<DirectDependencySnapshot>,
+    Vec<CapturedDependencyProject>,
+) {
+    let mut direct_dependencies = Vec::new();
+    let mut analysis_dependencies = Vec::new();
+    for dependency in &manifest.dependencies {
+        let source = dependency_source(dependency);
+        let captured = dependency
+            .direct_analysis_source_root(root)
+            .ok()
+            .flatten()
+            .and_then(|dependency_root| {
+                let snapshot = capture_package_snapshot(&dependency_root).ok()?;
+                let manifest_text = std::str::from_utf8(snapshot.manifest_bytes()).ok()?;
+                let dependency_manifest = parse_manifest_text("veln.toml", manifest_text);
+                let dependency_project = Project {
+                    root: dependency_root,
+                    files: snapshot
+                        .sources()
+                        .iter()
+                        .map(|source| {
+                            SourceFile::new(
+                                source.path(),
+                                std::str::from_utf8(source.bytes())
+                                    .expect("captured package source text is valid UTF-8"),
+                            )
+                        })
+                        .collect(),
+                    manifest: Some(dependency_manifest),
+                };
+                Some((snapshot, dependency_project))
+            });
+        let Some((snapshot, dependency_project)) = captured else {
+            analysis_dependencies.push(CapturedDependencyProject {
+                package: dependency.package.clone(),
+                source,
+                project: None,
+            });
+            continue;
+        };
+        analysis_dependencies.push(CapturedDependencyProject {
+            package: dependency.package.clone(),
+            source,
+            project: Some(dependency_project.clone()),
+        });
+        let Ok(identity) = PackageIdentity::new(&dependency.package) else {
+            continue;
+        };
+        let export_diagnostics = validate_manifest_exports(&dependency_project);
+        if export_diagnostics
+            .iter()
+            .any(|diagnostic| !is_source_path_invalid_case_diagnostic(diagnostic))
+        {
+            continue;
+        }
+        let Some(dependency_manifest) = dependency_project.manifest else {
+            continue;
+        };
+        if let Ok(direct) = DirectDependencySnapshot::from_validated_manifest(
+            &identity,
+            snapshot,
+            dependency_manifest,
+        ) {
+            direct_dependencies.push(direct);
+        }
+    }
+    (direct_dependencies, analysis_dependencies)
+}
+
+#[cfg(test)]
 fn retained_direct_dependencies(
     root: &Path,
     manifest: &ProjectManifest,
 ) -> Vec<DirectDependencySnapshot> {
-    manifest
-        .dependencies
-        .iter()
-        .filter_map(|dependency| {
-            let identity = PackageIdentity::new(&dependency.package).ok()?;
-            let dependency_root = dependency
-                .direct_analysis_source_root(root)
-                .ok()
-                .flatten()?;
-            let snapshot = capture_package_snapshot(&dependency_root).ok()?;
-            let manifest_text = std::str::from_utf8(snapshot.manifest_bytes()).ok()?;
-            let dependency_manifest = parse_manifest_text("veln.toml", manifest_text);
-            let dependency_project = Project {
-                root: dependency_root,
-                files: snapshot
-                    .sources()
-                    .iter()
-                    .map(|source| {
-                        SourceFile::new(
-                            source.path(),
-                            std::str::from_utf8(source.bytes())
-                                .expect("captured package source text is valid UTF-8"),
-                        )
-                    })
-                    .collect(),
-                manifest: Some(dependency_manifest),
-            };
-            let export_diagnostics = validate_manifest_exports(&dependency_project);
-            if export_diagnostics
-                .iter()
-                .any(|diagnostic| !is_source_path_invalid_case_diagnostic(diagnostic))
-            {
-                return None;
-            }
-            let dependency_manifest = dependency_project.manifest?;
-            DirectDependencySnapshot::from_validated_manifest(
-                &identity,
-                snapshot,
-                dependency_manifest,
-            )
-            .ok()
-        })
-        .collect()
+    capture_direct_dependencies(root, manifest).0
+}
+
+fn dependency_source(dependency: &veln_project::ManifestDependency) -> String {
+    if let Some(source) = dependency.direct_local_source() {
+        return source.value.clone();
+    }
+    let Some(git) = dependency.git.as_ref() else {
+        return String::new();
+    };
+    if let Some(subdir) = &dependency.subdir {
+        return format!("{}#{}", git.value, subdir.value);
+    }
+    git.value.clone()
 }
 
 mod wire;
