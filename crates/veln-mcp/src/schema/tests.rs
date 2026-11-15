@@ -479,9 +479,7 @@ fn language_doc_result_schemas_accept_success_and_domain_failure() {
     })));
 }
 
-#[test]
-fn check_project_result_schema_closes_diagnostics_summary_and_analysis_modes() {
-    let tool = tool("check_project").unwrap();
+fn check_project_success() -> Value {
     let diagnostic = serde_json::json!({
         "id": "type.mismatch",
         "kind": "type",
@@ -537,7 +535,7 @@ fn check_project_result_schema_closes_diagnostics_summary_and_analysis_modes() {
         ],
         "details": {"expected": "Int"}
     });
-    let project_success = serde_json::json!({
+    serde_json::json!({
         "schema_version": 1,
         "analysis": {
             "mode": "project",
@@ -551,7 +549,13 @@ fn check_project_result_schema_closes_diagnostics_summary_and_analysis_modes() {
             "by_severity": {"error": 1},
             "by_kind": {"type": 1}
         }
-    });
+    })
+}
+
+#[test]
+fn check_project_result_schema_closes_summary_and_analysis_modes() {
+    let tool = tool("check_project").unwrap();
+    let project_success = check_project_success();
     assert!(tool.accepts_result(&project_success));
     assert!(tool.accepts_result(&serde_json::json!({
         "schema_version": 1,
@@ -588,6 +592,16 @@ fn check_project_result_schema_closes_diagnostics_summary_and_analysis_modes() {
     invalid_extra["diagnostics"][0]["extra"] = serde_json::json!(true);
     assert!(!tool.accepts_result(&invalid_extra));
 
+    let mut invalid_summary = project_success;
+    invalid_summary["summary"]["by_kind"]["type"] = serde_json::json!("one");
+    assert!(!tool.accepts_result(&invalid_summary));
+}
+
+#[test]
+fn check_project_result_schema_closes_related_diagnostic_context() {
+    let tool = tool("check_project").unwrap();
+    let project_success = check_project_success();
+
     let mut invalid_related_extra = project_success.clone();
     invalid_related_extra["diagnostics"][0]["related"][0]["unexpected"] = serde_json::json!(true);
     assert!(!tool.accepts_result(&invalid_related_extra));
@@ -610,6 +624,12 @@ fn check_project_result_schema_closes_diagnostics_summary_and_analysis_modes() {
     invalid_related_candidate_module["diagnostics"][0]["related"][6]["module"] =
         serde_json::json!(1);
     assert!(!tool.accepts_result(&invalid_related_candidate_module));
+}
+
+#[test]
+fn check_project_result_schema_closes_nested_type_context() {
+    let tool = tool("check_project").unwrap();
+    let project_success = check_project_success();
 
     let mut invalid_related_comparison_direction = project_success.clone();
     invalid_related_comparison_direction["diagnostics"][0]["related"][7]["comparison_direction"] =
@@ -625,10 +645,6 @@ fn check_project_result_schema_closes_diagnostics_summary_and_analysis_modes() {
     invalid_related_assignability_path_extra["diagnostics"][0]["related"][7]["path"][3]["index"] =
         serde_json::json!(0);
     assert!(!tool.accepts_result(&invalid_related_assignability_path_extra));
-
-    let mut invalid_summary = project_success;
-    invalid_summary["summary"]["by_kind"]["type"] = serde_json::json!("one");
-    assert!(!tool.accepts_result(&invalid_summary));
 }
 
 fn matches_schema(schema: &Value, value: &Value) -> bool {
