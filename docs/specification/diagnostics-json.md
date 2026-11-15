@@ -948,8 +948,12 @@ value expression as its primary span and keeps the complete outer types in
 `actual_type` and `expected_type`. Its `nested_incompatibility` detail contains
 the first failed `path`, the `comparison_direction`, and the
 `expected_declaration` span when the expectation came from a source
-declaration or annotation. Each path element is one of the following tagged
-objects:
+declaration or annotation. `expected_declaration` is `null` when the
+expectation was inferred from an expression or aggregate, or when a generated
+schema operation supplied the expected type. This does not suppress an
+`expected_type_origin` related note: that note can still identify the
+inference or operation boundary that supplied the expectation. Each path
+element is one of the following tagged objects:
 
 - `named_argument` or `function_input`, with a zero-based `index`;
 - `record_field`, with a `name`;
