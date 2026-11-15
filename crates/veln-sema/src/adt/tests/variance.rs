@@ -996,6 +996,7 @@ fn nested_vec_payload_descriptor(depth: usize) -> crate::adt::descriptors::AdtDe
         payload = crate::semantic_model::Type::vec(payload);
     }
     descriptor.variants[0].payload_fields = vec![crate::adt::descriptors::AdtPayloadField {
+        declaration_span: None,
         name: "value".to_string(),
         ty: crate::adt::descriptors::AdtPayloadType::Concrete(payload),
     }];

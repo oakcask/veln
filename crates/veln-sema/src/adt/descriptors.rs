@@ -1,4 +1,5 @@
 use veln_ast::Visibility;
+use veln_source::SourceSpan;
 
 use crate::semantic_model::Type;
 use crate::source_less_names::SourceLessNameClass;
@@ -98,6 +99,7 @@ pub(crate) struct AdtVariantDescriptor {
 pub(crate) struct AdtPayloadField {
     pub(crate) name: String,
     pub(crate) ty: AdtPayloadType,
+    pub(crate) declaration_span: Option<SourceSpan>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

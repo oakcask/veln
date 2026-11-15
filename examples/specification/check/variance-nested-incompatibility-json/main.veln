@@ -43,3 +43,15 @@ end
 fn generated_encode_boundary(value: State) -> Result<{state: State::Ready}, String>
 	encode Packet from {state: value}
 end
+
+type Container
+	Made(Vec<State::Ready>)
+end
+
+fn constructor_payload_inferred(value: Vec<State>)
+	Made(value)
+end
+
+fn constructor_payload_contextual(value: Vec<State>) -> Container
+	Made(value)
+end

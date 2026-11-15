@@ -665,6 +665,14 @@ impl<'a> FunctionChecker<'a> {
         } else {
             projected_payload_context
         };
+        if arg_expected.ty != Type::Unknown
+            && matches!(
+                field.ty,
+                AdtPayloadType::SelfType | AdtPayloadType::Concrete(_)
+            )
+        {
+            arg_expected.declaration_span = field.declaration_span.clone();
+        }
         arg_expected
     }
 
