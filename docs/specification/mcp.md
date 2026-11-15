@@ -183,10 +183,11 @@ none of that operation's new source snapshots or revisions, publishes no new
 resources or search candidates, does not change the current revision selection,
 and preserves the previous public state. Capture failure, validation failure,
 tool domain failure, and invalid tool parameters admit no new dependency
-resources. A stable-capture failure after a successful variance-bearing package
-publication preserves the prior package signatures, source resources, exact
-reads, search results, navigation selection, and cursors. Bytes and signatures
-seen only during the failed capture are not published.
+resources. A stable-capture failure or variance-analysis rejection after a
+successful dependency analysis preserves the prior package signatures, source
+resources, exact reads, search results, navigation selection, and cursors.
+Bytes and signatures seen only during the failed capture or rejected analysis
+are not published.
 
 Dependency source resources use the canonical `veln-pkg:` URI from the
 admitted dependency snapshot virtual-source catalog. Their `name` is the
@@ -465,9 +466,14 @@ whose nested comparison identifies an incompatible named-generic argument or
 function input, variadic element, or result, `check_project` returns the
 diagnostic but does not admit the captured dependency snapshot.
 Previously retained dependency source, package-documentation, search, and
-exact-read state remains unchanged. Stable-capture failure preserves the same
-state. The rejected snapshot contributes no package signature, source resource,
-or search result. Other language diagnostics do not imply this atomic
+exact-read state remains unchanged. When the same dependency identities already
+have a successful analyzed snapshot, `definition`, `completion`, and
+`signature_help` continue to use that snapshot after the variance rejection.
+They do not expose declarations or signatures from the rejected dependency
+revision. A later successful `check_project` replaces the retained navigation
+snapshot with the newly analyzed revision. Stable-capture failure preserves the
+same state. The rejected snapshot contributes no package signature, source
+resource, or search result. Other language diagnostics do not imply this atomic
 admission rule and can still produce a coherent diagnostic-bearing snapshot.
 If dependency resource admission exceeds the retained source-snapshot or
 documentation-revision capacity after analysis succeeds, `check_project`
