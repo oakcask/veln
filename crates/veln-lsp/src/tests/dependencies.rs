@@ -110,6 +110,22 @@ fn standard_library_alias_to_implicit_prelude_type_projects_definitions() {
 
 #[test]
 fn retained_package_refinement_unions_project_canonical_generic_arguments() {
+    let (mut server, main_uri, source) = retained_package_refinement_project();
+    assert_available_refinement_navigation(
+        &mut server,
+        &main_uri,
+        source,
+        &["Same(", "direct_same", "direct_alias", "qualified_same", "qualified_alias"],
+    );
+    assert_unavailable_refinement_navigation(
+        &mut server,
+        &main_uri,
+        source,
+        &["Different(", "mismatch", "unresolved", "wrong_arity", "mixed"],
+    );
+}
+
+fn retained_package_refinement_project() -> (Server, String, &'static str) {
     let mut server =
         Server::default().with_standard_library(generic_implicit_prelude_standard_library());
     let project = TempProject::new("retained-package-refinement-canonical-arguments");
@@ -144,35 +160,52 @@ fn retained_package_refinement_unions_project_canonical_generic_arguments() {
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
-    let positions = |line_text: &str| {
-        let (line, text) = source
-            .lines()
-            .enumerate()
-            .find(|(_, candidate)| candidate.contains(line_text))
-            .unwrap();
-        text.match_indices("Boxed")
-            .chain(text.match_indices("Empty"))
-            .map(|(column, _)| (line, column))
-            .collect::<Vec<_>>()
-    };
+    (server, main_uri, source)
+}
 
-    for line_text in ["Same(", "direct_same", "direct_alias", "qualified_same", "qualified_alias"] {
-        for (line, character) in positions(line_text) {
-            let definition = server.handle_message(&definition_request(&main_uri, line, character));
+fn assert_available_refinement_navigation(
+    server: &mut Server,
+    main_uri: &str,
+    source: &str,
+    line_texts: &[&str],
+) {
+    for line_text in line_texts {
+        for (line, character) in refinement_positions(source, line_text) {
+            let definition = server.handle_message(&definition_request(main_uri, line, character));
             assert!(definition[0].contains("/prelude.veln"), "{line_text}: {}", definition[0]);
-            let references = server.handle_message(&references_request(&main_uri, line, character));
+            let references = server.handle_message(&references_request(main_uri, line, character));
             assert!(references[0].contains(r#""result":[]"#), "{line_text}: {}", references[0]);
-            let prepared = server.handle_message(&prepare_rename_request(&main_uri, line, character));
+            let prepared = server.handle_message(&prepare_rename_request(main_uri, line, character));
             assert!(prepared[0].contains(r#""result":null"#), "{line_text}: {}", prepared[0]);
-            let renamed = server.handle_message(&rename_request(&main_uri, line, character, "Renamed"));
+            let renamed = server.handle_message(&rename_request(main_uri, line, character, "Renamed"));
             assert!(renamed[0].contains(r#""changes":{}"#), "{line_text}: {}", renamed[0]);
         }
     }
-    for line_text in ["Different(", "mismatch", "unresolved", "wrong_arity", "mixed"] {
-        for (line, character) in positions(line_text) {
-            assert_refinement_navigation_unavailable(&mut server, &main_uri, line, character);
+}
+
+fn assert_unavailable_refinement_navigation(
+    server: &mut Server,
+    main_uri: &str,
+    source: &str,
+    line_texts: &[&str],
+) {
+    for line_text in line_texts {
+        for (line, character) in refinement_positions(source, line_text) {
+            assert_refinement_navigation_unavailable(server, main_uri, line, character);
         }
     }
+}
+
+fn refinement_positions(source: &str, line_text: &str) -> Vec<(usize, usize)> {
+    let (line, text) = source
+        .lines()
+        .enumerate()
+        .find(|(_, candidate)| candidate.contains(line_text))
+        .unwrap();
+    text.match_indices("Boxed")
+        .chain(text.match_indices("Empty"))
+        .map(|(column, _)| (line, column))
+        .collect()
 }
 
 #[test]
