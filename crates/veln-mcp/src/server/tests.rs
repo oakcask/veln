@@ -30,6 +30,74 @@ struct TempWorkspace {
     root: PathBuf,
 }
 
+struct UnresolvableDependencyTypeAliasCase {
+    name: &'static str,
+    dependency_sources: &'static [(&'static str, &'static str)],
+}
+
+fn unresolvable_dependency_type_alias_cases() -> [UnresolvableDependencyTypeAliasCase; 3] {
+    [
+        UnresolvableDependencyTypeAliasCase {
+            name: "invalid-module-target",
+            dependency_sources: &[
+                ("model.veln", "use Bad\n\npub type Alias = Bad::Target\n"),
+                ("Bad.veln", "pub type Target\nend\n"),
+            ],
+        },
+        UnresolvableDependencyTypeAliasCase {
+            name: "parse-diagnostic-target",
+            dependency_sources: &[
+                (
+                    "model.veln",
+                    "use broken\n\npub type Alias = broken::Target\n",
+                ),
+                ("broken.veln", "pub type Target\n  pub Ready(Int)\n"),
+            ],
+        },
+        UnresolvableDependencyTypeAliasCase {
+            name: "ambiguous-target",
+            dependency_sources: &[(
+                "model.veln",
+                concat!(
+                    "pub type Target\n",
+                    "end\n\n",
+                    "pub type Target\n",
+                    "end\n\n",
+                    "pub type Alias = Target\n",
+                ),
+            )],
+        },
+    ]
+}
+
+fn write_unresolvable_dependency_type_alias_workspace(
+    tool: &str,
+    case: &UnresolvableDependencyTypeAliasCase,
+) -> TempWorkspace {
+    let workspace = TempWorkspace::new(&format!("{tool}-dependency-type-alias-{}", case.name));
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use model from \"example/dep\"\n\n",
+            "fn read(input: model::Alias) -> model::Alias\n",
+            "  input\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    for &(path, text) in case.dependency_sources {
+        workspace.write(&format!("vendor/dep/{path}"), text);
+    }
+    workspace
+}
+
 fn initialized_server(workspace: &TempWorkspace) -> Server {
     let base = WorkspaceBase::open(workspace.root.clone()).unwrap();
     let selection = Selection::discover(base.path()).unwrap();
