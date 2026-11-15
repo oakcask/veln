@@ -919,10 +919,11 @@ consumer analysis use newly derived source-ADT variance classifications.
 Declaration identity and generic arity do not suppress this refresh. The
 [package virtual-source lifetime](package-virtual-sources.md#package-virtual-sources)
 defines how earlier snapshot URIs remain resolvable.
-If project rediscovery fails, the current dependency layer stays active. After
-successful rediscovery, a dependency that fails identity, source-root,
-snapshot, manifest, export, or catalog validation is absent from the replacement
-layer.
+If project rediscovery fails, the server publishes an empty diagnostic list for
+each URI previously published for that project, and the current dependency
+layer stays active. After successful rediscovery, a dependency that fails
+identity, source-root, snapshot, manifest, export, or catalog validation is
+absent from the replacement layer.
 
 The retained standard input has the reserved `std` identity and the same
 snapshot, export, and catalog boundaries. Bare and `prelude::` calls resolve
