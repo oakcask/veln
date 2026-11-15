@@ -520,6 +520,19 @@ fn check_project_result_schema_closes_diagnostics_summary_and_analysis_modes() {
                 "package": "example/pkg",
                 "module": "example/pkg::values",
                 "span": span()
+            },
+            {
+                "kind": "nested_type_incompatibility",
+                "message": "Nested type comparison failed.",
+                "path": [
+                    {"kind": "named_argument", "index": 0},
+                    {"kind": "record_field", "name": "state"},
+                    {"kind": "function_input", "index": 1},
+                    {"kind": "variadic_element"},
+                    {"kind": "function_result"},
+                    {"kind": "effect_set"}
+                ],
+                "comparison_direction": "actual_accepts_expected"
             }
         ],
         "details": {"expected": "Int"}
@@ -597,6 +610,21 @@ fn check_project_result_schema_closes_diagnostics_summary_and_analysis_modes() {
     invalid_related_candidate_module["diagnostics"][0]["related"][6]["module"] =
         serde_json::json!(1);
     assert!(!tool.accepts_result(&invalid_related_candidate_module));
+
+    let mut invalid_related_comparison_direction = project_success.clone();
+    invalid_related_comparison_direction["diagnostics"][0]["related"][7]["comparison_direction"] =
+        serde_json::json!("sideways");
+    assert!(!tool.accepts_result(&invalid_related_comparison_direction));
+
+    let mut invalid_related_assignability_path = project_success.clone();
+    invalid_related_assignability_path["diagnostics"][0]["related"][7]["path"][0]["index"] =
+        serde_json::json!(-1);
+    assert!(!tool.accepts_result(&invalid_related_assignability_path));
+
+    let mut invalid_related_assignability_path_extra = project_success.clone();
+    invalid_related_assignability_path_extra["diagnostics"][0]["related"][7]["path"][3]["index"] =
+        serde_json::json!(0);
+    assert!(!tool.accepts_result(&invalid_related_assignability_path_extra));
 
     let mut invalid_summary = project_success;
     invalid_summary["summary"]["by_kind"]["type"] = serde_json::json!("one");
