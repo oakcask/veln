@@ -973,8 +973,9 @@ base-to-refinement or finite-refinement exclusion. That argument failure emits
 the ordinary `type.mismatch` with its nested path; only compatible arguments
 leave the outer exclusion eligible for `type.variant_mismatch`.
 A `nested_type_incompatibility` related note renders the same path and
-direction. An `expected_type_origin` note identifies the declaration or
-annotation that supplied the expected type. Named arguments are inspected in
+direction. An `expected_type_origin` note identifies the declaration,
+annotation, inference boundary, or generated operation that supplied the
+expected type. Named arguments are inspected in
 declaration-parameter order. Record fields are inspected in field-name order.
 Functions inspect fixed inputs, the variadic element, the result, and the
 effect set in that order. Resolved identities and checked variance determine

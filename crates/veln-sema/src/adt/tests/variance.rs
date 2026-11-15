@@ -466,7 +466,7 @@ fn deep_rejected_assignability_trace_is_stack_safe() {
 }
 
 #[test]
-fn nested_assignability_trace_uses_field_name_order() {
+fn nested_assignability_trace_uses_field_name_order_independently_of_input_order() {
     use crate::semantic_model::Type;
     use crate::type_relations::{
         AssignabilityPathSegment as Segment, assignability_failure_with_registry,
@@ -475,22 +475,35 @@ fn nested_assignability_trace_uses_field_name_order() {
     let fixture = VarianceAssignmentFixture::new();
     let narrow = fixture.narrow.clone();
     let wide = fixture.wide.clone();
-    let record_failure = assignability_failure_with_registry(
-        &Type::Record(vec![
-            ("zeta".to_string(), narrow.clone()),
-            ("alpha".to_string(), narrow.clone()),
-        ]),
-        &Type::Record(vec![
-            ("zeta".to_string(), wide.clone()),
-            ("alpha".to_string(), wide.clone()),
-        ]),
-        &fixture.registry,
-    )
-    .expect("both fields fail");
-    assert_eq!(
-        record_failure.path,
-        vec![Segment::RecordField("alpha".to_string())]
-    );
+    for reverse_expected in [false, true] {
+        for reverse_actual in [false, true] {
+            let mut expected_fields = vec![
+                ("zeta".to_string(), narrow.clone()),
+                ("alpha".to_string(), narrow.clone()),
+            ];
+            let mut actual_fields = vec![
+                ("zeta".to_string(), wide.clone()),
+                ("alpha".to_string(), wide.clone()),
+            ];
+            if reverse_expected {
+                expected_fields.reverse();
+            }
+            if reverse_actual {
+                actual_fields.reverse();
+            }
+            let record_failure = assignability_failure_with_registry(
+                &Type::Record(expected_fields),
+                &Type::Record(actual_fields),
+                &fixture.registry,
+            )
+            .expect("both fields fail");
+            assert_eq!(
+                record_failure.path,
+                vec![Segment::RecordField("alpha".to_string())],
+                "reverse_expected={reverse_expected} reverse_actual={reverse_actual}",
+            );
+        }
+    }
 }
 
 #[test]
@@ -536,16 +549,75 @@ fn nested_assignability_trace_uses_function_contract_order() {
     let narrow = fixture.narrow.clone();
     let wide = fixture.wide.clone();
     let function_failure = assignability_failure_with_registry(
-        &Type::function(vec![wide.clone(), wide.clone()], narrow.clone(), Vec::new()),
-        &Type::function(
-            vec![narrow.clone(), narrow],
+        &Type::variadic_function(
+            vec![wide.clone(), wide.clone()],
+            wide.clone(),
+            narrow.clone(),
+            Vec::new(),
+        ),
+        &Type::variadic_function(
+            vec![narrow.clone(), narrow.clone()],
+            narrow.clone(),
+            wide.clone(),
+            vec!["stdio".to_string()],
+        ),
+        &fixture.registry,
+    )
+    .expect("fixed inputs, variadic element, result, and effects fail");
+    assert_eq!(function_failure.path, vec![Segment::FunctionInput(0)]);
+
+    let variadic_failure = assignability_failure_with_registry(
+        &Type::variadic_function(Vec::new(), wide.clone(), narrow, Vec::new()),
+        &Type::variadic_function(
+            Vec::new(),
+            fixture.narrow.clone(),
             wide,
             vec!["stdio".to_string()],
         ),
         &fixture.registry,
     )
-    .expect("inputs, result, and effects fail");
-    assert_eq!(function_failure.path, vec![Segment::FunctionInput(0)]);
+    .expect("variadic element, result, and effects fail");
+    assert_eq!(variadic_failure.path, vec![Segment::VariadicElement]);
+}
+
+#[test]
+fn nested_assignability_trace_restores_direction_after_two_input_reversals() {
+    use crate::semantic_model::Type;
+    use crate::type_relations::{
+        AssignabilityPathSegment as Segment, ComparisonDirection as Direction,
+        assignability_failure_with_registry,
+    };
+
+    let fixture = VarianceAssignmentFixture::new();
+    let failure = assignability_failure_with_registry(
+        &Type::function(
+            vec![Type::function(
+                vec![fixture.narrow.clone()],
+                Type::unit(),
+                Vec::new(),
+            )],
+            Type::unit(),
+            Vec::new(),
+        ),
+        &Type::function(
+            vec![Type::function(
+                vec![fixture.wide.clone()],
+                Type::unit(),
+                Vec::new(),
+            )],
+            Type::unit(),
+            Vec::new(),
+        ),
+        &fixture.registry,
+    )
+    .expect("the nested input comparison must fail");
+    assert_eq!(
+        failure,
+        crate::type_relations::AssignabilityFailure {
+            path: vec![Segment::FunctionInput(0), Segment::FunctionInput(0)],
+            direction: Direction::ExpectedAcceptsActual,
+        }
+    );
 }
 
 #[test]
