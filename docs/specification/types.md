@@ -1753,7 +1753,9 @@ work metric includes retained-type clones, constraint comparisons, join and
 meet updates, bound validation, and presentation reconciliation. In both the
 resolvable and unavailable workloads, each doubled size may use at most twice
 the preceding work plus a fixed allowance of 128. Elapsed time is observational
-and is not an acceptance threshold.
+and is not an acceptance threshold. Releasing 4,096 retained unavailable lower
+or upper constraints must complete on a 256 KiB analysis-thread stack and must
+preserve the context-free ambiguity diagnostic.
 
 A structural-transition workload alternates two function lower bounds whose
 pair has no bounded result, then adds a function bound that makes the complete
