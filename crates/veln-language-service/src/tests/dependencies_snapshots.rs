@@ -302,7 +302,7 @@
             &[("math.veln", "pub fn answer() -> Int\n  43\nend\n")],
             ["math.veln"],
         );
-        assert!(!snapshot.has_direct_dependency_layer(&[changed.clone()]));
+        assert!(!snapshot.has_direct_dependency_layer(std::slice::from_ref(&changed)));
         let refreshed = snapshot.with_direct_dependency_layer(vec![changed]);
         assert!(query_snapshot(&refreshed, "main.veln", 4, 10).is_some());
         assert_eq!(dependency_source_indexes(), 2);
