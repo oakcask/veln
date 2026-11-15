@@ -578,6 +578,24 @@ fn nested_assignability_trace_uses_function_contract_order() {
     )
     .expect("variadic element, result, and effects fail");
     assert_eq!(variadic_failure.path, vec![Segment::VariadicElement]);
+
+    let result_failure = assignability_failure_with_registry(
+        &Type::variadic_function(
+            vec![fixture.narrow.clone()],
+            fixture.narrow.clone(),
+            fixture.narrow.clone(),
+            Vec::new(),
+        ),
+        &Type::variadic_function(
+            vec![fixture.narrow.clone()],
+            fixture.narrow.clone(),
+            fixture.wide.clone(),
+            vec!["stdio".to_string()],
+        ),
+        &fixture.registry,
+    )
+    .expect("result and effects fail after compatible fixed and variadic inputs");
+    assert_eq!(result_failure.path, vec![Segment::FunctionResult]);
 }
 
 #[test]

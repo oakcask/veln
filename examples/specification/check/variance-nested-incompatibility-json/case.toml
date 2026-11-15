@@ -145,8 +145,20 @@ path = "diagnostics.9.details.nested_incompatibility.expected_declaration.start.
 equals = 7
 
 [[json_assert]]
+path = "diagnostics.9.related.0.span.start.line"
+equals = 48
+
+[[json_assert]]
+path = "diagnostics.9.related.0.span.start.column"
+equals = 7
+
+[[json_assert]]
 path = "diagnostics.9.related.1.message"
 equals = "Private return type inferred here."
+
+[[json_assert]]
+path = "diagnostics.9.related.1.span.start.line"
+equals = 51
 
 [[json_assert]]
 path = "diagnostics.10.details.nested_incompatibility.expected_declaration.start.line"
@@ -157,5 +169,17 @@ path = "diagnostics.10.details.nested_incompatibility.expected_declaration.start
 equals = 7
 
 [[json_assert]]
+path = "diagnostics.10.related.0.span.start.line"
+equals = 48
+
+[[json_assert]]
+path = "diagnostics.10.related.0.span.start.column"
+equals = 7
+
+[[json_assert]]
 path = "diagnostics.10.related.1.message"
 equals = "Return type declared here."
+
+[[json_assert]]
+path = "diagnostics.10.related.1.span.start.line"
+equals = 55

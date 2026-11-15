@@ -372,6 +372,13 @@ fn record_width_rejection_preserves_exact_arguments_and_alias_state() {
             Some(&veln_diagnostics::JsonValue::Null),
             "aggregate-inferred expectations must not claim declaration provenance: {diagnostic:#?}"
         );
+        let veln_diagnostics::JsonValue::Object(related) = &diagnostic.related[0] else {
+            panic!("nested related context must be an object: {diagnostic:#?}");
+        };
+        assert!(
+            related.iter().all(|(key, _)| key != "span"),
+            "aggregate-inferred expectations must not invent a related declaration span: {diagnostic:#?}"
+        );
     }
 
     let environment = TypeEnvironment::from_module(&module);

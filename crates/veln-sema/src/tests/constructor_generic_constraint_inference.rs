@@ -826,6 +826,36 @@ fn source_constructor_payload_provenance_survives_context_projection() {
             ),
             "payload declaration column changed: {diagnostic:#?}",
         );
+        let nested_related = diagnostic
+            .related
+            .iter()
+            .find(|related| {
+                matches!(
+                    related,
+                    veln_diagnostics::JsonValue::Object(entries)
+                        if entries.iter().any(|(key, value)| {
+                            key == "kind"
+                                && value.as_text() == Some("nested_type_incompatibility")
+                        })
+                )
+            })
+            .unwrap_or_else(|| panic!("missing nested related context: {diagnostic:#?}"));
+        let related_span = json_field(nested_related, "span");
+        let related_start = json_field(related_span, "start");
+        assert!(
+            matches!(
+                json_field(related_start, "line"),
+                veln_diagnostics::JsonValue::Number(6)
+            ),
+            "related payload declaration line changed: {diagnostic:#?}",
+        );
+        assert!(
+            matches!(
+                json_field(related_start, "column"),
+                veln_diagnostics::JsonValue::Number(8)
+            ),
+            "related payload declaration column changed: {diagnostic:#?}",
+        );
     }
 }
 

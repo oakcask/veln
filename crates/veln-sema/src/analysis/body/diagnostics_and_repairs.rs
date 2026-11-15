@@ -329,7 +329,7 @@ impl<'a> FunctionChecker<'a> {
             details,
         );
         if let Some(failure) = nested_failure {
-            diagnostic.related.push(JsonValue::object([
+            let mut nested_related = JsonValue::object([
                 ("kind", JsonValue::string("nested_type_incompatibility")),
                 (
                     "message",
@@ -347,7 +347,13 @@ impl<'a> FunctionChecker<'a> {
                     "comparison_direction",
                     JsonValue::string(comparison_direction_id(failure.direction)),
                 ),
-            ]));
+            ]);
+            if let Some(declaration_span) = &expected_source.declaration_span
+                && let JsonValue::Object(entries) = &mut nested_related
+            {
+                entries.push(("span".to_string(), span_json(declaration_span)));
+            }
+            diagnostic.related.push(nested_related);
             if let Some(origin_span) = &expected_source.origin_span {
                 diagnostic.related.push(JsonValue::object([
                     ("kind", JsonValue::string("expected_type_origin")),

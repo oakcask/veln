@@ -152,6 +152,13 @@ fn explicit_schema_validate_expression_checks_nested_record_identity_arguments_a
             Some(&veln_diagnostics::JsonValue::Null),
             "schema expression provenance is not a declaration"
         );
+        let veln_diagnostics::JsonValue::Object(related) = &generic_mismatch.related[0] else {
+            panic!("nested related context must be an object: {generic_mismatch:#?}");
+        };
+        assert!(
+            related.iter().all(|(key, _)| key != "span"),
+            "generated schema expectations must not invent a related declaration span: {generic_mismatch:#?}"
+        );
     }
     assert!(
         lowered

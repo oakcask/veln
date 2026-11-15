@@ -17,6 +17,9 @@ contains = [
   "Return type declared here.",
   "value of type `State` is not assignable to variant type `State::Ready`",
   "Schema encode value must match the schema-local visible record.",
+  "note: main.veln:48:7: Nested type comparison failed at named argument 0 (expected type accepts actual type).",
+  "note: main.veln:51:1: Private return type inferred here.",
+  "note: main.veln:55:1: Return type declared here.",
 ]
 
 [stderr]
