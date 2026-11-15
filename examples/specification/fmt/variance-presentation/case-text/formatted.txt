@@ -1,0 +1,19 @@
+pub type Covariant<T>
+	pub CovariantValue(T)
+end
+
+pub type Contravariant<T>
+	pub ContravariantValue(fn(T) -> ())
+end
+
+pub type Invariant<T>
+	pub InvariantValue(fn(T) -> T)
+end
+
+pub type Irrelevant<T>
+	pub IrrelevantValue
+end
+
+pub fn present(produced: Covariant<String>, consumed: Contravariant<String>, fixed: Invariant<String>, ignored: Irrelevant<String>, transform: fn(Int) -> String, result: fn(String) -> Int) -> fn(String) -> Int
+	result
+end

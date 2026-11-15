@@ -1,0 +1,11 @@
+command = ["mcp"]
+stdin_file = "case-text/requests.jsonl"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/signature"
+equals = {"label":"fn present(produced: Covariant<String>, consumed: Contravariant<String>, fixed: Invariant<String>, ignored: Irrelevant<String>, transform: fn(Int) -> String, result: fn(String) -> Int) -> fn(String) -> Int","parameters":["produced: Covariant<String>","consumed: Contravariant<String>","fixed: Invariant<String>","ignored: Irrelevant<String>","transform: fn(Int) -> String","result: fn(String) -> Int"],"activeParameter":0}

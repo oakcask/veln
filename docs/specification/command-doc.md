@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The veln doc command selection, generated documentation output, manifest metadata, source-analysis gate, or write gate changes.
+update-when: The veln doc command selection, generated documentation output, manifest metadata, source-analysis gate, write gate, or executable doc evidence changes.
 specification-coverage: usage=#doc-command; behavior=#metadata-and-generated-content; limits=#limits
 ---
 
@@ -33,6 +33,10 @@ Canonical public declaration signatures preserve accepted singleton and
 finite-union variant-refinement annotations. They also canonicalize the
 complete signature around those annotations, including rendering `Unit` as
 `()`, for function parameters, function results, and constructor fields.
+Generic ADT and function signatures keep their ordinary source-visible type
+names and type parameters. Inferred parameter variance does not add modifiers
+or substitute another type name in generated Markdown. Function input and
+result types retain their ordinary `fn(...) -> ...` presentation.
 
 A documentation line comment attaches only when immediately above the nearest
 module, public type, public schema, public module immutable value, public
@@ -110,3 +114,7 @@ canonical signatures, rejection, recovery, nested structural visibility, and
 transitive publication closure. The structural-visibility and
 publication-closure command cases require empty standard output, a causal
 privacy diagnostic, and no generated document content.
+The checked
+[`variance-presentation`](../../examples/specification/doc/variance-presentation/)
+case covers the human-readable generic ADT and function signature boundary for
+all four inferred parameter classifications.

@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The veln fmt command parsing gate, formatting behavior, source discovery behavior, or write policy changes.
+update-when: The veln fmt command parsing gate, formatting behavior, source discovery behavior, write policy, or executable formatting evidence changes.
 specification-coverage: usage=#format-command; behavior=#formatting-rules; limits=#limits-and-errors
 ---
 
@@ -34,6 +34,12 @@ canonical line. Reformatting the result is idempotent.
 
 The formatter writes one space on each side of `%` and preserves its
 precedence and left associativity with `*` and `/`.
+
+Generic ADT declarations and function types use their ordinary source
+presentation. Inferred covariant, contravariant, invariant, and irrelevant
+parameter classifications do not add declaration modifiers or replace the
+written type name. Function input and result types retain the same `fn(...) ->
+...` presentation regardless of the variance used during type checking.
 
 A handler header places `for` between its formatted parameter list and nominal
 effect path, followed by any retained-effect list. Reformatting that output is
@@ -85,4 +91,7 @@ Implementation: `crates/veln-cli/src/commands/fmt.rs`. The checked
 [`explicit-import-alias`](../../examples/specification/fmt/explicit-import-alias/)
 case covers alias placement and idempotence. Formatter golden tests cover
 precedence, comments, schema spellings, multi-file atomicity, and other
-idempotence boundaries.
+idempotence boundaries. The checked
+[`variance-presentation`](../../examples/specification/fmt/variance-presentation/)
+case covers stable generic ADT and function type presentation for all four
+inferred parameter classifications.

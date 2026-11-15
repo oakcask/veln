@@ -690,7 +690,11 @@ not already support.
 object contains the canonical source declaration `label`, source-parameter
 labels, and zero-based `activeParameter`. A call-site-aware declaration's label
 ends with `callsite` after any effects clause. The hidden context does not add
-a parameter or change active-parameter counting. Public workspace function
+a parameter or change active-parameter counting. Generic ADT names and
+function types keep their ordinary source presentation in the declaration and
+parameter labels. Inferred source-ADT parameter classifications and function
+input or result variance do not add modifiers or replace a written type name.
+Public workspace function
 aliases resolve to the target declaration before rendering the signature. A
 position inside a function declaration header returns `signature: null`.
 Grouping parentheses inside a call argument do not hide the enclosing call's
@@ -1072,6 +1076,10 @@ check empty completion, `null` saved-navigation signature help, unchanged
 workspace selection, and a subsequent successful completion from another
 saved source.
 The checked
+[`variance-presentation`](../../examples/specification/mcp/variance-presentation/)
+transcript pins the structured signature label and parameter array for
+covariant, contravariant, invariant, and irrelevant source ADTs plus function
+input and result types. The checked
 [`explicit-import-alias-navigation`](../../examples/specification/mcp/explicit-import-alias-navigation/)
 transcript covers workspace and direct-dependency qualified completion
 provenance and empty results for colliding, invalid-cased, and recovered
