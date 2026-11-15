@@ -856,7 +856,7 @@ fn assert_mixed_dependency_export_navigation(
     expected_value: &str,
     request_id: &str,
 ) -> String {
-    let valid = server.handle_message(&definition_request(&main_uri, 4, 7));
+    let valid = server.handle_message(&definition_request(main_uri, 4, 7));
     assert_single_response(
         &valid,
         r#""range":{"start":{"line":0,"character":7},"end":{"line":0,"character":12}}"#,
@@ -869,7 +869,7 @@ fn assert_mixed_dependency_export_navigation(
         &format!("pub fn value() -> Int\n  {expected_value}\nend\n"),
     );
 
-    let invalid = server.handle_message(&definition_request(&main_uri, 4, 22));
+    let invalid = server.handle_message(&definition_request(main_uri, 4, 22));
     assert_null_result(&invalid[0]);
     virtual_uri
 }
@@ -1376,7 +1376,7 @@ impl DependencyVarianceFixture {
     }
 
     fn revision_expectation(&self, revision: usize) -> (&str, &str, String, bool) {
-        if revision % 2 == 0 {
+        if revision.is_multiple_of(2) {
             (
                 self.positive,
                 self.mixed,
