@@ -42,6 +42,15 @@ impl Drop for ConstraintListNode {
     }
 }
 
+#[cfg(test)]
+pub(crate) fn drop_unresolved_constraint_chain(count: usize) {
+    let mut bound = CanonicalConstraintBound::default();
+    for _ in 0..count {
+        bound.push_unresolved(CanonicalConstraint::new(Type::Unknown));
+    }
+    drop(bound);
+}
+
 #[derive(Clone, Default)]
 struct CanonicalConstraintBound {
     selected: Option<CanonicalConstraint>,
