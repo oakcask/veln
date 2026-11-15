@@ -6,6 +6,7 @@ mod bounded_function_inference;
 mod calls_pipeline_and_float_types;
 mod channel_effects_and_contract_predicates;
 mod compiler_owned_covariant_inference;
+mod constructor_generic_constraint_inference;
 mod contract_case_split_proofs;
 mod contract_order_path_proofs;
 mod contract_order_split_proofs;

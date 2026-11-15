@@ -1,0 +1,159 @@
+type State
+	Ready
+	Closed
+	Failed
+end
+
+type Pair<T>
+	Paired(T, T)
+end
+
+type Upper<T>
+	UpperValue(fn(T) -> (), fn(T) -> ())
+end
+
+type Phantom<T>
+	Empty
+end
+
+type Irrelevant<T>
+	IrrelevantValue(Phantom<T>)
+end
+
+type Exact<T>
+	ExactValue(fn(T) -> T, T, T)
+end
+
+type Other
+	OtherValue
+end
+
+type Box<T>
+	Boxed(T)
+end
+
+type Outer<T>
+	Out(T, Box<T>, T)
+end
+
+type Structured<T>
+	Shaped(T, {guard: Option<Int>, value: T}, T)
+end
+
+fn accepts_int(value: Int) -> ()
+	()
+end
+
+fn accepts_string(value: String) -> ()
+	()
+end
+
+fn ready_identity(value: State::Ready) -> State::Ready
+	value
+end
+
+fn rollback(callback: fn(State::Ready) -> State::Ready, rejected: State::Closed, later: State::Ready)
+	ExactValue(callback, rejected, later)
+end
+
+fn rejected_named_shape(rejected: Other)
+	Out(Ready, rejected, Closed)
+end
+
+fn rejected_structural_shape(rejected: {wrong: String})
+	Shaped(Ready, rejected, Closed)
+end
+
+pub fn main() -> ()
+	let value: Phantom<State::Ready> = Empty
+	let missing = IrrelevantValue(value)
+	let unavailable_join = Paired(1, "text")
+	let unavailable_meet = UpperValue(accepts_int, accepts_string)
+	let retained = rollback(ready_identity, Closed, Ready)
+	let ordinary_retained: Exact<State::Ready> = ExactValue(ready_identity, Closed, Ready)
+	let rejected_other: Other = OtherValue
+	let rejected_record = {wrong: "text"}
+	let ordinary_named: Outer<State> = Out(Ready, rejected_other, Closed)
+	let ordinary_structural: Structured<State> = Shaped(Ready, rejected_record, Closed)
+end
+
+type A
+	AValue
+end
+
+type B
+	BValue
+end
+
+type C
+	CValue
+end
+
+type Wrap<T>
+	Made({left: T, right: T}, Phantom<T>)
+end
+
+fn private_context_bounds(good: {left: A, right: A}, bad: {left: B, right: C}, later: {left: A, right: A})
+	[Made(good, Empty), Made(bad, Empty), Made(later, Empty)]
+end
+
+fn ordinary_context_bounds(good: {left: A, right: A}, bad: {left: B, right: C}, later: {left: A, right: A}) -> ()
+	let values = [Made(good, Empty), Made(bad, Empty), Made(later, Empty)]
+	()
+end
+
+type Invariant<T>
+	InvariantValue(fn(T) -> T)
+end
+
+type Atomic<A, B>
+	AtomicValue(A, B, {widen: A, exact: Invariant<B>}, {later_a: A, later_b: B})
+end
+
+fn private_atomic(rejected: {widen: State::Closed, exact: Invariant<State::Closed>}, later: {later_a: State::Ready, later_b: State::Ready})
+	AtomicValue(Ready, Ready, rejected, later)
+end
+
+fn needs_atomic_other(value: Atomic<Other, Other>) -> ()
+	()
+end
+
+fn ordinary_atomic(rejected: {widen: State::Closed, exact: Invariant<State::Closed>}, later: {later_a: State::Ready, later_b: State::Ready}) -> ()
+	let retained = AtomicValue(Ready, Ready, rejected, later)
+	needs_atomic_other(retained)
+end
+
+type DirectTriple<T>
+	DirectGrouped(T, T, T)
+end
+
+fn direct_private_forward(first: Invariant<Int>, second: Invariant<String>)
+	Paired(first, second)
+end
+
+fn direct_private_reverse(first: Invariant<Int>, second: Invariant<String>)
+	Paired(second, first)
+end
+
+fn direct_private_context(first: Invariant<Int>, rejected: Invariant<String>, later: Invariant<Int>)
+	DirectGrouped(first, rejected, later)
+end
+
+fn needs_direct_int(value: DirectTriple<Invariant<Int>>) -> ()
+	()
+end
+
+pub fn direct_constraint_evidence(first: Invariant<Int>, second: Invariant<String>) -> ()
+	let ordinary_forward = Paired(first, second)
+	let ordinary_reverse = Paired(second, first)
+	let ordinary_context: DirectTriple<Invariant<Int>> = DirectGrouped(first, second, first)
+	needs_direct_int(direct_private_context(first, second, first))
+end
+
+fn irrelevant_private(value: Phantom<State::Ready>)
+	IrrelevantValue(value)
+end
+
+fn irrelevant_contextual(value: Phantom<State::Ready>) -> Irrelevant<State::Closed>
+	IrrelevantValue(value)
+end

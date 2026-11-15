@@ -20,6 +20,78 @@ fn wide_generic_constructor_scaling_source(width: usize) -> String {
     )
 }
 
+#[derive(Clone, Copy, Debug)]
+enum RepeatedConstraintWorkload {
+    Lower,
+    Upper,
+    Equality,
+    Mixed,
+}
+
+fn repeated_constraint_scaling_source(
+    count: usize,
+    workload: RepeatedConstraintWorkload,
+) -> String {
+    let (payloads, arguments) = match workload {
+        RepeatedConstraintWorkload::Lower => (vec!["T"; count], vec!["state"; count]),
+        RepeatedConstraintWorkload::Upper => (vec!["fn(T) -> ()"; count], vec!["callback"; count]),
+        RepeatedConstraintWorkload::Equality => {
+            (vec!["Invariant<T>"; count], vec!["exact_value"; count])
+        }
+        RepeatedConstraintWorkload::Mixed => (vec!["fn(T) -> T"; count], vec!["identity"; count]),
+    };
+    format!(
+        "type State\n  Ready\n  Closed\nend\n\
+         type Invariant<T>\n  InvariantValue(fn(T) -> T)\nend\n\
+         type Repeated<T>\n  Made({})\nend\n\
+         fn inferred(state: State, callback: fn(State) -> (), identity: fn(State) -> State, exact_value: Invariant<State>)\n  Made({})\nend\n\
+         fn declared(state: State, callback: fn(State) -> (), identity: fn(State) -> State, exact_value: Invariant<State>) -> Repeated<State>::Made\n  Made({})\nend\n",
+        payloads.join(", "),
+        arguments.join(", "),
+        arguments.join(", "),
+    )
+}
+
+fn measure_repeated_constraint_work(count: usize, workload: RepeatedConstraintWorkload) -> usize {
+    let source = SourceFile::new(
+        "main.veln",
+        repeated_constraint_scaling_source(count, workload),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::aggregate_type_join::reset_work();
+    crate::aggregate_type_join::reset_bounded_frames();
+    crate::type_relations::reset_type_presentation_work();
+    let started = std::time::Instant::now();
+    let (diagnostics, cloned_type_nodes) =
+        crate::semantic_model::measure_type_clone_nodes(|| analyze_surface_module(&module));
+    let elapsed = started.elapsed();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let inference_work = crate::aggregate_type_join::take_work();
+    let bounded_frames = crate::aggregate_type_join::take_bounded_frames();
+    let presentation = crate::type_relations::take_type_presentation_work();
+    let presentation_work = presentation.conflict_lookups
+        + presentation.conflict_insertions
+        + presentation.child_lookups
+        + presentation.child_insertions;
+    let total = inference_work + cloned_type_nodes + bounded_frames + presentation_work;
+    eprintln!(
+        "{workload:?} repeated-constraint count {count}: {elapsed:?}, total={total}, inference={inference_work}, clones={cloned_type_nodes}, bounds={bounded_frames}, presentation={presentation_work}",
+    );
+    let environment = TypeEnvironment::from_module(&module);
+    for (function, expected) in [
+        ("inferred", "Repeated<State>::Made"),
+        ("declared", "Repeated<State>"),
+    ] {
+        assert_eq!(
+            environment.function(function).unwrap().return_type.render(),
+            expected,
+        );
+    }
+    total
+}
+
 #[test]
 fn wide_generic_constructor_inference_work_grows_linearly_in_parameters_and_payloads() {
     let work = [100, 200, 400, 800].map(|width| {
@@ -59,8 +131,8 @@ fn wide_generic_constructor_inference_work_grows_linearly_in_parameters_and_payl
     assert!(
         work.iter()
             .zip([100, 200, 400, 800])
-            .all(|((inference_work, _), width)| *inference_work >= width * 30),
-        "the metric must include invariant contribution materialization, validation, and commit work in ordinary and private inference: {work:?}"
+            .all(|((inference_work, _), width)| *inference_work >= width * 10),
+        "the metric must include constraint collection, validation, and commit work in ordinary and private inference: {work:?}"
     );
     assert!(
         work[1].0 <= work[0].0 * 2 + 64
@@ -74,5 +146,345 @@ fn wide_generic_constructor_inference_work_grows_linearly_in_parameters_and_payl
             && work[2].1 <= work[1].1 * 2 + 64
             && work[3].1 <= work[2].1 * 2 + 64,
         "doubling generic constructor width must add only linear type-parameter lookups: {work:?}"
+    );
+}
+
+#[test]
+fn repeated_constructor_constraint_work_grows_linearly_per_parameter() {
+    for workload in [
+        RepeatedConstraintWorkload::Lower,
+        RepeatedConstraintWorkload::Upper,
+        RepeatedConstraintWorkload::Equality,
+        RepeatedConstraintWorkload::Mixed,
+    ] {
+        let work = [32, 64, 128].map(|count| measure_repeated_constraint_work(count, workload));
+        assert!(
+            work.iter()
+                .zip([32, 64, 128])
+                .all(|(work, count)| *work >= count * 8),
+            "the guard must observe retained-type clones, constraint comparisons, bound updates, validation, and presentation work for {workload:?}: {work:?}",
+        );
+        assert!(
+            work[1] <= work[0] * 2 + 128 && work[2] <= work[1] * 2 + 128,
+            "doubling repeated {workload:?} constraints for one parameter must add only linear work: {work:?}",
+        );
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum UnavailableConstraintWorkload {
+    Lower,
+    Upper,
+}
+
+fn unavailable_constraint_scaling_source(
+    count: usize,
+    workload: UnavailableConstraintWorkload,
+) -> String {
+    let declarations = (0..count)
+        .map(|index| format!("type Bound{index}\n  Value{index}\nend\n"))
+        .collect::<String>();
+    let callbacks = matches!(workload, UnavailableConstraintWorkload::Upper)
+        .then(|| {
+            (0..count)
+                .map(|index| format!("fn accepts_{index}(value: Bound{index}) -> ()\n  ()\nend\n"))
+                .collect::<String>()
+        })
+        .unwrap_or_default();
+    let payload = match workload {
+        UnavailableConstraintWorkload::Lower => "{value: T}",
+        UnavailableConstraintWorkload::Upper => "{callback: fn(T) -> ()}",
+    };
+    let payloads = vec![payload; count].join(", ");
+    let arguments = (0..count)
+        .map(|index| match workload {
+            UnavailableConstraintWorkload::Lower => format!("{{value: Value{index}}}"),
+            UnavailableConstraintWorkload::Upper => {
+                format!("{{callback: accepts_{index}}}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "{declarations}{callbacks}type Repeated<T>\n  Made({payloads})\nend\nfn inferred()\n  Made({arguments})\nend\nfn ordinary() -> ()\n  let unavailable = Made({arguments})\n  ()\nend\n"
+    )
+}
+
+fn measure_unavailable_constraint_work(
+    count: usize,
+    workload: UnavailableConstraintWorkload,
+) -> usize {
+    let source = SourceFile::new(
+        "main.veln",
+        unavailable_constraint_scaling_source(count, workload),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::aggregate_type_join::reset_work();
+    crate::aggregate_type_join::reset_bounded_frames();
+    crate::type_relations::reset_type_presentation_work();
+    let (diagnostics, cloned_type_nodes) =
+        crate::semantic_model::measure_type_clone_nodes(|| analyze_surface_module(&module));
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.inference_ambiguous"),
+        "{diagnostics:#?}"
+    );
+    let inference_work = crate::aggregate_type_join::take_work();
+    let bounded_frames = crate::aggregate_type_join::take_bounded_frames();
+    let presentation = crate::type_relations::take_type_presentation_work();
+    let presentation_work = presentation.conflict_lookups
+        + presentation.conflict_insertions
+        + presentation.child_lookups
+        + presentation.child_insertions;
+    let total = inference_work + cloned_type_nodes + bounded_frames + presentation_work;
+    eprintln!(
+        "{workload:?} unavailable count {count}: total={total}, inference={inference_work}, clones={cloned_type_nodes}, bounds={bounded_frames}, presentation={presentation_work}"
+    );
+    total
+}
+
+#[test]
+fn pairwise_incomparable_constructor_constraints_grow_linearly_when_unavailable() {
+    for workload in [
+        UnavailableConstraintWorkload::Lower,
+        UnavailableConstraintWorkload::Upper,
+    ] {
+        let work = [16, 32, 64].map(|count| measure_unavailable_constraint_work(count, workload));
+        assert!(
+            work[1] <= work[0] * 2 + 128 && work[2] <= work[1] * 2 + 128,
+            "doubling pairwise-incomparable {workload:?} constraints must add only linear work: {work:?}",
+        );
+    }
+}
+
+#[test]
+fn unavailable_constructor_constraint_teardown_is_stack_safe() {
+    const CONSTRAINTS: usize = 4_096;
+    for workload in [
+        UnavailableConstraintWorkload::Lower,
+        UnavailableConstraintWorkload::Upper,
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            unavailable_constraint_scaling_source(CONSTRAINTS, workload),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        std::thread::Builder::new()
+            .name(format!("unavailable-{workload:?}-constraint-drop"))
+            .stack_size(256 * 1024)
+            .spawn(move || {
+                let diagnostics = analyze_surface_module(&module);
+                assert!(
+                    diagnostics
+                        .iter()
+                        .any(|diagnostic| diagnostic.id == "type.inference_ambiguous"),
+                    "{diagnostics:#?}"
+                );
+            })
+            .expect("spawn bounded-stack unresolved constraint thread")
+            .join()
+            .expect("bounded-stack unresolved constraint thread");
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum StructuralConstraintConsumer {
+    Private,
+    Ordinary,
+}
+
+fn resolving_structural_constraint_source(
+    repetitions: usize,
+    consumer: StructuralConstraintConsumer,
+) -> String {
+    let template_fields = (0..repetitions * 2)
+        .map(|index| format!("p{index}: Box<T>"))
+        .chain(std::iter::once("complete: Box<T>".to_owned()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let actual_fields = (0..repetitions * 2)
+        .map(|index| {
+            if index % 2 == 0 {
+                format!("p{index}: Box<fn({{a: Int}}) -> State::Ready>")
+            } else {
+                format!("p{index}: Box<fn({{b: Int}}) -> State::Closed>")
+            }
+        })
+        .chain(std::iter::once(
+            "complete: Box<fn({a: Int, b: Int}) -> State::Ready>".to_owned(),
+        ))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let consumer_source = match consumer {
+        StructuralConstraintConsumer::Private => {
+            format!(
+                "fn inferred(payload: {{upper: fn(fn({{a: Int, b: Int}}) -> State) -> (), {actual_fields}}})\n  Made(payload)\nend\n"
+            )
+        }
+        StructuralConstraintConsumer::Ordinary => format!(
+            "fn ordinary(payload: {{upper: fn(fn({{a: Int, b: Int}}) -> State) -> (), {actual_fields}}}) -> ()\n  let value = Made(payload)\nend\n"
+        ),
+    };
+    format!(
+        "type State\n  Ready\n  Closed\n  Failed\nend\n\
+         type Box<T>\n  Boxed(T)\nend\n\
+         type Repeated<T>\n  Made({{upper: fn(T) -> (), {template_fields}}})\nend\n\
+         {consumer_source}",
+    )
+}
+
+fn measure_resolving_structural_constraint_work(
+    repetitions: usize,
+    consumer: StructuralConstraintConsumer,
+) -> (usize, usize) {
+    let source = SourceFile::new(
+        "main.veln",
+        resolving_structural_constraint_source(repetitions, consumer),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::aggregate_type_join::reset_work();
+    crate::aggregate_type_join::reset_bounded_frames();
+    crate::aggregate_type_join::reset_bounded_candidate_work();
+    crate::aggregate_type_join::reset_constraint_record_field_work();
+    crate::type_relations::reset_type_presentation_work();
+    let started = std::time::Instant::now();
+    let (diagnostics, cloned_type_nodes) =
+        crate::semantic_model::measure_type_clone_nodes(|| analyze_surface_module(&module));
+    let elapsed = started.elapsed();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let inference_work = crate::aggregate_type_join::take_work();
+    let constraint_record_field_work =
+        crate::aggregate_type_join::take_constraint_record_field_work();
+    let bounded_frames = crate::aggregate_type_join::take_bounded_frames();
+    let bounded = crate::aggregate_type_join::take_bounded_candidate_work();
+    let bounded_work = bounded.candidate_iterations
+        + bounded.relation_key_nodes
+        + bounded.candidate_order_nodes
+        + bounded.result_materialization_units
+        + bounded.relation_cache_peak_entries
+        + bounded.relation_cache_peak_key_bytes;
+    let presentation = crate::type_relations::take_type_presentation_work();
+    let presentation_work = presentation.conflict_lookups
+        + presentation.conflict_insertions
+        + presentation.child_lookups
+        + presentation.child_insertions;
+    let total = inference_work
+        + cloned_type_nodes
+        + bounded_frames
+        + bounded_work
+        + presentation_work
+        + constraint_record_field_work;
+    eprintln!(
+        "{consumer:?} resolving structural repetitions {repetitions}: {elapsed:?}, total={total}, inference={inference_work}, constraint_record_fields={constraint_record_field_work}, clones={cloned_type_nodes}, bounds={bounded_frames}, candidates={bounded_work}, presentation={presentation_work}",
+    );
+    if matches!(consumer, StructuralConstraintConsumer::Private) {
+        let environment = TypeEnvironment::from_module(&module);
+        assert_eq!(
+            environment
+                .function("inferred")
+                .unwrap()
+                .return_type
+                .render(),
+            "Repeated<fn({a: Int, b: Int}) -> State::Ready | State::Closed>::Made",
+        );
+    }
+    (total, constraint_record_field_work)
+}
+
+#[test]
+fn unresolved_structural_constructor_constraints_resolve_with_linear_work() {
+    for consumer in [
+        StructuralConstraintConsumer::Private,
+        StructuralConstraintConsumer::Ordinary,
+    ] {
+        let work =
+            [8, 16, 32].map(|width| measure_resolving_structural_constraint_work(width, consumer));
+        assert!(
+            work[1].0 <= work[0].0 * 2 + 256 && work[2].0 <= work[1].0 * 2 + 256,
+            "doubling unresolved structural constraints in {consumer:?} inference must add only linear incremental clone, comparison, bound-update, and presentation work: {work:?}",
+        );
+        assert!(
+            work[0].1 > 0
+                && work[1].1 > work[0].1
+                && work[2].1 > work[1].1
+                && work[1].1 <= work[0].1 * 2 + 8
+                && work[2].1 <= work[1].1 * 2 + 8,
+            "doubling record width in {consumer:?} constraint traversal must add only linear field-index and lookup work: {work:?}",
+        );
+    }
+}
+
+fn repeated_pair_resolvable_structural_source(repetitions: usize) -> String {
+    let payloads = (0..repetitions)
+        .map(|index| format!("p{index}: fn(T) -> ()"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let arguments = (0..repetitions)
+        .map(|index| {
+            if index % 2 == 0 {
+                "accepts_closed"
+            } else {
+                "accepts_ready"
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "type State\n  Ready\n  Closed\nend\n\
+         type Other\n  OtherValue\nend\n\
+         type Repeated<T>\n  Made(fn(T) -> (), fn(T) -> (), {payloads})\nend\n\
+         fn accepts_other(value: fn({{a: Int, b: Int}}) -> Other) -> ()\n  ()\nend\n\
+         fn accepts_ready(value: fn({{a: Int, b: Int}}) -> State::Ready) -> ()\n  ()\nend\n\
+         fn accepts_closed(value: fn({{a: Int, b: Int}}) -> State::Closed) -> ()\n  ()\nend\n\
+         fn inferred()\n  Made(accepts_other, accepts_ready, {arguments})\nend\n\
+         fn ordinary() -> ()\n  let unavailable = Made(accepts_other, accepts_ready, {arguments})\nend\n",
+    )
+}
+
+fn measure_repeated_pair_resolvable_structural_work(repetitions: usize) -> usize {
+    let source = SourceFile::new(
+        "main.veln",
+        repeated_pair_resolvable_structural_source(repetitions),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::aggregate_type_join::reset_work();
+    crate::aggregate_type_join::reset_bounded_frames();
+    crate::aggregate_type_join::reset_bounded_candidate_work();
+    let (diagnostics, cloned_type_nodes) =
+        crate::semantic_model::measure_type_clone_nodes(|| analyze_surface_module(&module));
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "type.inference_ambiguous" | "type.private_inference_incomplete"
+            )
+        }),
+        "{diagnostics:#?}",
+    );
+    let bounded = crate::aggregate_type_join::take_bounded_candidate_work();
+    crate::aggregate_type_join::take_work()
+        + crate::aggregate_type_join::take_bounded_frames()
+        + cloned_type_nodes
+        + bounded.candidate_iterations
+        + bounded.relation_key_nodes
+        + bounded.candidate_order_nodes
+        + bounded.result_materialization_units
+}
+
+#[test]
+fn repeated_pair_resolvable_structural_constraints_have_linear_work() {
+    let work = [16, 32, 64].map(measure_repeated_pair_resolvable_structural_work);
+    assert!(
+        work[1] <= work[0] * 2 + 256 && work[2] <= work[1] * 2 + 256,
+        "repeated pair-resolvable structural constraints must not rescan the retained prefix: {work:?}",
     );
 }

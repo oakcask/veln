@@ -414,11 +414,21 @@ fn unchanged_aggregate_join_work_grows_linearly_for_rejected_contributions() {
             "{variant_count}-variant rejected aggregate analysis: {:?}",
             started.elapsed()
         );
-        assert_eq!(diagnostics.len(), variant_count * 4, "{diagnostics:#?}");
+        assert_eq!(diagnostics.len(), variant_count * 3 + 1, "{diagnostics:#?}");
         assert!(
             diagnostics
                 .iter()
-                .all(|diagnostic| diagnostic.id == "type.mismatch"),
+                .filter(|diagnostic| diagnostic.id == "type.mismatch")
+                .count()
+                == variant_count * 3,
+            "{diagnostics:#?}"
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.inference_ambiguous")
+                .count(),
+            1,
             "{diagnostics:#?}"
         );
         let details = diagnostics
@@ -426,17 +436,20 @@ fn unchanged_aggregate_join_work_grows_linearly_for_rejected_contributions() {
             .map(|diagnostic| diagnostic.details.to_json())
             .collect::<Vec<_>>();
         assert!(
-            details.iter().all(|details| {
-                details.contains("\"expected_type\":\"State::Variant0000\"")
-                    && details.contains("\"actual_type\":\"Foreign::Other\"")
-            }),
+            details
+                .iter()
+                .filter(|details| details.contains("\"expected_type\""))
+                .all(|details| {
+                    details.contains("\"expected_type\":\"State::Variant0000\"")
+                        && details.contains("\"actual_type\":\"Foreign::Other\"")
+                }),
             "{details:#?}"
         );
         for (constraint, expected_count) in [
             ("list_element", variant_count),
             ("dict_key", variant_count),
             ("dict_value", variant_count),
-            ("call_argument", variant_count),
+            ("constructor_type_context", 1),
         ] {
             assert_eq!(
                 details

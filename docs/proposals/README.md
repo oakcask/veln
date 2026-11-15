@@ -16,10 +16,10 @@ also states it.
 
 ## Ready
 
-- Add nested constructor generic constraint inference, dependency
-  variance-metadata invalidation, stable formatter, package, LSP, and MCP
-  presentation, nested incompatibility diagnostics, and whole-analysis and
-  language-service failure preservation for generic and function variance:
+- Complete the remaining dependency variance-metadata invalidation, stable
+  formatter, package, LSP, and MCP presentation, nested incompatibility
+  diagnostics, and whole-analysis and language-service failure preservation
+  for generic and function variance:
   [generic-and-function-variance.md](generic-and-function-variance.md).
 
 ## Design In Progress

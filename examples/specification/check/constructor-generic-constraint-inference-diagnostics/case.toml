@@ -1,0 +1,322 @@
+# Integration contract: `veln check --json` renders unavailable bounds through
+# the existing ambiguity diagnostic and preserves a focused rejected-payload mismatch.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 24
+
+[[json_assert]]
+path = "diagnostics.14.details.inferred_type"
+equals = "Pair<unknown>"
+
+[[json_assert]]
+path = "diagnostics.15.details.inferred_type"
+equals = "Pair<unknown>::Paired"
+
+[[json_assert]]
+path = "diagnostics.16.details.inferred_type"
+equals = "Pair<unknown>"
+
+[[json_assert]]
+path = "diagnostics.17.details.inferred_type"
+equals = "Pair<unknown>::Paired"
+
+[[json_assert]]
+path = "diagnostics.19.details.inferred_type"
+equals = "Pair<unknown>"
+
+[[json_assert]]
+path = "diagnostics.20.details.inferred_type"
+equals = "Pair<unknown>"
+
+[[json_assert]]
+path = "diagnostics.22.details.inferred_type"
+equals = "Irrelevant<unknown>"
+
+[[json_assert]]
+path = "diagnostics.23.details.slot_kind"
+equals = "private_return"
+
+[[json_assert]]
+path = "diagnostics.23.details.missing_fact"
+equals = "return_type"
+
+[[json_assert]]
+path = "diagnostics.23.details.inferred_type"
+equals = "Irrelevant<unknown>::IrrelevantValue"
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `State::Ready`, but found `State::Closed`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 56
+column = 23
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Box<State::Ready | State::Closed>`, but found `Other`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 60
+column = 13
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{guard: Option<Int>, value: State::Ready | State::Closed}`, but found `{wrong: String}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 64
+column = 16
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `IrrelevantValue` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 69
+column = 16
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Paired` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 70
+column = 25
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `UpperValue` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 71
+column = 25
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `State::Ready`, but found `State::Closed`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 73
+column = 74
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Box<State>`, but found `Other`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 76
+column = 48
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{guard: Option<Int>, value: State}`, but found `{wrong: String}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 77
+column = 61
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{left: A, right: A}`, but found `{left: B, right: C}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 97
+column = 27
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `A`, but found `C`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 101
+column = 40
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `{widen: State::Ready, exact: Invariant<State::Ready>}`, but found `{widen: State::Closed, exact: Invariant<State::Closed>}`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 114
+column = 28
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `State::Closed`, but found `State::Ready`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 122
+column = 43
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Atomic<Other, Other>`, but found `Atomic<State::Ready, State::Ready>::AtomicValue`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 123
+column = 21
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Paired` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 131
+column = 2
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private function has no inferred return type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 130
+column = 1
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Paired` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 135
+column = 2
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private function has no inferred return type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 134
+column = 1
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Invariant<Int>`, but found `Invariant<String>`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 139
+column = 23
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Paired` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 147
+column = 25
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Paired` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 148
+column = 25
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Invariant<Int>`, but found `Invariant<String>`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 149
+column = 76
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `IrrelevantValue` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 154
+column = 2
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private function has no inferred return type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 153
+column = 1
