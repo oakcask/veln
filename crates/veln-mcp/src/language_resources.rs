@@ -946,6 +946,30 @@ impl LanguageResources {
         snapshot
     }
 
+    pub(crate) fn navigation_source_text(
+        &self,
+        files: &[veln_source::SourceFile],
+        captured_dependencies: &[CapturedDependencyProject],
+        analysis_scope: &DependencyAnalysisScope,
+        source: &veln_source::SourcePath,
+    ) -> Option<String> {
+        let find_source = |files: &[veln_source::SourceFile]| {
+            files
+                .iter()
+                .find(|file| file.path() == source)
+                .map(|file| file.text().to_string())
+        };
+        match self.dependency_analysis_selection(analysis_scope, captured_dependencies) {
+            DependencyAnalysisSelection::Admitted(_) | DependencyAnalysisSelection::Unanalyzed => {
+                find_source(files)
+            }
+            DependencyAnalysisSelection::Rejected(Some(accepted)) => {
+                find_source(&accepted.workspace_files)
+            }
+            DependencyAnalysisSelection::Rejected(None) => None,
+        }
+    }
+
     pub(crate) fn package_documentation_uri_for(
         &self,
         location: &veln_language_service::NavigationLocation,

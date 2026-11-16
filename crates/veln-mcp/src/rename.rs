@@ -7,7 +7,9 @@ use veln_language_service::{
 };
 use veln_source::{SourcePath, SourceSpan};
 
-use crate::check_project::{CaptureCache, capture_navigation_source};
+use crate::check_project::{
+    CaptureCache, capture_navigation_source, reject_navigation_publication_failure,
+};
 use crate::definition::{Coordinate, coordinate, path_to_uri, valid_position};
 use crate::language_resources::LanguageResources;
 use crate::outcome::{ToolOutcome, domain_failure};
@@ -41,20 +43,12 @@ pub(crate) fn rename(
             Ok(captured) => captured,
             Err(failure) => return failure,
         };
-    let source_file = captured
-        .project
-        .files
-        .iter()
-        .find(|file| file.path().as_str() == captured_source)
-        .expect("navigation capture contains the requested source");
-    if !valid_position(source_file.text(), line, column) {
-        return invalid_position(source, arguments);
-    }
-    let (Coordinate::Addressable(line), Coordinate::Addressable(column)) = (line, column) else {
-        unreachable!("valid positions are addressable")
-    };
-
     let root = captured.project.root.clone();
+    reject_navigation_publication_failure(
+        &captured,
+        scope.dependency_analysis_scope(),
+        language_resources,
+    );
     let workspace_key = captured.key;
     let snapshot = language_resources.read_only_navigation_snapshot(
         captured.project.files,
@@ -62,10 +56,20 @@ pub(crate) fn rename(
         scope.dependency_analysis_scope(),
         workspace_key,
     );
+    let source_path = SourcePath::new(captured_source);
+    if snapshot
+        .workspace_source(&source_path)
+        .is_some_and(|source_file| !valid_position(source_file.text(), line, column))
+    {
+        return invalid_position(source, arguments);
+    }
+    let (Coordinate::Addressable(line), Coordinate::Addressable(column)) = (line, column) else {
+        return invalid_position(source, arguments);
+    };
     let Some(result) = navigate_for_rename(
         snapshot.as_ref(),
         SourcePosition {
-            source: SourcePath::new(captured_source),
+            source: source_path,
             line,
             column,
         },

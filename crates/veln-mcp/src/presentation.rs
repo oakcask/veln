@@ -4,7 +4,9 @@ use veln_language_service::{
 };
 use veln_source::SourcePath;
 
-use crate::check_project::{CaptureCache, capture_navigation_source};
+use crate::check_project::{
+    CaptureCache, capture_navigation_source, reject_navigation_publication_failure,
+};
 use crate::definition::{coordinate, valid_position};
 use crate::language_resources::LanguageResources;
 use crate::outcome::{ToolOutcome, domain_failure};
@@ -96,13 +98,22 @@ fn with_position(
             Ok(captured) => captured,
             Err(failure) => return failure,
         };
-    let source_file = captured
-        .project
-        .files
-        .iter()
-        .find(|file| file.path().as_str() == captured_source)
-        .expect("presentation capture contains the requested source");
-    if !valid_position(source_file.text(), line, column) {
+    reject_navigation_publication_failure(
+        &captured,
+        scope.dependency_analysis_scope(),
+        language_resources,
+    );
+    let snapshot = language_resources.read_only_navigation_snapshot(
+        captured.project.files,
+        &captured.dependencies,
+        scope.dependency_analysis_scope(),
+        captured.key,
+    );
+    let source_path = SourcePath::new(captured_source);
+    if snapshot
+        .workspace_source(&source_path)
+        .is_some_and(|source_file| !valid_position(source_file.text(), line, column))
+    {
         return domain_failure(
             "invalid_position",
             "position is outside the selected source",
@@ -114,18 +125,16 @@ fn with_position(
         crate::definition::Coordinate::Addressable(column),
     ) = (line, column)
     else {
-        unreachable!("validated coordinates are addressable")
+        return domain_failure(
+            "invalid_position",
+            "position is outside the selected source",
+            json!({"source": source, "line": arguments["line"].clone(), "column": arguments["column"].clone()}),
+        );
     };
-    let snapshot = language_resources.read_only_navigation_snapshot(
-        captured.project.files,
-        &captured.dependencies,
-        scope.dependency_analysis_scope(),
-        captured.key,
-    );
     ToolOutcome::Success(render(
         &snapshot,
         SourcePosition {
-            source: SourcePath::new(captured_source),
+            source: source_path,
             line,
             column,
         },

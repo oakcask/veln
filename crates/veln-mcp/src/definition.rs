@@ -6,7 +6,9 @@ use std::os::unix::ffi::OsStrExt;
 use veln_language_service::{NavigationSource, SourcePosition, definition_at};
 use veln_source::SourcePath;
 
-use crate::check_project::{CaptureCache, capture_navigation_source};
+use crate::check_project::{
+    CaptureCache, capture_navigation_source, reject_navigation_publication_failure,
+};
 use crate::language_resources::LanguageResources;
 use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{Selection, WorkspaceBase};
@@ -34,13 +36,23 @@ pub(crate) fn definition(
             Ok(captured) => captured,
             Err(failure) => return failure,
         };
-    let source_file = captured
-        .project
-        .files
-        .iter()
-        .find(|file| file.path().as_str() == captured_source)
-        .expect("navigation capture contains the requested source");
-    if !valid_position(source_file.text(), line, column) {
+    let root = captured.project.root.clone();
+    reject_navigation_publication_failure(
+        &captured,
+        scope.dependency_analysis_scope(),
+        language_resources,
+    );
+    let source_path = SourcePath::new(captured_source);
+    let selected_source = language_resources.navigation_source_text(
+        &captured.project.files,
+        &captured.dependencies,
+        &scope.dependency_analysis_scope(),
+        &source_path,
+    );
+    if selected_source
+        .as_deref()
+        .is_some_and(|text| !valid_position(text, line, column))
+    {
         return domain_failure(
             "invalid_position",
             "position is outside the selected source",
@@ -48,10 +60,12 @@ pub(crate) fn definition(
         );
     }
     let (Coordinate::Addressable(line), Coordinate::Addressable(column)) = (line, column) else {
-        unreachable!("valid positions are addressable")
+        return domain_failure(
+            "invalid_position",
+            "position is outside the selected source",
+            json!({"source": source, "line": arguments["line"].clone(), "column": arguments["column"].clone()}),
+        );
     };
-
-    let root = captured.project.root.clone();
     let workspace_key = captured.key;
     let snapshot = match language_resources.navigation_snapshot(
         captured.project.files,
@@ -65,7 +79,7 @@ pub(crate) fn definition(
     let result = definition_at(
         snapshot.as_ref(),
         SourcePosition {
-            source: SourcePath::new(captured_source),
+            source: source_path,
             line,
             column,
         },

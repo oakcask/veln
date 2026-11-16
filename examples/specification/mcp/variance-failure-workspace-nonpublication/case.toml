@@ -10,20 +10,20 @@ format = "empty"
 
 [[mcp_assert]]
 id = 2
-path = "/result/isError"
-equals = false
-
-[[mcp_assert]]
-id = 2
-path = "/result/structuredContent/diagnostics/0/details/nested_incompatibility/path/0/kind"
-equals = "effect_set"
-
-[[mcp_assert]]
-id = 3
 path = "/result/structuredContent/definition"
 equals = null
 
 [[mcp_assert]]
-id = 5
+id = 4
 path = "/result/structuredContent/signature"
 equals = null
+
+[[mcp_assert]]
+id = 5
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/diagnostics/0/details/nested_incompatibility/path/0/kind"
+equals = "effect_set"

@@ -73,10 +73,9 @@ pub(crate) fn check_project(
         DoctestMode::Exclude,
         captured.dependencies,
     );
-    let publication_failed = checked_diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "type.variant_refinement_private"
-            || is_generic_or_function_variance_failure(diagnostic)
-    });
+    let publication_failed = checked_diagnostics
+        .iter()
+        .any(is_publication_failure_diagnostic);
     let analysis_scope = target.dependency_analysis_scope();
     let diagnostics = checked_diagnostics
         .iter()
@@ -98,6 +97,26 @@ pub(crate) fn check_project(
         return error.into();
     }
     ToolOutcome::Success(structured)
+}
+
+pub(crate) fn reject_navigation_publication_failure(
+    captured: &CapturedProject,
+    analysis_scope: DependencyAnalysisScope,
+    language_resources: &mut LanguageResources,
+) {
+    let diagnostics = checked_project_diagnostics_with_captured_dependencies(
+        captured.project.clone(),
+        DoctestMode::Exclude,
+        captured.dependencies.clone(),
+    );
+    if diagnostics.iter().any(is_publication_failure_diagnostic) {
+        language_resources.reject_dependency_analysis(analysis_scope, &captured.dependencies);
+    }
+}
+
+fn is_publication_failure_diagnostic(diagnostic: &veln_diagnostics::Diagnostic) -> bool {
+    diagnostic.id == "type.variant_refinement_private"
+        || is_generic_or_function_variance_failure(diagnostic)
 }
 
 pub(crate) struct Target {

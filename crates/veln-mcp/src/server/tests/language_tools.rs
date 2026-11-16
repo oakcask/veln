@@ -2,7 +2,9 @@ use super::*;
 use crate::language_resources::LanguageTopic;
 use std::collections::BTreeSet;
 use veln_analysis::CapturedDependencyProject;
-use veln_project::{PackageSnapshotSource, Project, parse_manifest_text};
+use veln_project::{
+    PackageSnapshotSource, Project, capture_embedded_package_snapshot, parse_manifest_text,
+};
 use veln_source::SourceFile;
 
 #[test]
@@ -881,11 +883,11 @@ fn workspace_navigation_is_preserved_across_generic_variance_analysis_failure() 
     );
 
     let accepted_definition =
-        server.definition_tool(&json!({"source":"main.veln","line":6,"column":3}));
+        server.definition_tool(&json!({"source":"main.veln","line":10,"column":3}));
     let accepted_completion =
-        server.completion_tool(&json!({"source":"main.veln","line":6,"column":3}));
+        server.completion_tool(&json!({"source":"main.veln","line":10,"column":3}));
     let accepted_signature =
-        server.signature_help_tool(&json!({"source":"main.veln","line":6,"column":12}));
+        server.signature_help_tool(&json!({"source":"main.veln","line":10,"column":12}));
     let accepted_references = server.references_tool(&json!({
         "source":"main.veln",
         "line":1,
@@ -903,20 +905,20 @@ fn workspace_navigation_is_preserved_across_generic_variance_analysis_failure() 
         "fn accepted(value: String) -> String"
     );
 
-    workspace.write("main.veln", rejected_workspace_source());
+    workspace.write("main.veln", short_rejected_workspace_source());
     let rejected = server.check_project_tool(&json!({"project":"."}));
     assert_effect_set_rejection(&rejected);
 
     assert_eq!(
-        server.definition_tool(&json!({"source":"main.veln","line":6,"column":3})),
+        server.definition_tool(&json!({"source":"main.veln","line":10,"column":3})),
         accepted_definition
     );
     assert_eq!(
-        server.completion_tool(&json!({"source":"main.veln","line":6,"column":3})),
+        server.completion_tool(&json!({"source":"main.veln","line":10,"column":3})),
         accepted_completion
     );
     assert_eq!(
-        server.signature_help_tool(&json!({"source":"main.veln","line":6,"column":12})),
+        server.signature_help_tool(&json!({"source":"main.veln","line":10,"column":12})),
         accepted_signature
     );
     assert_eq!(
@@ -937,7 +939,28 @@ fn workspace_navigation_is_preserved_across_generic_variance_analysis_failure() 
         })),
         accepted_rename
     );
-    assert_rejected_workspace_symbol_is_unpublished(&mut server, "main.veln");
+    assert_rejected_workspace_position_uses_retained_source(&mut server, "main.veln");
+}
+
+fn assert_rejected_workspace_position_uses_retained_source(server: &mut Server, source: &str) {
+    let outcomes = [
+        server.definition_tool(&json!({"source":source,"line":5,"column":3})),
+        server.completion_tool(&json!({"source":source,"line":5,"column":3})),
+        server.signature_help_tool(&json!({"source":source,"line":5,"column":3})),
+        server.references_tool(&json!({"source":source,"line":5,"column":3})),
+        server.rename_tool(&json!({
+            "source":source,
+            "line":5,
+            "column":3,
+            "new_name":"retained"
+        })),
+    ];
+    for outcome in outcomes {
+        assert_eq!(
+            outcome["structuredContent"]["code"], "invalid_position",
+            "{outcome:#}"
+        );
+    }
 }
 
 #[test]
@@ -983,8 +1006,23 @@ fn accepted_workspace_source() -> &'static str {
         "  value\n",
         "end\n",
         "\n",
+        "\n",
+        "\n",
+        "\n",
+        "\n",
         "fn main() -> String\n",
         "  accepted(\"stable\")\n",
+        "end\n",
+    )
+}
+
+fn short_rejected_workspace_source() -> &'static str {
+    concat!(
+        "fn effectful() -> () effects [stdio]\n",
+        "  stdio::println(\"blocked\")\n",
+        "end\n",
+        "fn rejected() -> ()\n",
+        "  let pure: fn() -> () = effectful\n",
         "end\n",
     )
 }
@@ -1038,25 +1076,34 @@ fn assert_rejected_workspace_symbol_is_unpublished(server: &mut Server, source: 
 
 #[test]
 fn first_rejected_dependency_revision_cannot_escape_cached_navigation() {
-    let workspace = TempWorkspace::new("first-rejected-dependency-navigation");
-    write_rejected_effect_dependency_workspace(&workspace, "vendor/dep", "rejected first text");
-    let mut server = initialized_server_with_embedded_resources(&workspace);
+    for tool in ["definition", "references"] {
+        let workspace = TempWorkspace::new(&format!("first-rejected-dependency-navigation-{tool}"));
+        write_rejected_effect_dependency_workspace(&workspace, "vendor/dep", "rejected first text");
+        let mut server = initialized_server_with_embedded_resources(&workspace);
 
-    let cached_signature =
-        server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":15}));
-    assert_eq!(
-        cached_signature["structuredContent"]["signature"]["label"],
-        "fn answer(value: Int) -> Int"
-    );
+        let before_check = match tool {
+            "definition" => {
+                server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}))
+            }
+            "references" => {
+                server.references_tool(&json!({"source":"main.veln","line":4,"column":9}))
+            }
+            _ => unreachable!(),
+        };
+        assert_eq!(before_check["isError"], false, "{tool}: {before_check:#}");
+        assert_rejected_dependency_text_is_unpublished(&mut server, "rejected first text");
+        assert_rejected_dependency_source_is_unreadable(&mut server, "rejected first text", tool);
 
-    let rejected = server.check_project_tool(&json!({"project":"."}));
-    assert_effect_set_rejection(&rejected);
+        let rejected = server.check_project_tool(&json!({"project":"."}));
+        assert_effect_set_rejection(&rejected);
 
-    let definition = server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
-    assert!(definition["structuredContent"]["definition"].is_null());
-    let signature = server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":15}));
-    assert!(signature["structuredContent"]["signature"].is_null());
-    assert_rejected_dependency_text_is_unpublished(&mut server, "rejected first text");
+        let definition = server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
+        assert!(definition["structuredContent"]["definition"].is_null());
+        let signature =
+            server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":15}));
+        assert!(signature["structuredContent"]["signature"].is_null());
+        assert_rejected_dependency_text_is_unpublished(&mut server, "rejected first text");
+    }
 }
 
 #[test]
@@ -1432,6 +1479,33 @@ fn assert_rejected_dependency_text_is_unpublished(server: &mut Server, rejected_
             "rejected text escaped through {uri}: {read:#}"
         );
     }
+}
+
+fn assert_rejected_dependency_source_is_unreadable(
+    server: &mut Server,
+    rejected_text: &str,
+    request_id: &str,
+) {
+    let manifest = "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"api.veln\"]\n";
+    let source = rejected_effect_dependency_source(rejected_text);
+    let snapshot = capture_embedded_package_snapshot(
+        manifest.as_bytes(),
+        [PackageSnapshotSource::new("api.veln", source.as_bytes())],
+    )
+    .unwrap();
+    let uri = format!(
+        "veln-pkg:///example%2Fdep/snapshot/{}/api.veln",
+        snapshot.digest()
+    );
+    let response = server
+        .handle_request(json!({
+            "jsonrpc":"2.0",
+            "id":request_id,
+            "method":"resources/read",
+            "params":{"uri":uri}
+        }))
+        .unwrap();
+    assert_eq!(response["error"]["data"]["code"], "resource_not_found");
 }
 
 fn assert_recovered_package_tool_state(server: &mut Server) {
@@ -1960,22 +2034,26 @@ fn write_rejected_effect_dependency_workspace(
     );
     workspace.write(
         &format!("{dependency_root}/api.veln"),
-        &format!(
-            concat!(
-                "fn effectful() -> () effects [stdio]\n",
-                "  stdio::println(\"blocked\")\n",
-                "end\n",
-                "fn rejected() -> ()\n",
-                "  let pure: fn() -> () = effectful\n",
-                "end\n",
-                "## {}\n",
-                "pub fn answer(value: Int) -> Int\n",
-                "  value\n",
-                "end\n",
-            ),
-            rejected_text
-        ),
+        &rejected_effect_dependency_source(rejected_text),
     );
+}
+
+fn rejected_effect_dependency_source(rejected_text: &str) -> String {
+    format!(
+        concat!(
+            "fn effectful() -> () effects [stdio]\n",
+            "  stdio::println(\"blocked\")\n",
+            "end\n",
+            "fn rejected() -> ()\n",
+            "  let pure: fn() -> () = effectful\n",
+            "end\n",
+            "## {}\n",
+            "pub fn answer(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+        ),
+        rejected_text
+    )
 }
 
 fn install_test_standard_library_docs(server: &mut Server) {

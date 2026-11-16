@@ -487,6 +487,13 @@ with the newly analyzed state. Stable-capture failure preserves the same state.
 The rejected snapshot contributes no package signature, source resource, or
 search result. Other language diagnostics do not imply this atomic admission
 rule and can still produce a coherent diagnostic-bearing snapshot.
+Each saved-navigation request applies the same variance publication gate to
+its stable capture before it can admit dependency resources. A `definition`
+or `references` request that first encounters a rejected revision therefore
+selects the prior successful state without making the rejected source,
+documentation, search candidate, or signature observable. The later
+`check_project` result reports the rejection without needing to roll back a
+provisional public state.
 If the selected analysis scope has no retained successful state, navigation
 after a rejection omits both the captured workspace files and captured
 dependencies. At most 256 project or single-file scope states retain successful
@@ -615,6 +622,13 @@ Invalid paths return `invalid_path`; invalid coordinates return
 capacity exhaustion returns `resource_capacity`. These failures include
 `code`, `message`, and object `details`. Unsupported or valid-but-empty
 selections succeed with `definition: null`.
+After variance rejection selects a prior successful workspace state, all five
+navigation tools validate the requested coordinates against the source bytes
+in that retained state. A coordinate that exists only in the rejected source
+returns `invalid_position`; a coordinate that remains valid only in the
+retained source continues to address the retained navigation result. When no
+successful state exists, the omitted workspace remains a valid-but-empty
+selection rather than making rejected bytes addressable.
 The invalid-coordinate failure creates no reference cursor and does not consume
 an existing cursor. A later request for an earlier valid saved selection reads
 the same retained snapshot and produces the same navigation result.
