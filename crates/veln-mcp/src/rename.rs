@@ -8,7 +8,7 @@ use veln_language_service::{
 use veln_source::{SourcePath, SourceSpan};
 
 use crate::check_project::{
-    CaptureCache, capture_navigation_source, reject_navigation_publication_failure,
+    CaptureCache, capture_navigation_source, transition_navigation_analysis,
 };
 use crate::definition::{Coordinate, coordinate, path_to_uri, valid_position};
 use crate::language_resources::LanguageResources;
@@ -44,11 +44,13 @@ pub(crate) fn rename(
             Err(failure) => return failure,
         };
     let root = captured.project.root.clone();
-    reject_navigation_publication_failure(
+    if let Err(error) = transition_navigation_analysis(
         &captured,
         scope.dependency_analysis_scope(),
         language_resources,
-    );
+    ) {
+        return error.into();
+    }
     let workspace_key = captured.key;
     let snapshot = language_resources.read_only_navigation_snapshot(
         captured.project.files,

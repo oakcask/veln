@@ -6,7 +6,7 @@ use veln_language_service::{
 use veln_source::{SourcePath, SourceSpan};
 
 use crate::check_project::{
-    CaptureCache, CapturedProject, capture_navigation_source, reject_navigation_publication_failure,
+    CaptureCache, CapturedProject, capture_navigation_source, transition_navigation_analysis,
 };
 use crate::definition::{Coordinate, coordinate, path_to_uri, valid_position};
 use crate::language_resources::LanguageResources;
@@ -98,11 +98,12 @@ fn collect_references(
     language_resources: &mut LanguageResources,
 ) -> Result<Vec<Value>, ToolOutcome> {
     let root = captured.project.root.clone();
-    reject_navigation_publication_failure(
+    transition_navigation_analysis(
         &captured,
         scope.dependency_analysis_scope(),
         language_resources,
-    );
+    )
+    .map_err(ToolOutcome::from)?;
     let source_path = SourcePath::new(captured_source);
     let selected_source = language_resources.navigation_source_text(
         &captured.project.files,

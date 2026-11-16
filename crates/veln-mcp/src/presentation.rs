@@ -5,7 +5,7 @@ use veln_language_service::{
 use veln_source::SourcePath;
 
 use crate::check_project::{
-    CaptureCache, capture_navigation_source, reject_navigation_publication_failure,
+    CaptureCache, capture_navigation_source, transition_navigation_analysis,
 };
 use crate::definition::{coordinate, valid_position};
 use crate::language_resources::LanguageResources;
@@ -98,11 +98,13 @@ fn with_position(
             Ok(captured) => captured,
             Err(failure) => return failure,
         };
-    reject_navigation_publication_failure(
+    if let Err(error) = transition_navigation_analysis(
         &captured,
         scope.dependency_analysis_scope(),
         language_resources,
-    );
+    ) {
+        return error.into();
+    }
     let snapshot = language_resources.read_only_navigation_snapshot(
         captured.project.files,
         &captured.dependencies,

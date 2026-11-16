@@ -99,11 +99,11 @@ pub(crate) fn check_project(
     ToolOutcome::Success(structured)
 }
 
-pub(crate) fn reject_navigation_publication_failure(
+pub(crate) fn transition_navigation_analysis(
     captured: &CapturedProject,
     analysis_scope: DependencyAnalysisScope,
     language_resources: &mut LanguageResources,
-) {
+) -> Result<(), crate::language_resources::ResourceCapacityError> {
     let diagnostics = checked_project_diagnostics_with_captured_dependencies(
         captured.project.clone(),
         DoctestMode::Exclude,
@@ -111,6 +111,13 @@ pub(crate) fn reject_navigation_publication_failure(
     );
     if diagnostics.iter().any(is_publication_failure_diagnostic) {
         language_resources.reject_dependency_analysis(analysis_scope, &captured.dependencies);
+        Ok(())
+    } else {
+        language_resources.admit_analyzed_dependencies(
+            analysis_scope,
+            captured.project.files.clone(),
+            &captured.dependencies,
+        )
     }
 }
 

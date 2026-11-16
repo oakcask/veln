@@ -1277,10 +1277,6 @@ fn assert_package_tool_state_preserved_across_analysis_failure() {
         ),
     );
     let mut server = initialized_server_with_embedded_resources(&workspace);
-    assert_eq!(
-        server.check_project_tool(&json!({"project":"."}))["isError"],
-        false
-    );
     let accepted = accepted_package_tool_state(&mut server);
     let rejected_source = concat!(
         "pub type Producer<T>\n",
@@ -1329,6 +1325,8 @@ struct AcceptedPackageToolState {
     definition: Value,
     completion: Value,
     signature: Value,
+    references: Value,
+    rename: Value,
     publication: Value,
     source_uri: String,
     source_text: String,
@@ -1354,6 +1352,23 @@ fn accepted_package_tool_state(server: &mut Server) -> AcceptedPackageToolState 
         "fn answer(value: String) -> Int",
         "{accepted_signature:#}"
     );
+    let accepted_references = server.references_tool(&json!({
+        "source":"main.veln",
+        "line":3,
+        "column":4,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        accepted_references["isError"], false,
+        "{accepted_references:#}"
+    );
+    let accepted_rename = server.rename_tool(&json!({
+        "source":"main.veln",
+        "line":3,
+        "column":4,
+        "new_name":"retained_main"
+    }));
+    assert_eq!(accepted_rename["isError"], false, "{accepted_rename:#}");
     let before = package_publication_state(server, "example/dep", "stable catalog text");
     let before_sources = before["source_resources"].as_array().unwrap();
     assert_eq!(before_sources.len(), 1, "{before:#}");
@@ -1369,6 +1384,8 @@ fn accepted_package_tool_state(server: &mut Server) -> AcceptedPackageToolState 
         definition: accepted_definition,
         completion: accepted_completion,
         signature: accepted_signature,
+        references: accepted_references,
+        rename: accepted_rename,
         publication: before,
         source_uri: accepted_source_uri,
         source_text: accepted_source,
@@ -1380,17 +1397,9 @@ fn assert_rejected_package_tool_state(
     accepted: &AcceptedPackageToolState,
     rejected_source: &str,
 ) {
-    let failed = server.check_project_tool(&json!({"project":"."}));
-    assert_eq!(failed["isError"], false, "{failed:#}");
-    assert!(
-        failed["structuredContent"]["diagnostics"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|diagnostic| diagnostic["id"] == "type.mismatch"),
-        "{failed:#}"
-    );
-    assert_effect_set_rejection(&failed);
+    let retained_definition =
+        server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
+    assert_eq!(retained_definition, accepted.definition);
     let after = package_publication_state(server, "example/dep", "stable catalog text");
     assert_eq!(after, accepted.publication);
     let after_sources = after["source_resources"].as_array().unwrap();
@@ -1420,15 +1429,29 @@ fn assert_rejected_package_tool_state(
         json!([])
     );
 
-    let retained_definition =
-        server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
-    assert_eq!(retained_definition, accepted.definition);
     let retained_completion =
         server.completion_tool(&json!({"source":"main.veln","line":4,"column":9}));
     assert_eq!(retained_completion, accepted.completion);
     let retained_signature =
         server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":22}));
     assert_eq!(retained_signature, accepted.signature);
+    let retained_references = server.references_tool(&json!({
+        "source":"main.veln",
+        "line":3,
+        "column":4,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        retained_references["structuredContent"]["references"],
+        accepted.references["structuredContent"]["references"]
+    );
+    let retained_rename = server.rename_tool(&json!({
+        "source":"main.veln",
+        "line":3,
+        "column":4,
+        "new_name":"retained_main"
+    }));
+    assert_eq!(retained_rename, accepted.rename);
     assert_eq!(
         package_publication_state(server, "example/dep", "stable catalog text"),
         accepted.publication
@@ -1509,12 +1532,6 @@ fn assert_rejected_dependency_source_is_unreadable(
 }
 
 fn assert_recovered_package_tool_state(server: &mut Server) {
-    let recovered = server.check_project_tool(&json!({"project":"."}));
-    assert_eq!(recovered["isError"], false, "{recovered:#}");
-    assert_eq!(
-        recovered["structuredContent"]["summary"]["diagnostic_count"],
-        0
-    );
     let recovered_signature =
         server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":19}));
     assert_eq!(

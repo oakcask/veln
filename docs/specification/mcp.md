@@ -119,13 +119,13 @@ declaration URI forms with Markdown media type. Clients obtain exact readable
 module and declaration URIs from index and module Markdown; template variables
 are not a URI normalization or discovery surface.
 
-Successful `check_project` analysis with no
-`type.variant_refinement_private` diagnostic and successful `definition` and
-`references` calls on a selected manifest project atomically admit every valid
-direct-dependency package snapshot captured by the same stable saved-project
-operation. A valid snapshot
-has a manifest package name that equals the dependency table key and a captured
-package distribution snapshot. The server generates the existing
+Successful whole analysis by `check_project`, `definition`, `completion`,
+`signature_help`, `references`, or `rename`, with no
+`type.variant_refinement_private` or applicable generic/function-variance
+diagnostic, atomically admits the captured workspace files and every valid
+direct-dependency package snapshot for the selected analysis scope. A valid
+snapshot has a manifest package name that equals the dependency table key and
+a captured package distribution snapshot. The server generates the existing
 transport-independent package-documentation result from that retained snapshot
 and the parsed manifest used for admission. Publication analysis receives the
 complete dependency set from the same stable capture. To keep admission work
@@ -482,18 +482,20 @@ Navigation does not add the current rejected workspace files as overlays,
 including when the rejected manifest selects a different dependency source.
 It therefore exposes neither workspace declarations and signatures nor
 dependency declarations and signatures that exist only in the rejected
-analysis. A later successful `check_project` replaces the retained whole state
-with the newly analyzed state. Stable-capture failure preserves the same state.
+analysis. A later successful whole-analysis request replaces the retained whole
+state with the newly analyzed state. Stable-capture failure preserves the same
+state.
 The rejected snapshot contributes no package signature, source resource, or
 search result. Other language diagnostics do not imply this atomic admission
 rule and can still produce a coherent diagnostic-bearing snapshot.
-Each saved-navigation request applies the same variance publication gate to
-its stable capture before it can admit dependency resources. A `definition`,
-`completion`, `signature_help`, `references`, or `rename` request that first
-encounters a rejected revision therefore selects the prior successful state
-without making the rejected source, documentation, search candidate, or
-signature observable. The later `check_project` result reports the rejection
-without needing to roll back a provisional public state.
+Each saved-navigation request applies the same atomic analysis transition to
+its stable capture before it admits workspace files or dependency resources. A
+`definition`, `completion`, `signature_help`, `references`, or `rename` request
+that first encounters a rejected revision therefore selects the prior
+successful state without making the rejected source, documentation, search
+candidate, or signature observable. A later successful saved-navigation
+request can admit a new coherent revision without an intervening
+`check_project` request.
 If the selected analysis scope has no retained successful state, navigation
 after a rejection omits both the captured workspace files and captured
 dependencies. At most 256 project or single-file scope states retain successful
@@ -501,16 +503,17 @@ whole navigation or a rejection outcome. Each successful analysis or rejection
 makes its scope the newest retained scope. When another scope exceeds the
 limit, the oldest scope no longer supplies successful fallback after a later
 rejection. An evicted or otherwise unknown scope remains non-publishing after
-the history has saturated until a successful `check_project` admits that scope.
+the history has saturated until a successful whole-analysis request admits that
+scope.
 Scope eviction does not remove admitted dependency resource reads.
 The server retains at most 256 exact fixed-size rejected-revision identities.
 After that set saturates, an unknown dependency revision remains non-publishing
-until a successful `check_project` explicitly admits that revision. Revision
-tracking does not retain manifest or source payloads.
+until a successful whole-analysis request explicitly admits that revision.
+Revision tracking does not retain manifest or source payloads.
 If dependency resource admission exceeds the retained source-snapshot or
-documentation-revision capacity after analysis succeeds, `check_project`
-returns `resource_capacity` and publishes no partial diagnostics, summary, or
-analysis metadata.
+documentation-revision capacity after analysis succeeds, the whole-analysis
+request returns `resource_capacity` and publishes no partial workspace,
+dependency, diagnostic, summary, or analysis state.
 
 ## Saved Workspace Navigation
 
@@ -772,14 +775,14 @@ successful tool results. They do not end the MCP session or change workspace
 selection. A later workspace request and a presentation request for another
 saved source continue to use the same server state.
 
-Completion and signature help can read captured direct-dependency bytes for
-navigation, but neither tool admits dependency resources. They do not change
-retained resource capacity, and full retained capacity cannot make either tool
-return `resource_capacity`. Success, empty results, and failures preserve the
-published resources, workspace roots and generation, published diagnostics,
-prior results, and reference cursors. A separately requested successful
-workspace refresh still follows the [selection-state contract](#selection-state)
-and invalidates cursors.
+Completion and signature help admit their successful whole captured state
+before rendering a result. If dependency-resource admission exceeds capacity,
+the request returns `resource_capacity` without publishing a partial workspace,
+dependency, source, or documentation state. Other success, empty results, and
+failures preserve the published resources, workspace roots and generation,
+published diagnostics, prior results, and reference cursors. A separately
+requested successful workspace refresh still follows the
+[selection-state contract](#selection-state) and invalidates cursors.
 
 ### Rename
 
@@ -864,14 +867,14 @@ Invalid paths return exactly empty `details`. Invalid positions return exactly
 `details: {source,line,column}`. Exhausted stable capture returns
 `snapshot_changed` with exactly empty `details`. No failure contains edits.
 
-Rename constructs its language-service snapshot from one stable capture but
-does not admit dependency source or documentation resources. Retained package
-capacity therefore cannot change its result. Success, empty selection, and
-failure preserve filesystem bytes, workspace roots and generation, published
-diagnostics and resources, prior results, and reference cursors. Rename neither
-creates nor consumes a cursor. A later definition or references request still
-observes the unchanged saved workspace unless the client separately changes
-the files.
+Rename admits its successful whole captured state before computing edits. If
+dependency-resource admission exceeds capacity, it returns `resource_capacity`
+without publishing any part of the attempted workspace or dependency state.
+Other success, empty selection, and failure preserve filesystem bytes,
+workspace roots and generation, published diagnostics and resources, prior
+results, and reference cursors. Rename neither creates nor consumes a cursor. A
+later definition or references request still observes the unchanged saved
+workspace unless the client separately changes the files.
 
 An initial `references` request requires `source`, `line`, and `column`.
 It may set boolean `include_declaration` (default `false`) and `page_size`

@@ -177,7 +177,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "code": { "enum": ["invalid_path", "snapshot_changed"] },
+        "code": { "enum": ["invalid_path", "snapshot_changed", "resource_capacity"] },
         "message": { "type": "string" },
         "details": { "$ref": "#/$defs/empty_details" }
       },

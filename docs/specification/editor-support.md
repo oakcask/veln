@@ -922,6 +922,15 @@ consumer analysis use newly derived source-ADT variance classifications.
 Declaration identity and generic arity do not suppress this refresh. The
 [package virtual-source lifetime](package-virtual-sources.md#package-virtual-sources)
 defines how earlier snapshot URIs remain resolvable.
+An incompatible named-generic argument, function input, variadic element,
+function result, or effect set is a publication rejection. The server publishes
+the applicable diagnostic but does not replace the retained dependency layer.
+Definitions, signatures, the active package URI, and virtual-source bytes stay
+on the previous successful capture. The rejected package signature and source
+are not readable. If no dependency layer has succeeded, dependency navigation
+and virtual-source reads remain empty. A later successful capture replaces the
+layer as one state transition. Other semantic diagnostics do not reject a
+captured layer and can accompany its publication.
 If project rediscovery fails, the server publishes an empty diagnostic list for
 each URI previously published for that project, and the complete current
 dependency layer stays active. Definitions, signatures, and virtual-source

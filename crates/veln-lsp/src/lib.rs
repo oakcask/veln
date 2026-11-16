@@ -10,8 +10,8 @@ use std::sync::{Arc, OnceLock};
 
 use veln_analysis::{
     CapturedDependencyProject, DoctestMode, checked_project_diagnostics_with_captured_dependencies,
-    is_source_path_invalid_case_diagnostic, parse_diagnostic_to_envelope,
-    validate_manifest_exports,
+    is_generic_or_function_variance_failure, is_source_path_invalid_case_diagnostic,
+    parse_diagnostic_to_envelope, validate_manifest_exports,
 };
 use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_diagnostics::Diagnostic;
@@ -467,12 +467,17 @@ impl Server {
         root: PathBuf,
         captured: CapturedWorkspaceProject,
     ) -> Vec<String> {
-        self.refresh_project_dependency_layer(&root, captured.direct_dependencies);
-        let (diagnostics_by_path, diagnostic_sources) = self.workspace_diagnostics_for_root(
-            &root,
-            captured.project,
-            captured.analysis_dependencies,
-        );
+        let CapturedWorkspaceProject {
+            project,
+            direct_dependencies,
+            analysis_dependencies,
+        } = captured;
+        let workspace_files = project.files.clone();
+        let (diagnostics_by_path, diagnostic_sources, publication_failed) =
+            self.workspace_diagnostics_for_root(&root, project, analysis_dependencies);
+        if !publication_failed {
+            self.commit_project_snapshot(&root, workspace_files, direct_dependencies);
+        }
         self.publish_workspace_diagnostic_results(root, diagnostics_by_path, diagnostic_sources)
     }
 
@@ -509,7 +514,7 @@ impl Server {
         root: &Path,
         mut project: Project,
         dependencies: Vec<CapturedDependencyProject>,
-    ) -> (BTreeMap<String, Vec<Diagnostic>>, DiagnosticSources) {
+    ) -> (BTreeMap<String, Vec<Diagnostic>>, DiagnosticSources, bool) {
         self.overlay_open_workspace_documents(root, &mut project);
         let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
         let diagnostic_sources = project
@@ -529,13 +534,16 @@ impl Server {
             DoctestMode::Exclude,
             dependencies,
         );
+        let publication_failed = diagnostics
+            .iter()
+            .any(is_generic_or_function_variance_failure);
         let mut diagnostics_by_path = diagnostics_by_path(diagnostics);
         for source in &project.files {
             diagnostics_by_path
                 .entry(source.path().as_str().to_string())
                 .or_default();
         }
-        (diagnostics_by_path, diagnostic_sources)
+        (diagnostics_by_path, diagnostic_sources, publication_failed)
     }
 
     fn overlay_open_workspace_documents(&self, root: &Path, project: &mut Project) {
@@ -581,17 +589,29 @@ impl Server {
         self.project_snapshots.clear();
         self.overlaid_project_snapshots.clear();
         self.retired_virtual_sources.clear();
-        for root in self.workspace_roots.clone() {
-            if let Some(snapshot) = retained_project_snapshot(
-                &root,
-                #[cfg(test)]
-                self.test_standard_library.clone(),
-            ) {
-                self.project_snapshots
-                    .insert(root.clone(), Arc::new(snapshot));
-                self.refresh_overlaid_project_snapshot(&root);
-            }
+    }
+
+    fn commit_project_snapshot(
+        &mut self,
+        root: &Path,
+        workspace_files: Vec<SourceFile>,
+        direct_dependencies: Vec<DirectDependencySnapshot>,
+    ) {
+        if self.project_snapshots.contains_key(root) {
+            self.refresh_project_dependency_layer(root, direct_dependencies);
+            return;
         }
+        let Some(snapshot) = retained_project_snapshot(
+            workspace_files,
+            direct_dependencies,
+            #[cfg(test)]
+            self.test_standard_library.clone(),
+        ) else {
+            return;
+        };
+        self.project_snapshots
+            .insert(root.to_path_buf(), Arc::new(snapshot));
+        self.refresh_overlaid_project_snapshot(root);
     }
 
     fn refresh_project_dependency_layer(
@@ -742,10 +762,10 @@ fn invalid_navigation_position_response(id: &str) -> String {
 }
 
 fn retained_project_snapshot(
-    root: &Path,
+    workspace_files: Vec<SourceFile>,
+    direct_dependencies: Vec<DirectDependencySnapshot>,
     #[cfg(test)] test_standard_library: Option<DirectDependencySnapshot>,
 ) -> Option<EffectiveProjectSnapshot> {
-    let captured = capture_workspace_project(root)?;
     let standard_library = {
         #[cfg(test)]
         if let Some(standard_library) = test_standard_library {
@@ -759,11 +779,8 @@ fn retained_project_snapshot(
         }
     };
     Some(
-        EffectiveProjectSnapshot::with_direct_dependencies(
-            captured.project.files,
-            captured.direct_dependencies,
-        )
-        .with_standard_library(standard_library),
+        EffectiveProjectSnapshot::with_direct_dependencies(workspace_files, direct_dependencies)
+            .with_standard_library(standard_library),
     )
 }
 

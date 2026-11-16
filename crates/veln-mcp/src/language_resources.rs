@@ -549,6 +549,23 @@ impl LanguageResources {
         dependencies: &[CapturedDependencyProject],
     ) -> Result<(), ResourceCapacityError> {
         let revision = dependency_revision_key(dependencies);
+        let unchanged = self.analysis_scopes.get(&scope).and_then(|state| {
+            (!state.rejected)
+                .then_some(state.accepted.as_ref())
+                .flatten()
+                .filter(|accepted| {
+                    accepted.dependencies.revision == revision
+                        && same_workspace_files(&accepted.workspace_files, &workspace_files)
+                })
+                .map(|accepted| Arc::clone(&accepted.dependencies))
+        });
+        if let Some(analyzed) = unchanged {
+            self.select_analyzed_dependency_documentation(&analyzed);
+            self.analyzed_dependency_scope_order
+                .retain(|retained| retained != &scope);
+            self.analyzed_dependency_scope_order.push_back(scope);
+            return Ok(());
+        }
         let analyzed = if let Some(analyzed) = self
             .analysis_scopes
             .values()
@@ -1018,6 +1035,16 @@ impl LanguageResources {
         }
         DependencyAnalysisSelection::Unanalyzed
     }
+}
+
+fn same_workspace_files(
+    left: &[veln_source::SourceFile],
+    right: &[veln_source::SourceFile],
+) -> bool {
+    left.len() == right.len()
+        && left.iter().zip(right).all(|(left, right)| {
+            left.path() == right.path() && left.text().as_bytes() == right.text().as_bytes()
+        })
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
