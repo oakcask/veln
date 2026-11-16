@@ -65,6 +65,18 @@ struct AnalyzedDependencies {
     snapshots: Vec<DirectDependencySnapshot>,
 }
 
+#[derive(Clone)]
+struct AcceptedAnalysis {
+    dependencies: Arc<AnalyzedDependencies>,
+    workspace_files: Vec<veln_source::SourceFile>,
+}
+
+#[derive(Clone, Default)]
+struct AnalysisScopeState {
+    accepted: Option<AcceptedAnalysis>,
+    rejected: bool,
+}
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) enum DependencyAnalysisScope {
     Project(String),
@@ -144,7 +156,7 @@ impl RejectedDependencyRevisions {
 
 enum DependencyAnalysisSelection {
     Admitted(AnalyzedDependencies),
-    Rejected(Option<AnalyzedDependencies>),
+    Rejected(Option<AcceptedAnalysis>),
     Unanalyzed,
 }
 
@@ -202,8 +214,9 @@ pub(crate) struct LanguageResources {
     dependency_navigation: Option<(Vec<RetainedPackageKey>, EffectiveProjectSnapshot)>,
     workspace_navigation: Option<WorkspaceNavigation>,
     read_only_workspace_navigation: Option<(Value, Arc<EffectiveProjectSnapshot>)>,
-    analyzed_dependencies: BTreeMap<DependencyAnalysisScope, Arc<AnalyzedDependencies>>,
+    analysis_scopes: BTreeMap<DependencyAnalysisScope, AnalysisScopeState>,
     analyzed_dependency_scope_order: VecDeque<DependencyAnalysisScope>,
+    analysis_scope_history_saturated: bool,
     #[cfg(test)]
     analyzed_dependency_scope_capacity: usize,
     rejected_dependency_revisions: RejectedDependencyRevisions,
@@ -394,8 +407,9 @@ impl LanguageResources {
             dependency_navigation: None,
             workspace_navigation: None,
             read_only_workspace_navigation: None,
-            analyzed_dependencies: BTreeMap::new(),
+            analysis_scopes: BTreeMap::new(),
             analyzed_dependency_scope_order: VecDeque::new(),
+            analysis_scope_history_saturated: false,
             #[cfg(test)]
             analyzed_dependency_scope_capacity: ANALYZED_DEPENDENCY_SCOPE_CAPACITY,
             rejected_dependency_revisions: RejectedDependencyRevisions::new(),
@@ -468,14 +482,15 @@ impl LanguageResources {
 
     #[cfg(test)]
     pub(crate) fn retained_analyzed_dependency_scopes(&self) -> usize {
-        self.analyzed_dependencies.len()
+        self.analysis_scopes.len()
     }
 
     #[cfg(test)]
     pub(crate) fn retained_analyzed_dependency_payloads(&self) -> usize {
-        self.analyzed_dependencies
+        self.analysis_scopes
             .values()
-            .map(Arc::as_ptr)
+            .filter_map(|state| state.accepted.as_ref())
+            .map(|accepted| Arc::as_ptr(&accepted.dependencies))
             .collect::<BTreeSet<_>>()
             .len()
     }
@@ -530,12 +545,15 @@ impl LanguageResources {
     pub(crate) fn admit_analyzed_dependencies(
         &mut self,
         scope: DependencyAnalysisScope,
+        workspace_files: Vec<veln_source::SourceFile>,
         dependencies: &[CapturedDependencyProject],
     ) -> Result<(), ResourceCapacityError> {
         let revision = dependency_revision_key(dependencies);
         let analyzed = if let Some(analyzed) = self
-            .analyzed_dependencies
+            .analysis_scopes
             .values()
+            .filter_map(|state| state.accepted.as_ref())
+            .map(|accepted| &accepted.dependencies)
             .find(|analyzed| analyzed.revision == revision)
             .cloned()
         {
@@ -550,7 +568,16 @@ impl LanguageResources {
                 snapshots: admitted.snapshots,
             })
         };
-        self.analyzed_dependencies.insert(scope.clone(), analyzed);
+        self.analysis_scopes.insert(
+            scope.clone(),
+            AnalysisScopeState {
+                accepted: Some(AcceptedAnalysis {
+                    dependencies: analyzed,
+                    workspace_files,
+                }),
+                rejected: false,
+            },
+        );
         self.analyzed_dependency_scope_order
             .retain(|retained| retained != &scope);
         self.analyzed_dependency_scope_order.push_back(scope);
@@ -588,24 +615,25 @@ impl LanguageResources {
 
     pub(crate) fn retain_analyzed_dependency_projects(&mut self, projects: &[String]) {
         let projects = projects.iter().map(String::as_str).collect::<BTreeSet<_>>();
-        let previous_len = self.analyzed_dependencies.len();
-        self.analyzed_dependencies
+        let previous_len = self.analysis_scopes.len();
+        self.analysis_scopes
             .retain(|scope, _| projects.contains(scope.project()));
         self.analyzed_dependency_scope_order
-            .retain(|scope| self.analyzed_dependencies.contains_key(scope));
-        if self.analyzed_dependencies.len() != previous_len {
+            .retain(|scope| self.analysis_scopes.contains_key(scope));
+        if self.analysis_scopes.len() != previous_len {
             self.workspace_navigation = None;
             self.read_only_workspace_navigation = None;
         }
     }
 
     fn evict_analyzed_dependency_scopes(&mut self) {
-        while self.analyzed_dependencies.len() > self.analyzed_dependency_scope_capacity() {
+        while self.analysis_scopes.len() > self.analyzed_dependency_scope_capacity() {
             let evicted = self
                 .analyzed_dependency_scope_order
                 .pop_front()
                 .expect("non-empty analyzed dependency scope order");
-            self.analyzed_dependencies.remove(&evicted);
+            self.analysis_scopes.remove(&evicted);
+            self.analysis_scope_history_saturated = true;
         }
     }
 
@@ -621,10 +649,19 @@ impl LanguageResources {
 
     pub(crate) fn reject_dependency_analysis(
         &mut self,
+        scope: DependencyAnalysisScope,
         dependencies: &[CapturedDependencyProject],
     ) {
+        self.analysis_scopes
+            .entry(scope.clone())
+            .or_default()
+            .rejected = true;
         self.rejected_dependency_revisions
             .insert(dependency_revision_key(dependencies));
+        self.analyzed_dependency_scope_order
+            .retain(|retained| retained != &scope);
+        self.analyzed_dependency_scope_order.push_back(scope);
+        self.evict_analyzed_dependency_scopes();
         self.workspace_navigation = None;
         self.read_only_workspace_navigation = None;
     }
@@ -801,24 +838,36 @@ impl LanguageResources {
             return Ok(Arc::clone(&cached.snapshot));
         }
 
-        let dependencies = match self
-            .dependency_analysis_selection(&analysis_scope, captured_dependencies)
-        {
-            DependencyAnalysisSelection::Admitted(dependencies)
-            | DependencyAnalysisSelection::Rejected(Some(dependencies)) => AdmittedDependencies {
-                keys: dependencies.keys,
-                revision_keys: dependencies.documentation_revisions,
-                snapshots: dependencies.snapshots,
-            },
-            DependencyAnalysisSelection::Rejected(None) => AdmittedDependencies {
-                keys: Vec::new(),
-                revision_keys: Vec::new(),
-                snapshots: Vec::new(),
-            },
-            DependencyAnalysisSelection::Unanalyzed => {
-                self.admit_dependencies(captured_dependencies)?
-            }
-        };
+        let (dependencies, files) =
+            match self.dependency_analysis_selection(&analysis_scope, captured_dependencies) {
+                DependencyAnalysisSelection::Admitted(dependencies) => (
+                    AdmittedDependencies {
+                        keys: dependencies.keys,
+                        revision_keys: dependencies.documentation_revisions,
+                        snapshots: dependencies.snapshots,
+                    },
+                    files,
+                ),
+                DependencyAnalysisSelection::Rejected(Some(accepted)) => (
+                    AdmittedDependencies {
+                        keys: accepted.dependencies.keys.clone(),
+                        revision_keys: accepted.dependencies.documentation_revisions.clone(),
+                        snapshots: accepted.dependencies.snapshots.clone(),
+                    },
+                    accepted.workspace_files,
+                ),
+                DependencyAnalysisSelection::Rejected(None) => (
+                    AdmittedDependencies {
+                        keys: Vec::new(),
+                        revision_keys: Vec::new(),
+                        snapshots: Vec::new(),
+                    },
+                    Vec::new(),
+                ),
+                DependencyAnalysisSelection::Unanalyzed => {
+                    (self.admit_dependencies(captured_dependencies)?, files)
+                }
+            };
         let dependency_keys = dependencies.keys;
         let documentation_revisions = dependencies.revision_keys;
         let snapshot = if dependencies.snapshots.is_empty() {
@@ -866,16 +915,22 @@ impl LanguageResources {
             return Arc::clone(snapshot);
         }
 
-        let dependencies = match self
+        let (dependencies, files) = match self
             .dependency_analysis_selection(&analysis_scope, captured_dependencies)
         {
-            DependencyAnalysisSelection::Admitted(dependencies)
-            | DependencyAnalysisSelection::Rejected(Some(dependencies)) => dependencies.snapshots,
-            DependencyAnalysisSelection::Rejected(None) => Vec::new(),
-            DependencyAnalysisSelection::Unanalyzed => captured_dependencies
-                .iter()
-                .filter_map(captured_dependency_navigation)
-                .collect::<Vec<_>>(),
+            DependencyAnalysisSelection::Admitted(dependencies) => (dependencies.snapshots, files),
+            DependencyAnalysisSelection::Rejected(Some(accepted)) => (
+                accepted.dependencies.snapshots.clone(),
+                accepted.workspace_files,
+            ),
+            DependencyAnalysisSelection::Rejected(None) => (Vec::new(), Vec::new()),
+            DependencyAnalysisSelection::Unanalyzed => (
+                captured_dependencies
+                    .iter()
+                    .filter_map(captured_dependency_navigation)
+                    .collect::<Vec<_>>(),
+                files,
+            ),
         };
         let snapshot = if dependencies.is_empty() {
             self.with_standard_library_navigation(files)
@@ -918,21 +973,24 @@ impl LanguageResources {
         dependencies: &[CapturedDependencyProject],
     ) -> DependencyAnalysisSelection {
         let revision = dependency_revision_key(dependencies);
-        let retained = self
-            .analyzed_dependencies
-            .get(scope)
-            .map(Arc::as_ref)
-            .cloned();
-        if retained
-            .as_ref()
-            .is_some_and(|analyzed| analyzed.revision == revision)
+        if let Some(state) = self.analysis_scopes.get(scope) {
+            if state.rejected {
+                return DependencyAnalysisSelection::Rejected(state.accepted.clone());
+            }
+            if let Some(accepted) = &state.accepted
+                && accepted.dependencies.revision == revision
+            {
+                return DependencyAnalysisSelection::Admitted(
+                    accepted.dependencies.as_ref().clone(),
+                );
+            }
+            if self.rejected_dependency_revisions.contains(revision) {
+                return DependencyAnalysisSelection::Rejected(state.accepted.clone());
+            }
+        } else if self.analysis_scope_history_saturated
+            || self.rejected_dependency_revisions.contains(revision)
         {
-            return DependencyAnalysisSelection::Admitted(
-                retained.expect("matching analyzed dependencies exist"),
-            );
-        }
-        if self.rejected_dependency_revisions.contains(revision) {
-            return DependencyAnalysisSelection::Rejected(retained);
+            return DependencyAnalysisSelection::Rejected(None);
         }
         DependencyAnalysisSelection::Unanalyzed
     }

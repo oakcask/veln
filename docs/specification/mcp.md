@@ -474,24 +474,28 @@ function input, variadic element, function result, or effect set,
 dependency snapshot.
 Previously retained dependency source, package-documentation, search, and
 exact-read state remains unchanged. When the same selected project or
-single-file analysis scope already has a successful analyzed snapshot,
-`definition`, `completion`, and `signature_help` continue to use that snapshot
-after the variance rejection, including when the rejected manifest selects a
-different dependency source.
-They do not expose declarations or signatures from the rejected dependency
-revision. A later successful `check_project` replaces the retained navigation
-snapshot with the newly analyzed revision. Stable-capture failure preserves the
-same state. The rejected snapshot contributes no package signature, source
-resource, or search result. Other language diagnostics do not imply this atomic
-admission rule and can still produce a coherent diagnostic-bearing snapshot.
-If the selected analysis scope has no successful snapshot, navigation after a
-rejection omits the captured dependencies instead of using their raw source.
-At most 256 successfully analyzed project or single-file scopes can supply this
-fallback navigation. A successful `check_project` that admits its analyzed
-dependencies makes its scope the newest retained scope. When another successful
-analysis exceeds the limit, the oldest retained scope no longer supplies
-dependency fallback after a later rejection. This eviction does not remove
-admitted dependency resource reads.
+single-file analysis scope already has a successful whole captured navigation
+state, `definition`, `completion`, and `signature_help` continue to use that
+state after the variance rejection. The retained state contains the successful
+workspace files and their admitted dependency layer. Navigation does not add
+the current rejected workspace files as overlays, including when the rejected
+manifest selects a different dependency source.
+It therefore exposes neither workspace declarations and signatures nor
+dependency declarations and signatures that exist only in the rejected
+analysis. A later successful `check_project` replaces the retained whole state
+with the newly analyzed state. Stable-capture failure preserves the same state.
+The rejected snapshot contributes no package signature, source resource, or
+search result. Other language diagnostics do not imply this atomic admission
+rule and can still produce a coherent diagnostic-bearing snapshot.
+If the selected analysis scope has no retained successful state, navigation
+after a rejection omits both the captured workspace files and captured
+dependencies. At most 256 project or single-file scope states retain successful
+whole navigation or a rejection outcome. Each successful analysis or rejection
+makes its scope the newest retained scope. When another scope exceeds the
+limit, the oldest scope no longer supplies successful fallback after a later
+rejection. An evicted or otherwise unknown scope remains non-publishing after
+the history has saturated until a successful `check_project` admits that scope.
+Scope eviction does not remove admitted dependency resource reads.
 The server retains at most 256 exact fixed-size rejected-revision identities.
 After that set saturates, an unknown dependency revision remains non-publishing
 until a successful `check_project` explicitly admits that revision. Revision
@@ -1113,6 +1117,12 @@ The checked
 transcript pins the structured signature label and parameter array for
 covariant, contravariant, invariant, and irrelevant source ADTs plus function
 input and result types. The checked
+[`variance-failure-workspace-nonpublication`](../../examples/specification/mcp/variance-failure-workspace-nonpublication/)
+transcript checks that a first rejected workspace analysis returns its variance
+diagnostic without publishing the rejected definition, completion item, or
+signature. Stateful MCP server regressions check that a prior successful whole
+workspace state is retained and that scope eviction remains non-publishing.
+The checked
 [`explicit-import-alias-navigation`](../../examples/specification/mcp/explicit-import-alias-navigation/)
 transcript covers workspace and direct-dependency qualified completion
 provenance and empty results for colliding, invalid-cased, and recovered

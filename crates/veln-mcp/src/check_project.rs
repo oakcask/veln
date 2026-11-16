@@ -66,6 +66,7 @@ pub(crate) fn check_project(
         }
     };
 
+    let workspace_files = captured.project.files.clone();
     let dependencies = captured.dependencies.clone();
     let checked_diagnostics = checked_project_diagnostics_with_captured_dependencies(
         captured.project,
@@ -76,6 +77,7 @@ pub(crate) fn check_project(
         diagnostic.id == "type.variant_refinement_private"
             || is_generic_or_function_variance_failure(diagnostic)
     });
+    let analysis_scope = target.dependency_analysis_scope();
     let diagnostics = checked_diagnostics
         .iter()
         .map(diagnostic_to_serde)
@@ -87,10 +89,12 @@ pub(crate) fn check_project(
         "summary": summary(&diagnostics),
     });
     if publication_failed {
-        language_resources.reject_dependency_analysis(&dependencies);
-    } else if let Err(error) = language_resources
-        .admit_analyzed_dependencies(target.dependency_analysis_scope(), &dependencies)
-    {
+        language_resources.reject_dependency_analysis(analysis_scope, &dependencies);
+    } else if let Err(error) = language_resources.admit_analyzed_dependencies(
+        analysis_scope,
+        workspace_files,
+        &dependencies,
+    ) {
         return error.into();
     }
     ToolOutcome::Success(structured)

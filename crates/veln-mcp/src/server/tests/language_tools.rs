@@ -870,6 +870,143 @@ fn package_surfaces_are_preserved_across_generic_variance_analysis_failure() {
 }
 
 #[test]
+fn workspace_navigation_is_preserved_across_generic_variance_analysis_failure() {
+    let workspace = TempWorkspace::new("workspace-variance-navigation-retention");
+    workspace.write("veln.toml", "");
+    workspace.write("main.veln", accepted_workspace_source());
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+    assert_eq!(
+        server.check_project_tool(&json!({"project":"."}))["isError"],
+        false
+    );
+
+    let accepted_definition =
+        server.definition_tool(&json!({"source":"main.veln","line":6,"column":3}));
+    let accepted_completion =
+        server.completion_tool(&json!({"source":"main.veln","line":6,"column":3}));
+    let accepted_signature =
+        server.signature_help_tool(&json!({"source":"main.veln","line":6,"column":12}));
+    assert_eq!(
+        accepted_signature["structuredContent"]["signature"]["label"],
+        "fn accepted(value: String) -> String"
+    );
+
+    workspace.write("main.veln", rejected_workspace_source());
+    let rejected = server.check_project_tool(&json!({"project":"."}));
+    assert_effect_set_rejection(&rejected);
+
+    assert_eq!(
+        server.definition_tool(&json!({"source":"main.veln","line":6,"column":3})),
+        accepted_definition
+    );
+    assert_eq!(
+        server.completion_tool(&json!({"source":"main.veln","line":6,"column":3})),
+        accepted_completion
+    );
+    assert_eq!(
+        server.signature_help_tool(&json!({"source":"main.veln","line":6,"column":12})),
+        accepted_signature
+    );
+    assert_rejected_workspace_symbol_is_unpublished(&mut server, "main.veln");
+}
+
+#[test]
+fn first_single_file_workspace_rejection_does_not_publish_navigation() {
+    let workspace = TempWorkspace::new("first-single-file-workspace-rejection");
+    workspace.write("loose.veln", rejected_workspace_source());
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+
+    let rejected = server.check_project_tool(&json!({"project":".","source":"loose.veln"}));
+    assert_effect_set_rejection(&rejected);
+    assert_rejected_workspace_symbol_is_unpublished(&mut server, "loose.veln");
+}
+
+#[test]
+fn evicted_workspace_analysis_does_not_publish_rejected_navigation() {
+    let workspace = TempWorkspace::new("evicted-workspace-variance-navigation");
+    for (project, source) in [("first", "first.veln"), ("second", "second.veln")] {
+        workspace.write(&format!("{project}/veln.toml"), "");
+        workspace.write(&format!("{project}/{source}"), accepted_workspace_source());
+    }
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+    server
+        .language_resources
+        .set_test_analyzed_dependency_scope_capacity(1);
+    assert_eq!(
+        server.check_project_tool(&json!({"project":"first"}))["isError"],
+        false
+    );
+    assert_eq!(
+        server.check_project_tool(&json!({"project":"second"}))["isError"],
+        false
+    );
+
+    workspace.write("first/first.veln", rejected_workspace_source());
+    let rejected = server.check_project_tool(&json!({"project":"first"}));
+    assert_effect_set_rejection(&rejected);
+    assert_rejected_workspace_symbol_is_unpublished(&mut server, "first/first.veln");
+}
+
+fn accepted_workspace_source() -> &'static str {
+    concat!(
+        "pub fn accepted(value: String) -> String\n",
+        "  value\n",
+        "end\n",
+        "\n",
+        "fn main() -> String\n",
+        "  accepted(\"stable\")\n",
+        "end\n",
+    )
+}
+
+fn rejected_workspace_source() -> &'static str {
+    concat!(
+        "pub fn accepted(value: String) -> String\n",
+        "  value\n",
+        "end\n",
+        "\n",
+        "fn main() -> String\n",
+        "  accepted(\"stable\")\n",
+        "end\n",
+        "\n",
+        "fn effectful() -> () effects [stdio]\n",
+        "  stdio::println(\"blocked\")\n",
+        "end\n",
+        "\n",
+        "pub fn leaked(value: Bool) -> Bool\n",
+        "  value\n",
+        "end\n",
+        "\n",
+        "fn rejected() -> Bool\n",
+        "  let pure: fn() -> () = effectful\n",
+        "  leaked(true)\n",
+        "end\n",
+    )
+}
+
+fn assert_rejected_workspace_symbol_is_unpublished(server: &mut Server, source: &str) {
+    let definition = server.definition_tool(&json!({"source":source,"line":19,"column":3}));
+    assert!(
+        definition["structuredContent"]["definition"].is_null(),
+        "{definition:#}"
+    );
+    let completion = server.completion_tool(&json!({"source":source,"line":19,"column":3}));
+    assert!(
+        completion["structuredContent"]["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|item| item["label"] != "leaked"),
+        "{completion:#}"
+    );
+    let signature = server.signature_help_tool(&json!({"source":source,"line":19,"column":10}));
+    assert!(
+        signature["structuredContent"]["signature"].is_null(),
+        "{signature:#}"
+    );
+}
+
+#[test]
 fn first_rejected_dependency_revision_cannot_escape_cached_navigation() {
     let workspace = TempWorkspace::new("first-rejected-dependency-navigation");
     write_rejected_effect_dependency_workspace(&workspace, "vendor/dep", "rejected first text");
