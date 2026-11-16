@@ -23,14 +23,19 @@ pub fn parse(value: String) -> Result<Path, InvalidPath>
 		Err(LeadingSeparator)
 	else if ends_with_separator(value)
 		Err(TrailingSeparator)
-	else if has_component(components_from(value), "")
-		Err(EmptyComponent)
-	else if has_component(components_from(value), ".")
-		Err(CurrentComponent)
-	else if has_component(components_from(value), "..")
-		Err(ParentComponent)
 	else
-		Ok(PortablePath(value))
+		begin
+			let components = components_from(value)
+			if has_component(components, "")
+				Err(EmptyComponent)
+			else if has_component(components, ".")
+				Err(CurrentComponent)
+			else if has_component(components, "..")
+				Err(ParentComponent)
+			else
+				Ok(PortablePath(value))
+			end
+		end
 	end
 end
 
