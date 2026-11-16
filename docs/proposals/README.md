@@ -16,7 +16,10 @@ also states it.
 
 ## Ready
 
-There is no Ready proposal.
+- MCP projection of the existing package-aware module immutable-value
+  reference set, including declaration inclusion, dependency identity,
+  pagination, and state preservation:
+  [mcp-module-value-references.md](mcp-module-value-references.md).
 
 ## Design In Progress
 
@@ -33,7 +36,8 @@ There is no Ready proposal.
 
 - The [agent-language-services umbrella](agent-language-services.md) remains a
   planning inventory only for the unimplemented transitive-dependency,
-  remaining symbol, conformance-gate, and plugin work. Do not select the
+  remaining symbol, conformance-gate, and plugin work. The selectable MCP
+  module-value references slice is listed under Ready; do not select the
   umbrella directly.
 
 ## Scope Decisions
