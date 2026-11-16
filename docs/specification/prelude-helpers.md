@@ -106,11 +106,13 @@ standard-package declarations. The public policy, identity, health, and effect
 contract remains owned by
 [Standard-library Observability](standard-library-observability.md).
 
-The private `string_contains_nul` adapter lets source-defined standard modules
-validate arbitrary `String` values without embedding NUL in repository source.
-The private `string_nul` adapter supplies that boundary value to standard
-package companion tests. Both adapters are pure and available only through the
-reserved `prelude_builtin` route; neither is a public prelude helper.
+The private `string_contains_nul(value: String) -> Bool` adapter returns true
+exactly when `value` contains the NUL character. It lets source-defined
+standard modules validate arbitrary strings without embedding NUL in repository
+source. The private `string_nul() -> String` adapter returns the one-character
+NUL string for standard-package companion tests. Both adapters are pure and
+available only through the reserved `prelude_builtin` route; neither is a
+public prelude helper.
 
 The `observation_json_line`, `observation_export_write`,
 `observation_export_permit_create`, `observation_export_permit_revoke`,

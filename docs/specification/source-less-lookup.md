@@ -112,10 +112,13 @@ Private compiler adapters, including the `net_system_*` operations used by
 `std::net::system()`, the `production_metric_index_*` operations used by
 `std::observe::production`, and the `observation_*` operations used by the
 synchronous and buffered exporters in `std::observe`, publish only their
-qualified `prelude_builtin::name` keys. Bare prelude lookup does not publish
-those names.
-This keeps the host adapters out of the public prelude surface while allowing
-embedded standard-package source to resolve the reserved qualified route.
+qualified `prelude_builtin::name` keys. The `string_contains_nul` and
+`string_nul` adapters used by the portable path module and its companion tests
+use the same qualified-only route. Bare prelude lookup does not publish those
+names.
+These routes keep private adapters out of the public prelude surface while
+allowing embedded standard-package source to resolve the reserved qualified
+route.
 Public `net::...` and `observe::...` declarations remain separate from these
 source-less routes: application source imports their modules from `std`, and
 the public operations retain their declared nominal effects.

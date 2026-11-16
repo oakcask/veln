@@ -68,8 +68,8 @@ operations.
 
 Go's [filepath.Localize](https://pkg.go.dev/path/filepath#Localize)
 demonstrates why portable validity and native representability are different
-checks. Veln adds the validated portable path in the split proposal rather
-than accepting unchecked strings at every call.
+checks. Veln provides the implemented validated portable path instead of
+accepting unchecked strings at every call.
 Rust's [native Path conversion](https://doc.rust-lang.org/std/path/struct.Path.html#method.to_str)
 shows why an arbitrary native name need not have a lossless Unicode spelling;
 the native representation decision remains open rather than assuming all host
@@ -287,8 +287,9 @@ listing a preferred direction here does not make it implemented behavior.
 ## Implementation Readiness And Promotion
 
 Before moving this proposal to Ready, provide a filesystem and resource source
-API that uses the independently ready `path::Path` value and can be expressed
-with implemented Veln features or names a separate language prerequisite.
+API that uses the independently implemented `path::Path` value and can be
+expressed with implemented Veln features or names a separate language
+prerequisite.
 Complete the IO outcome types and operation state tables, including failures,
 and demonstrate how a Veln fake creates resources and serves two filesystem
 instances without host IO. Add explicit acceptance expectations for each
