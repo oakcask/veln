@@ -17,11 +17,8 @@ fn workspace_module_value_project(workspace: &TempWorkspace) {
     );
 }
 
-#[test]
-fn workspace_module_value_references_share_selection_declaration_and_cursor_paths() {
-    let workspace = TempWorkspace::new("references-workspace-module-value");
-    workspace_module_value_project(&workspace);
-    let expected = json!([
+fn expected_workspace_module_value_references(workspace: &TempWorkspace) -> serde_json::Value {
+    json!([
         {
             "uri": crate::definition::path_to_uri(&workspace.path("alias.veln")),
             "range": {"start":{"line":3,"column":28},"end":{"line":3,"column":34}}
@@ -34,7 +31,14 @@ fn workspace_module_value_references_share_selection_declaration_and_cursor_path
             "uri": crate::definition::path_to_uri(&workspace.path("values.veln")),
             "range": {"start":{"line":2,"column":19},"end":{"line":2,"column":25}}
         }
-    ]);
+    ])
+}
+
+#[test]
+fn workspace_module_value_references_share_selection_paths() {
+    let workspace = TempWorkspace::new("references-workspace-module-value-selection");
+    workspace_module_value_project(&workspace);
+    let expected = expected_workspace_module_value_references(&workspace);
 
     for (source, line, column) in [
         ("values.veln", 1, 10),
@@ -48,7 +52,12 @@ fn workspace_module_value_references_share_selection_declaration_and_cursor_path
         }));
         assert_eq!(result["structuredContent"]["references"], expected);
     }
+}
 
+#[test]
+fn workspace_module_value_references_paginate_without_declaration() {
+    let workspace = TempWorkspace::new("references-workspace-module-value-pagination");
+    workspace_module_value_project(&workspace);
     let mut server = initialized_server(&workspace);
     let first = server.references_tool(&json!({
         "source":"main.veln", "line":3, "column":31,
@@ -74,8 +83,19 @@ fn workspace_module_value_references_share_selection_declaration_and_cursor_path
                 .clone()
         })
         .collect::<Vec<_>>();
-    assert_eq!(paged, expected.as_array().unwrap().clone());
+    assert_eq!(
+        paged,
+        expected_workspace_module_value_references(&workspace)
+            .as_array()
+            .unwrap()
+            .clone()
+    );
+}
 
+#[test]
+fn workspace_module_value_reference_cursor_captures_declaration_and_locations() {
+    let workspace = TempWorkspace::new("references-workspace-module-value-cursor");
+    workspace_module_value_project(&workspace);
     let mut server = initialized_server(&workspace);
     let first = server.references_tool(&json!({
         "source":"main.veln", "line":3, "column":31,
