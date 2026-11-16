@@ -147,6 +147,55 @@ fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
 }
 
 #[test]
+fn imported_workspace_handler_navigation_rejects_ineligible_imports() {
+    for (workspace_name, imports) in [
+        (
+            "references-workspace-imported-handler-ambiguous",
+            "use first::fx\nuse second::fx\n",
+        ),
+        (
+            "references-workspace-imported-handler-duplicate",
+            "use first::fx\nuse first::fx\n",
+        ),
+        (
+            "references-workspace-imported-handler-recovered",
+            "use first::fx unexpected\n",
+        ),
+    ] {
+        let workspace = TempWorkspace::new(workspace_name);
+        workspace.write("veln.toml", "");
+        workspace.write(
+            "first/fx.veln",
+            "pub handler run() for Work\n  go() => 1\nend\n",
+        );
+        workspace.write(
+            "second/fx.veln",
+            "pub handler run() for Work\n  go() => 2\nend\n",
+        );
+        workspace.write(
+            "consumer.veln",
+            &format!("{imports}\nfn invalid() -> Int\n  handle 1 with fx::run()\nend\n"),
+        );
+        let mut server = initialized_server(&workspace);
+        let line = imports.lines().count() + 3;
+
+        let definition = server.definition_tool(&json!({
+            "source":"consumer.veln", "line":line, "column":21
+        }));
+        assert!(definition["structuredContent"]["definition"].is_null());
+        let references = server.references_tool(&json!({
+            "source":"consumer.veln", "line":line, "column":21,
+            "include_declaration":true
+        }));
+        assert_eq!(
+            references["structuredContent"]["references"],
+            json!([]),
+            "{workspace_name}"
+        );
+    }
+}
+
+#[test]
 fn references_include_a_workspace_handler_declaration_without_occurrences() {
     let workspace = TempWorkspace::new("references-workspace-handler-declaration-only");
     workspace.write("veln.toml", "");

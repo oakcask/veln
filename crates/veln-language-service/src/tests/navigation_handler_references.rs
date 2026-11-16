@@ -380,6 +380,73 @@ mod navigation_handler_references_tests {
     }
 
     #[test]
+    fn workspace_handler_import_resolution_obeys_import_identity() {
+        let precedence = vec![
+            source(
+                "fx.veln",
+                "pub handler run() for Work\n  go() => 1\nend\n",
+            ),
+            source(
+                "library/fx.veln",
+                "pub handler run() for Work\n  go() => 2\nend\n",
+            ),
+            source(
+                "consumer.veln",
+                concat!(
+                    "use library::fx\n",
+                    "use fx\n\n",
+                    "fn exact() -> Int\n  handle 1 with fx::run()\nend\n\n",
+                    "fn full() -> Int\n  handle 2 with library::fx::run()\nend\n",
+                ),
+            ),
+        ];
+        let exact = query(precedence.clone(), "consumer.veln", 5, 21).unwrap();
+        assert_location(&exact.definition, "fx.veln", 1, 13);
+        let full = query(precedence, "consumer.veln", 9, 30).unwrap();
+        assert_location(&full.definition, "library/fx.veln", 1, 13);
+
+        for (label, imports) in [
+            (
+                "ambiguous implicit leaf",
+                "use first::fx\nuse second::fx\n",
+            ),
+            (
+                "duplicate import",
+                "use first::fx\nuse first::fx\n",
+            ),
+            ("recovered import", "use first::fx unexpected\n"),
+        ] {
+            let sources = vec![
+                source(
+                    "first/fx.veln",
+                    "pub handler run() for Work\n  go() => 1\nend\n",
+                ),
+                source(
+                    "second/fx.veln",
+                    "pub handler run() for Work\n  go() => 2\nend\n",
+                ),
+                source(
+                    "stable.veln",
+                    "pub handler keep() for Work\n  go() => 3\nend\n",
+                ),
+                source(
+                    "consumer.veln",
+                    &format!(
+                        "use stable\n{imports}\nfn invalid() -> Int\n  handle 1 with fx::run()\nend\n\nfn valid() -> Int\n  handle 2 with stable::keep()\nend\n"
+                    ),
+                ),
+            ];
+            let import_lines = imports.lines().count();
+            assert!(
+                query(sources.clone(), "consumer.veln", import_lines + 4, 21).is_none(),
+                "{label}"
+            );
+            let valid = query(sources, "consumer.veln", import_lines + 8, 25).unwrap();
+            assert_location(&valid.definition, "stable.veln", 1, 13);
+        }
+    }
+
+    #[test]
     fn workspace_handler_import_resolution_rejects_ineligible_paths_without_contamination() {
         let sources = vec![
             source(
@@ -465,6 +532,22 @@ mod navigation_handler_references_tests {
         let local = query_snapshot(&snapshot, "main.veln", 8, 17).unwrap();
         assert_eq!(locations(&local.references), [("main.veln", 8, 17)]);
         assert!(query_snapshot(&snapshot, "main.veln", 12, 22).is_none());
+
+        let standard = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use tasks from \"std\"\n\n",
+                "fn imported() -> Int\n  handle 2 with tasks::run()\nend\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "tasks.veln",
+                "pub handler run() for Work\n  go() => 2\nend\n",
+            )],
+            ["tasks.veln"],
+        ));
+        assert!(query_snapshot(&standard, "main.veln", 4, 24).is_none());
     }
 
     #[test]
