@@ -1232,6 +1232,7 @@ pub(crate) struct SymbolIndex {
     package_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     variant_refinement_alias_index: OnceLock<VariantRefinementAliasIndex>,
     eligible_workspace_effect_indices: BTreeMap<(String, String), usize>,
+    eligible_workspace_handler_indices: BTreeMap<(String, String), usize>,
     eligible_workspace_effect_operation_indices: BTreeMap<(String, String, String), usize>,
     schema_composition_references: Vec<SchemaCompositionReference>,
     schema_alias_module_imports: BTreeMap<String, SchemaAliasModuleImports>,

@@ -198,17 +198,29 @@ impl SymbolIndex {
     fn handler_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
         self.files
             .iter()
-            .filter(|file| workspace_navigation_file(file) && file.module == symbol.module)
+            .filter(|file| workspace_navigation_file(file))
             .flat_map(|file| {
                 file.tokens
                     .iter()
-                    .filter(|token| {
+                    .enumerate()
+                    .filter(|(token_index, token)| {
                         token.text == symbol.name
                             && file
                                 .handler_reference_ranges
                                 .contains(&(token.range.start, token.range.end))
+                            && self
+                                .handler_for_reference(
+                                    file,
+                                    &file.tokens,
+                                    *token_index,
+                                    &token.text,
+                                )
+                                .is_some_and(|candidate| {
+                                    candidate.module == symbol.module
+                                        && candidate.name == symbol.name
+                                })
                     })
-                    .map(|token| file.source.span(token.range))
+                    .map(|(_, token)| file.source.span(token.range))
                     .collect::<Vec<_>>()
             })
             .collect()

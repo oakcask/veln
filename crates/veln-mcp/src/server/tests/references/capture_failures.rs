@@ -454,25 +454,33 @@ fn workspace_handler_reference_capture_failure_preserves_state_and_later_results
     let workspace = TempWorkspace::new("references-workspace-handler-capture-retry");
     workspace.write("veln.toml", "");
     workspace.write(
+        "handler.veln",
+        concat!(
+            "mod library::fx\n\n",
+            "pub handler run() for Work\n  go() => 1\nend\n\n",
+            "fn local() -> Int\n  handle 0 with run()\nend\n",
+        ),
+    );
+    workspace.write(
         "main.veln",
         concat!(
-            "handler run() for Work\n  go() => 1\nend\n\n",
-            "fn first() -> Int\n  handle 1 with run()\nend\n\n",
-            "fn second() -> Int\n  handle 2 with run()\nend\n",
+            "use library::fx\n\n",
+            "fn first() -> Int\n  handle 1 with library::fx::run()\nend\n\n",
+            "fn second() -> Int\n  handle 2 with fx::run()\nend\n",
         ),
     );
     let mut server = initialized_server(&workspace);
     let before = server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":9
+        "source":"main.veln", "line":8, "column":21
     }));
     assert_eq!(
         before["structuredContent"]["references"]
             .as_array()
             .unwrap()
             .len(),
-        2
+        3
     );
-    let live_cursor = live_reference_cursor(&mut server, "main.veln", 1, 9);
+    let live_cursor = live_reference_cursor(&mut server, "main.veln", 8, 21);
     let before_resources = all_resource_state(&mut server);
     let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0usize));
@@ -481,20 +489,20 @@ fn workspace_handler_reference_capture_failure_preserves_state_and_later_results
     let hook = crate::check_project::set_after_first_stable_capture_hook(move || {
         let attempt = attempts_for_hook.get();
         attempts_for_hook.set(attempt + 1);
-        let main = root.join("main.veln");
-        fs::remove_file(&main).unwrap();
+        let handler = root.join("handler.veln");
+        fs::remove_file(&handler).unwrap();
         let value = if attempt.is_multiple_of(2) { 1 } else { 2 };
         fs::write(
-            &main,
+            &handler,
             format!(
-                "handler run() for Work\n  go() => {value}\nend\n\nfn first() -> Int\n  handle 1 with run()\nend\n\nfn second() -> Int\n  handle 2 with run()\nend\n"
+                "mod library::fx\n\npub handler run() for Work\n  go() => {value}\nend\n\nfn local() -> Int\n  handle 0 with run()\nend\n"
             ),
         )
         .unwrap();
     });
 
     let failed = server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":9
+        "source":"main.veln", "line":8, "column":21
     }));
     assert_snapshot_changed_without_references_or_scope(&failed);
     assert_eq!(attempts.get(), 3);
@@ -504,14 +512,14 @@ fn workspace_handler_reference_capture_failure_preserves_state_and_later_results
 
     drop(hook);
     let after = server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":9
+        "source":"main.veln", "line":8, "column":21
     }));
     assert_eq!(
         after["structuredContent"]["references"]
             .as_array()
             .unwrap()
             .len(),
-        2
+        3
     );
 }
 

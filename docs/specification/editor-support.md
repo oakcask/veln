@@ -734,18 +734,26 @@ separate effect identity.
 
 For a selected parse-clean workspace handler declaration, references include
 each complete bare handler name in `handle Body with handler(arguments)` from
-saved workspace sources that declare the same module. The declaration and
+saved workspace sources that declare the same module. If the handler is
+public, references also include complete qualified handler-name leaves reached
+through one parse-clean, unambiguous workspace import. The qualifier can use
+the full module path or its unique implicit leaf alias. An exact full path
+takes precedence over a colliding implicit leaf alias. The declaration and
 each included handler name select one identity, and every returned range
-covers only the handler-name token. `includeDeclaration` controls whether LSP
-adds the declaration before the sorted shared references.
+covers only the handler-name token. A definition request at any included form
+returns the workspace handler declaration. `includeDeclaration` controls
+whether LSP adds that declaration before the sorted shared references.
 
 Handler reference lookup requires one unrecovered workspace declaration for
-the module and name. It excludes duplicate or recovered declarations and
-imported, package, qualified, unresolved, ambiguous, incomplete, or recovered
-handler paths. Equal spelling in another module or symbol class, including a
-handler parameter or operation-clause binding, does not enter the result.
-Comments and strings do not contribute handler references. An unrelated parse
-error does not remove a complete parse-clean handler occurrence.
+the module and name. An imported application additionally requires an explicit
+workspace import that resolves to the public handler. Lookup excludes private
+imported handlers, duplicate or recovered declarations, ambiguous or
+recovered imports, package-backed and standard-library declarations, and
+unresolved, incomplete, recovered, or wrong-kind handler paths. Equal spelling
+in another module or symbol class, including a handler parameter or
+operation-clause binding, does not enter the result. Comments and strings do
+not contribute handler references. An unrelated parse error does not remove a
+complete parse-clean handler occurrence.
 
 For a selected workspace schema declaration, `textDocument/references` returns
 the declaration when requested plus `decode`, `encode`, runtime-validation,
@@ -1225,4 +1233,6 @@ declaration, continuation, empty-result, failure, and preserved-state
 boundaries. The comparison includes the retained declaration and linked
 references for one shared invalid-cased recovery identity, with declaration
 exclusion and inclusion. It also compares workspace module immutable-value
-references with declaration exclusion and inclusion.
+references with declaration exclusion and inclusion. The matrix also compares
+an imported public handler definition and its complete declaration-inclusive
+and declaration-excluding reference sets.

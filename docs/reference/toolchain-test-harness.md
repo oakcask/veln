@@ -374,6 +374,7 @@ The `publish-diagnostics`, `semantic-tokens`,
 `references-workspace-effect`,
 `references-workspace-imported-effect-operation`,
 `references-workspace-handler`,
+`references-workspace-imported-handler`,
 `references-workspace-schema-composition` and
 `references-workspace-schema-alias`, and
 `references-dependency-schema-composition` and
@@ -515,6 +516,10 @@ unchanged workspace selection and saved-source results after those outcomes.
 The `references-workspace-handler` MCP specification case uses the same
 decoded assertion model for exact handler reference locations, declaration
 inclusion, Unicode-scalar coordinates, deterministic ordering, and cursor
+pagination.
+The `references-workspace-imported-handler` MCP specification case extends
+that model with imported handler definition, full-path and unique implicit
+leaf-alias applications, handler-name-only ranges, and continuation
 pagination.
 The `references-workspace-schema-composition` MCP specification case uses the
 same decoded assertion model for canonical reference locations, empty boundary

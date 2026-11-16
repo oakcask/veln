@@ -197,11 +197,17 @@ fn collect_handler_reference_ranges(
         handler_span,
         ..
     } = &expr.kind
-        && handler.len() == 1
+        && !handler.is_empty()
         && !diagnostics.overlaps(&expr.span)
         && argument_delimiters.complete_arguments_follow(handler_span, &expr.span, tokens)
     {
-        ranges.insert((handler_span.start.offset, handler_span.end.offset));
+        let insertion = tokens.partition_point(|token| token.range.end <= handler_span.end.offset);
+        if let Some(leaf) = insertion.checked_sub(1).and_then(|index| tokens.get(index))
+            && handler_span.start.offset <= leaf.range.start
+            && leaf.kind.is_contextual_identifier()
+        {
+            ranges.insert((leaf.range.start, leaf.range.end));
+        }
     }
 
     match &expr.kind {

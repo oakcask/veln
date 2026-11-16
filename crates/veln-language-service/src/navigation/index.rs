@@ -563,16 +563,28 @@ impl SymbolIndex {
         }
     }
 
-    fn handler_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {
-        let mut candidates = self
-            .handlers
-            .iter()
-            .filter(|symbol| {
-                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-            });
-        let candidate = candidates.next()?.clone();
-        (candidates.next().is_none() && self.handler_declaration_is_unrecovered(&candidate))
-            .then_some(candidate)
+    fn handler_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<NeutralSymbol> {
+        let qualifier = qualifier_for_token(tokens, token_index);
+        let module = match &qualifier {
+            Some(qualifier) => match self.effect_qualified_workspace_module(file, qualifier) {
+                QualifiedWorkspaceModule::Workspace(module) => module,
+                QualifiedWorkspaceModule::Ambiguous
+                | QualifiedWorkspaceModule::External
+                | QualifiedWorkspaceModule::Unresolved => return None,
+            },
+            None => file.module.clone(),
+        };
+        let candidate = self
+            .eligible_workspace_handler_indices
+            .get(&(module, name.to_string()))
+            .and_then(|index| self.handlers.get(*index))?;
+        (qualifier.is_none() || candidate.public).then(|| candidate.clone())
     }
 
     fn handler_declaration_is_unrecovered(&self, symbol: &NeutralSymbol) -> bool {
@@ -624,7 +636,8 @@ impl SymbolIndex {
                 clause.span.start.offset == token.range.start
                     && clause.span.end.offset == token.range.end
             })?;
-        self.handler_for_reference(file, &clause.handler_name)?;
+        self.eligible_workspace_handler_indices
+            .get(&(file.module.clone(), clause.handler_name.clone()))?;
         self.unique_workspace_effect_operation(
             &file.module,
             &clause.effect_name,

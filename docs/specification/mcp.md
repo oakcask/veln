@@ -1018,14 +1018,26 @@ contract.
 
 A workspace handler result contains each complete bare handler name in
 `handle Body with handler(arguments)` from saved sources that declare the
-selected handler's module. The declaration and each included name select one
-identity. Each location covers only the handler-name token.
-`include_declaration` adds the one workspace declaration before pagination.
+selected handler's module. For a public handler, it also contains complete
+qualified handler-name leaves reached through one parse-clean, unambiguous
+workspace import. The qualifier can use the full module path or its unique
+implicit leaf alias. An exact full path takes precedence over a colliding
+implicit leaf alias. The declaration and each included name select one
+identity. Each location covers only the handler-name token. A `definition`
+request at any included form returns the workspace declaration.
+`include_declaration` adds that declaration before pagination.
+
 Lookup requires one unrecovered workspace declaration for the module and
-name. Imported, package, qualified, unresolved, ambiguous, incomplete, and
-recovered handler paths are excluded, as are duplicate or recovered
-declarations and equal spelling in another module or symbol class. An
-unrelated parse error does not remove a complete parse-clean occurrence.
+name. An imported application additionally requires an explicit workspace
+import that resolves to the public handler. Private imported handlers,
+duplicate or recovered declarations, ambiguous or recovered imports,
+package-backed and standard-library declarations, unresolved, incomplete,
+recovered, and wrong-kind paths return a successful empty result. Equal
+spelling in another module or symbol class is excluded. An unrelated parse
+error does not remove a complete parse-clean occurrence. Capture, lookup,
+position, and pagination failures publish no partial handler locations and
+preserve the saved workspace, retained resources, prior results, and existing
+cursors under the general references failure contract.
 
 Schema
 references include direct fields, `decode`, `encode`, runtime validation,
@@ -1191,6 +1203,11 @@ pagination boundaries for the shared operation identity.
 The checked `examples/specification/mcp/references-workspace-handler/`
 transcript demonstrates the same location, declaration, ordering, and
 pagination contract for workspace handler references.
+The checked
+`examples/specification/mcp/references-workspace-imported-handler/` transcript
+demonstrates imported handler definition, full-path and implicit-alias
+handler-name ranges, declaration policy, deterministic ordering, and
+pagination.
 The paired harness in
 [`saved_navigation_conformance.rs`](../../crates/veln-cli/tests/toolchain_harness/saved_navigation_conformance.rs)
 drives MCP and LSP from one unchanged saved workspace. It collects MCP
@@ -1201,4 +1218,6 @@ sources, UTF-16 conversion around non-BMP scalars, token ends, empty and
 invalid selections, package identities, declaration policy, module
 immutable-value references, and state after a failed request. It also compares
 the recovery definition and complete recovery reference set with declaration
-exclusion and inclusion.
+exclusion and inclusion. The matrix also compares an imported public handler
+definition and its complete declaration-inclusive and declaration-excluding
+reference sets.

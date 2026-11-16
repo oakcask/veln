@@ -122,6 +122,8 @@ impl SymbolIndex {
             package_symbol_indices_by_module_and_name(&declarations.type_aliases);
         let eligible_workspace_effect_indices =
             eligible_workspace_effect_indices(&declarations.effects, &files);
+        let eligible_workspace_handler_indices =
+            eligible_workspace_handler_indices(&declarations.handlers, &files);
         let eligible_workspace_effect_operation_indices = eligible_workspace_effect_operation_indices(
             &declarations.operations,
             &eligible_workspace_effect_indices,
@@ -171,6 +173,7 @@ impl SymbolIndex {
             package_type_alias_indices_by_module_and_name,
             variant_refinement_alias_index: OnceLock::new(),
             eligible_workspace_effect_indices,
+            eligible_workspace_handler_indices,
             eligible_workspace_effect_operation_indices,
             schema_composition_references,
             schema_alias_module_imports,
@@ -630,6 +633,53 @@ fn eligible_workspace_effect_indices(
                 return None;
             };
             let symbol = &effects[*index];
+            let ranges = recovered_by_file.get(symbol.declaration.span.file.as_str())?;
+            let insertion = ranges.partition_point(|(start, _)| {
+                *start <= symbol.declaration.span.start.offset
+            });
+            let recovered = insertion.checked_sub(1).is_some_and(|range_index| {
+                let (start, end) = ranges[range_index];
+                start <= symbol.declaration.span.start.offset
+                    && symbol.declaration.span.end.offset <= end
+            });
+            (!recovered).then_some((identity, *index))
+        })
+        .collect()
+}
+
+fn eligible_workspace_handler_indices(
+    handlers: &[NeutralSymbol],
+    files: &[IndexedFile],
+) -> BTreeMap<(String, String), usize> {
+    let recovered_by_file = files
+        .iter()
+        .filter(|file| workspace_navigation_file(file))
+        .map(|file| {
+            let mut ranges = file
+                .recovered_handler_declarations
+                .iter()
+                .map(|span| (span.start.offset, span.end.offset))
+                .collect::<Vec<_>>();
+            ranges.sort_unstable();
+            (file.source.path().as_str(), ranges)
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut candidates = BTreeMap::<(String, String), Vec<usize>>::new();
+    for (index, symbol) in handlers.iter().enumerate() {
+        if symbol.package.is_none() {
+            candidates
+                .entry((symbol.module.clone(), symbol.name.clone()))
+                .or_default()
+                .push(index);
+        }
+    }
+    candidates
+        .into_iter()
+        .filter_map(|(identity, candidates)| {
+            let [index] = candidates.as_slice() else {
+                return None;
+            };
+            let symbol = &handlers[*index];
             let ranges = recovered_by_file.get(symbol.declaration.span.file.as_str())?;
             let insertion = ranges.partition_point(|(start, _)| {
                 *start <= symbol.declaration.span.start.offset

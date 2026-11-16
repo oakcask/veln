@@ -60,6 +60,93 @@ fn references_page_workspace_handlers_with_unicode_scalar_coordinates() {
 }
 
 #[test]
+fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
+    let workspace = TempWorkspace::new("references-workspace-imported-handler");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "handler.veln",
+        concat!(
+            "mod library::fx\n\n",
+            "pub handler run() for Work\n  go() => 1\nend\n\n",
+            "fn local() -> Int\n  handle 0 with run()\nend\n",
+            "\nhandler hidden() for Work\n  go() => 2\nend\n",
+        ),
+    );
+    workspace.write(
+        "consumer.veln",
+        concat!(
+            "mod consumer\n\nuse library::fx\n\n",
+            "fn full() -> Int\n  handle 1 with library::fx::run()\nend\n\n",
+            "fn alias() -> Int\n  handle 2 with fx::run()\nend\n",
+            "\nfn private() -> Int\n  handle 3 with library::fx::hidden()\nend\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let handler_uri = crate::definition::path_to_uri(&workspace.path("handler.veln"));
+    let consumer_uri = crate::definition::path_to_uri(&workspace.path("consumer.veln"));
+
+    let definition = server.definition_tool(&json!({
+        "source":"consumer.veln", "line":6, "column":30
+    }));
+    assert_eq!(
+        definition["structuredContent"]["definition"]["uri"],
+        handler_uri
+    );
+    assert_eq!(
+        definition["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":3,"column":13},"end":{"line":3,"column":16}})
+    );
+
+    let without_declaration = server.references_tool(&json!({
+        "source":"consumer.veln", "line":10, "column":21,
+        "include_declaration":false
+    }));
+    assert_eq!(
+        without_declaration["structuredContent"]["references"],
+        json!([
+            {"uri":consumer_uri,"range":{"start":{"line":6,"column":30},"end":{"line":6,"column":33}}},
+            {"uri":crate::definition::path_to_uri(&workspace.path("consumer.veln")),"range":{"start":{"line":10,"column":21},"end":{"line":10,"column":24}}},
+            {"uri":handler_uri,"range":{"start":{"line":8,"column":17},"end":{"line":8,"column":20}}}
+        ])
+    );
+
+    let first = server.references_tool(&json!({
+        "source":"handler.veln", "line":3, "column":13,
+        "include_declaration":true, "page_size":2
+    }));
+    assert_eq!(
+        first["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let cursor = first["structuredContent"]["next_cursor"].as_str().unwrap();
+    let second = server.references_tool(&json!({"cursor":cursor}));
+    assert_eq!(
+        second["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert!(second["structuredContent"].get("next_cursor").is_none());
+
+    let private_definition = server.definition_tool(&json!({
+        "source":"consumer.veln", "line":14, "column":30
+    }));
+    assert!(private_definition["structuredContent"]["definition"].is_null());
+    let private_references = server.references_tool(&json!({
+        "source":"consumer.veln", "line":14, "column":30,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        private_references["structuredContent"]["references"],
+        json!([])
+    );
+}
+
+#[test]
 fn references_include_a_workspace_handler_declaration_without_occurrences() {
     let workspace = TempWorkspace::new("references-workspace-handler-declaration-only");
     workspace.write("veln.toml", "");

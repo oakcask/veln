@@ -26,3 +26,11 @@ end
 
 pub let answer: Int = 42
 let mirrored: Int = answer
+
+pub handler run() for Work
+  go() => 1
+end
+
+fn local_handler() -> Int
+  handle 1 with run()
+end

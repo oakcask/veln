@@ -274,7 +274,9 @@ impl SymbolIndex {
                 .map(Symbol::Effect);
         }
         if is_handler_reference_token(file, token_index) {
-            return self.handler_for_reference(file, name).map(Symbol::Handler);
+            return self
+                .handler_for_reference(file, tokens, token_index, name)
+                .map(Symbol::Handler);
         }
         None
     }

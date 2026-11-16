@@ -51,9 +51,51 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
 
     assert_definition_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_reference_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
+    assert_imported_handler_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_module_value_reference_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_failure_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_recovery_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
+}
+
+fn assert_imported_handler_conformance(
+    lsp_workspace: &SavedWorkspace,
+    mcp_workspace: &SavedWorkspace,
+    lsp: &[JsonValue],
+    mcp: &[JsonValue],
+) {
+    let definition = NormalizedLocation {
+        source: "main.veln".to_string(),
+        range: NormalizedRange {
+            start: NormalizedPosition {
+                line: 30,
+                column: 13,
+            },
+            end: NormalizedPosition {
+                line: 30,
+                column: 16,
+            },
+        },
+    };
+    assert_eq!(
+        normalize_lsp_definition(lsp_workspace, response(lsp, 37)),
+        Some(definition.clone())
+    );
+    assert_eq!(
+        normalize_mcp_definition(mcp_workspace, response(mcp, 22)),
+        Some(definition.clone())
+    );
+
+    let lsp_without = normalize_lsp_references(lsp_workspace, response(lsp, 38));
+    let mcp_without = normalize_mcp_reference_pages(mcp_workspace, &[response(mcp, 23)]);
+    assert_eq!(lsp_without, mcp_without);
+    assert_eq!(lsp_without.len(), 2);
+
+    let lsp_with = normalize_lsp_references(lsp_workspace, response(lsp, 39));
+    let mcp_with =
+        normalize_mcp_reference_pages(mcp_workspace, &[response(mcp, 24), response(mcp, 25)]);
+    assert_eq!(lsp_with, mcp_with);
+    assert_eq!(lsp_with.len(), 3);
+    assert!(lsp_with.contains(&definition));
 }
 
 fn assert_module_value_reference_conformance(
@@ -390,6 +432,9 @@ fn lsp_success_requests(workspace: &SavedWorkspace) -> Vec<String> {
         lsp_references(13, &workspace.main_uri, 7, 99, true),
         lsp_definition(14, &workspace.main_uri, 7, 2),
         lsp_references(15, &workspace.main_uri, 15, 16, true),
+        lsp_definition(37, &workspace.other_uri, 7, 22),
+        lsp_references(38, &workspace.other_uri, 7, 22, false),
+        lsp_references(39, &workspace.main_uri, 29, 12, true),
     ]
 }
 
@@ -511,6 +556,10 @@ fn run_mcp(workspace: &SavedWorkspace) -> Output {
         mcp_call(19, "references", r#"{"cursor":"$mcp_cursor:18"}"#),
         mcp_call(20, "references", r#"{"source":"main.veln","line":28,"column":21,"include_declaration":false}"#),
         mcp_call(21, "references", r#"{"source":"main.veln","line":28,"column":21,"include_declaration":true}"#),
+        mcp_call(22, "definition", r#"{"source":"other.veln","line":8,"column":23}"#),
+        mcp_call(23, "references", r#"{"source":"other.veln","line":8,"column":23,"include_declaration":false}"#),
+        mcp_call(24, "references", r#"{"source":"main.veln","line":30,"column":13,"include_declaration":true,"page_size":2}"#),
+        mcp_call(25, "references", r#"{"cursor":"$mcp_cursor:24"}"#),
     ];
     workspace.project.veln_with_interactive_mcp(
         &["mcp".to_string()],
