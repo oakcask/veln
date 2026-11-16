@@ -9797,6 +9797,36 @@
         return some(freezeMap(parts));
     }
 
+    public static Object stringSplitLast(Object text, Object separator) {
+        String input = asString(text);
+        String needle = asString(separator);
+        int index = input.lastIndexOf(needle);
+        if (index < 0) {
+            return none();
+        }
+        java.util.LinkedHashMap<String, Object> parts = new java.util.LinkedHashMap<String, Object>();
+        parts.put("left", input.substring(0, index));
+        parts.put("right", input.substring(index + needle.length()));
+        return some(freezeMap(parts));
+    }
+
+    public static Object stringSplitAll(Object text, Object separator) {
+        String input = asString(text);
+        String needle = asString(separator);
+        if (needle.isEmpty()) {
+            return listCons(input, listNil());
+        }
+        Object reversed = listNil();
+        int start = 0;
+        int index;
+        while ((index = input.indexOf(needle, start)) >= 0) {
+            reversed = listCons(input.substring(start, index), reversed);
+            start = index + needle.length();
+        }
+        reversed = listCons(input.substring(start), reversed);
+        return listReverse(reversed);
+    }
+
     public static Object stringContainsNul(Object text) {
         return Boolean.valueOf(asString(text).indexOf('\0') >= 0);
     }

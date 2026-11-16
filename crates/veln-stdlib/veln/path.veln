@@ -23,11 +23,11 @@ pub fn parse(value: String) -> Result<Path, InvalidPath>
 		Err(LeadingSeparator)
 	else if ends_with_separator(value)
 		Err(TrailingSeparator)
-	else if has_component(value, "")
+	else if has_component(components_from(value), "")
 		Err(EmptyComponent)
-	else if has_component(value, ".")
+	else if has_component(components_from(value), ".")
 		Err(CurrentComponent)
-	else if has_component(value, "..")
+	else if has_component(components_from(value), "..")
 		Err(ParentComponent)
 	else
 		Ok(PortablePath(value))
@@ -74,9 +74,9 @@ pub fn parent(value: Path) -> Option<Path>
 	if spelling == "."
 		None
 	else
-		match string_split_once(spelling, "/")
+		match prelude_builtin::string_split_last(spelling, "/")
 			None => Some(root())
-			Some(_) => Some(PortablePath(parent_text(spelling)))
+			Some(parts) => Some(PortablePath(parts.left))
 		end
 	end
 end
@@ -86,7 +86,10 @@ pub fn name(value: Path) -> Option<String>
 	if spelling == "."
 		None
 	else
-		Some(last_component(spelling))
+		match prelude_builtin::string_split_last(spelling, "/")
+			None => Some(spelling)
+			Some(parts) => Some(parts.right)
+		end
 	end
 end
 
@@ -98,43 +101,21 @@ fn starts_with_separator(value: String) -> Bool
 end
 
 fn ends_with_separator(value: String) -> Bool
-	match string_split_once(value, "/")
+	match prelude_builtin::string_split_last(value, "/")
 		None => false
-		Some(parts) => if parts.right == ""
-			true
-		else
-			ends_with_separator(parts.right)
-		end
+		Some(parts) => parts.right == ""
 	end
 end
 
-fn has_component(value: String, expected: String) -> Bool
-	match string_split_once(value, "/")
-		None => value == expected
-		Some(parts) => parts.left == expected or has_component(parts.right, expected)
-	end
+fn has_component(components: List<String>, expected: String) -> Bool
+	let state: { found : Bool, expected : String } = list_fold(components, { found: false, expected: expected }, match_component)
+	state.found
+end
+
+fn match_component(state: { found : Bool, expected : String }, component: String) -> { found : Bool, expected : String }
+	{ found: state.found or component == state.expected, expected: state.expected }
 end
 
 fn components_from(value: String) -> List<String>
-	match string_split_once(value, "/")
-		None => Cons(value, Nil)
-		Some(parts) => Cons(parts.left, components_from(parts.right))
-	end
-end
-
-fn parent_text(value: String) -> String
-	match string_split_once(value, "/")
-		None => "."
-		Some(parts) => match string_split_once(parts.right, "/")
-			None => parts.left
-			Some(_) => string::concat(string::concat(parts.left, "/"), parent_text(parts.right))
-		end
-	end
-end
-
-fn last_component(value: String) -> String
-	match string_split_once(value, "/")
-		None => value
-		Some(parts) => last_component(parts.right)
-	end
+	prelude_builtin::string_split_all(value, "/")
 end

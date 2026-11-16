@@ -107,6 +107,17 @@ fn prelude_string_signature(name: &str) -> Option<(Vec<Type>, Type)> {
     match name {
         "string_contains_nul" => Some((vec![Type::string()], Type::bool())),
         "string_nul" => Some((vec![], Type::string())),
+        "string_split_all" => Some((
+            vec![Type::string(), Type::string()],
+            Type::list(Type::string()),
+        )),
+        "string_split_last" => Some((
+            vec![Type::string(), Type::string()],
+            adt::option_type(Type::Record(vec![
+                ("left".to_string(), Type::string()),
+                ("right".to_string(), Type::string()),
+            ])),
+        )),
         "string_split_once" => Some((
             vec![Type::string(), Type::string()],
             adt::option_type(Type::Record(vec![

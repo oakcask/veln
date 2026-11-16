@@ -129,6 +129,41 @@ test equality_is_exact_and_operations_are_pure_values() -> Result<(), String>
 	expect(portable::equal(left, right) and not portable::equal(composed, decomposed), "path equality normalized or changed spelling")
 end
 
+test deep_component_traversal_remains_stack_safe() -> Result<(), String>
+	let p1 = "a"
+	let p2 = duplicate_path(p1)
+	let p4 = duplicate_path(p2)
+	let p8 = duplicate_path(p4)
+	let p16 = duplicate_path(p8)
+	let p32 = duplicate_path(p16)
+	let p64 = duplicate_path(p32)
+	let p128 = duplicate_path(p64)
+	let p256 = duplicate_path(p128)
+	let p512 = duplicate_path(p256)
+	let p1024 = duplicate_path(p512)
+	let p2048 = duplicate_path(p1024)
+	let p4096 = duplicate_path(p2048)
+	let value = valid(p4096)?
+	let count: Int = list_fold(portable::components(value), 0, count_component)
+	let _ = expect(count == 4096, "deep path components changed")?
+	let _ = match portable::parent(value)
+		Some(parent) => expect(list_fold(portable::components(parent), 0, count_component) == 4095, "deep path parent changed")
+		None => Err("deep path parent was absent")
+	end?
+	match portable::name(value)
+		Some(component) => expect(component == "a", "deep path name changed")
+		None => Err("deep path name was absent")
+	end
+end
+
+fn duplicate_path(value: String) -> String
+	string::concat(string::concat(value, "/"), value)
+end
+
+fn count_component(count: Int, component: String) -> Int
+	count + 1
+end
+
 fn valid(input: String) -> Result<portable::Path, String>
 	match portable::parse(input)
 		Ok(value) => Ok(value)

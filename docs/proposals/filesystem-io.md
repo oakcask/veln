@@ -35,7 +35,7 @@ supports lexical cleanup, but does not define automatic close or flush.
 
 | Included capability | Required outcome |
 | --- | --- |
-| Portable-path integration and explicit filesystem selection | The current [portable path](../specification/standard-library-paths.md) value selects names under host and fake providers. |
+| Portable-path integration and explicit filesystem selection | Filesystem APIs use the current [portable path](../specification/standard-library-paths.md) value to name entries under explicit host and fake providers. |
 | Read-only filesystem access | Open, metadata, directory enumeration, and byte reads work without requiring mutation capability. |
 | Filesystem updates | Explicit open modes, byte writes, directory creation, removal, rename, and truncation have defined success and failure behavior. |
 | Shared byte IO | Read, write, complete-transfer helpers, seek, and positional IO compose with explicit resources. |

@@ -183,6 +183,17 @@ fn core_prelude_string_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)
     match name {
         "string_contains_nul" => Some((vec![CoreType::string()], CoreType::bool())),
         "string_nul" => Some((vec![], CoreType::string())),
+        "string_split_all" => Some((
+            vec![CoreType::string(), CoreType::string()],
+            adt::core_list_type(CoreType::string()),
+        )),
+        "string_split_last" => Some((
+            vec![CoreType::string(), CoreType::string()],
+            adt::core_option_type(CoreType::Record(vec![
+                ("left".to_string(), CoreType::string()),
+                ("right".to_string(), CoreType::string()),
+            ])),
+        )),
         "string_split_once" => Some((
             vec![CoreType::string(), CoreType::string()],
             adt::core_option_type(CoreType::Record(vec![
