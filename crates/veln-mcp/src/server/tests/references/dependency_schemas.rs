@@ -323,9 +323,10 @@ fn references_exclude_unselected_descendant_sources_from_parent_project_scope() 
 fn references_return_empty_for_dependency_schema_operation_boundaries() {
     let workspace = TempWorkspace::new("references-dependency-schema-boundaries");
     write_dependency_schema_boundary_workspace(&workspace);
-    assert_ineligible_dependency_schema_boundaries(&workspace);
-    assert_ineligible_schema_declaration_is_excluded(&workspace);
-    assert_eligible_dependency_schema_boundaries(&workspace);
+    let mut server = initialized_server(&workspace);
+    assert_ineligible_dependency_schema_boundaries(&mut server);
+    assert_ineligible_schema_declaration_is_excluded(&mut server);
+    assert_eligible_dependency_schema_boundaries(&mut server);
 }
 
 fn write_dependency_schema_boundary_workspace(workspace: &TempWorkspace) {
@@ -470,7 +471,7 @@ fn write_dependency_schema_boundary_workspace(workspace: &TempWorkspace) {
     );
 }
 
-fn assert_ineligible_dependency_schema_boundaries(workspace: &TempWorkspace) {
+fn assert_ineligible_dependency_schema_boundaries(server: &mut Server) {
     for (name, source, line, column) in [
         ("private", "main.veln", 8, 19),
         ("non-exported", "main.veln", 9, 18),
@@ -491,7 +492,7 @@ fn assert_ineligible_dependency_schema_boundaries(workspace: &TempWorkspace) {
         ("cycle alias", "main.veln", 33, 18),
         ("module qualifier", "main.veln", 12, 10),
     ] {
-        let result = references_result(workspace, source, line, column);
+        let result = references_result_on(server, source, line, column);
         assert_eq!(result["isError"], false, "{name}: {result:#}");
         assert_eq!(
             result["structuredContent"]["scope"],
@@ -518,7 +519,7 @@ fn assert_ineligible_dependency_schema_boundaries(workspace: &TempWorkspace) {
         );
     }
 
-    let recovery_binding = references_result(workspace, "recovery.veln", 4, 10);
+    let recovery_binding = references_result_on(server, "recovery.veln", 4, 10);
     assert_reference_ranges(
         &recovery_binding,
         &[("recovery.veln", 4, 10, 4, 16)],
@@ -526,8 +527,8 @@ fn assert_ineligible_dependency_schema_boundaries(workspace: &TempWorkspace) {
     );
 }
 
-fn assert_ineligible_schema_declaration_is_excluded(workspace: &TempWorkspace) {
-    let invalid_casing_with_declaration = initialized_server(workspace).references_tool(&json!({
+fn assert_ineligible_schema_declaration_is_excluded(server: &mut Server) {
+    let invalid_casing_with_declaration = server.references_tool(&json!({
         "source": "main.veln",
         "line": 12,
         "column": 18,
@@ -544,8 +545,8 @@ fn assert_ineligible_schema_declaration_is_excluded(workspace: &TempWorkspace) {
     );
 }
 
-fn assert_eligible_dependency_schema_boundaries(workspace: &TempWorkspace) {
-    let composition = references_result(workspace, "main.veln", 26, 19);
+fn assert_eligible_dependency_schema_boundaries(server: &mut Server) {
+    let composition = references_result_on(server, "main.veln", 26, 19);
     assert_eq!(composition["isError"], false, "{composition:#}");
     assert_reference_ranges(
         &composition,
@@ -553,7 +554,7 @@ fn assert_eligible_dependency_schema_boundaries(workspace: &TempWorkspace) {
         "direct dependency schema composition",
     );
 
-    let composition_with_declaration = initialized_server(workspace).references_tool(&json!({
+    let composition_with_declaration = server.references_tool(&json!({
         "source": "main.veln",
         "line": 26,
         "column": 19,
@@ -569,7 +570,7 @@ fn assert_eligible_dependency_schema_boundaries(workspace: &TempWorkspace) {
         "direct dependency schema declaration inclusion",
     );
 
-    let alias = references_result(workspace, "main.veln", 14, 18);
+    let alias = references_result_on(server, "main.veln", 14, 18);
     assert_eq!(alias["isError"], false, "{alias:#}");
     assert_reference_ranges(
         &alias,
@@ -577,7 +578,7 @@ fn assert_eligible_dependency_schema_boundaries(workspace: &TempWorkspace) {
         "direct dependency schema alias operation",
     );
 
-    let cross_module_alias = references_result(workspace, "main.veln", 22, 18);
+    let cross_module_alias = references_result_on(server, "main.veln", 22, 18);
     assert_eq!(
         cross_module_alias["isError"], false,
         "{cross_module_alias:#}"
