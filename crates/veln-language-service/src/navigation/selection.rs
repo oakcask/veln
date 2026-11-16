@@ -62,6 +62,12 @@ impl SymbolIndex {
                 .map(Symbol::EffectOperation)
                 .map(SelectedNavigationSymbol::bare);
         }
+        if is_handler_reference_token(file, token_index) {
+            return self
+                .handler_for_reference(file, tokens, token_index, name)
+                .map(Symbol::Handler)
+                .map(SelectedNavigationSymbol::bare);
+        }
         self.declaration_symbol_for_selection(file, tokens, token_index, name, selection)
             .or_else(|| self.bare_nullary_constructor_pattern_symbol(file, tokens, token_index, name))
             .or_else(|| {

@@ -454,7 +454,8 @@ mod navigation_handler_references_tests {
                 concat!(
                     "mod exact::fx\n\n",
                     "pub handler run() for Work\n  go() => 1\nend\n\n",
-                    "handler hidden() for Work\n  go() => 2\nend\n",
+                    "handler hidden() for Work\n  go() => 2\nend\n\n",
+                    "pub fn work() -> Int\n  4\nend\n",
                 ),
             ),
             source(
@@ -467,11 +468,11 @@ mod navigation_handler_references_tests {
                     "mod consumer\n\n",
                     "use exact::fx\n",
                     "use other::fx\n\n",
-                    "fn exact() -> Int\n  handle 1 with exact::fx::run()\nend\n\n",
+                    "fn valid_exact() -> Int\n  handle 1 with exact::fx::run()\nend\n\n",
                     "fn ambiguous() -> Int\n  handle 2 with fx::run()\nend\n\n",
                     "fn private() -> Int\n  handle 3 with exact::fx::hidden()\nend\n\n",
                     "fn unresolved() -> Int\n  handle 4 with missing::run()\nend\n\n",
-                    "fn wrong_kind() -> Int\n  handle 5 with exact::fx::Work()\nend\n",
+                    "fn wrong_kind() -> Int\n  handle 5 with exact::fx::work()\nend\n",
                 ),
             ),
         ];
@@ -479,9 +480,26 @@ mod navigation_handler_references_tests {
         let exact = query(sources.clone(), "consumer.veln", 7, 28).unwrap();
         assert_location(&exact.definition, "target.veln", 3, 13);
         assert_eq!(locations(&exact.references), [("consumer.veln", 7, 28)]);
-        for (line, column) in [(10, 21), (13, 28), (16, 26), (19, 28)] {
+        for (line, column) in [(10, 21), (13, 28), (16, 26)] {
             assert!(query(sources.clone(), "consumer.veln", line, column).is_none());
         }
+        let snapshot = EffectiveProjectSnapshot::new(sources.clone());
+        let wrong_kind_target = query_snapshot(&snapshot, "target.veln", 11, 8).unwrap();
+        assert_eq!(wrong_kind_target.selected_symbol.kind, SymbolKind::Function);
+        let wrong_kind_position = || SourcePosition {
+            source: SourcePath::new("consumer.veln"),
+            line: 19,
+            column: 28,
+        };
+        assert_eq!(definition_at(&snapshot, wrong_kind_position()), None);
+        assert!(
+            navigate(&snapshot, wrong_kind_position())
+                .is_none_or(|result| result.references.is_empty())
+        );
+
+        let retained = query_snapshot(&snapshot, "consumer.veln", 7, 28).unwrap();
+        assert_location(&retained.definition, "target.veln", 3, 13);
+        assert_eq!(locations(&retained.references), [("consumer.veln", 7, 28)]);
     }
 
     #[test]

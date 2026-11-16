@@ -69,7 +69,8 @@ fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
             "mod library::fx\n\n",
             "pub handler run() for Work\n  go() => 1\nend\n\n",
             "fn local() -> Int\n  handle 0 with run()\nend\n",
-            "\nhandler hidden() for Work\n  go() => 2\nend\n",
+            "\nhandler hidden() for Work\n  go() => 2\nend\n\n",
+            "pub fn work() -> Int\n  4\nend\n",
         ),
     );
     workspace.write(
@@ -78,7 +79,8 @@ fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
             "mod consumer\n\nuse library::fx\n\n",
             "fn full() -> Int\n  handle 1 with library::fx::run()\nend\n\n",
             "fn alias() -> Int\n  handle 2 with fx::run()\nend\n",
-            "\nfn private() -> Int\n  handle 3 with library::fx::hidden()\nend\n",
+            "\nfn private() -> Int\n  handle 3 with library::fx::hidden()\nend\n\n",
+            "fn wrong_kind() -> Int\n  handle 4 with library::fx::work()\nend\n",
         ),
     );
     let mut server = initialized_server(&workspace);
@@ -143,6 +145,31 @@ fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
     assert_eq!(
         private_references["structuredContent"]["references"],
         json!([])
+    );
+
+    let wrong_kind_definition = server.definition_tool(&json!({
+        "source":"consumer.veln", "line":18, "column":30
+    }));
+    assert!(wrong_kind_definition["structuredContent"]["definition"].is_null());
+    let wrong_kind_references = server.references_tool(&json!({
+        "source":"consumer.veln", "line":18, "column":30,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        wrong_kind_references["structuredContent"]["references"],
+        json!([])
+    );
+
+    let retained = server.definition_tool(&json!({
+        "source":"consumer.veln", "line":10, "column":21
+    }));
+    assert_eq!(
+        retained["structuredContent"]["definition"]["uri"],
+        handler_uri
+    );
+    assert_eq!(
+        retained["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":3,"column":13},"end":{"line":3,"column":16}})
     );
 }
 

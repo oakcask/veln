@@ -67,7 +67,8 @@ fn imported_workspace_handler_navigation_preserves_utf16_and_declaration_policy(
             "mod library::fx\r\n\r\n",
             "pub handler run() for Work\r\n  go() => 1\r\nend\r\n\r\n",
             "fn local() -> Int\r\n  \"😀\" + handle 0 with run()\r\nend\r\n",
-            "\r\nhandler hidden() for Work\r\n  go() => 2\r\nend\r\n",
+            "\r\nhandler hidden() for Work\r\n  go() => 2\r\nend\r\n\r\n",
+            "pub fn work() -> Int\r\n  4\r\nend\r\n",
         ),
     );
     project.write(
@@ -76,7 +77,8 @@ fn imported_workspace_handler_navigation_preserves_utf16_and_declaration_policy(
             "mod consumer\r\n\r\nuse library::fx\r\n\r\n",
             "fn full() -> Int\r\n  handle 1 with library::fx::run()\r\nend\r\n\r\n",
             "fn alias() -> Int\r\n  handle 2 with fx::run()\r\nend\r\n",
-            "\r\nfn private() -> Int\r\n  handle 3 with library::fx::hidden()\r\nend\r\n",
+            "\r\nfn private() -> Int\r\n  handle 3 with library::fx::hidden()\r\nend\r\n\r\n",
+            "fn wrong_kind() -> Int\r\n  handle 4 with library::fx::work()\r\nend\r\n",
         ),
     );
     let root_uri = path_to_uri(&project.root);
@@ -124,6 +126,27 @@ fn imported_workspace_handler_navigation_preserves_utf16_and_declaration_policy(
         )),
         [response("2", "[]")]
     );
+
+    assert_eq!(
+        server.handle_message(&definition_request(&consumer_uri, 17, 29)),
+        [response("2", "null")]
+    );
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &consumer_uri,
+            17,
+            29,
+            true,
+        )),
+        [response("2", "[]")]
+    );
+
+    let retained = server.handle_message(&definition_request(&consumer_uri, 9, 20));
+    assert_eq!(retained.len(), 1);
+    assert!(retained[0].contains(&handler_uri), "{}", retained[0]);
+    assert!(retained[0].contains(
+        r#""range":{"start":{"line":2,"character":12},"end":{"line":2,"character":15}}"#
+    ));
 }
 
 #[test]
