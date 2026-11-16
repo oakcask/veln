@@ -1022,22 +1022,24 @@ selected handler's module. For a public handler, it also contains complete
 qualified handler-name leaves reached through one parse-clean, unambiguous
 workspace import. The qualifier can use the full module path or its unique
 implicit leaf alias. An exact full path takes precedence over a colliding
-implicit leaf alias. The declaration and each included name select one
-identity. Each location covers only the handler-name token. A `definition`
-request at any included form returns the workspace declaration.
-`include_declaration` adds that declaration before pagination.
+implicit leaf alias. An explicitly aliased import still permits the full module
+path, but neither the written alias nor the module's leaf name becomes an
+implicit qualifier. The declaration and each included name select one identity.
+Each location covers only the handler-name token. A `definition` request at any
+included form returns the workspace declaration. `include_declaration` adds
+that declaration before pagination.
 
-Handler reference lookup requires one unrecovered workspace declaration for
-the module and name. An imported application additionally requires an explicit
-workspace import that resolves to the public handler. Private imported handlers,
-duplicate or recovered declarations, ambiguous or recovered imports,
-package-backed and standard-library declarations, unresolved, incomplete,
-recovered, and wrong-kind paths return a successful empty reference result.
-Equal spelling in another module or symbol class is excluded. An unrelated
-parse error does not remove a complete parse-clean occurrence. Capture, lookup,
-position, and pagination failures publish no partial handler locations and
-preserve the saved workspace, retained resources, prior results, and existing
-cursors under the general references failure contract.
+Handler definition and reference lookup require one unrecovered workspace
+declaration for the module and name. An imported application additionally
+requires an explicit workspace import that resolves to the public handler.
+Private imported handlers, duplicate or recovered declarations, ambiguous or
+recovered imports, package-backed and standard-library declarations,
+unresolved, incomplete, recovered, and wrong-kind paths return a successful
+empty result. Equal spelling in another module or symbol class is excluded. An
+unrelated parse error does not remove a complete parse-clean occurrence.
+Capture, lookup, position, and pagination failures publish no partial handler
+locations and preserve the saved workspace, retained resources, prior results,
+and existing cursors under the general references failure contract.
 
 Schema
 references include direct fields, `decode`, `encode`, runtime validation,
