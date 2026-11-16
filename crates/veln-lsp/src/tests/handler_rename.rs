@@ -1,6 +1,6 @@
 #[test]
 fn companion_private_function_rename_rejects_suffix_qualified_references() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("rename-qualified-path-boundary");
     project.write(
         "math.veln",
@@ -46,7 +46,7 @@ fn companion_private_function_rename_rejects_suffix_qualified_references() {
 
 #[test]
 fn companion_private_function_rename_skips_result_binding_contract_scope() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("rename-result-binding-isolation");
     project.write(
         "math.veln",
@@ -90,7 +90,7 @@ fn companion_private_function_rename_skips_result_binding_contract_scope() {
 
 #[test]
 fn companion_private_function_rename_skips_satisfy_candidate_scope() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("rename-satisfy-candidate-isolation");
     project.write(
         "math.veln",
@@ -138,7 +138,7 @@ fn companion_private_function_rename_skips_satisfy_candidate_scope() {
 
 #[test]
 fn companion_private_function_rename_includes_handler_operation_clause_calls() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("rename-handler-operation-clause-call");
     project.write(
         "math.veln",
@@ -179,7 +179,7 @@ fn companion_private_function_rename_includes_handler_operation_clause_calls() {
 
 #[test]
 fn companion_private_function_rename_from_multiline_clause_call_covers_clause_body_calls() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("rename-handler-operation-clause-multiline-call");
     project.write(
         "math.veln",
@@ -231,7 +231,7 @@ fn companion_private_function_rename_from_multiline_clause_call_covers_clause_bo
 
 #[test]
 fn handler_operation_clause_binding_rename_skips_record_fields() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("rename-handler-operation-clause-field-isolation");
     project.write(
         "main.veln",
@@ -291,7 +291,7 @@ fn handler_operation_clause_binding_rename_skips_record_fields() {
 
 #[test]
 fn handler_operation_clause_binding_rename_covers_multiline_body_references() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("rename-handler-operation-clause-multiline-body");
     project.write(
         "main.veln",
@@ -403,7 +403,7 @@ fn handler_operation_clause_binding_rename_keeps_else_if_body_scope_bounded() {
 
 #[test]
 fn handler_operation_clause_binding_definition_uses_multiline_body_scope() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("definition-handler-operation-clause-multiline-body");
     project.write(
         "main.veln",
