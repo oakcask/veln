@@ -293,13 +293,14 @@ fn invalid_module_value_declaration_and_occurrence_do_not_enter_references() {
         "use invalid\n\nlet selected: String = invalid::answer\n",
     );
 
-    for (source, line, column) in [("invalid.veln", 1, 10), ("main.veln", 3, 31)] {
+    for (source, line, column) in [("invalid.veln", 1, 10), ("main.veln", 3, 33)] {
         let result = initialized_server(&workspace).references_tool(&json!({
             "source":source, "line":line, "column":column,
             "include_declaration":true
         }));
         assert_eq!(result["isError"], false, "{result:#}");
         assert_eq!(result["structuredContent"]["references"], json!([]));
+        assert!(result["structuredContent"].get("next_cursor").is_none());
     }
 }
 
