@@ -352,9 +352,12 @@ The public API is in
 publication, and gate tests are in its `package_documentation/tests/` modules.
 The `variance_presentation` test checks exact ADT, constructor, and function
 signatures in the catalog model, canonical JSON bytes, and rendered Markdown.
-The `variance_failure_preservation` test checks that all applicable variance
-mismatches retain the `semantic_variance` gate and suppress the complete
-catalog, including an otherwise healthy public sibling.
+The `variance_failure_preservation` test checks that named-generic,
+function-input, and effect-set mismatches retain the `semantic_variance` gate
+and suppress the complete catalog, including an otherwise healthy public
+sibling. The checked
+[`variance-nested-incompatibility-json`](../../examples/specification/check/variance-nested-incompatibility-json/)
+case covers function-result and variadic-element diagnostic paths.
 The `module_value_publication` tests check public declaration content and
 lookup, initializer-independent declaration identity, snapshot and
 documentation digest rotation, package-atomic failure, and causal diagnostic
