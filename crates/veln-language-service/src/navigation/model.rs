@@ -452,7 +452,7 @@ impl Symbol {
         match self {
             Self::Effect(symbol) => index.effect_references_supported(symbol),
             Self::EffectOperation(symbol) => index.effect_operation_references_supported(symbol),
-            Self::Handler(symbol) => index.handler_references_supported(symbol),
+            Self::Handler(symbol) => index.workspace_handler_is_eligible(symbol),
             Self::SchemaAlias(symbol) if symbol.package.is_none() => {
                 index.workspace_schema_alias_is_eligible(
                     &symbol.module,
@@ -467,6 +467,7 @@ impl Symbol {
     fn definition_supported(&self, index: &SymbolIndex) -> bool {
         match self {
             Self::SchemaAlias(_) => false,
+            Self::Handler(symbol) => index.workspace_handler_is_eligible(symbol),
             Self::TypeAlias(symbol) if symbol.package.is_some() => {
                 index.type_alias_definition_supported(symbol)
             }

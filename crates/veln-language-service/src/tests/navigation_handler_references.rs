@@ -164,10 +164,39 @@ mod navigation_handler_references_tests {
         let declaration = query(duplicate.clone(), "first.veln", 3, 9).unwrap();
         assert!(!declaration.reference_eligible);
         assert!(declaration.references.is_empty());
+        let duplicate_snapshot = EffectiveProjectSnapshot::new(duplicate.clone());
+        for source_path in ["first.veln", "second.veln"] {
+            assert_eq!(
+                definition_at(
+                    &duplicate_snapshot,
+                    SourcePosition {
+                        source: SourcePath::new(source_path),
+                        line: 3,
+                        column: 9,
+                    },
+                ),
+                None,
+            );
+        }
         assert!(query(duplicate.clone(), "second.veln", 12, 17).is_none());
-        let valid = query(duplicate, "second.veln", 16, 17).unwrap();
+        let valid = query_snapshot(&duplicate_snapshot, "second.veln", 16, 17).unwrap();
+        assert_location(&valid.definition, "second.veln", 7, 9);
         assert!(valid.reference_eligible);
         assert_eq!(locations(&valid.references), [("second.veln", 16, 17)]);
+        assert_location(
+            &definition_at(
+                &duplicate_snapshot,
+                SourcePosition {
+                    source: SourcePath::new("second.veln"),
+                    line: 16,
+                    column: 17,
+                },
+            )
+            .unwrap(),
+            "second.veln",
+            7,
+            9,
+        );
 
         let recovered = vec![source(
             "main.veln",
@@ -178,12 +207,40 @@ mod navigation_handler_references_tests {
                 "fn valid() -> Int\n  handle 2 with keep()\nend\n",
             ),
         )];
-        let recovered_declaration = query(recovered.clone(), "main.veln", 1, 9).unwrap();
+        let recovered_snapshot = EffectiveProjectSnapshot::new(recovered.clone());
+        let recovered_declaration =
+            query_snapshot(&recovered_snapshot, "main.veln", 1, 9).unwrap();
         assert!(!recovered_declaration.reference_eligible);
         assert!(recovered_declaration.references.is_empty());
+        assert_eq!(
+            definition_at(
+                &recovered_snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 1,
+                    column: 9,
+                },
+            ),
+            None,
+        );
         assert!(query(recovered.clone(), "main.veln", 10, 17).is_none());
-        let valid = query(recovered, "main.veln", 14, 17).unwrap();
+        let valid = query_snapshot(&recovered_snapshot, "main.veln", 14, 17).unwrap();
+        assert_location(&valid.definition, "main.veln", 5, 9);
         assert_eq!(locations(&valid.references), [("main.veln", 14, 17)]);
+        assert_location(
+            &definition_at(
+                &recovered_snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 14,
+                    column: 17,
+                },
+            )
+            .unwrap(),
+            "main.veln",
+            5,
+            9,
+        );
     }
 
     #[test]
@@ -271,6 +328,55 @@ mod navigation_handler_references_tests {
                 span.start.line == span.end.line && span.end.column - span.start.column == 3
             }));
         }
+    }
+
+    #[test]
+    fn workspace_handler_import_resolution_does_not_invent_leaf_for_explicit_alias() {
+        let sources = vec![
+            source(
+                "handler.veln",
+                concat!(
+                    "mod library::fx\n\n",
+                    "pub handler run() for Work\n  go() => 1\nend\n",
+                ),
+            ),
+            source(
+                "consumer.veln",
+                concat!(
+                    "mod consumer\n\n",
+                    "use library::fx as other\n\n",
+                    "fn full() -> Int\n  handle 1 with library::fx::run()\nend\n\n",
+                    "fn nonexistent_leaf() -> Int\n  handle 2 with fx::run()\nend\n",
+                ),
+            ),
+        ];
+        let snapshot = EffectiveProjectSnapshot::new(sources);
+
+        let full = query_snapshot(&snapshot, "consumer.veln", 6, 30).unwrap();
+        assert_location(&full.definition, "handler.veln", 3, 13);
+        assert_eq!(locations(&full.references), [("consumer.veln", 6, 30)]);
+        assert_eq!(
+            definition_at(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("consumer.veln"),
+                    line: 10,
+                    column: 21,
+                },
+            ),
+            None,
+        );
+        assert!(
+            navigate(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("consumer.veln"),
+                    line: 10,
+                    column: 21,
+                },
+            )
+            .is_none()
+        );
     }
 
     #[test]

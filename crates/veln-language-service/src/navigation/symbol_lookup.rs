@@ -1163,21 +1163,26 @@ impl SchemaAliasModuleImports {
         validated_workspace_imports: Vec<WorkspaceImport>,
         external_imports: Vec<ExternalImport>,
     ) -> Self {
-        let raw_workspace_imports_by_alias = workspace_imports_by_alias(&workspace_imports);
+        let raw_workspace_imports_by_alias =
+            workspace_imports_by_alias(&validated_workspace_imports);
         let duplicate_workspace_imports =
             workspace_import_duplicate_counts(&validated_workspace_imports);
-        let valid_workspace_imports = validated_workspace_imports
-            .into_iter()
+        let valid_workspace_import_records = validated_workspace_imports
+            .iter()
             .filter(|import| {
                 import.syntax_valid
                     && duplicate_workspace_imports
                         .get(&(import.module.clone(), import.alias.clone()))
                         == Some(&1)
             })
-            .map(|import| import.module)
+            .cloned()
+            .collect::<Vec<_>>();
+        let valid_workspace_imports = valid_workspace_import_records
+            .iter()
+            .map(|import| import.module.clone())
             .collect::<BTreeSet<_>>();
         let valid_workspace_imports_by_alias =
-            workspace_imports_by_alias(&valid_workspace_imports);
+            workspace_imports_by_alias(&valid_workspace_import_records);
         let duplicate_counts = schema_alias_import_duplicate_counts(&external_imports);
         let mut indexed = Self {
             workspace_imports,
@@ -1269,13 +1274,17 @@ fn workspace_import_duplicate_counts(
 }
 
 fn workspace_imports_by_alias(
-    workspace_imports: &BTreeSet<String>,
+    workspace_imports: &[WorkspaceImport],
 ) -> BTreeMap<String, BTreeSet<String>> {
     workspace_imports.iter().fold(
         BTreeMap::<String, BTreeSet<String>>::new(),
-        |mut by_alias, module| {
-            let alias = module.rsplit("::").next().unwrap_or(module).to_string();
-            by_alias.entry(alias).or_default().insert(module.clone());
+        |mut by_alias, import| {
+            if import.bare_exports {
+                by_alias
+                    .entry(import.alias.clone())
+                    .or_default()
+                    .insert(import.module.clone());
+            }
             by_alias
         },
     )

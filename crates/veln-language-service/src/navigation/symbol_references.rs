@@ -226,21 +226,14 @@ impl SymbolIndex {
             .collect()
     }
 
-    fn handler_references_supported(&self, symbol: &NeutralSymbol) -> bool {
+    fn workspace_handler_is_eligible(&self, symbol: &NeutralSymbol) -> bool {
         if symbol.package.is_some() {
             return false;
         }
-        let mut declarations = self.handlers.iter().filter(|candidate| {
-            candidate.package.is_none()
-                && candidate.module == symbol.module
-                && candidate.name == symbol.name
-        });
-        let Some(candidate) = declarations.next() else {
-            return false;
-        };
-        candidate.declaration == symbol.declaration
-            && declarations.next().is_none()
-            && self.handler_declaration_is_unrecovered(symbol)
+        self.eligible_workspace_handler_indices
+            .get(&(symbol.module.clone(), symbol.name.clone()))
+            .and_then(|index| self.handlers.get(*index))
+            .is_some_and(|candidate| candidate.declaration == symbol.declaration)
     }
 
     fn effect_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
