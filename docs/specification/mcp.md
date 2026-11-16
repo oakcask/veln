@@ -184,13 +184,14 @@ resources or search candidates, does not change the current revision selection,
 and preserves the previous public state. Invalid tool parameters and failures
 that prevent a stable source capture admit no new dependency resources. Saved
 navigation tools perform the whole-analysis transition before coordinate and
-symbol-result validation. A later `invalid_position`, empty result, or rename
-domain failure therefore does not roll back dependency resources admitted by
-that transition. A stable-capture failure or variance-analysis rejection after
-a successful dependency analysis preserves the prior package signatures,
-source resources, exact reads, search results, navigation selection, and
-cursors. Bytes and signatures seen only during the failed capture or rejected
-analysis are not published.
+symbol-result validation. Tool-specific parameter validation that precedes
+capture, such as rename replacement-name validation, admits no state. A later
+`invalid_position`, empty result, or post-admission rename conflict does not
+roll back dependency resources admitted by the transition. A stable-capture
+failure or variance-analysis rejection after a successful dependency analysis
+preserves the prior package signatures, source resources, exact reads, search
+results, navigation selection, and cursors. Bytes and signatures seen only
+during the failed capture or rejected analysis are not published.
 
 Dependency source resources use the canonical `veln-pkg:` URI from the
 admitted dependency snapshot virtual-source catalog. Their `name` is the
@@ -875,12 +876,12 @@ Rename admits its successful whole captured state before computing edits. If
 dependency-resource admission exceeds capacity, it returns `resource_capacity`
 without publishing any part of the attempted workspace or dependency state.
 Successful admission can add published dependency resources even when rename
-returns an empty selection, `invalid_position`, or a rename domain failure.
-Those outcomes preserve filesystem bytes, workspace roots and generation,
-published diagnostics, prior tool results, and reference cursors. Rename
-neither creates nor consumes a cursor. A later definition or references request
-observes the admitted saved workspace unless the client separately changes the
-files.
+returns an empty selection, `invalid_position`, or `rename.conflict`.
+`rename.invalid_name` is validated before capture and admits no state. Those
+outcomes preserve filesystem bytes, workspace roots and generation, published
+diagnostics, prior tool results, and reference cursors. Rename neither creates
+nor consumes a cursor. A later definition or references request observes the
+admitted saved workspace unless the client separately changes the files.
 
 An initial `references` request requires `source`, `line`, and `column`.
 It may set boolean `include_declaration` (default `false`) and `page_size`
