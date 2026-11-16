@@ -203,7 +203,6 @@ impl Server {
         let workspace_root = self.owned_workspace_root(&uri);
         self.documents.insert(uri.clone(), text);
         if let Some(root) = workspace_root {
-            self.refresh_overlaid_project_snapshot(&root);
             self.publish_workspace_diagnostics_for_roots([root])
         } else {
             vec![publish_diagnostics(&uri, self.document_text(&uri))]
@@ -215,11 +214,8 @@ impl Server {
             return Vec::new();
         };
         let workspace_root = self.owned_workspace_root(&uri);
-        let document_removed = self.documents.remove(&uri).is_some();
+        self.documents.remove(&uri);
         if let Some(root) = workspace_root {
-            if document_removed {
-                self.refresh_overlaid_project_snapshot(&root);
-            }
             self.publish_workspace_diagnostics_for_roots([root])
         } else {
             vec![empty_publish_diagnostics(&uri)]
@@ -597,43 +593,46 @@ impl Server {
         workspace_files: Vec<SourceFile>,
         direct_dependencies: Vec<DirectDependencySnapshot>,
     ) {
-        if self.project_snapshots.contains_key(root) {
-            self.refresh_project_dependency_layer(root, direct_dependencies);
-            return;
-        }
-        let Some(snapshot) = retained_project_snapshot(
-            workspace_files,
-            direct_dependencies,
-            #[cfg(test)]
-            self.test_standard_library.clone(),
-        ) else {
-            return;
+        let refreshed = if let Some(current) = self.project_snapshots.get(root).cloned() {
+            let workspace_unchanged = current.has_workspace_layer(&workspace_files);
+            let dependencies_unchanged = current.has_direct_dependency_layer(&direct_dependencies);
+            if workspace_unchanged && dependencies_unchanged {
+                current
+            } else {
+                let refreshed = if workspace_unchanged {
+                    current.with_direct_dependency_layer(direct_dependencies)
+                } else {
+                    let refreshed = current.with_workspace_layer(workspace_files);
+                    if dependencies_unchanged {
+                        refreshed
+                    } else {
+                        refreshed.with_direct_dependency_layer(direct_dependencies)
+                    }
+                };
+                let refreshed = Arc::new(refreshed);
+                if !dependencies_unchanged {
+                    for (uri, bytes) in current.direct_dependency_virtual_sources() {
+                        self.retired_virtual_sources
+                            .entry(uri.to_string())
+                            .or_insert_with(|| bytes.to_vec());
+                    }
+                    for (uri, _) in refreshed.direct_dependency_virtual_sources() {
+                        self.retired_virtual_sources.remove(uri);
+                    }
+                }
+                refreshed
+            }
+        } else {
+            let Some(snapshot) = retained_project_snapshot(
+                workspace_files,
+                direct_dependencies,
+                #[cfg(test)]
+                self.test_standard_library.clone(),
+            ) else {
+                return;
+            };
+            Arc::new(snapshot)
         };
-        self.project_snapshots
-            .insert(root.to_path_buf(), Arc::new(snapshot));
-        self.refresh_overlaid_project_snapshot(root);
-    }
-
-    fn refresh_project_dependency_layer(
-        &mut self,
-        root: &Path,
-        direct_dependencies: Vec<DirectDependencySnapshot>,
-    ) {
-        let Some(current) = self.project_snapshots.get(root).cloned() else {
-            return;
-        };
-        if current.has_direct_dependency_layer(&direct_dependencies) {
-            return;
-        }
-        let refreshed = Arc::new(current.with_direct_dependency_layer(direct_dependencies));
-        for (uri, bytes) in current.direct_dependency_virtual_sources() {
-            self.retired_virtual_sources
-                .entry(uri.to_string())
-                .or_insert_with(|| bytes.to_vec());
-        }
-        for (uri, _) in refreshed.direct_dependency_virtual_sources() {
-            self.retired_virtual_sources.remove(uri);
-        }
         self.project_snapshots.insert(root.to_path_buf(), refreshed);
         self.refresh_overlaid_project_snapshot(root);
     }
