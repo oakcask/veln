@@ -452,23 +452,7 @@ fn install_changing_workspace_effect_hook(
 #[test]
 fn workspace_handler_reference_capture_failure_preserves_state_and_later_results() {
     let workspace = TempWorkspace::new("references-workspace-handler-capture-retry");
-    workspace.write("veln.toml", "");
-    workspace.write(
-        "handler.veln",
-        concat!(
-            "mod library::fx\n\n",
-            "pub handler run() for Work\n  go() => 1\nend\n\n",
-            "fn local() -> Int\n  handle 0 with run()\nend\n",
-        ),
-    );
-    workspace.write(
-        "main.veln",
-        concat!(
-            "use library::fx\n\n",
-            "fn first() -> Int\n  handle 1 with library::fx::run()\nend\n\n",
-            "fn second() -> Int\n  handle 2 with fx::run()\nend\n",
-        ),
-    );
+    write_workspace_handler_capture_project(&workspace);
     let mut server = initialized_server(&workspace);
     let before = server.references_tool(&json!({
         "source":"main.veln", "line":8, "column":21
@@ -484,22 +468,7 @@ fn workspace_handler_reference_capture_failure_preserves_state_and_later_results
     let before_resources = all_resource_state(&mut server);
     let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0usize));
-    let attempts_for_hook = attempts.clone();
-    let root = workspace.root.clone();
-    let hook = crate::check_project::set_after_first_stable_capture_hook(move || {
-        let attempt = attempts_for_hook.get();
-        attempts_for_hook.set(attempt + 1);
-        let handler = root.join("handler.veln");
-        fs::remove_file(&handler).unwrap();
-        let value = if attempt.is_multiple_of(2) { 1 } else { 2 };
-        fs::write(
-            &handler,
-            format!(
-                "mod library::fx\n\npub handler run() for Work\n  go() => {value}\nend\n\nfn local() -> Int\n  handle 0 with run()\nend\n"
-            ),
-        )
-        .unwrap();
-    });
+    let hook = install_changing_workspace_handler_hook(&workspace, &attempts);
 
     let failed = server.references_tool(&json!({
         "source":"main.veln", "line":8, "column":21
@@ -521,6 +490,48 @@ fn workspace_handler_reference_capture_failure_preserves_state_and_later_results
             .len(),
         3
     );
+}
+
+fn write_workspace_handler_capture_project(workspace: &TempWorkspace) {
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "handler.veln",
+        concat!(
+            "mod library::fx\n\n",
+            "pub handler run() for Work\n  go() => 1\nend\n\n",
+            "fn local() -> Int\n  handle 0 with run()\nend\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use library::fx\n\n",
+            "fn first() -> Int\n  handle 1 with library::fx::run()\nend\n\n",
+            "fn second() -> Int\n  handle 2 with fx::run()\nend\n",
+        ),
+    );
+}
+
+fn install_changing_workspace_handler_hook(
+    workspace: &TempWorkspace,
+    attempts: &Rc<Cell<usize>>,
+) -> impl Drop {
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let handler = root.join("handler.veln");
+        fs::remove_file(&handler).unwrap();
+        let value = if attempt.is_multiple_of(2) { 1 } else { 2 };
+        fs::write(
+            &handler,
+            format!(
+                "mod library::fx\n\npub handler run() for Work\n  go() => {value}\nend\n\nfn local() -> Int\n  handle 0 with run()\nend\n"
+            ),
+        )
+        .unwrap();
+    })
 }
 
 fn live_reference_cursor(server: &mut Server, source: &str, line: u64, column: u64) -> String {

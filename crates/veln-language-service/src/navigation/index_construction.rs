@@ -53,6 +53,20 @@ struct SchemaNavigationIndex {
     operation_lookup: SchemaOperationLookupIndex,
 }
 
+struct WorkspaceNavigationIndices {
+    type_indices_by_name: BTreeMap<String, Vec<usize>>,
+    constructor_indices_by_identity: BTreeMap<ConstructorIdentity, Vec<usize>>,
+    function_indices_by_identity: HashMap<ModuleMemberIdentity, Vec<usize>>,
+    type_alias_indices_by_name: BTreeMap<String, Vec<usize>>,
+    package_type_alias_indices_by_name: BTreeMap<String, Vec<usize>>,
+    workspace_type_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
+    workspace_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
+    package_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
+    eligible_workspace_effect_indices: BTreeMap<(String, String), usize>,
+    eligible_workspace_handler_indices: BTreeMap<(String, String), usize>,
+    eligible_workspace_effect_operation_indices: BTreeMap<(String, String, String), usize>,
+}
+
 impl SymbolIndex {
     pub(crate) fn new(
         sources: Vec<SourceFile>,
@@ -106,29 +120,19 @@ impl SymbolIndex {
             bare_aliases: bare_schema_alias_index,
             operation_lookup: schema_operation_lookup_index,
         } = index_schema_navigation(&files, &workspace_module, &mut declarations);
-        let type_indices_by_name = symbol_indices_by_name(&declarations.types);
-        let constructor_indices_by_identity =
-            constructor_indices_by_identity(&declarations.constructors);
-        let function_indices_by_identity =
-            module_member_indices_by_identity(&declarations.functions);
-        let type_alias_indices_by_name = symbol_indices_by_name(&declarations.type_aliases);
-        let package_type_alias_indices_by_name =
-            package_symbol_indices_by_name(&declarations.type_aliases);
-        let workspace_type_indices_by_module_and_name =
-            workspace_symbol_indices_by_module_and_name(&declarations.types);
-        let workspace_type_alias_indices_by_module_and_name =
-            workspace_symbol_indices_by_module_and_name(&declarations.type_aliases);
-        let package_type_alias_indices_by_module_and_name =
-            package_symbol_indices_by_module_and_name(&declarations.type_aliases);
-        let eligible_workspace_effect_indices =
-            eligible_workspace_effect_indices(&declarations.effects, &files);
-        let eligible_workspace_handler_indices =
-            eligible_workspace_handler_indices(&declarations.handlers, &files);
-        let eligible_workspace_effect_operation_indices = eligible_workspace_effect_operation_indices(
-            &declarations.operations,
-            &eligible_workspace_effect_indices,
-            &files,
-        );
+        let WorkspaceNavigationIndices {
+            type_indices_by_name,
+            constructor_indices_by_identity,
+            function_indices_by_identity,
+            type_alias_indices_by_name,
+            package_type_alias_indices_by_name,
+            workspace_type_indices_by_module_and_name,
+            workspace_type_alias_indices_by_module_and_name,
+            package_type_alias_indices_by_module_and_name,
+            eligible_workspace_effect_indices,
+            eligible_workspace_handler_indices,
+            eligible_workspace_effect_operation_indices,
+        } = workspace_navigation_indices(&declarations, &files);
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());
         let mut complete_module = workspace_module.clone();
@@ -182,6 +186,47 @@ impl SymbolIndex {
             files,
             function_rename_index: OnceLock::new(),
         }
+    }
+}
+
+fn workspace_navigation_indices(
+    declarations: &FileDeclarations,
+    files: &[IndexedFile],
+) -> WorkspaceNavigationIndices {
+    let type_indices_by_name = symbol_indices_by_name(&declarations.types);
+    let constructor_indices_by_identity =
+        constructor_indices_by_identity(&declarations.constructors);
+    let function_indices_by_identity = module_member_indices_by_identity(&declarations.functions);
+    let type_alias_indices_by_name = symbol_indices_by_name(&declarations.type_aliases);
+    let package_type_alias_indices_by_name =
+        package_symbol_indices_by_name(&declarations.type_aliases);
+    let workspace_type_indices_by_module_and_name =
+        workspace_symbol_indices_by_module_and_name(&declarations.types);
+    let workspace_type_alias_indices_by_module_and_name =
+        workspace_symbol_indices_by_module_and_name(&declarations.type_aliases);
+    let package_type_alias_indices_by_module_and_name =
+        package_symbol_indices_by_module_and_name(&declarations.type_aliases);
+    let eligible_workspace_effect_indices =
+        eligible_workspace_effect_indices(&declarations.effects, files);
+    let eligible_workspace_handler_indices =
+        eligible_workspace_handler_indices(&declarations.handlers, files);
+    let eligible_workspace_effect_operation_indices = eligible_workspace_effect_operation_indices(
+        &declarations.operations,
+        &eligible_workspace_effect_indices,
+        files,
+    );
+    WorkspaceNavigationIndices {
+        type_indices_by_name,
+        constructor_indices_by_identity,
+        function_indices_by_identity,
+        type_alias_indices_by_name,
+        package_type_alias_indices_by_name,
+        workspace_type_indices_by_module_and_name,
+        workspace_type_alias_indices_by_module_and_name,
+        package_type_alias_indices_by_module_and_name,
+        eligible_workspace_effect_indices,
+        eligible_workspace_handler_indices,
+        eligible_workspace_effect_operation_indices,
     }
 }
 
@@ -651,19 +696,7 @@ fn eligible_workspace_handler_indices(
     handlers: &[NeutralSymbol],
     files: &[IndexedFile],
 ) -> BTreeMap<(String, String), usize> {
-    let recovered_by_file = files
-        .iter()
-        .filter(|file| workspace_navigation_file(file))
-        .map(|file| {
-            let mut ranges = file
-                .recovered_handler_declarations
-                .iter()
-                .map(|span| (span.start.offset, span.end.offset))
-                .collect::<Vec<_>>();
-            ranges.sort_unstable();
-            (file.source.path().as_str(), ranges)
-        })
-        .collect::<BTreeMap<_, _>>();
+    let recovered_by_file = recovered_handler_declaration_ranges_by_file(files);
     let mut candidates = BTreeMap::<(String, String), Vec<usize>>::new();
     for (index, symbol) in handlers.iter().enumerate() {
         if symbol.package.is_none() {
@@ -690,6 +723,24 @@ fn eligible_workspace_handler_indices(
                     && symbol.declaration.span.end.offset <= end
             });
             (!recovered).then_some((identity, *index))
+        })
+        .collect()
+}
+
+fn recovered_handler_declaration_ranges_by_file(
+    files: &[IndexedFile],
+) -> BTreeMap<&str, Vec<(usize, usize)>> {
+    files
+        .iter()
+        .filter(|file| workspace_navigation_file(file))
+        .map(|file| {
+            let mut ranges = file
+                .recovered_handler_declarations
+                .iter()
+                .map(|span| (span.start.offset, span.end.offset))
+                .collect::<Vec<_>>();
+            ranges.sort_unstable();
+            (file.source.path().as_str(), ranges)
         })
         .collect()
 }
