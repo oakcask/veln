@@ -109,7 +109,15 @@ fn workspace_module_value_reference_cursor_captures_declaration_and_locations() 
         .as_str()
         .unwrap()
         .to_owned();
+    assert_module_value_initial_failure_preserves_state(&workspace, &mut server);
+    assert_module_value_cursor_snapshot(&workspace, &mut server, cursor);
+}
 
+fn assert_module_value_cursor_snapshot(
+    workspace: &TempWorkspace,
+    server: &mut Server,
+    cursor: String,
+) {
     workspace.write("alias.veln", "use values as config\n");
     let unsupported = server.references_tool(&json!({
         "source":"main.veln", "line":2, "column":1,
@@ -148,6 +156,54 @@ fn workspace_module_value_reference_cursor_captures_declaration_and_locations() 
     assert!(final_page["structuredContent"].get("next_cursor").is_none());
 }
 
+fn assert_module_value_initial_failure_preserves_state(
+    workspace: &TempWorkspace,
+    server: &mut Server,
+) {
+    let before = server.references_tool(&json!({
+        "source":"main.veln", "line":3, "column":31,
+        "include_declaration":true
+    }));
+    let resources = all_resource_state(server);
+    let selection = server.selection_result();
+
+    let invalid = server.references_tool(&json!({
+        "source":"main.veln", "line":99, "column":1,
+        "include_declaration":true
+    }));
+
+    assert_eq!(invalid["isError"], true, "{invalid:#}");
+    assert_eq!(invalid["structuredContent"]["code"], "invalid_position");
+    assert_eq!(all_resource_state(server), resources);
+    assert_eq!(server.selection_result(), selection);
+    let after = server.references_tool(&json!({
+        "source":"main.veln", "line":3, "column":31,
+        "include_declaration":true
+    }));
+    assert_eq!(after, before);
+    assert_eq!(
+        after["structuredContent"]["references"],
+        expected_workspace_module_value_references_with_declaration(workspace)
+    );
+}
+
+fn expected_workspace_module_value_references_with_declaration(
+    workspace: &TempWorkspace,
+) -> serde_json::Value {
+    let mut expected = expected_workspace_module_value_references(workspace)
+        .as_array()
+        .unwrap()
+        .clone();
+    expected.insert(
+        2,
+        json!({
+            "uri": crate::definition::path_to_uri(&workspace.path("values.veln")),
+            "range": {"start":{"line":1,"column":9},"end":{"line":1,"column":15}}
+        }),
+    );
+    json!(expected)
+}
+
 #[test]
 fn module_value_references_keep_negative_selections_on_existing_paths() {
     let workspace = TempWorkspace::new("references-module-value-exclusions");
@@ -163,6 +219,10 @@ fn module_value_references_keep_negative_selections_on_existing_paths() {
             "let callback: fn(Int) -> Int = answer\n",
             "let selected: Int = values::answer\n",
             "let unresolved: Int = values::missing\n",
+            "\nfn local() -> Int\n",
+            "  let answer = 1\n",
+            "  answer\n",
+            "end\n",
         ),
     );
 
@@ -174,6 +234,16 @@ fn module_value_references_keep_negative_selections_on_existing_paths() {
         &function,
         &[("main.veln", 7, 32, 7, 38)],
         "same-spelled function",
+    );
+
+    let lexical = initialized_server(&workspace).references_tool(&json!({
+        "source":"main.veln", "line":13, "column":4,
+        "include_declaration":false
+    }));
+    assert_reference_ranges(
+        &lexical,
+        &[("main.veln", 13, 3, 13, 9)],
+        "same-spelled lexical binding",
     );
 
     let unresolved = initialized_server(&workspace).references_tool(&json!({
@@ -211,6 +281,26 @@ fn module_value_references_keep_negative_selections_on_existing_paths() {
         json!([]),
         "{standard_library:#}"
     );
+}
+
+#[test]
+fn invalid_module_value_declaration_and_occurrence_do_not_enter_references() {
+    let workspace = TempWorkspace::new("references-invalid-module-value");
+    workspace.write("veln.toml", "");
+    workspace.write("invalid.veln", "pub let answer: String = 42\n");
+    workspace.write(
+        "main.veln",
+        "use invalid\n\nlet selected: String = invalid::answer\n",
+    );
+
+    for (source, line, column) in [("invalid.veln", 1, 10), ("main.veln", 3, 31)] {
+        let result = initialized_server(&workspace).references_tool(&json!({
+            "source":source, "line":line, "column":column,
+            "include_declaration":true
+        }));
+        assert_eq!(result["isError"], false, "{result:#}");
+        assert_eq!(result["structuredContent"]["references"], json!([]));
+    }
 }
 
 fn dependency_module_value_project(workspace: &TempWorkspace) {

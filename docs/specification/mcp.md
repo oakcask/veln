@@ -605,8 +605,8 @@ transcripts cover workspace and package definitions, exact workspace and
 dependency reference locations, pagination with declaration exclusion and
 inclusion, exact workspace rename edits, edit-free package rename, one-based
 ranges, and workspace and resource state preservation across those requests.
-Focused adapter tests cover same-spelled function isolation and unresolved and
-standard-library module-value exclusions.
+Focused adapter tests cover same-spelled function and lexical-binding isolation,
+plus invalid, unresolved, and standard-library module-value exclusions.
 
 For an eligible public workspace effect, `definition` and `references` accept
 selection at the declaration, a bare same-module occurrence, or the
