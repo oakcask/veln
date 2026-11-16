@@ -133,6 +133,30 @@ test equality_is_exact_and_operations_are_pure_values() -> Result<(), String>
 end
 
 test deep_component_traversal_remains_stack_safe() -> Result<(), String>
+	let p4096 = deep_path()
+	let value = valid(p4096)?
+	let count: Int = list_fold(portable::components(value), 0, count_component)
+	let _ = expect(count == 4096, "deep path components changed")?
+	let _ = match portable::parent(value)
+		Some(parent) => expect(list_fold(portable::components(parent), 0, count_component) == 4095, "deep path parent changed")
+		None => Err("deep path parent was absent")
+	end?
+	match portable::name(value)
+		Some(component) => expect(component == "a", "deep path name changed")
+		None => Err("deep path name was absent")
+	end
+end
+
+test deep_invalid_path_preserves_validation_precedence() -> Result<(), String>
+	let p4096 = deep_path()
+	let invalid = string::concat(string::concat(p4096, "/.."), "/.")
+	match portable::parse(invalid)
+		Ok(_) => Err("deep invalid portable path was accepted")
+		Err(error) => expect(invalid_name(error) == "CurrentComponent", "deep path validation precedence changed")
+	end
+end
+
+fn deep_path() -> String
 	let p1 = "a"
 	let p2 = duplicate_path(p1)
 	let p4 = duplicate_path(p2)
@@ -145,18 +169,7 @@ test deep_component_traversal_remains_stack_safe() -> Result<(), String>
 	let p512 = duplicate_path(p256)
 	let p1024 = duplicate_path(p512)
 	let p2048 = duplicate_path(p1024)
-	let p4096 = duplicate_path(p2048)
-	let value = valid(p4096)?
-	let count: Int = list_fold(portable::components(value), 0, count_component)
-	let _ = expect(count == 4096, "deep path components changed")?
-	let _ = match portable::parent(value)
-		Some(parent) => expect(list_fold(portable::components(parent), 0, count_component) == 4095, "deep path parent changed")
-		None => Err("deep path parent was absent")
-	end?
-	match portable::name(value)
-		Some(component) => expect(component == "a", "deep path name changed")
-		None => Err("deep path name was absent")
-	end
+	duplicate_path(p2048)
 end
 
 fn duplicate_path(value: String) -> String
