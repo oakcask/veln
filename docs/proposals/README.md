@@ -16,7 +16,8 @@ also states it.
 
 ## Ready
 
-No proposals are ready for implementation.
+- Pure validated portable path values, lexical operations, and companion-test
+  evidence: [portable-paths.md](portable-paths.md).
 
 ## Design In Progress
 
@@ -24,8 +25,9 @@ No proposals are ready for implementation.
   entry lifetime, scheduling guarantees, and resource budgets remain open:
   [lightweight-tasks.md](lightweight-tasks.md). Resolve its Open Questions
   before implementation selection.
-- Portable filesystem paths, shared byte IO, seek, provider ownership, and
-  scoped fake filesystems; source API and lifecycle questions remain open:
+- Filesystem selection, host path conversion, shared byte IO, seek, provider
+  ownership, and scoped fake filesystems; source API and lifecycle questions
+  remain open:
   [filesystem-io.md](filesystem-io.md). Resolve its Open Questions before
   implementation selection.
 
