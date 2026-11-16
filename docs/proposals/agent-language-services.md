@@ -18,7 +18,6 @@ The following work remains planned:
 - remaining package definition and reference symbol classes outside the
   implemented explicit-import-alias and module immutable-value definition,
   LSP-reference, and rename scopes;
-- MCP `references` projection for module immutable values;
 - imported handlers and other workspace symbol reference classes outside the
   implemented same-module and imported-workspace effect boundaries and the
   implemented same-module and imported-workspace effect-operation boundaries
@@ -43,10 +42,9 @@ its evidence is added to the named current specification and checked route.
 
 The remainder also includes broader definition navigation, unsupported package
 symbol classes outside the implemented module immutable-value definition,
-LSP-reference, and rename scope, MCP references for module immutable values,
-transitive dependencies, recovery identities and symbol
-classes outside the shared recovery set specified by Editor Support and MCP,
-casing-neutral lookup outside current specified behavior, and any
+LSP-reference, and rename scope, transitive dependencies, recovery identities
+and symbol classes outside the shared recovery set specified by Editor Support
+and MCP, casing-neutral lookup outside current specified behavior, and any
 package-reference boundary not listed as implemented above. These rows must
 retain explicit negative and state-preservation cases: rejected requests do
 not mutate saved snapshots, published resources, cursors, or prior successful
@@ -57,6 +55,10 @@ current specification page names the executable authority, the evidence
 passes independently of proposal prose, and the conformance manifest (when
 present) has no missing or orphaned mapping. This preserves the umbrella as a
 partial proposal rather than a second current-behavior specification.
+
+The independently complete MCP module-value references slice has moved to
+[MCP Module Immutable-Value References](mcp-module-value-references.md). It is
+not an implementation requirement for the remaining inventory.
 
 ## Non-goals
 
