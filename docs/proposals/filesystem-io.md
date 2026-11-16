@@ -1,13 +1,14 @@
 ---
 role: proposal
-update-when: The proposed filesystem path model, shared byte IO capabilities, provider ownership, seek behavior, fake filesystem contracts, or unresolved design decisions change.
+update-when: The proposed filesystem integration, native path conversion, shared byte IO capabilities, provider ownership, seek behavior, fake filesystem contracts, or unresolved design decisions change.
 ---
 
 # Filesystem And Shared Byte IO
 
 Provide practical filesystem access with streaming binary IO, random access,
-portable paths, and scoped substitution through Veln effect handlers. The same
-byte-processing helpers should work with files, network streams, and memory.
+explicit filesystem selection, and scoped substitution through Veln effect
+handlers. The same byte-processing helpers should work with files, network
+streams, and memory.
 
 This proposal fixes the contracts described below and records unresolved
 choices in [Open Questions](#open-questions). It is not ready for implementation
@@ -34,7 +35,7 @@ supports lexical cleanup, but does not define automatic close or flush.
 
 | Included capability | Required outcome |
 | --- | --- |
-| Portable paths and explicit filesystem selection | Application names have the same syntax under host and fake providers. |
+| Portable-path integration and explicit filesystem selection | The ready [portable path](portable-paths.md) value selects names under host and fake providers. |
 | Read-only filesystem access | Open, metadata, directory enumeration, and byte reads work without requiring mutation capability. |
 | Filesystem updates | Explicit open modes, byte writes, directory creation, removal, rename, and truncation have defined success and failure behavior. |
 | Shared byte IO | Read, write, complete-transfer helpers, seek, and positional IO compose with explicit resources. |
@@ -48,33 +49,10 @@ filename representation still need the decisions identified below.
 
 ## Paths And Filesystem Selection
 
-Use distinct types for a portable filesystem path and a native host path.
-The portable type names a location within a selected filesystem. It does not
-identify that filesystem, authorize access, or assert that an entry exists.
-The existing host-owned `Path` must not silently acquire portable semantics.
-Final public type names and migration of `process::cwd()` remain open.
-
-Portable paths use case-sensitive Unicode text with `/` as the only separator.
-Path equality compares the stored text exactly; it does not case-fold,
-normalize Unicode, resolve links, or establish file identity. A host provider
-can therefore resolve two unequal names to the same entry on a host whose
-lookup rules equate them.
-
-The fallible portable-path constructor validates without accessing a provider:
-
-| Input | Result |
-| --- | --- |
-| `.` | Root of the selected filesystem. |
-| `a`, `a/b`, or a Unicode filename | Valid portable path. |
-| Empty text, leading or trailing `/`, or repeated `/` | Invalid path. |
-| A `.` or `..` component, except the complete root spelling `.` | Invalid path. |
-| Embedded NUL | Invalid path. |
-| Backslash or colon within a component | Ordinary portable name characters; a host conversion may reject them but must not reinterpret them as separators or a volume prefix. |
-
-Construction rejects invalid spelling instead of silently cleaning it. Pure
-composition and component operations preserve these invariants. A join with
-root returns the other operand; joining two non-root paths inserts one `/`.
-The parent of root is absent; the parent of a single component is root.
+The ready [portable path proposal](portable-paths.md) owns the pure
+`path::Path` syntax, source API, and lexical operations. This proposal uses
+that type for names within an explicit filesystem. A portable path does not
+identify a filesystem, authorize access, or assert that an entry exists.
 
 Filesystem operations receive an explicit filesystem resource and a portable
 path, or an open resource that already retains its filesystem identity. Two
@@ -88,11 +66,10 @@ round-trip representation of a native name. Canonicalization, link resolution,
 and filesystem identity queries are effectful and separate from lexical path
 operations.
 
-Go's [io/fs path contract](https://pkg.go.dev/io/fs#ValidPath) motivates the
-portable syntax and small path vocabulary. Its
-[filepath.Localize](https://pkg.go.dev/path/filepath#Localize) demonstrates why
-portable validity and native representability are different checks. Veln adds
-a validated path type rather than accepting unchecked strings at every call.
+Go's [filepath.Localize](https://pkg.go.dev/path/filepath#Localize)
+demonstrates why portable validity and native representability are different
+checks. Veln adds the validated portable path in the split proposal rather
+than accepting unchecked strings at every call.
 Rust's [native Path conversion](https://doc.rust-lang.org/std/path/struct.Path.html#method.to_str)
 shows why an arbitrary native name need not have a lossless Unicode spelling;
 the native representation decision remains open rather than assuming all host
@@ -274,7 +251,6 @@ behavior.
 
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
-| Portable paths | The validity table holds; pure composition preserves it; case and Unicode spelling are not silently changed. | Table-driven standard-library companion tests and path doctests. |
 | Host conversion | An unrepresentable name fails without selecting another entry; native and portable types cannot be interchanged implicitly. | Companion tests plus focused host-conversion and compiler type-boundary tests. |
 | Multiple resources | Copy between two resources and two filesystem instances reaches the intended input and output under nested handlers. | Companion tests with distinct bytes and provider traces. |
 | Partial transfer | Short reads are data; complete helpers preserve bytes and progress; partial writes retry only an uncommitted suffix; unknown progress stops retry. | Scripted Veln fake tests with independent expected contents and operation logs. |
@@ -297,10 +273,10 @@ listing a preferred direction here does not make it implemented behavior.
 
 | Question | Alternatives and required decision |
 | --- | --- |
-| Public source API and static capabilities | Choose final modules, types, operation signatures, and nominal effects. Decide how read-only, writable, seekable, and positional capabilities are represented with the existing type system. Avoid assuming an unimplemented trait or effect feature. |
+| Public filesystem API and static capabilities | Use `path::Path` for portable names. Choose final filesystem, resource, operation, and nominal-effect signatures. Decide how read-only, writable, seekable, and positional capabilities are represented with the existing type system. Avoid assuming an unimplemented trait or effect feature. |
 | Provider dispatch and fake-created handles | Choose a provider-bound resource representation and dispatch rule that supports multiple providers, nested handlers, and Veln-only fake creation. Define wrong-provider rejection and identity without exposing host objects or forgeable integer handles. |
 | State for Veln fakes | Decide whether existing synchronized channel-backed state is sufficient or a separate state abstraction is required. Specify initialization, child-task sharing, and provider resource allocation. |
-| Native paths and the old boundary | Decide whether arbitrary native names round-trip, how display differs from lossless conversion, where host roots are opened, and how `process::cwd()` and compiler-known `fs` names change. Backward compatibility is not required. |
+| Native paths and the old boundary | Decide whether arbitrary native names round-trip, how display differs from lossless conversion, where host roots are opened, and how `process::cwd()` and compiler-known `fs` names migrate to the distinct `path::Path` boundary. Backward compatibility is not required. |
 | Links and confinement | Define follow/no-follow behavior for open and metadata, link cycles and dangling links, subtree views, and whether an enforceable confinement capability belongs in the first implementation. State unsupported backend outcomes. |
 | IO outcomes and error translation | Define common read/write/copy ADTs, zero-size and zero-progress rules, partial data plus failure, unknown progress, and stable error categories. Specify how filesystem and network context survives adaptation and what a host exception can actually prove. |
 | Remaining seek and mutation transitions | Define append with seek or positional write, writes beyond end and gap bytes, truncate cursor behavior, failed host seek state, metadata fields, directory ordering/pagination, remove semantics, and rename replacement/cross-filesystem outcomes. |
@@ -310,9 +286,10 @@ listing a preferred direction here does not make it implemented behavior.
 
 ## Implementation Readiness And Promotion
 
-Before moving this proposal to Ready, provide a source API that can be expressed
-with implemented Veln features or name a separate language prerequisite.
-Complete the outcome types and operation state tables, including failures,
+Before moving this proposal to Ready, provide a filesystem and resource source
+API that uses the independently ready `path::Path` value and can be expressed
+with implemented Veln features or names a separate language prerequisite.
+Complete the IO outcome types and operation state tables, including failures,
 and demonstrate how a Veln fake creates resources and serves two filesystem
 instances without host IO. Add explicit acceptance expectations for each
 resolved question. A smaller independently complete proposal may be split out
