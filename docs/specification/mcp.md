@@ -560,23 +560,34 @@ the LSP projection.
 Shared-language-service tests check the source-reordering invariant before
 either adapter projects the result.
 
-Saved definition and rename also project the package-aware module
+Saved definition, references, and rename also project the package-aware module
 immutable-value identity specified by
 [Editor Support](editor-support.md#module-immutable-value-navigation). A
 workspace declaration or a direct, qualified, or explicit-import-alias
-reference returns the workspace declaration from `definition`. An eligible
-public reference to a retained direct dependency returns its immutable
-`veln-pkg:` declaration. Rename edits a workspace declaration and its linked
-workspace references, while a package-backed selection returns no edits.
-Definition and rename consume the shared selection and conflict result before
-MCP projects it. The qualified-leaf selection, retained-dependency bare-export
-conflicts, package-owner isolation, and declaring-module precedence specified
-by Editor Support therefore have the same outcome through these tools. A
-shared conflict becomes the `rename.conflict` result specified below, including
-the package-backed conflicting declaration when one caused the failure.
-Standard-library module values are outside this navigation row. The MCP
-`references` tool does not support module immutable values and returns an empty
-reference result for those selections.
+reference selects the same identity. Definition returns the workspace
+declaration. An eligible public reference to a retained direct dependency
+returns its immutable `veln-pkg:` declaration. References return the shared
+workspace occurrence set and cover only each value name. With
+`include_declaration: true`, they add the workspace declaration or retained
+dependency declaration once. The result uses the common location sort,
+deduplication, pagination, and captured-cursor behavior. Rename edits a
+workspace declaration and its linked workspace references, while a
+package-backed selection returns no edits.
+
+All three tools consume the shared selection and identity before MCP projects
+it. The qualified-leaf selection, retained-dependency bare-export conflicts,
+package-owner isolation, and declaring-module precedence specified by Editor
+Support therefore have the same outcome through these tools. A shared conflict
+becomes the `rename.conflict` result specified below, including the
+package-backed conflicting declaration when one caused the failure.
+Standard-library module values remain outside this navigation row. Invalid,
+unresolved, and standard-library selections do not acquire a module-value
+reference identity. Selecting either an invalid module-value declaration or
+one of its unresolved occurrences returns the ordinary successful empty
+reference result and creates no cursor. A stable-capture failure publishes no
+partial locations or cursor and preserves saved workspace state, resources,
+prior results, and existing cursors. Other initial-request failures follow the
+saved-navigation admission and state rules below.
 The checked
 [`module-value-navigation`](../../examples/specification/mcp/module-value-navigation/)
 and
@@ -592,9 +603,13 @@ and
 [`module-value-dependency-reference-state`](../../examples/specification/mcp/module-value-dependency-reference-state/)
 and
 [`module-value-dependency-resource-state`](../../examples/specification/mcp/module-value-dependency-resource-state/)
-transcripts cover workspace and package definitions, exact workspace rename
-edits, edit-free package rename, empty reference results, one-based ranges,
-and workspace and resource state preservation across those requests.
+transcripts cover workspace and package definitions, exact workspace and
+dependency reference locations, pagination with declaration exclusion and
+inclusion, exact workspace rename edits, edit-free package rename, one-based
+ranges, and workspace and resource state preservation across those requests.
+Focused adapter tests cover same-spelled function and lexical-binding isolation,
+plus invalid declarations and occurrences, unresolved selections, and
+standard-library module-value exclusions.
 
 For an eligible public workspace effect, `definition` and `references` accept
 selection at the declaration, a bare same-module occurrence, or the
@@ -900,9 +915,10 @@ exactly `page_size` locations and `next_cursor`; the final page omits it.
 Supported reference identities are valid workspace explicit import aliases,
 workspace effects, effect operations, handlers, schemas, eligible workspace,
 direct-dependency, and standard-library schema aliases, functions, types,
-constructors, value bindings, handler context parameters, and handler
-operation-clause parameters. Module immutable values are not supported
-reference identities and return the ordinary successful empty result.
+constructors, workspace and retained direct-dependency module immutable
+values, value bindings, handler context parameters, and handler
+operation-clause parameters. Standard-library module immutable values remain
+unsupported and return the ordinary successful empty result.
 
 ### Recovery References
 
@@ -1182,6 +1198,7 @@ continuation pages, normalizes both protocol results to retained source
 identities and one-based Unicode-scalar half-open ranges, and compares the
 complete definition and reference outcomes. Its matrix covers LF and CRLF
 sources, UTF-16 conversion around non-BMP scalars, token ends, empty and
-invalid selections, package identities, declaration policy, and state after a
-failed request. It also compares the recovery definition and complete recovery
-reference set with declaration exclusion and inclusion.
+invalid selections, package identities, declaration policy, module
+immutable-value references, and state after a failed request. It also compares
+the recovery definition and complete recovery reference set with declaration
+exclusion and inclusion.

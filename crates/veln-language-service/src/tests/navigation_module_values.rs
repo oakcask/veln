@@ -229,7 +229,7 @@ mod navigation_module_value_tests {
         ]);
 
         assert!(query_snapshot(&snapshot, "invalid.veln", 1, 10).is_none());
-        assert!(query_snapshot(&snapshot, "main.veln", 3, 31).is_none());
+        assert!(query_snapshot(&snapshot, "main.veln", 3, 33).is_none());
     }
 
     #[test]

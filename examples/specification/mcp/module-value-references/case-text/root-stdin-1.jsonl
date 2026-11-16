@@ -1,3 +1,12 @@
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}}
 {"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":3,"column":31,"include_declaration":false}}}
 {"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":3,"column":31,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"source":"values.veln","line":2,"column":20,"include_declaration":false}}}
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"references","arguments":{"source":"alias.veln","line":3,"column":29,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"references","arguments":{"source":"values.veln","line":1,"column":10,"include_declaration":true,"page_size":1}}}
+{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"references","arguments":{"cursor":"$mcp_cursor:13"}}}
+{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"references","arguments":{"cursor":"$mcp_cursor:14"}}}
+{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"references","arguments":{"cursor":"$mcp_cursor:15"}}}
+{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":3,"column":31,"include_declaration":false,"page_size":1}}}
+{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"references","arguments":{"cursor":"$mcp_cursor:17"}}}
+{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"references","arguments":{"cursor":"$mcp_cursor:18"}}}

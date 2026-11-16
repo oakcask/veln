@@ -5,6 +5,78 @@ use std::rc::Rc;
 use veln_project::PackageSnapshotSource;
 
 #[test]
+fn module_value_reference_capture_failure_preserves_resources_selection_and_live_cursor() {
+    let workspace = TempWorkspace::new("references-module-value-capture-retry");
+    write_module_value_reference_capture_project(&workspace, 42);
+    let mut server = initialized_server(&workspace);
+    let live_cursor = module_value_reference_cursor(&mut server);
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0usize));
+    let _hook = install_changing_module_value_hook(&workspace, &attempts);
+
+    let failed = server.references_tool(&json!({
+        "source":"main.veln", "line":2, "column":18,
+        "include_declaration":true
+    }));
+
+    assert_snapshot_changed_without_references_or_scope(&failed);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
+    assert_module_value_reference_cursor(&mut server, &live_cursor);
+}
+
+fn write_module_value_reference_capture_project(workspace: &TempWorkspace, initializer: u8) {
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        &format!(
+            "pub let answer: Int = {initializer}\nlet first: Int = answer\nlet second: Int = answer\n"
+        ),
+    );
+}
+
+fn module_value_reference_cursor(server: &mut Server) -> String {
+    server.references_tool(&json!({
+        "source":"main.veln", "line":2, "column":18,
+        "include_declaration":true, "page_size":1
+    }))["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+fn install_changing_module_value_hook(
+    workspace: &TempWorkspace,
+    attempts: &Rc<Cell<usize>>,
+) -> impl Drop {
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let initializer = if attempt.is_multiple_of(2) { 42 } else { 43 };
+        fs::write(
+            root.join("main.veln"),
+            format!(
+                "pub let answer: Int = {initializer}\nlet first: Int = answer\nlet second: Int = answer\n"
+            ),
+        )
+        .unwrap();
+    })
+}
+
+fn assert_module_value_reference_cursor(server: &mut Server, cursor: &str) {
+    let continuation = server.references_tool(&json!({"cursor":cursor}));
+    assert_eq!(continuation["isError"], false, "{continuation:#}");
+    assert_eq!(
+        continuation["structuredContent"]["references"][0]["range"],
+        json!({"start":{"line":2,"column":18},"end":{"line":2,"column":24}})
+    );
+}
+
+#[test]
 fn references_project_capture_exhausts_retries_after_owned_source_changes() {
     let workspace = TempWorkspace::new("references-project-capture-retry");
     write_workspace_with_dependency_and_sources(
@@ -114,6 +186,29 @@ fn write_workspace_schema_capture_project(workspace: &TempWorkspace) {
 #[test]
 fn workspace_effect_operation_reference_capture_failure_preserves_state_and_later_results() {
     let workspace = TempWorkspace::new("references-workspace-effect-operation-capture-retry");
+    write_workspace_effect_operation_capture_project(&workspace);
+    let mut state = workspace_effect_operation_capture_state(&workspace);
+    let attempts = Rc::new(Cell::new(0));
+    let hook = install_changing_workspace_effect_hook(&workspace, &attempts);
+
+    let failed = state
+        .server
+        .references_tool(&workspace_effect_operation_reference_input());
+    assert_workspace_effect_operation_capture_failure(
+        &workspace,
+        &mut state,
+        &failed,
+        attempts.get(),
+    );
+
+    drop(hook);
+    let after = state
+        .server
+        .references_tool(&workspace_effect_operation_reference_input());
+    assert_eq!(after, state.before);
+}
+
+fn write_workspace_effect_operation_capture_project(workspace: &TempWorkspace) {
     workspace.write("veln.toml", "");
     workspace.write(
         "foreign.veln",
@@ -123,10 +218,21 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
         "main.veln",
         "use foreign\n\nfn use() -> Int\n  perform foreign::Remote::run()\nend\n",
     );
-    let mut server = initialized_server(&workspace);
-    let before = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":28
-    }));
+}
+
+struct WorkspaceEffectOperationCaptureState {
+    server: Server,
+    before: Value,
+    resources: Value,
+    selection: Value,
+    live_cursor: String,
+}
+
+fn workspace_effect_operation_capture_state(
+    workspace: &TempWorkspace,
+) -> WorkspaceEffectOperationCaptureState {
+    let mut server = initialized_server(workspace);
+    let before = server.references_tool(&workspace_effect_operation_reference_input());
     let foreign_uri = crate::definition::path_to_uri(&workspace.path("foreign.veln"));
     let main_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
     assert_eq!(
@@ -150,23 +256,43 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
         .as_str()
         .unwrap()
         .to_owned();
-    let before_resources = all_resource_state(&mut server);
-    let before_selection = server.selection_result();
-    let attempts = Rc::new(Cell::new(0));
-    let hook = install_changing_workspace_effect_hook(&workspace, &attempts);
+    WorkspaceEffectOperationCaptureState {
+        resources: all_resource_state(&mut server),
+        selection: server.selection_result(),
+        server,
+        before,
+        live_cursor,
+    }
+}
 
-    let failed = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":28
-    }));
-    assert_snapshot_changed_without_references_or_scope(&failed);
-    assert_eq!(attempts.get(), 3);
-    assert_eq!(all_resource_state(&mut server), before_resources);
-    assert_eq!(server.selection_result(), before_selection);
-    let continuation = server.references_tool(&json!({"cursor":live_cursor}));
+fn workspace_effect_operation_reference_input() -> Value {
+    json!({"source":"main.veln", "line":4, "column":28})
+}
+
+fn assert_workspace_effect_operation_capture_failure(
+    workspace: &TempWorkspace,
+    state: &mut WorkspaceEffectOperationCaptureState,
+    failed: &Value,
+    attempts: usize,
+) {
+    assert_snapshot_changed_without_references_or_scope(failed);
+    assert_eq!(attempts, 3);
+    assert_eq!(all_resource_state(&mut state.server), state.resources);
+    assert_eq!(state.server.selection_result(), state.selection);
+    assert_workspace_effect_operation_live_cursor(workspace, state);
+}
+
+fn assert_workspace_effect_operation_live_cursor(
+    workspace: &TempWorkspace,
+    state: &mut WorkspaceEffectOperationCaptureState,
+) {
+    let continuation = state
+        .server
+        .references_tool(&json!({"cursor":state.live_cursor}));
     assert_eq!(continuation["isError"], false, "{continuation:#}");
     assert_eq!(
         continuation["structuredContent"]["scope"],
-        before["structuredContent"]["scope"]
+        state.before["structuredContent"]["scope"]
     );
     assert_eq!(
         continuation["structuredContent"]["references"],
@@ -180,12 +306,6 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
             .get("next_cursor")
             .is_none()
     );
-
-    drop(hook);
-    let after = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":28
-    }));
-    assert_eq!(after, before);
 }
 
 #[test]
