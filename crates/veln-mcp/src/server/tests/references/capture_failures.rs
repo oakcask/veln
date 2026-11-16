@@ -464,7 +464,23 @@ fn workspace_handler_reference_capture_failure_preserves_state_and_later_results
             .len(),
         3
     );
-    let live_cursor = live_reference_cursor(&mut server, "main.veln", 8, 21);
+    let first_page = server.references_tool(&json!({
+        "source":"main.veln", "line":8, "column":21, "page_size":1
+    }));
+    assert_eq!(
+        first_page["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("handler.veln")),
+            "range": {
+                "start": {"line": 8, "column": 17},
+                "end": {"line": 8, "column": 20}
+            }
+        }])
+    );
+    let live_cursor = first_page["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     let before_resources = all_resource_state(&mut server);
     let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0usize));
@@ -501,6 +517,16 @@ fn workspace_handler_reference_capture_failure_preserves_state_and_later_results
             .len(),
         3
     );
+    assert_eq!(
+        after["structuredContent"]["references"][1],
+        json!({
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {
+                "start": {"line": 4, "column": 33},
+                "end": {"line": 4, "column": 36}
+            }
+        })
+    );
 }
 
 fn write_workspace_handler_capture_project(workspace: &TempWorkspace) {
@@ -532,13 +558,13 @@ fn install_changing_workspace_handler_hook(
     crate::check_project::set_after_first_stable_capture_hook(move || {
         let attempt = attempts_for_hook.get();
         attempts_for_hook.set(attempt + 1);
-        let handler = root.join("handler.veln");
-        fs::remove_file(&handler).unwrap();
-        let value = if attempt.is_multiple_of(2) { 1 } else { 2 };
+        let main = root.join("main.veln");
+        fs::remove_file(&main).unwrap();
+        let indentation = " ".repeat(attempt + 3);
         fs::write(
-            &handler,
+            &main,
             format!(
-                "mod library::fx\n\npub handler run() for Work\n  go() => {value}\nend\n\n\nfn local() -> Int\n  handle 0 with run()\nend\n"
+                "use library::fx\n\nfn first() -> Int\n{indentation}handle 1 with library::fx::run()\nend\n\nfn second() -> Int\n  handle 2 with fx::run()\nend\n"
             ),
         )
         .unwrap();
