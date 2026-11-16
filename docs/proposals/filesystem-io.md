@@ -35,7 +35,7 @@ supports lexical cleanup, but does not define automatic close or flush.
 
 | Included capability | Required outcome |
 | --- | --- |
-| Portable-path integration and explicit filesystem selection | The ready [portable path](portable-paths.md) value selects names under host and fake providers. |
+| Portable-path integration and explicit filesystem selection | The current [portable path](../specification/standard-library-paths.md) value selects names under host and fake providers. |
 | Read-only filesystem access | Open, metadata, directory enumeration, and byte reads work without requiring mutation capability. |
 | Filesystem updates | Explicit open modes, byte writes, directory creation, removal, rename, and truncation have defined success and failure behavior. |
 | Shared byte IO | Read, write, complete-transfer helpers, seek, and positional IO compose with explicit resources. |
@@ -49,7 +49,7 @@ filename representation still need the decisions identified below.
 
 ## Paths And Filesystem Selection
 
-The ready [portable path proposal](portable-paths.md) owns the pure
+The current [portable path specification](../specification/standard-library-paths.md) owns the pure
 `path::Path` syntax, source API, and lexical operations. This proposal uses
 that type for names within an explicit filesystem. A portable path does not
 identify a filesystem, authorize access, or assert that an entry exists.

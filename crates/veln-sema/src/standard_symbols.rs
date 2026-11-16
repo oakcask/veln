@@ -238,6 +238,8 @@ compiler_adapter_symbol_set! {
     "byte_decode_http2_frame",
     "byte_decode_schema_width_sample",
     "byte_decode_schema_validation_sample",
+    "string_contains_nul",
+    "string_nul",
     "http2_protocol_closed_with_pending",
     "http2_protocol_partial_preface",
     "http2_protocol_invalid_preface",
@@ -423,6 +425,8 @@ pub(crate) fn private_compiler_adapter_name(name: &str) -> bool {
     name.starts_with("observation_")
         || name.starts_with("production_metric_index_")
         || name.starts_with("net_system_")
+        || name == "string_contains_nul"
+        || name == "string_nul"
         || name == "byte_decode_http2_frame"
         || name.starts_with("http2_protocol_")
         || name.starts_with("http2_peer_limit_")

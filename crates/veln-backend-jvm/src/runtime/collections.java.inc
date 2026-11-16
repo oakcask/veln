@@ -9797,6 +9797,14 @@
         return some(freezeMap(parts));
     }
 
+    public static Object stringContainsNul(Object text) {
+        return Boolean.valueOf(asString(text).indexOf('\0') >= 0);
+    }
+
+    public static Object stringNul() {
+        return "\0";
+    }
+
     public static Object stringParseInt(Object text) {
         String input = asString(text);
         try {

@@ -1,0 +1,137 @@
+use path as portable
+
+type ValidCase
+	ValidCase(input: String, expected_components: List<String>)
+end
+
+type InvalidCase
+	InvalidCase(input: String, expected: String)
+end
+
+fn expect(condition: Bool, message: String) -> Result<(), String>
+	if condition
+		Ok(())
+	else
+		Err(message)
+	end
+end
+
+fn expect_components(actual: List<String>, expected: List<String>) -> Result<(), String>
+	match actual
+		Nil => match expected
+			Nil => Ok(())
+			_ => Err("path components ended early")
+		end
+		Cons(actual_head, actual_tail) => match expected
+			Cons(expected_head, expected_tail) => if actual_head == expected_head
+				expect_components(actual_tail, expected_tail)
+			else
+				Err("path component spelling changed")
+			end
+			Nil => Err("path components contained an extra value")
+		end
+	end
+end
+
+fn expect_valid_cases(cases: List<ValidCase>) -> Result<(), String>
+	match cases
+		Nil => Ok(())
+		Cons(ValidCase(input, expected_components), rest) => match portable::parse(input)
+			Err(_) => Err("valid portable path was rejected")
+			Ok(value) => expect_valid_value(value, input, expected_components, rest)
+		end
+	end
+end
+
+fn expect_valid_value(value: portable::Path, input: String, expected_components: List<String>, rest: List<ValidCase>) -> Result<(), String>
+	if portable::text(value) == input
+		begin
+			let _ = expect_components(portable::components(value), expected_components)?
+			expect_valid_cases(rest)
+		end
+	else
+		Err("portable path spelling changed")
+	end
+end
+
+fn invalid_name(error: portable::InvalidPath) -> String
+	match error
+		portable::Empty => "Empty"
+		portable::Nul => "Nul"
+		portable::LeadingSeparator => "LeadingSeparator"
+		portable::TrailingSeparator => "TrailingSeparator"
+		portable::EmptyComponent => "EmptyComponent"
+		portable::CurrentComponent => "CurrentComponent"
+		portable::ParentComponent => "ParentComponent"
+	end
+end
+
+fn expect_invalid_cases(cases: List<InvalidCase>) -> Result<(), String>
+	match cases
+		Nil => Ok(())
+		Cons(InvalidCase(input, expected), rest) => match portable::parse(input)
+			Ok(_) => Err("invalid portable path was accepted")
+			Err(error) => if invalid_name(error) == expected
+				expect_invalid_cases(rest)
+			else
+				Err("portable path validation precedence changed")
+			end
+		end
+	end
+end
+
+test parse_preserves_valid_spelling_and_components() -> Result<(), String>
+	let cases = Cons(ValidCase(".", Nil), Cons(ValidCase("leaf", Cons("leaf", Nil)), Cons(ValidCase("a/b/c", Cons("a", Cons("b", Cons("c", Nil)))), Cons(ValidCase("日本語/λ", Cons("日本語", Cons("λ", Nil))), Cons(ValidCase("a\\b", Cons("a\\b", Nil)), Cons(ValidCase("drive:name", Cons("drive:name", Nil)), Nil))))))
+	expect_valid_cases(cases)
+end
+
+test parse_rejects_invalid_spelling_in_documented_order() -> Result<(), String>
+	let nul = prelude_builtin::string_nul()
+	let cases = Cons(InvalidCase("", "Empty"), Cons(InvalidCase(nul, "Nul"), Cons(InvalidCase(string::concat(nul, "/"), "Nul"), Cons(InvalidCase("/", "LeadingSeparator"), Cons(InvalidCase("/a/", "LeadingSeparator"), Cons(InvalidCase("a/", "TrailingSeparator"), Cons(InvalidCase("a//", "TrailingSeparator"), Cons(InvalidCase("a//b", "EmptyComponent"), Cons(InvalidCase("a/../.", "CurrentComponent"), Cons(InvalidCase("a/./..", "CurrentComponent"), Cons(InvalidCase("a/..", "ParentComponent"), Nil)))))))))))
+	expect_invalid_cases(cases)
+end
+
+test composition_observes_root_and_component_boundaries() -> Result<(), String>
+	let root_value = portable::root()
+	let a = valid("a")?
+	let ab = valid("a/b")?
+	let bc = valid("b/c")?
+	let _ = expect(portable::text(root_value) == "." and portable::equal(root_value, valid(".")?), "root identity changed")?
+	let _ = expect(portable::equal(portable::join(root_value, ab), ab) and portable::equal(portable::join(ab, root_value), ab), "root join changed a value")?
+	let _ = expect(portable::text(portable::join(a, bc)) == "a/b/c", "join spelling changed")?
+	let _ = match portable::parent(root_value)
+		None => Ok(())
+		_ => Err("root gained a parent")
+	end?
+	let _ = match portable::parent(a)
+		Some(value) => expect(portable::equal(value, root_value), "one-component parent was not root")
+		_ => Err("one-component parent was absent")
+	end?
+	let _ = match portable::parent(ab)
+		Some(value) => expect(portable::text(value) == "a", "multi-component parent changed")
+		_ => Err("multi-component parent was absent")
+	end?
+	let _ = match portable::name(root_value)
+		None => Ok(())
+		_ => Err("root gained a name")
+	end?
+	match portable::name(ab)
+		Some(value) => expect(value == "b", "path name changed")
+		_ => Err("path name was absent")
+	end
+end
+
+test equality_is_exact_and_operations_are_pure_values() -> Result<(), String>
+	let composed = valid("café")?
+	let decomposed = valid("café")?
+	let left = valid("same/spelling")?
+	let right = valid("same/spelling")?
+	expect(portable::equal(left, right) and not portable::equal(composed, decomposed), "path equality normalized or changed spelling")
+end
+
+fn valid(input: String) -> Result<portable::Path, String>
+	match portable::parse(input)
+		Ok(value) => Ok(value)
+		Err(_) => Err("expected valid portable path")
+	end
+end

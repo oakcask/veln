@@ -5,7 +5,7 @@ fn path(module: &str, name: &str) -> Vec<String> {
 }
 
 fn path_type() -> Type {
-    Type::named("Path", Vec::new())
+    Type::path()
 }
 
 fn cancel_owner_type() -> Type {
@@ -140,7 +140,7 @@ fn standard_type_lowering_preserves_named_types_inside_containers() {
     assert_eq!(
         standard_type(&nested),
         Some(adt::result_type(
-            Type::vec(Type::named("Path", Vec::new())),
+            Type::vec(Type::path()),
             Type::named("ProcessError", Vec::new()),
         ))
     );

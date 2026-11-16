@@ -144,14 +144,11 @@ fn assignability_allows_unknowns_record_width_and_function_shapes() {
     assert!(is_assignable(&Type::string(), &Type::Unknown));
     assert!(is_assignable(&expected_record, &actual_record));
     assert!(!is_assignable(&expected_record, &wrong_record));
-    assert!(!is_assignable(
-        &Type::named("Path", Vec::new()),
-        &Type::string()
-    ));
-    assert!(!is_assignable(
-        &Type::string(),
-        &Type::named("Path", Vec::new())
-    ));
+    assert!(!is_assignable(&Type::path(), &Type::string()));
+    assert!(!is_assignable(&Type::string(), &Type::path()));
+    let source_path = Type::resolved_named("Path", "std::path::Path", Vec::new());
+    assert!(!is_assignable(&Type::path(), &source_path));
+    assert!(!is_assignable(&source_path, &Type::path()));
     assert!(is_assignable(
         &expected_effectful_function,
         &actual_pure_function

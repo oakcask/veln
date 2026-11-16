@@ -250,6 +250,8 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "stream_adapter_drain_actions_until_cancellable",
             "streamAdapterDrainActionsUntilCancellable",
         ),
+        ("string_contains_nul", "stringContainsNul"),
+        ("string_nul", "stringNul"),
         ("string_split_once", "stringSplitOnce"),
         ("string_parse_int", "stringParseInt"),
         ("int_to_string", "intToString"),

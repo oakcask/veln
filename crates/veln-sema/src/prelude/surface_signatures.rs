@@ -105,6 +105,8 @@ fn prelude_float_signature(name: &str) -> Option<(Vec<Type>, Type)> {
 
 fn prelude_string_signature(name: &str) -> Option<(Vec<Type>, Type)> {
     match name {
+        "string_contains_nul" => Some((vec![Type::string()], Type::bool())),
+        "string_nul" => Some((vec![], Type::string())),
         "string_split_once" => Some((
             vec![Type::string(), Type::string()],
             adt::option_type(Type::Record(vec![
