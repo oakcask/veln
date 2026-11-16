@@ -87,7 +87,7 @@ end
 
 test parse_rejects_invalid_spelling_in_documented_order() -> Result<(), String>
 	let nul = prelude_builtin::string_nul()
-	let cases = Cons(InvalidCase("", "Empty"), Cons(InvalidCase(nul, "Nul"), Cons(InvalidCase(string::concat(nul, "/"), "Nul"), Cons(InvalidCase("/", "LeadingSeparator"), Cons(InvalidCase("/a/", "LeadingSeparator"), Cons(InvalidCase("a/", "TrailingSeparator"), Cons(InvalidCase("a//", "TrailingSeparator"), Cons(InvalidCase("a//b", "EmptyComponent"), Cons(InvalidCase("a/../.", "CurrentComponent"), Cons(InvalidCase("a/./..", "CurrentComponent"), Cons(InvalidCase("a/..", "ParentComponent"), Nil)))))))))))
+	let cases = Cons(InvalidCase("", "Empty"), Cons(InvalidCase(nul, "Nul"), Cons(InvalidCase(string::concat(nul, "/"), "Nul"), Cons(InvalidCase(string::concat("/", nul), "Nul"), Cons(InvalidCase("/", "LeadingSeparator"), Cons(InvalidCase("/a/", "LeadingSeparator"), Cons(InvalidCase("a/", "TrailingSeparator"), Cons(InvalidCase("a//", "TrailingSeparator"), Cons(InvalidCase("a//b", "EmptyComponent"), Cons(InvalidCase("a//.", "EmptyComponent"), Cons(InvalidCase("a//..", "EmptyComponent"), Cons(InvalidCase("a/../.", "CurrentComponent"), Cons(InvalidCase("a/./..", "CurrentComponent"), Cons(InvalidCase("a/..", "ParentComponent"), Nil))))))))))))))
 	expect_invalid_cases(cases)
 end
 
@@ -124,9 +124,12 @@ end
 test equality_is_exact_and_operations_are_pure_values() -> Result<(), String>
 	let composed = valid("café")?
 	let decomposed = valid("café")?
+	let upper = valid("A")?
+	let lower = valid("a")?
 	let left = valid("same/spelling")?
 	let right = valid("same/spelling")?
-	expect(portable::equal(left, right) and not portable::equal(composed, decomposed), "path equality normalized or changed spelling")
+	let _ = expect(portable::text(upper) == "A", "path spelling changed ASCII case")?
+	expect(portable::equal(left, right) and not portable::equal(composed, decomposed) and not portable::equal(upper, lower), "path equality normalized or folded case")
 end
 
 test deep_component_traversal_remains_stack_safe() -> Result<(), String>

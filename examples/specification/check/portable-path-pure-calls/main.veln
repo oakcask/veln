@@ -1,7 +1,8 @@
 use path as portable from "std"
 
-# Compiler integration contract: every exported portable-path operation remains
-# callable from a public function without adding an effect declaration.
+# Compiler integration contract: every exported portable-path operation and
+# error alternative remains callable from a public function without adding an
+# effect declaration.
 pub fn inspect(input: String) -> Result<Option<String>, portable::InvalidPath>
 	let value = portable::parse(input)?
 	let combined = portable::join(portable::root(), value)
@@ -10,4 +11,16 @@ pub fn inspect(input: String) -> Result<Option<String>, portable::InvalidPath>
 	let _ = portable::components(combined)
 	let _ = portable::parent(combined)
 	Ok(portable::name(combined))
+end
+
+pub fn invalid_name(error: portable::InvalidPath) -> String
+	match error
+		portable::Empty => "Empty"
+		portable::Nul => "Nul"
+		portable::LeadingSeparator => "LeadingSeparator"
+		portable::TrailingSeparator => "TrailingSeparator"
+		portable::EmptyComponent => "EmptyComponent"
+		portable::CurrentComponent => "CurrentComponent"
+		portable::ParentComponent => "ParentComponent"
+	end
 end
