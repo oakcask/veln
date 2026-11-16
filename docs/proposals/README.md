@@ -14,6 +14,12 @@ also states it.
 
 - Current behavior: [Language Specification](../specification/README.md).
 
+## Ready
+
+- Navigation for public workspace handlers through an unambiguous workspace
+  import, including shared LSP and MCP definition and reference results:
+  [imported-workspace-handler-navigation.md](imported-workspace-handler-navigation.md).
+
 ## Design In Progress
 
 - Lightweight task execution using JVM virtual threads; Java requirements,
@@ -30,7 +36,8 @@ also states it.
 
 - The [agent-language-services umbrella](agent-language-services.md) remains a
   planning inventory only for the unimplemented transitive-dependency,
-  remaining symbol, conformance-gate, and plugin work. Do not select the
+  remaining symbol, conformance-gate, and plugin work. The independently
+  selectable imported-handler slice is listed under Ready; do not select the
   umbrella directly.
 
 ## Scope Decisions
