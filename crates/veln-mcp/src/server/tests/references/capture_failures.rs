@@ -7,37 +7,13 @@ use veln_project::PackageSnapshotSource;
 #[test]
 fn module_value_reference_capture_failure_preserves_resources_selection_and_live_cursor() {
     let workspace = TempWorkspace::new("references-module-value-capture-retry");
-    workspace.write("veln.toml", "");
-    workspace.write(
-        "main.veln",
-        "pub let answer: Int = 42\nlet first: Int = answer\nlet second: Int = answer\n",
-    );
+    write_module_value_reference_capture_project(&workspace, 42);
     let mut server = initialized_server(&workspace);
-    let seeded = server.references_tool(&json!({
-        "source":"main.veln", "line":2, "column":18,
-        "include_declaration":true, "page_size":1
-    }));
-    let live_cursor = seeded["structuredContent"]["next_cursor"]
-        .as_str()
-        .unwrap()
-        .to_owned();
+    let live_cursor = module_value_reference_cursor(&mut server);
     let before_resources = all_resource_state(&mut server);
     let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0usize));
-    let attempts_for_hook = attempts.clone();
-    let root = workspace.root.clone();
-    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
-        let attempt = attempts_for_hook.get();
-        attempts_for_hook.set(attempt + 1);
-        let initializer = if attempt.is_multiple_of(2) { 42 } else { 43 };
-        fs::write(
-            root.join("main.veln"),
-            format!(
-                "pub let answer: Int = {initializer}\nlet first: Int = answer\nlet second: Int = answer\n"
-            ),
-        )
-        .unwrap();
-    });
+    let _hook = install_changing_module_value_hook(&workspace, &attempts);
 
     let failed = server.references_tool(&json!({
         "source":"main.veln", "line":2, "column":18,
@@ -48,7 +24,51 @@ fn module_value_reference_capture_failure_preserves_resources_selection_and_live
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
-    let continuation = server.references_tool(&json!({"cursor":live_cursor}));
+    assert_module_value_reference_cursor(&mut server, &live_cursor);
+}
+
+fn write_module_value_reference_capture_project(workspace: &TempWorkspace, initializer: u8) {
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        &format!(
+            "pub let answer: Int = {initializer}\nlet first: Int = answer\nlet second: Int = answer\n"
+        ),
+    );
+}
+
+fn module_value_reference_cursor(server: &mut Server) -> String {
+    server.references_tool(&json!({
+        "source":"main.veln", "line":2, "column":18,
+        "include_declaration":true, "page_size":1
+    }))["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+fn install_changing_module_value_hook(
+    workspace: &TempWorkspace,
+    attempts: &Rc<Cell<usize>>,
+) -> impl Drop {
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let initializer = if attempt.is_multiple_of(2) { 42 } else { 43 };
+        fs::write(
+            root.join("main.veln"),
+            format!(
+                "pub let answer: Int = {initializer}\nlet first: Int = answer\nlet second: Int = answer\n"
+            ),
+        )
+        .unwrap();
+    })
+}
+
+fn assert_module_value_reference_cursor(server: &mut Server, cursor: &str) {
+    let continuation = server.references_tool(&json!({"cursor":cursor}));
     assert_eq!(continuation["isError"], false, "{continuation:#}");
     assert_eq!(
         continuation["structuredContent"]["references"][0]["range"],
