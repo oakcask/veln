@@ -183,6 +183,38 @@ fn captured_direct_local_dependencies_feed_successful_analysis() {
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
+#[test]
+fn repeated_navigation_transition_analyzes_an_unchanged_capture_once() {
+    let captured = captured_project(vec![("main.veln", clean_source())], Some(""));
+    let scope = DependencyAnalysisScope::Project(".".to_string());
+    let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
+    reset_project_analyses();
+
+    transition_navigation_analysis(&captured, scope.clone(), &mut resources).unwrap();
+    transition_navigation_analysis(&captured, scope, &mut resources).unwrap();
+
+    assert_eq!(project_analyses(), 1);
+}
+
+#[test]
+fn navigation_transition_reanalyzes_a_changed_capture_or_scope() {
+    let original = captured_project(vec![("main.veln", clean_source())], Some(""));
+    let changed = captured_project(
+        vec![("main.veln", "fn main() -> Int\n  2\nend\n")],
+        Some(""),
+    );
+    let first_scope = DependencyAnalysisScope::Project("first".to_string());
+    let second_scope = DependencyAnalysisScope::Project("second".to_string());
+    let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
+    reset_project_analyses();
+
+    transition_navigation_analysis(&original, first_scope.clone(), &mut resources).unwrap();
+    transition_navigation_analysis(&changed, first_scope, &mut resources).unwrap();
+    transition_navigation_analysis(&changed, second_scope, &mut resources).unwrap();
+
+    assert_eq!(project_analyses(), 3);
+}
+
 fn captured_project(files: Vec<(&str, &str)>, manifest: Option<&str>) -> CapturedProject {
     captured_project_with_dependencies(files, manifest, Vec::new())
 }
@@ -217,10 +249,12 @@ fn captured_project_with_dependencies(
         manifest: manifest.map(|text| parse_manifest_text("veln.toml", text)),
     };
     let key = synthetic_snapshot_key(&project, &dependencies);
+    let analysis_key = AnalysisCaptureKey::from_snapshot_key(&key);
     CapturedProject {
         project,
         dependencies,
         key,
+        analysis_key,
     }
 }
 

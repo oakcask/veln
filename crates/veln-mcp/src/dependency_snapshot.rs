@@ -2,6 +2,16 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use veln_analysis::CapturedDependencyProject;
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(crate) struct AnalysisCaptureKey([u8; 32]);
+
+impl AnalysisCaptureKey {
+    pub(crate) fn from_snapshot_key(key: &Value) -> Self {
+        let encoded = serde_json::to_vec(key).expect("stable capture key serializes");
+        Self(Sha256::digest(encoded).into())
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) struct DependencyRevisionKey([u8; 32]);
 
