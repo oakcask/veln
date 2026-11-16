@@ -452,67 +452,123 @@ fn install_changing_workspace_effect_hook(
 #[test]
 fn workspace_handler_reference_capture_failure_preserves_state_and_later_results() {
     let workspace = TempWorkspace::new("references-workspace-handler-capture-retry");
-    workspace.write("veln.toml", "");
-    workspace.write(
-        "main.veln",
-        concat!(
-            "handler run() for Work\n  go() => 1\nend\n\n",
-            "fn first() -> Int\n  handle 1 with run()\nend\n\n",
-            "fn second() -> Int\n  handle 2 with run()\nend\n",
-        ),
-    );
+    write_workspace_handler_capture_project(&workspace);
     let mut server = initialized_server(&workspace);
     let before = server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":9
+        "source":"main.veln", "line":8, "column":21
     }));
     assert_eq!(
         before["structuredContent"]["references"]
             .as_array()
             .unwrap()
             .len(),
-        2
+        3
     );
-    let live_cursor = live_reference_cursor(&mut server, "main.veln", 1, 9);
+    let first_page = server.references_tool(&json!({
+        "source":"main.veln", "line":8, "column":21, "page_size":1
+    }));
+    assert_eq!(
+        first_page["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("handler.veln")),
+            "range": {
+                "start": {"line": 8, "column": 17},
+                "end": {"line": 8, "column": 20}
+            }
+        }])
+    );
+    let live_cursor = first_page["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     let before_resources = all_resource_state(&mut server);
     let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0usize));
-    let attempts_for_hook = attempts.clone();
-    let root = workspace.root.clone();
-    let hook = crate::check_project::set_after_first_stable_capture_hook(move || {
-        let attempt = attempts_for_hook.get();
-        attempts_for_hook.set(attempt + 1);
-        let main = root.join("main.veln");
-        fs::remove_file(&main).unwrap();
-        let value = if attempt.is_multiple_of(2) { 1 } else { 2 };
-        fs::write(
-            &main,
-            format!(
-                "handler run() for Work\n  go() => {value}\nend\n\nfn first() -> Int\n  handle 1 with run()\nend\n\nfn second() -> Int\n  handle 2 with run()\nend\n"
-            ),
-        )
-        .unwrap();
-    });
+    let hook = install_changing_workspace_handler_hook(&workspace, &attempts);
 
     let failed = server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":9
+        "source":"main.veln", "line":8, "column":21
     }));
     assert_snapshot_changed_without_references_or_scope(&failed);
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
-    assert_live_reference_cursor(&mut server, &live_cursor);
+    let continuation = server.references_tool(&json!({"cursor": live_cursor}));
+    assert_eq!(continuation["isError"], false);
+    assert_eq!(
+        continuation["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {
+                "start": {"line": 4, "column": 30},
+                "end": {"line": 4, "column": 33}
+            }
+        }])
+    );
 
     drop(hook);
     let after = server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":9
+        "source":"main.veln", "line":8, "column":21
     }));
     assert_eq!(
         after["structuredContent"]["references"]
             .as_array()
             .unwrap()
             .len(),
-        2
+        3
     );
+    assert_eq!(
+        after["structuredContent"]["references"][1],
+        json!({
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {
+                "start": {"line": 4, "column": 33},
+                "end": {"line": 4, "column": 36}
+            }
+        })
+    );
+}
+
+fn write_workspace_handler_capture_project(workspace: &TempWorkspace) {
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "handler.veln",
+        concat!(
+            "mod library::fx\n\n",
+            "pub handler run() for Work\n  go() => 1\nend\n\n",
+            "fn local() -> Int\n  handle 0 with run()\nend\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use library::fx\n\n",
+            "fn first() -> Int\n  handle 1 with library::fx::run()\nend\n\n",
+            "fn second() -> Int\n  handle 2 with fx::run()\nend\n",
+        ),
+    );
+}
+
+fn install_changing_workspace_handler_hook(
+    workspace: &TempWorkspace,
+    attempts: &Rc<Cell<usize>>,
+) -> impl Drop {
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let main = root.join("main.veln");
+        fs::remove_file(&main).unwrap();
+        let indentation = " ".repeat(attempt + 3);
+        fs::write(
+            &main,
+            format!(
+                "use library::fx\n\nfn first() -> Int\n{indentation}handle 1 with library::fx::run()\nend\n\nfn second() -> Int\n  handle 2 with fx::run()\nend\n"
+            ),
+        )
+        .unwrap();
+    })
 }
 
 fn live_reference_cursor(server: &mut Server, source: &str, line: u64, column: u64) -> String {

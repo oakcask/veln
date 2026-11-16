@@ -1,0 +1,9 @@
+mod library::fx
+
+pub handler run() for Work
+  go() => 1
+end
+
+fn local() -> Int
+  handle 0 with run()
+end

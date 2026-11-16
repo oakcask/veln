@@ -452,7 +452,7 @@ impl Symbol {
         match self {
             Self::Effect(symbol) => index.effect_references_supported(symbol),
             Self::EffectOperation(symbol) => index.effect_operation_references_supported(symbol),
-            Self::Handler(symbol) => index.handler_references_supported(symbol),
+            Self::Handler(symbol) => index.workspace_handler_is_eligible(symbol),
             Self::SchemaAlias(symbol) if symbol.package.is_none() => {
                 index.workspace_schema_alias_is_eligible(
                     &symbol.module,
@@ -467,6 +467,7 @@ impl Symbol {
     fn definition_supported(&self, index: &SymbolIndex) -> bool {
         match self {
             Self::SchemaAlias(_) => false,
+            Self::Handler(symbol) => index.workspace_handler_is_eligible(symbol),
             Self::TypeAlias(symbol) if symbol.package.is_some() => {
                 index.type_alias_definition_supported(symbol)
             }
@@ -1232,6 +1233,7 @@ pub(crate) struct SymbolIndex {
     package_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     variant_refinement_alias_index: OnceLock<VariantRefinementAliasIndex>,
     eligible_workspace_effect_indices: BTreeMap<(String, String), usize>,
+    eligible_workspace_handler_indices: BTreeMap<(String, String), usize>,
     eligible_workspace_effect_operation_indices: BTreeMap<(String, String, String), usize>,
     schema_composition_references: Vec<SchemaCompositionReference>,
     schema_alias_module_imports: BTreeMap<String, SchemaAliasModuleImports>,

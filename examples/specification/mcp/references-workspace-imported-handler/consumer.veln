@@ -1,0 +1,11 @@
+mod consumer
+
+use library::fx
+
+fn full() -> Int
+  handle 1 with library::fx::run()
+end
+
+fn alias() -> Int
+  handle 2 with fx::run()
+end

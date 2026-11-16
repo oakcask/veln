@@ -3,3 +3,7 @@ use main
 fn second() -> Int
   main::helper(3)
 end
+
+fn imported_handler() -> Int
+  handle 2 with main::run()
+end

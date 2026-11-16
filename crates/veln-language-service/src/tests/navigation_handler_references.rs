@@ -145,46 +145,11 @@ mod navigation_handler_references_tests {
 
     #[test]
     fn workspace_handler_references_reject_duplicate_and_recovered_declarations() {
-        let duplicate = vec![
-            source(
-                "first.veln",
-                "mod shared\n\nhandler run() for Work\n  go() => 1\nend\n",
-            ),
-            source(
-                "second.veln",
-                concat!(
-                    "mod shared\n\n",
-                    "handler run() for Work\n  go() => 2\nend\n\n",
-                    "handler keep() for Work\n  go() => 3\nend\n\n",
-                    "fn use() -> Int\n  handle 1 with run()\nend\n\n",
-                    "fn valid() -> Int\n  handle 2 with keep()\nend\n",
-                ),
-            ),
-        ];
-        let declaration = query(duplicate.clone(), "first.veln", 3, 9).unwrap();
-        assert!(!declaration.reference_eligible);
-        assert!(declaration.references.is_empty());
-        assert!(query(duplicate.clone(), "second.veln", 12, 17).is_none());
-        let valid = query(duplicate, "second.veln", 16, 17).unwrap();
-        assert!(valid.reference_eligible);
-        assert_eq!(locations(&valid.references), [("second.veln", 16, 17)]);
-
-        let recovered = vec![source(
-            "main.veln",
-            concat!(
-                "handler run() for Work @\n  go() => 1\nend\n\n",
-                "handler keep() for Work\n  go() => 2\nend\n\n",
-                "fn use() -> Int\n  handle 1 with run()\nend\n\n",
-                "fn valid() -> Int\n  handle 2 with keep()\nend\n",
-            ),
-        )];
-        let recovered_declaration = query(recovered.clone(), "main.veln", 1, 9).unwrap();
-        assert!(!recovered_declaration.reference_eligible);
-        assert!(recovered_declaration.references.is_empty());
-        assert!(query(recovered.clone(), "main.veln", 10, 17).is_none());
-        let valid = query(recovered, "main.veln", 14, 17).unwrap();
-        assert_eq!(locations(&valid.references), [("main.veln", 14, 17)]);
+        assert_duplicate_handler_declarations_are_rejected();
+        assert_recovered_handler_declarations_are_rejected();
     }
+
+    include!("navigation_handler_declaration_rejection_helpers.rs");
 
     #[test]
     fn workspace_handler_references_reject_declaration_with_non_handler_diagnostic_context() {
@@ -232,26 +197,217 @@ mod navigation_handler_references_tests {
     }
 
     #[test]
-    fn workspace_handler_references_reject_resolved_imported_workspace_paths() {
+    fn workspace_handler_references_share_imported_full_and_leaf_alias_paths() {
         let sources = vec![
             source(
-                "main.veln",
+                "handler.veln",
                 concat!(
-                    "use other\n\n",
-                    "handler stable() for Work\n  go() => 1\nend\n\n",
-                    "fn imported() -> Int\n  handle 1 with other::run()\nend\n\n",
-                    "fn valid() -> Int\n  handle 2 with stable()\nend\n",
+                    "mod library::fx\n\n",
+                    "pub handler run() for Work\n  go() => 1\nend\n\n",
+                    "fn local() -> Int\n  handle 0 with run()\nend\n",
                 ),
             ),
             source(
-                "other.veln",
-                "pub handler run() for Work\n  go() => 2\nend\n",
+                "consumer.veln",
+                concat!(
+                    "mod consumer\n\n",
+                    "use library::fx\n\n",
+                    "fn full() -> Int\n  handle 1 with library::fx::run()\nend\n\n",
+                    "fn alias() -> Int\n  handle 2 with fx::run()\nend\n",
+                ),
             ),
         ];
 
-        assert!(query(sources.clone(), "main.veln", 8, 23).is_none());
-        let valid = query(sources, "main.veln", 12, 17).unwrap();
-        assert_eq!(locations(&valid.references), [("main.veln", 12, 17)]);
+        let expected = [
+            ("consumer.veln", 6, 30),
+            ("consumer.veln", 10, 21),
+            ("handler.veln", 8, 17),
+        ];
+        for (path, line, column) in [
+            ("handler.veln", 3, 13),
+            ("handler.veln", 8, 17),
+            ("consumer.veln", 6, 30),
+            ("consumer.veln", 10, 21),
+        ] {
+            let result = query(sources.clone(), path, line, column).unwrap();
+            assert_location(&result.definition, "handler.veln", 3, 13);
+            assert_eq!(locations(&result.references), expected, "{path}:{line}:{column}");
+            assert!(result.references.iter().all(|span| {
+                span.start.line == span.end.line && span.end.column - span.start.column == 3
+            }));
+        }
+    }
+
+    #[test]
+    fn workspace_handler_import_resolution_does_not_invent_leaf_for_explicit_alias() {
+        let sources = vec![
+            source(
+                "handler.veln",
+                concat!(
+                    "mod library::fx\n\n",
+                    "pub handler run() for Work\n  go() => 1\nend\n",
+                ),
+            ),
+            source(
+                "consumer.veln",
+                concat!(
+                    "mod consumer\n\n",
+                    "use library::fx as other\n\n",
+                    "fn full() -> Int\n  handle 1 with library::fx::run()\nend\n\n",
+                    "fn nonexistent_leaf() -> Int\n  handle 2 with fx::run()\nend\n",
+                ),
+            ),
+        ];
+        let snapshot = EffectiveProjectSnapshot::new(sources);
+
+        let full = query_snapshot(&snapshot, "consumer.veln", 6, 30).unwrap();
+        assert_location(&full.definition, "handler.veln", 3, 13);
+        assert_eq!(locations(&full.references), [("consumer.veln", 6, 30)]);
+        assert_eq!(
+            definition_at(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("consumer.veln"),
+                    line: 10,
+                    column: 21,
+                },
+            ),
+            None,
+        );
+        assert!(
+            navigate(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("consumer.veln"),
+                    line: 10,
+                    column: 21,
+                },
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn workspace_handler_import_resolution_obeys_import_identity() {
+        let precedence = vec![
+            source(
+                "fx.veln",
+                "pub handler run() for Work\n  go() => 1\nend\n",
+            ),
+            source(
+                "library/fx.veln",
+                "pub handler run() for Work\n  go() => 2\nend\n",
+            ),
+            source(
+                "consumer.veln",
+                concat!(
+                    "use library::fx\n",
+                    "use fx\n\n",
+                    "fn exact() -> Int\n  handle 1 with fx::run()\nend\n\n",
+                    "fn full() -> Int\n  handle 2 with library::fx::run()\nend\n",
+                ),
+            ),
+        ];
+        let exact = query(precedence.clone(), "consumer.veln", 5, 21).unwrap();
+        assert_location(&exact.definition, "fx.veln", 1, 13);
+        let full = query(precedence, "consumer.veln", 9, 30).unwrap();
+        assert_location(&full.definition, "library/fx.veln", 1, 13);
+
+        for (label, imports) in [
+            (
+                "ambiguous implicit leaf",
+                "use first::fx\nuse second::fx\n",
+            ),
+            (
+                "duplicate import",
+                "use first::fx\nuse first::fx\n",
+            ),
+            ("recovered import", "use first::fx unexpected\n"),
+        ] {
+            let sources = vec![
+                source(
+                    "first/fx.veln",
+                    "pub handler run() for Work\n  go() => 1\nend\n",
+                ),
+                source(
+                    "second/fx.veln",
+                    "pub handler run() for Work\n  go() => 2\nend\n",
+                ),
+                source(
+                    "stable.veln",
+                    "pub handler keep() for Work\n  go() => 3\nend\n",
+                ),
+                source(
+                    "consumer.veln",
+                    &format!(
+                        "use stable\n{imports}\nfn invalid() -> Int\n  handle 1 with fx::run()\nend\n\nfn valid() -> Int\n  handle 2 with stable::keep()\nend\n"
+                    ),
+                ),
+            ];
+            let import_lines = imports.lines().count();
+            assert!(
+                query(sources.clone(), "consumer.veln", import_lines + 4, 21).is_none(),
+                "{label}"
+            );
+            let valid = query(sources, "consumer.veln", import_lines + 8, 25).unwrap();
+            assert_location(&valid.definition, "stable.veln", 1, 13);
+        }
+    }
+
+    #[test]
+    fn workspace_handler_import_resolution_rejects_ineligible_paths_without_contamination() {
+        let sources = vec![
+            source(
+                "target.veln",
+                concat!(
+                    "mod exact::fx\n\n",
+                    "pub handler run() for Work\n  go() => 1\nend\n\n",
+                    "handler hidden() for Work\n  go() => 2\nend\n\n",
+                    "pub fn work() -> Int\n  4\nend\n",
+                ),
+            ),
+            source(
+                "collision.veln",
+                "mod other::fx\n\npub handler run() for Work\n  go() => 3\nend\n",
+            ),
+            source(
+                "consumer.veln",
+                concat!(
+                    "mod consumer\n\n",
+                    "use exact::fx\n",
+                    "use other::fx\n\n",
+                    "fn valid_exact() -> Int\n  handle 1 with exact::fx::run()\nend\n\n",
+                    "fn ambiguous() -> Int\n  handle 2 with fx::run()\nend\n\n",
+                    "fn private() -> Int\n  handle 3 with exact::fx::hidden()\nend\n\n",
+                    "fn unresolved() -> Int\n  handle 4 with missing::run()\nend\n\n",
+                    "fn wrong_kind() -> Int\n  handle 5 with exact::fx::work()\nend\n",
+                ),
+            ),
+        ];
+
+        let exact = query(sources.clone(), "consumer.veln", 7, 28).unwrap();
+        assert_location(&exact.definition, "target.veln", 3, 13);
+        assert_eq!(locations(&exact.references), [("consumer.veln", 7, 28)]);
+        for (line, column) in [(10, 21), (13, 28), (16, 26)] {
+            assert!(query(sources.clone(), "consumer.veln", line, column).is_none());
+        }
+        let snapshot = EffectiveProjectSnapshot::new(sources.clone());
+        let wrong_kind_target = query_snapshot(&snapshot, "target.veln", 11, 8).unwrap();
+        assert_eq!(wrong_kind_target.selected_symbol.kind, SymbolKind::Function);
+        let wrong_kind_position = || SourcePosition {
+            source: SourcePath::new("consumer.veln"),
+            line: 19,
+            column: 28,
+        };
+        assert_eq!(definition_at(&snapshot, wrong_kind_position()), None);
+        assert!(
+            navigate(&snapshot, wrong_kind_position())
+                .is_none_or(|result| result.references.is_empty())
+        );
+
+        let retained = query_snapshot(&snapshot, "consumer.veln", 7, 28).unwrap();
+        assert_location(&retained.definition, "target.veln", 3, 13);
+        assert_eq!(locations(&retained.references), [("consumer.veln", 7, 28)]);
     }
 
     #[test]
@@ -302,6 +458,22 @@ mod navigation_handler_references_tests {
         let local = query_snapshot(&snapshot, "main.veln", 8, 17).unwrap();
         assert_eq!(locations(&local.references), [("main.veln", 8, 17)]);
         assert!(query_snapshot(&snapshot, "main.veln", 12, 22).is_none());
+
+        let standard = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use tasks from \"std\"\n\n",
+                "fn imported() -> Int\n  handle 2 with tasks::run()\nend\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "tasks.veln",
+                "pub handler run() for Work\n  go() => 2\nend\n",
+            )],
+            ["tasks.veln"],
+        ));
+        assert!(query_snapshot(&standard, "main.veln", 4, 24).is_none());
     }
 
     #[test]

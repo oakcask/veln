@@ -242,6 +242,7 @@ include!("navigation/source_indexing.rs");
 include!("navigation/variant_refinement_source_indexing.rs");
 include!("navigation/effect_source_indexing.rs");
 include!("navigation/handler_source_indexing.rs");
+include!("navigation/workspace_declaration_eligibility.rs");
 include!("navigation/schema_source_indexing.rs");
 include!("navigation/workspace_source_index.rs");
 include!("navigation/workspace_schema_composition.rs");

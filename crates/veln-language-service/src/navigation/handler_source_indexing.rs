@@ -192,18 +192,50 @@ fn collect_handler_reference_ranges(
     argument_delimiters: &HandlerArgumentDelimiters,
     ranges: &mut BTreeSet<(usize, usize)>,
 ) {
+    record_handler_reference_range(expr, diagnostics, tokens, argument_delimiters, ranges);
+
+    collect_nested_handler_reference_ranges(
+        expr,
+        diagnostics,
+        tokens,
+        argument_delimiters,
+        ranges,
+    );
+}
+
+fn record_handler_reference_range(
+    expr: &Expr,
+    diagnostics: &HandlerDiagnosticIndex,
+    tokens: &[Token],
+    argument_delimiters: &HandlerArgumentDelimiters,
+    ranges: &mut BTreeSet<(usize, usize)>,
+) {
     if let ExprKind::Handle {
         handler,
         handler_span,
         ..
     } = &expr.kind
-        && handler.len() == 1
+        && !handler.is_empty()
         && !diagnostics.overlaps(&expr.span)
         && argument_delimiters.complete_arguments_follow(handler_span, &expr.span, tokens)
     {
-        ranges.insert((handler_span.start.offset, handler_span.end.offset));
+        let insertion = tokens.partition_point(|token| token.range.end <= handler_span.end.offset);
+        if let Some(leaf) = insertion.checked_sub(1).and_then(|index| tokens.get(index))
+            && handler_span.start.offset <= leaf.range.start
+            && leaf.kind.is_contextual_identifier()
+        {
+            ranges.insert((leaf.range.start, leaf.range.end));
+        }
     }
+}
 
+fn collect_nested_handler_reference_ranges(
+    expr: &Expr,
+    diagnostics: &HandlerDiagnosticIndex,
+    tokens: &[Token],
+    argument_delimiters: &HandlerArgumentDelimiters,
+    ranges: &mut BTreeSet<(usize, usize)>,
+) {
     match &expr.kind {
         ExprKind::TypeApply { callee, .. }
         | ExprKind::FieldAccess { base: callee, .. }
