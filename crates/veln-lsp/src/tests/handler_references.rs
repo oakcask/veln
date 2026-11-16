@@ -149,6 +149,244 @@ fn imported_workspace_handler_navigation_preserves_utf16_and_declaration_policy(
     ));
 }
 
+struct RejectedImportedHandlerCase {
+    name: &'static str,
+    manifest: &'static str,
+    files: &'static [(&'static str, &'static str)],
+    source: &'static str,
+    line: usize,
+    character: usize,
+}
+
+#[test]
+fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_state() {
+    let cases = [
+        RejectedImportedHandlerCase {
+            name: "private",
+            manifest: "",
+            files: &[
+                (
+                    "private.veln",
+                    "mod private::fx\n\nhandler hidden() for Work\n  go() => 1\nend\n",
+                ),
+                (
+                    "case.veln",
+                    "use private::fx\n\nfn invalid() -> Int\n  handle 1 with private::fx::hidden()\nend\n",
+                ),
+            ],
+            source: "case.veln",
+            line: 3,
+            character: 29,
+        },
+        RejectedImportedHandlerCase {
+            name: "ambiguous-import",
+            manifest: "",
+            files: &[
+                ("first/fx.veln", "pub handler run() for Work\n  go() => 1\nend\n"),
+                ("second/fx.veln", "pub handler run() for Work\n  go() => 2\nend\n"),
+                (
+                    "case.veln",
+                    "use first::fx\nuse second::fx\n\nfn invalid() -> Int\n  handle 1 with fx::run()\nend\n",
+                ),
+            ],
+            source: "case.veln",
+            line: 4,
+            character: 20,
+        },
+        RejectedImportedHandlerCase {
+            name: "duplicate-import",
+            manifest: "",
+            files: &[
+                ("first/fx.veln", "pub handler run() for Work\n  go() => 1\nend\n"),
+                (
+                    "case.veln",
+                    "use first::fx\nuse first::fx\n\nfn invalid() -> Int\n  handle 1 with fx::run()\nend\n",
+                ),
+            ],
+            source: "case.veln",
+            line: 4,
+            character: 20,
+        },
+        RejectedImportedHandlerCase {
+            name: "recovered-import",
+            manifest: "",
+            files: &[
+                ("first/fx.veln", "pub handler run() for Work\n  go() => 1\nend\n"),
+                (
+                    "case.veln",
+                    "use first::fx unexpected\n\nfn invalid() -> Int\n  handle 1 with fx::run()\nend\n",
+                ),
+            ],
+            source: "case.veln",
+            line: 3,
+            character: 20,
+        },
+        RejectedImportedHandlerCase {
+            name: "duplicate-declaration",
+            manifest: "",
+            files: &[
+                ("first.veln", "mod shared\n\nhandler run() for Work\n  go() => 1\nend\n"),
+                (
+                    "case.veln",
+                    "mod shared\n\nhandler run() for Work\n  go() => 2\nend\n\nfn invalid() -> Int\n  handle 1 with run()\nend\n",
+                ),
+            ],
+            source: "case.veln",
+            line: 7,
+            character: 16,
+        },
+        RejectedImportedHandlerCase {
+            name: "recovered-declaration",
+            manifest: "",
+            files: &[(
+                "case.veln",
+                "handler run() for Work @\n  go() => 1\nend\n\nfn invalid() -> Int\n  handle 1 with run()\nend\n",
+            )],
+            source: "case.veln",
+            line: 5,
+            character: 16,
+        },
+        RejectedImportedHandlerCase {
+            name: "direct-dependency",
+            manifest: "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+            files: &[
+                ("vendor/dep/veln.toml", "[package]\nname = \"example/dep\"\n"),
+                ("vendor/dep/dep.veln", "pub handler run() for Work\n  go() => 1\nend\n"),
+                (
+                    "case.veln",
+                    "use dep from \"example/dep\"\n\nfn invalid() -> Int\n  handle 1 with dep::run()\nend\n",
+                ),
+            ],
+            source: "case.veln",
+            line: 3,
+            character: 21,
+        },
+        RejectedImportedHandlerCase {
+            name: "standard-library",
+            manifest: "",
+            files: &[(
+                "case.veln",
+                "use observe from \"std\"\n\nfn invalid() -> Int\n  handle 1 with observe::noop()\nend\n",
+            )],
+            source: "case.veln",
+            line: 3,
+            character: 24,
+        },
+        RejectedImportedHandlerCase {
+            name: "unresolved-path",
+            manifest: "",
+            files: &[(
+                "case.veln",
+                "fn invalid() -> Int\n  handle 1 with missing::run()\nend\n",
+            )],
+            source: "case.veln",
+            line: 1,
+            character: 25,
+        },
+        RejectedImportedHandlerCase {
+            name: "wrong-kind",
+            manifest: "",
+            files: &[
+                ("wrong.veln", "mod wrong\n\npub fn run() -> Int\n  1\nend\n"),
+                (
+                    "case.veln",
+                    "use wrong\n\nfn invalid() -> Int\n  handle 1 with wrong::run()\nend\n",
+                ),
+            ],
+            source: "case.veln",
+            line: 3,
+            character: 22,
+        },
+        RejectedImportedHandlerCase {
+            name: "incomplete-application",
+            manifest: "",
+            files: &[(
+                "case.veln",
+                "handler run() for Work\n  go() => 1\nend\n\nfn invalid() -> Int\n  handle 1 with run(\nend\n",
+            )],
+            source: "case.veln",
+            line: 5,
+            character: 16,
+        },
+        RejectedImportedHandlerCase {
+            name: "recovered-application",
+            manifest: "",
+            files: &[(
+                "case.veln",
+                "handler run() for Work\n  go() => 1\nend\n\nfn invalid() -> Int\n  handle 1 with run(1 2)\nend\n",
+            )],
+            source: "case.veln",
+            line: 5,
+            character: 16,
+        },
+    ];
+
+    for case in cases {
+        let project = TempProject::new(case.name);
+        project.write("veln.toml", case.manifest);
+        project.write(
+            "stable.veln",
+            "mod stable\n\npub handler keep() for Work\n  go() => 0\nend\n\nfn local() -> Int\n  handle 0 with keep()\nend\n",
+        );
+        project.write(
+            "stable_consumer.veln",
+            "use stable\n\nfn valid() -> Int\n  handle 0 with stable::keep()\nend\n",
+        );
+        for (path, source) in case.files {
+            project.write(path, source);
+        }
+
+        let root_uri = path_to_uri(&project.root);
+        let case_uri = path_to_uri(&project.root.join(case.source));
+        let stable_declaration_uri = path_to_uri(&project.root.join("stable.veln"));
+        let stable_uri = path_to_uri(&project.root.join("stable_consumer.veln"));
+        let mut server = Server::default();
+        server.handle_message(&initialize_request(&root_uri));
+        let valid_definition = definition_request(&stable_uri, 3, 24);
+        let valid_references = references_request_with_declaration(&stable_uri, 3, 24, true);
+        let definition_before = server.handle_message(&valid_definition);
+        let references_before = server.handle_message(&valid_references);
+        assert_eq!(definition_before.len(), 1, "{} valid definition", case.name);
+        assert!(
+            definition_before[0].contains(&stable_declaration_uri),
+            "{} valid definition: {}",
+            case.name,
+            definition_before[0]
+        );
+        assert_eq!(references_before.len(), 1, "{} valid references", case.name);
+        assert!(
+            references_before[0].matches("\"uri\"").count() == 3,
+            "{} valid references: {}",
+            case.name,
+            references_before[0]
+        );
+
+        assert_eq!(
+            server.handle_message(&definition_request(
+                &case_uri,
+                case.line,
+                case.character,
+            )),
+            [response("2", "null")],
+            "{} definition",
+            case.name,
+        );
+        assert_eq!(
+            server.handle_message(&references_request_with_declaration(
+                &case_uri,
+                case.line,
+                case.character,
+                true,
+            )),
+            [response("2", "[]")],
+            "{} references",
+            case.name,
+        );
+        assert_eq!(server.handle_message(&valid_definition), definition_before, "{} retained definition", case.name);
+        assert_eq!(server.handle_message(&valid_references), references_before, "{} retained references", case.name);
+    }
+}
+
 #[test]
 fn workspace_handler_references_include_a_declaration_without_occurrences() {
     let project = TempProject::new("workspace-handler-declaration-only-references");

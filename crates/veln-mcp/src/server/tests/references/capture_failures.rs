@@ -477,7 +477,18 @@ fn workspace_handler_reference_capture_failure_preserves_state_and_later_results
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
-    assert_live_reference_cursor(&mut server, &live_cursor);
+    let continuation = server.references_tool(&json!({"cursor": live_cursor}));
+    assert_eq!(continuation["isError"], false);
+    assert_eq!(
+        continuation["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {
+                "start": {"line": 4, "column": 30},
+                "end": {"line": 4, "column": 33}
+            }
+        }])
+    );
 
     drop(hook);
     let after = server.references_tool(&json!({
@@ -527,7 +538,7 @@ fn install_changing_workspace_handler_hook(
         fs::write(
             &handler,
             format!(
-                "mod library::fx\n\npub handler run() for Work\n  go() => {value}\nend\n\nfn local() -> Int\n  handle 0 with run()\nend\n"
+                "mod library::fx\n\npub handler run() for Work\n  go() => {value}\nend\n\n\nfn local() -> Int\n  handle 0 with run()\nend\n"
             ),
         )
         .unwrap();
