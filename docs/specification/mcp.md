@@ -181,13 +181,16 @@ it generates package documentation. If one operation would exceed either
 limit, the tool returns `resource_capacity`, generates no documentation, admits
 none of that operation's new source snapshots or revisions, publishes no new
 resources or search candidates, does not change the current revision selection,
-and preserves the previous public state. Capture failure, validation failure,
-tool domain failure, and invalid tool parameters admit no new dependency
-resources. A stable-capture failure or variance-analysis rejection after a
-successful dependency analysis preserves the prior package signatures, source
-resources, exact reads, search results, navigation selection, and cursors.
-Bytes and signatures seen only during the failed capture or rejected analysis
-are not published.
+and preserves the previous public state. Invalid tool parameters and failures
+that prevent a stable source capture admit no new dependency resources. Saved
+navigation tools perform the whole-analysis transition before coordinate and
+symbol-result validation. A later `invalid_position`, empty result, or rename
+domain failure therefore does not roll back dependency resources admitted by
+that transition. A stable-capture failure or variance-analysis rejection after
+a successful dependency analysis preserves the prior package signatures,
+source resources, exact reads, search results, navigation selection, and
+cursors. Bytes and signatures seen only during the failed capture or rejected
+analysis are not published.
 
 Dependency source resources use the canonical `veln-pkg:` URI from the
 admitted dependency snapshot virtual-source catalog. Their `name` is the
@@ -778,9 +781,10 @@ saved source continue to use the same server state.
 Completion and signature help admit their successful whole captured state
 before rendering a result. If dependency-resource admission exceeds capacity,
 the request returns `resource_capacity` without publishing a partial workspace,
-dependency, source, or documentation state. Other success, empty results, and
-failures preserve the published resources, workspace roots and generation,
-published diagnostics, prior results, and reference cursors. A separately
+dependency, source, or documentation state. Successful admission can add
+published dependency resources even when rendering returns an empty result or
+`invalid_position`. Those outcomes preserve workspace roots and generation,
+published diagnostics, prior tool results, and reference cursors. A separately
 requested successful workspace refresh still follows the
 [selection-state contract](#selection-state) and invalidates cursors.
 
@@ -870,11 +874,13 @@ Invalid paths return exactly empty `details`. Invalid positions return exactly
 Rename admits its successful whole captured state before computing edits. If
 dependency-resource admission exceeds capacity, it returns `resource_capacity`
 without publishing any part of the attempted workspace or dependency state.
-Other success, empty selection, and failure preserve filesystem bytes,
-workspace roots and generation, published diagnostics and resources, prior
-results, and reference cursors. Rename neither creates nor consumes a cursor. A
-later definition or references request still observes the unchanged saved
-workspace unless the client separately changes the files.
+Successful admission can add published dependency resources even when rename
+returns an empty selection, `invalid_position`, or a rename domain failure.
+Those outcomes preserve filesystem bytes, workspace roots and generation,
+published diagnostics, prior tool results, and reference cursors. Rename
+neither creates nor consumes a cursor. A later definition or references request
+observes the admitted saved workspace unless the client separately changes the
+files.
 
 An initial `references` request requires `source`, `line`, and `column`.
 It may set boolean `include_declaration` (default `false`) and `page_size`
