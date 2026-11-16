@@ -8,7 +8,7 @@ fn workspace_effect_references_preserve_utf16_crlf_and_declaration_policy() {
     );
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root_uri));
 
     let without_declaration = server.handle_message(&references_request_with_declaration(
@@ -91,7 +91,7 @@ fn imported_workspace_effect_navigation_preserves_utf16_and_declaration_policy()
     let root_uri = path_to_uri(&project.root);
     let foreign_uri = path_to_uri(&project.root.join("foreign.veln"));
     let main_uri = path_to_uri(&project.root.join("main.veln"));
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root_uri));
 
     let definition = server.handle_message(&definition_request(&main_uri, 2, 52));
@@ -292,7 +292,7 @@ fn imported_workspace_effect_navigation_rejects_visibility_and_import_recovery_b
     });
 
     let root_uri = path_to_uri(&project.root);
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root_uri));
 
     for (name, source_path, source) in cases {
@@ -329,7 +329,7 @@ fn workspace_handler_operation_clause_references_preserve_utf16_crlf_and_declara
     );
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root_uri));
 
     let without_declaration = server.handle_message(&references_request_with_declaration(
@@ -392,7 +392,7 @@ fn workspace_effect_references_include_predicate_perform_qualifiers() {
     );
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root_uri));
 
     let result = server.handle_message(&references_request_with_declaration(
@@ -447,7 +447,7 @@ fn workspace_effect_references_cover_same_module_sources_and_exclude_collisions(
     let root_uri = path_to_uri(&project.root);
     let declaration_uri = path_to_uri(&project.root.join("declaration.veln"));
     let uses_uri = path_to_uri(&project.root.join("uses.veln"));
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root_uri));
 
     let result = server.handle_message(&references_request_with_declaration(
@@ -517,7 +517,7 @@ fn workspace_effect_references_reject_imported_and_invalid_cased_effects() {
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     let invalid_uri = path_to_uri(&project.root.join("invalid.veln"));
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root_uri));
 
     for request in [
@@ -557,7 +557,7 @@ fn workspace_effect_references_reject_qualified_workspace_effects() {
     );
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root_uri));
 
     for (line, character) in [(6, 39), (7, 18), (11, 2)] {
@@ -590,7 +590,7 @@ fn workspace_effect_references_reject_unresolved_and_mismatched_occurrences() {
     );
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root_uri));
 
     for character in [40, 49] {
@@ -651,7 +651,7 @@ fn workspace_effect_references_reject_ambiguous_declarations() {
     let ambiguous_root = path_to_uri(&ambiguous.root);
     let first_uri = path_to_uri(&ambiguous.root.join("first.veln"));
     let second_uri = path_to_uri(&ambiguous.root.join("second.veln"));
-    let mut ambiguous_server = Server::default();
+    let mut ambiguous_server = server_with_empty_standard_library();
     ambiguous_server.handle_message(&initialize_request(&ambiguous_root));
     for request in [
         references_request_with_declaration(&first_uri, 2, 7, true),
@@ -721,7 +721,7 @@ fn workspace_effect_references_keep_complete_qualifiers_with_recovered_arguments
     );
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root_uri));
     let expected = format!(
         "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":10}},\"end\":{{\"line\":5,\"character\":16}}}}}}]",
@@ -766,7 +766,7 @@ fn workspace_effect_operation_reference_failures_preserve_valid_results() {
     let foreign_uri = path_to_uri(&project.root.join("foreign.veln"));
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     let missing_uri = path_to_uri(&project.root.join("missing.veln"));
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root_uri));
     let request = references_request_with_declaration(&main_uri, 3, 27, true);
     let expected = [response(
@@ -873,7 +873,7 @@ fn recovered_effect_declaration_makes_a_clean_same_module_declaration_ambiguous(
     let clean_uri = path_to_uri(&project.root.join("clean.veln"));
     let recovered_uri = path_to_uri(&project.root.join("recovered.veln"));
     let use_uri = path_to_uri(&project.root.join("use.veln"));
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root));
 
     for request in [
