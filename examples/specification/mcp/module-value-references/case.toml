@@ -89,3 +89,38 @@ equals = {"start":{"line":2,"column":19},"end":{"line":2,"column":25}}
 id = 16
 path = "/result/structuredContent/next_cursor"
 missing = true
+
+[[mcp_assert]]
+id = 17
+path = "/result/structuredContent/references/0"
+equals_response = {"id":9,"path":"/result/structuredContent/references/0"}
+
+[[mcp_assert]]
+id = 17
+path = "/result/structuredContent/references"
+length = 1
+
+[[mcp_assert]]
+id = 18
+path = "/result/structuredContent/references/0"
+equals_response = {"id":9,"path":"/result/structuredContent/references/1"}
+
+[[mcp_assert]]
+id = 18
+path = "/result/structuredContent/references"
+length = 1
+
+[[mcp_assert]]
+id = 19
+path = "/result/structuredContent/references/0"
+equals_response = {"id":9,"path":"/result/structuredContent/references/2"}
+
+[[mcp_assert]]
+id = 19
+path = "/result/structuredContent/references"
+length = 1
+
+[[mcp_assert]]
+id = 19
+path = "/result/structuredContent/next_cursor"
+missing = true

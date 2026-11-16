@@ -1,4 +1,5 @@
 use super::*;
+use veln_project::PackageSnapshotSource;
 
 fn workspace_module_value_project(workspace: &TempWorkspace) {
     workspace.write("veln.toml", "");
@@ -51,6 +52,33 @@ fn workspace_module_value_references_share_selection_declaration_and_cursor_path
     let mut server = initialized_server(&workspace);
     let first = server.references_tool(&json!({
         "source":"main.veln", "line":3, "column":31,
+        "include_declaration":false, "page_size":1
+    }));
+    let cursor = first["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let second = server.references_tool(&json!({"cursor":cursor}));
+    let cursor = second["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let third = server.references_tool(&json!({"cursor":cursor}));
+    assert!(third["structuredContent"].get("next_cursor").is_none());
+    let paged = [first, second, third]
+        .into_iter()
+        .flat_map(|page| {
+            page["structuredContent"]["references"]
+                .as_array()
+                .unwrap()
+                .clone()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(paged, expected.as_array().unwrap().clone());
+
+    let mut server = initialized_server(&workspace);
+    let first = server.references_tool(&json!({
+        "source":"main.veln", "line":3, "column":31,
         "include_declaration":true, "page_size":1
     }));
     assert_eq!(
@@ -98,6 +126,71 @@ fn workspace_module_value_references_share_selection_declaration_and_cursor_path
         json!({"start":{"line":2,"column":19},"end":{"line":2,"column":25}})
     );
     assert!(final_page["structuredContent"].get("next_cursor").is_none());
+}
+
+#[test]
+fn module_value_references_keep_negative_selections_on_existing_paths() {
+    let workspace = TempWorkspace::new("references-module-value-exclusions");
+    workspace.write("veln.toml", "");
+    workspace.write("values.veln", "pub let answer: Int = 42\n");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use values\n\n",
+            "fn answer(value: Int) -> Int\n",
+            "  value\n",
+            "end\n\n",
+            "let callback: fn(Int) -> Int = answer\n",
+            "let selected: Int = values::answer\n",
+            "let unresolved: Int = values::missing\n",
+        ),
+    );
+
+    let function = initialized_server(&workspace).references_tool(&json!({
+        "source":"main.veln", "line":3, "column":4,
+        "include_declaration":false
+    }));
+    assert_reference_ranges(
+        &function,
+        &[("main.veln", 7, 32, 7, 38)],
+        "same-spelled function",
+    );
+
+    let unresolved = initialized_server(&workspace).references_tool(&json!({
+        "source":"main.veln", "line":9, "column":32,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        unresolved["structuredContent"]["references"],
+        json!([]),
+        "{unresolved:#}"
+    );
+
+    let standard_workspace = TempWorkspace::new("references-standard-library-module-value");
+    standard_workspace.write("veln.toml", "");
+    standard_workspace.write(
+        "main.veln",
+        "use values from \"std\"\n\nlet selected: Int = values::answer\n",
+    );
+    let mut standard_server = initialized_server(&standard_workspace);
+    standard_server
+        .language_resources
+        .replace_test_standard_library(
+            "[package]\nname = \"std\"\n\n[lib]\nexports = [\"values.veln\"]\n",
+            [PackageSnapshotSource::new(
+                "values.veln",
+                b"pub let answer: Int = 42\n",
+            )],
+        );
+    let standard_library = standard_server.references_tool(&json!({
+        "source":"main.veln", "line":3, "column":30,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        standard_library["structuredContent"]["references"],
+        json!([]),
+        "{standard_library:#}"
+    );
 }
 
 fn dependency_module_value_project(workspace: &TempWorkspace) {
