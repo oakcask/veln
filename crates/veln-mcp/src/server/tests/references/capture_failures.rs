@@ -275,7 +275,7 @@ fn assert_workspace_effect_operation_capture_failure(
     failed: &Value,
     attempts: usize,
 ) {
-    assert_snapshot_changed_without_references_or_scope(&failed);
+    assert_snapshot_changed_without_references_or_scope(failed);
     assert_eq!(attempts, 3);
     assert_eq!(all_resource_state(&mut state.server), state.resources);
     assert_eq!(state.server.selection_result(), state.selection);
