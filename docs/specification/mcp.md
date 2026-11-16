@@ -584,8 +584,8 @@ Standard-library module values remain outside this navigation row. Invalid,
 unresolved, and standard-library selections do not acquire a module-value
 reference identity. A stable-capture failure publishes no partial locations or
 cursor and preserves saved workspace state, resources, prior results, and
-existing cursors. Other initial-request failures follow the general admission
-and state rules in [Resources](#resources).
+existing cursors. Other initial-request failures follow the saved-navigation
+admission and state rules below.
 The checked
 [`module-value-navigation`](../../examples/specification/mcp/module-value-navigation/)
 and
