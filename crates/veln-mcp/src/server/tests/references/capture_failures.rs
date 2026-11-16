@@ -186,6 +186,29 @@ fn write_workspace_schema_capture_project(workspace: &TempWorkspace) {
 #[test]
 fn workspace_effect_operation_reference_capture_failure_preserves_state_and_later_results() {
     let workspace = TempWorkspace::new("references-workspace-effect-operation-capture-retry");
+    write_workspace_effect_operation_capture_project(&workspace);
+    let mut state = workspace_effect_operation_capture_state(&workspace);
+    let attempts = Rc::new(Cell::new(0));
+    let hook = install_changing_workspace_effect_hook(&workspace, &attempts);
+
+    let failed = state
+        .server
+        .references_tool(&workspace_effect_operation_reference_input());
+    assert_workspace_effect_operation_capture_failure(
+        &workspace,
+        &mut state,
+        &failed,
+        attempts.get(),
+    );
+
+    drop(hook);
+    let after = state
+        .server
+        .references_tool(&workspace_effect_operation_reference_input());
+    assert_eq!(after, state.before);
+}
+
+fn write_workspace_effect_operation_capture_project(workspace: &TempWorkspace) {
     workspace.write("veln.toml", "");
     workspace.write(
         "foreign.veln",
@@ -195,10 +218,21 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
         "main.veln",
         "use foreign\n\nfn use() -> Int\n  perform foreign::Remote::run()\nend\n",
     );
-    let mut server = initialized_server(&workspace);
-    let before = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":28
-    }));
+}
+
+struct WorkspaceEffectOperationCaptureState {
+    server: Server,
+    before: Value,
+    resources: Value,
+    selection: Value,
+    live_cursor: String,
+}
+
+fn workspace_effect_operation_capture_state(
+    workspace: &TempWorkspace,
+) -> WorkspaceEffectOperationCaptureState {
+    let mut server = initialized_server(workspace);
+    let before = server.references_tool(&workspace_effect_operation_reference_input());
     let foreign_uri = crate::definition::path_to_uri(&workspace.path("foreign.veln"));
     let main_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
     assert_eq!(
@@ -222,23 +256,43 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
         .as_str()
         .unwrap()
         .to_owned();
-    let before_resources = all_resource_state(&mut server);
-    let before_selection = server.selection_result();
-    let attempts = Rc::new(Cell::new(0));
-    let hook = install_changing_workspace_effect_hook(&workspace, &attempts);
+    WorkspaceEffectOperationCaptureState {
+        resources: all_resource_state(&mut server),
+        selection: server.selection_result(),
+        server,
+        before,
+        live_cursor,
+    }
+}
 
-    let failed = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":28
-    }));
+fn workspace_effect_operation_reference_input() -> Value {
+    json!({"source":"main.veln", "line":4, "column":28})
+}
+
+fn assert_workspace_effect_operation_capture_failure(
+    workspace: &TempWorkspace,
+    state: &mut WorkspaceEffectOperationCaptureState,
+    failed: &Value,
+    attempts: usize,
+) {
     assert_snapshot_changed_without_references_or_scope(&failed);
-    assert_eq!(attempts.get(), 3);
-    assert_eq!(all_resource_state(&mut server), before_resources);
-    assert_eq!(server.selection_result(), before_selection);
-    let continuation = server.references_tool(&json!({"cursor":live_cursor}));
+    assert_eq!(attempts, 3);
+    assert_eq!(all_resource_state(&mut state.server), state.resources);
+    assert_eq!(state.server.selection_result(), state.selection);
+    assert_workspace_effect_operation_live_cursor(workspace, state);
+}
+
+fn assert_workspace_effect_operation_live_cursor(
+    workspace: &TempWorkspace,
+    state: &mut WorkspaceEffectOperationCaptureState,
+) {
+    let continuation = state
+        .server
+        .references_tool(&json!({"cursor":state.live_cursor}));
     assert_eq!(continuation["isError"], false, "{continuation:#}");
     assert_eq!(
         continuation["structuredContent"]["scope"],
-        before["structuredContent"]["scope"]
+        state.before["structuredContent"]["scope"]
     );
     assert_eq!(
         continuation["structuredContent"]["references"],
@@ -252,12 +306,6 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
             .get("next_cursor")
             .is_none()
     );
-
-    drop(hook);
-    let after = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":28
-    }));
-    assert_eq!(after, before);
 }
 
 #[test]
