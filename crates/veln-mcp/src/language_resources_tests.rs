@@ -11,7 +11,7 @@ fn checked_resources_use_the_default_retained_package_capacity() {
 }
 
 #[test]
-fn analysis_scope_tracking_is_bounded_and_eviction_remains_rejected() {
+fn evicted_analysis_scope_remains_rejected_and_nonpublishing() {
     let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
     resources.set_test_analyzed_dependency_scope_capacity(1);
     let scope = DependencyAnalysisScope::Project("first".to_string());
@@ -50,6 +50,15 @@ fn analysis_scope_tracking_is_bounded_and_eviction_remains_rejected() {
                 .unwrap()
                 .contains("example%2Ffirst"))
     );
+}
+
+#[test]
+fn successful_analysis_replaces_a_rejected_scope() {
+    let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
+    let scope = DependencyAnalysisScope::Project("first".to_string());
+    let first = test_dependency("example/first", "rejected first");
+
+    resources.reject_dependency_analysis(scope.clone(), &first);
 
     resources
         .admit_analyzed_dependencies(scope.clone(), Vec::new(), &first)
@@ -99,53 +108,75 @@ fn rejected_dependency_revision_tracking_remains_bounded_and_global() {
 }
 
 #[test]
-fn analyzed_dependency_scopes_are_bounded_share_revisions_and_retire_by_project() {
+fn analyzed_dependency_scopes_share_revision_payloads() {
     let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
-    resources.set_test_analyzed_dependency_scope_capacity(3);
     let shared = test_dependency("example/shared", "shared");
-    let other = test_dependency("example/other", "other");
     let project_scope = DependencyAnalysisScope::Project("project-a".to_string());
-    let first_file_scope = DependencyAnalysisScope::SingleFile {
+    let file_scope = DependencyAnalysisScope::SingleFile {
         project: "project-a".to_string(),
         source: "first.veln".to_string(),
     };
-    let other_project_scope = DependencyAnalysisScope::Project("project-b".to_string());
 
     resources
-        .admit_analyzed_dependencies(project_scope.clone(), Vec::new(), &shared)
+        .admit_analyzed_dependencies(project_scope, Vec::new(), &shared)
         .unwrap();
     resources
-        .admit_analyzed_dependencies(first_file_scope.clone(), Vec::new(), &shared)
+        .admit_analyzed_dependencies(file_scope, Vec::new(), &shared)
         .unwrap();
+
     assert_eq!(resources.retained_analyzed_dependency_scopes(), 2);
     assert_eq!(resources.retained_analyzed_dependency_payloads(), 1);
+}
 
-    for index in 0..8 {
-        resources
-            .admit_analyzed_dependencies(
-                DependencyAnalysisScope::SingleFile {
-                    project: "project-a".to_string(),
-                    source: format!("repeated-{index}.veln"),
-                },
-                Vec::new(),
-                &shared,
-            )
-            .unwrap();
-        assert_eq!(resources.retained_analyzed_dependency_scopes(), 3);
-        assert_eq!(resources.retained_analyzed_dependency_payloads(), 1);
-    }
+#[test]
+fn analyzed_dependency_scopes_evict_the_oldest_entry_at_capacity() {
+    let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
+    resources.set_test_analyzed_dependency_scope_capacity(2);
+    let shared = test_dependency("example/shared", "shared");
+    let other = test_dependency("example/other", "other");
+    let oldest_scope = DependencyAnalysisScope::Project("project-a".to_string());
+    let retained_scope = DependencyAnalysisScope::SingleFile {
+        project: "project-a".to_string(),
+        source: "first.veln".to_string(),
+    };
+    let newest_scope = DependencyAnalysisScope::Project("project-b".to_string());
+
     resources
-        .admit_analyzed_dependencies(other_project_scope.clone(), Vec::new(), &other)
+        .admit_analyzed_dependencies(oldest_scope.clone(), Vec::new(), &shared)
         .unwrap();
-    assert_eq!(resources.retained_analyzed_dependency_scopes(), 3);
+    resources
+        .admit_analyzed_dependencies(retained_scope.clone(), Vec::new(), &shared)
+        .unwrap();
+    resources
+        .admit_analyzed_dependencies(newest_scope.clone(), Vec::new(), &other)
+        .unwrap();
+
+    assert_eq!(resources.retained_analyzed_dependency_scopes(), 2);
     assert_eq!(resources.retained_analyzed_dependency_payloads(), 2);
-    assert!(!resources.analysis_scopes.contains_key(&project_scope));
-    assert!(!resources.analysis_scopes.contains_key(&first_file_scope));
+    assert!(!resources.analysis_scopes.contains_key(&oldest_scope));
+    assert!(resources.analysis_scopes.contains_key(&retained_scope));
+    assert!(resources.analysis_scopes.contains_key(&newest_scope));
+}
+
+#[test]
+fn analyzed_dependency_scopes_retire_by_project() {
+    let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
+    let shared = test_dependency("example/shared", "shared");
+    let project_scope = DependencyAnalysisScope::Project("project-a".to_string());
+    let retained_scope = DependencyAnalysisScope::Project("project-b".to_string());
+
+    resources
+        .admit_analyzed_dependencies(project_scope, Vec::new(), &shared)
+        .unwrap();
+    resources
+        .admit_analyzed_dependencies(retained_scope.clone(), Vec::new(), &shared)
+        .unwrap();
 
     resources.retain_analyzed_dependency_projects(&["project-b".to_string()]);
+
     assert_eq!(resources.retained_analyzed_dependency_scopes(), 1);
     assert_eq!(resources.retained_analyzed_dependency_payloads(), 1);
-    assert!(resources.analysis_scopes.contains_key(&other_project_scope));
+    assert!(resources.analysis_scopes.contains_key(&retained_scope));
 }
 
 #[test]
@@ -162,13 +193,7 @@ fn shared_analyzed_dependencies_restore_their_documentation_selection() {
             &first,
         )
         .unwrap();
-    let key = resources
-        .current_package_docs
-        .keys()
-        .find(|key| key.identity == "example/first")
-        .unwrap()
-        .clone();
-    let first_revision = resources.current_package_docs[&key].clone();
+    let first_revision = current_package_revision(&resources, "example/first");
 
     resources
         .admit_analyzed_dependencies(
@@ -177,7 +202,10 @@ fn shared_analyzed_dependencies_restore_their_documentation_selection() {
             &extended,
         )
         .unwrap();
-    assert_ne!(resources.current_package_docs[&key], first_revision);
+    assert_ne!(
+        current_package_revision(&resources, "example/first"),
+        first_revision
+    );
 
     resources
         .admit_analyzed_dependencies(
@@ -186,8 +214,23 @@ fn shared_analyzed_dependencies_restore_their_documentation_selection() {
             &first,
         )
         .unwrap();
-    assert_eq!(resources.current_package_docs[&key], first_revision);
+    assert_eq!(
+        current_package_revision(&resources, "example/first"),
+        first_revision
+    );
     assert_eq!(resources.retained_analyzed_dependency_payloads(), 2);
+}
+
+fn current_package_revision(
+    resources: &LanguageResources,
+    identity: &str,
+) -> DocumentationRevisionKey {
+    resources
+        .current_package_docs
+        .iter()
+        .find(|(key, _)| key.identity == identity)
+        .map(|(_, revision)| revision.clone())
+        .unwrap()
 }
 
 fn test_dependency(identity: &str, body: &str) -> Vec<CapturedDependencyProject> {
