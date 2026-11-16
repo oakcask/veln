@@ -669,7 +669,7 @@ fn variant_refinement_constructor_navigation_projects_shared_edits() {
 
 #[test]
 fn private_variant_refinement_navigation_uses_exact_companion_visibility() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("private-variant-refinement-exact-companion");
     project.write("model.veln", "type State\n  Ready(Int)\nend\n");
     let companion =
