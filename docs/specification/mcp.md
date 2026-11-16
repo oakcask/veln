@@ -389,6 +389,12 @@ generation and roots without changing them.
 | `refresh_workspace` discovery succeeds | Return the replacement roots and next generation. | Replace all roots and advance the generation by one. |
 | `refresh_workspace` discovery fails, including an unrepresentable root spelling | Return an MCP tool result with `isError: true` and structured code `generation_failed`. | Preserve both roots and generation. |
 
+Successful refresh also retires successful dependency-analysis fallback state
+for projects absent from the replacement roots. It preserves fallback state for
+projects that remain selected. Failed refresh preserves all fallback state.
+These transitions do not remove the exact dependency resource reads retained
+under the [resource contract](#resources).
+
 Adding, removing, or renaming a manifest has no observable effect until a
 successful refresh. `check_project` uses the project kind selected at the last
 successful discovery. If a selected manifest root is replaced before analysis,
@@ -480,6 +486,12 @@ resource, or search result. Other language diagnostics do not imply this atomic
 admission rule and can still produce a coherent diagnostic-bearing snapshot.
 If the selected analysis scope has no successful snapshot, navigation after a
 rejection omits the captured dependencies instead of using their raw source.
+At most 256 successfully analyzed project or single-file scopes can supply this
+fallback navigation. A successful `check_project` that admits its analyzed
+dependencies makes its scope the newest retained scope. When another successful
+analysis exceeds the limit, the oldest retained scope no longer supplies
+dependency fallback after a later rejection. This eviction does not remove
+admitted dependency resource reads.
 The server retains at most 256 exact fixed-size rejected-revision identities.
 After that set saturates, an unknown dependency revision remains non-publishing
 until a successful `check_project` explicitly admits that revision. Revision
