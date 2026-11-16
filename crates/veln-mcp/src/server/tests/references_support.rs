@@ -7,8 +7,16 @@ pub(super) fn references_result(
     line: usize,
     column: usize,
 ) -> Value {
-    initialized_server(workspace)
-        .references_tool(&json!({"source": source, "line": line, "column": column}))
+    references_result_on(&mut initialized_server(workspace), source, line, column)
+}
+
+pub(super) fn references_result_on(
+    server: &mut Server,
+    source: &str,
+    line: usize,
+    column: usize,
+) -> Value {
+    server.references_tool(&json!({"source": source, "line": line, "column": column}))
 }
 
 pub(super) fn assert_snapshot_changed_without_references_or_scope(result: &Value) {

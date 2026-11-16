@@ -1557,7 +1557,7 @@ impl DependencyVarianceFixture {
         let consumer = dependency_variance_consumer_source();
         let project = dependency_variance_project(positive, consumer);
         let main_uri = path_to_uri(&project.root.join("main.veln"));
-        let mut server = Server::default();
+        let mut server = server_with_empty_standard_library();
         let initialized = server.handle_message(&initialize_request(&path_to_uri(&project.root)));
         assert_contains_json(publish_for_uri(&initialized, &main_uri), r#""diagnostics":[]"#);
         let definition = server.handle_message(&definition_request(&main_uri, 2, 23));
