@@ -582,10 +582,12 @@ becomes the `rename.conflict` result specified below, including the
 package-backed conflicting declaration when one caused the failure.
 Standard-library module values remain outside this navigation row. Invalid,
 unresolved, and standard-library selections do not acquire a module-value
-reference identity. A stable-capture failure publishes no partial locations or
-cursor and preserves saved workspace state, resources, prior results, and
-existing cursors. Other initial-request failures follow the saved-navigation
-admission and state rules below.
+reference identity. Selecting either an invalid module-value declaration or
+one of its unresolved occurrences returns the ordinary successful empty
+reference result and creates no cursor. A stable-capture failure publishes no
+partial locations or cursor and preserves saved workspace state, resources,
+prior results, and existing cursors. Other initial-request failures follow the
+saved-navigation admission and state rules below.
 The checked
 [`module-value-navigation`](../../examples/specification/mcp/module-value-navigation/)
 and
@@ -606,7 +608,8 @@ dependency reference locations, pagination with declaration exclusion and
 inclusion, exact workspace rename edits, edit-free package rename, one-based
 ranges, and workspace and resource state preservation across those requests.
 Focused adapter tests cover same-spelled function and lexical-binding isolation,
-plus invalid, unresolved, and standard-library module-value exclusions.
+plus invalid declarations and occurrences, unresolved selections, and
+standard-library module-value exclusions.
 
 For an eligible public workspace effect, `definition` and `references` accept
 selection at the declaration, a bare same-module occurrence, or the
