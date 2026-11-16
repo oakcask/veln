@@ -284,23 +284,39 @@ fn module_value_references_keep_negative_selections_on_existing_paths() {
 }
 
 #[test]
-fn invalid_module_value_declaration_and_occurrence_do_not_enter_references() {
+fn invalid_module_value_selections_preserve_a_live_cursor() {
     let workspace = TempWorkspace::new("references-invalid-module-value");
-    workspace.write("veln.toml", "");
+    workspace_module_value_project(&workspace);
     workspace.write("invalid.veln", "pub let answer: String = 42\n");
     workspace.write(
-        "main.veln",
+        "invalid_selection.veln",
         "use invalid\n\nlet selected: String = invalid::answer\n",
     );
 
-    for (source, line, column) in [("invalid.veln", 1, 10), ("main.veln", 3, 33)] {
-        let result = initialized_server(&workspace).references_tool(&json!({
+    for (source, line, column) in [("invalid.veln", 1, 10), ("invalid_selection.veln", 3, 33)] {
+        let mut server = initialized_server(&workspace);
+        let first = server.references_tool(&json!({
+            "source":"main.veln", "line":3, "column":31,
+            "include_declaration":true, "page_size":1
+        }));
+        let cursor = first["structuredContent"]["next_cursor"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let result = server.references_tool(&json!({
             "source":source, "line":line, "column":column,
             "include_declaration":true
         }));
         assert_eq!(result["isError"], false, "{result:#}");
         assert_eq!(result["structuredContent"]["references"], json!([]));
         assert!(result["structuredContent"].get("next_cursor").is_none());
+
+        let continuation = server.references_tool(&json!({"cursor":cursor}));
+        assert_eq!(continuation["isError"], false, "{continuation:#}");
+        assert_eq!(
+            continuation["structuredContent"]["references"][0]["range"],
+            json!({"start":{"line":3,"column":30},"end":{"line":3,"column":36}})
+        );
     }
 }
 
