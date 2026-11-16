@@ -62,6 +62,19 @@ fn references_page_workspace_handlers_with_unicode_scalar_coordinates() {
 #[test]
 fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
     let workspace = TempWorkspace::new("references-workspace-imported-handler");
+    write_imported_handler_workspace(&workspace);
+    let mut server = initialized_server(&workspace);
+    let handler_uri = crate::definition::path_to_uri(&workspace.path("handler.veln"));
+    let consumer_uri = crate::definition::path_to_uri(&workspace.path("consumer.veln"));
+
+    assert_imported_handler_definition(&mut server, &handler_uri);
+    assert_imported_handler_references(&mut server, &handler_uri, &consumer_uri);
+    assert_imported_handler_pagination(&mut server);
+    assert_ineligible_imported_handler_results_are_empty(&mut server);
+    assert_imported_handler_definition(&mut server, &handler_uri);
+}
+
+fn write_imported_handler_workspace(workspace: &TempWorkspace) {
     workspace.write("veln.toml", "");
     workspace.write(
         "handler.veln",
@@ -83,10 +96,9 @@ fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
             "fn wrong_kind() -> Int\n  handle 4 with library::fx::work()\nend\n",
         ),
     );
-    let mut server = initialized_server(&workspace);
-    let handler_uri = crate::definition::path_to_uri(&workspace.path("handler.veln"));
-    let consumer_uri = crate::definition::path_to_uri(&workspace.path("consumer.veln"));
+}
 
+fn assert_imported_handler_definition(server: &mut Server, handler_uri: &str) {
     let definition = server.definition_tool(&json!({
         "source":"consumer.veln", "line":6, "column":30
     }));
@@ -98,7 +110,9 @@ fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
         definition["structuredContent"]["definition"]["range"],
         json!({"start":{"line":3,"column":13},"end":{"line":3,"column":16}})
     );
+}
 
+fn assert_imported_handler_references(server: &mut Server, handler_uri: &str, consumer_uri: &str) {
     let without_declaration = server.references_tool(&json!({
         "source":"consumer.veln", "line":10, "column":21,
         "include_declaration":false
@@ -107,11 +121,13 @@ fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
         without_declaration["structuredContent"]["references"],
         json!([
             {"uri":consumer_uri,"range":{"start":{"line":6,"column":30},"end":{"line":6,"column":33}}},
-            {"uri":crate::definition::path_to_uri(&workspace.path("consumer.veln")),"range":{"start":{"line":10,"column":21},"end":{"line":10,"column":24}}},
+            {"uri":consumer_uri,"range":{"start":{"line":10,"column":21},"end":{"line":10,"column":24}}},
             {"uri":handler_uri,"range":{"start":{"line":8,"column":17},"end":{"line":8,"column":20}}}
         ])
     );
+}
 
+fn assert_imported_handler_pagination(server: &mut Server) {
     let first = server.references_tool(&json!({
         "source":"handler.veln", "line":3, "column":13,
         "include_declaration":true, "page_size":2
@@ -133,7 +149,9 @@ fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
         2
     );
     assert!(second["structuredContent"].get("next_cursor").is_none());
+}
 
+fn assert_ineligible_imported_handler_results_are_empty(server: &mut Server) {
     let private_definition = server.definition_tool(&json!({
         "source":"consumer.veln", "line":14, "column":30
     }));
@@ -158,18 +176,6 @@ fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
     assert_eq!(
         wrong_kind_references["structuredContent"]["references"],
         json!([])
-    );
-
-    let retained = server.definition_tool(&json!({
-        "source":"consumer.veln", "line":10, "column":21
-    }));
-    assert_eq!(
-        retained["structuredContent"]["definition"]["uri"],
-        handler_uri
-    );
-    assert_eq!(
-        retained["structuredContent"]["definition"]["range"],
-        json!({"start":{"line":3,"column":13},"end":{"line":3,"column":16}})
     );
 }
 

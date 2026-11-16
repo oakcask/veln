@@ -192,6 +192,24 @@ fn collect_handler_reference_ranges(
     argument_delimiters: &HandlerArgumentDelimiters,
     ranges: &mut BTreeSet<(usize, usize)>,
 ) {
+    record_handler_reference_range(expr, diagnostics, tokens, argument_delimiters, ranges);
+
+    collect_nested_handler_reference_ranges(
+        expr,
+        diagnostics,
+        tokens,
+        argument_delimiters,
+        ranges,
+    );
+}
+
+fn record_handler_reference_range(
+    expr: &Expr,
+    diagnostics: &HandlerDiagnosticIndex,
+    tokens: &[Token],
+    argument_delimiters: &HandlerArgumentDelimiters,
+    ranges: &mut BTreeSet<(usize, usize)>,
+) {
     if let ExprKind::Handle {
         handler,
         handler_span,
@@ -209,7 +227,15 @@ fn collect_handler_reference_ranges(
             ranges.insert((leaf.range.start, leaf.range.end));
         }
     }
+}
 
+fn collect_nested_handler_reference_ranges(
+    expr: &Expr,
+    diagnostics: &HandlerDiagnosticIndex,
+    tokens: &[Token],
+    argument_delimiters: &HandlerArgumentDelimiters,
+    ranges: &mut BTreeSet<(usize, usize)>,
+) {
     match &expr.kind {
         ExprKind::TypeApply { callee, .. }
         | ExprKind::FieldAccess { base: callee, .. }

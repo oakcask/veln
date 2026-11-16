@@ -60,6 +60,20 @@ fn workspace_handler_references_preserve_utf16_crlf_and_declaration_policy() {
 #[test]
 fn imported_workspace_handler_navigation_preserves_utf16_and_declaration_policy() {
     let project = TempProject::new("workspace-imported-handler-references");
+    write_imported_handler_project(&project);
+    let root_uri = path_to_uri(&project.root);
+    let handler_uri = path_to_uri(&project.root.join("handler.veln"));
+    let consumer_uri = path_to_uri(&project.root.join("consumer.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+
+    assert_imported_handler_definition(&mut server, &consumer_uri, &handler_uri);
+    assert_imported_handler_references(&mut server, &consumer_uri, &handler_uri);
+    assert_ineligible_imported_handlers_are_empty(&mut server, &consumer_uri);
+    assert_imported_handler_definition(&mut server, &consumer_uri, &handler_uri);
+}
+
+fn write_imported_handler_project(project: &TempProject) {
     project.write("veln.toml", "");
     project.write(
         "handler.veln",
@@ -81,21 +95,20 @@ fn imported_workspace_handler_navigation_preserves_utf16_and_declaration_policy(
             "fn wrong_kind() -> Int\r\n  handle 4 with library::fx::work()\r\nend\r\n",
         ),
     );
-    let root_uri = path_to_uri(&project.root);
-    let handler_uri = path_to_uri(&project.root.join("handler.veln"));
-    let consumer_uri = path_to_uri(&project.root.join("consumer.veln"));
-    let mut server = Server::default();
-    server.handle_message(&initialize_request(&root_uri));
+}
 
-    let definition = server.handle_message(&definition_request(&consumer_uri, 5, 29));
+fn assert_imported_handler_definition(server: &mut Server, consumer_uri: &str, handler_uri: &str) {
+    let definition = server.handle_message(&definition_request(consumer_uri, 5, 29));
     assert_eq!(definition.len(), 1);
-    assert!(definition[0].contains(&handler_uri), "{}", definition[0]);
+    assert!(definition[0].contains(handler_uri), "{}", definition[0]);
     assert!(definition[0].contains(
         r#""range":{"start":{"line":2,"character":12},"end":{"line":2,"character":15}}"#
     ));
+}
 
+fn assert_imported_handler_references(server: &mut Server, consumer_uri: &str, handler_uri: &str) {
     let without_declaration = server.handle_message(&references_request_with_declaration(
-        &consumer_uri, 9, 20, false,
+        consumer_uri, 9, 20, false,
     ));
     assert_eq!(without_declaration.len(), 1);
     for expected in [
@@ -107,19 +120,21 @@ fn imported_workspace_handler_navigation_preserves_utf16_and_declaration_policy(
     }
 
     let with_declaration = server.handle_message(&references_request_with_declaration(
-        &handler_uri, 2, 12, true,
+        handler_uri, 2, 12, true,
     ));
     assert!(with_declaration[0].contains(&format!(
         r#"{{"uri":"{handler_uri}","range":{{"start":{{"line":2,"character":12}},"end":{{"line":2,"character":15}}}}}}"#
     )));
+}
 
+fn assert_ineligible_imported_handlers_are_empty(server: &mut Server, consumer_uri: &str) {
     assert_eq!(
-        server.handle_message(&definition_request(&consumer_uri, 13, 29)),
+        server.handle_message(&definition_request(consumer_uri, 13, 29)),
         [response("2", "null")]
     );
     assert_eq!(
         server.handle_message(&references_request_with_declaration(
-            &consumer_uri,
+            consumer_uri,
             13,
             29,
             true,
@@ -128,25 +143,18 @@ fn imported_workspace_handler_navigation_preserves_utf16_and_declaration_policy(
     );
 
     assert_eq!(
-        server.handle_message(&definition_request(&consumer_uri, 17, 29)),
+        server.handle_message(&definition_request(consumer_uri, 17, 29)),
         [response("2", "null")]
     );
     assert_eq!(
         server.handle_message(&references_request_with_declaration(
-            &consumer_uri,
+            consumer_uri,
             17,
             29,
             true,
         )),
         [response("2", "[]")]
     );
-
-    let retained = server.handle_message(&definition_request(&consumer_uri, 9, 20));
-    assert_eq!(retained.len(), 1);
-    assert!(retained[0].contains(&handler_uri), "{}", retained[0]);
-    assert!(retained[0].contains(
-        r#""range":{"start":{"line":2,"character":12},"end":{"line":2,"character":15}}"#
-    ));
 }
 
 struct RejectedImportedHandlerCase {
