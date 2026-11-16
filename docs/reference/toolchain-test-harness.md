@@ -485,9 +485,9 @@ The `module-value-navigation`, `module-value-rename`,
 `module-value-dependency-resource-state` MCP specification cases use decoded
 assertions for workspace and direct-dependency definitions, exact workspace
 rename edits, an empty package rename, exact workspace and direct-dependency
-reference locations, declaration exclusion and inclusion, cursor pagination,
-one-based ranges, and unchanged workspace and resource results after those
-requests.
+reference locations, cursor pagination with declaration exclusion and
+inclusion, one-based ranges, and unchanged workspace and resource results
+after those requests.
 The `references-workspace-effect` MCP specification case uses decoded
 assertions for exact effect and effect-operation reference locations,
 declaration inclusion, Unicode-scalar coordinates, deterministic ordering, and
