@@ -16,8 +16,8 @@ The following work remains planned:
 
 - transitive-dependency navigation;
 - remaining package definition and reference symbol classes outside the
-  implemented explicit-import-alias and module immutable-value definition,
-  LSP-reference, and rename scopes;
+  implemented explicit-import-alias and module immutable-value navigation
+  scopes;
 - imported handlers and other workspace symbol reference classes outside the
   implemented same-module and imported-workspace effect boundaries and the
   implemented same-module and imported-workspace effect-operation boundaries
@@ -41,8 +41,8 @@ its evidence is added to the named current specification and checked route.
 | Conformance gate | Every requirement has one stable identifier and passing evidence, every evidence route maps to a requirement, and stale or undeclared capabilities fail the gate. | Versioned conformance manifest tests for missing rows, duplicate IDs, orphaned evidence, missing matrix cells, stale artifacts, undeclared capabilities, malformed requests, and plugin mismatches. |
 
 The remainder also includes broader definition navigation, unsupported package
-symbol classes outside the implemented module immutable-value definition,
-LSP-reference, and rename scope, transitive dependencies, recovery identities
+symbol classes outside the implemented module immutable-value navigation
+scope, transitive dependencies, recovery identities
 and symbol classes outside the shared recovery set specified by Editor Support
 and MCP, casing-neutral lookup outside current specified behavior, and any
 package-reference boundary not listed as implemented above. These rows must
@@ -55,10 +55,6 @@ current specification page names the executable authority, the evidence
 passes independently of proposal prose, and the conformance manifest (when
 present) has no missing or orphaned mapping. This preserves the umbrella as a
 partial proposal rather than a second current-behavior specification.
-
-The independently complete MCP module-value references slice has moved to
-[MCP Module Immutable-Value References](mcp-module-value-references.md). It is
-not an implementation requirement for the remaining inventory.
 
 ## Non-goals
 

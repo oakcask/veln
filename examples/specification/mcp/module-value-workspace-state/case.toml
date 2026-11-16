@@ -8,7 +8,17 @@ format = "empty"
 [[mcp_assert]]
 id = 10
 path = "/result/structuredContent/references"
-length = 0
+length = 2
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "values.veln"
 
 [[mcp_assert]]
 id = 12

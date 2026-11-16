@@ -23,3 +23,6 @@ end
 fn Bad(label: String) -> Int
   Bad("🙂") + Bad(label)
 end
+
+pub let answer: Int = 42
+let mirrored: Int = answer

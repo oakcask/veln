@@ -208,6 +208,7 @@ fn supports_workspace_references(result: &NavigationResult) -> bool {
             | SymbolKind::Type
             | SymbolKind::Function
             | SymbolKind::Constructor
+            | SymbolKind::ModuleValue
             | SymbolKind::ValueBinding
             | SymbolKind::HandlerContextParameter
             | SymbolKind::HandlerOperationClauseParameter
@@ -237,7 +238,7 @@ fn supports_package_references(result: &NavigationResult) -> bool {
 fn supports_package_reference_kind(result: &NavigationResult) -> bool {
     matches!(
         result.selected_symbol.kind,
-        SymbolKind::Function | SymbolKind::Type | SymbolKind::Constructor
+        SymbolKind::Function | SymbolKind::Type | SymbolKind::Constructor | SymbolKind::ModuleValue
     ) || (result.selected_symbol.kind == SymbolKind::Schema
         && matches!(
             result.selected_symbol.package_origin,
@@ -250,6 +251,12 @@ fn supports_package_reference_kind(result: &NavigationResult) -> bool {
 }
 
 fn supports_package_reference_origin(result: &NavigationResult) -> bool {
+    if result.selected_symbol.kind == SymbolKind::ModuleValue {
+        return matches!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+    }
     matches!(
         result.selected_symbol.package_origin,
         Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
