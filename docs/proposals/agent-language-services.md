@@ -18,10 +18,10 @@ The following work remains planned:
 - remaining package definition and reference symbol classes outside the
   implemented explicit-import-alias and module immutable-value navigation
   scopes;
-- imported handlers and other workspace symbol reference classes outside the
-  implemented same-module and imported-workspace effect boundaries and the
-  implemented same-module and imported-workspace effect-operation boundaries
-  and same-module handler boundaries;
+- other workspace symbol reference classes outside the implemented
+  same-module and imported-workspace effect boundaries, the implemented
+  same-module and imported-workspace effect-operation boundaries, and the
+  same-module handler boundary;
 - Codex and Claude Code plugin packaging and client-native installation flows;
 - the conformance gate.
 
@@ -55,6 +55,11 @@ current specification page names the executable authority, the evidence
 passes independently of proposal prose, and the conformance manifest (when
 present) has no missing or orphaned mapping. This preserves the umbrella as a
 partial proposal rather than a second current-behavior specification.
+
+The independently complete imported workspace handler navigation slice has
+moved to
+[Imported Workspace Handler Navigation](imported-workspace-handler-navigation.md).
+It is not an implementation requirement for the remaining inventory.
 
 ## Non-goals
 
