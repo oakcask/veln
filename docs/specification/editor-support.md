@@ -1220,6 +1220,10 @@ heading and operation-name-only locations.
 The checked `examples/specification/lsp/references-workspace-handler/`
 transcript demonstrates the same declaration policy and UTF-16 conversion for
 workspace handler references.
+LSP unit regressions exercise every imported workspace-handler exclusion
+specified above. They also verify that each rejected definition and reference
+request leaves an unrelated valid handler definition and reference result
+unchanged.
 The checked
 `examples/specification/lsp/saved-navigation-cross-adapter/` transcript covers
 the invalid-position protocol boundary and repeats successful saved definition,

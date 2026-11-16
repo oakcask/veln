@@ -1212,6 +1212,11 @@ The checked
 demonstrates imported handler definition, full-path and implicit-alias
 handler-name ranges, declaration policy, deterministic ordering, and
 pagination.
+MCP unit regressions exercise every imported workspace-handler exclusion
+specified above. They verify that each empty definition and reference result
+preserves an unrelated valid handler result. Capture-failure coverage also
+continues a pre-existing reference cursor and checks that its next page still
+contains the locations from the original captured result.
 The paired harness in
 [`saved_navigation_conformance.rs`](../../crates/veln-cli/tests/toolchain_harness/saved_navigation_conformance.rs)
 drives MCP and LSP from one unchanged saved workspace. It collects MCP
