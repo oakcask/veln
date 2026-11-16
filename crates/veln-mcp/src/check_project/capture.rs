@@ -3,6 +3,7 @@ use super::*;
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 
+use crate::dependency_snapshot::AnalysisCaptureKey;
 pub(super) use crate::dependency_snapshot::dependency_snapshot_key;
 
 #[cfg(test)]
@@ -314,6 +315,7 @@ pub(crate) struct CapturedProject {
     pub(crate) project: Project,
     pub(crate) dependencies: Vec<CapturedDependencyProject>,
     pub(crate) key: Value,
+    pub(crate) analysis_key: AnalysisCaptureKey,
 }
 
 fn capture_once(target: &Target, cache: &mut CaptureCache) -> io::Result<CapturedProject> {
@@ -347,10 +349,12 @@ fn capture_once(target: &Target, cache: &mut CaptureCache) -> io::Result<Capture
     }
     let dependencies = dependency_snapshots(&project, cache)?;
     let key = snapshot_key(&project, &dependencies, &boundary_manifests)?;
+    let analysis_key = AnalysisCaptureKey::from_snapshot_key(&key);
     Ok(CapturedProject {
         project,
         dependencies,
         key,
+        analysis_key,
     })
 }
 

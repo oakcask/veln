@@ -20,7 +20,9 @@ pub(crate) use self::package_resources::{
 pub(crate) use self::standard_library::StandardLibraryResources;
 pub(crate) use self::topics::LanguageTopic;
 use self::topics::language_topics;
-use crate::dependency_snapshot::{DependencyRevisionKey, dependency_revision_key};
+use crate::dependency_snapshot::{
+    AnalysisCaptureKey, DependencyRevisionKey, dependency_revision_key,
+};
 use crate::reference_pagination::ReferencePagination;
 
 mod dependencies;
@@ -75,6 +77,7 @@ struct AcceptedAnalysis {
 struct AnalysisScopeState {
     accepted: Option<AcceptedAnalysis>,
     rejected: bool,
+    capture_key: Option<AnalysisCaptureKey>,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -593,6 +596,7 @@ impl LanguageResources {
                     workspace_files,
                 }),
                 rejected: false,
+                capture_key: None,
             },
         );
         self.analyzed_dependency_scope_order
@@ -602,6 +606,46 @@ impl LanguageResources {
         self.workspace_navigation = None;
         self.read_only_workspace_navigation = None;
         Ok(())
+    }
+
+    pub(crate) fn reuse_analyzed_capture(
+        &mut self,
+        scope: &DependencyAnalysisScope,
+        capture_key: AnalysisCaptureKey,
+    ) -> bool {
+        let Some(state) = self
+            .analysis_scopes
+            .get(scope)
+            .filter(|state| state.capture_key == Some(capture_key))
+        else {
+            return false;
+        };
+        let accepted = (!state.rejected)
+            .then_some(state.accepted.as_ref())
+            .flatten()
+            .map(|accepted| Arc::clone(&accepted.dependencies));
+        if let Some(accepted) = accepted {
+            self.select_analyzed_dependency_documentation(&accepted);
+        }
+        self.touch_analyzed_dependency_scope(scope.clone());
+        true
+    }
+
+    pub(crate) fn record_analyzed_capture(
+        &mut self,
+        scope: &DependencyAnalysisScope,
+        capture_key: AnalysisCaptureKey,
+    ) {
+        self.analysis_scopes
+            .get_mut(scope)
+            .expect("analyzed capture requires retained scope state")
+            .capture_key = Some(capture_key);
+    }
+
+    fn touch_analyzed_dependency_scope(&mut self, scope: DependencyAnalysisScope) {
+        self.analyzed_dependency_scope_order
+            .retain(|retained| retained != &scope);
+        self.analyzed_dependency_scope_order.push_back(scope);
     }
 
     fn select_analyzed_dependency_documentation(&mut self, analyzed: &AnalyzedDependencies) {

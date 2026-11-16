@@ -1,3 +1,5 @@
+#[cfg(test)]
+use std::cell::Cell;
 #[cfg(target_os = "linux")]
 use std::ffi::OsStr;
 use std::fs::{self, File};
@@ -17,6 +19,8 @@ use veln_diagnostics::diagnostic_to_json;
 use veln_project::{Project, parse_manifest_text};
 use veln_source::SourceFile;
 
+#[cfg(test)]
+use crate::dependency_snapshot::AnalysisCaptureKey;
 use crate::language_resources::{DependencyAnalysisScope, LanguageResources};
 use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{
@@ -40,6 +44,34 @@ pub(crate) use capture::{
 };
 
 const SNAPSHOT_ATTEMPTS: usize = 3;
+
+#[cfg(test)]
+thread_local! {
+    static PROJECT_ANALYSES: Cell<usize> = const { Cell::new(0) };
+}
+
+fn analyze_project(
+    project: veln_project::Project,
+    dependencies: Vec<CapturedDependencyProject>,
+) -> Vec<veln_diagnostics::Diagnostic> {
+    #[cfg(test)]
+    PROJECT_ANALYSES.set(PROJECT_ANALYSES.get() + 1);
+    checked_project_diagnostics_with_captured_dependencies(
+        project,
+        DoctestMode::Exclude,
+        dependencies,
+    )
+}
+
+#[cfg(test)]
+fn reset_project_analyses() {
+    PROJECT_ANALYSES.set(0);
+}
+
+#[cfg(test)]
+fn project_analyses() -> usize {
+    PROJECT_ANALYSES.get()
+}
 
 pub(crate) fn check_project(
     base: &WorkspaceBase,
@@ -68,11 +100,7 @@ pub(crate) fn check_project(
 
     let workspace_files = captured.project.files.clone();
     let dependencies = captured.dependencies.clone();
-    let checked_diagnostics = checked_project_diagnostics_with_captured_dependencies(
-        captured.project,
-        DoctestMode::Exclude,
-        captured.dependencies,
-    );
+    let checked_diagnostics = analyze_project(captured.project, captured.dependencies);
     let publication_failed = checked_diagnostics
         .iter()
         .any(is_publication_failure_diagnostic);
@@ -88,14 +116,15 @@ pub(crate) fn check_project(
         "summary": summary(&diagnostics),
     });
     if publication_failed {
-        language_resources.reject_dependency_analysis(analysis_scope, &dependencies);
+        language_resources.reject_dependency_analysis(analysis_scope.clone(), &dependencies);
     } else if let Err(error) = language_resources.admit_analyzed_dependencies(
-        analysis_scope,
+        analysis_scope.clone(),
         workspace_files,
         &dependencies,
     ) {
         return error.into();
     }
+    language_resources.record_analyzed_capture(&analysis_scope, captured.analysis_key);
     ToolOutcome::Success(structured)
 }
 
@@ -104,21 +133,22 @@ pub(crate) fn transition_navigation_analysis(
     analysis_scope: DependencyAnalysisScope,
     language_resources: &mut LanguageResources,
 ) -> Result<(), crate::language_resources::ResourceCapacityError> {
-    let diagnostics = checked_project_diagnostics_with_captured_dependencies(
-        captured.project.clone(),
-        DoctestMode::Exclude,
-        captured.dependencies.clone(),
-    );
+    if language_resources.reuse_analyzed_capture(&analysis_scope, captured.analysis_key) {
+        return Ok(());
+    }
+    let diagnostics = analyze_project(captured.project.clone(), captured.dependencies.clone());
     if diagnostics.iter().any(is_publication_failure_diagnostic) {
-        language_resources.reject_dependency_analysis(analysis_scope, &captured.dependencies);
-        Ok(())
+        language_resources
+            .reject_dependency_analysis(analysis_scope.clone(), &captured.dependencies);
     } else {
         language_resources.admit_analyzed_dependencies(
-            analysis_scope,
+            analysis_scope.clone(),
             captured.project.files.clone(),
             &captured.dependencies,
-        )
+        )?;
     }
+    language_resources.record_analyzed_capture(&analysis_scope, captured.analysis_key);
+    Ok(())
 }
 
 fn is_publication_failure_diagnostic(diagnostic: &veln_diagnostics::Diagnostic) -> bool {
