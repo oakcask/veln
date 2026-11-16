@@ -488,12 +488,12 @@ The rejected snapshot contributes no package signature, source resource, or
 search result. Other language diagnostics do not imply this atomic admission
 rule and can still produce a coherent diagnostic-bearing snapshot.
 Each saved-navigation request applies the same variance publication gate to
-its stable capture before it can admit dependency resources. A `definition`
-or `references` request that first encounters a rejected revision therefore
-selects the prior successful state without making the rejected source,
-documentation, search candidate, or signature observable. The later
-`check_project` result reports the rejection without needing to roll back a
-provisional public state.
+its stable capture before it can admit dependency resources. A `definition`,
+`completion`, `signature_help`, `references`, or `rename` request that first
+encounters a rejected revision therefore selects the prior successful state
+without making the rejected source, documentation, search candidate, or
+signature observable. The later `check_project` result reports the rejection
+without needing to roll back a provisional public state.
 If the selected analysis scope has no retained successful state, navigation
 after a rejection omits both the captured workspace files and captured
 dependencies. At most 256 project or single-file scope states retain successful
