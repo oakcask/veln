@@ -374,7 +374,6 @@ The `publish-diagnostics`, `semantic-tokens`,
 `references-workspace-effect`,
 `references-workspace-imported-effect-operation`,
 `references-workspace-handler`,
-`references-workspace-imported-handler`,
 `references-workspace-schema-composition` and
 `references-workspace-schema-alias`, and
 `references-dependency-schema-composition` and

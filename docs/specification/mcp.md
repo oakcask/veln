@@ -1027,14 +1027,14 @@ identity. Each location covers only the handler-name token. A `definition`
 request at any included form returns the workspace declaration.
 `include_declaration` adds that declaration before pagination.
 
-Lookup requires one unrecovered workspace declaration for the module and
-name. An imported application additionally requires an explicit workspace
-import that resolves to the public handler. Private imported handlers,
+Handler reference lookup requires one unrecovered workspace declaration for
+the module and name. An imported application additionally requires an explicit
+workspace import that resolves to the public handler. Private imported handlers,
 duplicate or recovered declarations, ambiguous or recovered imports,
 package-backed and standard-library declarations, unresolved, incomplete,
-recovered, and wrong-kind paths return a successful empty result. Equal
-spelling in another module or symbol class is excluded. An unrelated parse
-error does not remove a complete parse-clean occurrence. Capture, lookup,
+recovered, and wrong-kind paths return a successful empty reference result.
+Equal spelling in another module or symbol class is excluded. An unrelated
+parse error does not remove a complete parse-clean occurrence. Capture, lookup,
 position, and pagination failures publish no partial handler locations and
 preserve the saved workspace, retained resources, prior results, and existing
 cursors under the general references failure contract.
