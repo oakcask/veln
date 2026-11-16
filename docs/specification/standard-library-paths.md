@@ -65,7 +65,8 @@ preserved spellings are equal.
 Joining with the root returns the other operand; joining two non-root paths
 inserts one `/`. The root has no parent or name. A one-component path has the
 root as its parent. Other parents remove the final component, and `name`
-returns the final component.
+returns the final component. Component traversal does not add a recursion-depth
+limit based on the number of components.
 
 ## Limits and errors
 
@@ -76,6 +77,8 @@ type is distinct from both `String` and the compiler-known `Path` used by the
 current `fs` and `process` boundaries.
 
 Companion coverage in `crates/veln-stdlib/veln/path.test.veln` checks public
-values, ordered failures, exact spelling, composition, and purity. The checked
-portable-path cases under `examples/specification/check/` independently check
-constructor visibility, type separation, and effect inference.
+values, ordered failures, exact spelling, composition, purity, and deep
+component traversal. The checked portable-path cases under
+`examples/specification/check/` independently check constructor visibility,
+type separation, and that every exported operation and error alternative is
+usable from an effect-free public function.
