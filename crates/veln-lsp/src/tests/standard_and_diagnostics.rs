@@ -337,7 +337,7 @@ fn workspace_references_and_rename_ignore_dependency_sources() {
 
 #[test]
 fn companion_private_function_rename_uses_open_document_overlay() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = companion_private_function_project("rename-overlay");
     let root_uri = path_to_uri(&project.root);
     let math_uri = path_to_uri(&project.root.join("math.veln"));
