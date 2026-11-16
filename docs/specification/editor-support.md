@@ -1224,4 +1224,5 @@ compares complete definitions and reference sets across coordinate,
 declaration, continuation, empty-result, failure, and preserved-state
 boundaries. The comparison includes the retained declaration and linked
 references for one shared invalid-cased recovery identity, with declaration
-exclusion and inclusion.
+exclusion and inclusion. It also compares workspace module immutable-value
+references with declaration exclusion and inclusion.

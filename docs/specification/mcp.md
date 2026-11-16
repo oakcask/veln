@@ -909,9 +909,10 @@ exactly `page_size` locations and `next_cursor`; the final page omits it.
 Supported reference identities are valid workspace explicit import aliases,
 workspace effects, effect operations, handlers, schemas, eligible workspace,
 direct-dependency, and standard-library schema aliases, functions, types,
-constructors, value bindings, handler context parameters, and handler
-operation-clause parameters. Module immutable values are not supported
-reference identities and return the ordinary successful empty result.
+constructors, workspace and retained direct-dependency module immutable
+values, value bindings, handler context parameters, and handler
+operation-clause parameters. Standard-library module immutable values remain
+unsupported and return the ordinary successful empty result.
 
 ### Recovery References
 
