@@ -752,10 +752,13 @@ requires an explicit workspace import that resolves to the public handler.
 Lookup excludes private imported handlers, duplicate or recovered declarations,
 ambiguous or recovered imports, package-backed and standard-library
 declarations, and unresolved, incomplete, recovered, or wrong-kind handler
-paths. Equal spelling in another module or symbol class, including a handler
-parameter or operation-clause binding, does not enter the result. Comments and
-strings do not contribute handler references. An unrelated parse error does
-not remove a complete parse-clean handler occurrence.
+paths. Selecting the handler-name leaf of a wrong-kind application does not
+fall back to definition or reference results for the value, type, or other
+symbol named by that path. Equal spelling in another module or symbol class,
+including a handler parameter or operation-clause binding, does not enter the
+result. Comments and strings do not contribute handler references. An
+unrelated parse error does not remove a complete parse-clean handler
+occurrence.
 
 For a selected workspace schema declaration, `textDocument/references` returns
 the declaration when requested plus `decode`, `encode`, runtime-validation,

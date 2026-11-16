@@ -1035,7 +1035,9 @@ requires an explicit workspace import that resolves to the public handler.
 Private imported handlers, duplicate or recovered declarations, ambiguous or
 recovered imports, package-backed and standard-library declarations,
 unresolved, incomplete, recovered, and wrong-kind paths return a successful
-empty result. Equal spelling in another module or symbol class is excluded. An
+empty result. A wrong-kind handler-name leaf does not fall back to the
+definition or references of the value, type, or other symbol named by that
+path. Equal spelling in another module or symbol class is excluded. An
 unrelated parse error does not remove a complete parse-clean occurrence.
 Capture, lookup, position, and pagination failures publish no partial handler
 locations and preserve the saved workspace, retained resources, prior results,
