@@ -189,6 +189,7 @@ impl TypeCanonicalizer<'_> {
             match (canonical_name.as_str(), args.as_slice()) {
                 ("Vec", [item]) => Type::vec(item.clone()),
                 ("Dict", [key, value]) => Type::dict(key.clone(), value.clone()),
+                ("Path", []) => Type::path(),
                 _ => Type::named(canonical_name, args),
             }
         }

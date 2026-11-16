@@ -351,8 +351,12 @@ by the file-system operation against the current working directory.
 `Path` is a source-visible named type at this boundary. Runtime path values are
 backend-owned values that can be passed between implemented `fs` and `process`
 calls, but assignment compatibility does not allow `String` and `Path` to cross
-this boundary. The language does not expose a public path layout, encoding, or
-normalization guarantee.
+this boundary. The source-defined portable `path::Path` is also a distinct type;
+its pure API does not replace or acquire the `fs` effect of this host boundary.
+The language does not expose a public host path layout, encoding, or
+normalization guarantee. See
+[Standard-library Portable Paths](standard-library-paths.md) for the portable
+lexical contract.
 
 File-system calls return `Result` values instead of throwing host I/O
 exceptions into Veln execution. `Ok` carries the successful value. `Err`

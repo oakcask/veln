@@ -1,0 +1,121 @@
+pub type Path
+	PortablePath(value: String)
+end
+
+pub type InvalidPath
+	pub Empty
+	pub Nul
+	pub LeadingSeparator
+	pub TrailingSeparator
+	pub EmptyComponent
+	pub CurrentComponent
+	pub ParentComponent
+end
+
+pub fn parse(value: String) -> Result<Path, InvalidPath>
+	if value == ""
+		Err(Empty)
+	else if prelude_builtin::string_contains_nul(value)
+		Err(Nul)
+	else if value == "."
+		Ok(root())
+	else if starts_with_separator(value)
+		Err(LeadingSeparator)
+	else if ends_with_separator(value)
+		Err(TrailingSeparator)
+	else if has_component(components_from(value), "")
+		Err(EmptyComponent)
+	else if has_component(components_from(value), ".")
+		Err(CurrentComponent)
+	else if has_component(components_from(value), "..")
+		Err(ParentComponent)
+	else
+		Ok(PortablePath(value))
+	end
+end
+
+pub fn root() -> Path
+	PortablePath(".")
+end
+
+pub fn text(value: Path) -> String
+	match value
+		PortablePath(spelling) => spelling
+	end
+end
+
+pub fn equal(left: Path, right: Path) -> Bool
+	text(left) == text(right)
+end
+
+pub fn components(value: Path) -> List<String>
+	let spelling = text(value)
+	if spelling == "."
+		Nil
+	else
+		components_from(spelling)
+	end
+end
+
+pub fn join(left: Path, right: Path) -> Path
+	let left_text = text(left)
+	let right_text = text(right)
+	if left_text == "."
+		right
+	else if right_text == "."
+		left
+	else
+		PortablePath(string::concat(string::concat(left_text, "/"), right_text))
+	end
+end
+
+pub fn parent(value: Path) -> Option<Path>
+	let spelling = text(value)
+	if spelling == "."
+		None
+	else
+		match prelude_builtin::string_split_last(spelling, "/")
+			None => Some(root())
+			Some(parts) => Some(PortablePath(parts.left))
+		end
+	end
+end
+
+pub fn name(value: Path) -> Option<String>
+	let spelling = text(value)
+	if spelling == "."
+		None
+	else
+		match prelude_builtin::string_split_last(spelling, "/")
+			None => Some(spelling)
+			Some(parts) => Some(parts.right)
+		end
+	end
+end
+
+fn starts_with_separator(value: String) -> Bool
+	match string_split_once(value, "/")
+		Some(parts) => parts.left == ""
+		None => false
+	end
+end
+
+fn ends_with_separator(value: String) -> Bool
+	match prelude_builtin::string_split_last(value, "/")
+		None => false
+		Some(parts) => parts.right == ""
+	end
+end
+
+fn has_component(components: List<String>, expected: String) -> Bool
+	let state: { found : Bool, expected : String } = list_fold(components, { found: false, expected: expected }, match_component)
+	state.found
+end
+
+fn match_component(state: { found : Bool, expected : String }, component: String) -> { found : Bool, expected : String }
+	{ found: state.found or component == state.expected, expected: state.expected }
+end
+
+fn components_from(value: String) -> List<String>
+	prelude_builtin::string_split_all(value, "/")
+end

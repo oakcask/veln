@@ -92,7 +92,7 @@ fn exposes_type_parts_and_core_type_shape() {
 }
 
 #[test]
-fn assignability_allows_unknowns_record_width_and_function_shapes() {
+fn assignability_allows_unknowns_and_record_width() {
     let expected_record = Type::Record(vec![
         ("name".to_string(), Type::string()),
         (
@@ -109,6 +109,16 @@ fn assignability_allows_unknowns_record_width_and_function_shapes() {
         ),
     ]);
     let wrong_record = Type::Record(vec![("name".to_string(), Type::int())]);
+
+    assert!(is_assignable(&Type::Unknown, &Type::string()));
+    assert!(is_assignable(&Type::string(), &Type::Unknown));
+    assert!(is_assignable(&expected_record, &actual_record));
+    assert!(!is_assignable(&expected_record, &wrong_record));
+    assert!(!is_assignable(&Type::int(), &Type::float()));
+}
+
+#[test]
+fn assignability_checks_function_shapes_and_effects() {
     let expected_pure_function = Type::Function {
         params: vec![Type::int()],
         variadic: None,
@@ -140,18 +150,6 @@ fn assignability_allows_unknowns_record_width_and_function_shapes() {
         effects: Vec::new(),
     };
 
-    assert!(is_assignable(&Type::Unknown, &Type::string()));
-    assert!(is_assignable(&Type::string(), &Type::Unknown));
-    assert!(is_assignable(&expected_record, &actual_record));
-    assert!(!is_assignable(&expected_record, &wrong_record));
-    assert!(!is_assignable(
-        &Type::named("Path", Vec::new()),
-        &Type::string()
-    ));
-    assert!(!is_assignable(
-        &Type::string(),
-        &Type::named("Path", Vec::new())
-    ));
     assert!(is_assignable(
         &expected_effectful_function,
         &actual_pure_function
@@ -161,7 +159,16 @@ fn assignability_allows_unknowns_record_width_and_function_shapes() {
         &actual_effectful_function
     ));
     assert!(!is_assignable(&expected_pure_function, &wrong_function));
-    assert!(!is_assignable(&Type::int(), &Type::float()));
+}
+
+#[test]
+fn portable_path_is_distinct_from_strings_and_host_paths() {
+    let source_path = Type::resolved_named("Path", "std::path::Path", Vec::new());
+
+    assert!(!is_assignable(&Type::path(), &Type::string()));
+    assert!(!is_assignable(&Type::string(), &Type::path()));
+    assert!(!is_assignable(&Type::path(), &source_path));
+    assert!(!is_assignable(&source_path, &Type::path()));
 }
 
 #[test]

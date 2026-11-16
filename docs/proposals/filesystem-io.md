@@ -35,7 +35,7 @@ supports lexical cleanup, but does not define automatic close or flush.
 
 | Included capability | Required outcome |
 | --- | --- |
-| Portable-path integration and explicit filesystem selection | The ready [portable path](portable-paths.md) value selects names under host and fake providers. |
+| Portable-path integration and explicit filesystem selection | Filesystem APIs use the current [portable path](../specification/standard-library-paths.md) value to name entries under explicit host and fake providers. |
 | Read-only filesystem access | Open, metadata, directory enumeration, and byte reads work without requiring mutation capability. |
 | Filesystem updates | Explicit open modes, byte writes, directory creation, removal, rename, and truncation have defined success and failure behavior. |
 | Shared byte IO | Read, write, complete-transfer helpers, seek, and positional IO compose with explicit resources. |
@@ -49,7 +49,7 @@ filename representation still need the decisions identified below.
 
 ## Paths And Filesystem Selection
 
-The ready [portable path proposal](portable-paths.md) owns the pure
+The current [portable path specification](../specification/standard-library-paths.md) owns the pure
 `path::Path` syntax, source API, and lexical operations. This proposal uses
 that type for names within an explicit filesystem. A portable path does not
 identify a filesystem, authorize access, or assert that an entry exists.
@@ -68,8 +68,8 @@ operations.
 
 Go's [filepath.Localize](https://pkg.go.dev/path/filepath#Localize)
 demonstrates why portable validity and native representability are different
-checks. Veln adds the validated portable path in the split proposal rather
-than accepting unchecked strings at every call.
+checks. Veln provides the implemented validated portable path instead of
+accepting unchecked strings at every call.
 Rust's [native Path conversion](https://doc.rust-lang.org/std/path/struct.Path.html#method.to_str)
 shows why an arbitrary native name need not have a lossless Unicode spelling;
 the native representation decision remains open rather than assuming all host
@@ -287,8 +287,9 @@ listing a preferred direction here does not make it implemented behavior.
 ## Implementation Readiness And Promotion
 
 Before moving this proposal to Ready, provide a filesystem and resource source
-API that uses the independently ready `path::Path` value and can be expressed
-with implemented Veln features or names a separate language prerequisite.
+API that uses the independently implemented `path::Path` value and can be
+expressed with implemented Veln features or names a separate language
+prerequisite.
 Complete the IO outcome types and operation state tables, including failures,
 and demonstrate how a Veln fake creates resources and serves two filesystem
 instances without host IO. Add explicit acceptance expectations for each

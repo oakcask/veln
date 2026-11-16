@@ -1,0 +1,7 @@
+use path as portable from "std"
+
+# Compiler integration contract: an application cannot bypass parse by naming
+# the private constructor of the exported opaque path type.
+pub fn bypass() -> portable::Path
+	portable::Path::PortablePath("unchecked")
+end

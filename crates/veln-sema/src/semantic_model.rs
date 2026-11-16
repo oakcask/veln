@@ -341,6 +341,7 @@ impl Type {
     pub(crate) const COMPILER_LIST_IDENTITY: &'static str = "internal:compiler::List";
     pub(crate) const COMPILER_VEC_IDENTITY: &'static str = "internal:compiler:Vec";
     pub(crate) const COMPILER_DICT_IDENTITY: &'static str = "internal:compiler:Dict";
+    pub(crate) const COMPILER_PATH_IDENTITY: &'static str = "internal:compiler::Path";
 
     pub(crate) fn recovery_slot(index: usize) -> Self {
         Self::resolved_named(
@@ -364,6 +365,10 @@ impl Type {
             name,
             args: args.into(),
         }
+    }
+
+    pub(crate) fn path() -> Self {
+        Self::resolved_named("Path", Self::COMPILER_PATH_IDENTITY, Vec::new())
     }
 
     pub(crate) fn resolved_named(

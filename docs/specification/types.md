@@ -2169,8 +2169,11 @@ admission. Structural functions and other positive contributions can also join
 when their bounded structural or contributed-candidate rules select one unique
 result. A context-free join remains unavailable when those rules cannot select
 a unique result, so inference requires compatible explicit context.
-Recovery still lets `unknown` match a complete argument. `Path` and `String` are distinct named types at
-assignment boundaries; the runtime path representation is not source-visible.
+Recovery still lets `unknown` match a complete argument. The compiler-known
+host `Path`, `String`, and the source-defined portable `path::Path` are distinct
+named types at assignment boundaries. The host path runtime representation is
+not source-visible. The portable path API and its checked separation cases are
+specified by [Standard-library Portable Paths](standard-library-paths.md).
 Function assignment checks fixed parameter count, parameter types, variadic
 shape, return type, and effects. Variadic and fixed-arity function types are
 not assignment-compatible with each other. Two variadic function types are

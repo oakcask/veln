@@ -1,0 +1,7 @@
+# Compiler integration contract: the source-defined portable Path is not a
+# String even though its public operations preserve String spelling.
+use path as portable from "std"
+
+pub fn mismatch(value: String) -> portable::Path
+	value
+end

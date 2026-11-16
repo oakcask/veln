@@ -1,0 +1,7 @@
+use path as portable from "std"
+
+# Compiler integration contract: the source-defined portable Path and the
+# compiler-known host Path retain separate assignment identities.
+pub fn mismatch(value: Path) -> portable::Path
+	value
+end

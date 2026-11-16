@@ -14,11 +14,6 @@ also states it.
 
 - Current behavior: [Language Specification](../specification/README.md).
 
-## Ready
-
-- Pure validated portable path values, lexical operations, and companion-test
-  evidence: [portable-paths.md](portable-paths.md).
-
 ## Design In Progress
 
 - Lightweight task execution using JVM virtual threads; Java requirements,

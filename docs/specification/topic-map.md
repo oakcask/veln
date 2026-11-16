@@ -101,6 +101,9 @@ discovery guidance; the linked subject pages own behavior and evidence.
   its resource lifecycle, the complete-write helper, and the typed duplex
   stream adapter:
   [standard-library-networking.md](standard-library-networking.md).
+- Exported pure portable path values, ordered lexical validation, exact
+  spelling identity, composition, and host-path separation:
+  [standard-library-paths.md](standard-library-paths.md).
 - Standard-library observation effect, public no-op and recording handlers,
   typed attributes, trace context, scoped span lifecycle, explicit child-task
   context propagation, explicit channel-value context attachment, explicit

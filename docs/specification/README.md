@@ -22,7 +22,7 @@ its references provide supporting implementation and test evidence.
   [topic-map.md#source-surface](topic-map.md#source-surface).
 - Commands and machine-readable output:
   [topic-map.md#commands-and-output](topic-map.md#commands-and-output).
-- Runtime, networking, and examples:
+- Runtime, standard-library APIs, and examples:
   [topic-map.md#runtime-examples-and-rationale](topic-map.md#runtime-examples-and-rationale).
 - Editor and LSP behavior: [editor-support.md](editor-support.md).
 - MCP resources and tools: [mcp.md](mcp.md).
