@@ -294,6 +294,8 @@ impl Server {
     ) -> Value {
         let outcome = match refresh(&mut self.selection) {
             Ok(()) => {
+                self.language_resources
+                    .retain_analyzed_dependency_projects(self.selection.roots());
                 self.language_resources.reference_pagination().clear();
                 ToolOutcome::Success(self.selection_result())
             }

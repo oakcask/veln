@@ -30,6 +30,7 @@ mod topics;
 
 const RETAINED_PACKAGE_CAPACITY: usize = 256;
 const RETAINED_DOCUMENTATION_REVISION_CAPACITY: usize = 256;
+const ANALYZED_DEPENDENCY_SCOPE_CAPACITY: usize = 256;
 const REJECTED_DEPENDENCY_REVISION_CAPACITY: usize = 256;
 
 struct InitialPackageDocumentation {
@@ -68,6 +69,14 @@ struct AnalyzedDependencies {
 pub(crate) enum DependencyAnalysisScope {
     Project(String),
     SingleFile { project: String, source: String },
+}
+
+impl DependencyAnalysisScope {
+    fn project(&self) -> &str {
+        match self {
+            Self::Project(project) | Self::SingleFile { project, .. } => project,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -193,7 +202,10 @@ pub(crate) struct LanguageResources {
     dependency_navigation: Option<(Vec<RetainedPackageKey>, EffectiveProjectSnapshot)>,
     workspace_navigation: Option<WorkspaceNavigation>,
     read_only_workspace_navigation: Option<(Value, Arc<EffectiveProjectSnapshot>)>,
-    analyzed_dependencies: BTreeMap<DependencyAnalysisScope, AnalyzedDependencies>,
+    analyzed_dependencies: BTreeMap<DependencyAnalysisScope, Arc<AnalyzedDependencies>>,
+    analyzed_dependency_scope_order: VecDeque<DependencyAnalysisScope>,
+    #[cfg(test)]
+    analyzed_dependency_scope_capacity: usize,
     rejected_dependency_revisions: RejectedDependencyRevisions,
     reference_pagination: ReferencePagination,
 }
@@ -383,6 +395,9 @@ impl LanguageResources {
             workspace_navigation: None,
             read_only_workspace_navigation: None,
             analyzed_dependencies: BTreeMap::new(),
+            analyzed_dependency_scope_order: VecDeque::new(),
+            #[cfg(test)]
+            analyzed_dependency_scope_capacity: ANALYZED_DEPENDENCY_SCOPE_CAPACITY,
             rejected_dependency_revisions: RejectedDependencyRevisions::new(),
             reference_pagination: ReferencePagination::new()?,
         })
@@ -446,6 +461,26 @@ impl LanguageResources {
     }
 
     #[cfg(test)]
+    pub(crate) fn set_test_analyzed_dependency_scope_capacity(&mut self, capacity: usize) {
+        self.analyzed_dependency_scope_capacity = capacity;
+        self.evict_analyzed_dependency_scopes();
+    }
+
+    #[cfg(test)]
+    pub(crate) fn retained_analyzed_dependency_scopes(&self) -> usize {
+        self.analyzed_dependencies.len()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn retained_analyzed_dependency_payloads(&self) -> usize {
+        self.analyzed_dependencies
+            .values()
+            .map(Arc::as_ptr)
+            .collect::<BTreeSet<_>>()
+            .len()
+    }
+
+    #[cfg(test)]
     pub(crate) fn retained_rejected_dependency_revisions(&self) -> usize {
         self.rejected_dependency_revisions.recent.len()
     }
@@ -497,19 +532,91 @@ impl LanguageResources {
         scope: DependencyAnalysisScope,
         dependencies: &[CapturedDependencyProject],
     ) -> Result<(), ResourceCapacityError> {
-        let admitted = self.admit_dependencies(dependencies)?;
-        self.analyzed_dependencies.insert(
-            scope,
-            AnalyzedDependencies {
-                revision: dependency_revision_key(dependencies),
+        let revision = dependency_revision_key(dependencies);
+        let analyzed = if let Some(analyzed) = self
+            .analyzed_dependencies
+            .values()
+            .find(|analyzed| analyzed.revision == revision)
+            .cloned()
+        {
+            self.select_analyzed_dependency_documentation(&analyzed);
+            analyzed
+        } else {
+            let admitted = self.admit_dependencies(dependencies)?;
+            Arc::new(AnalyzedDependencies {
+                revision,
                 keys: admitted.keys,
                 documentation_revisions: admitted.revision_keys,
                 snapshots: admitted.snapshots,
-            },
-        );
+            })
+        };
+        self.analyzed_dependencies.insert(scope.clone(), analyzed);
+        self.analyzed_dependency_scope_order
+            .retain(|retained| retained != &scope);
+        self.analyzed_dependency_scope_order.push_back(scope);
+        self.evict_analyzed_dependency_scopes();
         self.workspace_navigation = None;
         self.read_only_workspace_navigation = None;
         Ok(())
+    }
+
+    fn select_analyzed_dependency_documentation(&mut self, analyzed: &AnalyzedDependencies) {
+        for (key, revision) in analyzed
+            .keys
+            .iter()
+            .cloned()
+            .zip(analyzed.documentation_revisions.iter().cloned())
+        {
+            if let Some(previous_revision) = self.current_package_docs.insert(key, revision.clone())
+                && let Some(uri) = self
+                    .package_docs
+                    .get(&previous_revision)
+                    .and_then(PackageDocumentation::listed_uri)
+            {
+                self.current_listed_documentation_uris.remove(uri);
+            }
+            if let Some(uri) = self
+                .package_docs
+                .get(&revision)
+                .and_then(PackageDocumentation::listed_uri)
+            {
+                self.current_listed_documentation_uris
+                    .insert(uri.to_string());
+            }
+        }
+    }
+
+    pub(crate) fn retain_analyzed_dependency_projects(&mut self, projects: &[String]) {
+        let projects = projects.iter().map(String::as_str).collect::<BTreeSet<_>>();
+        let previous_len = self.analyzed_dependencies.len();
+        self.analyzed_dependencies
+            .retain(|scope, _| projects.contains(scope.project()));
+        self.analyzed_dependency_scope_order
+            .retain(|scope| self.analyzed_dependencies.contains_key(scope));
+        if self.analyzed_dependencies.len() != previous_len {
+            self.workspace_navigation = None;
+            self.read_only_workspace_navigation = None;
+        }
+    }
+
+    fn evict_analyzed_dependency_scopes(&mut self) {
+        while self.analyzed_dependencies.len() > self.analyzed_dependency_scope_capacity() {
+            let evicted = self
+                .analyzed_dependency_scope_order
+                .pop_front()
+                .expect("non-empty analyzed dependency scope order");
+            self.analyzed_dependencies.remove(&evicted);
+        }
+    }
+
+    #[cfg(not(test))]
+    fn analyzed_dependency_scope_capacity(&self) -> usize {
+        ANALYZED_DEPENDENCY_SCOPE_CAPACITY
+    }
+
+    #[cfg(test)]
+    fn analyzed_dependency_scope_capacity(&self) -> usize {
+        self.analyzed_dependency_scope_capacity
     }
 
     pub(crate) fn reject_dependency_analysis(
@@ -811,7 +918,11 @@ impl LanguageResources {
         dependencies: &[CapturedDependencyProject],
     ) -> DependencyAnalysisSelection {
         let revision = dependency_revision_key(dependencies);
-        let retained = self.analyzed_dependencies.get(scope).cloned();
+        let retained = self
+            .analyzed_dependencies
+            .get(scope)
+            .map(Arc::as_ref)
+            .cloned();
         if retained
             .as_ref()
             .is_some_and(|analyzed| analyzed.revision == revision)
