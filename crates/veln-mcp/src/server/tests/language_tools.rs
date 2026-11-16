@@ -886,6 +886,18 @@ fn workspace_navigation_is_preserved_across_generic_variance_analysis_failure() 
         server.completion_tool(&json!({"source":"main.veln","line":6,"column":3}));
     let accepted_signature =
         server.signature_help_tool(&json!({"source":"main.veln","line":6,"column":12}));
+    let accepted_references = server.references_tool(&json!({
+        "source":"main.veln",
+        "line":1,
+        "column":8,
+        "include_declaration":true
+    }));
+    let accepted_rename = server.rename_tool(&json!({
+        "source":"main.veln",
+        "line":1,
+        "column":8,
+        "new_name":"retained"
+    }));
     assert_eq!(
         accepted_signature["structuredContent"]["signature"]["label"],
         "fn accepted(value: String) -> String"
@@ -906,6 +918,24 @@ fn workspace_navigation_is_preserved_across_generic_variance_analysis_failure() 
     assert_eq!(
         server.signature_help_tool(&json!({"source":"main.veln","line":6,"column":12})),
         accepted_signature
+    );
+    assert_eq!(
+        server.references_tool(&json!({
+            "source":"main.veln",
+            "line":1,
+            "column":8,
+            "include_declaration":true
+        })),
+        accepted_references
+    );
+    assert_eq!(
+        server.rename_tool(&json!({
+            "source":"main.veln",
+            "line":1,
+            "column":8,
+            "new_name":"retained"
+        })),
+        accepted_rename
     );
     assert_rejected_workspace_symbol_is_unpublished(&mut server, "main.veln");
 }

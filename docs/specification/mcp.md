@@ -475,11 +475,11 @@ dependency snapshot.
 Previously retained dependency source, package-documentation, search, and
 exact-read state remains unchanged. When the same selected project or
 single-file analysis scope already has a successful whole captured navigation
-state, `definition`, `completion`, and `signature_help` continue to use that
-state after the variance rejection. The retained state contains the successful
-workspace files and their admitted dependency layer. Navigation does not add
-the current rejected workspace files as overlays, including when the rejected
-manifest selects a different dependency source.
+state, `definition`, `completion`, `signature_help`, `references`, and `rename`
+continue to use that state after the variance rejection. The retained state
+contains the successful workspace files and their admitted dependency layer.
+Navigation does not add the current rejected workspace files as overlays,
+including when the rejected manifest selects a different dependency source.
 It therefore exposes neither workspace declarations and signatures nor
 dependency declarations and signatures that exist only in the rejected
 analysis. A later successful `check_project` replaces the retained whole state
