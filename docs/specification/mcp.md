@@ -582,9 +582,10 @@ becomes the `rename.conflict` result specified below, including the
 package-backed conflicting declaration when one caused the failure.
 Standard-library module values remain outside this navigation row. Invalid,
 unresolved, and standard-library selections do not acquire a module-value
-reference identity. A failed initial request publishes no partial locations or
+reference identity. A stable-capture failure publishes no partial locations or
 cursor and preserves saved workspace state, resources, prior results, and
-existing cursors.
+existing cursors. Other initial-request failures follow the general admission
+and state rules in [Resources](#resources).
 The checked
 [`module-value-navigation`](../../examples/specification/mcp/module-value-navigation/)
 and
