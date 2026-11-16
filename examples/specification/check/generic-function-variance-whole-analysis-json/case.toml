@@ -1,0 +1,54 @@
+# Integration contract: `veln check --json` reports both whole-analysis
+# variance blockers without presenting the rejected source as a successful check.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type"
+equals = "fn(State) -> Int"
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "fn(State::Ready) -> Int"
+
+[[json_assert]]
+path = "diagnostics.0.details.nested_incompatibility.path.0.kind"
+equals = "function_input"
+
+[[json_assert]]
+path = "diagnostics.1.details.nested_incompatibility.path.0.kind"
+equals = "effect_set"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.2.details.expected_type"
+equals = "Producer<State::Ready>"
+
+[[json_assert]]
+path = "diagnostics.2.details.actual_type"
+equals = "Producer<State>"
+
+[[json_assert]]
+path = "diagnostics.2.details.nested_incompatibility.path.0.kind"
+equals = "named_argument"

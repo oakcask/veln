@@ -912,19 +912,39 @@ across those source fields and physical roots. A manifest or included-source
 byte change produces a different snapshot URI.
 
 Before publishing diagnostics for a consumer update, the server captures the
-consumer project and its direct dependencies once. Diagnostic analysis and the
-retained navigation state consume that same capture. A dependency change after
-capture cannot make one publication analyze a different dependency revision
-from the revision used by navigation. Equal captured manifest and distribution
-source bytes keep the existing prepared dependency layer. Changed bytes replace
-that layer, invalidate navigation derived from it, and make the captured
-consumer analysis use newly derived source-ADT variance classifications.
+consumer project, its open-document overlays, and its direct dependencies once.
+Diagnostic analysis and the retained navigation state consume that same
+capture. A source or dependency change after capture cannot make one
+publication analyze a different workspace or dependency revision from the
+revision used by navigation. A successful publication atomically replaces the
+retained workspace and dependency layers. Equal captured workspace sources,
+manifest bytes, and distribution source bytes reuse the corresponding prepared
+layers. Successfully accepted changed bytes invalidate navigation derived from
+the replaced layer. A changed dependency also makes the captured consumer
+analysis use newly derived source-ADT variance classifications.
 Declaration identity and generic arity do not suppress this refresh. The
 [package virtual-source lifetime](package-virtual-sources.md#package-virtual-sources)
 defines how earlier snapshot URIs remain resolvable.
+An incompatible named-generic argument, function input, variadic element,
+function result, or effect set is a publication rejection. The server publishes
+the applicable diagnostic but does not replace either retained layer.
+Definitions and signatures stay on the complete previous successful workspace,
+including its accepted open-document overlays. The active package URI and
+virtual-source bytes stay on the previous successful dependency capture. A
+workspace or package declaration, signature, source, or URI seen only in the
+rejected capture is not readable. If no complete capture has succeeded,
+workspace and dependency navigation and virtual-source reads remain empty.
+Closing an overlay selects the saved source for a new capture; if that capture
+is rejected, navigation continues to use the previously accepted overlay. A
+later successful open, change, or close replaces both retained layers as one
+state transition. Other semantic diagnostics do not reject a captured state
+and can accompany its publication.
 If project rediscovery fails, the server publishes an empty diagnostic list for
-each URI previously published for that project, and the current dependency
-layer stays active. After successful rediscovery, a dependency that fails
+each URI previously published for that project, and the complete current
+dependency layer stays active. Definitions, signatures, and virtual-source
+reads therefore continue to use the prior successful snapshot, including when
+that snapshot carries source-ADT and function variance facts. No source or
+signature from the failed discovery is exposed. After successful rediscovery, a dependency that fails
 identity, source-root, snapshot, manifest, or catalog validation is absent from
 the replacement layer. An export-validation failure also removes the dependency
 unless every reported failure is a source-path invalid-case diagnostic. Those

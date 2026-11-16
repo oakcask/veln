@@ -224,10 +224,12 @@ virtual-source catalog remain usable by their own APIs.
 Each retained diagnostic keeps the gate of its causal publication failure.
 For example, one failed result can report a module-value diagnostic with
 `gate: "module_value"` and an independent private-refinement diagnostic with
-`gate: "semantic_visibility"`. The presence or ordering of another diagnostic
-does not reclassify either failure. When a retained dependency-owned cause can
-be matched to a captured dependency snapshot, its span keeps that dependency's
-package identity and snapshot digest in its canonical `veln-pkg:` source URI.
+`gate: "semantic_visibility"`. A named-generic or function variance mismatch
+uses `gate: "semantic_variance"`. The presence or ordering of another
+diagnostic does not reclassify either failure. When a retained dependency-owned
+cause can be matched to a captured dependency snapshot, its span keeps that
+dependency's package identity and snapshot digest in its canonical `veln-pkg:`
+source URI.
 A source path or byte range that is also present in the package being documented
 does not reassign the cause to that package. If the cause cannot be matched,
 generation replaces it with a spanless
@@ -263,6 +265,12 @@ The implemented gates are:
   `gate: "semantic_visibility"`, reports
   `type.variant_refinement_private`, and publishes no declaration identity or
   signature;
+- semantic variance: every `type.mismatch` whose nested incompatibility path
+  contains a named argument, function input, variadic element, function result,
+  or effect set fails the complete catalog. Generation retains every such mismatch
+  from the package analysis with `gate: "semantic_variance"`. It publishes no
+  accepted sibling declaration or partial signature, including when the
+  mismatch belongs to a private or otherwise non-exported declaration;
 - module value: every public module immutable value in an exported source must
   pass finite-data initializer, written-annotation, imported-lookup,
   package-aware visibility, and package-wide dependency checking. An error
@@ -344,6 +352,12 @@ The public API is in
 publication, and gate tests are in its `package_documentation/tests/` modules.
 The `variance_presentation` test checks exact ADT, constructor, and function
 signatures in the catalog model, canonical JSON bytes, and rendered Markdown.
+The `variance_failure_preservation` test checks that named-generic,
+function-input, and effect-set mismatches retain the `semantic_variance` gate
+and suppress the complete catalog, including an otherwise healthy public
+sibling. The checked
+[`variance-nested-incompatibility-json`](../../examples/specification/check/variance-nested-incompatibility-json/)
+case covers function-result and variadic-element diagnostic paths.
 The `module_value_publication` tests check public declaration content and
 lookup, initializer-independent declaration identity, snapshot and
 documentation digest rotation, package-atomic failure, and causal diagnostic

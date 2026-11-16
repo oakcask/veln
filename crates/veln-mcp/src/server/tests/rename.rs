@@ -1161,7 +1161,7 @@ fn shared_conflicting_uri(
     column: usize,
     requested_name: &str,
 ) -> String {
-    let Ok((captured, captured_source, _)) = crate::check_project::capture_navigation_source(
+    let Ok((captured, captured_source, scope)) = crate::check_project::capture_navigation_source(
         &server.base,
         &server.selection,
         source,
@@ -1172,6 +1172,7 @@ fn shared_conflicting_uri(
     let snapshot = server.language_resources.read_only_navigation_snapshot(
         captured.project.files,
         &captured.dependencies,
+        scope.dependency_analysis_scope(),
         captured.key,
     );
     let result = navigate_for_rename(
@@ -2082,8 +2083,8 @@ fn rename_preserves_direct_dependency_conflict_provenance() {
         shared_uri
     );
     assert!(shared_uri.starts_with("veln-pkg:///example%2Fdep/snapshot/"));
-    assert_eq!(server.language_resources.list_result(), before);
-    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+    assert_ne!(server.language_resources.list_result(), before);
+    assert!(dependency_resource_is_listed(&mut server, "example/dep"));
 }
 
 #[test]
@@ -2157,8 +2158,8 @@ fn rename_returns_empty_for_unsupported_and_package_backed_selections() {
         assert_eq!(result["isError"], false, "{result:#}");
         assert_eq!(edits(&result), &Vec::<Value>::new(), "{result:#}");
     }
-    assert_eq!(server.language_resources.list_result(), before_resources);
-    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+    assert_ne!(server.language_resources.list_result(), before_resources);
+    assert!(dependency_resource_is_listed(&mut server, "example/dep"));
 }
 
 #[test]

@@ -119,13 +119,13 @@ declaration URI forms with Markdown media type. Clients obtain exact readable
 module and declaration URIs from index and module Markdown; template variables
 are not a URI normalization or discovery surface.
 
-Successful `check_project` analysis with no
-`type.variant_refinement_private` diagnostic and successful `definition` and
-`references` calls on a selected manifest project atomically admit every valid
-direct-dependency package snapshot captured by the same stable saved-project
-operation. A valid snapshot
-has a manifest package name that equals the dependency table key and a captured
-package distribution snapshot. The server generates the existing
+Successful whole analysis by `check_project`, `definition`, `completion`,
+`signature_help`, `references`, or `rename`, with no
+`type.variant_refinement_private` or applicable generic/function-variance
+diagnostic, atomically admits the captured workspace files and every valid
+direct-dependency package snapshot for the selected analysis scope. A valid
+snapshot has a manifest package name that equals the dependency table key and
+a captured package distribution snapshot. The server generates the existing
 transport-independent package-documentation result from that retained snapshot
 and the parsed manifest used for admission. Publication analysis receives the
 complete dependency set from the same stable capture. To keep admission work
@@ -181,9 +181,17 @@ it generates package documentation. If one operation would exceed either
 limit, the tool returns `resource_capacity`, generates no documentation, admits
 none of that operation's new source snapshots or revisions, publishes no new
 resources or search candidates, does not change the current revision selection,
-and preserves the previous public state. Capture failure, validation failure,
-tool domain failure, and invalid tool parameters admit no new dependency
-resources.
+and preserves the previous public state. Invalid tool parameters and failures
+that prevent a stable source capture admit no new dependency resources. Saved
+navigation tools perform the whole-analysis transition before coordinate and
+symbol-result validation. Tool-specific parameter validation that precedes
+capture, such as rename replacement-name validation, admits no state. A later
+`invalid_position`, empty result, or post-admission rename conflict does not
+roll back dependency resources admitted by the transition. A stable-capture
+failure or variance-analysis rejection after a successful dependency analysis
+preserves the prior package signatures, source resources, exact reads, search
+results, navigation selection, and cursors. Bytes and signatures seen only
+during the failed capture or rejected analysis are not published.
 
 Dependency source resources use the canonical `veln-pkg:` URI from the
 admitted dependency snapshot virtual-source catalog. Their `name` is the
@@ -385,6 +393,12 @@ generation and roots without changing them.
 | `refresh_workspace` discovery succeeds | Return the replacement roots and next generation. | Replace all roots and advance the generation by one. |
 | `refresh_workspace` discovery fails, including an unrepresentable root spelling | Return an MCP tool result with `isError: true` and structured code `generation_failed`. | Preserve both roots and generation. |
 
+Successful refresh also retires successful dependency-analysis fallback state
+for projects absent from the replacement roots. It preserves fallback state for
+projects that remain selected. Failed refresh preserves all fallback state.
+These transitions do not remove the exact dependency resource reads retained
+under the [resource contract](#resources).
+
 Adding, removing, or renaming a manifest has no observable effect until a
 successful refresh. `check_project` uses the project kind selected at the last
 successful discovery. If a selected manifest root is replaced before analysis,
@@ -457,16 +471,53 @@ For `type.variant_refinement_unknown`, `check_project` preserves the closed
 `resolved_identity` for the resolved ADT and each visible variant, and
 `variant` for each visible-variant entry. Source-backed entries also preserve
 their declaration spans; source-less entries do not invent spans.
-When analysis returns `type.variant_refinement_private`, `check_project`
-returns the diagnostic but does not admit the captured dependency snapshot.
+When analysis returns `type.variant_refinement_private`, or a `type.mismatch`
+whose nested comparison identifies an incompatible named-generic argument,
+function input, variadic element, function result, or effect set,
+`check_project` returns the diagnostic but does not admit the captured
+dependency snapshot.
 Previously retained dependency source, package-documentation, search, and
-exact-read state remains unchanged. Stable-capture failure preserves the same
-state. Other language diagnostics do not imply this visibility-specific
-admission rule.
+exact-read state remains unchanged. When the same selected project or
+single-file analysis scope already has a successful whole captured navigation
+state, `definition`, `completion`, `signature_help`, `references`, and `rename`
+continue to use that state after the variance rejection. The retained state
+contains the successful workspace files and their admitted dependency layer.
+Navigation does not add the current rejected workspace files as overlays,
+including when the rejected manifest selects a different dependency source.
+It therefore exposes neither workspace declarations and signatures nor
+dependency declarations and signatures that exist only in the rejected
+analysis. A later successful whole-analysis request replaces the retained whole
+state with the newly analyzed state. Stable-capture failure preserves the same
+state.
+The rejected snapshot contributes no package signature, source resource, or
+search result. Other language diagnostics do not imply this atomic admission
+rule and can still produce a coherent diagnostic-bearing snapshot.
+Each saved-navigation request applies the same atomic analysis transition to
+its stable capture before it admits workspace files or dependency resources. A
+`definition`, `completion`, `signature_help`, `references`, or `rename` request
+that first encounters a rejected revision therefore selects the prior
+successful state without making the rejected source, documentation, search
+candidate, or signature observable. A later successful saved-navigation
+request can admit a new coherent revision without an intervening
+`check_project` request.
+If the selected analysis scope has no retained successful state, navigation
+after a rejection omits both the captured workspace files and captured
+dependencies. At most 256 project or single-file scope states retain successful
+whole navigation or a rejection outcome. Each successful analysis or rejection
+makes its scope the newest retained scope. When another scope exceeds the
+limit, the oldest scope no longer supplies successful fallback after a later
+rejection. An evicted or otherwise unknown scope remains non-publishing after
+the history has saturated until a successful whole-analysis request admits that
+scope.
+Scope eviction does not remove admitted dependency resource reads.
+The server retains at most 256 exact fixed-size rejected-revision identities.
+After that set saturates, an unknown dependency revision remains non-publishing
+until a successful whole-analysis request explicitly admits that revision.
+Revision tracking does not retain manifest or source payloads.
 If dependency resource admission exceeds the retained source-snapshot or
-documentation-revision capacity after analysis succeeds, `check_project`
-returns `resource_capacity` and publishes no partial diagnostics, summary, or
-analysis metadata.
+documentation-revision capacity after analysis succeeds, the whole-analysis
+request returns `resource_capacity` and publishes no partial workspace,
+dependency, diagnostic, summary, or analysis state.
 
 ## Saved Workspace Navigation
 
@@ -578,6 +629,13 @@ Invalid paths return `invalid_path`; invalid coordinates return
 capacity exhaustion returns `resource_capacity`. These failures include
 `code`, `message`, and object `details`. Unsupported or valid-but-empty
 selections succeed with `definition: null`.
+After variance rejection selects a prior successful workspace state, all five
+navigation tools validate the requested coordinates against the source bytes
+in that retained state. A coordinate that exists only in the rejected source
+returns `invalid_position`; a coordinate that remains valid only in the
+retained source continues to address the retained navigation result. When no
+successful state exists, the omitted workspace remains a valid-but-empty
+selection rather than making rejected bytes addressable.
 The invalid-coordinate failure creates no reference cursor and does not consume
 an existing cursor. A later request for an earlier valid saved selection reads
 the same retained snapshot and produces the same navigation result.
@@ -721,14 +779,15 @@ successful tool results. They do not end the MCP session or change workspace
 selection. A later workspace request and a presentation request for another
 saved source continue to use the same server state.
 
-Completion and signature help can read captured direct-dependency bytes for
-navigation, but neither tool admits dependency resources. They do not change
-retained resource capacity, and full retained capacity cannot make either tool
-return `resource_capacity`. Success, empty results, and failures preserve the
-published resources, workspace roots and generation, published diagnostics,
-prior results, and reference cursors. A separately requested successful
-workspace refresh still follows the [selection-state contract](#selection-state)
-and invalidates cursors.
+Completion and signature help admit their successful whole captured state
+before rendering a result. If dependency-resource admission exceeds capacity,
+the request returns `resource_capacity` without publishing a partial workspace,
+dependency, source, or documentation state. Successful admission can add
+published dependency resources even when rendering returns an empty result or
+`invalid_position`. Those outcomes preserve workspace roots and generation,
+published diagnostics, prior tool results, and reference cursors. A separately
+requested successful workspace refresh still follows the
+[selection-state contract](#selection-state) and invalidates cursors.
 
 ### Rename
 
@@ -813,14 +872,16 @@ Invalid paths return exactly empty `details`. Invalid positions return exactly
 `details: {source,line,column}`. Exhausted stable capture returns
 `snapshot_changed` with exactly empty `details`. No failure contains edits.
 
-Rename constructs its language-service snapshot from one stable capture but
-does not admit dependency source or documentation resources. Retained package
-capacity therefore cannot change its result. Success, empty selection, and
-failure preserve filesystem bytes, workspace roots and generation, published
-diagnostics and resources, prior results, and reference cursors. Rename neither
-creates nor consumes a cursor. A later definition or references request still
-observes the unchanged saved workspace unless the client separately changes
-the files.
+Rename admits its successful whole captured state before computing edits. If
+dependency-resource admission exceeds capacity, it returns `resource_capacity`
+without publishing any part of the attempted workspace or dependency state.
+Successful admission can add published dependency resources even when rename
+returns an empty selection, `invalid_position`, or `rename.conflict`.
+`rename.invalid_name` is validated before capture and admits no state. Those
+outcomes preserve filesystem bytes, workspace roots and generation, published
+diagnostics, prior tool results, and reference cursors. Rename neither creates
+nor consumes a cursor. A later definition or references request observes the
+admitted saved workspace unless the client separately changes the files.
 
 An initial `references` request requires `source`, `line`, and `column`.
 It may set boolean `include_declaration` (default `false`) and `page_size`
@@ -1080,6 +1141,12 @@ The checked
 transcript pins the structured signature label and parameter array for
 covariant, contravariant, invariant, and irrelevant source ADTs plus function
 input and result types. The checked
+[`variance-failure-workspace-nonpublication`](../../examples/specification/mcp/variance-failure-workspace-nonpublication/)
+transcript checks that a first rejected workspace analysis returns its variance
+diagnostic without publishing the rejected definition, completion item, or
+signature. Stateful MCP server regressions check that a prior successful whole
+workspace state is retained and that scope eviction remains non-publishing.
+The checked
 [`explicit-import-alias-navigation`](../../examples/specification/mcp/explicit-import-alias-navigation/)
 transcript covers workspace and direct-dependency qualified completion
 provenance and empty results for colliding, invalid-cased, and recovered

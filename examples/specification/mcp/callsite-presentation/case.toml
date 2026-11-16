@@ -17,6 +17,16 @@ path = "/result/tools/5/name"
 equals = "signature_help"
 
 [[mcp_assert]]
+id = 2
+path = "/result/tools/4/outputSchema/$defs/failure/properties/code/enum/3"
+equals = "resource_capacity"
+
+[[mcp_assert]]
+id = 2
+path = "/result/tools/5/outputSchema/$defs/failure/properties/code/enum/3"
+equals = "resource_capacity"
+
+[[mcp_assert]]
 id = 3
 path = "/result/structuredContent/items/0/label"
 equals = "callsite"

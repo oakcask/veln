@@ -113,6 +113,33 @@ impl EffectiveProjectSnapshot {
         }
     }
 
+    pub fn with_workspace_layer(&self, sources: Vec<SourceFile>) -> Self {
+        Self {
+            sources,
+            direct_dependencies: self.direct_dependencies.clone(),
+            standard_library: self.standard_library.clone(),
+            indexed_direct_dependencies: Arc::clone(&self.indexed_direct_dependencies),
+            indexed_standard_library: Arc::clone(&self.indexed_standard_library),
+            direct_dependency_schema_navigation_index: OnceLock::new(),
+            schema_navigation_index: OnceLock::new(),
+            navigation_index: OnceLock::new(),
+            signature_function_names: OnceLock::new(),
+        }
+    }
+
+    pub fn has_workspace_layer(&self, sources: &[SourceFile]) -> bool {
+        self.sources.len() == sources.len()
+            && self
+                .sources
+                .iter()
+                .zip(sources)
+                .all(|(retained, captured)| {
+                    retained.path() == captured.path()
+                        && retained.text() == captured.text()
+                        && retained.generated_origin() == captured.generated_origin()
+                })
+    }
+
     pub fn has_direct_dependency_layer(
         &self,
         direct_dependencies: &[DirectDependencySnapshot],

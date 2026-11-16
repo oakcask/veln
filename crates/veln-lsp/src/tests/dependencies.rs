@@ -1278,8 +1278,264 @@ fn dependency_variance_metadata_refreshes_across_payload_revisions() {
     let mut fixture = DependencyVarianceFixture::new();
     fixture.assert_unchanged_capture_reuses_snapshot();
     fixture.assert_live_accept_reject_accept_transition();
-    fixture.assert_captured_revision_stays_coherent();
-    fixture.assert_revision_cycle_bounds_virtual_source_storage();
+    fixture.assert_captured_rejection_stays_coherent();
+    fixture.assert_accepted_revision_cycle_bounds_virtual_source_storage();
+    fixture.assert_ordinary_diagnostic_bearing_revision_is_accepted();
+}
+
+#[test]
+fn first_dependency_variance_rejection_does_not_publish_navigation() {
+    let project = dependency_variance_project(
+        dependency_variance_mixed_source(),
+        dependency_variance_consumer_source(),
+    );
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let rejected_uri = dependency_virtual_uri(&capture_workspace_project(&project.root).unwrap());
+    let mut server = Server::default();
+    let initialized = server.handle_message(&initialize_request(&path_to_uri(&project.root)));
+    let publication = publish_for_uri(&initialized, &main_uri);
+    assert_eq!(publication.matches(r#""code":"type.mismatch""#).count(), 1);
+    assert!(!server.project_snapshots.contains_key(&project.root));
+    assert!(server.retired_virtual_sources.is_empty());
+
+    let definition = server.handle_message(&definition_request(&main_uri, 2, 23));
+    assert_contains_json(&definition[0], r#""result":null"#);
+    let signature = server.handle_message(&dependency_variance_signature_request(&main_uri));
+    assert_contains_json(&signature[0], r#""result":null"#);
+    let rejected_source = server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","id":"first-rejected","method":"veln/virtualDocument","params":{{"uri":"{rejected_uri}"}}}}"#,
+    ));
+    assert_contains_json(&rejected_source[0], r#""code":-32602"#);
+}
+
+#[test]
+fn workspace_variance_overlay_admission_preserves_complete_navigation_state() {
+    let project = TempProject::new("workspace-variance-overlay-admission");
+    project.write("veln.toml", "[package]\nname = \"app\"\n");
+    project.write("main.veln", &workspace_variance_source("Int", false));
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&path_to_uri(&project.root)));
+
+    let accepted_source = workspace_variance_source("Int", false);
+    let accepted = server.handle_message(&did_open_request(&main_uri, &accepted_source));
+    assert_contains_json(publish_for_uri(&accepted, &main_uri), r#""diagnostics":[]"#);
+    assert_contains_json(
+        &workspace_variance_signature(&mut server, &main_uri),
+        "fn inspect(value: Producer<State>) -> Int",
+    );
+
+    assert_workspace_variance_rejection_retains_navigation(
+        &mut server,
+        &project,
+        &main_uri,
+        &accepted_source,
+    );
+    assert_workspace_variance_recovery_replaces_navigation(&mut server, &project, &main_uri);
+}
+
+#[test]
+fn first_workspace_variance_overlay_rejection_keeps_navigation_empty_and_close_is_atomic() {
+    let project = TempProject::new("workspace-variance-first-overlay-rejection");
+    project.write("veln.toml", "[package]\nname = \"app\"\n");
+    project.write("main.veln", &workspace_variance_source("String", true));
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default();
+    let initialized = server.handle_message(&initialize_request(&path_to_uri(&project.root)));
+    assert_workspace_variance_navigation_is_empty(&server, &project, &initialized, &main_uri);
+    assert_first_workspace_variance_overlay_rejection(&mut server, &project, &main_uri);
+    accept_workspace_variance_overlay(&mut server, &project, &main_uri);
+    assert_workspace_variance_rejected_close_is_atomic(&mut server, &project, &main_uri);
+    assert_workspace_variance_recovered_close_replaces_navigation(
+        &mut server,
+        &project,
+        &main_uri,
+    );
+}
+
+fn assert_workspace_variance_rejection_retains_navigation(
+    server: &mut Server,
+    project: &TempProject,
+    main_uri: &str,
+    accepted_source: &str,
+) {
+    let retained = server
+        .overlaid_project_snapshots
+        .get(&project.root)
+        .cloned()
+        .expect("accepted overlay should establish navigation");
+    let rejected_source = workspace_variance_source("String", true);
+    let rejected = server.handle_message(&did_change_request(main_uri, &rejected_source));
+    let publication = publish_for_uri(&rejected, main_uri);
+    assert_eq!(publication.matches(r#""code":"type.mismatch""#).count(), 1);
+    assert_contains_json(publication, "expected `Producer<State>`");
+    assert_contains_json(publication, "found `Producer<State::Ready>`");
+    assert!(Arc::ptr_eq(
+        server
+            .overlaid_project_snapshots
+            .get(&project.root)
+            .expect("rejected overlay should retain accepted navigation"),
+        &retained,
+    ));
+    assert_eq!(
+        retained
+            .workspace_source(&SourcePath::new("main.veln"))
+            .expect("retained source should remain navigable")
+            .text(),
+        accepted_source,
+    );
+    let signature = workspace_variance_signature(server, main_uri);
+    assert_contains_json(&signature, "fn inspect(value: Producer<State>) -> Int");
+    assert_not_contains_json(&signature, "-> String");
+}
+
+fn assert_workspace_variance_recovery_replaces_navigation(
+    server: &mut Server,
+    project: &TempProject,
+    main_uri: &str,
+) {
+    let retained = server
+        .overlaid_project_snapshots
+        .get(&project.root)
+        .cloned()
+        .expect("rejected overlay should retain accepted navigation");
+    let recovered_source = workspace_variance_source("Bool", false);
+    let recovered = server.handle_message(&did_change_request(main_uri, &recovered_source));
+    assert_contains_json(publish_for_uri(&recovered, main_uri), r#""diagnostics":[]"#);
+    assert!(!Arc::ptr_eq(
+        server
+            .overlaid_project_snapshots
+            .get(&project.root)
+            .expect("later accepted overlay should replace navigation"),
+        &retained,
+    ));
+    let signature = workspace_variance_signature(server, main_uri);
+    assert_contains_json(&signature, "fn inspect(value: Producer<State>) -> Bool");
+    assert_not_contains_json(&signature, "-> Int");
+}
+
+fn assert_workspace_variance_navigation_is_empty(
+    server: &Server,
+    project: &TempProject,
+    published: &[String],
+    main_uri: &str,
+) {
+    assert_eq!(
+        publish_for_uri(published, main_uri)
+            .matches(r#""code":"type.mismatch""#)
+            .count(),
+        1,
+    );
+    assert!(!server
+        .overlaid_project_snapshots
+        .contains_key(&project.root));
+    assert!(!server.project_snapshots.contains_key(&project.root));
+}
+
+fn assert_first_workspace_variance_overlay_rejection(
+    server: &mut Server,
+    project: &TempProject,
+    main_uri: &str,
+) {
+    let source = workspace_variance_source("Int", true);
+    let rejected = server.handle_message(&did_open_request(main_uri, &source));
+    assert_workspace_variance_navigation_is_empty(server, project, &rejected, main_uri);
+    assert_contains_json(
+        &workspace_variance_signature(server, main_uri),
+        r#""result":null"#,
+    );
+}
+
+fn accept_workspace_variance_overlay(server: &mut Server, project: &TempProject, main_uri: &str) {
+    let source = workspace_variance_source("Bool", false);
+    let accepted = server.handle_message(&did_change_request(main_uri, &source));
+    assert_contains_json(publish_for_uri(&accepted, main_uri), r#""diagnostics":[]"#);
+    assert!(server.overlaid_project_snapshots.contains_key(&project.root));
+    assert_contains_json(
+        &workspace_variance_signature(server, main_uri),
+        "fn inspect(value: Producer<State>) -> Bool",
+    );
+}
+
+fn assert_workspace_variance_rejected_close_is_atomic(
+    server: &mut Server,
+    project: &TempProject,
+    main_uri: &str,
+) {
+    let retained = server
+        .overlaid_project_snapshots
+        .get(&project.root)
+        .cloned()
+        .expect("accepted overlay should establish navigation");
+    let closed = server.handle_message(&did_close_request(main_uri));
+    assert_eq!(
+        publish_for_uri(&closed, main_uri)
+            .matches(r#""code":"type.mismatch""#)
+            .count(),
+        1,
+    );
+    assert!(Arc::ptr_eq(
+        server
+            .overlaid_project_snapshots
+            .get(&project.root)
+            .expect("rejected close should retain accepted navigation"),
+        &retained,
+    ));
+    assert_contains_json(
+        &workspace_variance_signature(server, main_uri),
+        "fn inspect(value: Producer<State>) -> Bool",
+    );
+}
+
+fn assert_workspace_variance_recovered_close_replaces_navigation(
+    server: &mut Server,
+    project: &TempProject,
+    main_uri: &str,
+) {
+    let retained = server
+        .overlaid_project_snapshots
+        .get(&project.root)
+        .cloned()
+        .expect("rejected close should retain accepted navigation");
+    project.write("main.veln", &workspace_variance_source("Int", false));
+    let recovered = server.handle_message(&did_close_request(main_uri));
+    assert_contains_json(publish_for_uri(&recovered, main_uri), r#""diagnostics":[]"#);
+    assert!(!Arc::ptr_eq(
+        server
+            .overlaid_project_snapshots
+            .get(&project.root)
+            .expect("accepted close should replace retained navigation"),
+        &retained,
+    ));
+    assert_contains_json(
+        &workspace_variance_signature(server, main_uri),
+        "fn inspect(value: Producer<State>) -> Int",
+    );
+}
+
+fn did_close_request(uri: &str) -> String {
+    format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didClose","params":{{"textDocument":{{"uri":"{uri}"}}}}}}"#,
+    )
+}
+
+fn workspace_variance_source(result: &str, invariant: bool) -> String {
+    let consume = if invariant { "fn(T) -> ()" } else { "fn() -> ()" };
+    let result_expression = match result {
+        "String" => "\"rejected\"",
+        "Bool" => "true",
+        _ => "1",
+    };
+    format!(
+        "type State\n  Ready\n  Closed\nend\n\ntype Producer<T>\n  Produced({{value: T, consume: {consume}}})\nend\n\nfn inspect(value: Producer<State>) -> {result}\n  {result_expression}\nend\n\nfn verify(value: Producer<State::Ready>) -> ()\n  let widened: Producer<State> = value\n  inspect(widened)\n  ()\nend\n"
+    )
+}
+
+fn workspace_variance_signature(server: &mut Server, uri: &str) -> String {
+    server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","id":"workspace-variance-signature","method":"textDocument/signatureHelp","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":15,"character":12}}}}}}"#,
+    ))[0]
+        .clone()
 }
 
 struct DependencyVarianceFixture {
@@ -1288,15 +1544,16 @@ struct DependencyVarianceFixture {
     main_uri: String,
     positive: &'static str,
     mixed: &'static str,
+    recovered: &'static str,
     consumer: &'static str,
     initial_virtual_uri: String,
-    mixed_virtual_uri: Option<String>,
 }
 
 impl DependencyVarianceFixture {
     fn new() -> Self {
         let positive = dependency_variance_positive_source();
         let mixed = dependency_variance_mixed_source();
+        let recovered = dependency_variance_recovered_source();
         let consumer = dependency_variance_consumer_source();
         let project = dependency_variance_project(positive, consumer);
         let main_uri = path_to_uri(&project.root.join("main.veln"));
@@ -1312,9 +1569,9 @@ impl DependencyVarianceFixture {
             main_uri,
             positive,
             mixed,
+            recovered,
             consumer,
             initial_virtual_uri,
-            mixed_virtual_uri: None,
         }
     }
 
@@ -1332,6 +1589,7 @@ impl DependencyVarianceFixture {
     fn assert_live_accept_reject_accept_transition(&mut self) {
         let initial_snapshot = self.current_snapshot();
         self.project.write("vendor/lib/math.veln", self.mixed);
+        let rejected_virtual_uri = self.captured_dependency_virtual_uri();
         let rejected = self.server.handle_message(&did_change_request(
             &self.main_uri,
             &format!("{}\n", self.consumer),
@@ -1340,53 +1598,73 @@ impl DependencyVarianceFixture {
         assert_eq!(publication.matches(r#""code":"type.mismatch""#).count(), 1);
         assert_contains_json(publication, "expected `Producer<State>`");
         assert_contains_json(publication, "found `Producer<State::Ready>`");
-        let mixed_snapshot = self.current_snapshot();
-        assert!(!Arc::ptr_eq(&mixed_snapshot, &initial_snapshot));
-        let mixed_virtual_uri = self.current_dependency_virtual_uri();
-        assert_ne!(mixed_virtual_uri, self.initial_virtual_uri);
-
-        self.project.write("vendor/lib/math.veln", self.positive);
-        let accepted = self.server.handle_message(&did_change_request(
-            &self.main_uri,
-            &format!("{}\n\n", self.consumer),
-        ));
-        assert_contains_json(publish_for_uri(&accepted, &self.main_uri), r#""diagnostics":[]"#);
-        assert!(!Arc::ptr_eq(&self.current_snapshot(), &mixed_snapshot));
+        assert!(Arc::ptr_eq(&self.current_snapshot(), &initial_snapshot));
         assert_eq!(self.current_dependency_virtual_uri(), self.initial_virtual_uri);
-        self.mixed_virtual_uri = Some(mixed_virtual_uri);
-    }
-
-    fn assert_captured_revision_stays_coherent(&mut self) {
-        self.project.write("vendor/lib/math.veln", self.mixed);
-        let captured = capture_workspace_project(&self.project.root).unwrap();
-        self.project.write("vendor/lib/math.veln", self.positive);
-        let rejected = self.server.publish_workspace_diagnostics_for_captured_project(
-            self.project.root.clone(),
-            captured,
+        assert_contains_json(
+            &self.current_signature(),
+            "fn inspect(value: Producer<State>) -> State",
         );
-        let publication = publish_for_uri(&rejected, &self.main_uri);
-        assert_eq!(publication.matches(r#""code":"type.mismatch""#).count(), 1);
-        assert_eq!(self.current_dependency_virtual_uri(), self.mixed_virtual_uri());
+        self.assert_virtual_document_unreadable(&rejected_virtual_uri, "rejected-live");
+        assert!(self.server.retired_virtual_sources.is_empty());
         assert_virtual_document_text(
             &mut self.server,
             "7",
             &self.initial_virtual_uri,
             self.positive,
         );
-        let mixed_virtual_uri = self.mixed_virtual_uri().to_string();
+
+        self.project.write("vendor/lib/math.veln", self.recovered);
+        let accepted = self.server.handle_message(&did_change_request(
+            &self.main_uri,
+            &format!("{}\n\n", self.consumer),
+        ));
+        assert_contains_json(publish_for_uri(&accepted, &self.main_uri), r#""diagnostics":[]"#);
+        assert!(!Arc::ptr_eq(&self.current_snapshot(), &initial_snapshot));
+        assert_ne!(self.current_dependency_virtual_uri(), self.initial_virtual_uri);
+        assert_contains_json(
+            &self.current_signature(),
+            "fn inspect(value: Producer<State>) -> Bool",
+        );
+        let recovered_uri = self.current_dependency_virtual_uri();
         assert_virtual_document_text(
             &mut self.server,
             "8",
-            &mixed_virtual_uri,
-            self.mixed,
+            &recovered_uri,
+            self.recovered,
         );
     }
 
-    fn assert_revision_cycle_bounds_virtual_source_storage(&mut self) {
+    fn assert_captured_rejection_stays_coherent(&mut self) {
+        let retained_snapshot = self.current_snapshot();
+        let retained_uri = self.current_dependency_virtual_uri();
+        self.project.write("vendor/lib/math.veln", self.mixed);
+        let captured = capture_workspace_project(&self.project.root).unwrap();
+        let rejected_uri = dependency_virtual_uri(&captured);
+        self.project.write("vendor/lib/math.veln", self.positive);
+        let rejected = self.server.publish_workspace_diagnostics_for_captured_project(
+            self.project.root.clone(),
+            captured,
+        );
+        assert_eq!(
+            publish_for_uri(&rejected, &self.main_uri)
+                .matches(r#""code":"type.mismatch""#)
+                .count(),
+            1
+        );
+        assert!(Arc::ptr_eq(&self.current_snapshot(), &retained_snapshot));
+        assert_eq!(self.current_dependency_virtual_uri(), retained_uri);
+        self.assert_virtual_document_unreadable(&rejected_uri, "rejected-captured");
+    }
+
+    fn assert_accepted_revision_cycle_bounds_virtual_source_storage(&mut self) {
+        let revisions = [
+            (self.positive, self.recovered, self.initial_virtual_uri.clone()),
+            (self.recovered, self.positive, self.current_dependency_virtual_uri()),
+        ];
         let mut previous_snapshot = self.current_snapshot();
-        for revision in 0..2 {
-            let (captured_text, later_disk_text, expected_uri, expected_diagnostic) =
-                self.revision_expectation(revision);
+        for (index, (captured_text, later_disk_text, expected_uri)) in
+            revisions.into_iter().enumerate()
+        {
             self.project.write("vendor/lib/math.veln", captured_text);
             let captured = capture_workspace_project(&self.project.root).unwrap();
             self.project.write("vendor/lib/math.veln", later_disk_text);
@@ -1394,36 +1672,21 @@ impl DependencyVarianceFixture {
                 self.project.root.clone(),
                 captured,
             );
-            let publication = publish_for_uri(&published, &self.main_uri);
-            assert_eq!(
-                publication.contains(r#""code":"type.mismatch""#),
-                expected_diagnostic,
-                "revision {revision}: {publication}",
+            assert_contains_json(
+                publish_for_uri(&published, &self.main_uri),
+                r#""diagnostics":[]"#,
             );
             let current_snapshot = self.current_snapshot();
             assert!(!Arc::ptr_eq(&current_snapshot, &previous_snapshot));
             previous_snapshot = current_snapshot;
             assert_eq!(self.current_dependency_virtual_uri(), expected_uri);
-            assert_eq!(self.server.retired_virtual_sources.len(), 1);
+            assert_eq!(
+                self.server.retired_virtual_sources.len(),
+                1,
+                "revision {index}"
+            );
         }
-    }
-
-    fn revision_expectation(&self, revision: usize) -> (&str, &str, String, bool) {
-        if revision.is_multiple_of(2) {
-            (
-                self.positive,
-                self.mixed,
-                self.initial_virtual_uri.clone(),
-                false,
-            )
-        } else {
-            (
-                self.mixed,
-                self.positive,
-                self.mixed_virtual_uri().to_string(),
-                true,
-            )
-        }
+        assert_eq!(self.server.retired_virtual_sources.len(), 1);
     }
 
     fn current_snapshot(&self) -> Arc<EffectiveProjectSnapshot> {
@@ -1441,11 +1704,64 @@ impl DependencyVarianceFixture {
         package_virtual_definition_uri(&definition[0], "example%2Fpkg", "math.veln")
     }
 
-    fn mixed_virtual_uri(&self) -> &str {
-        self.mixed_virtual_uri
-            .as_deref()
-            .expect("mixed dependency URI should be captured")
+    fn current_signature(&mut self) -> String {
+        self.server
+            .handle_message(&dependency_variance_signature_request(&self.main_uri))[0]
+            .clone()
     }
+
+    fn captured_dependency_virtual_uri(&self) -> String {
+        dependency_virtual_uri(&capture_workspace_project(&self.project.root).unwrap())
+    }
+
+    fn assert_virtual_document_unreadable(&mut self, uri: &str, id: &str) {
+        let response = self.server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":"{id}","method":"veln/virtualDocument","params":{{"uri":"{uri}"}}}}"#,
+        ));
+        assert_contains_json(&response[0], r#""code":-32602"#);
+    }
+
+    fn assert_ordinary_diagnostic_bearing_revision_is_accepted(&mut self) {
+        let previous_snapshot = self.current_snapshot();
+        self.project.write(
+            "vendor/lib/math.veln",
+            dependency_variance_ordinary_source(),
+        );
+        let ordinary_consumer = format!(
+            "{}\nfn ordinary() -> Int\n  \"wrong\"\nend\n",
+            self.consumer
+        );
+        let published = self.server.handle_message(&did_change_request(
+            &self.main_uri,
+            &ordinary_consumer,
+        ));
+        let publication = publish_for_uri(&published, &self.main_uri);
+        assert_eq!(publication.matches(r#""code":"type.mismatch""#).count(), 1);
+        assert!(!Arc::ptr_eq(&self.current_snapshot(), &previous_snapshot));
+        assert_contains_json(
+            &self.current_signature(),
+            "fn inspect(value: Producer<State>) -> String",
+        );
+        let ordinary_uri = self.current_dependency_virtual_uri();
+        assert_virtual_document_text(
+            &mut self.server,
+            "9",
+            &ordinary_uri,
+            dependency_variance_ordinary_source(),
+        );
+    }
+}
+
+fn dependency_virtual_uri(captured: &CapturedWorkspaceProject) -> String {
+    EffectiveProjectSnapshot::with_direct_dependencies(
+        Vec::new(),
+        captured.direct_dependencies.clone(),
+    )
+    .direct_dependency_virtual_sources()
+    .next()
+    .unwrap()
+    .0
+    .to_string()
 }
 
 fn dependency_variance_positive_source() -> &'static str {
@@ -1456,6 +1772,9 @@ fn dependency_variance_positive_source() -> &'static str {
         "end\n\n",
         "pub type Producer<T>\n",
         "  Produced({value: T, consume: fn() -> ()})\n",
+        "end\n\n",
+        "pub fn inspect(value: Producer<State>) -> State\n",
+        "  value.value\n",
         "end\n",
     )
 }
@@ -1468,6 +1787,39 @@ fn dependency_variance_mixed_source() -> &'static str {
         "end\n\n",
         "pub type Producer<T>\n",
         "  Produced({value: T, consume: fn(T) -> ()})\n",
+        "end\n\n",
+        "pub fn inspect(value: Producer<State>) -> State\n",
+        "  value.value\n",
+        "end\n",
+    )
+}
+
+fn dependency_variance_recovered_source() -> &'static str {
+    concat!(
+        "pub type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n\n",
+        "pub type Producer<T>\n",
+        "  Produced({value: T, consume: fn() -> ()})\n",
+        "end\n\n",
+        "pub fn inspect(value: Producer<State>) -> Bool\n",
+        "  true\n",
+        "end\n",
+    )
+}
+
+fn dependency_variance_ordinary_source() -> &'static str {
+    concat!(
+        "pub type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n\n",
+        "pub type Producer<T>\n",
+        "  Produced({value: T, consume: fn() -> ()})\n",
+        "end\n\n",
+        "pub fn inspect(value: Producer<State>) -> String\n",
+        "  \"accepted with an ordinary diagnostic\"\n",
         "end\n",
     )
 }
@@ -1477,8 +1829,15 @@ fn dependency_variance_consumer_source() -> &'static str {
         "use math from \"example/pkg\"\n\n",
         "fn verify(value: math::Producer<math::State::Ready>) -> ()\n",
         "  let widened: math::Producer<math::State> = value\n",
+        "  math::inspect(widened)\n",
         "  ()\n",
         "end\n",
+    )
+}
+
+fn dependency_variance_signature_request(uri: &str) -> String {
+    format!(
+        r#"{{"jsonrpc":"2.0","id":"variance-signature","method":"textDocument/signatureHelp","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":4,"character":16}}}}}}"#,
     )
 }
 
@@ -1522,15 +1881,13 @@ fn did_change_request(uri: &str, text: &str) -> String {
 #[test]
 fn project_rediscovery_failure_keeps_the_current_dependency_layer() {
     let mut server = Server::default();
-    let project = path_dependency_project(
-        "dependency-refresh-discovery-failure",
-        "vendor/lib",
-        "pub fn exposed(value: Int) -> Int\n  value\nend\n",
-    );
+    let positive = dependency_variance_positive_source();
+    let consumer = dependency_variance_consumer_source();
+    let project = dependency_variance_project(positive, consumer);
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
-    let definition = server.handle_message(&definition_request(&main_uri, 3, 10));
+    let definition = server.handle_message(&definition_request(&main_uri, 2, 23));
     let virtual_uri = package_virtual_definition_uri(&definition[0], "example%2Fpkg", "math.veln");
     let retained = server.project_snapshots.get(&project.root).cloned().unwrap();
 
@@ -1546,7 +1903,11 @@ fn project_rediscovery_failure_keeps_the_current_dependency_layer() {
         &mut server,
         "40",
         &virtual_uri,
-        "pub fn exposed(value: Int) -> Int\n  value\nend\n",
+        positive,
+    );
+    assert_eq!(
+        server.handle_message(&definition_request(&main_uri, 2, 23)),
+        definition
     );
 }
 

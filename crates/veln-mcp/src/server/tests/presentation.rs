@@ -107,7 +107,7 @@ fn completion_projects_explicit_import_alias_provenance() {
 }
 
 #[test]
-fn presentation_uses_dependencies_without_admitting_resources_at_full_capacity() {
+fn presentation_admission_failure_preserves_resources_at_full_capacity() {
     let workspace = TempWorkspace::new("callsite-presentation-capacity");
     workspace.write(
         "veln.toml",
@@ -141,19 +141,13 @@ fn presentation_uses_dependencies_without_admitting_resources_at_full_capacity()
     let completion = server.completion_tool(&json!({
         "source": "main.veln", "line": 2, "column": 30
     }));
-    assert_eq!(completion["isError"], false);
+    assert_eq!(completion["isError"], true);
+    assert_eq!(completion["structuredContent"]["code"], "resource_capacity");
 
     let signature = server.signature_help_tool(&json!({
         "source": "main.veln", "line": 3, "column": 17
     }));
-    assert_eq!(signature["isError"], false);
-    assert_eq!(
-        signature["structuredContent"]["signature"],
-        json!({
-            "label": "fn located(value: Int) -> SourceLocation callsite",
-            "parameters": ["value: Int"],
-            "activeParameter": 0
-        })
-    );
+    assert_eq!(signature["isError"], true);
+    assert_eq!(signature["structuredContent"]["code"], "resource_capacity");
     assert_eq!(server.language_resources.list_result(), resources_before);
 }

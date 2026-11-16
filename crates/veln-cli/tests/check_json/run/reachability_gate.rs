@@ -464,6 +464,78 @@ fn run_ignores_unreachable_semantic_diagnostics() {
 }
 
 #[test]
+fn run_rejects_unreachable_generic_and_function_variance_failures() {
+    let project = TestProject::new("run-unreachable-variance-diagnostics");
+    project.write(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "end\n",
+            "type Producer<T>\n",
+            "  Produced(T)\n",
+            "end\n",
+            "pub fn main() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn ready(value: State::Ready) -> Int\n",
+            "  1\n",
+            "end\n",
+            "fn rejected(value: Producer<State>) -> Producer<State::Ready>\n",
+            "  let callback: fn(State) -> Int = ready\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run_with_path(&["main", "main.veln"], "");
+    let stderr = stderr(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr,
+        &[
+            "expected `fn(State) -> Int`, but found `fn(State::Ready) -> Int`",
+            "expected `Producer<State::Ready>`, but found `Producer<State>`",
+        ],
+    );
+    assert!(!stderr.contains("java` was not found"), "{stderr}");
+}
+
+#[test]
+fn run_rejects_unreachable_function_effect_set_failure() {
+    let project = TestProject::new("run-unreachable-effect-set-diagnostic");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn effectful() -> () effects [stdio]\n",
+            "  stdio::println(\"forbidden\")\n",
+            "end\n",
+            "fn rejected() -> ()\n",
+            "  let pure: fn() -> () = effectful\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run_with_path(&["main", "main.veln"], "");
+    let stderr = stderr(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr,
+        &["Nested type comparison failed at effect set (expected type accepts actual type)."],
+    );
+    assert!(!stderr.contains("java` was not found"), "{stderr}");
+    assert!(!stderr.contains("forbidden"), "{stderr}");
+}
+
+#[test]
 fn run_ignores_function_shadowed_by_local_binding() {
     let project = TestProject::new("run-local-shadowed-function");
     project.write(

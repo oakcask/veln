@@ -1,0 +1,12 @@
+pub fn main() -> () effects [stdio]
+	stdio::println("forbidden")
+	()
+end
+
+fn effectful() -> () effects [stdio]
+	stdio::println("effect")
+end
+
+fn rejected() -> ()
+	let pure: fn() -> () = effectful
+end

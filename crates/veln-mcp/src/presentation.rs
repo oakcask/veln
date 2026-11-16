@@ -4,7 +4,9 @@ use veln_language_service::{
 };
 use veln_source::SourcePath;
 
-use crate::check_project::{CaptureCache, capture_navigation_source};
+use crate::check_project::{
+    CaptureCache, capture_navigation_source, transition_navigation_analysis,
+};
 use crate::definition::{coordinate, valid_position};
 use crate::language_resources::LanguageResources;
 use crate::outcome::{ToolOutcome, domain_failure};
@@ -91,18 +93,29 @@ fn with_position(
         .expect("presentation input schema requires a source");
     let line = coordinate(&arguments["line"]);
     let column = coordinate(&arguments["column"]);
-    let (captured, captured_source, _) =
+    let (captured, captured_source, scope) =
         match capture_navigation_source(base, selection, source, capture_cache) {
             Ok(captured) => captured,
             Err(failure) => return failure,
         };
-    let source_file = captured
-        .project
-        .files
-        .iter()
-        .find(|file| file.path().as_str() == captured_source)
-        .expect("presentation capture contains the requested source");
-    if !valid_position(source_file.text(), line, column) {
+    if let Err(error) = transition_navigation_analysis(
+        &captured,
+        scope.dependency_analysis_scope(),
+        language_resources,
+    ) {
+        return error.into();
+    }
+    let snapshot = language_resources.read_only_navigation_snapshot(
+        captured.project.files,
+        &captured.dependencies,
+        scope.dependency_analysis_scope(),
+        captured.key,
+    );
+    let source_path = SourcePath::new(captured_source);
+    if snapshot
+        .workspace_source(&source_path)
+        .is_some_and(|source_file| !valid_position(source_file.text(), line, column))
+    {
         return domain_failure(
             "invalid_position",
             "position is outside the selected source",
@@ -114,17 +127,16 @@ fn with_position(
         crate::definition::Coordinate::Addressable(column),
     ) = (line, column)
     else {
-        unreachable!("validated coordinates are addressable")
+        return domain_failure(
+            "invalid_position",
+            "position is outside the selected source",
+            json!({"source": source, "line": arguments["line"].clone(), "column": arguments["column"].clone()}),
+        );
     };
-    let snapshot = language_resources.read_only_navigation_snapshot(
-        captured.project.files,
-        &captured.dependencies,
-        captured.key,
-    );
     ToolOutcome::Success(render(
         &snapshot,
         SourcePosition {
-            source: SourcePath::new(captured_source),
+            source: source_path,
             line,
             column,
         },

@@ -5,7 +5,9 @@ use veln_language_service::{
 };
 use veln_source::{SourcePath, SourceSpan};
 
-use crate::check_project::{CaptureCache, CapturedProject, capture_navigation_source};
+use crate::check_project::{
+    CaptureCache, CapturedProject, capture_navigation_source, transition_navigation_analysis,
+};
 use crate::definition::{Coordinate, coordinate, path_to_uri, valid_position};
 use crate::language_resources::LanguageResources;
 use crate::outcome::{ToolOutcome, domain_failure};
@@ -95,18 +97,32 @@ fn collect_references(
     request: &ReferenceArguments<'_>,
     language_resources: &mut LanguageResources,
 ) -> Result<Vec<Value>, ToolOutcome> {
-    let (line, column) = validate_reference_position(&captured, captured_source, request)?;
     let root = captured.project.root.clone();
+    transition_navigation_analysis(
+        &captured,
+        scope.dependency_analysis_scope(),
+        language_resources,
+    )
+    .map_err(ToolOutcome::from)?;
+    let source_path = SourcePath::new(captured_source);
+    let selected_source = language_resources.navigation_source_text(
+        &captured.project.files,
+        &captured.dependencies,
+        &scope.dependency_analysis_scope(),
+        &source_path,
+    );
+    let (line, column) = validate_reference_position(selected_source.as_deref(), request)?;
     let workspace_key = captured.key;
     let snapshot = language_resources.navigation_snapshot(
         captured.project.files,
         &captured.dependencies,
+        scope.dependency_analysis_scope(),
         workspace_key,
     )?;
     Ok(navigate(
         snapshot.as_ref(),
         SourcePosition {
-            source: SourcePath::new(captured_source),
+            source: source_path,
             line,
             column,
         },
@@ -148,23 +164,16 @@ fn declaration_eligible(
 }
 
 fn validate_reference_position(
-    captured: &CapturedProject,
-    captured_source: &str,
+    source_text: Option<&str>,
     request: &ReferenceArguments<'_>,
 ) -> Result<(usize, usize), ToolOutcome> {
-    let source_file = captured
-        .project
-        .files
-        .iter()
-        .find(|file| file.path().as_str() == captured_source)
-        .expect("navigation capture contains the requested source");
-    if !valid_position(source_file.text(), request.line, request.column) {
+    if source_text.is_some_and(|text| !valid_position(text, request.line, request.column)) {
         return Err(invalid_position(request));
     }
     let (Coordinate::Addressable(line), Coordinate::Addressable(column)) =
         (request.line, request.column)
     else {
-        unreachable!("valid positions are addressable")
+        return Err(invalid_position(request));
     };
     Ok((line, column))
 }

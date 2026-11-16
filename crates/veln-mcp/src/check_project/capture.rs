@@ -3,6 +3,8 @@ use super::*;
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 
+pub(super) use crate::dependency_snapshot::dependency_snapshot_key;
+
 #[cfg(test)]
 thread_local! {
     static AFTER_FIRST_STABLE_CAPTURE_HOOK: RefCell<Option<Box<dyn FnMut()>>> =
@@ -93,6 +95,22 @@ pub(crate) enum NavigationScope {
 }
 
 impl NavigationScope {
+    pub(crate) fn dependency_analysis_scope(
+        &self,
+    ) -> crate::language_resources::DependencyAnalysisScope {
+        match self {
+            Self::Project { project } => {
+                crate::language_resources::DependencyAnalysisScope::Project(project.clone())
+            }
+            Self::SingleFile { project, source } => {
+                crate::language_resources::DependencyAnalysisScope::SingleFile {
+                    project: project.clone(),
+                    source: source.clone(),
+                }
+            }
+        }
+    }
+
     pub(crate) fn metadata(&self, generation: u64) -> Value {
         match self {
             Self::Project { project } => json!({
@@ -764,24 +782,6 @@ fn dependency_snapshot_source(dependency: &veln_project::ManifestDependency) -> 
         return git.value.clone();
     }
     "<unresolved>".to_string()
-}
-
-pub(super) fn dependency_snapshot_key(snapshot: &CapturedDependencyProject) -> Value {
-    let Some(project) = &snapshot.project else {
-        return json!({
-            "package": snapshot.package,
-            "root": snapshot.source,
-            "unavailable": true,
-        });
-    };
-    json!({
-        "package": snapshot.package,
-        "root": snapshot.source,
-        "manifest": project.manifest.as_ref().map(|manifest| &manifest.source_bytes),
-        "files": project.files.iter().map(|file| {
-            json!({"path": file.path().as_str(), "text": file.text()})
-        }).collect::<Vec<_>>()
-    })
 }
 
 fn validate_manifest_root(root: &Path) -> io::Result<()> {

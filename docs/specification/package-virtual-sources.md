@@ -41,13 +41,22 @@ has the same not-found result as a malformed or noncanonical URI.
 The LSP resolver retains one URI-to-bytes entry for each distinct dependency
 virtual source exposed by a replaced layer and not available from the current
 layer. It does not retain the replaced prepared analysis snapshot. Navigation
-after a dependency payload change uses the new snapshot URI. A previously
-returned snapshot URI remains resolvable to its original bytes while that LSP
-project-snapshot state is retained. If a later payload restores an earlier
-snapshot URI, the current layer supplies that URI and the resolver removes its
-redundant retired entry. Repeated transitions between the same payloads
-therefore do not increase retained virtual-source storage or make lookup depend
-on the number of transitions.
+after a successfully accepted dependency payload change uses the new snapshot
+URI. A previously returned snapshot URI remains resolvable to its original
+bytes while that LSP project-snapshot state is retained. If a later payload
+restores an earlier snapshot URI, the current layer supplies that URI and the
+resolver removes its redundant retired entry. Repeated transitions between the
+same payloads therefore do not increase retained virtual-source storage or make
+lookup depend on the number of transitions.
+
+A named-generic or function-variance publication rejection does not replace the
+current dependency layer and does not create a retired resolver entry. The
+current accepted snapshot URI remains resolvable. A URI that exists only in the
+rejected capture is not resolvable. If no dependency layer has succeeded, the
+first rejected capture publishes no virtual-source URI or bytes. A later
+accepted capture replaces the layer through the ordinary transition above.
+The [LSP publication gate](editor-support.md#lsp-navigation-formatting-and-rename)
+defines which diagnostics reject that transition.
 
 Noncanonical inputs include a non-lowercase scheme; any authority, user
 information, host, port, query, or fragment; encoded ASCII unreserved bytes;

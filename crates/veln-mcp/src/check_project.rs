@@ -11,12 +11,13 @@ use rustix::fs::{FileType, Mode, OFlags, RawDir, ResolveFlags, openat2};
 use serde_json::{Value, json};
 use veln_analysis::{
     CapturedDependencyProject, DoctestMode, checked_project_diagnostics_with_captured_dependencies,
+    is_generic_or_function_variance_failure,
 };
 use veln_diagnostics::diagnostic_to_json;
 use veln_project::{Project, parse_manifest_text};
 use veln_source::SourceFile;
 
-use crate::language_resources::LanguageResources;
+use crate::language_resources::{DependencyAnalysisScope, LanguageResources};
 use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{
     FileIdentity, SelectedRootIdentity, SelectedRootKind, Selection, WorkspaceBase,
@@ -65,15 +66,17 @@ pub(crate) fn check_project(
         }
     };
 
+    let workspace_files = captured.project.files.clone();
     let dependencies = captured.dependencies.clone();
     let checked_diagnostics = checked_project_diagnostics_with_captured_dependencies(
         captured.project,
         DoctestMode::Exclude,
         captured.dependencies,
     );
-    let visibility_failed = checked_diagnostics
+    let publication_failed = checked_diagnostics
         .iter()
-        .any(|diagnostic| diagnostic.id == "type.variant_refinement_private");
+        .any(is_publication_failure_diagnostic);
+    let analysis_scope = target.dependency_analysis_scope();
     let diagnostics = checked_diagnostics
         .iter()
         .map(diagnostic_to_serde)
@@ -84,10 +87,43 @@ pub(crate) fn check_project(
         "diagnostics": diagnostics,
         "summary": summary(&diagnostics),
     });
-    if !visibility_failed && let Err(error) = language_resources.admit_dependencies(&dependencies) {
+    if publication_failed {
+        language_resources.reject_dependency_analysis(analysis_scope, &dependencies);
+    } else if let Err(error) = language_resources.admit_analyzed_dependencies(
+        analysis_scope,
+        workspace_files,
+        &dependencies,
+    ) {
         return error.into();
     }
     ToolOutcome::Success(structured)
+}
+
+pub(crate) fn transition_navigation_analysis(
+    captured: &CapturedProject,
+    analysis_scope: DependencyAnalysisScope,
+    language_resources: &mut LanguageResources,
+) -> Result<(), crate::language_resources::ResourceCapacityError> {
+    let diagnostics = checked_project_diagnostics_with_captured_dependencies(
+        captured.project.clone(),
+        DoctestMode::Exclude,
+        captured.dependencies.clone(),
+    );
+    if diagnostics.iter().any(is_publication_failure_diagnostic) {
+        language_resources.reject_dependency_analysis(analysis_scope, &captured.dependencies);
+        Ok(())
+    } else {
+        language_resources.admit_analyzed_dependencies(
+            analysis_scope,
+            captured.project.files.clone(),
+            &captured.dependencies,
+        )
+    }
+}
+
+fn is_publication_failure_diagnostic(diagnostic: &veln_diagnostics::Diagnostic) -> bool {
+    diagnostic.id == "type.variant_refinement_private"
+        || is_generic_or_function_variance_failure(diagnostic)
 }
 
 pub(crate) struct Target {
@@ -106,6 +142,16 @@ enum AnalysisMode {
 }
 
 impl Target {
+    fn dependency_analysis_scope(&self) -> DependencyAnalysisScope {
+        match &self.mode {
+            AnalysisMode::Project => DependencyAnalysisScope::Project(self.root_display.clone()),
+            AnalysisMode::SingleFile { source } => DependencyAnalysisScope::SingleFile {
+                project: self.root_display.clone(),
+                source: source.clone(),
+            },
+        }
+    }
+
     fn metadata(&self, generation: u64) -> Value {
         match &self.mode {
             AnalysisMode::Project => json!({

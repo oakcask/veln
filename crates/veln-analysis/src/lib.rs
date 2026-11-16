@@ -9,6 +9,7 @@ pub use analysis::{
     analyze_project_with_captured_dependencies, analyze_project_with_captured_dependency_index,
     analyze_project_with_timings, checked_project_diagnostics,
     checked_project_diagnostics_with_captured_dependencies,
+    is_generic_or_function_variance_failure,
 };
 pub use diagnostics::parse_diagnostic_to_envelope;
 pub use surface::{

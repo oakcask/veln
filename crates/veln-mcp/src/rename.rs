@@ -7,7 +7,9 @@ use veln_language_service::{
 };
 use veln_source::{SourcePath, SourceSpan};
 
-use crate::check_project::{CaptureCache, capture_navigation_source};
+use crate::check_project::{
+    CaptureCache, capture_navigation_source, transition_navigation_analysis,
+};
 use crate::definition::{Coordinate, coordinate, path_to_uri, valid_position};
 use crate::language_resources::LanguageResources;
 use crate::outcome::{ToolOutcome, domain_failure};
@@ -36,35 +38,40 @@ pub(crate) fn rename(
         .expect("rename input schema requires a string source");
     let line = coordinate(&arguments["line"]);
     let column = coordinate(&arguments["column"]);
-    let (captured, captured_source, _) =
+    let (captured, captured_source, scope) =
         match capture_navigation_source(base, selection, source, capture_cache) {
             Ok(captured) => captured,
             Err(failure) => return failure,
         };
-    let source_file = captured
-        .project
-        .files
-        .iter()
-        .find(|file| file.path().as_str() == captured_source)
-        .expect("navigation capture contains the requested source");
-    if !valid_position(source_file.text(), line, column) {
-        return invalid_position(source, arguments);
-    }
-    let (Coordinate::Addressable(line), Coordinate::Addressable(column)) = (line, column) else {
-        unreachable!("valid positions are addressable")
-    };
-
     let root = captured.project.root.clone();
+    if let Err(error) = transition_navigation_analysis(
+        &captured,
+        scope.dependency_analysis_scope(),
+        language_resources,
+    ) {
+        return error.into();
+    }
     let workspace_key = captured.key;
     let snapshot = language_resources.read_only_navigation_snapshot(
         captured.project.files,
         &captured.dependencies,
+        scope.dependency_analysis_scope(),
         workspace_key,
     );
+    let source_path = SourcePath::new(captured_source);
+    if snapshot
+        .workspace_source(&source_path)
+        .is_some_and(|source_file| !valid_position(source_file.text(), line, column))
+    {
+        return invalid_position(source, arguments);
+    }
+    let (Coordinate::Addressable(line), Coordinate::Addressable(column)) = (line, column) else {
+        return invalid_position(source, arguments);
+    };
     let Some(result) = navigate_for_rename(
         snapshot.as_ref(),
         SourcePosition {
-            source: SourcePath::new(captured_source),
+            source: source_path,
             line,
             column,
         },

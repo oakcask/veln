@@ -47,6 +47,14 @@ The selected entry also retains its declaring-module identity when a reachable
 imported module exports a function with the same name; the imported function
 cannot replace the JVM launch target.
 
+Named-generic and function variance failures are an exception to the local
+reachability boundary. A `type.mismatch` whose nested incompatibility path
+contains a named argument, function input, variadic element, function result,
+or effect set blocks the complete checked program. `run` reports every such mismatch
+from the selected whole-project analysis before entry selection and does not
+generate an artifact or launch Java, even when the rejected declaration is
+unreachable from the entry.
+
 A module immutable value declaration in the selected analysis is semantically
 checked before backend launch. Invalid finite-data initializers, annotation
 mismatches, public visibility failures, imported lookup failures, and
@@ -194,6 +202,10 @@ projections: [run-json.md](run-json.md).
 The
 [`schema-runtime-recursive-source-adt-validation`](../../examples/specification/run/schema-runtime-recursive-source-adt-validation/)
 case checks a deep recursive mismatch path through the JSON command boundary.
+The
+[`generic-function-variance-command-rejected-json`](../../examples/specification/run/generic-function-variance-command-rejected-json/)
+case checks that all whole-project variance blockers stop artifact generation,
+Java launch, and user output before reachability can exclude the declaration.
 The command-boundary examples cover
 reachable acceptance under
 `examples/specification/run/adt-variant-refinement-command-reachability/`

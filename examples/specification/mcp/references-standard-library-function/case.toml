@@ -4,7 +4,7 @@ exit = 0
 
 [stdout]
 contains = [
-  "\"references\":[{\"range\":{\"end\":{\"column\":10,\"line\":2},\"start\":{\"column\":3,\"line\":2}},\"uri\":\"file://",
+  "\"references\":[{\"range\":{\"end\":{\"column\":34,\"line\":2},\"start\":{\"column\":21,\"line\":2}},\"uri\":\"file://",
   "\"scope\":{\"generation\":0,\"mode\":\"project\",\"project\":\".\",\"project_wide\":true}",
 ]
 
@@ -24,7 +24,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/references/0/range"
-equals = {"start":{"line":2,"column":3},"end":{"line":2,"column":10}}
+equals = {"start":{"line":2,"column":21},"end":{"line":2,"column":34}}
 
 [[mcp_assert]]
 id = 2
@@ -34,7 +34,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/references/1/range"
-equals = {"start":{"line":6,"column":48},"end":{"line":6,"column":55}}
+equals = {"start":{"line":6,"column":54},"end":{"line":6,"column":67}}
 
 [[mcp_assert]]
 id = 2
@@ -44,7 +44,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/references/2/range"
-equals = {"start":{"line":7,"column":44},"end":{"line":7,"column":51}}
+equals = {"start":{"line":7,"column":50},"end":{"line":7,"column":63}}
 
 [[mcp_assert]]
 id = 2
@@ -54,7 +54,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/references/3/range"
-equals = {"start":{"line":8,"column":21},"end":{"line":8,"column":28}}
+equals = {"start":{"line":8,"column":107},"end":{"line":8,"column":120}}
 
 [[mcp_assert]]
 id = 2
@@ -74,7 +74,7 @@ length = 4
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/references/1/range"
-equals = {"start":{"line":6,"column":48},"end":{"line":6,"column":55}}
+equals = {"start":{"line":6,"column":54},"end":{"line":6,"column":67}}
 
 [[mcp_assert]]
 id = 4
@@ -84,7 +84,7 @@ length = 4
 [[mcp_assert]]
 id = 4
 path = "/result/structuredContent/references/2/range"
-equals = {"start":{"line":7,"column":44},"end":{"line":7,"column":51}}
+equals = {"start":{"line":7,"column":50},"end":{"line":7,"column":63}}
 
 [[mcp_assert]]
 id = 5
@@ -94,7 +94,7 @@ length = 4
 [[mcp_assert]]
 id = 5
 path = "/result/structuredContent/references/3/range"
-equals = {"start":{"line":8,"column":21},"end":{"line":8,"column":28}}
+equals = {"start":{"line":8,"column":107},"end":{"line":8,"column":120}}
 
 [[mcp_assert]]
 id = 6

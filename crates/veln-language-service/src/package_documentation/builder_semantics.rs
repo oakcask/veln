@@ -169,6 +169,11 @@ impl PackageDocBuilder<'_> {
             diagnostic_indices_by_key,
             gates,
         );
+        for (index, diagnostic) in analysis.checked_diagnostics().iter().enumerate() {
+            if is_generic_or_function_variance_failure(diagnostic) {
+                gates[index].get_or_insert("semantic_variance");
+            }
+        }
     }
 
     fn diagnostic_indices_by_key(

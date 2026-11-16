@@ -1,0 +1,29 @@
+command = ["mcp"]
+stdin_file = "case-text/requests.jsonl"
+exit = 0
+
+[stdout]
+not_contains = ["\"label\":\"leaked\""]
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/signature"
+equals = null
+
+[[mcp_assert]]
+id = 5
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/diagnostics/0/details/nested_incompatibility/path/0/kind"
+equals = "effect_set"

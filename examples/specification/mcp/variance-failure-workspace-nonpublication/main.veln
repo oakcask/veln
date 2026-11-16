@@ -1,0 +1,12 @@
+fn effectful() -> () effects [stdio]
+	stdio::println("blocked")
+end
+
+pub fn leaked(value: Bool) -> Bool
+	value
+end
+
+fn rejected() -> Bool
+	let pure: fn() -> () = effectful
+	leaked(true)
+end

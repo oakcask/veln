@@ -1,0 +1,17 @@
+# Integration contract: human `veln check` output retains the focused
+# nested-variance facts for every whole-analysis blocker.
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "expected `fn(State) -> Int`, but found `fn(State::Ready) -> Int`",
+  "Nested type comparison failed at function input 0 (actual type accepts expected type).",
+  "Nested type comparison failed at effect set (expected type accepts actual type).",
+  "expected `Producer<State::Ready>`, but found `Producer<State>`",
+  "Nested type comparison failed at named argument 0 (expected type accepts actual type).",
+]
+
+[stderr]
+format = "empty"

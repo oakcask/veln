@@ -73,6 +73,16 @@ defined by the
 spans, and related context are defined by the
 [diagnostic specification](diagnostics-json.md#diagnostic-families).
 
+When shared analysis reports a named-generic argument mismatch or a function
+input, variadic-element, result, or effect-set mismatch defined by the type
+specification, it retains every applicable mismatch and
+produces neither checked core nor typed IR. Consumers cannot recover a partial
+successful program or package signature from unaffected declarations. The
+[run command](command-run.md#analysis-and-execution-gates) defines the
+command-specific execution boundary, and the
+[package-documentation generation gates](package-documentation.md#generation-gates)
+define the catalog boundary.
+
 `doc` consumes the same project semantic diagnostics for its selected
 production sources. Every diagnostic in a selected module value's causal
 dependency closure remains a package-documentation error.

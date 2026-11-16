@@ -217,6 +217,86 @@ fn dependency_resource_admission_deduplicates_and_preserves_state_on_failures() 
     assert_eq!(missing["error"]["data"]["code"], "resource_not_found");
 }
 
+#[test]
+fn successful_refresh_retires_removed_project_analysis_scopes() {
+    let workspace = TempWorkspace::new("analysis-scope-refresh");
+    write_empty_project(&workspace, "project-0");
+    let mut server = initialized_server(&workspace);
+
+    for index in 0..4 {
+        let project = format!("project-{index}");
+        let check = server.check_project_tool(&json!({"project": project}));
+        assert_eq!(check["isError"], false, "{check:#}");
+        assert_eq!(
+            server
+                .language_resources
+                .retained_analyzed_dependency_scopes(),
+            1
+        );
+        assert_eq!(
+            server
+                .language_resources
+                .retained_analyzed_dependency_payloads(),
+            1
+        );
+
+        if index == 3 {
+            break;
+        }
+        fs::remove_dir_all(workspace.path(&project)).unwrap();
+        write_empty_project(&workspace, &format!("project-{}", index + 1));
+        refresh_workspace(&mut server);
+        assert_eq!(
+            server
+                .language_resources
+                .retained_analyzed_dependency_scopes(),
+            0
+        );
+        assert_eq!(
+            server
+                .language_resources
+                .retained_analyzed_dependency_payloads(),
+            0
+        );
+    }
+}
+
+#[test]
+fn failed_refresh_preserves_analyzed_dependency_scopes() {
+    let workspace = TempWorkspace::new("analysis-scope-failed-refresh");
+    workspace.write("veln.toml", "");
+    workspace.write("main.veln", "pub fn main() -> Int\n  1\nend\n");
+    let mut server = initialized_server(&workspace);
+    let check = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(check["isError"], false, "{check:#}");
+
+    let failed = server.refresh_workspace_tool(|selection| {
+        selection.refresh_with(|| Err(io::Error::other("injected discovery failure")))
+    });
+
+    assert_eq!(failed["isError"], true, "{failed:#}");
+    assert_eq!(
+        server
+            .language_resources
+            .retained_analyzed_dependency_scopes(),
+        1
+    );
+    assert_eq!(
+        server
+            .language_resources
+            .retained_analyzed_dependency_payloads(),
+        1
+    );
+}
+
+fn write_empty_project(workspace: &TempWorkspace, project: &str) {
+    workspace.write(&format!("{project}/veln.toml"), "");
+    workspace.write(
+        &format!("{project}/main.veln"),
+        "pub fn main() -> Int\n  1\nend\n",
+    );
+}
+
 fn exercise_resource_state_preserving_operations(server: &mut Server) {
     refresh_workspace(server);
     check_project(server);
