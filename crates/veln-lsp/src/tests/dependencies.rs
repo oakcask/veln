@@ -1325,14 +1325,48 @@ fn workspace_variance_overlay_admission_preserves_complete_navigation_state() {
         "fn inspect(value: Producer<State>) -> Int",
     );
 
+    assert_workspace_variance_rejection_retains_navigation(
+        &mut server,
+        &project,
+        &main_uri,
+        &accepted_source,
+    );
+    assert_workspace_variance_recovery_replaces_navigation(&mut server, &project, &main_uri);
+}
+
+#[test]
+fn first_workspace_variance_overlay_rejection_keeps_navigation_empty_and_close_is_atomic() {
+    let project = TempProject::new("workspace-variance-first-overlay-rejection");
+    project.write("veln.toml", "[package]\nname = \"app\"\n");
+    project.write("main.veln", &workspace_variance_source("String", true));
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default();
+    let initialized = server.handle_message(&initialize_request(&path_to_uri(&project.root)));
+    assert_workspace_variance_navigation_is_empty(&server, &project, &initialized, &main_uri);
+    assert_first_workspace_variance_overlay_rejection(&mut server, &project, &main_uri);
+    accept_workspace_variance_overlay(&mut server, &project, &main_uri);
+    assert_workspace_variance_rejected_close_is_atomic(&mut server, &project, &main_uri);
+    assert_workspace_variance_recovered_close_replaces_navigation(
+        &mut server,
+        &project,
+        &main_uri,
+    );
+}
+
+fn assert_workspace_variance_rejection_retains_navigation(
+    server: &mut Server,
+    project: &TempProject,
+    main_uri: &str,
+    accepted_source: &str,
+) {
     let retained = server
         .overlaid_project_snapshots
         .get(&project.root)
         .cloned()
         .expect("accepted overlay should establish navigation");
     let rejected_source = workspace_variance_source("String", true);
-    let rejected = server.handle_message(&did_change_request(&main_uri, &rejected_source));
-    let publication = publish_for_uri(&rejected, &main_uri);
+    let rejected = server.handle_message(&did_change_request(main_uri, &rejected_source));
+    let publication = publish_for_uri(&rejected, main_uri);
     assert_eq!(publication.matches(r#""code":"type.mismatch""#).count(), 1);
     assert_contains_json(publication, "expected `Producer<State>`");
     assert_contains_json(publication, "found `Producer<State::Ready>`");
@@ -1350,19 +1384,24 @@ fn workspace_variance_overlay_admission_preserves_complete_navigation_state() {
             .text(),
         accepted_source,
     );
-    let retained_signature = workspace_variance_signature(&mut server, &main_uri);
-    assert_contains_json(
-        &retained_signature,
-        "fn inspect(value: Producer<State>) -> Int",
-    );
-    assert_not_contains_json(&retained_signature, "-> String");
+    let signature = workspace_variance_signature(server, main_uri);
+    assert_contains_json(&signature, "fn inspect(value: Producer<State>) -> Int");
+    assert_not_contains_json(&signature, "-> String");
+}
 
+fn assert_workspace_variance_recovery_replaces_navigation(
+    server: &mut Server,
+    project: &TempProject,
+    main_uri: &str,
+) {
+    let retained = server
+        .overlaid_project_snapshots
+        .get(&project.root)
+        .cloned()
+        .expect("rejected overlay should retain accepted navigation");
     let recovered_source = workspace_variance_source("Bool", false);
-    let recovered = server.handle_message(&did_change_request(&main_uri, &recovered_source));
-    assert_contains_json(
-        publish_for_uri(&recovered, &main_uri),
-        r#""diagnostics":[]"#,
-    );
+    let recovered = server.handle_message(&did_change_request(main_uri, &recovered_source));
+    assert_contains_json(publish_for_uri(&recovered, main_uri), r#""diagnostics":[]"#);
     assert!(!Arc::ptr_eq(
         server
             .overlaid_project_snapshots
@@ -1370,24 +1409,19 @@ fn workspace_variance_overlay_admission_preserves_complete_navigation_state() {
             .expect("later accepted overlay should replace navigation"),
         &retained,
     ));
-    let recovered_signature = workspace_variance_signature(&mut server, &main_uri);
-    assert_contains_json(
-        &recovered_signature,
-        "fn inspect(value: Producer<State>) -> Bool",
-    );
-    assert_not_contains_json(&recovered_signature, "-> Int");
+    let signature = workspace_variance_signature(server, main_uri);
+    assert_contains_json(&signature, "fn inspect(value: Producer<State>) -> Bool");
+    assert_not_contains_json(&signature, "-> Int");
 }
 
-#[test]
-fn first_workspace_variance_overlay_rejection_keeps_navigation_empty_and_close_is_atomic() {
-    let project = TempProject::new("workspace-variance-first-overlay-rejection");
-    project.write("veln.toml", "[package]\nname = \"app\"\n");
-    project.write("main.veln", &workspace_variance_source("String", true));
-    let main_uri = path_to_uri(&project.root.join("main.veln"));
-    let mut server = Server::default();
-    let initialized = server.handle_message(&initialize_request(&path_to_uri(&project.root)));
+fn assert_workspace_variance_navigation_is_empty(
+    server: &Server,
+    project: &TempProject,
+    published: &[String],
+    main_uri: &str,
+) {
     assert_eq!(
-        publish_for_uri(&initialized, &main_uri)
+        publish_for_uri(published, main_uri)
             .matches(r#""code":"type.mismatch""#)
             .count(),
         1,
@@ -1396,42 +1430,46 @@ fn first_workspace_variance_overlay_rejection_keeps_navigation_empty_and_close_i
         .overlaid_project_snapshots
         .contains_key(&project.root));
     assert!(!server.project_snapshots.contains_key(&project.root));
+}
 
-    let first_overlay = workspace_variance_source("Int", true);
-    let rejected = server.handle_message(&did_open_request(&main_uri, &first_overlay));
-    assert_eq!(
-        publish_for_uri(&rejected, &main_uri)
-            .matches(r#""code":"type.mismatch""#)
-            .count(),
-        1,
-    );
-    assert!(!server
-        .overlaid_project_snapshots
-        .contains_key(&project.root));
-    assert!(!server.project_snapshots.contains_key(&project.root));
+fn assert_first_workspace_variance_overlay_rejection(
+    server: &mut Server,
+    project: &TempProject,
+    main_uri: &str,
+) {
+    let source = workspace_variance_source("Int", true);
+    let rejected = server.handle_message(&did_open_request(main_uri, &source));
+    assert_workspace_variance_navigation_is_empty(server, project, &rejected, main_uri);
     assert_contains_json(
-        &workspace_variance_signature(&mut server, &main_uri),
+        &workspace_variance_signature(server, main_uri),
         r#""result":null"#,
     );
+}
 
-    let accepted_source = workspace_variance_source("Bool", false);
-    let accepted = server.handle_message(&did_change_request(&main_uri, &accepted_source));
-    assert_contains_json(publish_for_uri(&accepted, &main_uri), r#""diagnostics":[]"#);
+fn accept_workspace_variance_overlay(server: &mut Server, project: &TempProject, main_uri: &str) {
+    let source = workspace_variance_source("Bool", false);
+    let accepted = server.handle_message(&did_change_request(main_uri, &source));
+    assert_contains_json(publish_for_uri(&accepted, main_uri), r#""diagnostics":[]"#);
+    assert!(server.overlaid_project_snapshots.contains_key(&project.root));
+    assert_contains_json(
+        &workspace_variance_signature(server, main_uri),
+        "fn inspect(value: Producer<State>) -> Bool",
+    );
+}
+
+fn assert_workspace_variance_rejected_close_is_atomic(
+    server: &mut Server,
+    project: &TempProject,
+    main_uri: &str,
+) {
     let retained = server
         .overlaid_project_snapshots
         .get(&project.root)
         .cloned()
         .expect("accepted overlay should establish navigation");
-    assert_contains_json(
-        &workspace_variance_signature(&mut server, &main_uri),
-        "fn inspect(value: Producer<State>) -> Bool",
-    );
-
-    let closed = server.handle_message(&format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didClose","params":{{"textDocument":{{"uri":"{main_uri}"}}}}}}"#,
-    ));
+    let closed = server.handle_message(&did_close_request(main_uri));
     assert_eq!(
-        publish_for_uri(&closed, &main_uri)
+        publish_for_uri(&closed, main_uri)
             .matches(r#""code":"type.mismatch""#)
             .count(),
         1,
@@ -1444,18 +1482,24 @@ fn first_workspace_variance_overlay_rejection_keeps_navigation_empty_and_close_i
         &retained,
     ));
     assert_contains_json(
-        &workspace_variance_signature(&mut server, &main_uri),
+        &workspace_variance_signature(server, main_uri),
         "fn inspect(value: Producer<State>) -> Bool",
     );
+}
 
+fn assert_workspace_variance_recovered_close_replaces_navigation(
+    server: &mut Server,
+    project: &TempProject,
+    main_uri: &str,
+) {
+    let retained = server
+        .overlaid_project_snapshots
+        .get(&project.root)
+        .cloned()
+        .expect("rejected close should retain accepted navigation");
     project.write("main.veln", &workspace_variance_source("Int", false));
-    let recovered_close = server.handle_message(&format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didClose","params":{{"textDocument":{{"uri":"{main_uri}"}}}}}}"#,
-    ));
-    assert_contains_json(
-        publish_for_uri(&recovered_close, &main_uri),
-        r#""diagnostics":[]"#,
-    );
+    let recovered = server.handle_message(&did_close_request(main_uri));
+    assert_contains_json(publish_for_uri(&recovered, main_uri), r#""diagnostics":[]"#);
     assert!(!Arc::ptr_eq(
         server
             .overlaid_project_snapshots
@@ -1464,9 +1508,15 @@ fn first_workspace_variance_overlay_rejection_keeps_navigation_empty_and_close_i
         &retained,
     ));
     assert_contains_json(
-        &workspace_variance_signature(&mut server, &main_uri),
+        &workspace_variance_signature(server, main_uri),
         "fn inspect(value: Producer<State>) -> Int",
     );
+}
+
+fn did_close_request(uri: &str) -> String {
+    format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didClose","params":{{"textDocument":{{"uri":"{uri}"}}}}}}"#,
+    )
 }
 
 fn workspace_variance_source(result: &str, invariant: bool) -> String {
