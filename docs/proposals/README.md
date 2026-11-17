@@ -20,17 +20,18 @@ also states it.
   shared definition and selected-project reference results through LSP and
   MCP:
   [direct-dependency-handler-navigation.md](direct-dependency-handler-navigation.md).
+- Lightweight task execution using JVM virtual threads, with Java 25,
+  per-invocation drain/cancel lifetime, wait-boundary progress, and controlled
+  adoption budgets:
+  [lightweight-tasks.md](lightweight-tasks.md). Acceptance evidence remains planned.
 
 ## Design In Progress
 
-- Lightweight task execution using JVM virtual threads; Java requirements,
-  entry lifetime, scheduling guarantees, and resource budgets remain open:
-  [lightweight-tasks.md](lightweight-tasks.md). Resolve its Open Questions
-  before implementation selection.
 - Filesystem selection, host path conversion, shared byte IO, seek, provider
-  ownership, and scoped fake filesystems; source API and lifecycle questions
-  remain open:
-  [filesystem-io.md](filesystem-io.md). Resolve its Open Questions before
+  ownership, and scoped fake filesystems; initial design decisions are fixed,
+  but provider-bound dispatch and atomic Veln-state adapters require the
+  feasibility evidence defined in
+  [filesystem-io.md](filesystem-io.md#feasibility-and-conformance-gate) before
   implementation selection.
 
 ## Planning Inventory
