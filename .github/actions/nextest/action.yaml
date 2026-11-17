@@ -12,7 +12,13 @@ inputs:
     description: One-based shard number to run.
     required: false
   shard-count:
-    description: Total number of nextest shards.
+    description: Total number of nextest shards in this suite.
+    required: false
+  suite:
+    description: Suite identity used to keep timing and coverage artifacts distinct.
+    required: false
+  filterset:
+    description: Nextest filterset selecting this suite's tests.
     required: false
   save-cache:
     description: Whether to build and save cache misses for the main branch.
@@ -103,7 +109,9 @@ runs:
     - name: Run Rust tests
       if: inputs.shard != ''
       shell: bash
-      run: bash scripts/ci-run cargo llvm-cov --no-report nextest --locked --workspace --profile ci --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
+      env:
+        NEXTEST_FILTERSET: ${{ inputs.filterset }}
+      run: bash scripts/ci-run cargo llvm-cov --no-report nextest --locked --workspace --profile ci --filterset "${NEXTEST_FILTERSET}" --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
     - name: Generate Rust shard coverage report
       if: inputs.shard != ''
       shell: bash
@@ -114,13 +122,13 @@ runs:
       if: always() && inputs.shard != ''
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
-        name: nextest-junit-${{ inputs.shard }}
+        name: nextest-junit-${{ inputs.suite }}-${{ inputs.shard }}-of-${{ inputs.shard-count }}
         path: target/nextest/ci/junit.xml
         if-no-files-found: error
     - name: Upload Rust shard coverage report
       if: inputs.shard != ''
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
-        name: nextest-coverage-${{ inputs.shard }}
+        name: nextest-coverage-${{ inputs.suite }}-${{ inputs.shard }}
         path: target/coverage/lcov.info
         if-no-files-found: error

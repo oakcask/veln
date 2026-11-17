@@ -5,11 +5,13 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 
-use serde_json::Value;
-
 mod duplication;
+mod nextest_suites;
 
 pub use duplication::{escape_annotation_message, render_duplication_summary};
+pub use nextest_suites::{
+    SuiteShardPlan, plan_nextest_suites, render_suite_shard_outputs, render_suite_shard_summary,
+};
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct GuardFailure {
@@ -168,6 +170,7 @@ pub struct ShardPlan {
     pub shard_count: u64,
     pub measured_seconds: Option<f64>,
     pub required_shards: Option<u64>,
+    pub slowest_seconds: Option<f64>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -303,47 +306,41 @@ pub fn plan_shards(
             shard_count: fallback_shards.min(max_shards),
             measured_seconds: None,
             required_shards: None,
+            slowest_seconds: None,
         };
     }
     let measured_seconds = elapsed_seconds.iter().sum::<f64>();
+    let slowest_seconds = elapsed_seconds.iter().copied().fold(0.0, f64::max);
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let required_shards = (measured_seconds / target_seconds as f64).ceil().max(1.0) as u64;
+    let required_shards = (slowest_seconds * elapsed_seconds.len() as f64 / target_seconds as f64)
+        .ceil()
+        .max(1.0) as u64;
     ShardPlan {
         shard_count: required_shards.min(max_shards),
         measured_seconds: Some(measured_seconds),
         required_shards: Some(required_shards),
+        slowest_seconds: Some(slowest_seconds),
     }
-}
-
-pub fn shard_numbers_json(plan: &ShardPlan) -> Value {
-    Value::Array((1..=plan.shard_count).map(Value::from).collect())
-}
-
-pub fn render_shard_outputs(plan: &ShardPlan) -> String {
-    format!(
-        "shard_count={}\nshards={}\n",
-        plan.shard_count,
-        shard_numbers_json(plan)
-    )
 }
 
 pub fn render_shard_summary(plan: &ShardPlan, target_seconds: u64, max_shards: u64) -> String {
     let Some(measured_seconds) = plan.measured_seconds else {
         return format!(
-            "No prior nextest timing was available, so this run uses {} fallback shards. A successful run will provide timings for the next plan.",
+            "No complete timing history for this suite was available, so this run uses {} fallback shards. Inspect this run's JUnit reports before changing its budget; a successful main run will provide suite timings for later plans.",
             plan.shard_count
         );
     };
     let mut summary = format!(
-        "Planned {} Rust test shards from {measured_seconds:.1} seconds of prior test time with a {target_seconds}-second target.",
-        plan.shard_count
+        "Planned {} shards from {measured_seconds:.1} seconds of prior elapsed time; the slowest prior shard took {:.1} seconds. Scale the prior shard count by the slowest duration / {target_seconds}-second target.",
+        plan.shard_count,
+        plan.slowest_seconds.unwrap_or_default()
     );
     if plan
         .required_shards
-        .is_some_and(|required| required > max_shards)
+        .is_some_and(|required| required > plan.shard_count)
     {
         summary.push_str(&format!(
-            " The plan was capped at {max_shards}; reduce test runtime or raise NEXTEST_MAX_SHARDS if shards keep exceeding the target."
+            " The shared {max_shards}-shard budget limits this suite to {} shards; inspect its slowest JUnit cases before changing NEXTEST_MAX_SHARDS because the target may not be met.", plan.shard_count
         ));
     }
     summary
@@ -375,7 +372,7 @@ fn collect_named_files(path: &Path, name: &str, files: &mut Vec<PathBuf>) -> io:
 mod tests {
     use super::*;
 
-    fn temporary_directory(name: &str) -> PathBuf {
+    pub(super) fn temporary_directory(name: &str) -> PathBuf {
         let root = std::env::temp_dir().join(format!(
             "veln-workflow-scripts-{}-{name}",
             std::process::id()
@@ -405,6 +402,7 @@ mod tests {
                 shard_count: 4,
                 measured_seconds: None,
                 required_shards: None,
+                slowest_seconds: None,
             }
         );
         assert_eq!(
@@ -413,6 +411,7 @@ mod tests {
                 shard_count: 3,
                 measured_seconds: Some(191.0),
                 required_shards: Some(3),
+                slowest_seconds: Some(100.0),
             }
         );
     }
@@ -422,11 +421,17 @@ mod tests {
         let plan = plan_shards(&[1_500.0], 90, 4, 16);
         assert_eq!(plan.shard_count, 16);
         assert_eq!(plan.required_shards, Some(17));
-        assert_eq!(
-            shard_numbers_json(&plan),
-            serde_json::json!([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
-        );
-        assert!(render_shard_summary(&plan, 90, 16).contains("capped at 16"));
+        assert!(render_shard_summary(&plan, 90, 16).contains("budget limits this suite to 16"));
+    }
+
+    #[test]
+    fn plans_for_the_slowest_shard_instead_of_only_the_average() {
+        let plan = plan_shards(&[10.0, 100.0], 90, 4, 16);
+        assert_eq!(plan.measured_seconds, Some(110.0));
+        assert_eq!(plan.slowest_seconds, Some(100.0));
+        assert_eq!(plan.shard_count, 3);
+        let empty = plan_shards(&[0.0], 90, 4, 16);
+        assert_eq!(empty.shard_count, 1);
     }
 
     #[test]
@@ -478,9 +483,9 @@ mod tests {
                     });
                 }
                 let download_root = PathBuf::from(args.last().unwrap());
-                fs::create_dir(download_root.join("nextest-junit-1"))?;
+                fs::create_dir(download_root.join("nextest-junit-workspace-1-of-1"))?;
                 fs::write(
-                    download_root.join("nextest-junit-1/junit.xml"),
+                    download_root.join("nextest-junit-workspace-1-of-1/junit.xml"),
                     "<testsuites/>",
                 )?;
                 Ok(CommandResult {
@@ -515,7 +520,11 @@ mod tests {
             ]
         );
         assert_eq!(calls[1][..3], ["run", "download", "12345"]);
-        assert!(report_root.join("nextest-junit-1/junit.xml").exists());
+        assert!(
+            report_root
+                .join("nextest-junit-workspace-1-of-1/junit.xml")
+                .exists()
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
