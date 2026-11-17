@@ -5,10 +5,9 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 
 use veln_repo_workflow_scripts::{
-    CommandResult, check_memory_guards, check_memory_guards_with_workers,
-    download_prior_nextest_reports, escape_annotation_message, plan_shards,
-    read_nextest_elapsed_seconds, render_duplication_summary, render_shard_outputs,
-    render_shard_summary,
+    CommandResult, SuiteShardPlan, check_memory_guards, check_memory_guards_with_workers,
+    download_prior_nextest_reports, escape_annotation_message, plan_nextest_suites,
+    render_duplication_summary, render_suite_shard_outputs, render_suite_shard_summary,
 };
 
 struct NextestShardConfig {
@@ -82,14 +81,14 @@ fn plan_nextest_shards_command(args: &[String]) -> Result<ExitCode, String> {
 
     let config = nextest_shard_config()?;
     let report_root = prior_nextest_report_root(&config.runner_temp)?;
-    let elapsed = read_nextest_elapsed_seconds(&report_root).map_err(|error| error.to_string())?;
-    let plan = plan_shards(
-        &elapsed,
+    let plans = plan_nextest_suites(
+        &report_root,
         config.target_seconds,
         config.fallback_shards,
         config.max_shards,
-    );
-    publish_nextest_shard_plan(&config, &plan)?;
+    )
+    .map_err(|error| error.to_string())?;
+    publish_nextest_shard_plan(&config, &plans)?;
     Ok(ExitCode::SUCCESS)
 }
 
@@ -133,10 +132,10 @@ fn prior_nextest_report_root(runner_temp: &Path) -> Result<PathBuf, String> {
 
 fn publish_nextest_shard_plan(
     config: &NextestShardConfig,
-    plan: &veln_repo_workflow_scripts::ShardPlan,
+    plans: &[SuiteShardPlan],
 ) -> Result<(), String> {
-    append_text(&config.output_path, &render_shard_outputs(plan))?;
-    let summary = render_shard_summary(plan, config.target_seconds, config.max_shards);
+    append_text(&config.output_path, &render_suite_shard_outputs(plans))?;
+    let summary = render_suite_shard_summary(plans, config.target_seconds, config.max_shards);
     println!("{summary}");
     if let Some(path) = &config.summary_path {
         append_line(path, &summary)?;
@@ -225,15 +224,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn renders_github_outputs_for_the_planned_shards() {
-        let plan = plan_shards(&[191.0], 90, 4, 16);
-        assert_eq!(
-            render_shard_outputs(&plan),
-            "shard_count=3\nshards=[1,2,3]\n"
-        );
-    }
-
-    #[test]
     fn publishes_github_outputs_and_step_summary() {
         let root = env::temp_dir().join(format!(
             "veln-workflow-shard-publish-{}",
@@ -249,17 +239,17 @@ mod tests {
             output_path: root.join("output"),
             summary_path: Some(root.join("summary")),
         };
-        let plan = plan_shards(&[191.0], 90, 4, 16);
+        let plans = plan_nextest_suites(&root, 90, 4, 16).unwrap();
 
-        publish_nextest_shard_plan(&config, &plan).unwrap();
+        publish_nextest_shard_plan(&config, &plans).unwrap();
 
         assert_eq!(
             fs::read_to_string(&config.output_path).unwrap(),
-            "shard_count=3\nshards=[1,2,3]\n"
+            render_suite_shard_outputs(&plans)
         );
         assert_eq!(
             fs::read_to_string(config.summary_path.as_ref().unwrap()).unwrap(),
-            format!("{}\n", render_shard_summary(&plan, 90, 16))
+            format!("{}\n", render_suite_shard_summary(&plans, 90, 16))
         );
         fs::remove_dir_all(root).unwrap();
     }
