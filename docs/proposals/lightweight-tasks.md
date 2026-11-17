@@ -9,10 +9,8 @@ Execute many concurrent Veln tasks without assigning a dedicated OS thread to
 each task. The proposed JVM implementation uses one Java virtual thread per
 task and retains ordinary synchronous Veln function calls.
 
-This proposal establishes a design direction. It is not ready for
-implementation selection until the [Open Questions](#open-questions) have
-concrete answers for the initial scope. All acceptance evidence below is
-planned. No throughput improvement, task capacity, or memory reduction has
+The [design decisions](#design-decisions) fix the initial scope and its
+acceptance gates. All acceptance evidence below is planned. No throughput improvement, task capacity, or memory reduction has
 been measured for Veln.
 
 ## Current Boundary And Motivation
@@ -63,8 +61,9 @@ values. Its virtual threads remain logical threads even when their carrier
 changes. This fits Veln's existing synchronous JVM execution. Keep the task
 handle and result protocol; a Java `Thread` remains a backend detail.
 
-The preferred baseline is Java 25 for building and executing the runtime.
-This remains a decision under Q1. Virtual threads became final in Java 21,
+The baseline is Java 25 for building and executing the runtime, with runtime
+classfiles targeting Java 25. There is no older-JDK fallback.
+Virtual threads became final in Java 21,
 but [JEP 491](https://openjdk.org/jeps/491), delivered in Java 24, also permits
 virtual threads to unmount during monitor acquisition and `Object.wait()`.
 That change matters directly to Veln's current channel implementation. A
@@ -83,13 +82,14 @@ unlimited heap, descriptors, connections, or resolver capacity.
 The initial proposal does not add structured concurrency, task groups,
 automatic sibling cancellation, a public scheduler API, or another backend.
 An initial implementation may retain the current channel and socket waiting
-algorithms if the acceptance evidence supports the selected scope. Q4 decides
-whether their costs require an accompanying change.
+algorithms. D4 and D6 define the acceptance gates; failure of a gate blocks
+adoption rather than expanding this implementation into a waiting-algorithm
+rewrite.
 
 ## Observable Contracts
 
-The following requirements apply to the proposed execution model. They do not
-resolve the lifetime and fairness choices in Open Questions.
+The following requirements apply together with the lifetime and fairness
+decisions below.
 
 | Boundary | Proposed observable contract |
 | --- | --- |
@@ -121,8 +121,8 @@ rationale, while the current specifications remain authoritative.
 | --- | --- | --- |
 | Keep platform threads | Existing runtime creates one platform worker for each task, including waiting tasks. | Retains the resource constraint this proposal addresses. Keep it as the measurement baseline. |
 | Fixed platform-thread pool | With the current blocking call model, every worker can wait for queued children or channel peers that have no worker available. This is an inference from Veln's implementation, not a measured failure of a prototype. | A pool alone does not satisfy the progress requirement. Any pool-based alternative needs suspension or another demonstrated progress mechanism. |
-| Java virtual threads: [JEP 444](https://openjdk.org/jeps/444), [JEP 491](https://openjdk.org/jeps/491), and the JDK 25 guide linked above | Preserve sequential Java stacks while multiplexing waiting tasks; monitor behavior depends on the JDK release. Virtual threads are daemon threads. | Preferred JVM mechanism. Decide the Java baseline and task lifetime explicitly; do not infer either from a constructor substitution. |
-| Go runtime: [runtime developer documentation at Go 1.24.0](https://github.com/golang/go/blob/go1.24.0/src/runtime/HACKING.md) and [Go 1.14 runtime release notes](https://go.dev/doc/go1.14#runtime) | Go manages goroutines, OS threads, execution resources, and growing stacks; it also supports asynchronous preemption, including loops without function calls. Those mechanisms belong to Go's runtime and compiler. | Adopt the goal of multiplexing lightweight tasks. Do not promise Go-equivalent CPU scheduling or copy its stack machinery into ordinary JVM calls. Q3 owns fairness. |
+| Java virtual threads: [JEP 444](https://openjdk.org/jeps/444), [JEP 491](https://openjdk.org/jeps/491), and the JDK 25 guide linked above | Preserve sequential Java stacks while multiplexing waiting tasks; monitor behavior depends on the JDK release. Virtual threads are daemon threads. | Selected JVM mechanism. D1 and D2 fix the Java baseline and task lifetime rather than inferring them from a constructor substitution. |
+| Go runtime: [runtime developer documentation at Go 1.24.0](https://github.com/golang/go/blob/go1.24.0/src/runtime/HACKING.md) and [Go 1.14 runtime release notes](https://go.dev/doc/go1.14#runtime) | Go manages goroutines, OS threads, execution resources, and growing stacks; it also supports asynchronous preemption, including loops without function calls. Those mechanisms belong to Go's runtime and compiler. | Adopt the goal of multiplexing lightweight tasks. Do not promise Go-equivalent CPU scheduling or copy its stack machinery into ordinary JVM calls. D3 fixes the initial fairness boundary. |
 | Async state machines: [Tokio 1.54.1 task documentation](https://docs.rs/tokio/1.54.1/tokio/task/) | Tasks schedule cooperatively and blocking work needs special treatment. Started `spawn_blocking` jobs generally cannot be aborted. This is a different execution and cancellation model. | Keep as an alternative for a future backend. It would require designing suspension across Veln calls, handlers, cleanup, and host operations; adding a Rust executor alone does not transform JVM execution. |
 
 [Veln PR #570](https://github.com/oakcask/veln/pull/570) replaced numbered
@@ -137,13 +137,13 @@ new tests in this proposal change and are not reported as passing.
 | Case | Input or schedule | Required observation and planned evidence |
 | --- | --- | --- |
 | L1: allocation | Increasing populations of tasks held at a channel or timer wait | JVM integration harness identifies virtual workers and measures OS threads externally; worker allocation is not proportional to waiting task count. Use the controlled benchmark below for memory and cost. |
-| L2: progress | A JVM carrier budget of one and two; parents spawn and join children; channel peers rendezvous or release a full buffer | All finite acyclic schedules complete within the harness timeout. A JVM integration test detects worker starvation independently of API return-value coverage. |
+| L2: progress | A JVM carrier budget of one and two; parents spawn and join children; channel peers rendezvous or release a full buffer | The listed finite acyclic schedules, with bounded work between waits, complete within the harness timeout. A JVM integration test detects worker starvation independently of API return-value coverage. |
 | L3: task boundary | Pure, effectful, and record-context jobs returning values or failures | Existing freezing, effect-row inference, callback, and failure-classification observations remain valid. Use compiler/backend evidence for compiler-known task boundaries and stdlib companion tests for source-defined wrapper behavior. |
 | L4: cancellation | Cancel during channel, timer, join, and real socket waits; release a gated cleanup only after concurrent cancellation attempts finish | Join remains incomplete until cleanup finishes; one cancellation initiation interrupts the job; cleanup ordering and failure classification match the current contract. Use scoped Veln support plus JVM interruption and real-host integration tests. |
 | L5: handler state | Nested handlers, children, siblings, unrelated tasks, and scope exit with retained resource aliases | Inheritance and lexical restoration remain correct; no carrier-state leakage or provider substitution occurs. Use Veln support and the backend handler/owner integration harness. |
-| L6: entry lifetime | Normal and failed entry exit with unfinished children, nested spawns, and blocked cleanup | Exact completion, cancellation, output, and exit observations follow Q2's selected transition table. Add CLI integration evidence for process lifetime. |
-| L7: CPU scheduling | More continuously runnable CPU tasks than carriers, plus a short task and a cancellation request | Record starvation and latency. Any fairness guarantee selected in Q3 requires a bounded, independently observable acceptance case. |
-| L8: failure and reclamation | Task start failure and repeated spawn/complete/release batches | Q5 defines failure reporting and ownership. The selected implementation leaves no permanently registered completed tasks or inherited resource owners; verify with backend lifecycle evidence and retained-heap measurements. |
+| L6: entry lifetime | Normal and failed entry exit with unfinished children, nested spawns, and blocked cleanup | D2's transition table determines completion, output, exit, and isolation. Add CLI and reusable-test-entry integration evidence, including a child that spawns while draining and a rejected spawn while cancelling. |
+| L7: CPU scheduling | More continuously runnable CPU tasks than carriers, plus a short task and a cancellation request | D3 promises no bounded CPU fairness. Record starvation and latency as diagnostics; use externally bounded runs rather than require the saturated workload to finish. |
+| L8: failure and reclamation | Task start failure and repeated spawn/complete/release batches | D5 requires an abrupt startup failure, rollback of registration, and no published handle. Backend failure injection verifies rollback; retained-heap measurements check released handles and owners. |
 
 Apply the [test placement policy](../reference/toolchain-test-harness.md#test-placement-policy).
 Returned-value permutations for source-defined standard-library APIs belong
@@ -179,24 +179,65 @@ order, and reported dispersion. Record the host and runtime configuration
 with the measurement artifact. Distinguish OS thread count from Java virtual
 thread count; include JFR pinning events when diagnosing carrier occupancy.
 Do not fail ordinary CI on wall-clock ratios from uncontrolled runners.
-Population sizes, repetitions, regression budgets, and the minimum useful
-improvement remain Q6; choose them before using results to accept the design.
+Use the populations and adoption budgets in D6. These are selected acceptance
+thresholds, not measurements or claims about achieved capacity.
 
-## Open Questions
+## Design Decisions
 
-| Question | Options and required resolution before implementation selection |
+| Decision | Initial contract and rationale |
 | --- | --- |
-| Q1: supported Java baseline | Prefer Java 25. Decide the minimum build JDK, runtime JDK, runtime classfile target, and unsupported-runtime diagnostic. If Java 21 or an older fallback is retained, specify its separate behavior and verification burden; CI's current Java version does not establish support policy. |
-| Q2: task lifetime at entry exit | Choose wait-for-all, cancel-and-wait, or process exit without waiting. Virtual threads are always daemon, while ordinary current tasks inherit a non-daemon parent. Define normal exit, failed entry, child failure, nested spawn during shutdown, new-spawn admission, blocked cleanup, and whether lifetimes are per run, per test, or shared across a test process. Write a transition table covering outputs, exit result, and failure precedence. |
-| Q3: CPU fairness and cancellation responsiveness | Decide whether the initial contract promises only progress when supported waits release carriers or also progress during CPU saturation. If stronger guarantees are required, choose a yield mechanism and insertion boundaries, and specify observable limits and overhead measurements. Cancellation checks alone are insufficient. |
-| Q4: waiting mechanisms in the initial scope | Determine from controlled measurements whether polling select and per-operation selectors can remain. If either changes, specify wakeup registration, lost-wakeup prevention, close/cancel races, tie selection, and resource bounds before implementation. Native or filesystem waits need an explicit supported-progress boundary. |
-| Q5: admission, startup failure, and ownership | Decide whether task admission is unbounded subject to host resources or has an explicit limit. Define failure when a worker cannot start, cleanup of partially registered lifetime state, and who releases runtime-owned task bookkeeping. The current infallible-looking spawn signature must not hide an unspecified failure policy. |
-| Q6: measurable acceptance budgets | Select representative population sizes, runner limits, repetitions, noise treatment, and resource/latency budgets. Decide which metrics gate adoption and which remain diagnostic; do not invent a Veln speedup or a universal task capacity. |
+| D1: Java baseline | Minimum build JDK and execution JDK: 25; runtime classfile target: 25. Check the selected Java major before launching generated code and report a toolchain execution error naming required 25 and the detected major. No raw class-version exception is the normal unsupported-runtime outcome. Also reject an older build JDK before invoking runtime compilation. Java 21 and platform-thread fallback are excluded to avoid two suspension and shutdown contracts. Verify both launch and build rejection independently. |
+| D2: entry lifetime | Each run and each test invocation owns a task lifetime. Normal entry completion drains all admitted tasks; failed entry completion cancels and drains them. The entry's non-daemon launcher remains alive until draining finishes. A subsequent test cannot inherit children or handlers from the preceding test. See the transition table. |
+| D3: CPU fairness | Guarantee peer progress only at supported carrier-releasing waits. Do not add yield insertion or promise CPU time slicing, bounded cancellation latency, or starvation freedom under CPU saturation. Existing cancellation checkpoints remain. The JDK guide's scheduling model does not supply a Veln fairness bound; stronger fairness requires separate compiler and scheduler work. |
+| D4: waits | Retain channel monitors, polling select, per-operation socket selectors, and bounded DNS workers. Supported carrier-progress acceptance covers channel, timer, and join waits; loopback sockets have separate host-integration coverage. Native calls, filesystem calls, DNS, and class initialization have no carrier-release guarantee. Select idle cost and descriptor counts remain measured diagnostics. No new wakeup protocol or tie rule is introduced. |
+| D5: admission and ownership | No public task-count limit or queue. Admission is subject to host resources and lifetime state. Allocation or worker-start failure raises a runtime failure at spawn, preserves its cause, publishes no handle, and removes any partial lifetime registration. A closed lifetime rejects spawn as a runtime failure before executing the job. The lifetime owns only incomplete jobs; completion removes registration even if no join occurs. Handles retain their own result until released. No permanent completed-task history is permitted. |
+| D6: adoption budgets | Use the controlled protocol below. Functional, lifecycle, allocation, and retained-state gates are required. Throughput and latency budgets apply on the controlled comparison runner only; uncontrolled CI does not gate ratios. Passing functional tests alone does not establish adoption readiness. |
+
+### Entry Lifetime Transitions
+
+An admitted task belongs to exactly one invocation, including descendants.
+Registration and the transition to an empty, closed lifetime must be atomic
+with respect to spawn. Entry lexical cleanup finishes before entry completion
+is classified; draining does not extend a lexical handler owner's lifetime.
+
+| State | Event or guard | Next state | Observable result |
+| --- | --- | --- | --- |
+| Running | Entry and its lexical cleanup succeed | Draining | Preserve the pending entry value; wait for all admitted jobs, including their cleanup. |
+| Running or Draining | An admitted task spawns a child | Same state | Admit the descendant into the same invocation before returning its handle. During Draining only still-admitted tasks can spawn. |
+| Running | Entry fails, returns an entry error, or is cancelled | Cancelling | Close admission, request cancellation once on every incomplete task, and wait for cleanup. Include tasks admitted before the transition. |
+| Cancelling | Any spawn attempt | Cancelling | Fail at spawn; no child starts. A spawn failure inside cleanup follows existing cleanup-failure precedence. |
+| Draining | Last admitted task completes | Closed | Publish the pending entry result and allow process exit or the next test. |
+| Cancelling | Last admitted task completes | Closed | Publish the original entry failure; append child cleanup failures as related context in task admission order, preserving each task's internal cleanup order. |
+| Any live state | A child completes with a value or ordinary task failure | Same state, or Closed if this empties a draining lifetime | Remove its registration. Join retains existing results and failure propagation. An unjoined child failure does not independently change the entry result. |
+| Draining or Cancelling | A job or cleanup never finishes | Same state | The invocation remains incomplete. There is no implicit deadline, forced termination, or truncated committed output. |
+| Closed | A retained handle is joined; another invocation starts | Closed for the old lifetime | Its settled join result remains available; a new invocation creates a distinct lifetime. |
+
+Already committed output remains visible in all states. Relative ordering of
+output from concurrent tasks is unspecified. An entry failure stays primary;
+cancellation requested only to end its children does not replace it. Ordinary
+child failures still propagate only through join. This preserves the task
+handle protocol rather than introducing task-group failure propagation.
+
+### Controlled Adoption Budgets
+
+These values are project acceptance choices. They are not universal capacity
+or latency guarantees. The measurement artifact must record both successes
+and resource-limit failures; an uncompleted baseline population is not a
+successful comparison point.
+
+| Concern | Workload and gate |
+| --- | --- |
+| Bounded runner | Prebuilt programs; 4 GiB process-tree memory ceiling, 512 MiB Java heap, and 180 s per JVM run. Stop a population ladder after its first resource failure. CI progress cases use at most 1,024 jobs, a 2 GiB process-tree limit, and 30 s per case. |
+| Samples and noise | One discarded warm-up run and seven independent measured JVM runs per configuration, alternating baseline and candidate. Report medians, ranges, and per-run latency p95; compare medians of those p95 values. A timeout or OOM is a failed sample, never omitted. If a metric's range exceeds 20% of its median, the comparison is inconclusive and blocks adoption until a stable run is obtained. |
+| Waiting-task allocation | Park 256, 1,024, 4,096, then 16,384 jobs. With carrier parallelism and maximum pool size both fixed to two, candidate OS-thread growth between 256 and 16,384 parked jobs is at most eight. The candidate must finish the 16,384-job run within the runner bounds. This is a benchmark gate, not an API task quota. |
+| Common-population cost | At 1,024 jobs, both implementations must complete. Candidate median peak RSS must not exceed baseline; its worker OS-thread count must be at most one quarter of baseline. Measure total process threads separately. |
+| Runtime regressions | At the common population, channel-pipeline and loopback throughput must be at least 80% of baseline, and delivery-latency p95 at most 125% of baseline under the same offered load. Publish source workload, payload sizes, message/connection counts, and offered rate in the benchmark artifact before collecting either result; changes invalidate the pair. |
+| Reclamation | Ten batches of 1,024 spawn/complete/release jobs; after each batch release application handles and collect before recording live heap. The last five samples must remain within a 10% band of their median; backend lifecycle checks must also observe zero completed registrations and no retained released owners. Heap flatness alone is insufficient. |
+| Diagnostic metrics | Polling-select idle CPU and wakeups, descriptor/selector counts, CPU-saturation latency, and JFR pinning events are reported without an adoption ratio. A resource leak or functional failure still fails the corresponding correctness gate. |
 
 ## Implementation And Specification Route
 
-After resolving the questions, move this proposal to Ready only when its
-observable contracts and acceptance plan are complete. Implement the selected
+The design questions are resolved by D1–D6. Implement the selected
 lifetime model and JVM worker changes together; changing the worker constructor
 alone does not resolve daemon shutdown behavior.
 

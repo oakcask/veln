@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The proposed filesystem integration, native path conversion, shared byte IO capabilities, provider ownership, seek behavior, fake filesystem contracts, or unresolved design decisions change.
+update-when: The proposed filesystem integration, native path conversion, shared byte IO capabilities, provider ownership, seek behavior, fake filesystem contracts, or acceptance gates change.
 ---
 
 # Filesystem And Shared Byte IO
@@ -10,11 +10,10 @@ explicit filesystem selection, and scoped substitution through Veln effect
 handlers. The same byte-processing helpers should work with files, network
 streams, and memory.
 
-This proposal fixes the contracts described below and records unresolved
-choices in [Open Questions](#open-questions). It is not ready for implementation
-selection until those questions have concrete answers for the initial scope.
-All acceptance evidence is planned. Operation names in tables are conceptual;
-they do not declare a complete source API or introduce language syntax.
+The [design decisions](#design-decisions) resolve the initial scope. All
+acceptance evidence is planned. Source signatures below define the proposed
+API; they are not declarations of currently implemented names. Implementation
+selection remains blocked on the provider-bound dispatch feasibility gate.
 
 ## Current Boundary And Scope
 
@@ -43,9 +42,9 @@ supports lexical cleanup, but does not define automatic close or flush.
 | Deterministic testing | A Veln fake implements stateful filesystem behavior and injected failures without opening host files. |
 
 Memory mapping, file watching, advisory locks, hard links, detailed ACLs,
-distributed filesystem consistency, crash transactions, and asynchronous IO
-scheduling are outside the initial scope. Symbolic-link traversal and native
-filename representation still need the decisions identified below.
+distributed filesystem consistency, crash transactions, buffering, confinement,
+link creation, arbitrary native-name round trips, and asynchronous IO scheduling
+are outside the initial scope. Unsupported capabilities fail explicitly.
 
 ## Paths And Filesystem Selection
 
@@ -72,8 +71,8 @@ checks. Veln provides the implemented validated portable path instead of
 accepting unchecked strings at every call.
 Rust's [native Path conversion](https://doc.rust-lang.org/std/path/struct.Path.html#method.to_str)
 shows why an arbitrary native name need not have a lossless Unicode spelling;
-the native representation decision remains open rather than assuming all host
-names are portable.
+the initial API rejects native names without an exact supported Unicode
+representation rather than promising arbitrary native-name round trips.
 
 ### Root Views And Confinement
 
@@ -102,8 +101,8 @@ can implement byte capabilities without filesystem access.
 Operations carry explicit resource operands. The active handler supplies an
 implementation, while a resource retains its creating provider and owner.
 Nesting another handler must not reinterpret an existing resource as a resource
-of the newly active provider. The precise dispatch mechanism and static
-capability representation are Open Questions.
+of the newly active provider. Distinct nominal view types enforce static
+capabilities; the provider-bound dispatch prerequisite is specified below.
 
 The public substitutable boundaries are nominal effects implemented by ordinary
 Veln handlers. A system handler translates those operations into real host IO;
@@ -117,8 +116,8 @@ an implicit system provider to every helper.
 
 The byte layer uses `ByteChunk`, `ByteCount`, and `ByteOffset`, with a common
 typed IO error vocabulary that is independent of `net::NetError`. Filesystem
-and network adapters retain domain context when translating failures. Exact
-effect names, error declarations, and relationships to `transport` remain open.
+and network adapters retain domain context when translating failures. The
+source surface and outcome types below fix these boundaries.
 
 | Operation family | Observable contract |
 | --- | --- |
@@ -134,8 +133,8 @@ must not cause a helper to spin indefinitely or silently report completion.
 The common outcome design must preserve data or progress when an operation
 also fails. Unknown host progress is represented explicitly, never fabricated
 as zero or as a known exact count. A helper must not automatically retry a
-failure with unknown progress. Zero-size behavior and the outcome ADTs remain
-Open Questions.
+failure with unknown progress. The outcome table below fixes zero-size
+behavior and the outcome ADTs.
 
 Go's [Reader and Writer contracts](https://pkg.go.dev/io) motivate capability
 composition and preserving progress alongside failure. Veln adapts these to
@@ -155,7 +154,7 @@ resulting absolute offset. Offsets count bytes, not characters.
 | Open seekable resource; valid target within the file | Success; cursor becomes the target. Contents and size are unchanged. |
 | Open seekable resource; valid target beyond end | Success; cursor becomes the target. Seeking alone does not extend the file. A positive-size read there returns clean end. |
 | Target is negative or arithmetic overflows | Typed invalid-input failure; cursor, contents, and size are unchanged. |
-| Resource has no seek capability | Not accepted by a static capability boundary, or explicit unsupported failure where support is dynamic. The exact split remains open. |
+| Resource has no seek capability | Cannot be passed as `io::Seeker`; acquiring a dynamic seek view returns `Unsupported` without changing state. |
 | Closed resource | Typed closed-resource failure; no transfer or cursor change. |
 | Positional read/write | Sequential cursor is unchanged, including after an operation that reports partial progress. |
 
@@ -167,9 +166,8 @@ paths are equal.
 
 Rust's [Seek](https://doc.rust-lang.org/std/io/trait.Seek.html) motivates a
 typed origin rather than integer `whence`. This proposal additionally fixes
-invalid-target state preservation and seeking beyond end. The contents of a
-gap created by a later write, append interactions, buffering, and failed host
-seek state still require decisions.
+invalid-target state preservation and seeking beyond end. The mutation table
+below fixes gap bytes, append, and failed-seek state. Buffering is deferred.
 
 ## Filesystem Updates And Resource Lifetime
 
@@ -181,14 +179,13 @@ already exists, its contents remain unchanged.
 
 Metadata identifies at least file kind and byte length where meaningful.
 Directory entries carry their names and kind information rather than only
-repeating complete paths. Directory enumeration must state its ordering and
-its behavior if entries change during enumeration; those choices remain open.
+repeating complete paths. Enumeration returns one sorted list, with the
+concurrent-change limits specified below; it does not expose pagination.
 Missing metadata and unsupported operations must not be encoded as invented
 zero values or successful no-ops.
 
-Creation, removal, rename, truncation, append, and sync need success, failure,
-and state-transition tables before implementation selection. In particular,
-rename needs a replacement and cross-filesystem policy. A successful byte
+The mutation table defines creation, removal, rename, truncation, append, and
+sync, including failed-operation state. A successful byte
 write or close does not itself promise crash durability. Buffered flush and
 storage synchronization are distinct concepts.
 
@@ -203,17 +200,17 @@ resource instead of publishing a usable handle.
 
 Child tasks inherit the creating scope's handlers and resource ownership;
 they do not extend a parent's owner lifetime merely by retaining a handle.
-Independent executions construct independent fake state. Error precedence,
-failed-close ownership, and the result type of a scoped file helper remain
-Open Questions. Existing `defer` cannot silently discard a meaningful close
+Independent executions construct independent fake state. Close and scope exit
+use the cleanup transitions below. Existing `defer` cannot discard a meaningful close
 failure and is not a substitute for specifying these outcomes.
 
 Java's [FileChannel](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/nio/channels/FileChannel.html)
 supports exclusive creation and positional IO, but leaves append atomicity
 and gap contents dependent on the host contract. Its
 [seekable channel boundary](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/nio/channels/SeekableByteChannel.html)
-also permits interruption to close a channel. These are backend constraints
-to resolve explicitly, not guarantees supplied by a portable fake.
+also permits interruption to close a channel. The initial contract preserves
+these backend limits through explicit outcomes;
+a portable fake does not establish stronger host guarantees.
 
 ## Fake Filesystem And Conformance
 
@@ -245,7 +242,7 @@ per-open lifecycle, synchronized state, and scripted failures.
 ## Acceptance Model
 
 All evidence below is planned. Expected byte sequences and state transitions
-come from the contracts above and the completed Open Questions, not from
+come from the contracts and decision tables in this proposal, not from
 copying the implementation's output. Fake tests do not establish real host
 behavior.
 
@@ -255,9 +252,9 @@ behavior.
 | Multiple resources | Copy between two resources and two filesystem instances reaches the intended input and output under nested handlers. | Companion tests with distinct bytes and provider traces. |
 | Partial transfer | Short reads are data; complete helpers preserve bytes and progress; partial writes retry only an uncommitted suffix; unknown progress stops retry. | Scripted Veln fake tests with independent expected contents and operation logs. |
 | Seek and positional IO | Origin arithmetic, invalid targets, beyond-end reads, independent opens, aliases, and positional cursor preservation obey the state table. | Companion tests shared by memory and supported system providers; host tests for native translation. |
-| Namespace updates | Open modes, exclusive create, directory operations, rename, and truncation obey completed transition tables, including failure preservation. | Shared provider conformance tests and focused real-host integration cases. |
+| Namespace updates | Open modes, exclusive create, directory operations, rename, and truncation obey the mutation transition table, including failure preservation. | Shared provider conformance tests and focused real-host integration cases. |
 | Ownership | Nested scopes do not redirect handles; scope exit closes aliases; child tasks cannot publish into a closing owner. Cleanup runs during error and cancellation unwinding. | Veln companion tests for provider behavior and JVM owner/handler integration tests. |
-| Errors and cleanup | Stable error kinds retain operation and path context; completed close and cleanup rules preserve progress and the selected primary failure. | Companion tests plus human/JSON execution coverage where runtime cleanup diagnostics apply. |
+| Errors and cleanup | Stable error kinds retain operation and path context; close and cleanup transitions preserve progress and the selected primary failure. | Companion tests plus human/JSON execution coverage where runtime cleanup diagnostics apply. |
 | Real host default | A system handler reaches real files without fake selectors, while an injected fake requires no host-file setup. | Focused host integration and effect-boundary policy checks. |
 
 Standard-library API behavior belongs in `crates/veln-stdlib/veln/` companion
@@ -265,36 +262,297 @@ tests. Compiler, backend, and host integration cases must identify their own
 contract under the [test placement policy](../reference/toolchain-test-harness.md).
 No broad stress or performance claim is part of this proposal.
 
-## Open Questions
+## Design Decisions
 
-Each question blocks implementation readiness for its affected capability.
-Resolving one requires updating the relevant contract and acceptance row;
-listing a preferred direction here does not make it implemented behavior.
+These decisions replace the former open questions. The adapter and capability
+choices are Veln design inferences, not guarantees supplied by the comparative
+sources. They are proposed contracts, not evidence that the API or runtime
+support exists.
 
-| Question | Alternatives and required decision |
+| Concern | Selected initial design | Acceptance obligation |
+| --- | --- | --- |
+| Public API | Nominal capability views and separate namespace and byte effects; no traits, implicit capability coercions, or new effect syntax. | Type-check the source surface below; reject a reader passed to write or a stream passed to seek. |
+| Provider dispatch | Opaque runtime tokens retain their owner and creating operation handlers. Extend the runtime resource boundary explicitly; do not encode public handles as integers or host objects. | Two Veln providers, nested shadowing, wrong-owner publication, closed-owner use, and cross-provider copy at the feasibility gate. |
+| Fake state | A synchronized `io_provider::State<T>` cell carries each fake filesystem's immutable state. Resource slots, file identities, cursors, close facts, and failure plans are ordinary Veln data. The runtime extension provides atomic storage, not fake behavior. | Concurrent children share updates; failure and cancellation cannot strand the state lock; independent fake instances remain independent. |
+| Native paths | Keep the current host-owned `Path` as the explicit native boundary; `path::Path` remains portable. Support only exactly representable names initially. | Nonrepresentable names fail with `UnrepresentablePath`; display is never used as a conversion. |
+| Links and confinement | Follow links for ordinary open; explicit follow/no-follow metadata. No confinement or link-creation capability initially. A subtree is only a namespace view. | Dangling links, cycles, unsupported no-follow, and a link outside a subtree cannot be misreported as confined access. |
+| IO outcomes | Preserve delivered bytes, exact or unknown progress, typed errors, and copy's independent consumed/committed counts. | Scripted partial-failure, empty-request, no-progress, and unknown-progress cases below. |
+| Seek and mutation | Absolute logical cursor, host-defined gap bytes, append-only writer views, no-replacement atomic rename where supported, and explicit mutation commit facts. | Shared transition cases plus host tests for unsupported and unknown host outcomes. |
+| Concurrency and cancellation | Nonblocking per-open admission returns `Busy` for overlapping transfers, seek, truncate, or sync. Close can invalidate an in-flight operation. No bounded host cancellation promise. | Gated overlap, close/interruption races, and reconciliation after unknown cursor or close state. |
+| Cleanup and durability | Reverse-publication cleanup, continue after failures, network-compatible close commit facts and abrupt cleanup precedence. No automatic sync. | Known-false, known-true, and unknown close failures, retries, and body-failure precedence. |
+| Transport and buffering | Add explicit network-to-byte adapters; keep the existing domain-specific transport facade. Buffering is excluded from this implementation. | File/network/memory copy and preserved network context; no file helper acquires `net::IO`. |
+
+### Source Surface And Static Capabilities
+
+The following are signature contracts, not executable declaration syntax.
+`Result`, records, ADTs, and nominal effects use existing Veln features.
+Opaque provider and capability values require the runtime extension below.
+No capability can be constructed by casting a number or a host object.
+
+| Namespace | Source signatures and effects |
 | --- | --- |
-| Public filesystem API and static capabilities | Use `path::Path` for portable names. Choose final filesystem, resource, operation, and nominal-effect signatures. Decide how read-only, writable, seekable, and positional capabilities are represented with the existing type system. Avoid assuming an unimplemented trait or effect feature. |
-| Provider dispatch and fake-created handles | Choose a provider-bound resource representation and dispatch rule that supports multiple providers, nested handlers, and Veln-only fake creation. Define wrong-provider rejection and identity without exposing host objects or forgeable integer handles. |
-| State for Veln fakes | Decide whether existing synchronized channel-backed state is sufficient or a separate state abstraction is required. Specify initialization, child-task sharing, and provider resource allocation. |
-| Native paths and the old boundary | Decide whether arbitrary native names round-trip, how display differs from lossless conversion, where host roots are opened, and how `process::cwd()` and compiler-known `fs` names migrate to the distinct `path::Path` boundary. Backward compatibility is not required. |
-| Links and confinement | Define follow/no-follow behavior for open and metadata, link cycles and dangling links, subtree views, and whether an enforceable confinement capability belongs in the first implementation. State unsupported backend outcomes. |
-| IO outcomes and error translation | Define common read/write/copy ADTs, zero-size and zero-progress rules, partial data plus failure, unknown progress, and stable error categories. Specify how filesystem and network context survives adaptation and what a host exception can actually prove. |
-| Remaining seek and mutation transitions | Define append with seek or positional write, writes beyond end and gap bytes, truncate cursor behavior, failed host seek state, metadata fields, directory ordering/pagination, remove semantics, and rename replacement/cross-filesystem outcomes. |
-| Concurrent operations and cancellation | Decide serialization versus busy errors for shared cursors, positional-call concurrency, close races, and task interruption outcomes. Do not infer bounded cancellation from synchronous JVM file calls. |
-| Cleanup and durability | Define explicit and repeated close, retry after failed close, all-resource cleanup after one close fails, primary/related error precedence, scoped helper results, flush versus sync, and the supported durability guarantee. Compare with existing network cleanup before choosing different behavior. |
-| Existing transport and buffering | Decide how `transport::DuplexStream` and network errors adapt to shared IO without forcing file operations to expose `net::IO`. Define buffer ownership, flush ordering, and seek invalidation before adding buffered helpers. |
+| Filesystem selection | `fs::system(root: Path) -> Result<fs::MutableFilesystem, io::Error> effects [fs::Host, io_provider::Scope]`; `fs::read_only(fs: fs::MutableFilesystem) -> fs::Filesystem` is pure. `fs::system_handler()` handles `fs::Host` and exposes coarse `fs` plus `concurrency` for owner registration; creating a fake filesystem does not require `fs::Host`. |
+| Namespace read effect `fs::Read` | `open_read(fs: fs::Filesystem, path: path::Path) -> Result<fs::ReadFile, io::Error>`; `metadata(fs: fs::Filesystem, path: path::Path, follow: fs::FollowLinks) -> Result<fs::Metadata, io::Error>`; `entries(fs: fs::Filesystem, path: path::Path) -> Result<List<fs::Entry>, io::Error>`. Public facade functions have the same operands/results and effect `[fs::Read]`. |
+| Namespace mutation effect `fs::Mutate` | `open_write(fs: fs::MutableFilesystem, path: path::Path, mode: fs::WriteMode) -> Result<fs::WriteFile, io::Error>`; `open_read_write(fs: fs::MutableFilesystem, path: path::Path, mode: fs::UpdateMode) -> Result<fs::UpdateFile, io::Error>`; `open_append(fs: fs::MutableFilesystem, path: path::Path, create: fs::CreateMode) -> Result<fs::AppendFile, io::Error>`; `create_directory(fs: fs::MutableFilesystem, path: path::Path)`, `remove_file(fs: fs::MutableFilesystem, path: path::Path)`, `remove_directory(fs: fs::MutableFilesystem, path: path::Path)`, and `rename(fs: fs::MutableFilesystem, from: path::Path, to: path::Path)` return `fs::MutationOutcome`. Facades expose `[fs::Mutate]`. |
+| Byte read/write | `io::read(reader: io::Reader, maximum: ByteCount) -> io::ReadOutcome effects [io::Read]`; `io::write(writer: io::Writer, bytes: ByteChunk) -> io::WriteOutcome effects [io::Write]`. Each nominal effect declares the matching operation with the same operand/result types. |
+| Cursor and positional IO | `io::seek(seeker: io::Seeker, origin: io::SeekOrigin) -> Result<ByteOffset, io::Error> effects [io::Seek]`; `io::read_at(reader: io::ReaderAt, offset: ByteOffset, maximum: ByteCount) -> io::ReadOutcome effects [io::ReadAt]`; `io::write_at(writer: io::WriterAt, offset: ByteOffset, bytes: ByteChunk) -> io::WriteOutcome effects [io::WriteAt]`. Each effect declares the matching operation. |
+| Lifetime and storage | `io::close(closer: io::Closer) -> io::CloseOutcome effects [io::Close]`; `io::sync(syncer: io::Syncer) -> Result<(), io::Error> effects [io::Sync]`; `fs::truncate(file: fs::Truncater, size: ByteOffset) -> fs::MutationOutcome effects [fs::Mutate]`. Close and sync effects declare the matching operation. |
+| Complete transfers | `io::read_exact(reader: io::Reader, count: ByteCount) -> io::ExactOutcome effects [io::Read]`; `io::write_all(writer: io::Writer, bytes: ByteChunk) -> io::WriteOutcome effects [io::Write]`; `io::copy(reader: io::Reader, writer: io::Writer, chunk_size: ByteCount) -> io::CopyOutcome effects [io::Read, io::Write]`. |
+
+`ReadFile` is a record containing `reader: io::Reader`, `seeker: io::Seeker`,
+`reader_at: io::ReaderAt`, and `closer: io::Closer`. `WriteFile` contains
+`writer: io::Writer`, `seeker: io::Seeker`, `writer_at: io::WriterAt`,
+`closer: io::Closer`, `syncer: io::Syncer`, and `truncater: fs::Truncater`.
+`UpdateFile` contains all six byte views plus `syncer` and `truncater`.
+`AppendFile` contains only `writer`, `closer`, and `syncer`. All fields of
+one open refer to the same resource. No view grants a capability absent from
+its creation rights. A read-only filesystem cannot be upgraded to mutable.
+
+The type boundary rejects a missing capability. When a provider cannot supply
+an entire requested open record, open returns `Unsupported` and releases any
+partial host open. It must not publish a partially usable record. Network
+adapters publish only reader, writer, and closer views. Optional future
+capability discovery does not belong to the first API.
+
+`CreateMode` is `Existing`, `CreateIfMissing`, or `CreateNew`. `WriteMode` and
+`UpdateMode` each carry a `CreateMode` and a `truncate: Bool`; `CreateNew` with
+truncate is rejected as redundant before host access. Append has a separate
+entry point and cannot request read, truncate, seek, or positional-write views.
+`SeekOrigin` is `Start(ByteOffset)`, `Current(Int)`, or `End(Int)`.
+`FollowLinks` is `Follow` or `NoFollow`.
+
+### Provider-Bound Dispatch Prerequisite
+
+This is an explicit runtime/compiler adapter extension, not a claim that
+ordinary nominal dispatch already provides resource-bound routing. Existing
+`NetListener` and `NetStream` demonstrate opaque handles, but do not provide a
+general Veln-only provider allocation API. Do not reuse their network bridge
+or invent an unimplemented trait or closure representation.
+
+The extension supplies these proposed source entry points in `io_provider`:
+
+| Entry point | Required observation |
+| --- | --- |
+| `Owner`, `Resource` | Opaque identity-bearing types, preserved across task freezing. Only the allocation functions can produce them. |
+| `owner() -> Owner effects [io_provider::Scope]` | Returns the owner of the nearest installed `io_provider::scope()` handler. That handler implements nominal effect `Scope`, creates a fresh owner per application, and releases it at handler exit. Ordinary helper returns do not close the owner. No implicit process-global scope. |
+| `filesystem(owner: Owner, slot: Int) -> Result<fs::Filesystem, io::Error>` and `mutable_filesystem(owner: Owner, slot: Int) -> Result<fs::MutableFilesystem, io::Error>`, both `effects [concurrency]` | Publish a filesystem bound to the provider's active namespace handlers. Only the mutable factory grants mutation rights; the read-only factory needs no mutation handler. |
+| `resource(owner: Owner, slot: Int, family: ViewFamily) -> Result<Resource, io::Error> effects [concurrency]` | Registers one resource with exactly the operations of its declared view family and captures those active handlers, including close. No host file or socket is opened. The provider uses a nonnegative private slot to address its own Veln state. |
+| `read_file(resource: Resource)`, `write_file(resource: Resource)`, `update_file(resource: Resource)`, `append_file(resource: Resource)`, `duplex(resource: Resource)` | Return `Result<file-record, io::Error>` of the corresponding file record, or `Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error>` for duplex; these projections are pure; incompatible families fail with `Unsupported`. Missing handlers yield `Unsupported`; no host fallback. |
+| `slot(owner: Owner, resource: Resource) -> Result<Int, io::Error> effects [concurrency]` | Returns the private slot only for the matching owner while usable or while its registered close handler is releasing it; wrong-owner access yields `InvalidResource`. Integer equality is never a public resource identity test. |
+
+`ViewFamily` is `ReadFile`, `WriteFile`, `UpdateFile`, `AppendFile`, or
+`Duplex`. Registration requires every handler in that family, grants no other
+operations, and rejects missing operations before publication. Filesystem
+slots have corresponding accessors `filesystem_slot(owner: Owner, filesystem: fs::Filesystem) ->
+Result<Int, io::Error> effects [concurrency]` and
+`mutable_filesystem_slot(owner: Owner, filesystem: fs::MutableFilesystem) ->
+Result<Int, io::Error> effects [concurrency]`, with the same owner checks as
+`slot`. Namespace tokens cannot be used as byte resource tokens.
+Operation handlers receive capability views, not the underlying `Resource`.
+Provider-only slot access therefore also uses `reader_slot(owner: Owner,
+reader: io::Reader) -> Result<Int, io::Error> effects [concurrency]` and
+corresponding `writer_slot`, `seeker_slot`, `reader_at_slot`, `writer_at_slot`,
+`closer_slot`, `syncer_slot`, and `truncater_slot` functions, each taking its
+matching nominal view. All enforce the same owner check. There is no public
+view-to-Resource conversion that could upgrade a restricted capability.
+
+The same runtime extension supplies `State<T>` and two operations:
+
+- `state<T>(initial: T) -> State<T> effects [concurrency]` creates independent
+  synchronized storage; task freezing preserves cell identity.
+- `update<T, C, R>(state: State<T>, context: C, action: fn(T, C) -> {state: T,
+  result: R}) -> R effects [concurrency]` runs a pure callback under exclusive
+  access and commits its returned replacement with its result. Runtime failure
+  leaves the old state and releases the lock. Cancellation is delivered before
+  entry or after commit, never between acquiring and releasing the state.
+  Reentrant updates are rejected as runtime failures rather than deadlock.
+
+This is an explicit compiler-known atomic storage adapter, not an assumed
+existing source API. A raw channel receive/compute/send sequence is rejected because
+cancellation can strand the state token. Pure callback transitions keep all
+fake filesystem decisions in Veln and cannot perform nested provider IO while
+holding the cell. Cell allocation and updates expose only `concurrency`, not
+host `fs` or `net` effects.
+
+Public filesystem and byte facades invoke the resource's captured operation
+handler with its original provider context. They retain the declared nominal
+effect in static checking. Runtime routing is restricted to these standard
+resource facades; ordinary `perform` keeps lexical dispatch. Calling another
+provider's low-level operation with a foreign token fails before changing
+provider state. Nested handlers affect newly created resources, while calls on
+existing resources retain their creator. Capture does not retain a usable
+resource after its owner closes.
+
+A provider can create distinct filesystem slots under one owner. Resource
+slots are unique within that owner's state; runtime allocation does not expose
+an integer-to-handle lookup or let another owner forge its tokens. Publication
+and the owner's closing transition share an atomic admission boundary. A late
+host open is closed before returning `Closed`; cleanup failure is retained as
+related context and the owner retains its release obligation.
+
+The Veln fake allocates a fresh state cell, installs an owner scope, and
+installs its namespace and byte handlers with that cell and owner as context.
+Every operation applies a pure state transition through `update`. File
+identity is separate from directory binding and per-open slot identity, so
+rename cannot redirect an existing handle. Scripted failures, bytes, and logs
+are ordinary Veln data. Independent executions allocate separate cells and
+owners. Runtime tests must demonstrate cancellation atomicity of `update`
+before the source fake relies on it.
+
+### Outcomes And Error Translation
+
+The ADTs below describe payloads, not a new syntax. `Progress` is `Known(count:
+ByteCount)` or `Unknown(known_prefix: ByteCount)`. Unknown means at least the
+reported prefix is known, but more may have transferred; it never permits an
+automatic retry. `Commit` is `No`, `Yes`, or `Unknown`.
+
+| Type | Variants and meaning |
+| --- | --- |
+| `io::ReadOutcome` | `Data(bytes: ByteChunk)`, `End`, `ReadFailed(bytes: ByteChunk, consumed: Progress, error: io::Error)`. Failure bytes are the exact delivered prefix; consumed input may exceed it only when reported explicitly. |
+| `io::WriteOutcome` | `Written(count: ByteCount)`, `WriteFailed(committed: Progress, error: io::Error)`. A known count cannot exceed the request. |
+| `io::ExactOutcome` | `Complete(bytes: ByteChunk)`, `Short(bytes: ByteChunk)`, `ExactFailed(bytes: ByteChunk, consumed: Progress, error: io::Error)`. `Short` means clean end before the requested size. |
+| `io::CopyOutcome` | `Copied(count: ByteCount)`, `CopyFailed(consumed: Progress, committed: Progress, error: io::Error)`. Consumed and committed totals are separate even when their values happen to match. |
+| `fs::MutationOutcome` | `Applied`, `MutationFailed(committed: Commit, error: io::Error)`. Unknown does not promise rollback or invite an automatic retry. |
+| `io::CloseOutcome` | `Closed`, `CloseFailed(released: Commit, error: io::Error)`. Release facts describe ownership, not byte durability. |
+| `io::Error` | Record: `operation: String`, `kind: io::ErrorKind`, `path: Option<path::Path>`, `other_path: Option<path::Path>`, `network: Option<net::NetError>`, `commit: Option<Commit>`, `message: String`. Commit carries namespace changes from failed open; transfer progress remains in its outcome ADT. Message is explanatory and not a stable comparison key. |
+
+`ErrorKind` contains `InvalidInput`, `NotFound`, `AlreadyExists`,
+`PermissionDenied`, `NotDirectory`, `IsDirectory`, `DirectoryNotEmpty`,
+`LinkLoop`, `UnrepresentablePath`, `CrossFilesystem`, `Unsupported`, `Closed`,
+`Busy`, `InvalidResource`, `Cancelled`, `NoProgress`, and `Other`.
+Translate only facts established by a typed host exception or return value;
+do not parse localized exception text into a category. An unclassified host
+failure is `Other`. Network adapters retain the original `NetError` as context.
+Filesystem errors retain both paths for rename. Unknown byte progress is
+independent of error category and namespace/ownership commit facts.
+
+| Input or outcome | Required state and helper behavior |
+| --- | --- |
+| Zero-size read/write/exact request on a live permitted view | Return empty `Data`, `Written(0)`, or empty `Complete` without a provider transfer. Validate owner, capability, and closed state first; zero size cannot revive a closed resource. |
+| Copy with zero chunk size | `InvalidInput`; no read or write. |
+| Positive request, empty successful read or zero successful write | Direct facade reports `NoProgress`; complete helpers stop. No spin, invented end, or success. |
+| Short data read | Deliver bytes and continue only if a helper needs more. It is not end. |
+| Read failure with delivered bytes | Include those bytes and consumption in the failure. `read_exact` retains all previously delivered bytes. Copy does not write the failing read's bytes; its consumed total still includes them. |
+| Partial successful write | `write_all` retries the suffix. A later failure includes total known committed progress and stops. |
+| Exception after a host transfer attempt | Preserve independently established prefix/progress; otherwise report unknown progress. Sequential cursor becomes unavailable until successful absolute `Start` seek or close if its value is unknown. Relative seek fails with `InvalidResource` in that state. |
+| Positional failure | Preserve the sequential cursor, including when transfer progress is unknown. Unknown content changes remain observable; no seek-and-transfer emulation. |
+| Count outside the submitted bounds or counter overflow | Stop with `InvalidInput` for caller input or `InvalidResource` for an invalid provider reply. Do not wrap counts or retry using a fabricated suffix. |
+
+### Namespace, Seek, And Mutation Transitions
+
+Paths are interpreted under the explicit filesystem root. The implemented
+portable path type already rejects absolute paths and parent components;
+filesystem operations retain that validated boundary. This lexical rule is not a
+confinement guarantee: followed links and concurrent directory replacement may escape a subtree view.
+
+`Metadata` contains `kind: fs::Kind` and `length: Option<ByteCount>`.
+`Kind` is `RegularFile`, `Directory`, `SymbolicLink`, or `Other`; length is
+present for regular files and absent when not meaningful. `Entry` contains
+`name: path::Path` (one relative component) and `kind: fs::Kind` obtained
+without following the entry's final link. Enumeration returns the observed
+entries sorted by Unicode scalar name order, without duplicates. It is not an
+atomic snapshot under external mutation; a conversion or enumeration error
+returns no partial list. There is no fabricated zero size or missing entry.
+
+| Operation and state | Success | Failure or limit |
+| --- | --- | --- |
+| Open existing; read-only | New independent cursor at zero; no creation or truncation. | Missing entry: `NotFound`; directory: `IsDirectory`; no mutation. |
+| Writable open with create/truncate | Apply the declared mode; a successful truncating open has size zero. | Validate mode before host access. If creation/truncation may have committed before a later open failure, retain that fact in error context; do not claim rollback. |
+| Exclusive `CreateNew` | Atomically create a new regular file. | Existing entry: `AlreadyExists`, unchanged. Unsupported atomic create: `Unsupported` before mutation. |
+| Follow/no-follow | Ordinary open follows links. `metadata(..., NoFollow)` describes the final link; `Follow` describes its target. | Dangling target: `NotFound`; cycle: `LinkLoop` when identified. A backend unable to provide no-follow returns `Unsupported`. Intermediate components still follow host traversal rules. |
+| Seek beyond end, then write | Seek alone preserves size. A subsequent successful write extends size. | Gap byte values are provider-defined and not a portable zero-fill promise. Fake policy fills zeros, but conformance never infers host zeros from that policy. |
+| Failed host seek | Preserve cursor when the host proves no change. | Otherwise mark sequential cursor unknown. A successful absolute `Start` seek restores it; `Current` and `End` are rejected until then. No transfer is implied. |
+| Append write | Each admitted write targets the then-current end. | No seek/positional-write view. No record-atomicity guarantee against another open or process; committed prefix is still reported. |
+| Truncate to smaller size | Size becomes the target; that open's cursor becomes `min(old_cursor, target)`. Other opens keep their cursors. | A target at or above current size is a no-op. Negative/overflow input fails before mutation. Unknown host mutation marks cursor unknown and reports unknown commit. |
+| Create directory | Create exactly one missing directory; do not create parents. | Existing entry: `AlreadyExists`; missing parent: `NotFound`. No recursive operation. |
+| Remove file/directory | File removal unlinks the final entry without following its final link; directory removal requires an empty directory. | Wrong kind is rejected. Nonempty directory: `DirectoryNotEmpty`. Existing open handles follow provider host limits; they must never switch to a replacement entry. |
+| Rename | Move one binding within one filesystem, without replacing an existing destination, as one atomic namespace operation. | Existing destination: `AlreadyExists`; cross-filesystem: `CrossFilesystem`; no atomic no-replace primitive: `Unsupported` before mutation. Never emulate using check-then-move, copy, or delete. Unknown commit is reported if host failure cannot establish the result. |
+| Sync | Request host file data and file-metadata synchronization. | Unsupported host/provider: `Unsupported`. Success does not promise parent-directory persistence, remote-server crash survival, or a multi-file transaction. Close/write success does not imply sync. |
+
+Host `Path` remains distinct from portable `path::Path`. `process::cwd()`
+continues to return that host type; it does not become a portable filesystem
+path. `fs::system(root)` is the explicit bridge and captures the root at
+creation. Replace pure `fs::path` with `fs::native_path(text: String) ->
+Result<Path, io::Error>` and add `fs::display_native(path: Path) -> String`;
+both are pure. Conversion validates native syntax without host IO. Display is
+for humans, not a lossless parser input. `fs::system` resolves a relative host
+root once against the current process directory, checks it is a directory, and
+retains that selection; it never re-resolves against a later working directory.
+No arbitrary bytes or UTF-16 code-unit API is introduced. Unrepresentable
+directory names fail enumeration. Remove the four old compiler-known text,
+existence, and listing functions when the replacement lands; migrate callers
+to explicit filesystem selection and byte/text helpers. Keep the `fs` coarse
+effect label for real host access. No source-compatibility aliases are required.
+
+The [Java FileChannel contract](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/nio/channels/FileChannel.html)
+informs the positional, append, and concurrency choices: Veln deliberately
+chooses `Busy` instead of host blocking and supplies no append atomicity.
+The [SeekableByteChannel contract](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/nio/channels/SeekableByteChannel.html)
+informs the gap and interruption limits; Veln preserves unspecified host gap
+contents instead of imposing a zero-fill layer. These APIs do not establish
+Veln's provider identities or fake semantics.
+
+### Concurrent Operations And Cleanup
+
+All views and aliases of one open share admission and lifetime state. At most
+one transfer, seek, truncate, or sync is admitted at a time; overlap returns
+`Busy` rather than blocking while holding fake state. This also applies to
+positional calls initially. Independent opens can run concurrently and have
+no ordering guarantee for overlapping writes. No compound operation spanning
+separate calls is implicitly atomic.
+
+| State and event | Next state and observation |
+| --- | --- |
+| Open; explicit close wins admission | Stop admitting new operations; attempt release. An already admitted operation may complete first or fail with established progress if host close interrupts it. |
+| Close returns success or failure with release `Yes` | Closed; all aliases unusable. Return the reported failure even if release completed. Repeated close returns `Closed` without another provider close. |
+| Close fails with release `No` | Preserve the prior usable state and cleanup obligation; explicit retry is permitted. |
+| Close fails with release `Unknown` | Unavailable for transfers, retain release obligation, permit explicit close retry. Never fall back to another provider. |
+| Cancellation during an admitted host call | Preserve proven progress; interruption can close the entire open and all its views. Mark release/cursor facts unknown when unproved. No bounded interruption latency or rollback guarantee. |
+| Owner starts cleanup | Close publication first, then attempt all retained resources in reverse publication order, even after one close fails. Children retain identity but cannot publish or extend ownership. |
+| Cleanup has unsuccessful or unknown release | Raise an abrupt cleanup failure after attempting all resources. Keep failed release obligations until final owner teardown; never report successful release or transfer them to a different invocation. External termination can still leak host resources under existing cleanup limits. |
+| Successful body, ordinary `Err`, or `?` propagation plus cleanup failure | Cleanup failure is primary, matching network-handler cleanup. Prior ordinary error is retained as related context. |
+| Runtime failure, contract failure, or cancellation plus cleanup failure | Existing abrupt failure remains primary. Append cleanup failures in reverse publication order as related context. |
+
+No buffered helper or implicit flush is added. A scoped helper is expressed
+with the owner region and existing cleanup; no callback result is silently
+converted from a cleanup failure to `Ok` or an ordinary `Err`. A future helper
+that catches close failures into typed results needs a separate contract.
+
+Network-to-byte adapters bind reader/writer views to their original
+`net::Stream` and translate `ReadOutcome`/`WriteOutcome` into the shared ADTs,
+including its exact known progress and original `NetError`. The adapter
+handler exposes `net::IO`; generic byte helpers expose only byte effects.
+The existing `transport::DuplexStream` remains a network-specific facade rather
+than forcing files to implement it. Buffer ownership, flush ordering, and seek
+invalidation belong to a separate buffering proposal before such helpers exist.
+
+### Feasibility And Conformance Gate
+
+The provider extension is a named prerequisite, not an unresolved choice of
+representation. Before this entire proposal moves to Ready, check a small
+source/adapter prototype with these independently specified observations:
+
+| Gate | Required observation and planned evidence |
+| --- | --- |
+| F1: static source API | All declared file view records, nominal operations, and storage callbacks check using existing syntax plus the named compiler-known types. Wrong capability arguments fail. Provider factories return distinct read-only/mutable types and registrations enforce view families. Compiler type-boundary evidence. |
+| F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. Companion tests and a backend dispatch test. |
+| F3: state and publication | Concurrent children, injected failure, and cancellation cannot strand the state cell lock or publish half a transition. Closing the owner rejects late publication and releases the late host resource. Scoped Veln support and backend lifecycle evidence. |
+| F4: transfer and mutation | Every outcome and transition row above has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. Shared companion conformance tests plus focused real-host cases. |
+| F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the cleanup table. Companion tests and backend cleanup projections. |
+
+If F1–F3 cannot be demonstrated with the stated adapter extension, revise the
+resource design before implementation selection. Do not hide that prerequisite
+inside a platform-only fake, or promote a source API that silently assumes
+unimplemented dispatch or state primitives.
 
 ## Implementation Readiness And Promotion
 
-Before moving this proposal to Ready, provide a filesystem and resource source
-API that uses the independently implemented `path::Path` value and can be
-expressed with implemented Veln features or names a separate language
-prerequisite.
-Complete the IO outcome types and operation state tables, including failures,
-and demonstrate how a Veln fake creates resources and serves two filesystem
-instances without host IO. Add explicit acceptance expectations for each
-resolved question. A smaller independently complete proposal may be split out
-instead of treating unresolved sections as implementation instructions.
+The initial design decisions and acceptance tables are fixed above. Complete
+the provider-bound dispatch feasibility gate before moving this proposal to
+Ready. The adapter extension must be reviewed together with its source API,
+not inferred from the existing network handles. A smaller independently complete
+proposal may be split out only when it retains explicit ownership and outcome
+contracts.
 
 When implementation lands, update the smallest current specifications for
 effects, shared IO, filesystem operations, and execution ownership alongside
