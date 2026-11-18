@@ -103,6 +103,9 @@ runs:
     - name: Build main Rust test cache
       if: inputs.save-cache == 'true'
       shell: bash
+      env:
+        # Match the directory selected by cargo llvm-cov nextest in test shards.
+        CARGO_TARGET_DIR: target/llvm-cov-target
       run: |
         source <(cargo llvm-cov show-env --sh)
         bash scripts/ci-run cargo nextest run --locked --workspace --profile ci --no-run
