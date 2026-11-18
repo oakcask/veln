@@ -134,6 +134,7 @@ jobs:
           shard-count: ${{ matrix.shard_count }}
           suite: ${{ matrix.suite }}
           filterset: ${{ matrix.filterset }}
+          trace-fingerprints: ${{ matrix.suite == 'workspace' && matrix.shard == 1 }}
 
   coverage:
     name: merge Rust test coverage

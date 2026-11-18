@@ -20,6 +20,10 @@ inputs:
   filterset:
     description: Nextest filterset selecting this suite's tests.
     required: false
+  trace-fingerprints:
+    description: Log Cargo freshness decisions when investigating restored build artifacts.
+    required: false
+    default: "false"
   save-cache:
     description: Whether to build and save cache misses for the main branch.
     required: false
@@ -111,6 +115,7 @@ runs:
       shell: bash
       env:
         NEXTEST_FILTERSET: ${{ inputs.filterset }}
+        CARGO_LOG: ${{ inputs.trace-fingerprints == 'true' && 'cargo::core::compiler::fingerprint=trace,cargo::compiler::fingerprint=trace' || '' }}
       run: bash scripts/ci-run cargo llvm-cov --no-report nextest --locked --workspace --profile ci --filterset "${NEXTEST_FILTERSET}" --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
     - name: Generate Rust shard coverage report
       if: inputs.shard != ''
