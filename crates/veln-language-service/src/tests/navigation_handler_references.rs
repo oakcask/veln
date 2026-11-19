@@ -645,6 +645,53 @@ mod navigation_handler_references_tests {
     }
 
     #[test]
+    fn direct_dependency_handler_uniqueness_includes_non_exported_sources() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use shared from \"example/dep\"\n\n",
+                    "fn duplicate() -> Int\n  handle 1 with shared::run()\nend\n\n",
+                    "fn valid() -> Int\n  handle 2 with shared::keep()\nend\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/dep",
+                &[
+                    (
+                        "public.veln",
+                        concat!(
+                            "mod shared\n\n",
+                            "pub handler run() for Work\n  go() => 1\nend\n\n",
+                            "pub handler keep() for Work\n  go() => 2\nend\n",
+                        ),
+                    ),
+                    (
+                        "internal.veln",
+                        "mod shared\n\npub handler run() for Work\n  go() => 3\nend\n",
+                    ),
+                ],
+                ["public.veln"],
+            )],
+        );
+
+        let duplicate_position = || SourcePosition {
+            source: SourcePath::new("main.veln"),
+            line: 4,
+            column: 25,
+        };
+        assert_eq!(definition_at(&snapshot, duplicate_position()), None);
+        assert!(navigate(&snapshot, duplicate_position()).is_none());
+
+        let valid = query_snapshot(&snapshot, "main.veln", 8, 25).unwrap();
+        assert_eq!(valid.definition.span.file.as_str(), "public.veln");
+        assert_eq!(valid.definition.span.start.line, 7);
+        assert_eq!(valid.definition.span.start.column, 13);
+        assert!(valid.reference_eligible);
+        assert_eq!(locations(&valid.references), [("main.veln", 8, 25)]);
+    }
+
+    #[test]
     fn direct_dependency_handler_survives_unrelated_package_parse_error() {
         let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
             vec![source(

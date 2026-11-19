@@ -7,7 +7,8 @@ use veln_language_service::{NavigationSource, SourcePosition, definition_at};
 use veln_source::SourcePath;
 
 use crate::check_project::{
-    CaptureCache, analyze_navigation_capture, capture_navigation_source, commit_navigation_analysis,
+    CaptureCache, analyze_navigation_capture, capture_navigation_source,
+    commit_cached_navigation_analysis, commit_navigation_analysis, navigation_analysis_is_cached,
 };
 use crate::language_resources::LanguageResources;
 use crate::outcome::{ToolOutcome, domain_failure};
@@ -37,14 +38,18 @@ pub(crate) fn definition(
             Err(failure) => return failure,
         };
     let root = captured.project.root.clone();
-    let analysis = analyze_navigation_capture(&captured);
+    let analysis_scope = scope.dependency_analysis_scope();
+    let analysis = (!navigation_analysis_is_cached(&captured, &analysis_scope, language_resources))
+        .then(|| analyze_navigation_capture(&captured));
     let source_path = SourcePath::new(captured_source);
     let selected_source = language_resources.navigation_source_text(
         &captured.project.files,
         &captured.dependencies,
-        &scope.dependency_analysis_scope(),
+        &analysis_scope,
         &source_path,
-        analysis.publication_failed(),
+        analysis
+            .as_ref()
+            .is_some_and(|analysis| analysis.publication_failed()),
     );
     if selected_source
         .as_deref()
@@ -63,19 +68,23 @@ pub(crate) fn definition(
             json!({"source": source, "line": arguments["line"].clone(), "column": arguments["column"].clone()}),
         );
     };
-    if let Err(error) = commit_navigation_analysis(
-        &captured,
-        scope.dependency_analysis_scope(),
-        language_resources,
-        analysis,
-    ) {
-        return error.into();
+    if let Some(analysis) = analysis {
+        if let Err(error) = commit_navigation_analysis(
+            &captured,
+            analysis_scope.clone(),
+            language_resources,
+            analysis,
+        ) {
+            return error.into();
+        }
+    } else {
+        commit_cached_navigation_analysis(&captured, &analysis_scope, language_resources);
     }
     let workspace_key = captured.key;
     let snapshot = match language_resources.navigation_snapshot(
         captured.project.files,
         &captured.dependencies,
-        scope.dependency_analysis_scope(),
+        analysis_scope,
         workspace_key,
     ) {
         Ok(snapshot) => snapshot,

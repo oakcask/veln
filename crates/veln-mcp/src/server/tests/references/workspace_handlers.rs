@@ -187,55 +187,63 @@ fn direct_dependency_handler_references_cover_source_and_project_boundaries() {
         HandlerDependencySource::MaterializedGit,
     ] {
         let workspace = TempWorkspace::new(source_kind.name());
-        workspace.write("veln.toml", source_kind.dependency_table());
-        workspace.write(
-            "main.veln",
-            concat!(
-                "use dep from \"example/dep\"\n\n",
-                "# handle 0 with dep::run()\n",
-                "let label: String = \"handle 0 with dep::run()\"\n\n",
-                "fn selected() -> Int\n  handle 1 with dep::run()\nend\n",
-            ),
-        );
-        workspace.write("other/veln.toml", source_kind.dependency_table());
-        workspace.write(
-            "other/main.veln",
-            "use dep from \"example/dep\"\n\nfn other() -> Int\n  handle 2 with dep::run()\nend\n",
-        );
-        let dependency_root = match source_kind {
-            HandlerDependencySource::Path => "vendor/path-dep".to_string(),
-            HandlerDependencySource::Vendor => "vendor/vendor-dep".to_string(),
-            HandlerDependencySource::Mirror => "mirror/example/dep".to_string(),
-            HandlerDependencySource::LocalGit => "vendor/git-dep".to_string(),
-            HandlerDependencySource::MaterializedGit => {
-                veln_project::materialized_git_repository_root(
-                    &workspace.root,
-                    "https://example.invalid/handler-dep.git",
-                )
-                .strip_prefix(&workspace.root)
-                .unwrap()
-                .to_string_lossy()
-                .replace('\\', "/")
-            }
-        };
-        workspace.write(
-            &format!("{dependency_root}/veln.toml"),
-            "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
-        );
-        workspace.write(
-            &format!("{dependency_root}/dep.veln"),
-            concat!(
-                "pub handler run() for Work\n  go() => 1\nend\n\n",
-                "fn dependency_body() -> Int\n  handle 0 with run()\nend\n",
-            ),
-        );
+        let mut dependency_roots = Vec::new();
+        for project in ["left", "right"] {
+            workspace.write(
+                &format!("{project}/veln.toml"),
+                source_kind.dependency_table(),
+            );
+            workspace.write(
+                &format!("{project}/main.veln"),
+                concat!(
+                    "use dep from \"example/dep\"\n\n",
+                    "# handle 0 with dep::run()\n",
+                    "let label: String = \"handle 0 with dep::run()\"\n\n",
+                    "fn selected() -> Int\n  handle 1 with dep::run()\nend\n",
+                ),
+            );
+            let dependency_root = match source_kind {
+                HandlerDependencySource::Path => format!("{project}/vendor/path-dep"),
+                HandlerDependencySource::Vendor => format!("{project}/vendor/vendor-dep"),
+                HandlerDependencySource::Mirror => format!("{project}/mirror/example/dep"),
+                HandlerDependencySource::LocalGit => format!("{project}/vendor/git-dep"),
+                HandlerDependencySource::MaterializedGit => {
+                    veln_project::materialized_git_repository_root(
+                        &workspace.path(project),
+                        "https://example.invalid/handler-dep.git",
+                    )
+                    .strip_prefix(&workspace.root)
+                    .unwrap()
+                    .to_string_lossy()
+                    .replace('\\', "/")
+                }
+            };
+            workspace.write(
+                &format!("{dependency_root}/veln.toml"),
+                "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+            );
+            workspace.write(
+                &format!("{dependency_root}/dep.veln"),
+                concat!(
+                    "pub handler run() for Work\n  go() => 1\nend\n\n",
+                    "fn dependency_body() -> Int\n  handle 0 with run()\nend\n",
+                ),
+            );
+            dependency_roots.push(dependency_root);
+        }
 
         let mut server = initialized_server(&workspace);
+        assert_eq!(
+            server.selection_result()["roots"],
+            json!(["left", "right"]),
+            "{}",
+            source_kind.name()
+        );
         let definition = server.definition_tool(&json!({
-            "source":"main.veln", "line":7, "column":22
+            "source":"left/main.veln", "line":7, "column":22
         }));
-        let references = server.references_tool(&json!({
-            "source":"main.veln", "line":7, "column":22,
+        let left = server.references_tool(&json!({
+            "source":"left/main.veln", "line":7, "column":22,
             "include_declaration":true
         }));
         assert_eq!(
@@ -244,36 +252,73 @@ fn direct_dependency_handler_references_cover_source_and_project_boundaries() {
             "{}: {definition:#}",
             source_kind.name()
         );
+        assert_eq!(left["isError"], false, "{}: {left:#}", source_kind.name());
         assert_eq!(
-            references["isError"],
-            false,
-            "{}: {references:#}",
+            left["structuredContent"]["scope"],
+            json!({
+                "mode": "project",
+                "generation": 0,
+                "project": "left",
+                "project_wide": true
+            }),
+            "{}: {left:#}",
             source_kind.name()
         );
-        let locations = references["structuredContent"]["references"]
-            .as_array()
-            .unwrap();
-        assert_eq!(locations.len(), 2, "{}: {references:#}", source_kind.name());
+
+        let right = server.references_tool(&json!({
+            "source":"right/main.veln", "line":7, "column":22,
+            "include_declaration":true
+        }));
+        assert_eq!(right["isError"], false, "{}: {right:#}", source_kind.name());
         assert_eq!(
-            locations
-                .iter()
-                .filter(|location| location["uri"].as_str().unwrap().starts_with("file://"))
-                .count(),
-            1,
-            "{}: {references:#}",
-            source_kind.name(),
+            right["structuredContent"]["scope"],
+            json!({
+                "mode": "project",
+                "generation": 0,
+                "project": "right",
+                "project_wide": true
+            }),
+            "{}: {right:#}",
+            source_kind.name()
         );
-        assert_eq!(
-            locations
-                .iter()
-                .filter(|location| location["uri"].as_str().unwrap().starts_with("veln-pkg:"))
-                .count(),
-            1,
-            "{}: {references:#}",
-            source_kind.name(),
-        );
-        assert!(!definition.to_string().contains(&dependency_root));
-        assert!(!references.to_string().contains(&dependency_root));
+
+        for (project, references) in [("left", &left), ("right", &right)] {
+            let locations = references["structuredContent"]["references"]
+                .as_array()
+                .unwrap();
+            assert_eq!(locations.len(), 2, "{}: {references:#}", source_kind.name());
+            assert_eq!(
+                locations
+                    .iter()
+                    .filter(|location| location["uri"].as_str().unwrap().starts_with("file://"))
+                    .count(),
+                1,
+                "{}: {references:#}",
+                source_kind.name(),
+            );
+            assert!(
+                locations.iter().any(|location| location["uri"]
+                    == crate::definition::path_to_uri(
+                        &workspace.path(&format!("{project}/main.veln"))
+                    )),
+                "{}: {references:#}",
+                source_kind.name()
+            );
+            assert_eq!(
+                locations
+                    .iter()
+                    .filter(|location| location["uri"].as_str().unwrap().starts_with("veln-pkg:"))
+                    .count(),
+                1,
+                "{}: {references:#}",
+                source_kind.name(),
+            );
+        }
+        for dependency_root in dependency_roots {
+            assert!(!definition.to_string().contains(&dependency_root));
+            assert!(!left.to_string().contains(&dependency_root));
+            assert!(!right.to_string().contains(&dependency_root));
+        }
     }
 }
 

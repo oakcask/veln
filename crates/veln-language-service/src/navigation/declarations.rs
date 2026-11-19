@@ -255,8 +255,8 @@ fn handler_declaration(
         IndexedOrigin::Package {
             identity,
             uri,
-            exported: true,
             standard_library,
+            ..
         } => (
             NavigationLocation {
                 source: NavigationSource::Package { uri: uri.clone() },
@@ -265,7 +265,6 @@ fn handler_declaration(
             Some(identity.clone()),
             Some(package_origin(*standard_library)),
         ),
-        IndexedOrigin::Package { .. } => return None,
     };
     Some(NeutralSymbol {
         module: file.module.clone(),

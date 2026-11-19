@@ -97,7 +97,8 @@ fn eligible_navigable_handler_indices(
             let source = handler_declaration_source_identity(&symbol.declaration);
             let ineligible = eligibility_by_source
                 .get(&source)
-                .is_some_and(|eligibility| eligibility.rejects(&symbol.declaration.span));
+                .is_none_or(|eligibility| eligibility.rejects(&symbol.declaration.span))
+                || (symbol.package.is_some() && !symbol.public);
             (!ineligible).then_some((identity, *index))
         })
         .collect()
@@ -106,6 +107,7 @@ fn eligible_navigable_handler_indices(
 type HandlerDeclarationSourceIdentity = (Option<String>, String);
 
 struct HandlerDeclarationEligibility {
+    navigable: bool,
     recovered_ranges: Vec<(usize, usize)>,
     invalid_name_ranges: BTreeSet<(usize, usize)>,
 }
@@ -119,7 +121,8 @@ impl HandlerDeclarationEligibility {
             let (start, end) = self.recovered_ranges[range_index];
             start <= declaration.start.offset && declaration.end.offset <= end
         });
-        recovered
+        !self.navigable
+            || recovered
             || self
                 .invalid_name_ranges
                 .contains(&(declaration.start.offset, declaration.end.offset))
@@ -148,6 +151,11 @@ fn handler_declaration_eligibility_by_source(
             (
                 handler_file_source_identity(file),
                 HandlerDeclarationEligibility {
+                    navigable: matches!(
+                        &file.origin,
+                        IndexedOrigin::Workspace
+                            | IndexedOrigin::Package { exported: true, .. }
+                    ),
                     recovered_ranges,
                     invalid_name_ranges,
                 },

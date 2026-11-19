@@ -182,16 +182,21 @@ limit, the tool returns `resource_capacity`, generates no documentation, admits
 none of that operation's new source snapshots or revisions, publishes no new
 resources or search candidates, does not change the current revision selection,
 and preserves the previous public state. Invalid tool parameters and failures
-that prevent a stable source capture admit no new dependency resources. Saved
-navigation tools perform the whole-analysis transition before coordinate and
-symbol-result validation. Tool-specific parameter validation that precedes
-capture, such as rename replacement-name validation, admits no state. A later
-`invalid_position`, empty result, or post-admission rename conflict does not
-roll back dependency resources admitted by the transition. A stable-capture
-failure or variance-analysis rejection after a successful dependency analysis
-preserves the prior package signatures, source resources, exact reads, search
-results, navigation selection, and cursors. Bytes and signatures seen only
-during the failed capture or rejected analysis are not published.
+that prevent a stable source capture admit no new dependency resources.
+`definition` and an initial `references` request validate their coordinates
+before they admit a newly analyzed capture. Their `invalid_position` failures
+therefore preserve the prior workspace, dependency resources, navigation
+selection, and cursors. `completion`, `signature_help`, and `rename` still
+perform the whole-analysis transition before coordinate or symbol-result
+validation. Tool-specific parameter validation that precedes capture, such as
+rename replacement-name validation, admits no state. A later
+`invalid_position`, empty result, or post-admission rename conflict from one of
+those tools does not roll back dependency resources admitted by the
+transition. A stable-capture failure or variance-analysis rejection after a
+successful dependency analysis preserves the prior package signatures, source
+resources, exact reads, search results, navigation selection, and cursors.
+Bytes and signatures seen only during the failed capture or rejected analysis
+are not published.
 
 Dependency source resources use the canonical `veln-pkg:` URI from the
 admitted dependency snapshot virtual-source catalog. Their `name` is the
@@ -492,14 +497,19 @@ state.
 The rejected snapshot contributes no package signature, source resource, or
 search result. Other language diagnostics do not imply this atomic admission
 rule and can still produce a coherent diagnostic-bearing snapshot.
-Each saved-navigation request applies the same atomic analysis transition to
-its stable capture before it admits workspace files or dependency resources. A
-`definition`, `completion`, `signature_help`, `references`, or `rename` request
-that first encounters a rejected revision therefore selects the prior
-successful state without making the rejected source, documentation, search
-candidate, or signature observable. A later successful saved-navigation
-request can admit a new coherent revision without an intervening
-`check_project` request.
+Each saved-navigation request applies the same atomic analysis acceptance rule
+to its stable capture. A `definition`, `completion`, `signature_help`,
+`references`, or `rename` request that first encounters a rejected revision
+therefore selects the prior successful state without making the rejected
+source, documentation, search candidate, or signature observable. Coordinate
+validation for definition and initial references uses that accepted source
+after a rejection. After a successful analysis of a changed capture, it uses
+the new captured source and admits that capture only when the coordinate is
+valid.
+Completion, signature-help, and rename instead admit a successful changed
+capture before their coordinate or result validation. A later successful
+saved-navigation request can admit a new coherent revision without an
+intervening `check_project` request.
 If the selected analysis scope has no retained successful state, navigation
 after a rejection omits both the captured workspace files and captured
 dependencies. At most 256 project or single-file scope states retain successful
