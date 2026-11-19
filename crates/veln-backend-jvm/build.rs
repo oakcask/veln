@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::env;
 use std::fmt::Write as FmtWrite;
 use std::fs;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -59,12 +59,30 @@ fn prepare_runtime_source(runtime_dir: &Path, runtime_source: String) {
 }
 
 fn require_selected_javac() -> PathBuf {
-    let javac = selected_javac()
-        .expect("javac should be found on PATH; install JDK 25 or newer to build veln-backend-jvm");
-    let version_output = Command::new(&javac)
-        .arg("-version")
-        .output()
-        .expect("javac should run; install JDK 25 or newer to build veln-backend-jvm");
+    let candidates =
+        javac_candidates().expect("PATH should be available when building veln-backend-jvm");
+    for javac in candidates {
+        let version_output = match Command::new(&javac).arg("-version").output() {
+            Ok(output) => output,
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied
+                ) =>
+            {
+                continue;
+            }
+            Err(_) => panic!(
+                "selected javac could not report its major version; Java {REQUIRED_JAVA_MAJOR} or newer is required"
+            ),
+        };
+        validate_selected_javac(&version_output);
+        return javac;
+    }
+    panic!("javac should be found on PATH; install JDK 25 or newer to build veln-backend-jvm");
+}
+
+fn validate_selected_javac(version_output: &std::process::Output) {
     if !version_output.status.success() {
         panic!(
             "selected javac could not report its major version; Java {REQUIRED_JAVA_MAJOR} or newer is required"
@@ -83,12 +101,12 @@ fn require_selected_javac() -> PathBuf {
             version.required, version.detected
         );
     }
-    javac
 }
 
-fn selected_javac() -> Option<PathBuf> {
+fn javac_candidates() -> Option<Vec<PathBuf>> {
     let current_dir = env::current_dir().ok()?;
     let path = env::var_os("PATH")?;
+    let mut candidates = Vec::new();
     for entry in env::split_paths(&path) {
         let directory = if entry.is_absolute() {
             entry
@@ -96,32 +114,10 @@ fn selected_javac() -> Option<PathBuf> {
             current_dir.join(entry)
         };
         for name in ["javac", "javac.exe"] {
-            let candidate = directory.join(name);
-            if is_executable_file(&candidate) {
-                return Some(candidate);
-            }
+            candidates.push(directory.join(name));
         }
     }
-    None
-}
-
-fn is_executable_file(path: &Path) -> bool {
-    let Ok(metadata) = fs::metadata(path) else {
-        return false;
-    };
-    if !metadata.is_file() {
-        return false;
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-
-        metadata.permissions().mode() & 0o111 != 0
-    }
-    #[cfg(not(unix))]
-    {
-        true
-    }
+    Some(candidates)
 }
 
 fn compile_runtime(javac: &Path, runtime_dir: &Path) {

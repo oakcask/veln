@@ -26,6 +26,28 @@ fn write_recording_java(
 }
 
 #[cfg(unix)]
+fn write_unlaunchable_java(tool_dir: &Path) {
+    fs::create_dir_all(tool_dir).expect("tool directory should be created");
+    let interpreter = tool_dir.join("interpreter-directory");
+    fs::create_dir(&interpreter).expect("interpreter directory should be created");
+    let java = tool_dir.join("java");
+    fs::write(&java, format!("#!{}\n", interpreter.display()))
+        .expect("unlaunchable Java should be written");
+    let mut permissions = fs::metadata(&java)
+        .expect("unlaunchable Java metadata should be available")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(java, permissions).expect("unlaunchable Java should be executable");
+}
+
+fn json_string_field<'a>(value: &'a JsonValue, name: &str) -> &'a str {
+    value
+        .object_field(name)
+        .and_then(JsonValue::as_str)
+        .unwrap_or_else(|| panic!("`{name}` should be a JSON string"))
+}
+
+#[cfg(unix)]
 fn java_boundary_project(name: &str) -> TestProject {
     let project = TestProject::new(name.to_string(), &ToolSetup::default());
     fs::write(
@@ -108,6 +130,77 @@ fn public_run_and_test_reject_invalid_runtime_version_responses_without_launch()
             );
             assert!(!entry_marker.exists(), "VelnEntry must not launch");
         }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn public_run_and_test_report_an_unlaunchable_version_probe_as_an_owned_error() {
+    for (command_name, args) in [
+        ("run", &["run", "--json", "main", "main.veln"][..]),
+        ("test", &["test", "--json", "main_test.veln"][..]),
+    ] {
+        let project = java_boundary_project(&format!("unlaunchable-probe-{command_name}"));
+        let tools = project.root.join("tools");
+        let cache_root = project.root.join("cache");
+        write_unlaunchable_java(&tools);
+
+        let output = cache_test_command(
+            &project.root,
+            args,
+            &tools,
+            &[("VELN_CACHE_DIR", &cache_root)],
+        );
+
+        assert_eq!(output.status.code(), Some(1), "{command_name}");
+        assert!(
+            output.stderr.is_empty(),
+            "owned JSON error must not use stderr"
+        );
+        let report = parse_json(
+            std::str::from_utf8(&output.stdout).expect("owned error should be UTF-8 JSON"),
+        )
+        .expect("owned error should parse as JSON");
+        if command_name == "run" {
+            assert_eq!(json_string_field(&report, "status"), "error");
+            let error = report
+                .object_field("error")
+                .expect("run error should exist");
+            assert_eq!(json_string_field(error, "kind"), "runner");
+            assert_eq!(
+                json_string_field(
+                    error
+                        .object_field("details")
+                        .expect("run details should exist"),
+                    "phase",
+                ),
+                "tool"
+            );
+            assert!(
+                json_string_field(error, "message")
+                    .contains("selected `java` could not report its major version")
+            );
+        } else {
+            let cases = report
+                .object_field("cases")
+                .and_then(JsonValue::as_array)
+                .expect("test cases should exist");
+            assert_eq!(cases.len(), 1);
+            assert_eq!(json_string_field(&cases[0], "status"), "error");
+            assert_eq!(json_string_field(&cases[0], "reason"), "runner_error");
+            let failure = cases[0]
+                .object_field("failure")
+                .expect("test failure should exist");
+            assert_eq!(json_string_field(failure, "kind"), "runtime");
+            assert!(
+                json_string_field(failure, "message")
+                    .contains("selected `java` could not report its major version")
+            );
+        }
+        assert!(
+            !cache_root.exists(),
+            "probe rejection must precede cache creation"
+        );
     }
 }
 

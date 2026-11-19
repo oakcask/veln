@@ -62,7 +62,7 @@ fn prepare_jvm_execution_with(
     java_launcher: PathBuf,
     cache_root: PathBuf,
 ) -> Result<JvmExecutionPreparation, String> {
-    if let Some(message) = java_version_error(&java_launcher, command_name)? {
+    if let Some(message) = java_version_error(&java_launcher, command_name) {
         return Ok(JvmExecutionPreparation::ToolError(message));
     }
     fs::create_dir_all(&cache_root)
@@ -79,33 +79,37 @@ fn prepare_jvm_execution_with(
     }))
 }
 
-fn java_version_error(java_launcher: &Path, command_name: &str) -> Result<Option<String>, String> {
+fn java_version_error(java_launcher: &Path, command_name: &str) -> Option<String> {
     let output = match ProcessCommand::new(java_launcher).arg("-version").output() {
         Ok(output) => output,
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return Ok(Some(missing_java_message(command_name)));
+            return Some(missing_java_message(command_name));
         }
-        Err(error) => return Err(error.to_string()),
+        Err(_) => {
+            return Some(format!(
+                "veln: selected `java` could not report its major version; Java {REQUIRED_JAVA_MAJOR} or newer is required for `{command_name}`"
+            ));
+        }
     };
     if !output.status.success() {
-        return Ok(Some(format!(
+        return Some(format!(
             "veln: selected `java` could not report its major version; Java {REQUIRED_JAVA_MAJOR} or newer is required for `{command_name}`"
-        )));
+        ));
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     let Some(detected_major) = parse_java_major(JavaTool::Runtime, &[&stdout, &stderr]) else {
-        return Ok(Some(format!(
+        return Some(format!(
             "veln: could not determine the selected `java` major version; Java {REQUIRED_JAVA_MAJOR} or newer is required for `{command_name}`"
-        )));
+        ));
     };
     if let Err(version) = require_java_major(detected_major) {
-        return Ok(Some(format!(
+        return Some(format!(
             "veln: Java {} or newer is required for `{command_name}`; selected `java` has major version {}",
             version.required, version.detected
-        )));
+        ));
     }
-    Ok(None)
+    None
 }
 
 pub(crate) fn prepare_and_run_jvm_capture_with_env(

@@ -238,3 +238,79 @@ fn backend_build_uses_the_probed_relative_path_javac_for_compilation() {
     let _ = fs::remove_dir_all(root);
     let _ = fs::remove_dir_all(placeholder);
 }
+
+#[cfg(unix)]
+#[test]
+fn backend_build_skips_an_unlaunchable_javac_path_candidate() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = temp_dir("skip-unlaunchable-javac");
+    let unusable = root.join("unusable");
+    let usable = root.join("usable");
+    let target = root.join("target");
+    let invocation_log = root.join("javac-invocations");
+    fs::create_dir_all(&unusable).expect("unusable tool directory should be created");
+    fs::create_dir_all(&usable).expect("usable tool directory should be created");
+
+    let interpreter = unusable.join("interpreter-directory");
+    fs::create_dir(&interpreter).expect("interpreter directory should be created");
+    let unusable_javac = unusable.join("javac");
+    fs::write(&unusable_javac, format!("#!{}\n", interpreter.display()))
+        .expect("unlaunchable javac should be written");
+    let mut unusable_permissions = fs::metadata(&unusable_javac)
+        .expect("unlaunchable javac metadata should be available")
+        .permissions();
+    unusable_permissions.set_mode(0o755);
+    fs::set_permissions(&unusable_javac, unusable_permissions)
+        .expect("unlaunchable javac should be executable");
+
+    let usable_javac = usable.join("javac");
+    fs::write(
+        &usable_javac,
+        concat!(
+            "#!/bin/sh\n",
+            "printf '%s\\n' \"$*\" >> \"$VELN_FAKE_JAVAC_LOG\"\n",
+            "if [ \"$1\" = '-version' ]; then printf '%s\\n' 'javac 25.0.1' >&2; exit 0; fi\n",
+            "printf fake-class > VelnRuntime.class\n",
+            "exit 0\n",
+        ),
+    )
+    .expect("usable javac should be written");
+    let mut usable_permissions = fs::metadata(&usable_javac)
+        .expect("usable javac metadata should be available")
+        .permissions();
+    usable_permissions.set_mode(0o755);
+    fs::set_permissions(&usable_javac, usable_permissions)
+        .expect("usable javac should be executable");
+
+    let mut path_entries = vec![unusable, usable];
+    path_entries.extend(std::env::split_paths(
+        &std::env::var_os("PATH").expect("test process should have PATH"),
+    ));
+    let selected_path = std::env::join_paths(path_entries).expect("test PATH should be valid");
+    let output = Command::new(env!("CARGO"))
+        .arg("check")
+        .arg("--quiet")
+        .arg("--manifest-path")
+        .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml"))
+        .arg("--package")
+        .arg("veln-backend-jvm")
+        .env("CARGO_TARGET_DIR", &target)
+        .env("PATH", selected_path)
+        .env("VELN_FAKE_JAVAC_LOG", &invocation_log)
+        .output()
+        .expect("cargo should run the JVM backend build script");
+
+    assert!(
+        output.status.success(),
+        "fallback javac build failed:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let invocations =
+        fs::read_to_string(&invocation_log).expect("usable javac should record both invocations");
+    assert_eq!(
+        invocations.lines().collect::<Vec<_>>(),
+        ["-version", "--release 25 VelnRuntime.java"]
+    );
+    let _ = fs::remove_dir_all(root);
+}
