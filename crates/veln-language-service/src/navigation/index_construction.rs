@@ -208,7 +208,8 @@ fn workspace_navigation_indices(
         package_symbol_indices_by_module_and_name(&declarations.type_aliases);
     let eligible_workspace_effect_indices =
         eligible_workspace_effect_indices(&declarations.effects, files);
-    let eligible_handler_indices = eligible_handler_indices(&declarations.handlers, files);
+    let eligible_handler_indices =
+        eligible_navigable_handler_indices(&declarations.handlers, files);
     let eligible_workspace_effect_operation_indices = eligible_workspace_effect_operation_indices(
         &declarations.operations,
         &eligible_workspace_effect_indices,

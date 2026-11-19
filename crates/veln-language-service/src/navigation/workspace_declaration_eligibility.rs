@@ -59,7 +59,7 @@ fn effect_candidates_by_identity(
     candidates
 }
 
-fn eligible_handler_indices(
+fn eligible_navigable_handler_indices(
     handlers: &[NeutralSymbol],
     files: &[IndexedFile],
 ) -> BTreeMap<ModuleMemberIdentity, usize> {

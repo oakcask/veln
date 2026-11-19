@@ -215,7 +215,10 @@ impl SymbolIndex {
                                     *token_index,
                                     &token.text,
                                 )
-                                .is_some_and(|candidate| same_neutral_symbol(&candidate, symbol))
+                                .is_some_and(|candidate| {
+                                    // Package ownership is part of a handler identity.
+                                    same_neutral_symbol(&candidate, symbol)
+                                })
                     })
                     .map(|(_, token)| file.source.span(token.range))
                     .collect::<Vec<_>>()
