@@ -219,6 +219,39 @@ impl SerializedClass {
 mod tests {
     use super::*;
 
+    fn finish_class_with_dead_goto_chain(block_count: usize) -> Result<Vec<u8>, JvmBackendError> {
+        let mut code = Vec::with_capacity(2 + block_count * 3);
+        code.push(0xb1);
+        for _ in 0..block_count {
+            code.extend_from_slice(&[0xa7, 0, 3]);
+        }
+        code.push(0xb1);
+
+        let mut class = ClassBuilder::new("DeadGotoChain");
+        class.add_method(MethodInfo {
+            access_flags: 0x0008,
+            name: "dead_gotos".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: 0,
+            max_locals: 0,
+            code,
+            exceptions: Vec::new(),
+        });
+        class.finish()
+    }
+
+    #[test]
+    fn finish_handles_adjacent_smaller_dead_goto_chain() {
+        finish_class_with_dead_goto_chain(20_000)
+            .expect("dead control-flow traversal should complete without recursive stack growth");
+    }
+
+    #[test]
+    fn finish_handles_near_limit_dead_goto_chain() {
+        finish_class_with_dead_goto_chain(21_000)
+            .expect("dead control-flow traversal should complete without recursive stack growth");
+    }
+
     #[test]
     fn finish_rejects_method_code_above_the_classfile_limit() {
         let mut class = ClassBuilder::new("OversizedMethod");

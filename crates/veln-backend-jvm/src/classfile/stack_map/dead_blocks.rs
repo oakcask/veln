@@ -87,49 +87,78 @@ fn analyze_dead_block(
     pool: &Rc<RefCell<ConstantPool>>,
     method: &MethodInfo,
     start: usize,
-    mut frame: Frame,
+    frame: Frame,
     control_targets: &BTreeSet<usize>,
     states: &mut [Option<Frame>],
     frame_offsets: &mut BTreeSet<usize>,
     dead_frames: &mut BTreeMap<usize, Frame>,
 ) -> Result<(), JvmBackendError> {
-    dead_frames.insert(start, frame.clone());
-    let mut offset = start;
-    loop {
-        analyze_dead_handlers(
+    let mut queue = VecDeque::new();
+    merge_or_queue_dead_frame(start, frame, states, frame_offsets, dead_frames, &mut queue)?;
+    while let Some(offset) = queue.pop_front() {
+        let frame = dead_frames
+            .get(&offset)
+            .cloned()
+            .ok_or_else(|| stack_map_error("missing dead frame"))?;
+        analyze_queued_dead_block(
             pool,
             method,
             offset,
-            &frame,
+            frame,
             control_targets,
             states,
             frame_offsets,
             dead_frames,
+            &mut queue,
+        )?;
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn analyze_queued_dead_block(
+    pool: &Rc<RefCell<ConstantPool>>,
+    method: &MethodInfo,
+    start: usize,
+    mut frame: Frame,
+    control_targets: &BTreeSet<usize>,
+    states: &mut [Option<Frame>],
+    frame_offsets: &mut BTreeSet<usize>,
+    dead_frames: &mut BTreeMap<usize, Frame>,
+    queue: &mut VecDeque<usize>,
+) -> Result<(), JvmBackendError> {
+    let mut offset = start;
+    loop {
+        analyze_dead_handlers(
+            method,
+            offset,
+            &frame,
+            states,
+            frame_offsets,
+            dead_frames,
+            queue,
         )?;
         let next_dead_locals = frame.locals.clone();
         let (next, successors) = execute_instruction(pool, &method.code, offset, frame)?;
         for successor in successors {
-            merge_or_analyze_dead_frame(
-                pool,
-                method,
+            merge_or_queue_dead_frame(
                 successor.offset,
                 successor.frame,
-                control_targets,
                 states,
                 frame_offsets,
                 dead_frames,
+                queue,
             )?;
         }
         let Some(next_frame) = next else {
             analyze_dead_fallthrough(
-                pool,
                 method,
                 offset,
                 next_dead_locals,
-                control_targets,
                 states,
                 frame_offsets,
                 dead_frames,
+                queue,
             )?;
             break;
         };
@@ -141,15 +170,13 @@ fn analyze_dead_block(
             if states.get(next_offset).is_some_and(Option::is_some) {
                 break;
             }
-            merge_or_analyze_dead_frame(
-                pool,
-                method,
+            merge_or_queue_dead_frame(
                 next_offset,
                 next_frame,
-                control_targets,
                 states,
                 frame_offsets,
                 dead_frames,
+                queue,
             )?;
             break;
         }
@@ -161,14 +188,13 @@ fn analyze_dead_block(
 
 #[allow(clippy::too_many_arguments)]
 fn analyze_dead_handlers(
-    pool: &Rc<RefCell<ConstantPool>>,
     method: &MethodInfo,
     offset: usize,
     frame: &Frame,
-    control_targets: &BTreeSet<usize>,
     states: &mut [Option<Frame>],
     frame_offsets: &mut BTreeSet<usize>,
     dead_frames: &mut BTreeMap<usize, Frame>,
+    queue: &mut VecDeque<usize>,
 ) -> Result<(), JvmBackendError> {
     for exception in method
         .exceptions
@@ -179,15 +205,13 @@ fn analyze_dead_handlers(
             locals: frame.locals.clone(),
             stack: vec![VerificationType::Object(exception.catch_type.clone())],
         };
-        merge_or_analyze_dead_frame(
-            pool,
-            method,
+        merge_or_queue_dead_frame(
             exception.handler_pc,
             handler,
-            control_targets,
             states,
             frame_offsets,
             dead_frames,
+            queue,
         )?;
     }
     Ok(())
@@ -195,14 +219,13 @@ fn analyze_dead_handlers(
 
 #[allow(clippy::too_many_arguments)]
 fn analyze_dead_fallthrough(
-    pool: &Rc<RefCell<ConstantPool>>,
     method: &MethodInfo,
     offset: usize,
     locals: Vec<VerificationType>,
-    control_targets: &BTreeSet<usize>,
     states: &mut [Option<Frame>],
     frame_offsets: &mut BTreeSet<usize>,
     dead_frames: &mut BTreeMap<usize, Frame>,
+    queue: &mut VecDeque<usize>,
 ) -> Result<(), JvmBackendError> {
     let next_offset = instruction_end(&method.code, offset)?;
     if next_offset >= method.code.len()
@@ -216,28 +239,23 @@ fn analyze_dead_fallthrough(
         return Ok(());
     }
     let next_frame = dead_frame(&method.code, next_offset, locals)?;
-    merge_or_analyze_dead_frame(
-        pool,
-        method,
+    merge_or_queue_dead_frame(
         next_offset,
         next_frame,
-        control_targets,
         states,
         frame_offsets,
         dead_frames,
+        queue,
     )
 }
 
-#[allow(clippy::too_many_arguments)]
-fn merge_or_analyze_dead_frame(
-    pool: &Rc<RefCell<ConstantPool>>,
-    method: &MethodInfo,
+fn merge_or_queue_dead_frame(
     offset: usize,
     frame: Frame,
-    control_targets: &BTreeSet<usize>,
     states: &mut [Option<Frame>],
     frame_offsets: &mut BTreeSet<usize>,
     dead_frames: &mut BTreeMap<usize, Frame>,
+    queue: &mut VecDeque<usize>,
 ) -> Result<(), JvmBackendError> {
     frame_offsets.insert(offset);
     if states.get(offset).is_some_and(Option::is_some) {
@@ -247,16 +265,9 @@ fn merge_or_analyze_dead_frame(
         let _ = merge_frame(existing, frame)?;
         return Ok(());
     }
-    analyze_dead_block(
-        pool,
-        method,
-        offset,
-        frame,
-        control_targets,
-        states,
-        frame_offsets,
-        dead_frames,
-    )
+    dead_frames.insert(offset, frame);
+    queue.push_back(offset);
+    Ok(())
 }
 
 fn dead_frame(

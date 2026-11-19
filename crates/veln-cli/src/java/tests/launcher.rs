@@ -83,7 +83,12 @@ fn jvm_runner_accepts_harness_owned_success_launcher() {
 }
 
 #[cfg(unix)]
-fn write_versioned_recording_java(root: &Path, major: u32, launch_marker: &Path) -> PathBuf {
+fn write_versioned_recording_java(
+    root: &Path,
+    wrapper_major: u32,
+    java_major: u32,
+    launch_marker: &Path,
+) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;
 
     fs::create_dir_all(root).expect("fake Java directory should be created");
@@ -91,7 +96,7 @@ fn write_versioned_recording_java(root: &Path, major: u32, launch_marker: &Path)
     fs::write(
         &tool,
         format!(
-            "#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then printf 'openjdk version \"{major}.0.1\"\\n' >&2; exit 0; fi\nprintf started > \"{}\"\n",
+            "#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then printf 'notice {wrapper_major}\\nopenjdk version \"{java_major}.0.1\"\\n' >&2; exit 0; fi\nprintf started > \"{}\"\n",
             launch_marker.display()
         ),
     )
@@ -110,7 +115,7 @@ fn jvm_preparation_rejects_older_java_before_entry_launch() {
     for command_name in ["veln run", "veln test"] {
         let root = temp_root(&format!("old-java-{}", command_name.replace(' ', "-")));
         let launch_marker = root.join("entry-started");
-        let java = write_versioned_recording_java(&root.join("tools"), 24, &launch_marker);
+        let java = write_versioned_recording_java(&root.join("tools"), 25, 24, &launch_marker);
 
         let result = prepare_jvm_execution_with(command_name, java, root.join("cache"))
             .expect("version rejection should be an owned tool error");
@@ -139,7 +144,7 @@ fn jvm_preparation_accepts_java_25_and_newer() {
     for major in [25, 26] {
         let root = temp_root(&format!("supported-java-{major}"));
         let launch_marker = root.join("entry-started");
-        let java = write_versioned_recording_java(&root.join("tools"), major, &launch_marker);
+        let java = write_versioned_recording_java(&root.join("tools"), 24, major, &launch_marker);
 
         let result = prepare_jvm_execution_with("veln test", java, root.join("cache"))
             .expect("supported Java should be inspected");
