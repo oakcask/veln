@@ -26,6 +26,11 @@ execution commands accept a runtime major only from a `java version "VERSION"`
 or `openjdk version "VERSION"` banner. Unrelated wrapper output does not supply
 the selected Java major. Missing, malformed, or conflicting recognized version
 banners stop the build or command before runtime compilation or entry launch.
+The accepted version starts with decimal release components, such as `25` or
+`25.0.1`. It also accepts the legacy `1.8.0_472` form and an alphanumeric
+prerelease after `-`, such as `25-ea`, with an optional numeric `+` build.
+Dot- and underscore-separated release components are decimal; text in such a
+component, including `25.not-a-version`, is malformed.
 
 Generated Java 25 classes include verifier stack-map frames for emitted branch
 targets and exception handlers. This includes unreachable generated blocks

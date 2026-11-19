@@ -8,7 +8,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use sha2::{Digest, Sha256};
-use veln_backend_jvm::{REQUIRED_JAVA_MAJOR, parse_java_major, require_java_major};
+use veln_backend_jvm::{JavaTool, REQUIRED_JAVA_MAJOR, parse_java_major, require_java_major};
 use veln_project::LowerHexBytes;
 
 const JVM_CACHE_MARKER: &str = ".veln-cache-ok";
@@ -87,17 +87,14 @@ fn java_version_error(java_launcher: &Path, command_name: &str) -> Result<Option
         }
         Err(error) => return Err(error.to_string()),
     };
-    let version_text = format!(
-        "{}{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
     if !output.status.success() {
         return Ok(Some(format!(
             "veln: selected `java` could not report its major version; Java {REQUIRED_JAVA_MAJOR} or newer is required for `{command_name}`"
         )));
     }
-    let Some(detected_major) = parse_java_major(&version_text) else {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let Some(detected_major) = parse_java_major(JavaTool::Runtime, &[&stdout, &stderr]) else {
         return Ok(Some(format!(
             "veln: could not determine the selected `java` major version; Java {REQUIRED_JAVA_MAJOR} or newer is required for `{command_name}`"
         )));

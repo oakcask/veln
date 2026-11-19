@@ -1,6 +1,13 @@
 pub const REQUIRED_JAVA_MAJOR: u32 = 25;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[allow(dead_code)]
+pub enum JavaTool {
+    Compiler,
+    Runtime,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct JavaMajorTooOld {
     pub required: u32,
     pub detected: u32,
@@ -17,25 +24,26 @@ pub fn require_java_major(detected: u32) -> Result<(), JavaMajorTooOld> {
     }
 }
 
-pub fn parse_java_major(output: &str) -> Option<u32> {
+pub fn parse_java_major(tool: JavaTool, outputs: &[&str]) -> Option<u32> {
     let mut detected = None;
-    for line in output.lines() {
-        let line = line.trim_start();
-        let version = if let Some(rest) = strip_words(line, &["javac"]) {
-            Some(unquoted_version(rest))
-        } else if let Some(rest) = strip_words(line, &["java", "version"]) {
-            Some(quoted_version(rest))
-        } else {
-            strip_words(line, &["openjdk", "version"]).map(quoted_version)
-        };
-        let Some(version) = version else {
-            continue;
-        };
-        let major = parse_version_major(version?)?;
-        match detected {
-            Some(previous) if previous != major => return None,
-            Some(_) => {}
-            None => detected = Some(major),
+    for output in outputs {
+        for line in output.lines() {
+            let line = line.trim_start();
+            let version = match tool {
+                JavaTool::Compiler => strip_words(line, &["javac"]).map(unquoted_version),
+                JavaTool::Runtime => strip_words(line, &["java", "version"])
+                    .or_else(|| strip_words(line, &["openjdk", "version"]))
+                    .map(quoted_version),
+            };
+            let Some(version) = version else {
+                continue;
+            };
+            let major = parse_version_major(version?)?;
+            match detected {
+                Some(previous) if previous != major => return None,
+                Some(_) => {}
+                None => detected = Some(major),
+            }
         }
     }
     detected
@@ -66,43 +74,52 @@ fn quoted_version(input: &str) -> Option<&str> {
 }
 
 fn parse_version_major(version: &str) -> Option<u32> {
-    if version.is_empty()
-        || !version
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || b"._-+".contains(&byte))
-    {
+    let bytes = version.as_bytes();
+    let mut cursor = take_digits(bytes, 0)?;
+    let first = version[..cursor].parse::<u32>().ok()?;
+    let mut legacy_major = None;
+
+    while cursor < bytes.len() && matches!(bytes[cursor], b'.' | b'_') {
+        let separator = bytes[cursor];
+        let start = cursor + 1;
+        cursor = take_digits(bytes, start)?;
+        if first == 1 && separator == b'.' && legacy_major.is_none() {
+            legacy_major = Some(version[start..cursor].parse::<u32>().ok()?);
+        }
+    }
+    if cursor < bytes.len() && bytes[cursor] == b'-' {
+        cursor = take_alphanumeric(bytes, cursor + 1)?;
+    }
+    if cursor < bytes.len() && bytes[cursor] == b'+' {
+        cursor = take_digits(bytes, cursor + 1)?;
+        if cursor < bytes.len() && bytes[cursor] == b'-' {
+            cursor = take_alphanumeric(bytes, cursor + 1)?;
+        }
+    }
+    if cursor != bytes.len() {
         return None;
     }
-    let first_end = version
-        .find(|ch: char| !ch.is_ascii_digit())
-        .unwrap_or(version.len());
-    let first = version[..first_end].parse::<u32>().ok()?;
-    let suffix = &version[first_end..];
-    if !suffix.is_empty() {
-        let mut previous_was_separator = false;
-        for ch in suffix.chars() {
-            let is_separator = matches!(ch, '.' | '_' | '-' | '+');
-            if is_separator && previous_was_separator {
-                return None;
-            }
-            previous_was_separator = is_separator;
-        }
-        if previous_was_separator {
-            return None;
-        }
-    }
     if first == 1 {
-        let legacy = suffix.strip_prefix('.')?;
-        let component_end = legacy
-            .find(|ch: char| !ch.is_ascii_digit())
-            .unwrap_or(legacy.len());
-        legacy[..component_end].parse::<u32>().ok()
+        legacy_major
     } else {
-        suffix
-            .is_empty()
-            .then_some(first)
-            .or_else(|| suffix.starts_with(['.', '-', '+']).then_some(first))
+        Some(first)
     }
+}
+
+fn take_digits(bytes: &[u8], start: usize) -> Option<usize> {
+    let mut cursor = start;
+    while bytes.get(cursor).is_some_and(u8::is_ascii_digit) {
+        cursor += 1;
+    }
+    (cursor > start).then_some(cursor)
+}
+
+fn take_alphanumeric(bytes: &[u8], start: usize) -> Option<usize> {
+    let mut cursor = start;
+    while bytes.get(cursor).is_some_and(u8::is_ascii_alphanumeric) {
+        cursor += 1;
+    }
+    (cursor > start).then_some(cursor)
 }
 
 #[cfg(test)]
@@ -111,48 +128,103 @@ mod tests {
 
     #[test]
     fn parses_release_legacy_and_early_access_version_output() {
-        assert_eq!(parse_java_major("javac 25.0.1"), Some(25));
         assert_eq!(
-            parse_java_major("openjdk version \"26.0.1\" 2027-04-20"),
+            parse_java_major(JavaTool::Compiler, &["javac 25.0.1"]),
+            Some(25)
+        );
+        assert_eq!(
+            parse_java_major(JavaTool::Compiler, &["javac 1.8.0_472-b08"]),
+            Some(8)
+        );
+        assert_eq!(
+            parse_java_major(JavaTool::Compiler, &["javac 25-ea+1"]),
+            Some(25)
+        );
+        assert_eq!(
+            parse_java_major(JavaTool::Runtime, &["openjdk version \"26.0.1\""]),
             Some(26)
         );
-        assert_eq!(parse_java_major("java version \"1.8.0_472\""), Some(8));
-        assert_eq!(parse_java_major("openjdk version \"25-ea\""), Some(25));
+        assert_eq!(
+            parse_java_major(JavaTool::Runtime, &["java version \"1.8.0_472-b08\""]),
+            Some(8)
+        );
+        assert_eq!(
+            parse_java_major(JavaTool::Runtime, &["openjdk version \"25-ea+1\""]),
+            Some(25)
+        );
+        assert_eq!(
+            parse_java_major(
+                JavaTool::Runtime,
+                &["java version \"25.0.1\"", "openjdk version \"25\""]
+            ),
+            Some(25)
+        );
     }
 
     #[test]
     fn ignores_leading_wrapper_output_with_unrelated_numbers() {
         assert_eq!(
-            parse_java_major("notice 25\nopenjdk version \"24.0.2\" 2025-07-15"),
+            parse_java_major(
+                JavaTool::Runtime,
+                &["notice 25\nopenjdk version \"24.0.2\""]
+            ),
             Some(24)
         );
         assert_eq!(
-            parse_java_major("notice 24\nopenjdk version \"25.0.1\" 2025-10-21"),
+            parse_java_major(
+                JavaTool::Runtime,
+                &["notice 24\nopenjdk version \"25.0.1\""]
+            ),
             Some(25)
         );
     }
 
     #[test]
     fn rejects_output_without_a_recognized_java_version_line() {
-        assert_eq!(parse_java_major("notice 25"), None);
-        assert_eq!(parse_java_major("javac version unavailable"), None);
-        assert_eq!(parse_java_major(""), None);
+        assert_eq!(parse_java_major(JavaTool::Runtime, &["notice 25"]), None);
+        assert_eq!(
+            parse_java_major(JavaTool::Compiler, &["javac version unavailable"]),
+            None
+        );
+        assert_eq!(parse_java_major(JavaTool::Runtime, &[""]), None);
     }
 
     #[test]
     fn rejects_malformed_or_conflicting_recognized_version_lines() {
-        assert_eq!(parse_java_major("javac"), None);
-        assert_eq!(parse_java_major("openjdk version 25.0.1"), None);
-        assert_eq!(parse_java_major("java version \"25.0.1"), None);
-        assert_eq!(parse_java_major("javac 25."), None);
+        assert_eq!(parse_java_major(JavaTool::Compiler, &["javac"]), None);
         assert_eq!(
-            parse_java_major("javac 25.0.1\nopenjdk version \"24.0.2\""),
+            parse_java_major(JavaTool::Runtime, &["openjdk version 25.0.1"]),
             None
         );
         assert_eq!(
-            parse_java_major("java version \"25.0.1\"\njavac unavailable"),
+            parse_java_major(JavaTool::Runtime, &["java version \"25.0.1"]),
             None
         );
+        assert_eq!(parse_java_major(JavaTool::Compiler, &["javac 25."]), None);
+        assert_eq!(
+            parse_java_major(JavaTool::Runtime, &["openjdk version \"25.not-a-version\""]),
+            None
+        );
+        assert_eq!(
+            parse_java_major(JavaTool::Compiler, &["javac 25.0.1", "javac 24.0.2"]),
+            None
+        );
+        assert_eq!(
+            parse_java_major(
+                JavaTool::Runtime,
+                &["java version \"25.0.1\"", "openjdk version \"24.0.2\""]
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn requires_the_invoked_tool_banner() {
+        assert_eq!(
+            parse_java_major(JavaTool::Compiler, &["openjdk version \"25.0.1\""]),
+            None
+        );
+        assert_eq!(parse_java_major(JavaTool::Runtime, &["javac 25.0.1"]), None);
     }
 
     #[test]

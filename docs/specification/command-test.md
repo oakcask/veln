@@ -10,7 +10,8 @@ specification-coverage: usage=#test-command; behavior=#selection-and-jobs; limit
 Use `veln test [TARGET ...]` to execute selected top-level `test`
 declarations and executable doctests. It shares parsing, semantic analysis,
 checked-core lowering, typed IR, JVM execution, and cache behavior with
-`run`. Ordinary functions are not selected merely because they have no
+`run`, including the [cache and launcher ordering](command-run.md#jvm-cache).
+Ordinary functions are not selected merely because they have no
 parameters.
 
 ## Selection and jobs

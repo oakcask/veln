@@ -37,6 +37,7 @@ pub(super) fn stack_map_table(
 
 struct FrameAnalysis {
     states: Vec<Option<Frame>>,
+    reachable: Vec<bool>,
     control_targets: BTreeSet<usize>,
     frame_offsets: BTreeSet<usize>,
     dead_frames: BTreeMap<usize, Frame>,
@@ -49,6 +50,7 @@ fn analyze_frames(
 ) -> Result<FrameAnalysis, JvmBackendError> {
     let initial = initial_frame(class_name, method)?;
     let mut states = vec![None; method.code.len()];
+    let mut reachable = vec![false; method.code.len()];
     states[0] = Some(initial);
     let mut queue = VecDeque::from([0usize]);
     let mut control_targets = branch_targets(&method.code)?;
@@ -63,31 +65,48 @@ fn analyze_frames(
     let mut frame_offsets = control_targets.clone();
     let mut dead_frames = BTreeMap::new();
 
-    while let Some(offset) = queue.pop_front() {
-        let frame = states[offset]
+    while let Some(start) = queue.pop_front() {
+        let mut offset = start;
+        let mut frame = states[start]
             .clone()
             .ok_or_else(|| stack_map_error("missing reachable frame"))?;
-        let dead_locals = frame.locals.clone();
-        merge_reachable_handlers(method, offset, &frame, &mut states, &mut queue)?;
-
-        let (next, successors) = execute_instruction(pool, &method.code, offset, frame)?;
-        merge_reachable_successors(successors, &mut states, &mut queue, &mut frame_offsets)?;
-        analyze_reachable_fallthrough(
-            pool,
-            method,
-            offset,
-            next,
-            dead_locals,
-            &exception_handlers,
-            &control_targets,
-            &mut states,
-            &mut queue,
-            &mut frame_offsets,
-            &mut dead_frames,
-        )?;
+        loop {
+            reachable[offset] = true;
+            merge_reachable_handlers(method, offset, &frame, &mut states, &mut queue)?;
+            let dead_locals =
+                matches!(method.code[offset], 0xa7 | 0xac | 0xb0 | 0xb1 | 0xbf | 0xc8)
+                    .then(|| frame.locals.clone());
+            let (next, successors) = execute_instruction(pool, &method.code, offset, frame)?;
+            merge_reachable_successors(successors, &mut states, &mut queue, &mut frame_offsets)?;
+            let next_offset = instruction_end(&method.code, offset)?;
+            let Some(next_frame) = next else {
+                start_dead_fallthrough(
+                    pool,
+                    method,
+                    next_offset,
+                    dead_locals.ok_or_else(|| stack_map_error("missing terminal locals"))?,
+                    &exception_handlers,
+                    &control_targets,
+                    &mut states,
+                    &mut frame_offsets,
+                    &mut dead_frames,
+                )?;
+                break;
+            };
+            if next_offset >= method.code.len() {
+                break;
+            }
+            if control_targets.contains(&next_offset) {
+                merge_state(&mut states, next_offset, next_frame, &mut queue)?;
+                break;
+            }
+            offset = next_offset;
+            frame = next_frame;
+        }
     }
     Ok(FrameAnalysis {
         states,
+        reachable,
         control_targets,
         frame_offsets,
         dead_frames,
@@ -126,40 +145,6 @@ fn merge_reachable_successors(
         merge_state(states, successor.offset, successor.frame, queue)?;
     }
     Ok(())
-}
-
-#[allow(clippy::too_many_arguments)]
-fn analyze_reachable_fallthrough(
-    pool: &Rc<RefCell<ConstantPool>>,
-    method: &MethodInfo,
-    offset: usize,
-    next: Option<Frame>,
-    dead_locals: Vec<VerificationType>,
-    exception_handlers: &BTreeSet<usize>,
-    control_targets: &BTreeSet<usize>,
-    states: &mut [Option<Frame>],
-    queue: &mut VecDeque<usize>,
-    frame_offsets: &mut BTreeSet<usize>,
-    dead_frames: &mut BTreeMap<usize, Frame>,
-) -> Result<(), JvmBackendError> {
-    let next_offset = instruction_end(&method.code, offset)?;
-    if let Some(frame) = next {
-        if next_offset < method.code.len() {
-            merge_state(states, next_offset, frame, queue)?;
-        }
-        return Ok(());
-    }
-    start_dead_fallthrough(
-        pool,
-        method,
-        next_offset,
-        dead_locals,
-        exception_handlers,
-        control_targets,
-        states,
-        frame_offsets,
-        dead_frames,
-    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -235,7 +220,7 @@ fn collect_dead_block_facts(
 ) -> Result<BTreeMap<usize, DeadBlockFacts>, JvmBackendError> {
     let mut dead_facts = BTreeMap::new();
     for &offset in frame_map.keys() {
-        if analysis.states.get(offset).is_some_and(Option::is_none) {
+        if !analysis.reachable.get(offset).copied().unwrap_or(false) {
             dead_facts.insert(
                 offset,
                 dead_block_facts(&method.code, offset, &analysis.control_targets)?,
@@ -252,7 +237,7 @@ fn complete_dead_block_locals(
     next_map: &mut BTreeMap<usize, Frame>,
 ) -> Result<(), JvmBackendError> {
     for (offset, frame) in next_map {
-        if analysis.states.get(*offset).is_some_and(Option::is_some) {
+        if analysis.reachable.get(*offset).copied().unwrap_or(false) {
             continue;
         }
         let facts = dead_facts
@@ -291,9 +276,10 @@ fn complete_dead_exception_locals(
 ) {
     for exception in &method.exceptions {
         if analysis
-            .states
+            .reachable
             .get(exception.start_pc)
-            .is_some_and(Option::is_some)
+            .copied()
+            .unwrap_or(false)
         {
             continue;
         }

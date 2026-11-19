@@ -240,6 +240,76 @@ mod tests {
         class.finish()
     }
 
+    fn finish_class_with_many_locals_and_straight_line_expressions(
+        expression_count: usize,
+    ) -> Result<Vec<u8>, JvmBackendError> {
+        const LOCAL_COUNT: u8 = 250;
+        let mut code = Vec::with_capacity(usize::from(LOCAL_COUNT) * 3 + expression_count * 4 + 1);
+        for slot in 0..LOCAL_COUNT {
+            code.extend_from_slice(&[0x03, 0x36, slot]);
+        }
+        for _ in 0..expression_count {
+            code.extend_from_slice(&[0x03, 0x57, 0x00, 0x00]);
+        }
+        code.push(0xb1);
+
+        let mut class = ClassBuilder::new("StraightLineFrames");
+        class.add_method(MethodInfo {
+            access_flags: 0x0008,
+            name: "straight_line".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: 1,
+            max_locals: u16::from(LOCAL_COUNT),
+            code,
+            exceptions: Vec::new(),
+        });
+        class.finish()
+    }
+
+    #[test]
+    fn finish_bounds_frames_for_many_locals_and_straight_line_instructions() {
+        finish_class_with_many_locals_and_straight_line_expressions(15_000)
+            .expect("straight-line analysis should not retain one full frame per instruction");
+    }
+
+    #[test]
+    fn finish_bounds_frames_for_adjacent_larger_straight_line_input() {
+        finish_class_with_many_locals_and_straight_line_expressions(15_100)
+            .expect("adjacent straight-line analysis should remain bounded");
+    }
+
+    #[test]
+    fn finish_preserves_branch_merges_and_exception_handler_frames() {
+        let mut class = ClassBuilder::new("SparseFrameControlFlow");
+        class.add_method(MethodInfo {
+            access_flags: 0x0008,
+            name: "branch_merge".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: 1,
+            max_locals: 0,
+            code: vec![0x03, 0x99, 0x00, 0x06, 0x03, 0x57, 0x00, 0xb1],
+            exceptions: Vec::new(),
+        });
+        class.add_method(MethodInfo {
+            access_flags: 0x0008,
+            name: "exception_handler".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: 1,
+            max_locals: 0,
+            code: vec![0x00, 0xb1, 0x57, 0xb1],
+            exceptions: vec![ExceptionHandler {
+                start_pc: 0,
+                end_pc: 1,
+                handler_pc: 2,
+                catch_type: "java/lang/Throwable".to_string(),
+            }],
+        });
+
+        class
+            .finish()
+            .expect("sparse analysis should retain branch and handler entry frames");
+    }
+
     #[test]
     fn finish_handles_adjacent_smaller_dead_goto_chain() {
         finish_class_with_dead_goto_chain(20_000)

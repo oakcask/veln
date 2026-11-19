@@ -128,10 +128,18 @@ cache root. The default is selected by operating system:
 the complete cache root without an added `veln` component. Native strings are
 retained without canonicalization.
 
-Java availability is checked before cache-root resolution. The minimum major
-version is checked after cache-root resolution and before cache-directory
-creation. Cache-root resolution and directory creation occur only after source
-analysis, entry selection, and JVM generation.
+After source analysis, entry selection, and JVM generation, `run` performs the
+launch boundary in this order:
+
+1. discover an executable Java launcher;
+2. resolve the cache root lexically;
+3. probe the selected launcher and require Java major 25 or newer;
+4. create the cache directory;
+5. launch `VelnEntry`.
+
+An invalid relative `VELN_CACHE_DIR` therefore fails before a discovered Java
+24 launcher is probed. With a valid cache root, the same launcher produces the
+owned required-major and detected-major error before the directory is created.
 Empty or relative overrides do not fall back to a host base; unavailable or
 unusable roots do not fall back to the package, working directory, `target`,
 or a temporary directory. Commands that do not reach JVM execution do not
@@ -200,8 +208,8 @@ The command does not execute unreachable code, acquire dependencies, or fall
 back to another cache root after a configuration failure. Static gates prevent
 artifact generation and Java launch, so no user output is produced before a
 static failure. Backend representation failures also prevent artifact
-publication and Java launch. Java versions older than 25 prevent cache
-configuration and entry launch. A call-site-aware entry is a static failure
+publication and Java launch. Java versions older than 25 prevent cache-directory
+creation and entry launch. A call-site-aware entry is a static failure
 even when its body does not read the built-in value.
 
 ## References

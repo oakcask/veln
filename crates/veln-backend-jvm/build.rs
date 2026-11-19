@@ -11,7 +11,7 @@ use unicode_normalization::char::{canonical_combining_class, compose, decompose_
 #[path = "src/java_version.rs"]
 mod java_version;
 
-use java_version::{REQUIRED_JAVA_MAJOR, parse_java_major, require_java_major};
+use java_version::{JavaTool, REQUIRED_JAVA_MAJOR, parse_java_major, require_java_major};
 
 const RUNTIME_FRAGMENTS: &[&str] = &[
     "values.java.inc",
@@ -44,8 +44,8 @@ fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("out dir"));
     let runtime_dir = out_dir.join("runtime");
     prepare_runtime_source(&runtime_dir, runtime_source);
-    require_selected_javac();
-    compile_runtime(&runtime_dir);
+    let javac = require_selected_javac();
+    compile_runtime(&javac, &runtime_dir);
     write_runtime_class_manifest(&out_dir, &runtime_dir);
 }
 
@@ -58,17 +58,21 @@ fn prepare_runtime_source(runtime_dir: &Path, runtime_source: String) {
         .expect("runtime source should be written");
 }
 
-fn require_selected_javac() {
-    let version_output = Command::new("javac")
+fn require_selected_javac() -> PathBuf {
+    let javac = selected_javac()
+        .expect("javac should be found on PATH; install JDK 25 or newer to build veln-backend-jvm");
+    let version_output = Command::new(&javac)
         .arg("-version")
         .output()
         .expect("javac should run; install JDK 25 or newer to build veln-backend-jvm");
-    let version_text = format!(
-        "{}{}",
-        String::from_utf8_lossy(&version_output.stdout),
-        String::from_utf8_lossy(&version_output.stderr)
-    );
-    let detected_major = parse_java_major(&version_text).unwrap_or_else(|| {
+    if !version_output.status.success() {
+        panic!(
+            "selected javac could not report its major version; Java {REQUIRED_JAVA_MAJOR} or newer is required"
+        );
+    }
+    let stdout = String::from_utf8_lossy(&version_output.stdout);
+    let stderr = String::from_utf8_lossy(&version_output.stderr);
+    let detected_major = parse_java_major(JavaTool::Compiler, &[&stdout, &stderr]).unwrap_or_else(|| {
         panic!(
             "could not determine selected javac major version; Java {REQUIRED_JAVA_MAJOR} or newer is required"
         )
@@ -79,10 +83,49 @@ fn require_selected_javac() {
             version.required, version.detected
         );
     }
+    javac
 }
 
-fn compile_runtime(runtime_dir: &Path) {
-    let output = Command::new("javac")
+fn selected_javac() -> Option<PathBuf> {
+    let current_dir = env::current_dir().ok()?;
+    let path = env::var_os("PATH")?;
+    for entry in env::split_paths(&path) {
+        let directory = if entry.is_absolute() {
+            entry
+        } else {
+            current_dir.join(entry)
+        };
+        for name in ["javac", "javac.exe"] {
+            let candidate = directory.join(name);
+            if is_executable_file(&candidate) {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    let Ok(metadata) = fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        metadata.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
+}
+
+fn compile_runtime(javac: &Path, runtime_dir: &Path) {
+    let output = Command::new(javac)
         .arg("--release")
         .arg(REQUIRED_JAVA_MAJOR.to_string())
         .arg("VelnRuntime.java")
