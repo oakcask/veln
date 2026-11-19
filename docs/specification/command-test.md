@@ -121,7 +121,9 @@ A different failure or successful execution fails with
 the selected `java -version` and requires major version 25 or newer. An older
 runtime produces an owned runner error naming required major 25 and the
 detected major; no `VelnEntry` process starts. There is no older-runtime
-fallback.
+fallback. An unsuccessful probe or malformed or conflicting recognized version
+banner is also a runner error. The probe ignores unrelated wrapper output when
+determining the selected Java major.
 
 JVM classfile generation can reject a suite program or an independently
 lowered test that exceeds a classfile representation limit. Before it launches

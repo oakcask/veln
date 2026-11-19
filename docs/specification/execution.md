@@ -21,8 +21,19 @@ classfile major version 69. Consequently, executing generated code requires
 Java 25 or newer; the `run` and `test` command specifications define the owned
 pre-launch rejection for an older selected runtime. The toolchain provides no
 older-JDK or lower-classfile fallback.
-If the selected `javac` cannot start or its version output cannot be parsed,
-the backend build stops with a JDK setup failure before runtime compilation.
+The build accepts a compiler major only from a `javac VERSION` banner. The
+execution commands accept a runtime major only from a `java version "VERSION"`
+or `openjdk version "VERSION"` banner. Unrelated wrapper output does not supply
+the selected Java major. Missing, malformed, or conflicting recognized version
+banners stop the build or command before runtime compilation or entry launch.
+
+Generated Java 25 classes include verifier stack-map frames for emitted branch
+targets and exception handlers. This includes unreachable generated blocks
+that follow a terminal instruction. Frame construction reports a bounded
+backend failure for an incompatible generated frame instead of writing an
+unverifiable class. Its traversal does not consume native compiler stack in
+proportion to a chain of unreachable branches near the classfile method-size
+limit.
 
 Explicit import aliases affect source lookup only. Lowering and reachability
 use the selected target module and declaration identity for calls,

@@ -94,7 +94,10 @@ resolving the cache root and before creating its directory or loading classes,
 `run` invokes the selected `java -version` and requires major version 25 or
 newer. An older runtime produces an owned tool error that names required major
 25 and the detected major; it does not launch `VelnEntry`. Missing Java or an
-unreadable version is a JDK setup failure. There is no older-runtime fallback.
+unsuccessful, malformed, or conflicting version response is a JDK setup
+failure. The probe accepts the major only from a `java version "VERSION"` or
+`openjdk version "VERSION"` banner, so unrelated wrapper output cannot satisfy
+the requirement. There is no older-runtime fallback.
 
 JVM classfile generation can reject a program that exceeds a classfile
 representation limit. This failure occurs after typed-IR readiness and before

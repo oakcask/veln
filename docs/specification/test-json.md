@@ -116,7 +116,8 @@ JDK setup failures are reported on the affected case with
 or class loading. When the selected `java` reports a major version below 25,
 every runnable case that reaches runner preparation has this error shape. The
 failure message names the required and detected major versions, and no case JVM
-starts.
+starts. A version probe that fails or has no single recognized Java major uses
+the same error shape and also suppresses the case JVM.
 
 Before report construction or Java launch, the command attempts JVM classfile
 generation for the reusable suite program or for every independently lowered

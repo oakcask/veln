@@ -56,8 +56,9 @@ A tool failure represented after run-report preparation has
 and does not claim that the program reached the backend. A selected Java with
 a major version below 25 uses this tool-failure shape. Its message names the
 required and detected major versions, and the command does not launch
-`VelnEntry`. A JVM classfile generation failure occurs before report
-preparation. Even with `--json`, it writes a
+`VelnEntry`. A version probe that fails or has no single recognized Java major
+uses the same shape and also suppresses launch. A JVM classfile generation
+failure occurs before report preparation. Even with `--json`, it writes a
 `veln: JVM backend could not generate the program: REASON` command error to
 standard error, exits with status 2, and emits no run JSON envelope.
 An accepted module immutable string that needs more than 65,535 bytes in JVM
