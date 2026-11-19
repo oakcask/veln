@@ -120,6 +120,8 @@ impl SymbolIndex {
             bare_aliases: bare_schema_alias_index,
             operation_lookup: schema_operation_lookup_index,
         } = index_schema_navigation(&files, &workspace_module, &mut declarations);
+        files.extend(direct_dependencies.files.clone());
+        files.extend(standard_library.files.clone());
         let WorkspaceNavigationIndices {
             type_indices_by_name,
             constructor_indices_by_identity,
@@ -133,8 +135,6 @@ impl SymbolIndex {
             eligible_handler_indices,
             eligible_workspace_effect_operation_indices,
         } = workspace_navigation_indices(&declarations, &files);
-        files.extend(direct_dependencies.files.clone());
-        files.extend(standard_library.files.clone());
         let mut complete_module = workspace_module.clone();
         append_surface_module(&mut complete_module, direct_dependencies.module.clone());
         append_surface_module(&mut complete_module, standard_library.module.clone());

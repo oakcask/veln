@@ -34,3 +34,11 @@ end
 fn local_handler() -> Int
   handle 1 with run()
 end
+
+fn first_dependency_handler() -> Int
+  handle 1 with model::execute()
+end
+
+fn second_dependency_handler() -> Int
+  handle 2 with model::execute()
+end

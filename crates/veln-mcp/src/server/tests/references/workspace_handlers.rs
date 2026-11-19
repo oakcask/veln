@@ -138,6 +138,291 @@ fn references_page_direct_dependency_handlers_with_optional_virtual_declaration(
     );
 }
 
+#[derive(Clone, Copy)]
+enum HandlerDependencySource {
+    Path,
+    Vendor,
+    Mirror,
+    LocalGit,
+    MaterializedGit,
+}
+
+impl HandlerDependencySource {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Path => "handler-dependency-path",
+            Self::Vendor => "handler-dependency-vendor",
+            Self::Mirror => "handler-dependency-mirror",
+            Self::LocalGit => "handler-dependency-local-git",
+            Self::MaterializedGit => "handler-dependency-materialized-git",
+        }
+    }
+
+    fn dependency_table(self) -> &'static str {
+        match self {
+            Self::Path => "[dependencies.\"example/dep\"]\npath = \"vendor/path-dep\"\n",
+            Self::Vendor => "[dependencies.\"example/dep\"]\nvendor = \"vendor/vendor-dep\"\n",
+            Self::Mirror => "[dependencies.\"example/dep\"]\nmirror = \"mirror/example/dep\"\n",
+            Self::LocalGit => concat!(
+                "[dependencies.\"example/dep\"]\n",
+                "git = \"vendor/git-dep\"\n",
+                "rev = \"abc123\"\n",
+            ),
+            Self::MaterializedGit => concat!(
+                "[dependencies.\"example/dep\"]\n",
+                "git = \"https://example.invalid/handler-dep.git\"\n",
+                "rev = \"abc123\"\n",
+            ),
+        }
+    }
+}
+
+#[test]
+fn direct_dependency_handler_references_cover_source_and_project_boundaries() {
+    for source_kind in [
+        HandlerDependencySource::Path,
+        HandlerDependencySource::Vendor,
+        HandlerDependencySource::Mirror,
+        HandlerDependencySource::LocalGit,
+        HandlerDependencySource::MaterializedGit,
+    ] {
+        let workspace = TempWorkspace::new(source_kind.name());
+        workspace.write("veln.toml", source_kind.dependency_table());
+        workspace.write(
+            "main.veln",
+            concat!(
+                "use dep from \"example/dep\"\n\n",
+                "# handle 0 with dep::run()\n",
+                "let label: String = \"handle 0 with dep::run()\"\n\n",
+                "fn selected() -> Int\n  handle 1 with dep::run()\nend\n",
+            ),
+        );
+        workspace.write("other/veln.toml", source_kind.dependency_table());
+        workspace.write(
+            "other/main.veln",
+            "use dep from \"example/dep\"\n\nfn other() -> Int\n  handle 2 with dep::run()\nend\n",
+        );
+        let dependency_root = match source_kind {
+            HandlerDependencySource::Path => "vendor/path-dep".to_string(),
+            HandlerDependencySource::Vendor => "vendor/vendor-dep".to_string(),
+            HandlerDependencySource::Mirror => "mirror/example/dep".to_string(),
+            HandlerDependencySource::LocalGit => "vendor/git-dep".to_string(),
+            HandlerDependencySource::MaterializedGit => {
+                veln_project::materialized_git_repository_root(
+                    &workspace.root,
+                    "https://example.invalid/handler-dep.git",
+                )
+                .strip_prefix(&workspace.root)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/")
+            }
+        };
+        workspace.write(
+            &format!("{dependency_root}/veln.toml"),
+            "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+        );
+        workspace.write(
+            &format!("{dependency_root}/dep.veln"),
+            concat!(
+                "pub handler run() for Work\n  go() => 1\nend\n\n",
+                "fn dependency_body() -> Int\n  handle 0 with run()\nend\n",
+            ),
+        );
+
+        let mut server = initialized_server(&workspace);
+        let definition = server.definition_tool(&json!({
+            "source":"main.veln", "line":7, "column":22
+        }));
+        let references = server.references_tool(&json!({
+            "source":"main.veln", "line":7, "column":22,
+            "include_declaration":true
+        }));
+        assert_eq!(
+            definition["isError"],
+            false,
+            "{}: {definition:#}",
+            source_kind.name()
+        );
+        assert_eq!(
+            references["isError"],
+            false,
+            "{}: {references:#}",
+            source_kind.name()
+        );
+        let locations = references["structuredContent"]["references"]
+            .as_array()
+            .unwrap();
+        assert_eq!(locations.len(), 2, "{}: {references:#}", source_kind.name());
+        assert_eq!(
+            locations
+                .iter()
+                .filter(|location| location["uri"].as_str().unwrap().starts_with("file://"))
+                .count(),
+            1,
+            "{}: {references:#}",
+            source_kind.name(),
+        );
+        assert_eq!(
+            locations
+                .iter()
+                .filter(|location| location["uri"].as_str().unwrap().starts_with("veln-pkg:"))
+                .count(),
+            1,
+            "{}: {references:#}",
+            source_kind.name(),
+        );
+        assert!(!definition.to_string().contains(&dependency_root));
+        assert!(!references.to_string().contains(&dependency_root));
+    }
+}
+
+#[test]
+fn direct_dependency_handler_refresh_keeps_package_owners_and_revisions_distinct() {
+    let workspace = TempWorkspace::new("references-dependency-handler-owner-refresh");
+    workspace.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"example/first\"]\npath = \"vendor/first\"\n\n",
+            "[dependencies.\"example/second\"]\npath = \"vendor/second\"\n",
+        ),
+    );
+    for (root, package, value) in [
+        ("vendor/first", "example/first", 1),
+        ("vendor/second", "example/second", 2),
+    ] {
+        workspace.write(
+            &format!("{root}/veln.toml"),
+            &format!("[package]\nname = \"{package}\"\n\n[lib]\nexports = [\"shared.veln\"]\n"),
+        );
+        workspace.write(
+            &format!("{root}/shared.veln"),
+            &format!("pub handler run() for Work\n  go() => {value}\nend\n"),
+        );
+    }
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use shared as first from \"example/first\"\n",
+            "use shared as second from \"example/second\"\n\n",
+            "handler run() for Work\n  go() => 0\nend\n\n",
+            "fn local() -> Int\n  handle 0 with run()\nend\n\n",
+            "fn use_first() -> Int\n  handle 1 with first::run()\nend\n\n",
+            "fn use_second() -> Int\n  handle 2 with second::run()\nend\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let local = server.definition_tool(&json!({"source":"main.veln", "line":9, "column":17}));
+    assert!(
+        local["structuredContent"]["definition"]["uri"]
+            .as_str()
+            .unwrap()
+            .starts_with("file://")
+    );
+    let first_before = server.definition_tool(&json!({
+        "source":"main.veln", "line":13, "column":24
+    }));
+    let second_before = server.definition_tool(&json!({
+        "source":"main.veln", "line":17, "column":25
+    }));
+    let first_uri = first_before["structuredContent"]["definition"]["uri"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let second_uri = second_before["structuredContent"]["definition"]["uri"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(first_uri.contains("example%2Ffirst"), "{first_before:#}");
+    assert!(second_uri.contains("example%2Fsecond"), "{second_before:#}");
+    assert_ne!(first_uri, second_uri);
+
+    workspace.write(
+        "vendor/first/shared.veln",
+        "pub handler run() for Work\n  go() => 3\nend\n",
+    );
+    let first_after = server.definition_tool(&json!({
+        "source":"main.veln", "line":13, "column":24
+    }));
+    let second_after = server.definition_tool(&json!({
+        "source":"main.veln", "line":17, "column":25
+    }));
+    let first_after_uri = first_after["structuredContent"]["definition"]["uri"]
+        .as_str()
+        .unwrap();
+    assert!(
+        first_after_uri.contains("example%2Ffirst"),
+        "{first_after:#}"
+    );
+    assert_ne!(first_after_uri, first_uri);
+    assert_eq!(
+        second_after["structuredContent"]["definition"]["uri"],
+        second_uri
+    );
+    assert_eq!(
+        first_after["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":1,"column":13},"end":{"line":1,"column":16}})
+    );
+}
+
+#[test]
+fn transitive_dependency_handler_is_rejected_without_contaminating_direct_handler() {
+    let workspace = TempWorkspace::new("references-transitive-dependency-handler");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/direct\"]\npath = \"vendor/direct\"\n",
+    );
+    workspace.write(
+        "vendor/direct/veln.toml",
+        concat!(
+            "[package]\nname = \"example/direct\"\n\n",
+            "[lib]\nexports = [\"shared.veln\"]\n\n",
+            "[dependencies.\"example/transitive\"]\npath = \"../transitive\"\n",
+        ),
+    );
+    workspace.write(
+        "vendor/direct/shared.veln",
+        "pub handler run() for Work\n  go() => 1\nend\n",
+    );
+    workspace.write(
+        "vendor/transitive/veln.toml",
+        "[package]\nname = \"example/transitive\"\n\n[lib]\nexports = [\"shared.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/transitive/shared.veln",
+        "pub handler run() for Work\n  go() => 2\nend\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use shared as direct from \"example/direct\"\n",
+            "use shared as transitive from \"example/transitive\"\n\n",
+            "fn valid() -> Int\n  handle 1 with direct::run()\nend\n\n",
+            "fn invalid() -> Int\n  handle 2 with transitive::run()\nend\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let valid_request = json!({
+        "source":"main.veln", "line":5, "column":25, "include_declaration":true
+    });
+    let valid_before = server.references_tool(&valid_request);
+    assert_eq!(valid_before["isError"], false, "{valid_before:#}");
+    assert!(valid_before.to_string().contains("example%2Fdirect"));
+
+    let invalid_definition = server.definition_tool(&json!({
+        "source":"main.veln", "line":9, "column":29
+    }));
+    let invalid_references = server.references_tool(&json!({
+        "source":"main.veln", "line":9, "column":29, "include_declaration":true
+    }));
+    assert!(invalid_definition["structuredContent"]["definition"].is_null());
+    assert_eq!(
+        invalid_references["structuredContent"]["references"],
+        json!([])
+    );
+    assert_eq!(server.references_tool(&valid_request), valid_before);
+}
+
 #[test]
 fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
     let workspace = TempWorkspace::new("references-workspace-imported-handler");

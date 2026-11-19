@@ -476,22 +476,100 @@ mod navigation_handler_references_tests {
         let second = query_snapshot(&snapshot, "main.veln", 16, 22).unwrap();
         assert_eq!(second.definition, imported.definition);
         assert_eq!(second.references, imported.references);
+    }
 
-        let standard = EffectiveProjectSnapshot::new(vec![source(
-            "main.veln",
-            concat!(
-                "use tasks from \"std\"\n\n",
-                "fn imported() -> Int\n  handle 2 with tasks::run()\nend\n",
+    #[test]
+    fn direct_dependency_handlers_keep_exact_owners_across_captured_revisions() {
+        let original = "pub handler run() for Work\n  go() => 1\nend\n";
+        let changed = "\npub handler run() for Work\n  go() => 2\nend\n";
+        let first = dependency_snapshot("first/pkg", &[("shared.veln", original)], ["shared.veln"]);
+        let second =
+            dependency_snapshot("second/pkg", &[("shared.veln", original)], ["shared.veln"]);
+        let updated =
+            dependency_snapshot("first/pkg", &[("shared.veln", changed)], ["shared.veln"]);
+        let first_uri = first.virtual_sources().next().unwrap().0.to_owned();
+        let second_uri = second.virtual_sources().next().unwrap().0.to_owned();
+        let updated_uri = updated.virtual_sources().next().unwrap().0.to_owned();
+        assert_ne!(first_uri, second_uri);
+        assert_ne!(first_uri, updated_uri);
+
+        let sources = vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use shared as first from \"first/pkg\"\n",
+                    "use shared as second from \"second/pkg\"\n\n",
+                    "fn left() -> Int\n  handle 1 with first::run()\nend\n\n",
+                    "fn right() -> Int\n  handle 2 with second::run()\nend\n\n",
+                    "fn again() -> Int\n  handle 3 with first::run()\nend\n",
+                ),
             ),
-        )])
-        .with_standard_library(standard_library_snapshot(
-            &[(
-                "tasks.veln",
-                "pub handler run() for Work\n  go() => 2\nend\n",
-            )],
-            ["tasks.veln"],
-        ));
-        assert!(query_snapshot(&standard, "main.veln", 4, 24).is_none());
+            source(
+                "shared.veln",
+                "handler run() for Work\n  go() => 3\nend\n\nfn local() -> Int\n  handle 0 with run()\nend\n",
+            ),
+        ];
+        let accepted = EffectiveProjectSnapshot::with_direct_dependencies(
+            sources.clone(),
+            vec![first, second.clone()],
+        );
+        let before = query_snapshot(&accepted, "main.veln", 5, 24).unwrap();
+        let other = query_snapshot(&accepted, "main.veln", 9, 25).unwrap();
+        let workspace = query_snapshot(&accepted, "shared.veln", 6, 17).unwrap();
+        assert_eq!(
+            before.definition.source,
+            NavigationSource::Package {
+                uri: first_uri.clone()
+            }
+        );
+        assert_eq!(
+            other.definition.source,
+            NavigationSource::Package {
+                uri: second_uri.clone()
+            }
+        );
+        assert_location(&workspace.definition, "shared.veln", 1, 9);
+        assert_eq!(
+            locations(&before.references),
+            [("main.veln", 5, 24), ("main.veln", 13, 24)]
+        );
+        assert_eq!(locations(&other.references), [("main.veln", 9, 25)]);
+        assert_eq!(locations(&workspace.references), [("shared.veln", 6, 17)]);
+
+        let refreshed =
+            EffectiveProjectSnapshot::with_direct_dependencies(sources, vec![updated, second]);
+        let after = query_snapshot(&refreshed, "main.veln", 13, 24).unwrap();
+        assert_eq!(
+            after.definition.source,
+            NavigationSource::Package {
+                uri: updated_uri.clone()
+            }
+        );
+        assert_eq!(before.definition.span.file.as_str(), "shared.veln");
+        assert_eq!(after.definition.span.file, before.definition.span.file);
+        for (definition, line) in [(&before.definition, 1), (&after.definition, 2)] {
+            assert_eq!(definition.span.start.line, line);
+            assert_eq!(definition.span.start.column, 13);
+            assert_eq!(definition.span.end.line, line);
+            assert_eq!(definition.span.end.column, 16);
+        }
+        assert_eq!(after.references, before.references);
+        assert_eq!(query_snapshot(&refreshed, "main.veln", 9, 25), Some(other));
+        assert_eq!(
+            query_snapshot(&refreshed, "shared.veln", 6, 17),
+            Some(workspace)
+        );
+        assert_eq!(query_snapshot(&accepted, "main.veln", 5, 24), Some(before));
+        assert_eq!(
+            accepted.resolve_virtual_source(&first_uri),
+            Some(original.as_bytes())
+        );
+        assert_eq!(
+            refreshed.resolve_virtual_source(&updated_uri),
+            Some(changed.as_bytes())
+        );
+        assert!(accepted.resolve_virtual_source(&updated_uri).is_none());
+        assert!(refreshed.resolve_virtual_source(&first_uri).is_none());
     }
 
     #[test]
@@ -532,23 +610,167 @@ mod navigation_handler_references_tests {
             ),
         ];
 
+        let stable = stable_package_handler();
+        let baseline = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![stable_package_handler_use()],
+            vec![stable.clone()],
+        );
+        let expected = query_snapshot(&baseline, "stable.veln", 4, 22).unwrap();
+        assert_eq!(locations(&expected.references), [("stable.veln", 4, 22)]);
         for (case, declaration, exports, name) in cases {
-            let source_text = format!(
-                "use dep from \"example/dep\"\n\nfn invalid() -> Int\n  handle 1 with dep::{name}()\nend\n"
-            );
             let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
-                vec![source("main.veln", &source_text)],
-                vec![dependency_snapshot(
-                    "example/dep",
-                    &[("dep.veln", declaration)],
-                    exports,
-                )],
+                vec![stable_package_handler_use()],
+                vec![
+                    stable.clone(),
+                    dependency_snapshot("example/dep", &[("dep.veln", declaration)], exports),
+                ],
             );
-            assert!(
-                query_snapshot(&snapshot, "main.veln", 4, 22).is_none(),
-                "accepted {case}"
+            assert_rejected_dependency_handler(
+                &snapshot,
+                case,
+                "use dep from \"example/dep\"\n",
+                &format!("dep::{name}()"),
+                &expected,
             );
         }
+    }
+
+    #[test]
+    fn direct_dependency_handler_references_reject_ineligible_imports_and_applications() {
+        let other = dependency_snapshot(
+            "other/pkg",
+            &[(
+                "other.veln",
+                "pub handler run() for Work\n  go() => 2\nend\n",
+            )],
+            ["other.veln"],
+        );
+        let bridge = dependency_snapshot(
+            "bridge/pkg",
+            &[(
+                "bridge.veln",
+                concat!(
+                    "use dep from \"transitive/pkg\"\n\n",
+                    "pub fn nested() -> Int\n  handle 1 with dep::run()\nend\n",
+                ),
+            )],
+            ["bridge.veln"],
+        );
+        let standard = standard_library_snapshot(
+            &[("dep.veln", "pub handler run() for Work\n  go() => 3\nend\n")],
+            ["dep.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![stable_package_handler_use()],
+            vec![stable_package_handler(), other, bridge],
+        )
+        .with_standard_library(standard);
+        let expected = query_snapshot(&snapshot, "stable.veln", 4, 22).unwrap();
+        assert_eq!(locations(&expected.references), [("stable.veln", 4, 22)]);
+        let ordinary_function = query_snapshot(&snapshot, "stable.veln", 8, 8).unwrap();
+        assert_eq!(ordinary_function.selected_symbol.kind, SymbolKind::Function);
+
+        let stable_import = "use dep from \"stable/pkg\"\n";
+        for (case, imports, application) in [
+            ("standard library", "use dep from \"std\"\n", "dep::run()"),
+            (
+                "transitive owner",
+                "use dep from \"transitive/pkg\"\n",
+                "dep::run()",
+            ),
+            (
+                "ambiguous alias",
+                "use dep as target from \"stable/pkg\"\nuse other as target from \"other/pkg\"\n",
+                "target::run()",
+            ),
+            (
+                "duplicate import",
+                "use dep from \"stable/pkg\"\nuse dep from \"stable/pkg\"\n",
+                "dep::run()",
+            ),
+            (
+                "recovered import",
+                "use dep from \"stable/pkg\" unexpected\n",
+                "dep::run()",
+            ),
+            (
+                "mismatched package",
+                "use dep from \"other/pkg\"\n",
+                "dep::run()",
+            ),
+            ("unresolved qualifier", stable_import, "missing::run()"),
+            ("unresolved handler", stable_import, "dep::missing()"),
+            ("incomplete application", stable_import, "dep::run("),
+            ("recovered application", stable_import, "dep::run(1 2)"),
+            ("additional qualifier", stable_import, "dep::extra::run()"),
+            ("function in handler position", stable_import, "dep::work()"),
+            (
+                "module value in handler position",
+                stable_import,
+                "dep::value()",
+            ),
+            ("type in handler position", stable_import, "dep::Item()"),
+        ] {
+            assert_rejected_dependency_handler(&snapshot, case, imports, application, &expected);
+        }
+    }
+
+    fn stable_package_handler() -> DirectDependencySnapshot {
+        dependency_snapshot(
+            "stable/pkg",
+            &[
+                (
+                    "dep.veln",
+                    concat!(
+                        "pub handler run() for Work\n  go() => 1\nend\n\n",
+                        "pub fn work() -> Int\n  1\nend\n",
+                        "pub let value: Int = 1\n",
+                        "pub type Item\n  Token\nend\n",
+                    ),
+                ),
+                (
+                    "dep/extra.veln",
+                    "pub handler run() for Work\n  go() => 4\nend\n",
+                ),
+            ],
+            ["dep.veln", "dep/extra.veln"],
+        )
+    }
+
+    fn stable_package_handler_use() -> SourceFile {
+        source(
+            "stable.veln",
+            concat!(
+                "use dep from \"stable/pkg\"\n\n",
+                "fn valid() -> Int\n  handle 1 with dep::run()\nend\n\n",
+                "fn call() -> Int\n  dep::work()\nend\n",
+            ),
+        )
+    }
+
+    fn assert_rejected_dependency_handler(
+        baseline: &EffectiveProjectSnapshot,
+        case: &str,
+        imports: &str,
+        application: &str,
+        expected: &NavigationResult,
+    ) {
+        let prefix = "  handle 1 with ";
+        let case_source = format!("{imports}\nfn invalid() -> Int\n{prefix}{application}\nend\n");
+        let snapshot = baseline.with_workspace_overlays([source("case.veln", &case_source)]);
+        let (qualifier, _) = application.rsplit_once("::").unwrap();
+        let position = || SourcePosition {
+            source: SourcePath::new("case.veln"),
+            line: imports.lines().count() + 3,
+            column: prefix.len() + qualifier.len() + "::".len() + 1,
+        };
+        assert_eq!(definition_at(&snapshot, position()), None, "{case}");
+        assert!(navigate(&snapshot, position()).is_none(), "{case}");
+        assert_eq!(
+            query_snapshot(&snapshot, "stable.veln", 4, 22).as_ref(),
+            Some(expected),
+            "{case}"
+        );
     }
 
     #[test]
@@ -675,5 +897,49 @@ mod navigation_handler_references_tests {
         assert_eq!(small_diagnostics, 250);
         assert_eq!(large_diagnostics, 500);
         assert!(large_queries <= small_queries * 2 + 1);
+    }
+
+    fn measure_handler_eligibility_index_work(count: usize) -> (usize, usize) {
+        let mut workspace_sources = Vec::with_capacity(count);
+        let mut dependencies = Vec::with_capacity(count);
+        for index in 0..count {
+            let workspace_path = if index == 0 {
+                "shared.veln".to_string()
+            } else {
+                format!("workspace_{index}.veln")
+            };
+            workspace_sources.push(source(
+                &workspace_path,
+                &format!("handler workspace_{index}() for Work\n  go() => {index}\nend\n"),
+            ));
+            dependencies.push(dependency_snapshot(
+                &format!("example/dependency-{index}"),
+                &[(
+                    "shared.veln",
+                    format!("pub handler package_{index}() for Work\n  go() => {index}\nend\n")
+                        .as_str(),
+                )],
+                ["shared.veln"],
+            ));
+        }
+
+        crate::navigation::reset_handler_eligibility_index_work();
+        let snapshot =
+            EffectiveProjectSnapshot::with_direct_dependencies(workspace_sources, dependencies);
+        let _ = snapshot.navigation_index();
+        let work = crate::navigation::handler_eligibility_index_work();
+        eprintln!(
+            "handler eligibility index: owners_per_kind={count} source_entries={} candidate_lookups={}",
+            work.0, work.1,
+        );
+        work
+    }
+
+    #[test]
+    fn handler_eligibility_indexing_uses_one_source_lookup_per_candidate() {
+        let small = measure_handler_eligibility_index_work(50);
+        let large = measure_handler_eligibility_index_work(100);
+        assert_eq!(small, (100, 100));
+        assert_eq!(large, (200, 200));
     }
 }

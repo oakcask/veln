@@ -63,6 +63,7 @@ fn eligible_navigable_handler_indices(
     handlers: &[NeutralSymbol],
     files: &[IndexedFile],
 ) -> BTreeMap<ModuleMemberIdentity, usize> {
+    let eligibility_by_source = handler_declaration_eligibility_by_source(files);
     let mut candidates = BTreeMap::<ModuleMemberIdentity, Vec<usize>>::new();
     for (index, symbol) in handlers.iter().enumerate() {
         if symbol.package_origin != Some(PackageOrigin::StandardLibrary)
@@ -91,24 +92,84 @@ fn eligible_navigable_handler_indices(
                 return None;
             };
             let symbol = &handlers[*index];
-            let ineligible = files.iter().any(|file| {
-                file.source.path() == &symbol.declaration.span.file
-                    && match (&file.origin, &symbol.package) {
-                        (IndexedOrigin::Workspace, None) => true,
-                        (IndexedOrigin::Package { identity, .. }, Some(package)) => {
-                            identity == package
-                        }
-                        _ => false,
-                    }
-                    && (file.recovered_handler_declarations.iter().any(|span| {
-                        span.start.offset <= symbol.declaration.span.start.offset
-                            && symbol.declaration.span.end.offset <= span.end.offset
-                    }) || file
-                        .invalid_declaration_names
-                        .iter()
-                        .any(|span| same_span(span, &symbol.declaration.span)))
-            });
+            #[cfg(test)]
+            record_handler_eligibility_source_lookup();
+            let source = handler_declaration_source_identity(&symbol.declaration);
+            let ineligible = eligibility_by_source
+                .get(&source)
+                .is_some_and(|eligibility| eligibility.rejects(&symbol.declaration.span));
             (!ineligible).then_some((identity, *index))
         })
         .collect()
+}
+
+type HandlerDeclarationSourceIdentity = (Option<String>, String);
+
+struct HandlerDeclarationEligibility {
+    recovered_ranges: Vec<(usize, usize)>,
+    invalid_name_ranges: BTreeSet<(usize, usize)>,
+}
+
+impl HandlerDeclarationEligibility {
+    fn rejects(&self, declaration: &SourceSpan) -> bool {
+        let insertion = self
+            .recovered_ranges
+            .partition_point(|(start, _)| *start <= declaration.start.offset);
+        let recovered = insertion.checked_sub(1).is_some_and(|range_index| {
+            let (start, end) = self.recovered_ranges[range_index];
+            start <= declaration.start.offset && declaration.end.offset <= end
+        });
+        recovered
+            || self
+                .invalid_name_ranges
+                .contains(&(declaration.start.offset, declaration.end.offset))
+    }
+}
+
+fn handler_declaration_eligibility_by_source(
+    files: &[IndexedFile],
+) -> BTreeMap<HandlerDeclarationSourceIdentity, HandlerDeclarationEligibility> {
+    files
+        .iter()
+        .map(|file| {
+            #[cfg(test)]
+            record_handler_eligibility_source_index_entry();
+            let mut recovered_ranges = file
+                .recovered_handler_declarations
+                .iter()
+                .map(|span| (span.start.offset, span.end.offset))
+                .collect::<Vec<_>>();
+            recovered_ranges.sort_unstable();
+            let invalid_name_ranges = file
+                .invalid_declaration_names
+                .iter()
+                .map(|span| (span.start.offset, span.end.offset))
+                .collect();
+            (
+                handler_file_source_identity(file),
+                HandlerDeclarationEligibility {
+                    recovered_ranges,
+                    invalid_name_ranges,
+                },
+            )
+        })
+        .collect()
+}
+
+fn handler_file_source_identity(file: &IndexedFile) -> HandlerDeclarationSourceIdentity {
+    let owner = match &file.origin {
+        IndexedOrigin::Workspace => None,
+        IndexedOrigin::Package { uri, .. } => Some(uri.clone()),
+    };
+    (owner, file.source.path().as_str().to_string())
+}
+
+fn handler_declaration_source_identity(
+    declaration: &NavigationLocation,
+) -> HandlerDeclarationSourceIdentity {
+    let owner = match &declaration.source {
+        NavigationSource::Workspace => None,
+        NavigationSource::Package { uri } => Some(uri.clone()),
+    };
+    (owner, declaration.span.file.as_str().to_string())
 }

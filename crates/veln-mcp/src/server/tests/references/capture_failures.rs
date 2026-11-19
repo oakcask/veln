@@ -1,4 +1,5 @@
 use super::*;
+use crate::server::tests::dependency_resources::fill_dependency_resource_capacity_completely;
 use std::cell::Cell;
 use std::path::Path;
 use std::rc::Rc;
@@ -593,6 +594,132 @@ fn direct_dependency_handler_capture_failure_preserves_resources_and_cursor() {
         json!({"start":{"line":8,"column":22},"end":{"line":8,"column":25}})
     );
     drop(hook);
+}
+
+fn write_retained_handler_project(workspace: &TempWorkspace) {
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub handler run() for Work\n  go() => 1\nend\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn first() -> Int\n  handle 1 with dep::run()\nend\n\n",
+            "fn second() -> Int\n  handle 2 with dep::run()\nend\n",
+        ),
+    );
+}
+
+fn package_source_read(server: &mut Server, uri: &str, id: &str) -> Value {
+    server
+        .handle_request(json!({
+            "jsonrpc":"2.0", "id":id, "method":"resources/read", "params":{"uri":uri}
+        }))
+        .unwrap()
+}
+
+fn accepted_handler_definition_uri(server: &mut Server) -> String {
+    server.definition_tool(&json!({"source":"main.veln", "line":4, "column":22}))
+        ["structuredContent"]["definition"]["uri"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+#[test]
+fn rejected_dependency_handler_refresh_preserves_retained_state_and_cursor() {
+    let workspace = TempWorkspace::new("references-dependency-handler-rejected-refresh");
+    write_retained_handler_project(&workspace);
+    let mut server = initialized_server(&workspace);
+    let accepted_references = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":22,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        accepted_references["isError"], false,
+        "{accepted_references:#}"
+    );
+    let cursor = live_reference_cursor(&mut server, "main.veln", 4, 22);
+    let definition_uri = accepted_handler_definition_uri(&mut server);
+    let definition_read = package_source_read(&mut server, &definition_uri, "accepted-handler");
+    let resources = all_resource_state(&mut server);
+    let selection = server.selection_result();
+
+    workspace.write(
+        "vendor/dep/dep.veln",
+        concat!(
+            "pub handler run() for Work\n  go() => 2\nend\n\n",
+            "fn effectful() -> () effects [stdio]\n  stdio::println(\"blocked\")\nend\n",
+            "fn rejected() -> ()\n  let pure: fn() -> () = effectful\nend\n",
+        ),
+    );
+    let rejected = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(rejected["isError"], false, "{rejected:#}");
+    assert!(rejected.to_string().contains("effect_set"), "{rejected:#}");
+    assert_eq!(all_resource_state(&mut server), resources);
+    assert_eq!(
+        package_source_read(&mut server, &definition_uri, "retained-handler")["result"],
+        definition_read["result"]
+    );
+    assert_eq!(server.selection_result(), selection);
+    assert_eq!(
+        server.references_tool(&json!({
+            "source":"main.veln", "line":4, "column":22,
+            "include_declaration":true
+        })),
+        accepted_references
+    );
+    assert_live_reference_cursor(&mut server, &cursor);
+}
+
+#[test]
+fn dependency_handler_resource_capacity_failure_preserves_retained_state_and_cursor() {
+    let workspace = TempWorkspace::new("references-dependency-handler-resource-capacity");
+    write_retained_handler_project(&workspace);
+    let mut server = initialized_server(&workspace);
+    let accepted_references = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":22,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        accepted_references["isError"], false,
+        "{accepted_references:#}"
+    );
+    let cursor = live_reference_cursor(&mut server, "main.veln", 4, 22);
+    let definition_uri = accepted_handler_definition_uri(&mut server);
+    let definition_read = package_source_read(&mut server, &definition_uri, "accepted-handler");
+    fill_dependency_resource_capacity_completely(&mut server);
+    let resources = all_resource_state(&mut server);
+    let selection = server.selection_result();
+
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub handler run() for Work\n  go() => 2\nend\n",
+    );
+    let failed = server.references_tool(&json!({
+        "source":"main.veln", "line":8, "column":22,
+        "include_declaration":true
+    }));
+    assert_eq!(failed["isError"], true, "{failed:#}");
+    assert_eq!(failed["structuredContent"]["code"], "resource_capacity");
+    assert!(failed["structuredContent"].get("references").is_none());
+    assert!(failed["structuredContent"].get("scope").is_none());
+    assert_eq!(all_resource_state(&mut server), resources);
+    assert_eq!(
+        package_source_read(&mut server, &definition_uri, "retained-handler")["result"],
+        definition_read["result"]
+    );
+    assert_eq!(server.selection_result(), selection);
+    assert_live_reference_cursor(&mut server, &cursor);
 }
 
 fn write_workspace_handler_capture_project(workspace: &TempWorkspace) {
