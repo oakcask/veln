@@ -240,6 +240,29 @@ mod tests {
         class.finish()
     }
 
+    fn finish_dead_goto_chain_requiring_a_local(
+        block_count: usize,
+    ) -> Result<Vec<u8>, JvmBackendError> {
+        let mut code = Vec::with_capacity(4 + block_count * 3);
+        code.push(0xb1);
+        for _ in 0..block_count {
+            code.extend_from_slice(&[0xa7, 0, 3]);
+        }
+        code.extend_from_slice(&[0x1a, 0x57, 0xb1]);
+
+        let mut class = ClassBuilder::new("DeadGotoLocalChain");
+        class.add_method(MethodInfo {
+            access_flags: 0x0008,
+            name: "dead_gotos_reading_local".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: 1,
+            max_locals: 1,
+            code,
+            exceptions: Vec::new(),
+        });
+        class.finish()
+    }
+
     fn finish_class_with_many_locals_and_straight_line_expressions(
         expression_count: usize,
     ) -> Result<Vec<u8>, JvmBackendError> {
@@ -320,6 +343,18 @@ mod tests {
     fn finish_handles_near_limit_dead_goto_chain() {
         finish_class_with_dead_goto_chain(21_000)
             .expect("dead control-flow traversal should complete without recursive stack growth");
+    }
+
+    #[test]
+    fn finish_bounds_local_completion_for_near_limit_dead_goto_chain() {
+        finish_dead_goto_chain_requiring_a_local(21_000)
+            .expect("dead local completion should scale with the control-flow chain");
+    }
+
+    #[test]
+    fn finish_bounds_local_completion_for_adjacent_dead_goto_chain() {
+        finish_dead_goto_chain_requiring_a_local(20_000)
+            .expect("adjacent dead local completion should remain bounded");
     }
 
     #[test]

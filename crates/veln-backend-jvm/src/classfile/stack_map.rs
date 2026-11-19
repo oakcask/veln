@@ -185,16 +185,69 @@ fn complete_dead_frames(
 ) -> Result<BTreeMap<usize, Frame>, JvmBackendError> {
     let mut frame_map = initial_frame_map(analysis);
     let dead_facts = collect_dead_block_facts(method, analysis, &frame_map)?;
-    loop {
-        let snapshot = frame_map.clone();
-        let mut next_map = snapshot.clone();
-        complete_dead_block_locals(analysis, &dead_facts, &snapshot, &mut next_map)?;
-        complete_dead_exception_locals(method, analysis, &snapshot, &mut next_map);
-        if next_map == snapshot {
-            return Ok(next_map);
+    let mut reverse_dependencies = BTreeMap::<usize, BTreeSet<usize>>::new();
+    let mut exception_handlers = BTreeMap::<usize, Vec<usize>>::new();
+    for (&source, facts) in &dead_facts {
+        if let Some(target) = facts.target.filter(|target| frame_map.contains_key(target)) {
+            reverse_dependencies
+                .entry(target)
+                .or_default()
+                .insert(source);
         }
-        frame_map = next_map;
     }
+    for exception in &method.exceptions {
+        if analysis
+            .reachable
+            .get(exception.start_pc)
+            .copied()
+            .unwrap_or(false)
+            || !frame_map.contains_key(&exception.start_pc)
+            || !frame_map.contains_key(&exception.handler_pc)
+        {
+            continue;
+        }
+        exception_handlers
+            .entry(exception.start_pc)
+            .or_default()
+            .push(exception.handler_pc);
+        reverse_dependencies
+            .entry(exception.handler_pc)
+            .or_default()
+            .insert(exception.start_pc);
+    }
+
+    let mut affected = dead_facts.keys().copied().collect::<BTreeSet<_>>();
+    while !affected.is_empty() {
+        let mut updates = BTreeMap::new();
+        for source in affected {
+            let current = frame_map
+                .get(&source)
+                .ok_or_else(|| stack_map_error("missing dead frame"))?;
+            let mut frame = current.clone();
+            complete_dead_frame_locals(
+                source,
+                &mut frame,
+                &dead_facts,
+                &exception_handlers,
+                &frame_map,
+            )?;
+            if frame != *current {
+                updates.insert(source, frame);
+            }
+        }
+        if updates.is_empty() {
+            return Ok(frame_map);
+        }
+        let mut next_affected = BTreeSet::new();
+        for (source, frame) in updates {
+            frame_map.insert(source, frame);
+            if let Some(dependents) = reverse_dependencies.get(&source) {
+                next_affected.extend(dependents);
+            }
+        }
+        affected = next_affected;
+    }
+    Ok(frame_map)
 }
 
 fn initial_frame_map(analysis: &FrameAnalysis) -> BTreeMap<usize, Frame> {
@@ -230,27 +283,22 @@ fn collect_dead_block_facts(
     Ok(dead_facts)
 }
 
-fn complete_dead_block_locals(
-    analysis: &FrameAnalysis,
+fn complete_dead_frame_locals(
+    source: usize,
+    frame: &mut Frame,
     dead_facts: &BTreeMap<usize, DeadBlockFacts>,
-    snapshot: &BTreeMap<usize, Frame>,
-    next_map: &mut BTreeMap<usize, Frame>,
+    exception_handlers: &BTreeMap<usize, Vec<usize>>,
+    frame_map: &BTreeMap<usize, Frame>,
 ) -> Result<(), JvmBackendError> {
-    for (offset, frame) in next_map {
-        if analysis.reachable.get(*offset).copied().unwrap_or(false) {
-            continue;
+    let facts = dead_facts
+        .get(&source)
+        .ok_or_else(|| stack_map_error("missing dead block facts"))?;
+    for (&slot, required) in &facts.required {
+        if frame.locals[slot] == VerificationType::Top {
+            frame.locals[slot] = required.clone();
         }
-        let facts = dead_facts
-            .get(offset)
-            .ok_or_else(|| stack_map_error("missing dead block facts"))?;
-        for (&slot, required) in &facts.required {
-            if frame.locals[slot] == VerificationType::Top {
-                frame.locals[slot] = required.clone();
-            }
-        }
-        let Some(target_frame) = facts.target.and_then(|target| snapshot.get(&target)) else {
-            continue;
-        };
+    }
+    if let Some(target_frame) = facts.target.and_then(|target| frame_map.get(&target)) {
         for (slot, (local, target_local)) in frame
             .locals
             .iter_mut()
@@ -265,36 +313,19 @@ fn complete_dead_block_locals(
             }
         }
     }
-    Ok(())
-}
-
-fn complete_dead_exception_locals(
-    method: &MethodInfo,
-    analysis: &FrameAnalysis,
-    snapshot: &BTreeMap<usize, Frame>,
-    next_map: &mut BTreeMap<usize, Frame>,
-) {
-    for exception in &method.exceptions {
-        if analysis
-            .reachable
-            .get(exception.start_pc)
-            .copied()
-            .unwrap_or(false)
-        {
-            continue;
-        }
-        let Some(handler) = snapshot.get(&exception.handler_pc) else {
-            continue;
-        };
-        let Some(source) = next_map.get_mut(&exception.start_pc) else {
-            continue;
-        };
-        for (local, required) in source.locals.iter_mut().zip(&handler.locals) {
-            if *local == VerificationType::Top && *required != VerificationType::Top {
-                *local = required.clone();
+    if let Some(handlers) = exception_handlers.get(&source) {
+        for handler in handlers {
+            let required = frame_map
+                .get(handler)
+                .ok_or_else(|| stack_map_error("missing dead exception handler frame"))?;
+            for (local, required) in frame.locals.iter_mut().zip(&required.locals) {
+                if *local == VerificationType::Top && *required != VerificationType::Top {
+                    *local = required.clone();
+                }
             }
         }
     }
+    Ok(())
 }
 
 include!("stack_map/dead_blocks.rs");
