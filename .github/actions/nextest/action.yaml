@@ -1,5 +1,5 @@
 name: Prepare and run nextest
-description: Restore the latest main Rust test build and optionally run one nextest shard or update the cache.
+description: Prepare cached Rust test tools and optionally run one nextest shard.
 
 inputs:
   nextest-version:
@@ -21,14 +21,9 @@ inputs:
     description: Nextest filterset selecting this suite's tests.
     required: false
   save-cache:
-    description: Whether to build and save cache misses for the main branch.
+    description: Whether to save Cargo dependency and test tool cache misses.
     required: false
     default: "false"
-
-outputs:
-  rust-test-build-cache-key:
-    description: Primary key used to update the main Rust test build cache.
-    value: ${{ steps.rust-test-build-cache-key.outputs.key }}
 
 runs:
   using: composite
@@ -49,31 +44,6 @@ runs:
       uses: ./.github/actions/cargo-dependencies
       with:
         save-cache: ${{ inputs.save-cache }}
-    - name: Resolve Rust test build cache key
-      id: rust-test-build-cache-key
-      shell: bash
-      env:
-        RUST_TEST_BUILD_CACHE_KEY: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ inputs.llvm-cov-version }}-${{ github.run_id }}
-      run: echo "key=${RUST_TEST_BUILD_CACHE_KEY}" >> "${GITHUB_OUTPUT}"
-    - name: Restore and update main Rust test build cache
-      if: inputs.save-cache == 'true'
-      id: rust-test-build-cache
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-      with:
-        path: target
-        key: ${{ steps.rust-test-build-cache-key.outputs.key }}
-        restore-keys: |
-          rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ inputs.llvm-cov-version }}-
-          rust-test-build-${{ runner.os }}-
-    - name: Restore main Rust test build cache
-      if: inputs.save-cache != 'true'
-      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-      with:
-        path: target
-        key: ${{ steps.rust-test-build-cache-key.outputs.key }}
-        restore-keys: |
-          rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ inputs.llvm-cov-version }}-
-          rust-test-build-${{ runner.os }}-
     - name: Install cargo-nextest
       uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2
       with:
@@ -97,18 +67,6 @@ runs:
       with:
         path: ~/.cargo/bin/cargo-llvm-cov
         key: cargo-llvm-cov-${{ runner.os }}-${{ inputs.llvm-cov-version }}
-    - name: Track Rust build artifacts in use
-      if: inputs.save-cache == 'true'
-      uses: BD103/cargo-sweep@28e53e462f3658c03a16ebd79651d2c168a27d4d # v2.1.2
-    - name: Build main Rust test cache
-      if: inputs.save-cache == 'true'
-      shell: bash
-      env:
-        # Match the directory selected by cargo llvm-cov nextest in test shards.
-        CARGO_TARGET_DIR: target/llvm-cov-target
-      run: |
-        source <(cargo llvm-cov show-env --sh)
-        bash scripts/ci-run cargo nextest run --locked --workspace --profile ci --no-run
     - name: Run Rust tests
       if: inputs.shard != ''
       shell: bash
