@@ -770,6 +770,10 @@ result. Comments and strings do not contribute handler references. An
 unrelated parse error does not remove a complete parse-clean handler
 occurrence.
 
+Imports that repeat the same dependency package and module are ambiguous even
+when they use different explicit aliases. None of their full paths or aliases
+grants handler navigation.
+
 Declaration uniqueness includes handlers from non-exported dependency source
 files. An otherwise eligible exported handler is therefore ambiguous when a
 non-exported source in the same retained package declares the same module and
@@ -830,8 +834,10 @@ alias. For those paths, an exact full written import path takes
 precedence over a same-spelled implicit leaf alias. Otherwise, an implicit
 leaf alias selects a schema identity only when it is unique across
 workspace and package imports. Conflicting exact imports select no identity.
-Duplicate and syntax-recovered dependency imports do not grant dependency
-schema visibility. A written import does not make the
+Imports that repeat the same dependency package and module are duplicates even
+when their explicit aliases differ. None of their full paths or aliases grants
+dependency schema visibility. Syntax-recovered dependency imports grant no
+dependency schema visibility. A written import does not make the
 imported schema or alias available as a bare schema path. It does not add
 module-qualifier, recovery, or rename behavior for
 schemas.

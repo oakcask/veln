@@ -513,12 +513,12 @@ intervening `check_project` request.
 If the selected analysis scope has no retained successful state, navigation
 after a rejection omits both the captured workspace files and captured
 dependencies. At most 256 project or single-file scope states retain successful
-whole navigation or a rejection outcome. Each successful analysis or rejection
-makes its scope the newest retained scope. When another scope exceeds the
-limit, the oldest scope no longer supplies successful fallback after a later
-rejection. An evicted or otherwise unknown scope remains non-publishing after
-the history has saturated until a successful whole-analysis request admits that
-scope.
+whole navigation or a rejection outcome. Each admitted successful analysis or
+recorded rejection makes its scope the newest retained scope. When another
+scope exceeds the limit, the oldest scope no longer supplies successful
+fallback after a later rejection. An evicted or otherwise unknown scope remains
+non-publishing after the history has saturated until a successful whole-analysis
+request admits that scope.
 Scope eviction does not remove admitted dependency resource reads.
 The server retains at most 256 exact fixed-size rejected-revision identities.
 After that set saturates, an unknown dependency revision remains non-publishing
@@ -924,12 +924,13 @@ start line, start column, end line, and end column. A nonfinal page contains
 exactly `page_size` locations and `next_cursor`; the final page omits it.
 
 Supported reference identities are valid workspace explicit import aliases,
-workspace effects, effect operations, handlers, schemas, eligible workspace,
-direct-dependency, and standard-library schema aliases, functions, types,
-constructors, workspace and retained direct-dependency module immutable
-values, value bindings, handler context parameters, and handler
-operation-clause parameters. Standard-library module immutable values remain
-unsupported and return the ordinary successful empty result.
+workspace effects, effect operations, workspace and retained direct-dependency
+handlers, schemas, eligible workspace, direct-dependency, and standard-library
+schema aliases, functions, types, constructors, workspace and retained
+direct-dependency module immutable values, value bindings, handler context
+parameters, and handler operation-clause parameters. Standard-library module
+immutable values remain unsupported and return the ordinary successful empty
+result.
 
 ### Recovery References
 
@@ -1059,6 +1060,10 @@ empty result. A wrong-kind handler-name leaf does not fall back to the
 definition or references of the value, type, or other symbol named by that
 path. Equal spelling in another module or symbol class is excluded. An
 unrelated parse error does not remove a complete parse-clean occurrence.
+Imports that repeat the same dependency package and module are ambiguous even
+when they use different explicit aliases. None of their full paths or aliases
+grants handler navigation.
+
 Declaration uniqueness includes handlers from non-exported dependency source
 files. An otherwise eligible exported handler therefore returns an empty
 result when a non-exported source in the same retained package declares the
@@ -1099,7 +1104,10 @@ explicit qualifier.
 Bare schema names resolve in their declaring module. A full written import path
 takes precedence over a colliding implicit leaf alias; an implicit leaf alias
 resolves only when exactly one workspace or package import provides it.
-Duplicate or syntax-recovered dependency imports resolve no dependency schema.
+Imports that repeat the same dependency package and module are duplicates even
+when their explicit aliases differ. None of their full paths or aliases
+resolves a dependency schema. Syntax-recovered dependency imports resolve no
+dependency schema.
 Consumer imports do not participate in package-alias target resolution.
 Invalid-cased, unresolved, wrong-kind, transitive, non-exported, and
 ambiguous aliases return successful empty reference results. These rules also
