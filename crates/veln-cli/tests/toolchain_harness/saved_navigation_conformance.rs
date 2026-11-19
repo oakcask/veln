@@ -52,9 +52,66 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
     assert_definition_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_reference_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_imported_handler_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
+    assert_dependency_handler_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_module_value_reference_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_failure_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_recovery_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
+}
+
+fn assert_dependency_handler_conformance(
+    lsp_workspace: &SavedWorkspace,
+    mcp_workspace: &SavedWorkspace,
+    lsp: &[JsonValue],
+    mcp: &[JsonValue],
+) {
+    let lsp_definition = normalize_lsp_definition(lsp_workspace, response(lsp, 40));
+    let mcp_definition = normalize_mcp_definition(mcp_workspace, response(mcp, 26));
+    assert_eq!(lsp_definition, mcp_definition);
+    let declaration = lsp_definition.expect("dependency handler definition should exist");
+    assert!(declaration.source.starts_with("veln-pkg:"));
+    assert_eq!(
+        declaration.range,
+        NormalizedRange {
+            start: NormalizedPosition {
+                line: 7,
+                column: 13,
+            },
+            end: NormalizedPosition {
+                line: 7,
+                column: 20,
+            },
+        }
+    );
+
+    let lsp_without = normalize_lsp_references_in_order(lsp_workspace, response(lsp, 41));
+    let lsp_with = normalize_lsp_references_in_order(lsp_workspace, response(lsp, 42));
+    let mcp_without = normalize_mcp_reference_pages_in_order(mcp_workspace, &[response(mcp, 27)]);
+    let mcp_with = normalize_mcp_reference_pages_in_order(
+        mcp_workspace,
+        &[response(mcp, 28), response(mcp, 29), response(mcp, 30)],
+    );
+    assert_eq!(lsp_without, mcp_without);
+    assert_eq!(
+        lsp_with, lsp_without,
+        "LSP must exclude package declarations"
+    );
+    assert_eq!(mcp_with.len(), mcp_without.len() + 1);
+    assert_eq!(
+        mcp_with
+            .iter()
+            .filter(|location| location == &&declaration)
+            .count(),
+        1
+    );
+    assert_eq!(
+        mcp_with
+            .iter()
+            .filter(|location| *location != &declaration)
+            .cloned()
+            .collect::<Vec<_>>(),
+        mcp_without
+    );
+    assert_eq!(mcp_with.last(), Some(&declaration));
 }
 
 fn assert_imported_handler_conformance(
@@ -435,6 +492,9 @@ fn lsp_success_requests(workspace: &SavedWorkspace) -> Vec<String> {
         lsp_definition(37, &workspace.other_uri, 7, 22),
         lsp_references(38, &workspace.other_uri, 7, 22, false),
         lsp_references(39, &workspace.main_uri, 29, 12, true),
+        lsp_definition(40, &workspace.main_uri, 38, 23),
+        lsp_references(41, &workspace.main_uri, 38, 23, false),
+        lsp_references(42, &workspace.main_uri, 42, 23, true),
     ]
 }
 
@@ -560,6 +620,11 @@ fn run_mcp(workspace: &SavedWorkspace) -> Output {
         mcp_call(23, "references", r#"{"source":"other.veln","line":8,"column":23,"include_declaration":false}"#),
         mcp_call(24, "references", r#"{"source":"main.veln","line":30,"column":13,"include_declaration":true,"page_size":2}"#),
         mcp_call(25, "references", r#"{"cursor":"$mcp_cursor:24"}"#),
+        mcp_call(26, "definition", r#"{"source":"main.veln","line":39,"column":24}"#),
+        mcp_call(27, "references", r#"{"source":"main.veln","line":39,"column":24,"include_declaration":false}"#),
+        mcp_call(28, "references", r#"{"source":"main.veln","line":43,"column":24,"include_declaration":true,"page_size":1}"#),
+        mcp_call(29, "references", r#"{"cursor":"$mcp_cursor:28"}"#),
+        mcp_call(30, "references", r#"{"cursor":"$mcp_cursor:29"}"#),
     ];
     workspace.project.veln_with_interactive_mcp(
         &["mcp".to_string()],
@@ -660,6 +725,19 @@ fn normalize_lsp_references(
     locations
 }
 
+fn normalize_lsp_references_in_order(
+    workspace: &SavedWorkspace,
+    response: &JsonValue,
+) -> Vec<NormalizedLocation> {
+    response
+        .object_field("result")
+        .and_then(JsonValue::as_array)
+        .expect("LSP references should be an array")
+        .iter()
+        .map(|location| normalize_lsp_location(workspace, location))
+        .collect()
+}
+
 fn normalize_mcp_reference_pages(
     workspace: &SavedWorkspace,
     responses: &[&JsonValue],
@@ -676,6 +754,22 @@ fn normalize_mcp_reference_pages(
         .collect::<Vec<_>>();
     locations.sort();
     locations
+}
+
+fn normalize_mcp_reference_pages_in_order(
+    workspace: &SavedWorkspace,
+    responses: &[&JsonValue],
+) -> Vec<NormalizedLocation> {
+    responses
+        .iter()
+        .flat_map(|response| {
+            structured_content(response)
+                .object_field("references")
+                .and_then(JsonValue::as_array)
+                .expect("MCP references should be an array")
+        })
+        .map(|location| normalize_mcp_location(workspace, location))
+        .collect()
 }
 
 fn normalize_lsp_location(workspace: &SavedWorkspace, location: &JsonValue) -> NormalizedLocation {

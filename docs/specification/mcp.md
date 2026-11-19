@@ -182,16 +182,21 @@ limit, the tool returns `resource_capacity`, generates no documentation, admits
 none of that operation's new source snapshots or revisions, publishes no new
 resources or search candidates, does not change the current revision selection,
 and preserves the previous public state. Invalid tool parameters and failures
-that prevent a stable source capture admit no new dependency resources. Saved
-navigation tools perform the whole-analysis transition before coordinate and
-symbol-result validation. Tool-specific parameter validation that precedes
-capture, such as rename replacement-name validation, admits no state. A later
-`invalid_position`, empty result, or post-admission rename conflict does not
-roll back dependency resources admitted by the transition. A stable-capture
-failure or variance-analysis rejection after a successful dependency analysis
-preserves the prior package signatures, source resources, exact reads, search
-results, navigation selection, and cursors. Bytes and signatures seen only
-during the failed capture or rejected analysis are not published.
+that prevent a stable source capture admit no new dependency resources.
+`definition` and an initial `references` request validate their coordinates
+before they admit a newly analyzed capture. Their `invalid_position` failures
+therefore preserve the prior workspace, dependency resources, navigation
+selection, and cursors. `completion`, `signature_help`, and `rename` still
+perform the whole-analysis transition before coordinate or symbol-result
+validation. Tool-specific parameter validation that precedes capture, such as
+rename replacement-name validation, admits no state. A later
+`invalid_position`, empty result, or post-admission rename conflict from one of
+those tools does not roll back dependency resources admitted by the
+transition. A stable-capture failure or variance-analysis rejection after a
+successful dependency analysis preserves the prior package signatures, source
+resources, exact reads, search results, navigation selection, and cursors.
+Bytes and signatures seen only during the failed capture or rejected analysis
+are not published.
 
 Dependency source resources use the canonical `veln-pkg:` URI from the
 admitted dependency snapshot virtual-source catalog. Their `name` is the
@@ -492,23 +497,28 @@ state.
 The rejected snapshot contributes no package signature, source resource, or
 search result. Other language diagnostics do not imply this atomic admission
 rule and can still produce a coherent diagnostic-bearing snapshot.
-Each saved-navigation request applies the same atomic analysis transition to
-its stable capture before it admits workspace files or dependency resources. A
-`definition`, `completion`, `signature_help`, `references`, or `rename` request
-that first encounters a rejected revision therefore selects the prior
-successful state without making the rejected source, documentation, search
-candidate, or signature observable. A later successful saved-navigation
-request can admit a new coherent revision without an intervening
-`check_project` request.
+Each saved-navigation request applies the same atomic analysis acceptance rule
+to its stable capture. A `definition`, `completion`, `signature_help`,
+`references`, or `rename` request that first encounters a rejected revision
+therefore selects the prior successful state without making the rejected
+source, documentation, search candidate, or signature observable. Coordinate
+validation for definition and initial references uses that accepted source
+after a rejection. After a successful analysis of a changed capture, it uses
+the new captured source and admits that capture only when the coordinate is
+valid.
+Completion, signature-help, and rename instead admit a successful changed
+capture before their coordinate or result validation. A later successful
+saved-navigation request can admit a new coherent revision without an
+intervening `check_project` request.
 If the selected analysis scope has no retained successful state, navigation
 after a rejection omits both the captured workspace files and captured
 dependencies. At most 256 project or single-file scope states retain successful
-whole navigation or a rejection outcome. Each successful analysis or rejection
-makes its scope the newest retained scope. When another scope exceeds the
-limit, the oldest scope no longer supplies successful fallback after a later
-rejection. An evicted or otherwise unknown scope remains non-publishing after
-the history has saturated until a successful whole-analysis request admits that
-scope.
+whole navigation or a rejection outcome. Each admitted successful analysis or
+recorded rejection makes its scope the newest retained scope. When another
+scope exceeds the limit, the oldest scope no longer supplies successful
+fallback after a later rejection. An evicted or otherwise unknown scope remains
+non-publishing after the history has saturated until a successful whole-analysis
+request admits that scope.
 Scope eviction does not remove admitted dependency resource reads.
 The server retains at most 256 exact fixed-size rejected-revision identities.
 After that set saturates, an unknown dependency revision remains non-publishing
@@ -682,10 +692,11 @@ workspace functions, module immutable values, types,
 constructors, handler context and operation-clause parameters, exact
 test-companion private-function access, and unique class-compatible invalid
 source recovery records. Eligible direct-dependency selections include public
-functions, module immutable values, types, constructors, schemas, and public
-function aliases. Embedded `std` supports the same package selections except
-module immutable values. Exported direct-dependency public type aliases are
-eligible when their target resolves to a type in that retained dependency.
+functions, module immutable values, types, constructors, schemas, handlers,
+and public function aliases. Embedded `std` supports the same package
+selections except module immutable values and handlers. Exported
+direct-dependency public type aliases are eligible when their target resolves
+to a type in that retained dependency.
 Invalid-cased package records, private or non-exported package declarations,
 mismatched imports, unsupported symbols, and package module segments return an
 empty definition. A public constructor selected through a visible type alias
@@ -913,12 +924,13 @@ start line, start column, end line, and end column. A nonfinal page contains
 exactly `page_size` locations and `next_cursor`; the final page omits it.
 
 Supported reference identities are valid workspace explicit import aliases,
-workspace effects, effect operations, handlers, schemas, eligible workspace,
-direct-dependency, and standard-library schema aliases, functions, types,
-constructors, workspace and retained direct-dependency module immutable
-values, value bindings, handler context parameters, and handler
-operation-clause parameters. Standard-library module immutable values remain
-unsupported and return the ordinary successful empty result.
+workspace effects, effect operations, workspace and retained direct-dependency
+handlers, schemas, eligible workspace, direct-dependency, and standard-library
+schema aliases, functions, types, constructors, workspace and retained
+direct-dependency module immutable values, value bindings, handler context
+parameters, and handler operation-clause parameters. Standard-library module
+immutable values remain unsupported and return the ordinary successful empty
+result.
 
 ### Recovery References
 
@@ -1016,29 +1028,49 @@ separate effect reference set. Failures preserve captured navigation state,
 retained resources, and existing cursors under the general references failure
 contract.
 
-A workspace handler result contains each complete bare handler name in
+A handler result contains each complete bare handler name in
 `handle Body with handler(arguments)` from saved sources that declare the
-selected handler's module. For a public handler, it also contains complete
-qualified handler-name leaves reached through one parse-clean, unambiguous
-workspace import. The qualifier can use the full module path or its unique
-implicit leaf alias. An exact full path takes precedence over a colliding
-implicit leaf alias. An explicitly aliased import still permits the full module
-path, but neither the written alias nor the module's leaf name becomes an
-implicit qualifier. The declaration and each included name select one identity.
-Each location covers only the handler-name token. A `definition` request at any
-included form returns the workspace declaration. `include_declaration` adds
-that declaration before pagination.
+selected workspace handler's module. A public workspace or retained
+direct-dependency handler also has complete qualified handler-name leaves
+reached through one parse-clean, unambiguous import. A workspace qualifier can
+use the full module path or its unique implicit leaf alias. An explicitly
+aliased workspace import still permits the full module path, but neither the
+written alias nor the module's leaf name becomes an implicit qualifier. A
+retained direct-dependency qualifier can use the full module path or its unique
+import alias: the written alias when one is declared, otherwise the implicit
+leaf alias. An exact full path takes precedence over a colliding alias. A
+dependency application selects only a public, valid-cased handler in an
+exported module of that exact retained direct dependency. The package revision,
+module, declaration, and selected project remain part of the identity. Each
+location covers only the handler-name token.
 
-Handler definition and reference lookup require one unrecovered workspace
-declaration for the module and name. An imported application additionally
-requires an explicit workspace import that resolves to the public handler.
-Private imported handlers, duplicate or recovered declarations, ambiguous or
-recovered imports, package-backed and standard-library declarations,
+A `definition` request at an eligible application returns the workspace
+declaration or the canonical retained `veln-pkg:` declaration. References
+contain only matching applications from the selected saved project. For
+project scope, `include_declaration` adds that declaration exactly once before
+sorting and pagination. A single-file request does not add a package
+declaration.
+
+Handler definition and reference lookup require one unrecovered declaration
+for the complete owner identity. Private, non-exported, invalid-cased,
+duplicate, or recovered dependency declarations, ambiguous or recovered
+imports, standard-library and transitive-dependency declarations,
 unresolved, incomplete, recovered, and wrong-kind paths return a successful
 empty result. A wrong-kind handler-name leaf does not fall back to the
 definition or references of the value, type, or other symbol named by that
 path. Equal spelling in another module or symbol class is excluded. An
 unrelated parse error does not remove a complete parse-clean occurrence.
+Imports that repeat the same dependency package and module are ambiguous even
+when they use different explicit aliases. None of their full paths or aliases
+grants handler navigation. A syntax-recovered dependency import does not make
+a separate parse-clean import for that package and module ambiguous. The
+parse-clean import can still grant handler navigation.
+
+Declaration uniqueness includes handlers from non-exported dependency source
+files. An otherwise eligible exported handler therefore returns an empty
+result when a non-exported source in the same retained package declares the
+same module and handler name.
+
 Capture, lookup, position, and pagination failures publish no partial handler
 locations and preserve the saved workspace, retained resources, prior results,
 and existing cursors under the general references failure contract.
@@ -1074,7 +1106,11 @@ explicit qualifier.
 Bare schema names resolve in their declaring module. A full written import path
 takes precedence over a colliding implicit leaf alias; an implicit leaf alias
 resolves only when exactly one workspace or package import provides it.
-Duplicate or syntax-recovered dependency imports resolve no dependency schema.
+Two parse-clean imports of the same dependency package and module under
+different explicit aliases remain valid schema routes. Either alias and the
+full module path resolve the same schema identity. Repeating the same package,
+module, and alias is a duplicate and resolves no dependency schema. A
+syntax-recovered dependency import also resolves no dependency schema.
 Consumer imports do not participate in package-alias target resolution.
 Invalid-cased, unresolved, wrong-kind, transitive, non-exported, and
 ambiguous aliases return successful empty reference results. These rules also
@@ -1212,6 +1248,11 @@ The checked
 demonstrates imported handler definition, full-path and implicit-alias
 handler-name ranges, declaration policy, deterministic ordering, and
 pagination.
+The checked
+`examples/specification/mcp/references-direct-dependency-handler/` transcript
+demonstrates a canonical retained dependency definition, workspace-only
+references, declaration exclusion, and declaration-inclusive sorted
+pagination.
 MCP unit regressions exercise every imported workspace-handler exclusion
 specified above. They verify that each empty definition and reference result
 preserves an unrelated valid handler result. Capture-failure coverage also
@@ -1230,4 +1271,7 @@ immutable-value references, and state after a failed request. It also compares
 the recovery definition and complete recovery reference set with declaration
 exclusion and inclusion. The matrix also compares an imported public handler
 definition and its complete declaration-inclusive and declaration-excluding
-reference sets.
+reference sets. For a retained direct-dependency handler, it compares the
+canonical package definition and workspace-only references, verifies LSP
+package-declaration exclusion, and collects the one MCP package declaration
+across declaration-inclusive continuation pages.

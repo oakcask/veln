@@ -67,6 +67,9 @@ fn index_dependency_sources(
                 append_surface_module(module, source_module);
             } else {
                 declarations
+                    .handlers
+                    .extend(handler_declarations(&file, &parsed.tree));
+                declarations
                     .schema_alias_blockers
                     .extend(schema_alias_declarations(&file, &parsed.tree));
                 declarations

@@ -6,10 +6,11 @@ use veln_language_service::{
 use veln_source::{SourcePath, SourceSpan};
 
 use crate::check_project::{
-    CaptureCache, CapturedProject, capture_navigation_source, transition_navigation_analysis,
+    CaptureCache, CapturedProject, analyze_navigation_capture, capture_navigation_source,
+    commit_cached_navigation_analysis, commit_navigation_analysis, navigation_analysis_is_cached,
 };
 use crate::definition::{Coordinate, coordinate, path_to_uri, valid_position};
-use crate::language_resources::LanguageResources;
+use crate::language_resources::{LanguageResources, NavigationSourceAnalysis};
 use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{Selection, WorkspaceBase};
 
@@ -98,25 +99,40 @@ fn collect_references(
     language_resources: &mut LanguageResources,
 ) -> Result<Vec<Value>, ToolOutcome> {
     let root = captured.project.root.clone();
-    transition_navigation_analysis(
-        &captured,
-        scope.dependency_analysis_scope(),
-        language_resources,
-    )
-    .map_err(ToolOutcome::from)?;
+    let analysis_scope = scope.dependency_analysis_scope();
+    let analysis = (!navigation_analysis_is_cached(&captured, &analysis_scope, language_resources))
+        .then(|| analyze_navigation_capture(&captured));
     let source_path = SourcePath::new(captured_source);
     let selected_source = language_resources.navigation_source_text(
         &captured.project.files,
         &captured.dependencies,
-        &scope.dependency_analysis_scope(),
+        &analysis_scope,
         &source_path,
+        match analysis.as_ref() {
+            Some(analysis) if analysis.publication_failed() => {
+                NavigationSourceAnalysis::FreshRejected
+            }
+            Some(_) => NavigationSourceAnalysis::FreshAccepted,
+            None => NavigationSourceAnalysis::Cached,
+        },
     );
     let (line, column) = validate_reference_position(selected_source.as_deref(), request)?;
+    if let Some(analysis) = analysis {
+        commit_navigation_analysis(
+            &captured,
+            analysis_scope.clone(),
+            language_resources,
+            analysis,
+        )
+        .map_err(ToolOutcome::from)?;
+    } else {
+        commit_cached_navigation_analysis(&captured, &analysis_scope, language_resources);
+    }
     let workspace_key = captured.key;
     let snapshot = language_resources.navigation_snapshot(
         captured.project.files,
         &captured.dependencies,
-        scope.dependency_analysis_scope(),
+        analysis_scope,
         workspace_key,
     )?;
     Ok(navigate(
@@ -225,8 +241,10 @@ fn supports_workspace_references(result: &NavigationResult) -> bool {
 
 fn supports_package_references(result: &NavigationResult) -> bool {
     supports_package_reference_kind(result)
-        && (!matches!(result.selected_symbol.kind, SymbolKind::Schema)
-            || (!result.references.is_empty() && result.reference_eligible))
+        && (!matches!(
+            result.selected_symbol.kind,
+            SymbolKind::Schema | SymbolKind::Handler
+        ) || (!result.references.is_empty() && result.reference_eligible))
         && supports_package_reference_origin(result)
         && supports_package_reference_declaration(result)
         && (!matches!(
@@ -238,7 +256,11 @@ fn supports_package_references(result: &NavigationResult) -> bool {
 fn supports_package_reference_kind(result: &NavigationResult) -> bool {
     matches!(
         result.selected_symbol.kind,
-        SymbolKind::Function | SymbolKind::Type | SymbolKind::Constructor | SymbolKind::ModuleValue
+        SymbolKind::Function
+            | SymbolKind::Type
+            | SymbolKind::Constructor
+            | SymbolKind::ModuleValue
+            | SymbolKind::Handler
     ) || (result.selected_symbol.kind == SymbolKind::Schema
         && matches!(
             result.selected_symbol.package_origin,

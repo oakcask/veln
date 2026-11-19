@@ -452,7 +452,7 @@ impl Symbol {
         match self {
             Self::Effect(symbol) => index.effect_references_supported(symbol),
             Self::EffectOperation(symbol) => index.effect_operation_references_supported(symbol),
-            Self::Handler(symbol) => index.workspace_handler_is_eligible(symbol),
+            Self::Handler(symbol) => index.handler_is_eligible(symbol),
             Self::SchemaAlias(symbol) if symbol.package.is_none() => {
                 index.workspace_schema_alias_is_eligible(
                     &symbol.module,
@@ -467,7 +467,7 @@ impl Symbol {
     fn definition_supported(&self, index: &SymbolIndex) -> bool {
         match self {
             Self::SchemaAlias(_) => false,
-            Self::Handler(symbol) => index.workspace_handler_is_eligible(symbol),
+            Self::Handler(symbol) => index.handler_is_eligible(symbol),
             Self::TypeAlias(symbol) if symbol.package.is_some() => {
                 index.type_alias_definition_supported(symbol)
             }
@@ -570,7 +570,9 @@ impl Symbol {
     fn package_origin(&self) -> Option<PackageOrigin> {
         match self {
             Self::ImportAlias(_) => None,
-            Self::Schema(symbol) | Self::SchemaAlias(symbol) => symbol.package_origin,
+            Self::Schema(symbol) | Self::SchemaAlias(symbol) | Self::Handler(symbol) => {
+                symbol.package_origin
+            }
             Self::Function(symbol) => symbol.package_origin,
             Self::ModuleValue(symbol) => symbol.package_origin,
             Self::Type(symbol) => symbol.package_origin,
@@ -1109,6 +1111,8 @@ struct SchemaAliasModuleImports {
     external_imports_by_alias: BTreeMap<String, BTreeSet<(String, String)>>,
     valid_external_imports_by_module: BTreeMap<String, BTreeSet<(String, String)>>,
     valid_external_imports_by_alias: BTreeMap<String, BTreeSet<(String, String)>>,
+    handler_external_imports_by_module: BTreeMap<String, BTreeSet<(String, String)>>,
+    handler_external_imports_by_alias: BTreeMap<String, BTreeSet<(String, String)>>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1233,7 +1237,7 @@ pub(crate) struct SymbolIndex {
     package_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     variant_refinement_alias_index: OnceLock<VariantRefinementAliasIndex>,
     eligible_workspace_effect_indices: BTreeMap<(String, String), usize>,
-    eligible_workspace_handler_indices: BTreeMap<(String, String), usize>,
+    eligible_handler_indices: BTreeMap<ModuleMemberIdentity, usize>,
     eligible_workspace_effect_operation_indices: BTreeMap<(String, String, String), usize>,
     schema_composition_references: Vec<SchemaCompositionReference>,
     schema_alias_module_imports: BTreeMap<String, SchemaAliasModuleImports>,

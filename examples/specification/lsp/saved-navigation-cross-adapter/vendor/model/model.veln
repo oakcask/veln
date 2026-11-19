@@ -3,3 +3,7 @@ pub type Item
 end
 
 pub type Alias = Item
+
+pub handler execute() for Work
+  go() => 1
+end

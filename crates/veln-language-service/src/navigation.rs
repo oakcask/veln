@@ -29,6 +29,33 @@ thread_local! {
     static MODULE_VALUE_RENAME_FILE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static MODULE_VALUE_RENAME_TOKEN_COMPARISONS: Cell<usize> = const { Cell::new(0) };
     static MODULE_VALUE_RENAME_CANDIDATE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static HANDLER_ELIGIBILITY_SOURCE_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
+    static HANDLER_ELIGIBILITY_SOURCE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_handler_eligibility_source_index_entry() {
+    HANDLER_ELIGIBILITY_SOURCE_INDEX_ENTRIES
+        .set(HANDLER_ELIGIBILITY_SOURCE_INDEX_ENTRIES.get() + 1);
+}
+
+#[cfg(test)]
+fn record_handler_eligibility_source_lookup() {
+    HANDLER_ELIGIBILITY_SOURCE_LOOKUPS.set(HANDLER_ELIGIBILITY_SOURCE_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_handler_eligibility_index_work() {
+    HANDLER_ELIGIBILITY_SOURCE_INDEX_ENTRIES.set(0);
+    HANDLER_ELIGIBILITY_SOURCE_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn handler_eligibility_index_work() -> (usize, usize) {
+    (
+        HANDLER_ELIGIBILITY_SOURCE_INDEX_ENTRIES.get(),
+        HANDLER_ELIGIBILITY_SOURCE_LOOKUPS.get(),
+    )
 }
 
 #[cfg(test)]

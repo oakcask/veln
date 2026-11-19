@@ -419,7 +419,8 @@ impl SymbolIndex {
         self.handlers
             .iter()
             .find(|symbol| {
-                declaration_matches(
+                symbol.package.is_none()
+                    && declaration_matches(
                     name,
                     selection,
                     &symbol.name,
@@ -571,18 +572,69 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<NeutralSymbol> {
         let qualifier = qualifier_for_token(tokens, token_index);
-        let module = match &qualifier {
-            Some(qualifier) => match self.effect_qualified_workspace_module(file, qualifier) {
-                QualifiedWorkspaceModule::Workspace(module) => module,
-                QualifiedWorkspaceModule::Ambiguous
-                | QualifiedWorkspaceModule::External
-                | QualifiedWorkspaceModule::Unresolved => return None,
-            },
-            None => file.module.clone(),
+        let identity = match &qualifier {
+            Some(qualifier) => {
+                let qualifier_segments = qualifier.split("::").collect::<Vec<_>>();
+                if let Some(resolution) =
+                    indexed_qualified_import_resolution(file, &qualifier_segments)
+                {
+                    match resolution {
+                        QualifiedImportResolution::Resolved(target)
+                            if target.shared.package.is_some() =>
+                        {
+                            if target.consumed_segments != qualifier_segments.len() {
+                                return None;
+                            }
+                            let (module, package) = self
+                                .schema_alias_module_imports
+                                .get(&file.module)?
+                                .valid_handler_external_route(qualifier)?;
+                            (
+                                Some(package),
+                                Some(PackageOrigin::DirectDependency),
+                                module,
+                                name.to_string(),
+                            )
+                        }
+                        QualifiedImportResolution::Resolved(_) => {
+                            match self.effect_qualified_workspace_module(file, qualifier) {
+                                QualifiedWorkspaceModule::Workspace(module) => {
+                                    (None, None, module, name.to_string())
+                                }
+                                QualifiedWorkspaceModule::Ambiguous
+                                | QualifiedWorkspaceModule::External
+                                | QualifiedWorkspaceModule::Unresolved => return None,
+                            }
+                        }
+                        QualifiedImportResolution::Blocked => return None,
+                    }
+                } else {
+                    match self.effect_qualified_workspace_module(file, qualifier) {
+                        QualifiedWorkspaceModule::Workspace(module) => {
+                            (None, None, module, name.to_string())
+                        }
+                        QualifiedWorkspaceModule::External => {
+                            let (module, package) = self
+                                .schema_alias_module_imports
+                                .get(&file.module)?
+                                .valid_handler_external_route(qualifier)?;
+                            (
+                                Some(package),
+                                Some(PackageOrigin::DirectDependency),
+                                module,
+                                name.to_string(),
+                            )
+                        }
+                        QualifiedWorkspaceModule::Ambiguous
+                        | QualifiedWorkspaceModule::Unresolved => return None,
+                    }
+                }
+            }
+            None => (None, None, file.module.clone(), name.to_string()),
         };
         let candidate = self
-            .eligible_workspace_handler_indices
-            .get(&(module, name.to_string()))
+            .eligible_handler_indices
+            .get(&identity)
             .and_then(|index| self.handlers.get(*index))?;
         (qualifier.is_none() || candidate.public).then(|| candidate.clone())
     }
@@ -636,8 +688,12 @@ impl SymbolIndex {
                 clause.span.start.offset == token.range.start
                     && clause.span.end.offset == token.range.end
             })?;
-        self.eligible_workspace_handler_indices
-            .get(&(file.module.clone(), clause.handler_name.clone()))?;
+        self.eligible_handler_indices.get(&(
+            None,
+            None,
+            file.module.clone(),
+            clause.handler_name.clone(),
+        ))?;
         self.unique_workspace_effect_operation(
             &file.module,
             &clause.effect_name,

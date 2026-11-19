@@ -566,6 +566,20 @@ fn is_handler_reference_token(file: &IndexedFile, index: usize) -> bool {
             .contains(&(token.range.start, token.range.end))
 }
 
+fn is_handler_application_leaf_candidate(tokens: &[Token], index: usize) -> bool {
+    let mut root = index;
+    while let Some(previous) = previous_path_segment_index(tokens, root) {
+        root = previous;
+    }
+    tokens
+        .get(index)
+        .is_some_and(|token| token.kind == TokenKind::Ident)
+        && previous_non_layout_token(tokens, root)
+            .is_some_and(|token| token.kind == TokenKind::With)
+        && next_non_layout_token(tokens, index)
+            .is_some_and(|token| token.kind == TokenKind::LParen)
+}
+
 fn is_handler_operation_clause_call_target(tokens: &[Token], index: usize) -> bool {
     is_call_target_token(tokens, index)
         && inside_handler_operation_clause_body(tokens, tokens[index].range.start)

@@ -1,5 +1,105 @@
 use super::*;
+use crate::check_project::{project_analyses, reset_project_analyses};
 use std::path::Path;
+
+#[test]
+fn repeated_definition_requests_reuse_unchanged_project_analysis() {
+    let workspace = TempWorkspace::new("definition-analysis-reuse");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn helper() -> Int\n  1\nend\n\nfn main() -> Int\n  helper()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    reset_project_analyses();
+
+    for _ in 0..2 {
+        let result = server.definition_tool(&json!({
+            "source": "main.veln",
+            "line": 6,
+            "column": 4
+        }));
+        assert_eq!(result["isError"], false, "{result:#}");
+    }
+
+    assert_eq!(project_analyses(), 1);
+}
+
+#[test]
+fn definition_and_initial_references_share_unchanged_project_analysis() {
+    let workspace = TempWorkspace::new("navigation-analysis-reuse");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn helper() -> Int\n  1\nend\n\nfn main() -> Int\n  helper()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    reset_project_analyses();
+
+    let definition = server.definition_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 4
+    }));
+    assert_eq!(definition["isError"], false, "{definition:#}");
+    let references = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 4
+    }));
+    assert_eq!(references["isError"], false, "{references:#}");
+    let repeated_definition = server.definition_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 4
+    }));
+    assert_eq!(
+        repeated_definition["isError"], false,
+        "{repeated_definition:#}"
+    );
+    let repeated_references = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 4
+    }));
+    assert_eq!(
+        repeated_references["isError"], false,
+        "{repeated_references:#}"
+    );
+
+    assert_eq!(project_analyses(), 1);
+}
+
+#[test]
+fn definition_reanalyzes_a_changed_project_capture() {
+    let workspace = TempWorkspace::new("definition-analysis-change");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn helper() -> Int\n  1\nend\n\nfn main() -> Int\n  helper()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    reset_project_analyses();
+
+    let first = server.definition_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 4
+    }));
+    assert_eq!(first["isError"], false, "{first:#}");
+    workspace.write(
+        "main.veln",
+        "fn helper() -> Int\n  2\nend\n\nfn main() -> Int\n  helper()\nend\n",
+    );
+    let changed = server.definition_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 4
+    }));
+    assert_eq!(changed["isError"], false, "{changed:#}");
+
+    assert_eq!(project_analyses(), 2);
+}
 
 #[test]
 fn definition_resolves_the_supported_workspace_symbol_set() {

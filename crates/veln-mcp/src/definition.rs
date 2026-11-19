@@ -7,9 +7,13 @@ use veln_language_service::{NavigationSource, SourcePosition, definition_at};
 use veln_source::SourcePath;
 
 use crate::check_project::{
-    CaptureCache, capture_navigation_source, transition_navigation_analysis,
+    CaptureCache, CapturedProject, NavigationAnalysis, analyze_navigation_capture,
+    capture_navigation_source, commit_cached_navigation_analysis, commit_navigation_analysis,
+    navigation_analysis_is_cached,
 };
-use crate::language_resources::LanguageResources;
+use crate::language_resources::{
+    DependencyAnalysisScope, LanguageResources, NavigationSourceAnalysis,
+};
 use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{Selection, WorkspaceBase};
 
@@ -17,6 +21,16 @@ use crate::workspace::{Selection, WorkspaceBase};
 pub(crate) enum Coordinate {
     Addressable(usize),
     OutOfRange,
+}
+
+struct DefinitionCapture {
+    captured: CapturedProject,
+    analysis_scope: DependencyAnalysisScope,
+    source_path: SourcePath,
+    root: std::path::PathBuf,
+    analysis: Option<NavigationAnalysis>,
+    line: usize,
+    column: usize,
 }
 
 pub(crate) fn definition(
@@ -37,42 +51,66 @@ pub(crate) fn definition(
             Err(failure) => return failure,
         };
     let root = captured.project.root.clone();
-    if let Err(error) = transition_navigation_analysis(
-        &captured,
-        scope.dependency_analysis_scope(),
-        language_resources,
-    ) {
-        return error.into();
-    }
+    let analysis_scope = scope.dependency_analysis_scope();
+    let analysis = (!navigation_analysis_is_cached(&captured, &analysis_scope, language_resources))
+        .then(|| analyze_navigation_capture(&captured));
     let source_path = SourcePath::new(captured_source);
     let selected_source = language_resources.navigation_source_text(
         &captured.project.files,
         &captured.dependencies,
-        &scope.dependency_analysis_scope(),
+        &analysis_scope,
         &source_path,
+        navigation_source_analysis(analysis.as_ref()),
     );
-    if selected_source
-        .as_deref()
-        .is_some_and(|text| !valid_position(text, line, column))
-    {
-        return domain_failure(
-            "invalid_position",
-            "position is outside the selected source",
-            json!({"source": source, "line": arguments["line"].clone(), "column": arguments["column"].clone()}),
-        );
-    }
-    let (Coordinate::Addressable(line), Coordinate::Addressable(column)) = (line, column) else {
-        return domain_failure(
-            "invalid_position",
-            "position is outside the selected source",
-            json!({"source": source, "line": arguments["line"].clone(), "column": arguments["column"].clone()}),
-        );
+    let (line, column) = match validated_position(selected_source.as_deref(), line, column) {
+        Some(position) => position,
+        None => return invalid_position(arguments, source),
     };
+    finish_definition(
+        DefinitionCapture {
+            captured,
+            analysis_scope,
+            source_path,
+            root,
+            analysis,
+            line,
+            column,
+        },
+        language_resources,
+    )
+}
+
+fn navigation_source_analysis(analysis: Option<&NavigationAnalysis>) -> NavigationSourceAnalysis {
+    match analysis {
+        Some(analysis) if analysis.publication_failed() => NavigationSourceAnalysis::FreshRejected,
+        Some(_) => NavigationSourceAnalysis::FreshAccepted,
+        None => NavigationSourceAnalysis::Cached,
+    }
+}
+
+fn finish_definition(
+    capture: DefinitionCapture,
+    language_resources: &mut LanguageResources,
+) -> ToolOutcome {
+    let DefinitionCapture {
+        captured,
+        analysis_scope,
+        source_path,
+        root,
+        analysis,
+        line,
+        column,
+    } = capture;
+    if let Err(failure) =
+        commit_definition_analysis(&captured, &analysis_scope, language_resources, analysis)
+    {
+        return failure;
+    }
     let workspace_key = captured.key;
     let snapshot = match language_resources.navigation_snapshot(
         captured.project.files,
         &captured.dependencies,
-        scope.dependency_analysis_scope(),
+        analysis_scope,
         workspace_key,
     ) {
         Ok(snapshot) => snapshot,
@@ -86,30 +124,80 @@ pub(crate) fn definition(
             column,
         },
     );
-    let definition = result.map(|definition| {
-        let uri = match &definition.source {
-            NavigationSource::Workspace => path_to_uri(&root.join(definition.span.file.as_str())),
-            NavigationSource::Package { uri } => uri.clone(),
-        };
-        let mut location = json!({
-            "uri": uri,
-            "range": {
-                "start": {
-                    "line": definition.span.start.line,
-                    "column": definition.span.start.column
-                },
-                "end": {
-                    "line": definition.span.end.line,
-                    "column": definition.span.end.column
-                }
-            }
-        });
-        if let Some(uri) = language_resources.package_documentation_uri_for(&definition) {
-            location["packageDocumentationUri"] = json!(uri);
-        }
-        location
-    });
+    let definition = result
+        .as_ref()
+        .map(|definition| definition_location(&root, language_resources, definition));
     ToolOutcome::Success(json!({"definition": definition}))
+}
+
+fn validated_position(
+    selected_source: Option<&str>,
+    line: Coordinate,
+    column: Coordinate,
+) -> Option<(usize, usize)> {
+    if selected_source.is_some_and(|text| !valid_position(text, line, column)) {
+        return None;
+    }
+    match (line, column) {
+        (Coordinate::Addressable(line), Coordinate::Addressable(column)) => Some((line, column)),
+        _ => None,
+    }
+}
+
+fn invalid_position(arguments: &Value, source: &str) -> ToolOutcome {
+    domain_failure(
+        "invalid_position",
+        "position is outside the selected source",
+        json!({"source": source, "line": arguments["line"].clone(), "column": arguments["column"].clone()}),
+    )
+}
+
+fn commit_definition_analysis(
+    captured: &CapturedProject,
+    analysis_scope: &DependencyAnalysisScope,
+    language_resources: &mut LanguageResources,
+    analysis: Option<NavigationAnalysis>,
+) -> Result<(), ToolOutcome> {
+    if let Some(analysis) = analysis {
+        commit_navigation_analysis(
+            captured,
+            analysis_scope.clone(),
+            language_resources,
+            analysis,
+        )
+        .map_err(Into::into)
+    } else {
+        commit_cached_navigation_analysis(captured, analysis_scope, language_resources);
+        Ok(())
+    }
+}
+
+fn definition_location(
+    root: &Path,
+    language_resources: &LanguageResources,
+    definition: &veln_language_service::NavigationLocation,
+) -> Value {
+    let uri = match &definition.source {
+        NavigationSource::Workspace => path_to_uri(&root.join(definition.span.file.as_str())),
+        NavigationSource::Package { uri } => uri.clone(),
+    };
+    let mut location = json!({
+        "uri": uri,
+        "range": {
+            "start": {
+                "line": definition.span.start.line,
+                "column": definition.span.start.column
+            },
+            "end": {
+                "line": definition.span.end.line,
+                "column": definition.span.end.column
+            }
+        }
+    });
+    if let Some(uri) = language_resources.package_documentation_uri_for(definition) {
+        location["packageDocumentationUri"] = json!(uri);
+    }
+    location
 }
 
 pub(crate) fn coordinate(value: &Value) -> Coordinate {

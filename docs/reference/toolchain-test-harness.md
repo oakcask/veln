@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The standard-library test placement policy, CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, binary-fixture schema-reference resolution, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture command timeout or process-tree termination behavior, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
+update-when: The standard-library test placement policy, CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, binary-fixture schema-reference resolution, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture command timeout or process-tree termination behavior, fixture diagnostics, semantic case baseline, saved-navigation cross-adapter conformance contract or executable evidence, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -405,7 +405,10 @@ ordering, and UTF-16 coordinates.
 The `saved-navigation-cross-adapter` LSP specification case uses decoded
 assertions for direct `params.position` validation, invalid-coordinate errors,
 empty rename edits for invalid names, and successful navigation repeated after
-failed requests.
+failed requests. Its paired LSP/MCP conformance harness also normalizes a
+retained direct-dependency handler definition and reference set, checks LSP
+package-declaration exclusion, and collects one declaration from paginated MCP
+references when inclusion is requested.
 The `module-value-navigation-boundaries` LSP specification case uses decoded
 assertions for qualified lexical-shadowing selection, retained-dependency
 bare-export conflicts, and declaring-module import precedence.
@@ -519,6 +522,10 @@ pagination.
 The `references-workspace-imported-handler` MCP specification case extends
 that model with imported handler definition, full-path and unique implicit
 leaf-alias applications, handler-name-only ranges, and continuation
+pagination.
+The `references-direct-dependency-handler` MCP specification case uses decoded
+assertions for the canonical retained package definition, workspace-only
+handler references, declaration exclusion, and declaration-inclusive cursor
 pagination.
 The `references-workspace-schema-composition` MCP specification case uses the
 same decoded assertion model for canonical reference locations, empty boundary

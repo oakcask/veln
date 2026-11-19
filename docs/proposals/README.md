@@ -16,10 +16,6 @@ also states it.
 
 ## Ready
 
-- Navigation for public handlers from retained direct dependencies, including
-  shared definition and selected-project reference results through LSP and
-  MCP:
-  [direct-dependency-handler-navigation.md](direct-dependency-handler-navigation.md).
 - Lightweight task execution using JVM virtual threads, with Java 25,
   per-invocation drain/cancel lifetime, wait-boundary progress, and controlled
   adoption budgets:
@@ -38,9 +34,8 @@ also states it.
 
 - The [agent-language-services umbrella](agent-language-services.md) remains a
   planning inventory only for the unimplemented transitive-dependency,
-  remaining symbol, conformance-gate, and plugin work. The independently
-  selectable direct-dependency handler slice is listed under Ready; do not
-  select the umbrella directly.
+  remaining symbol, conformance-gate, and plugin work. Do not select the
+  umbrella directly.
 
 ## Scope Decisions
 

@@ -64,12 +64,12 @@ fn analyze_project(
 }
 
 #[cfg(test)]
-fn reset_project_analyses() {
+pub(crate) fn reset_project_analyses() {
     PROJECT_ANALYSES.set(0);
 }
 
 #[cfg(test)]
-fn project_analyses() -> usize {
+pub(crate) fn project_analyses() -> usize {
     PROJECT_ANALYSES.get()
 }
 
@@ -136,8 +136,20 @@ pub(crate) fn transition_navigation_analysis(
     if language_resources.reuse_analyzed_capture(&analysis_scope, captured.analysis_key) {
         return Ok(());
     }
-    let diagnostics = analyze_project(captured.project.clone(), captured.dependencies.clone());
-    if diagnostics.iter().any(is_publication_failure_diagnostic) {
+    let analysis = analyze_navigation_capture(captured);
+    commit_navigation_analysis(captured, analysis_scope, language_resources, analysis)
+}
+
+pub(crate) fn commit_navigation_analysis(
+    captured: &CapturedProject,
+    analysis_scope: DependencyAnalysisScope,
+    language_resources: &mut LanguageResources,
+    analysis: NavigationAnalysis,
+) -> Result<(), crate::language_resources::ResourceCapacityError> {
+    if language_resources.reuse_analyzed_capture(&analysis_scope, captured.analysis_key) {
+        return Ok(());
+    }
+    if analysis.publication_failed {
         language_resources
             .reject_dependency_analysis(analysis_scope.clone(), &captured.dependencies);
     } else {
@@ -149,6 +161,40 @@ pub(crate) fn transition_navigation_analysis(
     }
     language_resources.record_analyzed_capture(&analysis_scope, captured.analysis_key);
     Ok(())
+}
+
+pub(crate) fn navigation_analysis_is_cached(
+    captured: &CapturedProject,
+    analysis_scope: &DependencyAnalysisScope,
+    language_resources: &LanguageResources,
+) -> bool {
+    language_resources.has_analyzed_capture(analysis_scope, captured.analysis_key)
+}
+
+pub(crate) fn commit_cached_navigation_analysis(
+    captured: &CapturedProject,
+    analysis_scope: &DependencyAnalysisScope,
+    language_resources: &mut LanguageResources,
+) {
+    let reused = language_resources.reuse_analyzed_capture(analysis_scope, captured.analysis_key);
+    debug_assert!(reused, "cached navigation analysis must remain retained");
+}
+
+pub(crate) struct NavigationAnalysis {
+    publication_failed: bool,
+}
+
+pub(crate) fn analyze_navigation_capture(captured: &CapturedProject) -> NavigationAnalysis {
+    let diagnostics = analyze_project(captured.project.clone(), captured.dependencies.clone());
+    NavigationAnalysis {
+        publication_failed: diagnostics.iter().any(is_publication_failure_diagnostic),
+    }
+}
+
+impl NavigationAnalysis {
+    pub(crate) fn publication_failed(&self) -> bool {
+        self.publication_failed
+    }
 }
 
 fn is_publication_failure_diagnostic(diagnostic: &veln_diagnostics::Diagnostic) -> bool {

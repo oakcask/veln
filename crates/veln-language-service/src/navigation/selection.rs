@@ -68,6 +68,9 @@ impl SymbolIndex {
                 .map(Symbol::Handler)
                 .map(SelectedNavigationSymbol::bare);
         }
+        if is_handler_application_leaf_candidate(tokens, token_index) {
+            return None;
+        }
         self.declaration_symbol_for_selection(file, tokens, token_index, name, selection)
             .or_else(|| self.bare_nullary_constructor_pattern_symbol(file, tokens, token_index, name))
             .or_else(|| {

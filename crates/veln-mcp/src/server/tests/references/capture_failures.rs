@@ -1,4 +1,5 @@
 use super::*;
+use crate::server::tests::dependency_resources::fill_dependency_resource_capacity_completely;
 use std::cell::Cell;
 use std::path::Path;
 use std::rc::Rc;
@@ -527,6 +528,316 @@ fn workspace_handler_reference_capture_failure_preserves_state_and_later_results
             }
         })
     );
+}
+
+#[test]
+fn direct_dependency_handler_capture_failure_preserves_resources_and_cursor() {
+    let workspace = TempWorkspace::new("references-dependency-handler-capture-retry");
+    write_retained_handler_project(&workspace);
+    let mut server = initialized_server(&workspace);
+    let (live_cursor, before_resources, before_selection) =
+        dependency_handler_capture_state(&mut server);
+    let attempts = Rc::new(Cell::new(0usize));
+    let attempts_for_hook = attempts.clone();
+    let dependency_source = workspace.path("vendor/dep/dep.veln");
+    let hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        fs::remove_file(&dependency_source).unwrap();
+        let value = if attempt.is_multiple_of(2) { 2 } else { 1 };
+        fs::write(
+            &dependency_source,
+            format!("pub handler run() for Work\n  go() => {value}\nend\n"),
+        )
+        .unwrap();
+    });
+
+    let failed = server.references_tool(&json!({
+        "source":"main.veln", "line":8, "column":22,
+        "include_declaration":true
+    }));
+    assert_dependency_handler_capture_failure(
+        &mut server,
+        &failed,
+        attempts.get(),
+        &before_resources,
+        &before_selection,
+        &live_cursor,
+    );
+    drop(hook);
+}
+
+fn dependency_handler_capture_state(server: &mut Server) -> (String, Value, Value) {
+    let first_page = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":22,
+        "include_declaration":true, "page_size":1
+    }));
+    let live_cursor = first_page["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    (
+        live_cursor,
+        all_resource_state(server),
+        server.selection_result(),
+    )
+}
+
+fn assert_dependency_handler_capture_failure(
+    server: &mut Server,
+    failed: &Value,
+    attempts: usize,
+    before_resources: &Value,
+    before_selection: &Value,
+    live_cursor: &str,
+) {
+    assert_snapshot_changed_without_references_or_scope(failed);
+    assert_eq!(attempts, 3);
+    assert_eq!(&all_resource_state(server), before_resources);
+    assert_eq!(&server.selection_result(), before_selection);
+    let continuation = server.references_tool(&json!({"cursor":live_cursor}));
+    assert_eq!(continuation["isError"], false);
+    assert_eq!(
+        continuation["structuredContent"]["references"][0]["range"],
+        json!({"start":{"line":8,"column":22},"end":{"line":8,"column":25}})
+    );
+}
+
+fn write_retained_handler_project(workspace: &TempWorkspace) {
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub handler run() for Work\n  go() => 1\nend\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn first() -> Int\n  handle 1 with dep::run()\nend\n\n",
+            "fn second() -> Int\n  handle 2 with dep::run()\nend\n",
+        ),
+    );
+}
+
+fn package_source_read(server: &mut Server, uri: &str, id: &str) -> Value {
+    server
+        .handle_request(json!({
+            "jsonrpc":"2.0", "id":id, "method":"resources/read", "params":{"uri":uri}
+        }))
+        .unwrap()
+}
+
+fn accepted_handler_definition_uri(server: &mut Server) -> String {
+    server.definition_tool(&json!({"source":"main.veln", "line":4, "column":22}))
+        ["structuredContent"]["definition"]["uri"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+#[test]
+fn rejected_dependency_handler_refresh_preserves_retained_state_and_cursor() {
+    let workspace = TempWorkspace::new("references-dependency-handler-rejected-refresh");
+    write_retained_handler_project(&workspace);
+    let mut server = initialized_server(&workspace);
+    let accepted_references = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":22,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        accepted_references["isError"], false,
+        "{accepted_references:#}"
+    );
+    let cursor = live_reference_cursor(&mut server, "main.veln", 4, 22);
+    let definition_uri = accepted_handler_definition_uri(&mut server);
+    let definition_read = package_source_read(&mut server, &definition_uri, "accepted-handler");
+    let resources = all_resource_state(&mut server);
+    let selection = server.selection_result();
+
+    workspace.write(
+        "vendor/dep/dep.veln",
+        concat!(
+            "pub handler run() for Work\n  go() => 2\nend\n\n",
+            "fn effectful() -> () effects [stdio]\n  stdio::println(\"blocked\")\nend\n",
+            "fn rejected() -> ()\n  let pure: fn() -> () = effectful\nend\n",
+        ),
+    );
+    let rejected = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(rejected["isError"], false, "{rejected:#}");
+    assert!(rejected.to_string().contains("effect_set"), "{rejected:#}");
+    assert_eq!(all_resource_state(&mut server), resources);
+    assert_eq!(
+        package_source_read(&mut server, &definition_uri, "retained-handler")["result"],
+        definition_read["result"]
+    );
+    assert_eq!(server.selection_result(), selection);
+    assert_eq!(
+        server.references_tool(&json!({
+            "source":"main.veln", "line":4, "column":22,
+            "include_declaration":true
+        })),
+        accepted_references
+    );
+    assert_live_reference_cursor(&mut server, &cursor);
+}
+
+#[test]
+fn definition_admits_repaired_capture_after_retained_rejection() {
+    let workspace = TempWorkspace::new("definition-dependency-handler-repaired-capture");
+    write_retained_handler_project(&workspace);
+    let mut server = initialized_server(&workspace);
+    let retained_uri = accepted_handler_definition_uri(&mut server);
+    let retained_read = package_source_read(&mut server, &retained_uri, "retained-before-repair");
+    let cursor = live_reference_cursor(&mut server, "main.veln", 4, 22);
+    reject_retained_handler_capture(&workspace, &mut server);
+    write_repaired_handler_capture(&workspace);
+
+    let repaired = server.definition_tool(&json!({
+        "source":"main.veln", "line":12, "column":22
+    }));
+
+    assert_eq!(repaired["isError"], false, "{repaired:#}");
+    let repaired_uri = repaired["structuredContent"]["definition"]["uri"]
+        .as_str()
+        .unwrap();
+    assert_ne!(repaired_uri, retained_uri);
+    assert!(
+        package_source_read(&mut server, repaired_uri, "repaired-definition")["result"]
+            .to_string()
+            .contains("go() => 3")
+    );
+    assert_eq!(
+        package_source_read(&mut server, &retained_uri, "retained-after-repair")["result"],
+        retained_read["result"]
+    );
+    assert_live_reference_cursor(&mut server, &cursor);
+}
+
+#[test]
+fn initial_references_admit_repaired_capture_after_retained_rejection() {
+    let workspace = TempWorkspace::new("references-dependency-handler-repaired-capture");
+    write_retained_handler_project(&workspace);
+    let mut server = initialized_server(&workspace);
+    let retained_uri = accepted_handler_definition_uri(&mut server);
+    let retained_read = package_source_read(&mut server, &retained_uri, "retained-before-repair");
+    let cursor = live_reference_cursor(&mut server, "main.veln", 4, 22);
+    reject_retained_handler_capture(&workspace, &mut server);
+    write_repaired_handler_capture(&workspace);
+
+    let repaired = server.references_tool(&json!({
+        "source":"main.veln", "line":12, "column":22,
+        "include_declaration":true
+    }));
+
+    assert_eq!(repaired["isError"], false, "{repaired:#}");
+    let references = repaired["structuredContent"]["references"]
+        .as_array()
+        .unwrap();
+    assert_eq!(references.len(), 4, "{repaired:#}");
+    assert_eq!(
+        references
+            .iter()
+            .filter(|location| location["uri"].as_str().unwrap().starts_with("veln-pkg:"))
+            .count(),
+        1
+    );
+    assert!(
+        references
+            .iter()
+            .any(|location| { location["range"]["start"] == json!({"line":12,"column":22}) })
+    );
+    let repaired_uri = references
+        .iter()
+        .find_map(|location| {
+            location["uri"]
+                .as_str()
+                .filter(|uri| uri.starts_with("veln-pkg:"))
+        })
+        .unwrap();
+    assert_ne!(repaired_uri, retained_uri);
+    assert_eq!(
+        package_source_read(&mut server, &retained_uri, "retained-after-repair")["result"],
+        retained_read["result"]
+    );
+    assert_live_reference_cursor(&mut server, &cursor);
+}
+
+fn reject_retained_handler_capture(workspace: &TempWorkspace, server: &mut Server) {
+    workspace.write(
+        "vendor/dep/dep.veln",
+        concat!(
+            "pub handler run() for Work\n  go() => 2\nend\n\n",
+            "fn effectful() -> () effects [stdio]\n  stdio::println(\"blocked\")\nend\n",
+            "fn rejected() -> ()\n  let pure: fn() -> () = effectful\nend\n",
+        ),
+    );
+    let rejected = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(rejected["isError"], false, "{rejected:#}");
+    assert!(rejected.to_string().contains("effect_set"), "{rejected:#}");
+}
+
+fn write_repaired_handler_capture(workspace: &TempWorkspace) {
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub handler run() for Work\n  go() => 3\nend\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn first() -> Int\n  handle 1 with dep::run()\nend\n\n",
+            "fn second() -> Int\n  handle 2 with dep::run()\nend\n\n",
+            "fn repaired() -> Int\n  handle 3 with dep::run()\nend\n",
+        ),
+    );
+}
+
+#[test]
+fn dependency_handler_resource_capacity_failure_preserves_retained_state_and_cursor() {
+    let workspace = TempWorkspace::new("references-dependency-handler-resource-capacity");
+    write_retained_handler_project(&workspace);
+    let mut server = initialized_server(&workspace);
+    let accepted_references = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":22,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        accepted_references["isError"], false,
+        "{accepted_references:#}"
+    );
+    let cursor = live_reference_cursor(&mut server, "main.veln", 4, 22);
+    let definition_uri = accepted_handler_definition_uri(&mut server);
+    let definition_read = package_source_read(&mut server, &definition_uri, "accepted-handler");
+    fill_dependency_resource_capacity_completely(&mut server);
+    let resources = all_resource_state(&mut server);
+    let selection = server.selection_result();
+
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub handler run() for Work\n  go() => 2\nend\n",
+    );
+    let failed = server.references_tool(&json!({
+        "source":"main.veln", "line":8, "column":22,
+        "include_declaration":true
+    }));
+    assert_eq!(failed["isError"], true, "{failed:#}");
+    assert_eq!(failed["structuredContent"]["code"], "resource_capacity");
+    assert!(failed["structuredContent"].get("references").is_none());
+    assert!(failed["structuredContent"].get("scope").is_none());
+    assert_eq!(all_resource_state(&mut server), resources);
+    assert_eq!(
+        package_source_read(&mut server, &definition_uri, "retained-handler")["result"],
+        definition_read["result"]
+    );
+    assert_eq!(server.selection_result(), selection);
+    assert_live_reference_cursor(&mut server, &cursor);
 }
 
 fn write_workspace_handler_capture_project(workspace: &TempWorkspace) {

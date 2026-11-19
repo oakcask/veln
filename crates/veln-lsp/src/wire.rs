@@ -533,7 +533,7 @@ pub(crate) fn references_json(
         ) | (
             SymbolKind::ModuleValue,
             Some(PackageOrigin::DirectDependency),
-        )
+        ) | (SymbolKind::Handler, Some(PackageOrigin::DirectDependency),)
     ) && matches!(
         result.selected_symbol.declaration_kind,
         SymbolDeclarationKind::Declaration | SymbolDeclarationKind::PublicAlias
