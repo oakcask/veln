@@ -465,4 +465,5 @@ entry selection and execution are implemented in
 route for the envelope and projections. The
 [`java-25-execution-baseline`](../../examples/specification/run/java-25-execution-baseline/)
 case checks the passed envelope when a real Java 25-or-newer runtime loads and
-executes a generated Java 25 classfile.
+executes a generated classfile. Backend tests check the generated classfile's
+Java 25 major version separately.

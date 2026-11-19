@@ -703,7 +703,7 @@ pub(crate) fn exit_code_from_status(status: ExitStatus) -> ExitCode {
 }
 
 fn missing_java_message(command_name: &str) -> String {
-    format!("veln: `java` was not found; install a JDK to use `{command_name}`")
+    format!("veln: `java` was not found; install JDK 25 or newer to use `{command_name}`")
 }
 
 #[cfg(test)]

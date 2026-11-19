@@ -48,7 +48,7 @@ fn jvm_runner_reports_missing_java_launcher() {
         JvmRunResult::ToolError(message) => {
             assert_eq!(
                 message,
-                "veln: `java` was not found; install a JDK to use `veln run`"
+                "veln: `java` was not found; install JDK 25 or newer to use `veln run`"
             );
         }
         JvmRunResult::Ran(_) => panic!("missing launcher should not run"),
