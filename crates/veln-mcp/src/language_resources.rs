@@ -1013,6 +1013,7 @@ impl LanguageResources {
         captured_dependencies: &[CapturedDependencyProject],
         analysis_scope: &DependencyAnalysisScope,
         source: &veln_source::SourcePath,
+        reject_captured_analysis: bool,
     ) -> Option<String> {
         let find_source = |files: &[veln_source::SourceFile]| {
             files
@@ -1020,6 +1021,13 @@ impl LanguageResources {
                 .find(|file| file.path() == source)
                 .map(|file| file.text().to_string())
         };
+        if reject_captured_analysis {
+            return self
+                .analysis_scopes
+                .get(analysis_scope)
+                .and_then(|state| state.accepted.as_ref())
+                .and_then(|accepted| find_source(&accepted.workspace_files));
+        }
         match self.dependency_analysis_selection(analysis_scope, captured_dependencies) {
             DependencyAnalysisSelection::Admitted(_) | DependencyAnalysisSelection::Unanalyzed => {
                 find_source(files)

@@ -573,26 +573,63 @@ impl SymbolIndex {
     ) -> Option<NeutralSymbol> {
         let qualifier = qualifier_for_token(tokens, token_index);
         let identity = match &qualifier {
-            Some(qualifier) => match self.effect_qualified_workspace_module(file, qualifier) {
-                QualifiedWorkspaceModule::Workspace(module) => {
-                    (None, None, module, name.to_string())
+            Some(qualifier) => {
+                let qualifier_segments = qualifier.split("::").collect::<Vec<_>>();
+                if let Some(resolution) =
+                    indexed_qualified_import_resolution(file, &qualifier_segments)
+                {
+                    match resolution {
+                        QualifiedImportResolution::Resolved(target)
+                            if target.shared.package.is_some() =>
+                        {
+                            if target.consumed_segments != qualifier_segments.len() {
+                                return None;
+                            }
+                            let (module, package) = self
+                                .schema_alias_module_imports
+                                .get(&file.module)?
+                                .valid_external_route(qualifier)?;
+                            (
+                                Some(package),
+                                Some(PackageOrigin::DirectDependency),
+                                module,
+                                name.to_string(),
+                            )
+                        }
+                        QualifiedImportResolution::Resolved(_) => {
+                            match self.effect_qualified_workspace_module(file, qualifier) {
+                                QualifiedWorkspaceModule::Workspace(module) => {
+                                    (None, None, module, name.to_string())
+                                }
+                                QualifiedWorkspaceModule::Ambiguous
+                                | QualifiedWorkspaceModule::External
+                                | QualifiedWorkspaceModule::Unresolved => return None,
+                            }
+                        }
+                        QualifiedImportResolution::Blocked => return None,
+                    }
+                } else {
+                    match self.effect_qualified_workspace_module(file, qualifier) {
+                        QualifiedWorkspaceModule::Workspace(module) => {
+                            (None, None, module, name.to_string())
+                        }
+                        QualifiedWorkspaceModule::External => {
+                            let (module, package) = self
+                                .schema_alias_module_imports
+                                .get(&file.module)?
+                                .valid_external_route(qualifier)?;
+                            (
+                                Some(package),
+                                Some(PackageOrigin::DirectDependency),
+                                module,
+                                name.to_string(),
+                            )
+                        }
+                        QualifiedWorkspaceModule::Ambiguous
+                        | QualifiedWorkspaceModule::Unresolved => return None,
+                    }
                 }
-                QualifiedWorkspaceModule::External => {
-                    let (module, package) = self
-                        .schema_alias_module_imports
-                        .get(&file.module)?
-                        .valid_external_route(qualifier)?;
-                    (
-                        Some(package),
-                        Some(PackageOrigin::DirectDependency),
-                        module,
-                        name.to_string(),
-                    )
-                }
-                QualifiedWorkspaceModule::Ambiguous | QualifiedWorkspaceModule::Unresolved => {
-                    return None;
-                }
-            },
+            }
             None => (None, None, file.module.clone(), name.to_string()),
         };
         let candidate = self

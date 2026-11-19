@@ -603,6 +603,15 @@ mod navigation_handler_references_tests {
                 "run",
             ),
             (
+                "duplicate with private declaration",
+                concat!(
+                    "pub handler run() for Work\n  go() => 1\nend\n\n",
+                    "handler run() for Work\n  go() => 2\nend\n",
+                ),
+                vec!["dep.veln"],
+                "run",
+            ),
+            (
                 "recovered",
                 "pub handler run() for Work @\n  go() => 1\nend\n",
                 vec!["dep.veln"],
@@ -633,6 +642,34 @@ mod navigation_handler_references_tests {
                 &expected,
             );
         }
+    }
+
+    #[test]
+    fn direct_dependency_handler_survives_unrelated_package_parse_error() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                "use dep from \"example/dep\"\n\nfn valid() -> Int\n  handle 1 with dep::run()\nend\n",
+            )],
+            vec![dependency_snapshot(
+                "example/dep",
+                &[(
+                    "dep.veln",
+                    concat!(
+                        "pub handler run() for Work\n  go() => 1\nend\n\n",
+                        "fn broken() -> Int\n  @\nend\n",
+                    ),
+                )],
+                ["dep.veln"],
+            )],
+        );
+        let result = query_snapshot(&snapshot, "main.veln", 4, 22).unwrap();
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Handler);
+        assert_eq!(locations(&result.references), [("main.veln", 4, 22)]);
+        assert!(matches!(
+            result.definition.source,
+            NavigationSource::Package { .. }
+        ));
     }
 
     #[test]
@@ -686,6 +723,16 @@ mod navigation_handler_references_tests {
             (
                 "duplicate import",
                 "use dep from \"stable/pkg\"\nuse dep from \"stable/pkg\"\n",
+                "dep::run()",
+            ),
+            (
+                "duplicate target through distinct alias",
+                "use dep as first from \"stable/pkg\"\nuse dep as second from \"stable/pkg\"\n",
+                "first::run()",
+            ),
+            (
+                "duplicate target through full path",
+                "use dep as first from \"stable/pkg\"\nuse dep as second from \"stable/pkg\"\n",
                 "dep::run()",
             ),
             (

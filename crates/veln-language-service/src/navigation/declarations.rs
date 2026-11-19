@@ -236,11 +236,54 @@ fn handler_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<NeutralS
             SyntaxItem::Handler(handler) => {
                 let name = handler.name.as_ref()?;
                 let span = declaration_name_after_keyword(file, TokenKind::Handler, &handler.span)?;
-                neutral_declaration(file, name, span, handler.visibility)
+                handler_declaration(file, name, span, handler.visibility)
             }
             _ => None,
         })
         .collect()
+}
+
+fn handler_declaration(
+    file: &IndexedFile,
+    name: &str,
+    span: SourceSpan,
+    visibility: Visibility,
+) -> Option<NeutralSymbol> {
+    let public = visibility == Visibility::Public;
+    let (declaration, package, package_origin) = match &file.origin {
+        IndexedOrigin::Workspace => (workspace_location(span), None, None),
+        IndexedOrigin::Package {
+            identity,
+            uri,
+            exported: true,
+            standard_library,
+        } => (
+            NavigationLocation {
+                source: NavigationSource::Package { uri: uri.clone() },
+                span,
+            },
+            Some(identity.clone()),
+            Some(package_origin(*standard_library)),
+        ),
+        IndexedOrigin::Package { .. } => return None,
+    };
+    Some(NeutralSymbol {
+        module: file.module.clone(),
+        name: name.to_string(),
+        declaration,
+        package,
+        package_origin,
+        public,
+        standard_prelude: matches!(
+            &file.origin,
+            IndexedOrigin::Package {
+                standard_library: true,
+                ..
+            }
+        ) && file.module == "prelude",
+        alias_target_module: None,
+        alias_target_name: None,
+    })
 }
 
 fn effect_operation_declarations(

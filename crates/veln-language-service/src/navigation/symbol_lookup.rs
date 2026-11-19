@@ -1200,7 +1200,7 @@ impl SchemaAliasModuleImports {
     fn index_external_import(
         &mut self,
         import: ExternalImport,
-        duplicate_counts: &BTreeMap<(String, String, String), usize>,
+        duplicate_counts: &BTreeMap<(String, String), usize>,
     ) {
         #[cfg(test)]
         record_schema_alias_import_index_entries(1);
@@ -1213,11 +1213,7 @@ impl SchemaAliasModuleImports {
             .entry(import.alias.clone())
             .or_default()
             .insert(identity.clone());
-        let duplicate_key = (
-            import.module.clone(),
-            import.package.clone(),
-            import.alias.clone(),
-        );
+        let duplicate_key = (import.module.clone(), import.package.clone());
         if import.syntax_valid && duplicate_counts.get(&duplicate_key) == Some(&1) {
             self.valid_external_imports_by_module
                 .entry(import.module)
@@ -1292,18 +1288,14 @@ fn workspace_imports_by_alias(
 
 fn schema_alias_import_duplicate_counts(
     external_imports: &[ExternalImport],
-) -> BTreeMap<(String, String, String), usize> {
+) -> BTreeMap<(String, String), usize> {
     external_imports.iter().fold(
-        BTreeMap::<(String, String, String), usize>::new(),
+        BTreeMap::<(String, String), usize>::new(),
         |mut counts, import| {
             #[cfg(test)]
             record_schema_alias_import_index_entries(1);
             *counts
-                .entry((
-                    import.module.clone(),
-                    import.package.clone(),
-                    import.alias.clone(),
-                ))
+                .entry((import.module.clone(), import.package.clone()))
                 .or_default() += 1;
             counts
         },

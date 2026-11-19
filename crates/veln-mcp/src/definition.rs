@@ -7,7 +7,7 @@ use veln_language_service::{NavigationSource, SourcePosition, definition_at};
 use veln_source::SourcePath;
 
 use crate::check_project::{
-    CaptureCache, capture_navigation_source, transition_navigation_analysis,
+    CaptureCache, analyze_navigation_capture, capture_navigation_source, commit_navigation_analysis,
 };
 use crate::language_resources::LanguageResources;
 use crate::outcome::{ToolOutcome, domain_failure};
@@ -37,19 +37,14 @@ pub(crate) fn definition(
             Err(failure) => return failure,
         };
     let root = captured.project.root.clone();
-    if let Err(error) = transition_navigation_analysis(
-        &captured,
-        scope.dependency_analysis_scope(),
-        language_resources,
-    ) {
-        return error.into();
-    }
+    let analysis = analyze_navigation_capture(&captured);
     let source_path = SourcePath::new(captured_source);
     let selected_source = language_resources.navigation_source_text(
         &captured.project.files,
         &captured.dependencies,
         &scope.dependency_analysis_scope(),
         &source_path,
+        analysis.publication_failed(),
     );
     if selected_source
         .as_deref()
@@ -68,6 +63,14 @@ pub(crate) fn definition(
             json!({"source": source, "line": arguments["line"].clone(), "column": arguments["column"].clone()}),
         );
     };
+    if let Err(error) = commit_navigation_analysis(
+        &captured,
+        scope.dependency_analysis_scope(),
+        language_resources,
+        analysis,
+    ) {
+        return error.into();
+    }
     let workspace_key = captured.key;
     let snapshot = match language_resources.navigation_snapshot(
         captured.project.files,

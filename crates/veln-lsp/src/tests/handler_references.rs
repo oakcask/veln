@@ -60,6 +60,10 @@ fn workspace_handler_references_preserve_utf16_crlf_and_declaration_policy() {
 #[test]
 fn direct_dependency_handler_navigation_returns_virtual_definition_and_workspace_references() {
     let project = TempProject::new("direct-dependency-handler-references");
+    let dependency_source = concat!(
+        "pub handler run() for Work\n  go() => 1\nend\n\n",
+        "handler hidden() for Work\n  go() => 2\nend\n",
+    );
     project.write(
         "veln.toml",
         "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
@@ -68,16 +72,14 @@ fn direct_dependency_handler_navigation_returns_virtual_definition_and_workspace
         "vendor/dep/veln.toml",
         "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
     );
-    project.write(
-        "vendor/dep/dep.veln",
-        "pub handler run() for Work\n  go() => 1\nend\n",
-    );
+    project.write("vendor/dep/dep.veln", dependency_source);
     project.write(
         "main.veln",
         concat!(
             "use dep from \"example/dep\"\n\n",
             "fn first() -> Int\n  handle 1 with dep::run()\nend\n\n",
             "fn second() -> Int\n  handle 2 with dep::run()\nend\n",
+            "\nfn private() -> Int\n  handle 3 with dep::hidden()\nend\n",
         ),
     );
     let root_uri = path_to_uri(&project.root);
@@ -87,14 +89,16 @@ fn direct_dependency_handler_navigation_returns_virtual_definition_and_workspace
 
     let definition = server.handle_message(&definition_request(&main_uri, 3, 21));
     assert_eq!(definition.len(), 1);
+    let definition_uri = extract_string_field(&definition[0], "uri").unwrap();
     assert!(
-        definition[0].contains("veln-pkg:///example%2Fdep/snapshot/"),
+        definition_uri.starts_with("veln-pkg:///example%2Fdep/snapshot/"),
         "{}",
         definition[0]
     );
     assert!(definition[0].contains(
         r#""range":{"start":{"line":0,"character":12},"end":{"line":0,"character":15}}"#
     ));
+    assert_virtual_document_text(&mut server, "3", &definition_uri, dependency_source);
 
     for include_declaration in [false, true] {
         let references = server.handle_message(&references_request_with_declaration(
@@ -107,6 +111,16 @@ fn direct_dependency_handler_navigation_returns_virtual_definition_and_workspace
         assert_eq!(references[0].matches(&format!(r#""uri":"{main_uri}""#)).count(), 2);
         assert!(!references[0].contains("veln-pkg:"), "{}", references[0]);
     }
+
+    let private_definition = server.handle_message(&definition_request(&main_uri, 11, 21));
+    assert_eq!(private_definition, [response("2", "null")]);
+    let private_references = server.handle_message(&references_request_with_declaration(
+        &main_uri, 11, 21, true,
+    ));
+    assert_eq!(private_references, [response("2", "[]")]);
+
+    let definition_after_rejection = server.handle_message(&definition_request(&main_uri, 3, 21));
+    assert_eq!(definition_after_rejection, definition);
 }
 
 #[test]

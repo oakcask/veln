@@ -424,6 +424,55 @@ fn transitive_dependency_handler_is_rejected_without_contaminating_direct_handle
 }
 
 #[test]
+fn dependency_handler_position_failures_do_not_publish_refreshed_resources() {
+    let workspace = TempWorkspace::new("references-dependency-handler-position-atomicity");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub handler run() for Work\n  go() => 1\nend\n",
+    );
+    workspace.write(
+        "main.veln",
+        "use dep from \"example/dep\"\n\nfn valid() -> Int\n  handle 1 with dep::run()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let before = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":22, "include_declaration":true
+    }));
+    assert_eq!(before["isError"], false, "{before:#}");
+    let resources_before = all_resource_state(&mut server);
+
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "\npub handler run() for Work\n  go() => 2\nend\n",
+    );
+    let invalid_references = server.references_tool(&json!({
+        "source":"main.veln", "line":999, "column":1, "include_declaration":true
+    }));
+    assert_eq!(
+        invalid_references["structuredContent"]["code"],
+        "invalid_position"
+    );
+    assert_eq!(all_resource_state(&mut server), resources_before);
+
+    let invalid_definition = server.definition_tool(&json!({
+        "source":"main.veln", "line":999, "column":1
+    }));
+    assert_eq!(
+        invalid_definition["structuredContent"]["code"],
+        "invalid_position"
+    );
+    assert_eq!(all_resource_state(&mut server), resources_before);
+}
+
+#[test]
 fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
     let workspace = TempWorkspace::new("references-workspace-imported-handler");
     write_imported_handler_workspace(&workspace);
