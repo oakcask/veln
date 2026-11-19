@@ -492,7 +492,6 @@ mod navigation_handler_references_tests {
         let updated_uri = updated.virtual_sources().next().unwrap().0.to_owned();
         assert_ne!(first_uri, second_uri);
         assert_ne!(first_uri, updated_uri);
-
         let sources = vec![
             source(
                 "main.veln",
@@ -513,19 +512,44 @@ mod navigation_handler_references_tests {
             sources.clone(),
             vec![first, second.clone()],
         );
-        let before = query_snapshot(&accepted, "main.veln", 5, 24).unwrap();
-        let other = query_snapshot(&accepted, "main.veln", 9, 25).unwrap();
-        let workspace = query_snapshot(&accepted, "shared.veln", 6, 17).unwrap();
+        let (before, other, workspace) = assert_initial_dependency_handler_owners(
+            &accepted,
+            &first_uri,
+            &second_uri,
+        );
+        let refreshed =
+            EffectiveProjectSnapshot::with_direct_dependencies(sources, vec![updated, second]);
+        assert_refreshed_dependency_handler_owner(RefreshedHandlerOwner {
+            accepted: &accepted,
+            refreshed: &refreshed,
+            before: &before,
+            other: &other,
+            workspace: &workspace,
+            first_uri: &first_uri,
+            updated_uri: &updated_uri,
+            original,
+            changed,
+        });
+    }
+
+    fn assert_initial_dependency_handler_owners(
+        accepted: &EffectiveProjectSnapshot,
+        first_uri: &str,
+        second_uri: &str,
+    ) -> (NavigationResult, NavigationResult, NavigationResult) {
+        let before = query_snapshot(accepted, "main.veln", 5, 24).unwrap();
+        let other = query_snapshot(accepted, "main.veln", 9, 25).unwrap();
+        let workspace = query_snapshot(accepted, "shared.veln", 6, 17).unwrap();
         assert_eq!(
             before.definition.source,
             NavigationSource::Package {
-                uri: first_uri.clone()
+                uri: first_uri.to_owned()
             }
         );
         assert_eq!(
             other.definition.source,
             NavigationSource::Package {
-                uri: second_uri.clone()
+                uri: second_uri.to_owned()
             }
         );
         assert_location(&workspace.definition, "shared.veln", 1, 9);
@@ -535,41 +559,68 @@ mod navigation_handler_references_tests {
         );
         assert_eq!(locations(&other.references), [("main.veln", 9, 25)]);
         assert_eq!(locations(&workspace.references), [("shared.veln", 6, 17)]);
+        (before, other, workspace)
+    }
 
-        let refreshed =
-            EffectiveProjectSnapshot::with_direct_dependencies(sources, vec![updated, second]);
-        let after = query_snapshot(&refreshed, "main.veln", 13, 24).unwrap();
+    struct RefreshedHandlerOwner<'a> {
+        accepted: &'a EffectiveProjectSnapshot,
+        refreshed: &'a EffectiveProjectSnapshot,
+        before: &'a NavigationResult,
+        other: &'a NavigationResult,
+        workspace: &'a NavigationResult,
+        first_uri: &'a str,
+        updated_uri: &'a str,
+        original: &'a str,
+        changed: &'a str,
+    }
+
+    fn assert_refreshed_dependency_handler_owner(case: RefreshedHandlerOwner<'_>) {
+        let after = query_snapshot(case.refreshed, "main.veln", 13, 24).unwrap();
         assert_eq!(
             after.definition.source,
             NavigationSource::Package {
-                uri: updated_uri.clone()
+                uri: case.updated_uri.to_owned()
             }
         );
-        assert_eq!(before.definition.span.file.as_str(), "shared.veln");
-        assert_eq!(after.definition.span.file, before.definition.span.file);
-        for (definition, line) in [(&before.definition, 1), (&after.definition, 2)] {
+        assert_eq!(case.before.definition.span.file.as_str(), "shared.veln");
+        assert_eq!(after.definition.span.file, case.before.definition.span.file);
+        for (definition, line) in [(&case.before.definition, 1), (&after.definition, 2)] {
             assert_eq!(definition.span.start.line, line);
             assert_eq!(definition.span.start.column, 13);
             assert_eq!(definition.span.end.line, line);
             assert_eq!(definition.span.end.column, 16);
         }
-        assert_eq!(after.references, before.references);
-        assert_eq!(query_snapshot(&refreshed, "main.veln", 9, 25), Some(other));
+        assert_eq!(after.references, case.before.references);
         assert_eq!(
-            query_snapshot(&refreshed, "shared.veln", 6, 17),
-            Some(workspace)
-        );
-        assert_eq!(query_snapshot(&accepted, "main.veln", 5, 24), Some(before));
-        assert_eq!(
-            accepted.resolve_virtual_source(&first_uri),
-            Some(original.as_bytes())
+            query_snapshot(case.refreshed, "main.veln", 9, 25).as_ref(),
+            Some(case.other)
         );
         assert_eq!(
-            refreshed.resolve_virtual_source(&updated_uri),
-            Some(changed.as_bytes())
+            query_snapshot(case.refreshed, "shared.veln", 6, 17).as_ref(),
+            Some(case.workspace)
         );
-        assert!(accepted.resolve_virtual_source(&updated_uri).is_none());
-        assert!(refreshed.resolve_virtual_source(&first_uri).is_none());
+        assert_eq!(
+            query_snapshot(case.accepted, "main.veln", 5, 24).as_ref(),
+            Some(case.before)
+        );
+        assert_eq!(
+            case.accepted.resolve_virtual_source(case.first_uri),
+            Some(case.original.as_bytes())
+        );
+        assert_eq!(
+            case.refreshed.resolve_virtual_source(case.updated_uri),
+            Some(case.changed.as_bytes())
+        );
+        assert!(
+            case.accepted
+                .resolve_virtual_source(case.updated_uri)
+                .is_none()
+        );
+        assert!(
+            case.refreshed
+                .resolve_virtual_source(case.first_uri)
+                .is_none()
+        );
     }
 
     #[test]

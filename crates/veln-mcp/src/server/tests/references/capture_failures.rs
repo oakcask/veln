@@ -533,37 +533,10 @@ fn workspace_handler_reference_capture_failure_preserves_state_and_later_results
 #[test]
 fn direct_dependency_handler_capture_failure_preserves_resources_and_cursor() {
     let workspace = TempWorkspace::new("references-dependency-handler-capture-retry");
-    workspace.write(
-        "veln.toml",
-        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
-    );
-    workspace.write(
-        "vendor/dep/veln.toml",
-        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
-    );
-    workspace.write(
-        "vendor/dep/dep.veln",
-        "pub handler run() for Work\n  go() => 1\nend\n",
-    );
-    workspace.write(
-        "main.veln",
-        concat!(
-            "use dep from \"example/dep\"\n\n",
-            "fn first() -> Int\n  handle 1 with dep::run()\nend\n\n",
-            "fn second() -> Int\n  handle 2 with dep::run()\nend\n",
-        ),
-    );
+    write_retained_handler_project(&workspace);
     let mut server = initialized_server(&workspace);
-    let first_page = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":22,
-        "include_declaration":true, "page_size":1
-    }));
-    let live_cursor = first_page["structuredContent"]["next_cursor"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    let before_resources = all_resource_state(&mut server);
-    let before_selection = server.selection_result();
+    let (live_cursor, before_resources, before_selection) =
+        dependency_handler_capture_state(&mut server);
     let attempts = Rc::new(Cell::new(0usize));
     let attempts_for_hook = attempts.clone();
     let dependency_source = workspace.path("vendor/dep/dep.veln");
@@ -583,17 +556,51 @@ fn direct_dependency_handler_capture_failure_preserves_resources_and_cursor() {
         "source":"main.veln", "line":8, "column":22,
         "include_declaration":true
     }));
-    assert_snapshot_changed_without_references_or_scope(&failed);
-    assert_eq!(attempts.get(), 3);
-    assert_eq!(all_resource_state(&mut server), before_resources);
-    assert_eq!(server.selection_result(), before_selection);
+    assert_dependency_handler_capture_failure(
+        &mut server,
+        &failed,
+        attempts.get(),
+        &before_resources,
+        &before_selection,
+        &live_cursor,
+    );
+    drop(hook);
+}
+
+fn dependency_handler_capture_state(server: &mut Server) -> (String, Value, Value) {
+    let first_page = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":22,
+        "include_declaration":true, "page_size":1
+    }));
+    let live_cursor = first_page["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    (
+        live_cursor,
+        all_resource_state(server),
+        server.selection_result(),
+    )
+}
+
+fn assert_dependency_handler_capture_failure(
+    server: &mut Server,
+    failed: &Value,
+    attempts: usize,
+    before_resources: &Value,
+    before_selection: &Value,
+    live_cursor: &str,
+) {
+    assert_snapshot_changed_without_references_or_scope(failed);
+    assert_eq!(attempts, 3);
+    assert_eq!(&all_resource_state(server), before_resources);
+    assert_eq!(&server.selection_result(), before_selection);
     let continuation = server.references_tool(&json!({"cursor":live_cursor}));
     assert_eq!(continuation["isError"], false);
     assert_eq!(
         continuation["structuredContent"]["references"][0]["range"],
         json!({"start":{"line":8,"column":22},"end":{"line":8,"column":25}})
     );
-    drop(hook);
 }
 
 fn write_retained_handler_project(workspace: &TempWorkspace) {
