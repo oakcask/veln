@@ -47,7 +47,10 @@ impl ClassBuilder {
 
     pub(super) fn finish(self) -> Result<Vec<u8>, JvmBackendError> {
         validate_method_limits(&self.methods)?;
-        let class = serialize_class(&self);
+        if let Some(error) = self.constant_pool.borrow().error() {
+            return Err(error);
+        }
+        let class = serialize_class(&self)?;
         class.write(&self.constant_pool)
     }
 }
@@ -70,25 +73,32 @@ fn validate_method_limits(methods: &[MethodInfo]) -> Result<(), JvmBackendError>
     Ok(())
 }
 
-fn serialize_class(class: &ClassBuilder) -> SerializedClass {
+fn serialize_class(class: &ClassBuilder) -> Result<SerializedClass, JvmBackendError> {
     let this_class = class.constant_pool.borrow_mut().class(&class.name);
     let super_class = class.constant_pool.borrow_mut().class(JAVA_LANG_OBJECT);
     let code_name = class.constant_pool.borrow_mut().utf8("Code");
+    let stack_map_name = class.constant_pool.borrow_mut().utf8("StackMapTable");
     let fields = serialize_fields(&class.constant_pool, &class.fields);
-    let methods = serialize_methods(&class.constant_pool, &class.methods, code_name);
+    let methods = serialize_methods(
+        &class.constant_pool,
+        &class.name,
+        &class.methods,
+        code_name,
+        stack_map_name,
+    )?;
     let interfaces = class
         .interfaces
         .iter()
         .map(|interface| class.constant_pool.borrow_mut().class(interface))
         .collect();
-    SerializedClass {
+    Ok(SerializedClass {
         access_flags: class.access_flags,
         this_class,
         super_class,
         fields,
         methods,
         interfaces,
-    }
+    })
 }
 
 fn serialize_fields(
@@ -116,24 +126,31 @@ fn serialize_field(
 
 fn serialize_methods(
     constant_pool: &Rc<RefCell<ConstantPool>>,
+    class_name: &str,
     methods: &[MethodInfo],
     code_name: u16,
-) -> Vec<SerializedMethod> {
+    stack_map_name: u16,
+) -> Result<Vec<SerializedMethod>, JvmBackendError> {
     methods
         .iter()
-        .map(|method| serialize_method(constant_pool, method, code_name))
+        .map(|method| {
+            serialize_method(constant_pool, class_name, method, code_name, stack_map_name)
+        })
         .collect()
 }
 
 fn serialize_method(
     constant_pool: &Rc<RefCell<ConstantPool>>,
+    class_name: &str,
     method: &MethodInfo,
     code_name: u16,
-) -> SerializedMethod {
+    stack_map_name: u16,
+) -> Result<SerializedMethod, JvmBackendError> {
     let name = constant_pool.borrow_mut().utf8(&method.name);
     let descriptor = constant_pool.borrow_mut().utf8(&method.descriptor);
     let exceptions = serialize_exception_handlers(constant_pool, &method.exceptions);
-    SerializedMethod {
+    let stack_map = stack_map::stack_map_table(constant_pool, class_name, method)?;
+    Ok(SerializedMethod {
         access_flags: method.access_flags,
         name,
         descriptor,
@@ -142,7 +159,9 @@ fn serialize_method(
         max_locals: method.max_locals,
         code: method.code.clone(),
         exceptions,
-    }
+        stack_map_name,
+        stack_map,
+    })
 }
 
 fn serialize_exception_handlers(
@@ -282,6 +301,8 @@ struct SerializedMethod {
     max_locals: u16,
     code: Vec<u8>,
     exceptions: Vec<SerializedExceptionHandler>,
+    stack_map_name: u16,
+    stack_map: Vec<u8>,
 }
 
 impl SerializedMethod {
@@ -291,7 +312,13 @@ impl SerializedMethod {
         write_u16(out, self.descriptor);
         write_u16(out, 1);
         write_u16(out, self.code_name);
-        let attribute_length = 12 + self.code.len() + self.exceptions.len() * 8;
+        let nested_attribute_length = if self.stack_map.len() > 2 {
+            6 + self.stack_map.len()
+        } else {
+            0
+        };
+        let attribute_length =
+            12 + self.code.len() + self.exceptions.len() * 8 + nested_attribute_length;
         write_u32(out, attribute_length as u32);
         write_u16(out, self.max_stack);
         write_u16(out, self.max_locals);
@@ -304,7 +331,14 @@ impl SerializedMethod {
             write_u16(out, exception.handler_pc as u16);
             write_u16(out, exception.catch_type);
         }
-        write_u16(out, 0);
+        if self.stack_map.len() > 2 {
+            write_u16(out, 1);
+            write_u16(out, self.stack_map_name);
+            write_u32(out, self.stack_map.len() as u32);
+            out.extend_from_slice(&self.stack_map);
+        } else {
+            write_u16(out, 0);
+        }
     }
 }
 

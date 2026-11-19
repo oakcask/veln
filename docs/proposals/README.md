@@ -16,10 +16,11 @@ also states it.
 
 ## Ready
 
-- Lightweight task execution using JVM virtual threads, with Java 25,
-  per-invocation drain/cancel lifetime, wait-boundary progress, and controlled
-  adoption budgets:
-  [lightweight-tasks.md](lightweight-tasks.md). Acceptance evidence remains planned.
+- Lightweight task execution using JVM virtual threads, with the implemented
+  Java 25 baseline as a prerequisite and planned per-invocation drain/cancel
+  lifetime, wait-boundary progress, and controlled adoption budgets:
+  [lightweight-tasks.md](lightweight-tasks.md). D2-D6 and their acceptance
+  evidence remain planned.
 
 ## Design In Progress
 

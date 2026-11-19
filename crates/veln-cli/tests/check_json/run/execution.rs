@@ -107,7 +107,7 @@ fn run_json_uses_stderr_message_for_trace_free_jvm_failure() {
     project.write("main.veln", "pub fn main() -> ()\n  ()\nend\n");
     project.write(
         "bin/java",
-        "#!/bin/sh\nprintf '%s\\n' 'java.lang.VerifyError: fixture failure' >&2\nexit 7\n",
+        "#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then printf 'openjdk version \"25.0.1\"\\n' >&2; exit 0; fi\nprintf '%s\\n' 'java.lang.VerifyError: fixture failure' >&2\nexit 7\n",
     );
     let java = project.root.join("bin/java");
     let mut permissions = std::fs::metadata(&java)
@@ -151,6 +151,7 @@ fn run_json_prefers_structured_runtime_trace_over_stderr() {
         "bin/java",
         concat!(
             "#!/bin/sh\n",
+            "if [ \"$1\" = \"-version\" ]; then printf 'openjdk version \"25.0.1\"\\n' >&2; exit 0; fi\n",
             "printf 'runtime\\t737472756374757265642072756e74696d65206661696c757265\\n' ",
             "> \"$VELN_RUNTIME_ERRORS\"\n",
             "printf '%s\\n' 'java.lang.VerifyError: fallback failure' >&2\n",

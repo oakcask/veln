@@ -8,6 +8,11 @@ use std::process::Command;
 
 use unicode_normalization::char::{canonical_combining_class, compose, decompose_canonical};
 
+#[path = "src/java_version.rs"]
+mod java_version;
+
+use java_version::{REQUIRED_JAVA_MAJOR, parse_java_major, require_java_major};
+
 const RUNTIME_FRAGMENTS: &[&str] = &[
     "values.java.inc",
     "concurrency.java.inc",
@@ -31,6 +36,7 @@ struct PortableUnicodeData {
 }
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=PATH");
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("manifest dir"));
     let runtime_source_dir = manifest_dir.join("src").join("runtime");
     let runtime_source = runtime_source(&runtime_source_dir);
@@ -44,13 +50,34 @@ fn main() {
     fs::write(runtime_dir.join("VelnRuntime.java"), runtime_source)
         .expect("runtime source should be written");
 
+    let version_output = Command::new("javac")
+        .arg("-version")
+        .output()
+        .expect("javac should run; install JDK 25 or newer to build veln-backend-jvm");
+    let version_text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&version_output.stdout),
+        String::from_utf8_lossy(&version_output.stderr)
+    );
+    let detected_major = parse_java_major(&version_text).unwrap_or_else(|| {
+        panic!(
+            "could not determine selected javac major version; Java {REQUIRED_JAVA_MAJOR} or newer is required"
+        )
+    });
+    if let Err(version) = require_java_major(detected_major) {
+        panic!(
+            "Java {} or newer is required to build the JVM runtime; selected javac has major version {}",
+            version.required, version.detected
+        );
+    }
+
     let output = Command::new("javac")
         .arg("--release")
-        .arg("8")
+        .arg(REQUIRED_JAVA_MAJOR.to_string())
         .arg("VelnRuntime.java")
         .current_dir(&runtime_dir)
         .output()
-        .expect("javac should run; install a JDK to build veln-backend-jvm");
+        .expect("javac should run; install JDK 25 or newer to build veln-backend-jvm");
     if !output.status.success() {
         panic!(
             "javac failed while building JVM runtime classes:\n{}",

@@ -21,6 +21,7 @@
 mod api;
 mod classfile;
 mod java;
+mod java_version;
 mod model;
 mod runtime;
 
@@ -30,6 +31,9 @@ pub use api::{
     try_generate_classfiles_with_entry, try_generate_classfiles_with_entry_arg_types,
     try_generate_classfiles_with_entry_arg_types_options,
     try_generate_classfiles_with_test_entries,
+};
+pub use java_version::{
+    JavaMajorTooOld, REQUIRED_JAVA_MAJOR, parse_java_major, require_java_major,
 };
 pub use model::{
     EntryArgScalar, EntryArgType, JvmBackendError, JvmBackendOptions, JvmClassFile, JvmProgram,

@@ -446,7 +446,12 @@ pub(super) const FAKE_GIT_RESOLVED_REV: &str = "0123456789abcdef0123456789abcdef
 #[cfg(unix)]
 pub(super) fn write_fake_success_tool(tool_path: &Path, name: &str) {
     let tool = tool_path.join(name);
-    fs::write(&tool, "#!/bin/sh\nexit 0\n").expect("fake tool should be written");
+    let source = if name == "java" {
+        "#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then printf 'openjdk version \"25.0.1\"\\n' >&2; fi\nexit 0\n"
+    } else {
+        "#!/bin/sh\nexit 0\n"
+    };
+    fs::write(&tool, source).expect("fake tool should be written");
     let mut permissions = fs::metadata(&tool)
         .expect("fake tool metadata should be available")
         .permissions();
@@ -456,9 +461,15 @@ pub(super) fn write_fake_success_tool(tool_path: &Path, name: &str) {
 
 #[cfg(windows)]
 pub(super) fn write_fake_success_tool(tool_path: &Path, name: &str) {
+    let version_line = if name == "java" {
+        "if \"%1\"==\"-version\" echo openjdk version \"25.0.1\" 1>&2\r\n"
+    } else {
+        ""
+    };
     for extension in ["bat", "cmd"] {
         let tool = tool_path.join(format!("{name}.{extension}"));
-        fs::write(&tool, "@echo off\r\nexit /b 0\r\n").expect("fake tool should be written");
+        fs::write(&tool, format!("@echo off\r\n{version_line}exit /b 0\r\n"))
+            .expect("fake tool should be written");
     }
 }
 

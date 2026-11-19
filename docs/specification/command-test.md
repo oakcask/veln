@@ -117,7 +117,11 @@ as a contract failure. The test command does not project the structured
 A runtime expectation passes only when the actual structured failure matches.
 A different failure or successful execution fails with
 `reason: "expected_runtime_failure"`. Missing Java is a case error with
-`reason: "runner_error"`.
+`reason: "runner_error"`. Before any selected case launches, `test` invokes
+the selected `java -version` and requires major version 25 or newer. An older
+runtime produces an owned runner error naming required major 25 and the
+detected major; no `VelnEntry` process starts. There is no older-runtime
+fallback.
 
 JVM classfile generation can reject a suite program or an independently
 lowered test that exceeds a classfile representation limit. Before it launches
@@ -158,6 +162,7 @@ satisfy an output fence.
 
 Backend representation failures are command errors rather than case failures.
 They do not start workers and cannot be matched by runtime expectations.
+Java versions older than 25 are runner errors and do not start a case JVM.
 
 Timing stage durations are diagnostic measurements rather than stable
 performance thresholds. Their values depend on the host and selected workload.

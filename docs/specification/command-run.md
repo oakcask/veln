@@ -88,9 +88,13 @@ construct hidden call-site context. The exact propagation and remaining
 limits are specified by
 [Call-site Declarations](call-site-declarations.md).
 
-The reachable program is lowered to typed IR and JVM classfiles. Ordinary
-execution does not write Java source or invoke a Java source compiler. Missing
-Java before class loading is a JDK setup failure.
+The reachable program is lowered to typed IR and Java 25 classfiles. Ordinary
+execution does not write Java source or invoke a Java source compiler. Before
+cache configuration or class loading, `run` invokes the selected `java
+-version` and requires major version 25 or newer. An older runtime produces an
+owned tool error that names required major 25 and the detected major; it does
+not launch `VelnEntry`. Missing Java or an unreadable version is a JDK setup
+failure. There is no older-runtime fallback.
 
 JVM classfile generation can reject a program that exceeds a classfile
 representation limit. This failure occurs after typed-IR readiness and before
@@ -121,8 +125,9 @@ cache root. The default is selected by operating system:
 the complete cache root without an added `veln` component. Native strings are
 retained without canonicalization.
 
-Java availability is checked before cache configuration. Cache configuration is
-checked only after source analysis, entry selection, and JVM generation.
+Java availability and its minimum major version are checked before cache
+configuration. Cache configuration is checked only after source analysis,
+entry selection, and JVM generation.
 Empty or relative overrides do not fall back to a host base; unavailable or
 unusable roots do not fall back to the package, working directory, `target`,
 or a temporary directory. Commands that do not reach JVM execution do not
@@ -191,8 +196,9 @@ The command does not execute unreachable code, acquire dependencies, or fall
 back to another cache root after a configuration failure. Static gates prevent
 artifact generation and Java launch, so no user output is produced before a
 static failure. Backend representation failures also prevent artifact
-publication and Java launch. A call-site-aware entry is a static failure even
-when its body does not read the built-in value.
+publication and Java launch. Java versions older than 25 prevent cache
+configuration and entry launch. A call-site-aware entry is a static failure
+even when its body does not read the built-in value.
 
 ## References
 
@@ -215,6 +221,8 @@ and recovered annotations under the adjacent
 [`explicit-import-alias-entry-target`](../../examples/specification/run/explicit-import-alias-entry-target/)
 case checks selected-entry identity when an imported function has the same
 name. The
+[`java-25-execution-baseline`](../../examples/specification/run/java-25-execution-baseline/)
+case checks successful Java 25-or-newer class loading and entry launch. The
 [`explicit-import-alias-owner-package-scope`](../../examples/specification/run/explicit-import-alias-owner-package-scope/)
 case checks that application and standard-library import owners with the same
 module spelling remain independently executable.

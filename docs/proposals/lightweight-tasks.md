@@ -10,8 +10,9 @@ each task. The proposed JVM implementation uses one Java virtual thread per
 task and retains ordinary synchronous Veln function calls.
 
 The [design decisions](#design-decisions) fix the initial scope and its
-acceptance gates. All acceptance evidence below is planned. No throughput improvement, task capacity, or memory reduction has
-been measured for Veln.
+acceptance gates. D1, the Java 25 build and execution baseline, is implemented.
+D2-D6 and their acceptance evidence remain planned. No throughput improvement,
+task capacity, or memory reduction has been measured for Veln.
 
 ## Current Boundary And Motivation
 
@@ -39,7 +40,7 @@ application becomes faster.
 | Channel select polls receivers and sleeps for 1 ms | Task allocation changes do not eliminate polling CPU or wakeup costs. |
 | Socket readiness allocates a Selector for a waiting operation | Virtual threads do not remove selector, descriptor, or connection costs. |
 | DNS resolution uses a bounded platform-worker pool | Keep host-operation limits distinct from the task execution model. |
-| Runtime compilation uses `javac --release 8`; JVM CI uses Java 25 | Select an explicit supported build and execution baseline. |
+| Runtime compilation uses `javac --release 25`; generated classes use classfile major 69; commands reject an older Java before launch | D1 is current behavior. D2-D6 can rely on one build and execution baseline. |
 
 These are implementation observations, not additional language guarantees.
 The relevant files are listed in [References](#references).
@@ -61,8 +62,11 @@ values. Its virtual threads remain logical threads even when their carrier
 changes. This fits Veln's existing synchronous JVM execution. Keep the task
 handle and result protocol; a Java `Thread` remains a backend detail.
 
-The baseline is Java 25 for building and executing the runtime, with runtime
-classfiles targeting Java 25. There is no older-JDK fallback.
+The current [execution contract](../specification/execution.md#runtime-readiness-and-host-boundaries)
+requires Java 25 for building and executing the runtime, and generated
+classfiles target Java 25. The [run](../specification/command-run.md#analysis-and-execution-gates)
+and [test](../specification/command-test.md#gates-and-failures) commands reject
+an older runtime before entry launch. There is no older-JDK fallback.
 Virtual threads became final in Java 21,
 but [JEP 491](https://openjdk.org/jeps/491), delivered in Java 24, also permits
 virtual threads to unmount during monitor acquisition and `Object.wait()`.
@@ -131,8 +135,9 @@ justify reintroducing arity-specific APIs or changing that source design.
 
 ## Acceptance And Verification Plan
 
-These cases are requirements for future implementation evidence. They are not
-new tests in this proposal change and are not reported as passing.
+D1 has focused backend and CLI evidence for version parsing, build and launch
+rejection, launch suppression, supported versions, and classfile major 69. The
+cases below remain requirements for D2-D6 and are not reported as passing.
 
 | Case | Input or schedule | Required observation and planned evidence |
 | --- | --- | --- |
@@ -186,7 +191,7 @@ thresholds, not measurements or claims about achieved capacity.
 
 | Decision | Initial contract and rationale |
 | --- | --- |
-| D1: Java baseline | Minimum build JDK and execution JDK: 25; runtime classfile target: 25. Check the selected Java major before launching generated code and report a toolchain execution error naming required 25 and the detected major. No raw class-version exception is the normal unsupported-runtime outcome. Also reject an older build JDK before invoking runtime compilation. Java 21 and platform-thread fallback are excluded to avoid two suspension and shutdown contracts. Verify both launch and build rejection independently. |
+| D1: Java baseline (implemented) | Minimum build JDK and execution JDK: 25; runtime classfile target: 25. The build rejects an older selected `javac` before runtime compilation. `run` and `test` reject an older selected `java` before launching generated code and report required major 25 and the detected major. Java 21 and platform-thread fallback remain excluded. Current behavior is specified by the execution, run, and test contracts linked above. |
 | D2: entry lifetime | Each run and each test invocation owns a task lifetime. Normal entry completion drains all admitted tasks; failed entry completion cancels and drains them. The entry's non-daemon launcher remains alive until draining finishes. A subsequent test cannot inherit children or handlers from the preceding test. See the transition table. |
 | D3: CPU fairness | Guarantee peer progress only at supported carrier-releasing waits. Do not add yield insertion or promise CPU time slicing, bounded cancellation latency, or starvation freedom under CPU saturation. Existing cancellation checkpoints remain. The JDK guide's scheduling model does not supply a Veln fairness bound; stronger fairness requires separate compiler and scheduler work. |
 | D4: waits | Retain channel monitors, polling select, per-operation socket selectors, and bounded DNS workers. Supported carrier-progress acceptance covers channel, timer, and join waits; loopback sockets have separate host-integration coverage. Native calls, filesystem calls, DNS, and class initialization have no carrier-release guarantee. Select idle cost and descriptor counts remain measured diagnostics. No new wakeup protocol or tie rule is introduced. |
@@ -246,11 +251,12 @@ change so that the contribution of each change can be assessed. Reconsider the
 preferred mechanism if required CPU fairness, host-call behavior, another
 backend, or measured resource costs invalidate its assumptions.
 
-Promote implemented task behavior to `effects.md` and `execution.md`, and any
-new command lifetime or Java-requirement behavior to the matching command
-specification. Update executable evidence at those boundaries. Remove the
-completed proposal and catalog entry once the implemented specification owns
-the complete selected scope.
+Promote implemented D2-D6 task behavior to `effects.md` and `execution.md`, and
+new command lifetime behavior to the matching command specification. Update
+executable evidence at those boundaries. D1 is already owned by the current
+execution, run, and test specifications. Remove the completed proposal and
+catalog entry once the implemented specification owns the complete selected
+scope.
 
 ## References
 

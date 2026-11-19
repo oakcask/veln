@@ -1,0 +1,25 @@
+# CLI/JVM integration: successful launch requires the selected Java 25-or-newer
+# runtime to load and execute the generated Java 25 classfile.
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = ""
+
+[[json_assert]]
+path = "error"
+equals = null

@@ -13,6 +13,15 @@ host boundaries, and observable output. HTTP/2 protocol details belong to
 
 ## Runtime readiness and host boundaries
 
+Building the JVM backend requires `javac` major version 25 or newer. The build
+checks the selected compiler version before runtime compilation, reports both
+required major 25 and the detected older major, and compiles the bundled
+runtime with `javac --release 25`. The backend emits generated classes with
+classfile major version 69. Consequently, executing generated code requires
+Java 25 or newer; the `run` and `test` command specifications define the owned
+pre-launch rejection for an older selected runtime. The toolchain provides no
+older-JDK or lower-classfile fallback.
+
 Explicit import aliases affect source lookup only. Lowering and reachability
 use the selected target module and declaration identity for calls,
 constructors, schemas, effects, and handlers. An invalid, recovered, reserved,
