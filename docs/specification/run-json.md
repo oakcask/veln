@@ -466,5 +466,8 @@ entry selection and execution are implemented in
 route for the envelope and projections. The
 [`java-25-execution-baseline`](../../examples/specification/run/java-25-execution-baseline/)
 case checks the passed envelope when a real Java 25-or-newer runtime loads and
-executes a generated classfile. Backend tests check the generated classfile's
+executes a generated classfile. The
+[`java-modern-underscore-rejected-json`](../../examples/specification/run/java-modern-underscore-rejected-json/)
+case checks the runner-error envelope and absence of entry launch when the
+selected runtime reports `25_0`. Backend tests check the generated classfile's
 Java 25 major version separately.

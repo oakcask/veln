@@ -310,7 +310,10 @@ command boundary. The
 [`module-value-imported-static-gate-json`](../../examples/specification/test/module-value-imported-static-gate-json/)
 case verifies package-aware imported value typing, annotation-visibility
 failures, blocked case records, empty event lists, and the absence of Java
-startup.
+startup. The
+[`java-modern-underscore-rejected-json`](../../examples/specification/test/java-modern-underscore-rejected-json/)
+case checks the runner-error case record and absence of entry launch when the
+selected runtime reports `25_0`.
 
 ## Usage and limits
 
