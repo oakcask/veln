@@ -10,7 +10,7 @@ use crate::check_project::{
     commit_cached_navigation_analysis, commit_navigation_analysis, navigation_analysis_is_cached,
 };
 use crate::definition::{Coordinate, coordinate, path_to_uri, valid_position};
-use crate::language_resources::LanguageResources;
+use crate::language_resources::{LanguageResources, NavigationSourceAnalysis};
 use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{Selection, WorkspaceBase};
 
@@ -108,9 +108,13 @@ fn collect_references(
         &captured.dependencies,
         &analysis_scope,
         &source_path,
-        analysis
-            .as_ref()
-            .is_some_and(|analysis| analysis.publication_failed()),
+        match analysis.as_ref() {
+            Some(analysis) if analysis.publication_failed() => {
+                NavigationSourceAnalysis::FreshRejected
+            }
+            Some(_) => NavigationSourceAnalysis::FreshAccepted,
+            None => NavigationSourceAnalysis::Cached,
+        },
     );
     let (line, column) = validate_reference_position(selected_source.as_deref(), request)?;
     if let Some(analysis) = analysis {

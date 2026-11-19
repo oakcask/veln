@@ -689,6 +689,117 @@ fn rejected_dependency_handler_refresh_preserves_retained_state_and_cursor() {
 }
 
 #[test]
+fn definition_admits_repaired_capture_after_retained_rejection() {
+    let workspace = TempWorkspace::new("definition-dependency-handler-repaired-capture");
+    write_retained_handler_project(&workspace);
+    let mut server = initialized_server(&workspace);
+    let retained_uri = accepted_handler_definition_uri(&mut server);
+    let retained_read = package_source_read(&mut server, &retained_uri, "retained-before-repair");
+    let cursor = live_reference_cursor(&mut server, "main.veln", 4, 22);
+    reject_retained_handler_capture(&workspace, &mut server);
+    write_repaired_handler_capture(&workspace);
+
+    let repaired = server.definition_tool(&json!({
+        "source":"main.veln", "line":12, "column":22
+    }));
+
+    assert_eq!(repaired["isError"], false, "{repaired:#}");
+    let repaired_uri = repaired["structuredContent"]["definition"]["uri"]
+        .as_str()
+        .unwrap();
+    assert_ne!(repaired_uri, retained_uri);
+    assert!(
+        package_source_read(&mut server, repaired_uri, "repaired-definition")["result"]
+            .to_string()
+            .contains("go() => 3")
+    );
+    assert_eq!(
+        package_source_read(&mut server, &retained_uri, "retained-after-repair")["result"],
+        retained_read["result"]
+    );
+    assert_live_reference_cursor(&mut server, &cursor);
+}
+
+#[test]
+fn initial_references_admit_repaired_capture_after_retained_rejection() {
+    let workspace = TempWorkspace::new("references-dependency-handler-repaired-capture");
+    write_retained_handler_project(&workspace);
+    let mut server = initialized_server(&workspace);
+    let retained_uri = accepted_handler_definition_uri(&mut server);
+    let retained_read = package_source_read(&mut server, &retained_uri, "retained-before-repair");
+    let cursor = live_reference_cursor(&mut server, "main.veln", 4, 22);
+    reject_retained_handler_capture(&workspace, &mut server);
+    write_repaired_handler_capture(&workspace);
+
+    let repaired = server.references_tool(&json!({
+        "source":"main.veln", "line":12, "column":22,
+        "include_declaration":true
+    }));
+
+    assert_eq!(repaired["isError"], false, "{repaired:#}");
+    let references = repaired["structuredContent"]["references"]
+        .as_array()
+        .unwrap();
+    assert_eq!(references.len(), 4, "{repaired:#}");
+    assert_eq!(
+        references
+            .iter()
+            .filter(|location| location["uri"].as_str().unwrap().starts_with("veln-pkg:"))
+            .count(),
+        1
+    );
+    assert!(
+        references
+            .iter()
+            .any(|location| { location["range"]["start"] == json!({"line":12,"column":22}) })
+    );
+    let repaired_uri = references
+        .iter()
+        .find_map(|location| {
+            location["uri"]
+                .as_str()
+                .filter(|uri| uri.starts_with("veln-pkg:"))
+        })
+        .unwrap();
+    assert_ne!(repaired_uri, retained_uri);
+    assert_eq!(
+        package_source_read(&mut server, &retained_uri, "retained-after-repair")["result"],
+        retained_read["result"]
+    );
+    assert_live_reference_cursor(&mut server, &cursor);
+}
+
+fn reject_retained_handler_capture(workspace: &TempWorkspace, server: &mut Server) {
+    workspace.write(
+        "vendor/dep/dep.veln",
+        concat!(
+            "pub handler run() for Work\n  go() => 2\nend\n\n",
+            "fn effectful() -> () effects [stdio]\n  stdio::println(\"blocked\")\nend\n",
+            "fn rejected() -> ()\n  let pure: fn() -> () = effectful\nend\n",
+        ),
+    );
+    let rejected = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(rejected["isError"], false, "{rejected:#}");
+    assert!(rejected.to_string().contains("effect_set"), "{rejected:#}");
+}
+
+fn write_repaired_handler_capture(workspace: &TempWorkspace) {
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub handler run() for Work\n  go() => 3\nend\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn first() -> Int\n  handle 1 with dep::run()\nend\n\n",
+            "fn second() -> Int\n  handle 2 with dep::run()\nend\n\n",
+            "fn repaired() -> Int\n  handle 3 with dep::run()\nend\n",
+        ),
+    );
+}
+
+#[test]
 fn dependency_handler_resource_capacity_failure_preserves_retained_state_and_cursor() {
     let workspace = TempWorkspace::new("references-dependency-handler-resource-capacity");
     write_retained_handler_project(&workspace);

@@ -588,7 +588,7 @@ impl SymbolIndex {
                             let (module, package) = self
                                 .schema_alias_module_imports
                                 .get(&file.module)?
-                                .valid_external_route(qualifier)?;
+                                .valid_handler_external_route(qualifier)?;
                             (
                                 Some(package),
                                 Some(PackageOrigin::DirectDependency),
@@ -617,7 +617,7 @@ impl SymbolIndex {
                             let (module, package) = self
                                 .schema_alias_module_imports
                                 .get(&file.module)?
-                                .valid_external_route(qualifier)?;
+                                .valid_handler_external_route(qualifier)?;
                             (
                                 Some(package),
                                 Some(PackageOrigin::DirectDependency),

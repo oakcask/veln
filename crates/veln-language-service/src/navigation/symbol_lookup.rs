@@ -1184,6 +1184,7 @@ impl SchemaAliasModuleImports {
         let valid_workspace_imports_by_alias =
             workspace_imports_by_alias(&valid_workspace_import_records);
         let duplicate_counts = schema_alias_import_duplicate_counts(&external_imports);
+        let handler_duplicate_counts = handler_import_duplicate_counts(&external_imports);
         let mut indexed = Self {
             workspace_imports,
             workspace_imports_by_alias: raw_workspace_imports_by_alias,
@@ -1192,7 +1193,7 @@ impl SchemaAliasModuleImports {
             ..Self::default()
         };
         for import in external_imports {
-            indexed.index_external_import(import, &duplicate_counts);
+            indexed.index_external_import(import, &duplicate_counts, &handler_duplicate_counts);
         }
         indexed
     }
@@ -1200,7 +1201,8 @@ impl SchemaAliasModuleImports {
     fn index_external_import(
         &mut self,
         import: ExternalImport,
-        duplicate_counts: &BTreeMap<(String, String), usize>,
+        duplicate_counts: &BTreeMap<(String, String, String), usize>,
+        handler_duplicate_counts: &BTreeMap<(String, String), usize>,
     ) {
         #[cfg(test)]
         record_schema_alias_import_index_entries(1);
@@ -1213,13 +1215,30 @@ impl SchemaAliasModuleImports {
             .entry(import.alias.clone())
             .or_default()
             .insert(identity.clone());
-        let duplicate_key = (import.module.clone(), import.package.clone());
+        let duplicate_key = (
+            import.module.clone(),
+            import.package.clone(),
+            import.alias.clone(),
+        );
         if import.syntax_valid && duplicate_counts.get(&duplicate_key) == Some(&1) {
             self.valid_external_imports_by_module
-                .entry(import.module)
+                .entry(import.module.clone())
                 .or_default()
                 .insert(identity.clone());
             self.valid_external_imports_by_alias
+                .entry(import.alias.clone())
+                .or_default()
+                .insert(identity.clone());
+        }
+        let handler_duplicate_key = (import.module.clone(), import.package.clone());
+        if import.syntax_valid
+            && handler_duplicate_counts.get(&handler_duplicate_key) == Some(&1)
+        {
+            self.handler_external_imports_by_module
+                .entry(import.module)
+                .or_default()
+                .insert(identity.clone());
+            self.handler_external_imports_by_alias
                 .entry(import.alias)
                 .or_default()
                 .insert(identity);
@@ -1237,6 +1256,17 @@ impl SchemaAliasModuleImports {
         }
         let (alias, suffix) = split_import_qualifier(qualifier);
         unique_external_route(self.valid_external_imports_by_alias.get(alias)?, suffix)
+    }
+
+    fn valid_handler_external_route(&self, qualifier: &str) -> Option<(String, String)> {
+        if self.external_imports_by_module.contains_key(qualifier) {
+            return unique_external_route(
+                self.handler_external_imports_by_module.get(qualifier)?,
+                None,
+            );
+        }
+        let (alias, suffix) = split_import_qualifier(qualifier);
+        unique_external_route(self.handler_external_imports_by_alias.get(alias)?, suffix)
     }
 
     fn raw_external_route_matches_any(
@@ -1288,26 +1318,36 @@ fn workspace_imports_by_alias(
 
 fn schema_alias_import_duplicate_counts(
     external_imports: &[ExternalImport],
-) -> BTreeMap<(String, String), usize> {
-    // Package target identity deliberately excludes the written alias.
-    // Name resolution quarantines every import of one repeated target,
-    // including imports that use distinct explicit qualifiers. Keeping the
-    // count keyed by the resolved module and package makes this navigation
-    // index obey that shared quarantine boundary instead of constructing a
-    // second alias-specific identity. Keep this explanation near the key so
-    // changes to import indexing must account for duplicate-target behavior.
-    // Its source extent also remains compatible with shared coverage caches.
+) -> BTreeMap<(String, String, String), usize> {
     external_imports.iter().fold(
-        BTreeMap::<(String, String), usize>::new(),
+        BTreeMap::<(String, String, String), usize>::new(),
         |mut counts, import| {
             #[cfg(test)]
             record_schema_alias_import_index_entries(1);
             *counts
-                .entry((import.module.clone(), import.package.clone()))
+                .entry((
+                    import.module.clone(),
+                    import.package.clone(),
+                    import.alias.clone(),
+                ))
                 .or_default() += 1;
             counts
         },
     )
+}
+
+fn handler_import_duplicate_counts(
+    external_imports: &[ExternalImport],
+) -> BTreeMap<(String, String), usize> {
+    external_imports
+        .iter()
+        .filter(|import| import.syntax_valid)
+        .fold(BTreeMap::new(), |mut counts, import| {
+            *counts
+                .entry((import.module.clone(), import.package.clone()))
+                .or_default() += 1;
+            counts
+        })
 }
 
 fn split_import_qualifier(qualifier: &str) -> (&str, Option<&str>) {

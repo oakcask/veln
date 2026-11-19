@@ -11,7 +11,9 @@ use crate::check_project::{
     capture_navigation_source, commit_cached_navigation_analysis, commit_navigation_analysis,
     navigation_analysis_is_cached,
 };
-use crate::language_resources::{DependencyAnalysisScope, LanguageResources};
+use crate::language_resources::{
+    DependencyAnalysisScope, LanguageResources, NavigationSourceAnalysis,
+};
 use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{Selection, WorkspaceBase};
 
@@ -58,9 +60,7 @@ pub(crate) fn definition(
         &captured.dependencies,
         &analysis_scope,
         &source_path,
-        analysis
-            .as_ref()
-            .is_some_and(|analysis| analysis.publication_failed()),
+        navigation_source_analysis(analysis.as_ref()),
     );
     let (line, column) = match validated_position(selected_source.as_deref(), line, column) {
         Some(position) => position,
@@ -78,6 +78,14 @@ pub(crate) fn definition(
         },
         language_resources,
     )
+}
+
+fn navigation_source_analysis(analysis: Option<&NavigationAnalysis>) -> NavigationSourceAnalysis {
+    match analysis {
+        Some(analysis) if analysis.publication_failed() => NavigationSourceAnalysis::FreshRejected,
+        Some(_) => NavigationSourceAnalysis::FreshAccepted,
+        None => NavigationSourceAnalysis::Cached,
+    }
 }
 
 fn finish_definition(

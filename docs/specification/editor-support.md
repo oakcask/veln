@@ -732,7 +732,7 @@ do not enter the result. Clause parameters and bodies keep their separate
 binding and navigation behavior. The adjacent effect qualifier keeps its
 separate effect identity.
 
-For an eligible parse-clean handler selection, references include
+For a selected parse-clean workspace handler declaration, references include
 each complete bare handler name in `handle Body with handler(arguments)` from
 saved workspace sources that declare the same module. If the handler is
 public, references also include complete qualified handler-name leaves reached
@@ -834,10 +834,8 @@ alias. For those paths, an exact full written import path takes
 precedence over a same-spelled implicit leaf alias. Otherwise, an implicit
 leaf alias selects a schema identity only when it is unique across
 workspace and package imports. Conflicting exact imports select no identity.
-Imports that repeat the same dependency package and module are duplicates even
-when their explicit aliases differ. None of their full paths or aliases grants
-dependency schema visibility. Syntax-recovered dependency imports grant no
-dependency schema visibility. A written import does not make the
+Duplicate and syntax-recovered dependency imports do not grant dependency
+schema visibility. A written import does not make the
 imported schema or alias available as a bare schema path. It does not add
 module-qualifier, recovery, or rename behavior for
 schemas.

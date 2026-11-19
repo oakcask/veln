@@ -771,6 +771,38 @@ mod navigation_handler_references_tests {
     }
 
     #[test]
+    fn recovered_dependency_import_does_not_quarantine_later_valid_handler_import() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use dep as bad from \"stable/pkg\" unexpected\n",
+                    "use dep as wire from \"stable/pkg\"\n\n",
+                    "fn invalid() -> Int\n  handle 0 with bad::run()\nend\n\n",
+                    "fn first() -> Int\n  handle 1 with wire::run()\nend\n\n",
+                    "fn second() -> Int\n  handle 2 with dep::run()\nend\n",
+                ),
+            )],
+            vec![stable_package_handler()],
+        );
+
+        assert!(query_snapshot(&snapshot, "main.veln", 5, 22).is_none());
+        let aliased = query_snapshot(&snapshot, "main.veln", 9, 23).unwrap();
+        assert!(matches!(
+            aliased.definition.source,
+            NavigationSource::Package { .. }
+        ));
+        assert_eq!(
+            locations(&aliased.references),
+            [("main.veln", 9, 23), ("main.veln", 13, 22)]
+        );
+        let exact = query_snapshot(&snapshot, "main.veln", 13, 22).unwrap();
+        assert_eq!(exact.selected_symbol, aliased.selected_symbol);
+        assert_eq!(exact.definition, aliased.definition);
+        assert_eq!(exact.references, aliased.references);
+    }
+
+    #[test]
     fn direct_dependency_handler_references_reject_ineligible_imports_and_applications() {
         let other = dependency_snapshot(
             "other/pkg",
@@ -847,6 +879,16 @@ mod navigation_handler_references_tests {
             ("unresolved handler", stable_import, "dep::missing()"),
             ("incomplete application", stable_import, "dep::run("),
             ("recovered application", stable_import, "dep::run(1 2)"),
+            (
+                "incomplete function in handler position",
+                stable_import,
+                "dep::work(",
+            ),
+            (
+                "recovered function in handler position",
+                stable_import,
+                "dep::work(1 2)",
+            ),
             ("additional qualifier", stable_import, "dep::extra::run()"),
             ("function in handler position", stable_import, "dep::work()"),
             (

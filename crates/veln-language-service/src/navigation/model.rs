@@ -1111,6 +1111,8 @@ struct SchemaAliasModuleImports {
     external_imports_by_alias: BTreeMap<String, BTreeSet<(String, String)>>,
     valid_external_imports_by_module: BTreeMap<String, BTreeSet<(String, String)>>,
     valid_external_imports_by_alias: BTreeMap<String, BTreeSet<(String, String)>>,
+    handler_external_imports_by_module: BTreeMap<String, BTreeSet<(String, String)>>,
+    handler_external_imports_by_alias: BTreeMap<String, BTreeSet<(String, String)>>,
 }
 
 #[derive(Clone, Debug, Default)]

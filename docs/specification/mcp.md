@@ -1104,10 +1104,7 @@ explicit qualifier.
 Bare schema names resolve in their declaring module. A full written import path
 takes precedence over a colliding implicit leaf alias; an implicit leaf alias
 resolves only when exactly one workspace or package import provides it.
-Imports that repeat the same dependency package and module are duplicates even
-when their explicit aliases differ. None of their full paths or aliases
-resolves a dependency schema. Syntax-recovered dependency imports resolve no
-dependency schema.
+Duplicate or syntax-recovered dependency imports resolve no dependency schema.
 Consumer imports do not participate in package-alias target resolution.
 Invalid-cased, unresolved, wrong-kind, transitive, non-exported, and
 ambiguous aliases return successful empty reference results. These rules also

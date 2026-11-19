@@ -1023,7 +1023,7 @@ impl LanguageResources {
         captured_dependencies: &[CapturedDependencyProject],
         analysis_scope: &DependencyAnalysisScope,
         source: &veln_source::SourcePath,
-        reject_captured_analysis: bool,
+        analysis_state: NavigationSourceAnalysis,
     ) -> Option<String> {
         let find_source = |files: &[veln_source::SourceFile]| {
             files
@@ -1031,12 +1031,16 @@ impl LanguageResources {
                 .find(|file| file.path() == source)
                 .map(|file| file.text().to_string())
         };
-        if reject_captured_analysis {
-            return self
-                .analysis_scopes
-                .get(analysis_scope)
-                .and_then(|state| state.accepted.as_ref())
-                .and_then(|accepted| find_source(&accepted.workspace_files));
+        match analysis_state {
+            NavigationSourceAnalysis::FreshAccepted => return find_source(files),
+            NavigationSourceAnalysis::FreshRejected => {
+                return self
+                    .analysis_scopes
+                    .get(analysis_scope)
+                    .and_then(|state| state.accepted.as_ref())
+                    .and_then(|accepted| find_source(&accepted.workspace_files));
+            }
+            NavigationSourceAnalysis::Cached => {}
         }
         match self.dependency_analysis_selection(analysis_scope, captured_dependencies) {
             DependencyAnalysisSelection::Admitted(_) | DependencyAnalysisSelection::Unanalyzed => {
@@ -1097,6 +1101,13 @@ impl LanguageResources {
         }
         DependencyAnalysisSelection::Unanalyzed
     }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum NavigationSourceAnalysis {
+    FreshAccepted,
+    FreshRejected,
+    Cached,
 }
 
 fn same_workspace_files(
