@@ -405,7 +405,10 @@ ordering, and UTF-16 coordinates.
 The `saved-navigation-cross-adapter` LSP specification case uses decoded
 assertions for direct `params.position` validation, invalid-coordinate errors,
 empty rename edits for invalid names, and successful navigation repeated after
-failed requests.
+failed requests. Its paired LSP/MCP conformance harness also normalizes a
+retained direct-dependency handler definition and reference set, checks LSP
+package-declaration exclusion, and collects one declaration from paginated MCP
+references when inclusion is requested.
 The `module-value-navigation-boundaries` LSP specification case uses decoded
 assertions for qualified lexical-shadowing selection, retained-dependency
 bare-export conflicts, and declaring-module import precedence.

@@ -1232,9 +1232,8 @@ transcript demonstrates declaration policy and UTF-16 conversion for workspace
 handler references. Focused LSP regressions cover retained direct-dependency
 definitions, workspace-only reference results, and package-declaration
 exclusion when `includeDeclaration` is true. The checked MCP transcript
-`examples/specification/mcp/references-direct-dependency-handler/` provides
-one-based cross-adapter evidence for the same shared definition and workspace
-application set.
+`examples/specification/mcp/references-direct-dependency-handler/` covers the
+same shared definition and workspace application set in one-based coordinates.
 LSP unit regressions exercise every imported workspace-handler exclusion
 specified above. They also verify that each rejected definition and reference
 request leaves an unrelated valid handler definition and reference result
@@ -1259,4 +1258,7 @@ references for one shared invalid-cased recovery identity, with declaration
 exclusion and inclusion. It also compares workspace module immutable-value
 references with declaration exclusion and inclusion. The matrix also compares
 an imported public handler definition and its complete declaration-inclusive
-and declaration-excluding reference sets.
+and declaration-excluding reference sets. For a retained direct-dependency
+handler, it compares the canonical package definition and workspace-only
+references, verifies that LSP omits the package declaration, and verifies that
+MCP includes it exactly once when requested across continuation pages.

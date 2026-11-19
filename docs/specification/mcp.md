@@ -1245,4 +1245,7 @@ immutable-value references, and state after a failed request. It also compares
 the recovery definition and complete recovery reference set with declaration
 exclusion and inclusion. The matrix also compares an imported public handler
 definition and its complete declaration-inclusive and declaration-excluding
-reference sets.
+reference sets. For a retained direct-dependency handler, it compares the
+canonical package definition and workspace-only references, verifies LSP
+package-declaration exclusion, and collects the one MCP package declaration
+across declaration-inclusive continuation pages.
