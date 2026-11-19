@@ -1059,6 +1059,11 @@ empty result. A wrong-kind handler-name leaf does not fall back to the
 definition or references of the value, type, or other symbol named by that
 path. Equal spelling in another module or symbol class is excluded. An
 unrelated parse error does not remove a complete parse-clean occurrence.
+Declaration uniqueness includes handlers from non-exported dependency source
+files. An otherwise eligible exported handler therefore returns an empty
+result when a non-exported source in the same retained package declares the
+same module and handler name.
+
 Capture, lookup, position, and pagination failures publish no partial handler
 locations and preserve the saved workspace, retained resources, prior results,
 and existing cursors under the general references failure contract.

@@ -770,6 +770,11 @@ result. Comments and strings do not contribute handler references. An
 unrelated parse error does not remove a complete parse-clean handler
 occurrence.
 
+Declaration uniqueness includes handlers from non-exported dependency source
+files. An otherwise eligible exported handler is therefore ambiguous when a
+non-exported source in the same retained package declares the same module and
+handler name.
+
 For a selected workspace schema declaration, `textDocument/references` returns
 the declaration when requested plus `decode`, `encode`, runtime-validation,
 and directly resolved
