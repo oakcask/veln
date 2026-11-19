@@ -131,8 +131,10 @@ captured standard output and standard error in the failure.
   `[[lsp_assert]]`, `[[mcp_assert]]`, `[[diagnostics]]`, `[[file_assert]]`,
   `[[binary_fixture]]`, and `[[output_chunk_list]]`.
 - Manifest-failure checks: `[manifest_error]`.
-- External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
-  `"real"` and `[tools] git = "missing"` or `"real"`.
+- External tool setup: `[tools] java = "missing"`, `"fake-success"`,
+  `"fake-java-modern-underscore"`, or `"real"` and `[tools] git = "missing"`
+  or `"real"`. The modern-underscore Java fixture reports `25_0` for the
+  version probe and records any entry-launch attempt through `JAVA_MARKER`.
 
 ## Manifest Value Syntax
 

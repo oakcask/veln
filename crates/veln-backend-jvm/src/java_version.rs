@@ -28,7 +28,7 @@ pub fn parse_java_major(tool: JavaTool, outputs: &[&str]) -> Option<u32> {
     let mut detected = None;
     for output in outputs {
         for line in output.lines() {
-            let line = line.trim_start();
+            let line = line.trim();
             let version = match tool {
                 JavaTool::Compiler => strip_words(line, &["javac"]).map(unquoted_version),
                 JavaTool::Runtime => strip_words(line, &["java", "version"])
@@ -61,8 +61,7 @@ fn strip_words<'a>(mut input: &'a str, words: &[&str]) -> Option<&'a str> {
 }
 
 fn unquoted_version(input: &str) -> Option<&str> {
-    let version = input.split_whitespace().next()?;
-    (!matches!(version.chars().next(), Some('"' | '\''))).then_some(version)
+    (!input.is_empty() && !matches!(input.chars().next(), Some('"' | '\''))).then_some(input)
 }
 
 fn quoted_version(input: &str) -> Option<&str> {
@@ -77,16 +76,26 @@ fn parse_version_major(version: &str) -> Option<u32> {
     let bytes = version.as_bytes();
     let mut cursor = take_digits(bytes, 0)?;
     let first = version[..cursor].parse::<u32>().ok()?;
-    let mut legacy_major = None;
-
-    while cursor < bytes.len() && matches!(bytes[cursor], b'.' | b'_') {
-        let separator = bytes[cursor];
+    let major = if first == 1 {
+        if bytes.get(cursor) != Some(&b'.') {
+            return None;
+        }
         let start = cursor + 1;
         cursor = take_digits(bytes, start)?;
-        if first == 1 && separator == b'.' && legacy_major.is_none() {
-            legacy_major = Some(version[start..cursor].parse::<u32>().ok()?);
+        let legacy_major = version[start..cursor].parse::<u32>().ok()?;
+        while bytes.get(cursor) == Some(&b'.') {
+            cursor = take_digits(bytes, cursor + 1)?;
         }
-    }
+        if bytes.get(cursor) == Some(&b'_') {
+            cursor = take_digits(bytes, cursor + 1)?;
+        }
+        legacy_major
+    } else {
+        while bytes.get(cursor) == Some(&b'.') {
+            cursor = take_digits(bytes, cursor + 1)?;
+        }
+        first
+    };
     if cursor < bytes.len() && bytes[cursor] == b'-' {
         cursor = take_alphanumeric(bytes, cursor + 1)?;
     }
@@ -99,11 +108,7 @@ fn parse_version_major(version: &str) -> Option<u32> {
     if cursor != bytes.len() {
         return None;
     }
-    if first == 1 {
-        legacy_major
-    } else {
-        Some(first)
-    }
+    Some(major)
 }
 
 fn take_digits(bytes: &[u8], start: usize) -> Option<usize> {
@@ -130,6 +135,10 @@ mod tests {
     fn parses_release_legacy_and_early_access_version_output() {
         assert_eq!(
             parse_java_major(JavaTool::Compiler, &["javac 25.0.1"]),
+            Some(25)
+        );
+        assert_eq!(
+            parse_java_major(JavaTool::Compiler, &["  javac 25.0.1  "]),
             Some(25)
         );
         assert_eq!(
@@ -201,6 +210,19 @@ mod tests {
             None
         );
         assert_eq!(parse_java_major(JavaTool::Compiler, &["javac 25."]), None);
+        assert_eq!(parse_java_major(JavaTool::Compiler, &["javac 25_0"]), None);
+        assert_eq!(
+            parse_java_major(JavaTool::Compiler, &["javac 25.0_1"]),
+            None
+        );
+        assert_eq!(
+            parse_java_major(JavaTool::Compiler, &["javac 25.0.1 trailing-garbage"]),
+            None
+        );
+        assert_eq!(
+            parse_java_major(JavaTool::Runtime, &["openjdk version \"25_0\""]),
+            None
+        );
         assert_eq!(
             parse_java_major(JavaTool::Runtime, &["openjdk version \"25.not-a-version\""]),
             None

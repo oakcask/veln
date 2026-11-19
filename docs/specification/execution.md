@@ -35,19 +35,17 @@ banners stop the build or command before runtime compilation or entry launch.
 The accepted version starts with decimal release components, such as `25` or
 `25.0.1`. It also accepts the legacy `1.8.0_472` form and an alphanumeric
 prerelease after `-`, such as `25-ea`, with an optional numeric `+` build.
-Dot- and underscore-separated release components are decimal; text in such a
-component, including `25.not-a-version`, is malformed.
+Modern release components are decimal and dot-separated. An underscore is
+accepted only before the update component in the legacy `1.x` spelling.
+Compiler banners must end after the version except for outer whitespace.
+Text in a release component, a modern underscore component such as `25_0`, or
+any compiler-banner suffix is malformed. Runtime banners can retain text after
+the closing version quote, as produced by Java launchers.
 
-Generated Java 25 classes include verifier stack-map frames for emitted branch
-targets and exception handlers. This includes unreachable generated blocks
-that follow a terminal instruction. Frame construction reports a bounded
-backend failure for an incompatible generated frame instead of writing an
-unverifiable class. Its traversal does not consume native compiler stack in
-proportion to a chain of unreachable branches near the classfile method-size
-limit. For a long reachable straight-line sequence, analysis retains complete
-locals-and-stack frames at control-flow entries instead of at every
-instruction. Methods with many locals therefore do not multiply retained
-frame state by their straight-line instruction count.
+Generated Java 25 classes exercised through the backend and command runtime are
+loadable by the supported Java runtime. If class construction cannot represent
+a compatible generated class, it returns a bounded backend failure instead of
+writing an invalid classfile.
 
 Explicit import aliases affect source lookup only. Lowering and reachability
 use the selected target module and declaration identity for calls,
@@ -881,9 +879,15 @@ than degrading it to a generic rendered result value.
   a relative `PATH` entry performs both the probe and `--release 25`
   compilation in
   [`build_boundary.rs`](../../crates/veln-backend-jvm/src/tests/build_boundary.rs).
-- Class-builder tests check verifier frames for branch merges, exception
-  handlers, long straight-line methods with many locals, and unreachable
-  branch chains in
+- The checked
+  [`run`](../../examples/specification/run/java-modern-underscore-rejected-json/)
+  and
+  [`test`](../../examples/specification/test/java-modern-underscore-rejected-json/)
+  cases reject a modern underscore version before cache preparation or entry
+  launch and preserve the command-owned JSON error shape.
+- Class-builder tests require `ClassBuilder::finish()` to succeed for selected
+  branch, exception-handler, long straight-line, and unreachable-branch inputs,
+  or to return the expected bounded backend failure for an oversized method, in
   [`class_builder.rs`](../../crates/veln-backend-jvm/src/classfile/class_builder.rs).
 - Host stack exhaustion with a waiting child task is checked for both run and
   reusable test entries in `crates/veln-backend-jvm/src/tests/concurrency.rs`.

@@ -432,6 +432,9 @@ pub(super) fn setup_tool(tool_path: &Path, name: &str, availability: ToolAvailab
     match availability {
         ToolAvailability::Missing => {}
         ToolAvailability::FakeSuccess => write_fake_success_tool(tool_path, name),
+        ToolAvailability::FakeJavaModernUnderscore => {
+            write_fake_java_modern_underscore_tool(tool_path, name)
+        }
         ToolAvailability::FakeGitRevParse => write_fake_git_rev_parse_tool(tool_path, name),
         ToolAvailability::Real => {
             let host_tool = find_host_tool(name)
@@ -439,6 +442,46 @@ pub(super) fn setup_tool(tool_path: &Path, name: &str, availability: ToolAvailab
             install_real_tool(tool_path, name, &host_tool);
         }
     }
+}
+
+#[cfg(unix)]
+pub(super) fn write_fake_java_modern_underscore_tool(tool_path: &Path, name: &str) {
+    assert_eq!(
+        name, "java",
+        "modern-underscore fake is only valid for java"
+    );
+    let tool = tool_path.join(name);
+    fs::write(
+        &tool,
+        "#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then printf 'openjdk version \"25_0\"\\n' >&2; exit 0; fi\nif [ -n \"${JAVA_MARKER:-}\" ]; then printf started > \"$JAVA_MARKER\"; fi\nexit 0\n",
+    )
+    .expect("fake Java should be written");
+    let mut permissions = fs::metadata(&tool)
+        .expect("fake Java metadata should be available")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&tool, permissions).expect("fake Java should be executable");
+}
+
+#[cfg(windows)]
+pub(super) fn write_fake_java_modern_underscore_tool(tool_path: &Path, name: &str) {
+    assert_eq!(
+        name, "java",
+        "modern-underscore fake is only valid for java"
+    );
+    for extension in ["bat", "cmd"] {
+        let tool = tool_path.join(format!("{name}.{extension}"));
+        fs::write(
+            &tool,
+            "@echo off\r\nif \"%1\"==\"-version\" (echo openjdk version \"25_0\" 1>&2 & exit /b 0)\r\nif not \"%JAVA_MARKER%\"==\"\" >\"%JAVA_MARKER%\" echo started\r\nexit /b 0\r\n",
+        )
+        .expect("fake Java should be written");
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
+pub(super) fn write_fake_java_modern_underscore_tool(_tool_path: &Path, name: &str) {
+    panic!("fake Java `{name}` is not supported on this platform");
 }
 
 pub(super) const FAKE_GIT_RESOLVED_REV: &str = "0123456789abcdef0123456789abcdef01234567";

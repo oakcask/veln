@@ -113,11 +113,21 @@ fn javac_candidates() -> Option<Vec<PathBuf>> {
         } else {
             current_dir.join(entry)
         };
-        for name in ["javac", "javac.exe"] {
+        for name in javac_executable_names() {
             candidates.push(directory.join(name));
         }
     }
     Some(candidates)
+}
+
+#[cfg(windows)]
+fn javac_executable_names() -> &'static [&'static str] {
+    &["javac.exe", "javac"]
+}
+
+#[cfg(not(windows))]
+fn javac_executable_names() -> &'static [&'static str] {
+    &["javac"]
 }
 
 fn compile_runtime(javac: &Path, runtime_dir: &Path) {

@@ -83,6 +83,11 @@ fn public_run_and_test_reject_invalid_runtime_version_responses_without_launch()
             "could not determine the selected `java` major version",
         ),
         (
+            "modern-underscore",
+            "printf '%s\\n' 'openjdk version \"25_0\"' >&2",
+            "could not determine the selected `java` major version",
+        ),
+        (
             "older-major",
             "printf '%s\\n' 'openjdk version \"24.0.2\"' >&2",
             "Java 25 or newer",
@@ -117,6 +122,49 @@ fn public_run_and_test_reject_invalid_runtime_version_responses_without_launch()
                 combined.contains(expected),
                 "{case_name} {command_name} did not report `{expected}`:\n{combined}"
             );
+            if case_name == "modern-underscore" {
+                assert!(
+                    output.stderr.is_empty(),
+                    "owned JSON error must not use stderr"
+                );
+                let report = parse_json(
+                    std::str::from_utf8(&output.stdout).expect("owned error should be UTF-8 JSON"),
+                )
+                .expect("owned error should parse as JSON");
+                if command_name == "run" {
+                    assert_eq!(json_string_field(&report, "status"), "error");
+                    let error = report
+                        .object_field("error")
+                        .expect("run error should exist");
+                    assert_eq!(json_string_field(error, "kind"), "runner");
+                    assert_eq!(
+                        json_string_field(
+                            error
+                                .object_field("details")
+                                .expect("run details should exist"),
+                            "phase",
+                        ),
+                        "tool"
+                    );
+                } else {
+                    let cases = report
+                        .object_field("cases")
+                        .and_then(JsonValue::as_array)
+                        .expect("test cases should exist");
+                    assert_eq!(cases.len(), 1);
+                    assert_eq!(json_string_field(&cases[0], "status"), "error");
+                    assert_eq!(json_string_field(&cases[0], "reason"), "runner_error");
+                    assert_eq!(
+                        json_string_field(
+                            cases[0]
+                                .object_field("failure")
+                                .expect("test failure should exist"),
+                            "kind",
+                        ),
+                        "runtime"
+                    );
+                }
+            }
             if case_name == "older-major" {
                 assert!(combined.contains("major version 24"));
             }

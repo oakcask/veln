@@ -170,6 +170,111 @@ fn backend_build_rejects_wrong_tool_and_split_stream_version_responses() {
 
 #[cfg(unix)]
 #[test]
+fn backend_build_rejects_malformed_modern_and_suffixed_javac_banners() {
+    for (name, banner) in [
+        ("modern-underscore-javac", "javac 25_0"),
+        ("suffixed-javac", "javac 25.0.1 trailing-garbage"),
+    ] {
+        let script = format!(
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$VELN_FAKE_JAVAC_LOG\"\nif [ \"$1\" = '-version' ]; then printf '%s\\n' '{banner}' >&2; exit 0; fi\nprintf fake-class > VelnRuntime.class\nexit 0\n"
+        );
+        let (root, output) = run_fake_javac_build(name, &script, Vec::new(), false);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(!output.status.success(), "build unexpectedly succeeded");
+        assert!(
+            stderr.contains("could not determine selected javac major version"),
+            "unexpected build failure:\n{stderr}"
+        );
+        let invocations = fs::read_to_string(root.join("javac-invocations"))
+            .expect("fake javac should record its probe");
+        assert_eq!(invocations.lines().collect::<Vec<_>>(), ["-version"]);
+        assert!(!invocations.contains("--release 25"));
+        let _ = fs::remove_dir_all(root);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn backend_build_ignores_javac_exe_and_selects_the_later_unix_javac() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = temp_dir("unix-javac-name-selection");
+    let exe_tools = root.join("exe-tools");
+    let unix_tools = root.join("unix-tools");
+    let target = root.join("target");
+    let invocation_log = root.join("javac-invocations");
+    let exe_marker = root.join("javac-exe-started");
+    fs::create_dir_all(&exe_tools).expect("exe tool directory should be created");
+    fs::create_dir_all(&unix_tools).expect("Unix tool directory should be created");
+
+    let javac_exe = exe_tools.join("javac.exe");
+    fs::write(
+        &javac_exe,
+        format!(
+            "#!/bin/sh\nprintf started > '{}'\nprintf '%s\\n' 'javac 24' >&2\nexit 0\n",
+            exe_marker.display()
+        ),
+    )
+    .expect("fake javac.exe should be written");
+    let mut exe_permissions = fs::metadata(&javac_exe)
+        .expect("fake javac.exe metadata should be available")
+        .permissions();
+    exe_permissions.set_mode(0o755);
+    fs::set_permissions(&javac_exe, exe_permissions).expect("fake javac.exe should be executable");
+
+    let javac = unix_tools.join("javac");
+    fs::write(
+        &javac,
+        concat!(
+            "#!/bin/sh\n",
+            "printf '%s\\n' \"$*\" >> \"$VELN_FAKE_JAVAC_LOG\"\n",
+            "if [ \"$1\" = '-version' ]; then printf '%s\\n' 'javac 25.0.1' >&2; exit 0; fi\n",
+            "printf fake-class > VelnRuntime.class\n",
+            "exit 0\n",
+        ),
+    )
+    .expect("fake Unix javac should be written");
+    let mut permissions = fs::metadata(&javac)
+        .expect("fake Unix javac metadata should be available")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&javac, permissions).expect("fake Unix javac should be executable");
+
+    let mut path_entries = vec![exe_tools, unix_tools];
+    path_entries.extend(std::env::split_paths(
+        &std::env::var_os("PATH").expect("test process should have PATH"),
+    ));
+    let selected_path = std::env::join_paths(path_entries).expect("test PATH should be valid");
+    let output = Command::new(env!("CARGO"))
+        .arg("check")
+        .arg("--quiet")
+        .arg("--manifest-path")
+        .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml"))
+        .arg("--package")
+        .arg("veln-backend-jvm")
+        .env("CARGO_TARGET_DIR", &target)
+        .env("PATH", selected_path)
+        .env("VELN_FAKE_JAVAC_LOG", &invocation_log)
+        .output()
+        .expect("cargo should run the JVM backend build script");
+
+    assert!(
+        output.status.success(),
+        "Unix javac build failed:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!exe_marker.exists(), "Unix lookup must ignore javac.exe");
+    let invocations =
+        fs::read_to_string(&invocation_log).expect("Unix javac should record both invocations");
+    assert_eq!(
+        invocations.lines().collect::<Vec<_>>(),
+        ["-version", "--release 25 VelnRuntime.java"]
+    );
+    let _ = fs::remove_dir_all(root);
+}
+
+#[cfg(unix)]
+#[test]
 fn backend_build_rejects_unsuccessful_version_probe_before_compilation() {
     let script = concat!(
         "#!/bin/sh\n",
