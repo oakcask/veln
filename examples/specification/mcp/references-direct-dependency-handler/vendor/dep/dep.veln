@@ -1,0 +1,3 @@
+pub handler run() for Work
+  go() => 1
+end

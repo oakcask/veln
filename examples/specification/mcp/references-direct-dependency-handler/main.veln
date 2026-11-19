@@ -1,0 +1,9 @@
+use dep from "example/dep"
+
+fn first() -> Int
+  handle 1 with dep::run()
+end
+
+fn second() -> Int
+  handle 2 with dep::run()
+end

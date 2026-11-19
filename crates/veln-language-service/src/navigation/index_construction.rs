@@ -63,7 +63,7 @@ struct WorkspaceNavigationIndices {
     workspace_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     package_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     eligible_workspace_effect_indices: BTreeMap<(String, String), usize>,
-    eligible_workspace_handler_indices: BTreeMap<(String, String), usize>,
+    eligible_handler_indices: BTreeMap<ModuleMemberIdentity, usize>,
     eligible_workspace_effect_operation_indices: BTreeMap<(String, String, String), usize>,
 }
 
@@ -130,7 +130,7 @@ impl SymbolIndex {
             workspace_type_alias_indices_by_module_and_name,
             package_type_alias_indices_by_module_and_name,
             eligible_workspace_effect_indices,
-            eligible_workspace_handler_indices,
+            eligible_handler_indices,
             eligible_workspace_effect_operation_indices,
         } = workspace_navigation_indices(&declarations, &files);
         files.extend(direct_dependencies.files.clone());
@@ -177,7 +177,7 @@ impl SymbolIndex {
             package_type_alias_indices_by_module_and_name,
             variant_refinement_alias_index: OnceLock::new(),
             eligible_workspace_effect_indices,
-            eligible_workspace_handler_indices,
+            eligible_handler_indices,
             eligible_workspace_effect_operation_indices,
             schema_composition_references,
             schema_alias_module_imports,
@@ -208,8 +208,7 @@ fn workspace_navigation_indices(
         package_symbol_indices_by_module_and_name(&declarations.type_aliases);
     let eligible_workspace_effect_indices =
         eligible_workspace_effect_indices(&declarations.effects, files);
-    let eligible_workspace_handler_indices =
-        eligible_workspace_handler_indices(&declarations.handlers, files);
+    let eligible_handler_indices = eligible_handler_indices(&declarations.handlers, files);
     let eligible_workspace_effect_operation_indices = eligible_workspace_effect_operation_indices(
         &declarations.operations,
         &eligible_workspace_effect_indices,
@@ -225,7 +224,7 @@ fn workspace_navigation_indices(
         workspace_type_alias_indices_by_module_and_name,
         package_type_alias_indices_by_module_and_name,
         eligible_workspace_effect_indices,
-        eligible_workspace_handler_indices,
+        eligible_handler_indices,
         eligible_workspace_effect_operation_indices,
     }
 }

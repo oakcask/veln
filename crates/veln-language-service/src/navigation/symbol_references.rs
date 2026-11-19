@@ -215,10 +215,7 @@ impl SymbolIndex {
                                     *token_index,
                                     &token.text,
                                 )
-                                .is_some_and(|candidate| {
-                                    candidate.module == symbol.module
-                                        && candidate.name == symbol.name
-                                })
+                                .is_some_and(|candidate| same_neutral_symbol(&candidate, symbol))
                     })
                     .map(|(_, token)| file.source.span(token.range))
                     .collect::<Vec<_>>()
@@ -226,12 +223,14 @@ impl SymbolIndex {
             .collect()
     }
 
-    fn workspace_handler_is_eligible(&self, symbol: &NeutralSymbol) -> bool {
-        if symbol.package.is_some() {
-            return false;
-        }
-        self.eligible_workspace_handler_indices
-            .get(&(symbol.module.clone(), symbol.name.clone()))
+    fn handler_is_eligible(&self, symbol: &NeutralSymbol) -> bool {
+        self.eligible_handler_indices
+            .get(&(
+                symbol.package.clone(),
+                symbol.package_origin,
+                symbol.module.clone(),
+                symbol.name.clone(),
+            ))
             .and_then(|index| self.handlers.get(*index))
             .is_some_and(|candidate| candidate.declaration == symbol.declaration)
     }

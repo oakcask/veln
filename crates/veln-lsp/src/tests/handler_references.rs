@@ -58,6 +58,58 @@ fn workspace_handler_references_preserve_utf16_crlf_and_declaration_policy() {
 }
 
 #[test]
+fn direct_dependency_handler_navigation_returns_virtual_definition_and_workspace_references() {
+    let project = TempProject::new("direct-dependency-handler-references");
+    project.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    project.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    project.write(
+        "vendor/dep/dep.veln",
+        "pub handler run() for Work\n  go() => 1\nend\n",
+    );
+    project.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn first() -> Int\n  handle 1 with dep::run()\nend\n\n",
+            "fn second() -> Int\n  handle 2 with dep::run()\nend\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = server_with_empty_standard_library();
+    server.handle_message(&initialize_request(&root_uri));
+
+    let definition = server.handle_message(&definition_request(&main_uri, 3, 21));
+    assert_eq!(definition.len(), 1);
+    assert!(
+        definition[0].contains("veln-pkg:///example%2Fdep/snapshot/"),
+        "{}",
+        definition[0]
+    );
+    assert!(definition[0].contains(
+        r#""range":{"start":{"line":0,"character":12},"end":{"line":0,"character":15}}"#
+    ));
+
+    for include_declaration in [false, true] {
+        let references = server.handle_message(&references_request_with_declaration(
+            &main_uri,
+            7,
+            21,
+            include_declaration,
+        ));
+        assert_eq!(references.len(), 1);
+        assert_eq!(references[0].matches(&format!(r#""uri":"{main_uri}""#)).count(), 2);
+        assert!(!references[0].contains("veln-pkg:"), "{}", references[0]);
+    }
+}
+
+#[test]
 fn imported_workspace_handler_navigation_preserves_utf16_and_declaration_policy() {
     let project = TempProject::new("workspace-imported-handler-references");
     write_imported_handler_project(&project);

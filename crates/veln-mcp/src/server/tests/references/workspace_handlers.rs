@@ -60,6 +60,85 @@ fn references_page_workspace_handlers_with_unicode_scalar_coordinates() {
 }
 
 #[test]
+fn references_page_direct_dependency_handlers_with_optional_virtual_declaration() {
+    let workspace = TempWorkspace::new("references-direct-dependency-handler");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub handler run() for Work\n  go() => 1\nend\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn first() -> Int\n  handle 1 with dep::run()\nend\n\n",
+            "fn second() -> Int\n  handle 2 with dep::run()\nend\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let main_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
+
+    let without = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":22,
+        "include_declaration":false
+    }));
+    assert_eq!(
+        without["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert_eq!(
+        without["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|location| location["uri"] == main_uri)
+            .count(),
+        2,
+        "{without:#}"
+    );
+    assert!(!without.to_string().contains("veln-pkg:"), "{without:#}");
+
+    let first = server.references_tool(&json!({
+        "source":"main.veln", "line":8, "column":22,
+        "include_declaration":true, "page_size":1
+    }));
+    let cursor = first["structuredContent"]["next_cursor"].as_str().unwrap();
+    let second = server.references_tool(&json!({"cursor":cursor}));
+    let cursor = second["structuredContent"]["next_cursor"].as_str().unwrap();
+    let third = server.references_tool(&json!({"cursor":cursor}));
+    let locations = [&first, &second, &third]
+        .into_iter()
+        .flat_map(|page| page["structuredContent"]["references"].as_array().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        locations
+            .iter()
+            .filter(|location| location["uri"]
+                .as_str()
+                .is_some_and(|uri| uri.starts_with("veln-pkg:///example%2Fdep/snapshot/")))
+            .count(),
+        1
+    );
+    assert_eq!(
+        locations
+            .iter()
+            .filter(|location| location["uri"] == main_uri)
+            .count(),
+        2
+    );
+}
+
+#[test]
 fn imported_workspace_handler_navigation_pages_shared_scalar_locations() {
     let workspace = TempWorkspace::new("references-workspace-imported-handler");
     write_imported_handler_workspace(&workspace);

@@ -435,7 +435,7 @@ mod navigation_handler_references_tests {
     }
 
     #[test]
-    fn workspace_handler_references_reject_package_backed_paths() {
+    fn direct_dependency_handler_references_keep_package_and_workspace_identities_separate() {
         let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
             vec![source(
                 "main.veln",
@@ -443,7 +443,8 @@ mod navigation_handler_references_tests {
                     "use dep from \"example/dep\"\n\n",
                     "handler run() for Work\n  go() => 1\nend\n\n",
                     "fn local() -> Int\n  handle 1 with run()\nend\n\n",
-                    "fn imported() -> Int\n  handle 2 with dep::run()\nend\n",
+                    "fn imported() -> Int\n  handle 2 with dep::run()\nend\n\n",
+                    "fn imported_again() -> Int\n  handle 3 with dep::run()\nend\n",
                 ),
             )],
             vec![dependency_snapshot(
@@ -457,7 +458,24 @@ mod navigation_handler_references_tests {
         );
         let local = query_snapshot(&snapshot, "main.veln", 8, 17).unwrap();
         assert_eq!(locations(&local.references), [("main.veln", 8, 17)]);
-        assert!(query_snapshot(&snapshot, "main.veln", 12, 22).is_none());
+        let imported = query_snapshot(&snapshot, "main.veln", 12, 22).unwrap();
+        assert_eq!(imported.selected_symbol.kind, SymbolKind::Handler);
+        assert_eq!(imported.definition.span.file.as_str(), "dep.veln");
+        assert_eq!(
+            imported.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+        assert!(matches!(
+            imported.definition.source,
+            NavigationSource::Package { .. }
+        ));
+        assert_eq!(
+            locations(&imported.references),
+            [("main.veln", 12, 22), ("main.veln", 16, 22)]
+        );
+        let second = query_snapshot(&snapshot, "main.veln", 16, 22).unwrap();
+        assert_eq!(second.definition, imported.definition);
+        assert_eq!(second.references, imported.references);
 
         let standard = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
@@ -474,6 +492,63 @@ mod navigation_handler_references_tests {
             ["tasks.veln"],
         ));
         assert!(query_snapshot(&standard, "main.veln", 4, 24).is_none());
+    }
+
+    #[test]
+    fn direct_dependency_handler_references_reject_ineligible_declarations() {
+        let cases = [
+            (
+                "private",
+                "handler run() for Work\n  go() => 1\nend\n",
+                vec!["dep.veln"],
+                "run",
+            ),
+            (
+                "unexported",
+                "pub handler run() for Work\n  go() => 1\nend\n",
+                Vec::new(),
+                "run",
+            ),
+            (
+                "invalid case",
+                "pub handler Run() for Work\n  go() => 1\nend\n",
+                vec!["dep.veln"],
+                "Run",
+            ),
+            (
+                "duplicate",
+                concat!(
+                    "pub handler run() for Work\n  go() => 1\nend\n\n",
+                    "pub handler run() for Work\n  go() => 2\nend\n",
+                ),
+                vec!["dep.veln"],
+                "run",
+            ),
+            (
+                "recovered",
+                "pub handler run() for Work @\n  go() => 1\nend\n",
+                vec!["dep.veln"],
+                "run",
+            ),
+        ];
+
+        for (case, declaration, exports, name) in cases {
+            let source_text = format!(
+                "use dep from \"example/dep\"\n\nfn invalid() -> Int\n  handle 1 with dep::{name}()\nend\n"
+            );
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source("main.veln", &source_text)],
+                vec![dependency_snapshot(
+                    "example/dep",
+                    &[("dep.veln", declaration)],
+                    exports,
+                )],
+            );
+            assert!(
+                query_snapshot(&snapshot, "main.veln", 4, 22).is_none(),
+                "accepted {case}"
+            );
+        }
     }
 
     #[test]

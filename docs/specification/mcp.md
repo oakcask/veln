@@ -682,8 +682,8 @@ workspace functions, module immutable values, types,
 constructors, handler context and operation-clause parameters, exact
 test-companion private-function access, and unique class-compatible invalid
 source recovery records. Eligible direct-dependency selections include public
-functions, module immutable values, types, constructors, schemas, and public
-function aliases. Embedded `std` supports the same package selections except
+functions, module immutable values, types, constructors, schemas, handlers,
+and public function aliases. Embedded `std` supports the same package selections except
 module immutable values. Exported direct-dependency public type aliases are
 eligible when their target resolves to a type in that retained dependency.
 Invalid-cased package records, private or non-exported package declarations,
@@ -1016,24 +1016,27 @@ separate effect reference set. Failures preserve captured navigation state,
 retained resources, and existing cursors under the general references failure
 contract.
 
-A workspace handler result contains each complete bare handler name in
+A handler result contains each complete bare handler name in
 `handle Body with handler(arguments)` from saved sources that declare the
-selected handler's module. For a public handler, it also contains complete
-qualified handler-name leaves reached through one parse-clean, unambiguous
-workspace import. The qualifier can use the full module path or its unique
-implicit leaf alias. An exact full path takes precedence over a colliding
-implicit leaf alias. An explicitly aliased import still permits the full module
-path, but neither the written alias nor the module's leaf name becomes an
-implicit qualifier. The declaration and each included name select one identity.
-Each location covers only the handler-name token. A `definition` request at any
-included form returns the workspace declaration. `include_declaration` adds
-that declaration before pagination.
+selected workspace handler's module. A public workspace or retained
+direct-dependency handler also has complete qualified handler-name leaves
+reached through one parse-clean, unambiguous exact import. A dependency
+application selects only a public, valid-cased handler in an exported module of
+that exact retained direct dependency. The package revision, module,
+declaration, and selected project remain part of the identity. Each location
+covers only the handler-name token.
 
-Handler definition and reference lookup require one unrecovered workspace
-declaration for the module and name. An imported application additionally
-requires an explicit workspace import that resolves to the public handler.
-Private imported handlers, duplicate or recovered declarations, ambiguous or
-recovered imports, package-backed and standard-library declarations,
+A `definition` request at an eligible application returns the workspace
+declaration or the canonical retained `veln-pkg:` declaration. References
+contain only matching applications from the selected saved project. For
+project scope, `include_declaration` adds that declaration exactly once before
+sorting and pagination. A single-file request does not add a package
+declaration.
+
+Handler definition and reference lookup require one unrecovered declaration
+for the complete owner identity. Private, non-exported, invalid-cased,
+duplicate, or recovered dependency declarations, ambiguous or recovered
+imports, standard-library and transitive-dependency declarations,
 unresolved, incomplete, recovered, and wrong-kind paths return a successful
 empty result. A wrong-kind handler-name leaf does not fall back to the
 definition or references of the value, type, or other symbol named by that
@@ -1211,6 +1214,11 @@ The checked
 `examples/specification/mcp/references-workspace-imported-handler/` transcript
 demonstrates imported handler definition, full-path and implicit-alias
 handler-name ranges, declaration policy, deterministic ordering, and
+pagination.
+The checked
+`examples/specification/mcp/references-direct-dependency-handler/` transcript
+demonstrates a canonical retained dependency definition, workspace-only
+references, declaration exclusion, and declaration-inclusive sorted
 pagination.
 MCP unit regressions exercise every imported workspace-handler exclusion
 specified above. They verify that each empty definition and reference result

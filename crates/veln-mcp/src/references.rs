@@ -225,8 +225,10 @@ fn supports_workspace_references(result: &NavigationResult) -> bool {
 
 fn supports_package_references(result: &NavigationResult) -> bool {
     supports_package_reference_kind(result)
-        && (!matches!(result.selected_symbol.kind, SymbolKind::Schema)
-            || (!result.references.is_empty() && result.reference_eligible))
+        && (!matches!(
+            result.selected_symbol.kind,
+            SymbolKind::Schema | SymbolKind::Handler
+        ) || (!result.references.is_empty() && result.reference_eligible))
         && supports_package_reference_origin(result)
         && supports_package_reference_declaration(result)
         && (!matches!(
@@ -238,7 +240,11 @@ fn supports_package_references(result: &NavigationResult) -> bool {
 fn supports_package_reference_kind(result: &NavigationResult) -> bool {
     matches!(
         result.selected_symbol.kind,
-        SymbolKind::Function | SymbolKind::Type | SymbolKind::Constructor | SymbolKind::ModuleValue
+        SymbolKind::Function
+            | SymbolKind::Type
+            | SymbolKind::Constructor
+            | SymbolKind::ModuleValue
+            | SymbolKind::Handler
     ) || (result.selected_symbol.kind == SymbolKind::Schema
         && matches!(
             result.selected_symbol.package_origin,

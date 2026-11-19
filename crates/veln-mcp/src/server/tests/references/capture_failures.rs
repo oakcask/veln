@@ -529,6 +529,72 @@ fn workspace_handler_reference_capture_failure_preserves_state_and_later_results
     );
 }
 
+#[test]
+fn direct_dependency_handler_capture_failure_preserves_resources_and_cursor() {
+    let workspace = TempWorkspace::new("references-dependency-handler-capture-retry");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub handler run() for Work\n  go() => 1\nend\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn first() -> Int\n  handle 1 with dep::run()\nend\n\n",
+            "fn second() -> Int\n  handle 2 with dep::run()\nend\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let first_page = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":22,
+        "include_declaration":true, "page_size":1
+    }));
+    let live_cursor = first_page["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0usize));
+    let attempts_for_hook = attempts.clone();
+    let dependency_source = workspace.path("vendor/dep/dep.veln");
+    let hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        fs::remove_file(&dependency_source).unwrap();
+        let value = if attempt.is_multiple_of(2) { 2 } else { 1 };
+        fs::write(
+            &dependency_source,
+            format!("pub handler run() for Work\n  go() => {value}\nend\n"),
+        )
+        .unwrap();
+    });
+
+    let failed = server.references_tool(&json!({
+        "source":"main.veln", "line":8, "column":22,
+        "include_declaration":true
+    }));
+    assert_snapshot_changed_without_references_or_scope(&failed);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
+    let continuation = server.references_tool(&json!({"cursor":live_cursor}));
+    assert_eq!(continuation["isError"], false);
+    assert_eq!(
+        continuation["structuredContent"]["references"][0]["range"],
+        json!({"start":{"line":8,"column":22},"end":{"line":8,"column":25}})
+    );
+    drop(hook);
+}
+
 fn write_workspace_handler_capture_project(workspace: &TempWorkspace) {
     workspace.write("veln.toml", "");
     workspace.write(
