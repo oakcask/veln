@@ -772,7 +772,9 @@ occurrence.
 
 Imports that repeat the same dependency package and module are ambiguous even
 when they use different explicit aliases. None of their full paths or aliases
-grants handler navigation.
+grants handler navigation. A syntax-recovered dependency import does not make
+a separate parse-clean import for that package and module ambiguous. The
+parse-clean import can still grant handler navigation.
 
 Declaration uniqueness includes handlers from non-exported dependency source
 files. An otherwise eligible exported handler is therefore ambiguous when a
@@ -834,7 +836,11 @@ alias. For those paths, an exact full written import path takes
 precedence over a same-spelled implicit leaf alias. Otherwise, an implicit
 leaf alias selects a schema identity only when it is unique across
 workspace and package imports. Conflicting exact imports select no identity.
-Duplicate and syntax-recovered dependency imports do not grant dependency
+Two parse-clean imports of the same dependency package and module under
+different explicit aliases remain valid schema routes. Either alias and the
+exact full module path resolve the same schema identity. Repeating the same
+package, module, and alias is a duplicate and grants no dependency schema
+visibility. A syntax-recovered dependency import also grants no dependency
 schema visibility. A written import does not make the
 imported schema or alias available as a bare schema path. It does not add
 module-qualifier, recovery, or rename behavior for

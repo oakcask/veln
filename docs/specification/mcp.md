@@ -1062,7 +1062,9 @@ path. Equal spelling in another module or symbol class is excluded. An
 unrelated parse error does not remove a complete parse-clean occurrence.
 Imports that repeat the same dependency package and module are ambiguous even
 when they use different explicit aliases. None of their full paths or aliases
-grants handler navigation.
+grants handler navigation. A syntax-recovered dependency import does not make
+a separate parse-clean import for that package and module ambiguous. The
+parse-clean import can still grant handler navigation.
 
 Declaration uniqueness includes handlers from non-exported dependency source
 files. An otherwise eligible exported handler therefore returns an empty
@@ -1104,7 +1106,11 @@ explicit qualifier.
 Bare schema names resolve in their declaring module. A full written import path
 takes precedence over a colliding implicit leaf alias; an implicit leaf alias
 resolves only when exactly one workspace or package import provides it.
-Duplicate or syntax-recovered dependency imports resolve no dependency schema.
+Two parse-clean imports of the same dependency package and module under
+different explicit aliases remain valid schema routes. Either alias and the
+full module path resolve the same schema identity. Repeating the same package,
+module, and alias is a duplicate and resolves no dependency schema. A
+syntax-recovered dependency import also resolves no dependency schema.
 Consumer imports do not participate in package-alias target resolution.
 Invalid-cased, unresolved, wrong-kind, transitive, non-exported, and
 ambiguous aliases return successful empty reference results. These rules also
