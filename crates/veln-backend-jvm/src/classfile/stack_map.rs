@@ -26,11 +26,29 @@ pub(super) fn stack_map_table(
     class_name: &str,
     method: &MethodInfo,
 ) -> Result<Vec<u8>, JvmBackendError> {
-    let initial = initial_frame(class_name, method)?;
-    let mut states = vec![None; method.code.len()];
     if method.code.is_empty() {
         return Ok(Vec::new());
     }
+    let analysis = analyze_frames(pool, class_name, method)?;
+    let frame_map = complete_dead_frames(method, &analysis)?;
+    let frames = frame_map.into_iter().collect::<Vec<_>>();
+    serialize_frames(pool, &frames)
+}
+
+struct FrameAnalysis {
+    states: Vec<Option<Frame>>,
+    control_targets: BTreeSet<usize>,
+    frame_offsets: BTreeSet<usize>,
+    dead_frames: BTreeMap<usize, Frame>,
+}
+
+fn analyze_frames(
+    pool: &Rc<RefCell<ConstantPool>>,
+    class_name: &str,
+    method: &MethodInfo,
+) -> Result<FrameAnalysis, JvmBackendError> {
+    let initial = initial_frame(class_name, method)?;
+    let mut states = vec![None; method.code.len()];
     states[0] = Some(initial);
     let mut queue = VecDeque::from([0usize]);
     let mut control_targets = branch_targets(&method.code)?;
@@ -50,370 +68,250 @@ pub(super) fn stack_map_table(
             .clone()
             .ok_or_else(|| stack_map_error("missing reachable frame"))?;
         let dead_locals = frame.locals.clone();
-        for exception in method
-            .exceptions
-            .iter()
-            .filter(|exception| offset >= exception.start_pc && offset < exception.end_pc)
-        {
-            let handler = Frame {
-                locals: frame.locals.clone(),
-                stack: vec![VerificationType::Object(exception.catch_type.clone())],
-            };
-            merge_state(&mut states, exception.handler_pc, handler, &mut queue)?;
-        }
+        merge_reachable_handlers(method, offset, &frame, &mut states, &mut queue)?;
 
         let (next, successors) = execute_instruction(pool, &method.code, offset, frame)?;
-        for successor in successors {
-            frame_offsets.insert(successor.offset);
-            merge_state(&mut states, successor.offset, successor.frame, &mut queue)?;
-        }
-        if let Some(frame) = next {
-            let next_offset = instruction_end(&method.code, offset)?;
-            if next_offset < method.code.len() {
-                merge_state(&mut states, next_offset, frame, &mut queue)?;
-            }
-        } else {
-            let next_offset = instruction_end(&method.code, offset)?;
-            if next_offset < method.code.len()
-                && states.get(next_offset).is_some_and(Option::is_none)
-                && !dead_frames.contains_key(&next_offset)
-                && !exception_handlers.contains(&next_offset)
-            {
-                frame_offsets.insert(next_offset);
-                analyze_dead_block(
-                    pool,
-                    method,
-                    next_offset,
-                    dead_frame(&method.code, next_offset, dead_locals)?,
-                    &control_targets,
-                    &mut states,
-                    &mut frame_offsets,
-                    &mut dead_frames,
-                )?;
-            }
-        }
+        merge_reachable_successors(successors, &mut states, &mut queue, &mut frame_offsets)?;
+        analyze_reachable_fallthrough(
+            pool,
+            method,
+            offset,
+            next,
+            dead_locals,
+            &exception_handlers,
+            &control_targets,
+            &mut states,
+            &mut queue,
+            &mut frame_offsets,
+            &mut dead_frames,
+        )?;
     }
-
-    let mut frame_map = BTreeMap::new();
-    for offset in frame_offsets {
-        let Some(frame) = states
-            .get(offset)
-            .and_then(Option::as_ref)
-            .or_else(|| dead_frames.get(&offset))
-        else {
-            continue;
-        };
-        frame_map.insert(offset, frame.clone());
-    }
-    loop {
-        let snapshot = frame_map.clone();
-        let mut next_map = snapshot.clone();
-        for (offset, frame) in &mut next_map {
-            if states.get(*offset).is_some_and(Option::is_some) {
-                continue;
-            }
-            for (slot, required) in
-                dead_block_required_locals(&method.code, *offset, &control_targets)?
-            {
-                if frame.locals[slot] == VerificationType::Top {
-                    frame.locals[slot] = required;
-                }
-            }
-            let Some(target) = dead_block_target(&method.code, *offset, &control_targets)? else {
-                continue;
-            };
-            let Some(target_frame) = snapshot.get(&target) else {
-                continue;
-            };
-            let written = dead_block_written_locals(&method.code, *offset, &control_targets)?;
-            for (slot, (local, target_local)) in frame
-                .locals
-                .iter_mut()
-                .zip(&target_frame.locals)
-                .enumerate()
-            {
-                if written.contains(&slot) {
-                    continue;
-                }
-                if *local == VerificationType::Top && *target_local != VerificationType::Top {
-                    *local = target_local.clone();
-                }
-            }
-        }
-        for exception in &method.exceptions {
-            if states.get(exception.start_pc).is_some_and(Option::is_some) {
-                continue;
-            }
-            let Some(handler) = snapshot.get(&exception.handler_pc) else {
-                continue;
-            };
-            let Some(source) = next_map.get_mut(&exception.start_pc) else {
-                continue;
-            };
-            for (local, required) in source.locals.iter_mut().zip(&handler.locals) {
-                if *local == VerificationType::Top && *required != VerificationType::Top {
-                    *local = required.clone();
-                }
-            }
-        }
-        if next_map == snapshot {
-            frame_map = next_map;
-            break;
-        }
-        frame_map = next_map;
-    }
-    let frames = frame_map.into_iter().collect::<Vec<_>>();
-    serialize_frames(pool, &frames)
+    Ok(FrameAnalysis {
+        states,
+        control_targets,
+        frame_offsets,
+        dead_frames,
+    })
 }
 
-fn dead_block_written_locals(
-    code: &[u8],
-    start: usize,
-    control_targets: &BTreeSet<usize>,
-) -> Result<BTreeSet<usize>, JvmBackendError> {
-    let mut written = BTreeSet::new();
-    let mut offset = start;
-    while offset < code.len() {
-        match code[offset] {
-            0x36 | 0x3a => {
-                written.insert(usize::from(code[offset + 1]));
-            }
-            0x3b..=0x3e => {
-                written.insert(usize::from(code[offset] - 0x3b));
-            }
-            0x4b..=0x4e => {
-                written.insert(usize::from(code[offset] - 0x4b));
-            }
-            0xa7 | 0xc8 | 0xac | 0xb0 | 0xb1 | 0xbf => break,
-            _ => {}
-        }
-        offset = instruction_end(code, offset)?;
-        if control_targets.contains(&offset) {
-            break;
-        }
+fn merge_reachable_handlers(
+    method: &MethodInfo,
+    offset: usize,
+    frame: &Frame,
+    states: &mut [Option<Frame>],
+    queue: &mut VecDeque<usize>,
+) -> Result<(), JvmBackendError> {
+    for exception in method
+        .exceptions
+        .iter()
+        .filter(|exception| offset >= exception.start_pc && offset < exception.end_pc)
+    {
+        let handler = Frame {
+            locals: frame.locals.clone(),
+            stack: vec![VerificationType::Object(exception.catch_type.clone())],
+        };
+        merge_state(states, exception.handler_pc, handler, queue)?;
     }
-    Ok(written)
+    Ok(())
 }
 
-fn dead_block_required_locals(
-    code: &[u8],
-    start: usize,
-    control_targets: &BTreeSet<usize>,
-) -> Result<BTreeMap<usize, VerificationType>, JvmBackendError> {
-    let mut written = BTreeSet::new();
-    let mut required = BTreeMap::new();
-    let mut offset = start;
-    while offset < code.len() {
-        let opcode = code[offset];
-        let read = match opcode {
-            0x15 | 0x1a..=0x1d => Some((
-                local_slot(code, offset, opcode, 0x1a)?,
-                VerificationType::Integer,
-            )),
-            0x19 | 0x2a..=0x2d => Some((
-                local_slot(code, offset, opcode, 0x2a)?,
-                VerificationType::Object("java/lang/Object".to_string()),
-            )),
-            0x84 => Some((usize::from(code[offset + 1]), VerificationType::Integer)),
-            _ => None,
-        };
-        if let Some((slot, ty)) = read
-            && !written.contains(&slot)
-        {
-            required.entry(slot).or_insert(ty);
-        }
-        match opcode {
-            0x36 | 0x3a => {
-                written.insert(usize::from(code[offset + 1]));
-            }
-            0x3b..=0x3e => {
-                written.insert(usize::from(opcode - 0x3b));
-            }
-            0x4b..=0x4e => {
-                written.insert(usize::from(opcode - 0x4b));
-            }
-            0x84 => {
-                written.insert(usize::from(code[offset + 1]));
-            }
-            0xa7 | 0xc8 | 0xac | 0xb0 | 0xb1 | 0xbf => break,
-            _ => {}
-        }
-        offset = instruction_end(code, offset)?;
-        if control_targets.contains(&offset) {
-            break;
-        }
+fn merge_reachable_successors(
+    successors: Vec<Successor>,
+    states: &mut [Option<Frame>],
+    queue: &mut VecDeque<usize>,
+    frame_offsets: &mut BTreeSet<usize>,
+) -> Result<(), JvmBackendError> {
+    for successor in successors {
+        frame_offsets.insert(successor.offset);
+        merge_state(states, successor.offset, successor.frame, queue)?;
     }
-    Ok(required)
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
-fn analyze_dead_block(
+fn analyze_reachable_fallthrough(
     pool: &Rc<RefCell<ConstantPool>>,
     method: &MethodInfo,
-    start: usize,
-    mut frame: Frame,
+    offset: usize,
+    next: Option<Frame>,
+    dead_locals: Vec<VerificationType>,
+    exception_handlers: &BTreeSet<usize>,
+    control_targets: &BTreeSet<usize>,
+    states: &mut [Option<Frame>],
+    queue: &mut VecDeque<usize>,
+    frame_offsets: &mut BTreeSet<usize>,
+    dead_frames: &mut BTreeMap<usize, Frame>,
+) -> Result<(), JvmBackendError> {
+    let next_offset = instruction_end(&method.code, offset)?;
+    if let Some(frame) = next {
+        if next_offset < method.code.len() {
+            merge_state(states, next_offset, frame, queue)?;
+        }
+        return Ok(());
+    }
+    start_dead_fallthrough(
+        pool,
+        method,
+        next_offset,
+        dead_locals,
+        exception_handlers,
+        control_targets,
+        states,
+        frame_offsets,
+        dead_frames,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn start_dead_fallthrough(
+    pool: &Rc<RefCell<ConstantPool>>,
+    method: &MethodInfo,
+    next_offset: usize,
+    locals: Vec<VerificationType>,
+    exception_handlers: &BTreeSet<usize>,
     control_targets: &BTreeSet<usize>,
     states: &mut [Option<Frame>],
     frame_offsets: &mut BTreeSet<usize>,
     dead_frames: &mut BTreeMap<usize, Frame>,
 ) -> Result<(), JvmBackendError> {
-    dead_frames.insert(start, frame.clone());
-    let mut offset = start;
+    if next_offset >= method.code.len()
+        || states.get(next_offset).is_some_and(Option::is_some)
+        || dead_frames.contains_key(&next_offset)
+        || exception_handlers.contains(&next_offset)
+    {
+        return Ok(());
+    }
+    frame_offsets.insert(next_offset);
+    analyze_dead_block(
+        pool,
+        method,
+        next_offset,
+        dead_frame(&method.code, next_offset, locals)?,
+        control_targets,
+        states,
+        frame_offsets,
+        dead_frames,
+    )
+}
+
+fn complete_dead_frames(
+    method: &MethodInfo,
+    analysis: &FrameAnalysis,
+) -> Result<BTreeMap<usize, Frame>, JvmBackendError> {
+    let mut frame_map = initial_frame_map(analysis);
+    let dead_facts = collect_dead_block_facts(method, analysis, &frame_map)?;
     loop {
-        for exception in method
-            .exceptions
-            .iter()
-            .filter(|exception| offset >= exception.start_pc && offset < exception.end_pc)
-        {
-            frame_offsets.insert(exception.handler_pc);
-            let handler = Frame {
-                locals: frame.locals.clone(),
-                stack: vec![VerificationType::Object(exception.catch_type.clone())],
-            };
-            if states
-                .get(exception.handler_pc)
-                .is_some_and(Option::is_some)
-            {
-                continue;
-            } else if let Some(existing) = dead_frames.get_mut(&exception.handler_pc) {
-                merge_frame(existing, handler)?;
-            } else {
-                analyze_dead_block(
-                    pool,
-                    method,
-                    exception.handler_pc,
-                    handler,
-                    control_targets,
-                    states,
-                    frame_offsets,
-                    dead_frames,
-                )?;
-            }
+        let snapshot = frame_map.clone();
+        let mut next_map = snapshot.clone();
+        complete_dead_block_locals(analysis, &dead_facts, &snapshot, &mut next_map)?;
+        complete_dead_exception_locals(method, analysis, &snapshot, &mut next_map);
+        if next_map == snapshot {
+            return Ok(next_map);
         }
-        let next_dead_locals = frame.locals.clone();
-        let (next, successors) = execute_instruction(pool, &method.code, offset, frame)?;
-        for successor in successors {
-            frame_offsets.insert(successor.offset);
-            if states.get(successor.offset).is_some_and(Option::is_some) {
-                continue;
-            } else if let Some(existing) = dead_frames.get_mut(&successor.offset) {
-                merge_frame(existing, successor.frame)?;
-            } else {
-                analyze_dead_block(
-                    pool,
-                    method,
-                    successor.offset,
-                    successor.frame,
-                    control_targets,
-                    states,
-                    frame_offsets,
-                    dead_frames,
-                )?;
-            }
-        }
-        let Some(next_frame) = next else {
-            let next_offset = instruction_end(&method.code, offset)?;
-            if next_offset < method.code.len()
-                && states.get(next_offset).is_some_and(Option::is_none)
-                && !dead_frames.contains_key(&next_offset)
-                && !method
-                    .exceptions
-                    .iter()
-                    .any(|exception| exception.handler_pc == next_offset)
-            {
-                frame_offsets.insert(next_offset);
-                let next_frame = dead_frame(&method.code, next_offset, next_dead_locals)?;
-                analyze_dead_block(
-                    pool,
-                    method,
-                    next_offset,
-                    next_frame,
-                    control_targets,
-                    states,
-                    frame_offsets,
-                    dead_frames,
-                )?;
-            }
-            break;
+        frame_map = next_map;
+    }
+}
+
+fn initial_frame_map(analysis: &FrameAnalysis) -> BTreeMap<usize, Frame> {
+    let mut frame_map = BTreeMap::new();
+    for &offset in &analysis.frame_offsets {
+        let Some(frame) = analysis
+            .states
+            .get(offset)
+            .and_then(Option::as_ref)
+            .or_else(|| analysis.dead_frames.get(&offset))
+        else {
+            continue;
         };
-        let next_offset = instruction_end(&method.code, offset)?;
-        if next_offset >= method.code.len() {
-            break;
+        frame_map.insert(offset, frame.clone());
+    }
+    frame_map
+}
+
+fn collect_dead_block_facts(
+    method: &MethodInfo,
+    analysis: &FrameAnalysis,
+    frame_map: &BTreeMap<usize, Frame>,
+) -> Result<BTreeMap<usize, DeadBlockFacts>, JvmBackendError> {
+    let mut dead_facts = BTreeMap::new();
+    for &offset in frame_map.keys() {
+        if analysis.states.get(offset).is_some_and(Option::is_none) {
+            dead_facts.insert(
+                offset,
+                dead_block_facts(&method.code, offset, &analysis.control_targets)?,
+            );
         }
-        if next_offset != start && control_targets.contains(&next_offset) {
-            if states.get(next_offset).is_some_and(Option::is_some) {
-                break;
-            }
-            if let Some(existing) = dead_frames.get_mut(&next_offset) {
-                merge_frame(existing, next_frame)?;
-            } else {
-                frame_offsets.insert(next_offset);
-                analyze_dead_block(
-                    pool,
-                    method,
-                    next_offset,
-                    next_frame,
-                    control_targets,
-                    states,
-                    frame_offsets,
-                    dead_frames,
-                )?;
-            }
-            break;
+    }
+    Ok(dead_facts)
+}
+
+fn complete_dead_block_locals(
+    analysis: &FrameAnalysis,
+    dead_facts: &BTreeMap<usize, DeadBlockFacts>,
+    snapshot: &BTreeMap<usize, Frame>,
+    next_map: &mut BTreeMap<usize, Frame>,
+) -> Result<(), JvmBackendError> {
+    for (offset, frame) in next_map {
+        if analysis.states.get(*offset).is_some_and(Option::is_some) {
+            continue;
         }
-        offset = next_offset;
-        frame = next_frame;
+        let facts = dead_facts
+            .get(offset)
+            .ok_or_else(|| stack_map_error("missing dead block facts"))?;
+        for (&slot, required) in &facts.required {
+            if frame.locals[slot] == VerificationType::Top {
+                frame.locals[slot] = required.clone();
+            }
+        }
+        let Some(target_frame) = facts.target.and_then(|target| snapshot.get(&target)) else {
+            continue;
+        };
+        for (slot, (local, target_local)) in frame
+            .locals
+            .iter_mut()
+            .zip(&target_frame.locals)
+            .enumerate()
+        {
+            if facts.written.contains(&slot) {
+                continue;
+            }
+            if *local == VerificationType::Top && *target_local != VerificationType::Top {
+                *local = target_local.clone();
+            }
+        }
     }
     Ok(())
 }
 
-fn dead_block_target(
-    code: &[u8],
-    start: usize,
-    control_targets: &BTreeSet<usize>,
-) -> Result<Option<usize>, JvmBackendError> {
-    let mut offset = start;
-    while offset < code.len() {
-        match code[offset] {
-            0xa7 => return Ok(Some(short_branch_target(code, offset)?)),
-            0xc8 => return Ok(Some(wide_branch_target(code, offset)?)),
-            0xac | 0xb0 | 0xb1 | 0xbf => return Ok(Some(instruction_end(code, offset)?)),
-            _ => {
-                offset = instruction_end(code, offset)?;
-                if control_targets.contains(&offset) {
-                    return Ok(Some(offset));
-                }
+fn complete_dead_exception_locals(
+    method: &MethodInfo,
+    analysis: &FrameAnalysis,
+    snapshot: &BTreeMap<usize, Frame>,
+    next_map: &mut BTreeMap<usize, Frame>,
+) {
+    for exception in &method.exceptions {
+        if analysis
+            .states
+            .get(exception.start_pc)
+            .is_some_and(Option::is_some)
+        {
+            continue;
+        }
+        let Some(handler) = snapshot.get(&exception.handler_pc) else {
+            continue;
+        };
+        let Some(source) = next_map.get_mut(&exception.start_pc) else {
+            continue;
+        };
+        for (local, required) in source.locals.iter_mut().zip(&handler.locals) {
+            if *local == VerificationType::Top && *required != VerificationType::Top {
+                *local = required.clone();
             }
         }
     }
-    Ok(None)
 }
 
-fn dead_frame(
-    code: &[u8],
-    offset: usize,
-    mut locals: Vec<VerificationType>,
-) -> Result<Frame, JvmBackendError> {
-    let opcode = code[offset];
-    if matches!(opcode, 0x19 | 0x2a..=0x2d) {
-        let slot = local_slot(code, offset, opcode, 0x2a)?;
-        let next = instruction_end(code, offset)?;
-        if matches!(code.get(next), Some(0xb0 | 0xbf)) {
-            let local = locals
-                .get_mut(slot)
-                .ok_or_else(|| stack_map_error("dead athrow local exceeds max_locals"))?;
-            *local = VerificationType::Object("java/lang/Throwable".to_string());
-        }
-    }
-    let stack = match opcode {
-        0x36 | 0x3b..=0x3e => vec![VerificationType::Integer],
-        0x3a | 0x4b..=0x4e | 0x57 | 0xb0 | 0xbf => {
-            vec![VerificationType::Object("java/lang/Throwable".to_string())]
-        }
-        _ => Vec::new(),
-    };
-    Ok(Frame { locals, stack })
-}
+include!("stack_map/dead_blocks.rs");
 
 fn branch_targets(code: &[u8]) -> Result<BTreeSet<usize>, JvmBackendError> {
     let mut targets = BTreeSet::new();
@@ -433,171 +331,7 @@ fn branch_targets(code: &[u8]) -> Result<BTreeSet<usize>, JvmBackendError> {
     Ok(targets)
 }
 
-struct Successor {
-    offset: usize,
-    frame: Frame,
-}
-
-fn execute_instruction(
-    pool: &Rc<RefCell<ConstantPool>>,
-    code: &[u8],
-    offset: usize,
-    mut frame: Frame,
-) -> Result<(Option<Frame>, Vec<Successor>), JvmBackendError> {
-    let opcode = *code
-        .get(offset)
-        .ok_or_else(|| stack_map_error("instruction offset is outside method code"))?;
-    let end = instruction_end(code, offset)?;
-    let mut successors = Vec::new();
-    match opcode {
-        0x00 => {}
-        0x01 => frame.stack.push(VerificationType::Null),
-        0x02..=0x08 | 0x10 | 0x11 => frame.stack.push(VerificationType::Integer),
-        0x12 | 0x13 => {
-            let index = if opcode == 0x12 {
-                u16::from(code[offset + 1])
-            } else {
-                u16::from_be_bytes([code[offset + 1], code[offset + 2]])
-            };
-            frame.stack.push(constant_type(&pool.borrow(), index)?);
-        }
-        0x14 => {
-            let index = u16::from_be_bytes([code[offset + 1], code[offset + 2]]);
-            frame.stack.push(constant_type(&pool.borrow(), index)?);
-        }
-        0x19 | 0x2a..=0x2d => {
-            let slot = local_slot(code, offset, opcode, 0x2a)?;
-            frame.stack.push(local(&frame, slot)?.clone());
-        }
-        0x15 | 0x1a..=0x1d => {
-            let slot = local_slot(code, offset, opcode, 0x1a)?;
-            let _ = local(&frame, slot)?;
-            frame.stack.push(VerificationType::Integer);
-        }
-        0x3a | 0x4b..=0x4e => {
-            let slot = local_slot(code, offset, opcode, 0x4b)?;
-            let value = pop(&mut frame)?;
-            set_local(&mut frame, slot, value)?;
-        }
-        0x36 | 0x3b..=0x3e => {
-            let slot = local_slot(code, offset, opcode, 0x3b)?;
-            let _ = pop(&mut frame)?;
-            set_local(&mut frame, slot, VerificationType::Integer)?;
-        }
-        0x32 => {
-            pop_n(&mut frame, 2)?;
-            frame
-                .stack
-                .push(VerificationType::Object("java/lang/Object".to_string()));
-        }
-        0x53 => {
-            pop_n(&mut frame, 3)?;
-        }
-        0x57 => {
-            let _ = pop(&mut frame)?;
-        }
-        0x59 => {
-            let value = pop(&mut frame)?;
-            frame.stack.push(value.clone());
-            frame.stack.push(value);
-        }
-        0x5f => {
-            let first = pop(&mut frame)?;
-            let second = pop(&mut frame)?;
-            frame.stack.push(first);
-            frame.stack.push(second);
-        }
-        0x84 => {}
-        0x99 | 0xc6 | 0xc7 => {
-            let _ = pop(&mut frame)?;
-            let target = short_branch_target(code, offset)?;
-            successors.push(Successor {
-                offset: target,
-                frame: frame.clone(),
-            });
-        }
-        0xa2 => {
-            pop_n(&mut frame, 2)?;
-            let target = short_branch_target(code, offset)?;
-            successors.push(Successor {
-                offset: target,
-                frame: frame.clone(),
-            });
-        }
-        0xa7 => {
-            let target = short_branch_target(code, offset)?;
-            successors.push(Successor {
-                offset: target,
-                frame,
-            });
-            return Ok((None, successors));
-        }
-        0xc8 => {
-            let target = wide_branch_target(code, offset)?;
-            successors.push(Successor {
-                offset: target,
-                frame,
-            });
-            return Ok((None, successors));
-        }
-        0xac | 0xb0 => {
-            let _ = pop(&mut frame)?;
-            return Ok((None, successors));
-        }
-        0xb1 => return Ok((None, successors)),
-        0xb2 | 0xb3 => {
-            let index = cp_index(code, offset)?;
-            let descriptor = field_descriptor(&pool.borrow(), index)?;
-            let field_type = parse_field_type(&descriptor)?;
-            if opcode == 0xb2 {
-                frame.stack.push(field_type);
-            } else {
-                let _ = pop(&mut frame)?;
-            }
-        }
-        0xb6..=0xb8 => {
-            let index = cp_index(code, offset)?;
-            let (owner, name, descriptor) = method_reference(&pool.borrow(), index)?;
-            let (arguments, result) = parse_method_descriptor(&descriptor)?;
-            pop_n(&mut frame, arguments.len())?;
-            if opcode != 0xb8 {
-                let receiver = pop(&mut frame)?;
-                if opcode == 0xb7 && name == "<init>" {
-                    initialize_receiver(&mut frame, receiver, owner);
-                }
-            }
-            if let Some(result) = result {
-                frame.stack.push(result);
-            }
-        }
-        0xbb => frame.stack.push(VerificationType::Uninitialized(
-            u16::try_from(offset).map_err(|_| stack_map_error("new offset exceeds u16"))?,
-        )),
-        0xbd => {
-            let _ = pop(&mut frame)?;
-            let index = cp_index(code, offset)?;
-            let class = class_name_for(&pool.borrow(), index)?;
-            frame
-                .stack
-                .push(VerificationType::Object(format!("[L{class};")));
-        }
-        0xbe => {
-            let _ = pop(&mut frame)?;
-            frame.stack.push(VerificationType::Integer);
-        }
-        0xbf => {
-            let _ = pop(&mut frame)?;
-            return Ok((None, successors));
-        }
-        _ => {
-            return Err(stack_map_error(&format!(
-                "unsupported emitted opcode 0x{opcode:02x} at {offset}"
-            )));
-        }
-    }
-    debug_assert!(end <= code.len());
-    Ok((Some(frame), successors))
-}
+include!("stack_map/instructions.rs");
 
 fn initial_frame(class_name: &str, method: &MethodInfo) -> Result<Frame, JvmBackendError> {
     let mut locals = vec![VerificationType::Top; usize::from(method.max_locals)];
@@ -706,146 +440,7 @@ fn initialize_receiver(frame: &mut Frame, receiver: VerificationType, owner: Str
     }
 }
 
-fn serialize_frames(
-    pool: &Rc<RefCell<ConstantPool>>,
-    frames: &[(usize, Frame)],
-) -> Result<Vec<u8>, JvmBackendError> {
-    let mut out = Vec::new();
-    write_u16(
-        &mut out,
-        u16::try_from(frames.len()).map_err(|_| stack_map_error("too many stack-map frames"))?,
-    );
-    let mut previous = None;
-    for (offset, frame) in frames {
-        out.push(255);
-        let delta = match previous {
-            None => *offset,
-            Some(previous) => offset
-                .checked_sub(previous + 1)
-                .ok_or_else(|| stack_map_error("stack-map offsets are not increasing"))?,
-        };
-        write_u16(
-            &mut out,
-            u16::try_from(delta).map_err(|_| stack_map_error("stack-map offset exceeds u16"))?,
-        );
-        let locals = trimmed_locals(&frame.locals);
-        write_u16(
-            &mut out,
-            u16::try_from(locals.len()).map_err(|_| stack_map_error("too many frame locals"))?,
-        );
-        for value in locals {
-            write_verification_type(pool, &mut out, value);
-        }
-        write_u16(
-            &mut out,
-            u16::try_from(frame.stack.len())
-                .map_err(|_| stack_map_error("too many frame stack values"))?,
-        );
-        for value in &frame.stack {
-            write_verification_type(pool, &mut out, value);
-        }
-        previous = Some(*offset);
-    }
-    Ok(out)
-}
-
-fn trimmed_locals(locals: &[VerificationType]) -> &[VerificationType] {
-    let length = locals
-        .iter()
-        .rposition(|value| *value != VerificationType::Top)
-        .map_or(0, |index| index + 1);
-    &locals[..length]
-}
-
-fn write_verification_type(
-    pool: &Rc<RefCell<ConstantPool>>,
-    out: &mut Vec<u8>,
-    value: &VerificationType,
-) {
-    match value {
-        VerificationType::Top => out.push(0),
-        VerificationType::Integer => out.push(1),
-        VerificationType::Float => out.push(2),
-        VerificationType::Double => out.push(3),
-        VerificationType::Long => out.push(4),
-        VerificationType::Null => out.push(5),
-        VerificationType::UninitializedThis => out.push(6),
-        VerificationType::Object(name) => {
-            out.push(7);
-            write_u16(out, pool.borrow_mut().class(name));
-        }
-        VerificationType::Uninitialized(offset) => {
-            out.push(8);
-            write_u16(out, *offset);
-        }
-    }
-}
-
-fn parse_method_descriptor(
-    descriptor: &str,
-) -> Result<(Vec<VerificationType>, Option<VerificationType>), JvmBackendError> {
-    let bytes = descriptor.as_bytes();
-    if bytes.first() != Some(&b'(') {
-        return Err(stack_map_error("invalid method descriptor"));
-    }
-    let mut index = 1;
-    let mut arguments = Vec::new();
-    while bytes.get(index) != Some(&b')') {
-        arguments.push(parse_descriptor_type(descriptor, &mut index)?);
-    }
-    index += 1;
-    let result = if bytes.get(index) == Some(&b'V') {
-        None
-    } else {
-        Some(parse_descriptor_type(descriptor, &mut index)?)
-    };
-    Ok((arguments, result))
-}
-
-fn parse_field_type(descriptor: &str) -> Result<VerificationType, JvmBackendError> {
-    parse_descriptor_type(descriptor, &mut 0)
-}
-
-fn parse_descriptor_type(
-    descriptor: &str,
-    index: &mut usize,
-) -> Result<VerificationType, JvmBackendError> {
-    let bytes = descriptor.as_bytes();
-    let start = *index;
-    let byte = *bytes
-        .get(*index)
-        .ok_or_else(|| stack_map_error("truncated descriptor"))?;
-    *index += 1;
-    match byte {
-        b'B' | b'C' | b'I' | b'S' | b'Z' => Ok(VerificationType::Integer),
-        b'F' => Ok(VerificationType::Float),
-        b'D' => Ok(VerificationType::Double),
-        b'J' => Ok(VerificationType::Long),
-        b'L' => {
-            let end = descriptor[*index..]
-                .find(';')
-                .map(|relative| *index + relative)
-                .ok_or_else(|| stack_map_error("unterminated object descriptor"))?;
-            let name = descriptor[*index..end].to_string();
-            *index = end + 1;
-            Ok(VerificationType::Object(name))
-        }
-        b'[' => {
-            while bytes.get(*index) == Some(&b'[') {
-                *index += 1;
-            }
-            if bytes.get(*index) == Some(&b'L') {
-                let _ = parse_descriptor_type(descriptor, index)?;
-            } else {
-                *index += 1;
-            }
-            Ok(VerificationType::Object(
-                descriptor[start..*index].to_string(),
-            ))
-        }
-        _ => Err(stack_map_error("unsupported descriptor type")),
-    }
-}
+include!("stack_map/serialization.rs");
 
 fn instruction_end(code: &[u8], offset: usize) -> Result<usize, JvmBackendError> {
     let opcode = *code

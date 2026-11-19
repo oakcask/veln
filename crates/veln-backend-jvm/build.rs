@@ -43,13 +43,22 @@ fn main() {
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("out dir"));
     let runtime_dir = out_dir.join("runtime");
+    prepare_runtime_source(&runtime_dir, runtime_source);
+    require_selected_javac();
+    compile_runtime(&runtime_dir);
+    write_runtime_class_manifest(&out_dir, &runtime_dir);
+}
+
+fn prepare_runtime_source(runtime_dir: &Path, runtime_source: String) {
     if runtime_dir.exists() {
-        fs::remove_dir_all(&runtime_dir).expect("failed to remove stale generated runtime classes; check build output permissions before retrying so removed runtime implementations cannot remain in the bundle");
+        fs::remove_dir_all(runtime_dir).expect("failed to remove stale generated runtime classes; check build output permissions before retrying so removed runtime implementations cannot remain in the bundle");
     }
-    fs::create_dir_all(&runtime_dir).expect("runtime output dir should be created");
+    fs::create_dir_all(runtime_dir).expect("runtime output dir should be created");
     fs::write(runtime_dir.join("VelnRuntime.java"), runtime_source)
         .expect("runtime source should be written");
+}
 
+fn require_selected_javac() {
     let version_output = Command::new("javac")
         .arg("-version")
         .output()
@@ -70,12 +79,14 @@ fn main() {
             version.required, version.detected
         );
     }
+}
 
+fn compile_runtime(runtime_dir: &Path) {
     let output = Command::new("javac")
         .arg("--release")
         .arg(REQUIRED_JAVA_MAJOR.to_string())
         .arg("VelnRuntime.java")
-        .current_dir(&runtime_dir)
+        .current_dir(runtime_dir)
         .output()
         .expect("javac should run; install JDK 25 or newer to build veln-backend-jvm");
     if !output.status.success() {
@@ -84,8 +95,6 @@ fn main() {
             String::from_utf8_lossy(&output.stderr)
         );
     }
-
-    write_runtime_class_manifest(&out_dir, &runtime_dir);
 }
 
 fn runtime_source(runtime_source_dir: &Path) -> String {
