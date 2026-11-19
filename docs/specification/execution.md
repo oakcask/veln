@@ -21,6 +21,12 @@ classfile major version 69. Consequently, executing generated code requires
 Java 25 or newer; the `run` and `test` command specifications define the owned
 pre-launch rejection for an older selected runtime. The toolchain provides no
 older-JDK or lower-classfile fallback.
+The build selects a usable `javac` from `PATH` and retains that selected path
+for both the version probe and runtime compilation. A relative `PATH` entry is
+resolved against the build working directory before either invocation. A
+failed version-probe process stops the build even if its output contains a
+recognized compiler banner; the build does not retry compilation with another
+`javac` from `PATH`.
 The build accepts a compiler major only from a `javac VERSION` banner. The
 execution commands accept a runtime major only from a `java version "VERSION"`
 or `openjdk version "VERSION"` banner. Unrelated wrapper output does not supply
@@ -38,7 +44,10 @@ that follow a terminal instruction. Frame construction reports a bounded
 backend failure for an incompatible generated frame instead of writing an
 unverifiable class. Its traversal does not consume native compiler stack in
 proportion to a chain of unreachable branches near the classfile method-size
-limit.
+limit. For a long reachable straight-line sequence, analysis retains complete
+locals-and-stack frames at control-flow entries instead of at every
+instruction. Methods with many locals therefore do not multiply retained
+frame state by their straight-line instruction count.
 
 Explicit import aliases affect source lookup only. Lowering and reachability
 use the selected target module and declaration identity for calls,
@@ -867,6 +876,15 @@ than degrading it to a generic rendered result value.
 
 ## References
 
+- JVM build-boundary tests check older, unsuccessful, wrong-tool, and
+  conflicting `javac` probes. They also check that a compiler selected through
+  a relative `PATH` entry performs both the probe and `--release 25`
+  compilation in
+  [`build_boundary.rs`](../../crates/veln-backend-jvm/src/tests/build_boundary.rs).
+- Class-builder tests check verifier frames for branch merges, exception
+  handlers, long straight-line methods with many locals, and unreachable
+  branch chains in
+  [`class_builder.rs`](../../crates/veln-backend-jvm/src/classfile/class_builder.rs).
 - Host stack exhaustion with a waiting child task is checked for both run and
   reusable test entries in `crates/veln-backend-jvm/src/tests/concurrency.rs`.
 
