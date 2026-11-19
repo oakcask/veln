@@ -294,7 +294,7 @@ fn run_treats_flag_like_values_after_separator_as_entry_arguments() {
     assert_eq!(stdout(&output), "");
     assert_contains_all(
         stderr(&output),
-        &["veln: `java` was not found; install a JDK to use `veln run`"],
+        &["veln: `java` was not found; install JDK 25 or newer to use `veln run`"],
     );
     assert!(
         !stderr(&output).contains("unknown run flag"),
