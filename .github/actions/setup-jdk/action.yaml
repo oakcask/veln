@@ -1,0 +1,11 @@
+name: Set up supported JDK
+description: Select the Java 25 toolchain required by JVM backend builds and execution tests.
+
+runs:
+  using: composite
+  steps:
+    - name: Select Java 25
+      uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+      with:
+        distribution: temurin
+        java-version: "25"

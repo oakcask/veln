@@ -9,6 +9,7 @@ on:
       - .cargo/config.toml
       - .github/actions/cargo-dependencies/action.yaml
       - .github/actions/clippy/action.yaml
+      - .github/actions/setup-jdk/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -22,6 +23,7 @@ on:
       - .cargo/config.toml
       - .github/actions/cargo-dependencies/action.yaml
       - .github/actions/clippy/action.yaml
+      - .github/actions/setup-jdk/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml

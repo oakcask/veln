@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - .github/workflows/test--jvm-backend.yaml
+      - .github/actions/setup-jdk/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -16,6 +17,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/test--jvm-backend.yaml
+      - .github/actions/setup-jdk/action.yaml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -36,11 +38,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Set up JDK
-        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
-        with:
-          distribution: temurin
-          java-version: "25"
+      - name: Set up supported JDK
+        uses: ./.github/actions/setup-jdk
       - name: Run JVM backend tests
         run: bash scripts/ci-run cargo test --locked -p veln-backend-jvm bytecode_backend -- --test-threads=1
       - name: Run JVM CLI fixtures

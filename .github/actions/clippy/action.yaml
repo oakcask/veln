@@ -4,6 +4,8 @@ description: Prepare cached Rust build inputs and check the workspace with Clipp
 runs:
   using: composite
   steps:
+    - name: Set up supported JDK
+      uses: ./.github/actions/setup-jdk
     - name: Install Clippy
       shell: bash
       run: rustup component add clippy
