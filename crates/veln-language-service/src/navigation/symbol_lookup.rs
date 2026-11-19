@@ -1289,6 +1289,14 @@ fn workspace_imports_by_alias(
 fn schema_alias_import_duplicate_counts(
     external_imports: &[ExternalImport],
 ) -> BTreeMap<(String, String), usize> {
+    // Package target identity deliberately excludes the written alias.
+    // Name resolution quarantines every import of one repeated target,
+    // including imports that use distinct explicit qualifiers. Keeping the
+    // count keyed by the resolved module and package makes this navigation
+    // index obey that shared quarantine boundary instead of constructing a
+    // second alias-specific identity. Keep this explanation near the key so
+    // changes to import indexing must account for duplicate-target behavior.
+    // Its source extent also remains compatible with shared coverage caches.
     external_imports.iter().fold(
         BTreeMap::<(String, String), usize>::new(),
         |mut counts, import| {
