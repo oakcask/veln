@@ -89,12 +89,12 @@ limits are specified by
 [Call-site Declarations](call-site-declarations.md).
 
 The reachable program is lowered to typed IR and Java 25 classfiles. Ordinary
-execution does not write Java source or invoke a Java source compiler. Before
-cache configuration or class loading, `run` invokes the selected `java
--version` and requires major version 25 or newer. An older runtime produces an
-owned tool error that names required major 25 and the detected major; it does
-not launch `VelnEntry`. Missing Java or an unreadable version is a JDK setup
-failure. There is no older-runtime fallback.
+execution does not write Java source or invoke a Java source compiler. After
+resolving the cache root and before creating its directory or loading classes,
+`run` invokes the selected `java -version` and requires major version 25 or
+newer. An older runtime produces an owned tool error that names required major
+25 and the detected major; it does not launch `VelnEntry`. Missing Java or an
+unreadable version is a JDK setup failure. There is no older-runtime fallback.
 
 JVM classfile generation can reject a program that exceeds a classfile
 representation limit. This failure occurs after typed-IR readiness and before
@@ -125,9 +125,10 @@ cache root. The default is selected by operating system:
 the complete cache root without an added `veln` component. Native strings are
 retained without canonicalization.
 
-Java availability and its minimum major version are checked before cache
-configuration. Cache configuration is checked only after source analysis,
-entry selection, and JVM generation.
+Java availability is checked before cache-root resolution. The minimum major
+version is checked after cache-root resolution and before cache-directory
+creation. Cache-root resolution and directory creation occur only after source
+analysis, entry selection, and JVM generation.
 Empty or relative overrides do not fall back to a host base; unavailable or
 unusable roots do not fall back to the package, working directory, `target`,
 or a temporary directory. Commands that do not reach JVM execution do not

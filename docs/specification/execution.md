@@ -21,6 +21,8 @@ classfile major version 69. Consequently, executing generated code requires
 Java 25 or newer; the `run` and `test` command specifications define the owned
 pre-launch rejection for an older selected runtime. The toolchain provides no
 older-JDK or lower-classfile fallback.
+If the selected `javac` cannot start or its version output cannot be parsed,
+the backend build stops with a JDK setup failure before runtime compilation.
 
 Explicit import aliases affect source lookup only. Lowering and reachability
 use the selected target module and declaration identity for calls,

@@ -113,7 +113,10 @@ discovered case with `reason: "static_gate"`.
 JDK setup failures are reported on the affected case with
 `status: "error"`, `reason: "runner_error"`, and
 `failure.kind: "runtime"`. This includes a missing `java` before compilation
-or class loading.
+or class loading. When the selected `java` reports a major version below 25,
+every runnable case that reaches runner preparation has this error shape. The
+failure message names the required and detected major versions, and no case JVM
+starts.
 
 Before report construction or Java launch, the command attempts JVM classfile
 generation for the reusable suite program or for every independently lowered

@@ -704,7 +704,8 @@ The implemented keys are `java` and `git`. Java accepts `"missing"`,
 `"fake-success"`, and `"real"`. Git accepts `"missing"` and `"real"`.
 `"missing"` runs the command with an isolated tool path that contains no
 launcher for that tool. Java `"fake-success"` installs a harness-owned wrapper
-that exits successfully without running arbitrary manifest code. `"real"`
+that reports a Java 25-compatible version for `-version` and exits successfully
+for other invocations without running arbitrary manifest code. `"real"`
 exposes the host launcher under the isolated tool path; Java cases that use it
 should also declare `[requires] jdk = true`.
 

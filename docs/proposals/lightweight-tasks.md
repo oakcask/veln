@@ -135,9 +135,12 @@ justify reintroducing arity-specific APIs or changing that source design.
 
 ## Acceptance And Verification Plan
 
-D1 has focused backend and CLI evidence for version parsing, build and launch
-rejection, launch suppression, supported versions, and classfile major 69. The
-cases below remain requirements for D2-D6 and are not reported as passing.
+D1 has focused evidence for the shared version parser and minimum-major
+decision, CLI launch rejection and suppression, supported runtime versions,
+and classfile major 69. The build script applies that shared decision before
+invoking `javac --release 25`; no separate older-`javac` build fixture is
+claimed. The cases below remain requirements for D2-D6 and are not reported as
+passing.
 
 | Case | Input or schedule | Required observation and planned evidence |
 | --- | --- | --- |
