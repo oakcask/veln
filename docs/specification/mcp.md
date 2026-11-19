@@ -683,9 +683,10 @@ constructors, handler context and operation-clause parameters, exact
 test-companion private-function access, and unique class-compatible invalid
 source recovery records. Eligible direct-dependency selections include public
 functions, module immutable values, types, constructors, schemas, handlers,
-and public function aliases. Embedded `std` supports the same package selections except
-module immutable values. Exported direct-dependency public type aliases are
-eligible when their target resolves to a type in that retained dependency.
+and public function aliases. Embedded `std` supports the same package
+selections except module immutable values and handlers. Exported
+direct-dependency public type aliases are eligible when their target resolves
+to a type in that retained dependency.
 Invalid-cased package records, private or non-exported package declarations,
 mismatched imports, unsupported symbols, and package module segments return an
 empty definition. A public constructor selected through a visible type alias
@@ -1020,11 +1021,17 @@ A handler result contains each complete bare handler name in
 `handle Body with handler(arguments)` from saved sources that declare the
 selected workspace handler's module. A public workspace or retained
 direct-dependency handler also has complete qualified handler-name leaves
-reached through one parse-clean, unambiguous exact import. A dependency
-application selects only a public, valid-cased handler in an exported module of
-that exact retained direct dependency. The package revision, module,
-declaration, and selected project remain part of the identity. Each location
-covers only the handler-name token.
+reached through one parse-clean, unambiguous import. A workspace qualifier can
+use the full module path or its unique implicit leaf alias. An explicitly
+aliased workspace import still permits the full module path, but neither the
+written alias nor the module's leaf name becomes an implicit qualifier. A
+retained direct-dependency qualifier can use the full module path or its unique
+import alias: the written alias when one is declared, otherwise the implicit
+leaf alias. An exact full path takes precedence over a colliding alias. A
+dependency application selects only a public, valid-cased handler in an
+exported module of that exact retained direct dependency. The package revision,
+module, declaration, and selected project remain part of the identity. Each
+location covers only the handler-name token.
 
 A `definition` request at an eligible application returns the workspace
 declaration or the canonical retained `veln-pkg:` declaration. References

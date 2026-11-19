@@ -520,6 +520,10 @@ The `references-workspace-imported-handler` MCP specification case extends
 that model with imported handler definition, full-path and unique implicit
 leaf-alias applications, handler-name-only ranges, and continuation
 pagination.
+The `references-direct-dependency-handler` MCP specification case uses decoded
+assertions for the canonical retained package definition, workspace-only
+handler references, declaration exclusion, and declaration-inclusive cursor
+pagination.
 The `references-workspace-schema-composition` MCP specification case uses the
 same decoded assertion model for canonical reference locations, empty boundary
 results, project scope, and isolated single-file scope.

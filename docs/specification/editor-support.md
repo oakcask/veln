@@ -732,30 +732,37 @@ do not enter the result. Clause parameters and bodies keep their separate
 binding and navigation behavior. The adjacent effect qualifier keeps its
 separate effect identity.
 
-For a selected parse-clean workspace handler application, references include
+For an eligible parse-clean handler selection, references include
 each complete bare handler name in `handle Body with handler(arguments)` from
 saved workspace sources that declare the same module. If the handler is
 public, references also include complete qualified handler-name leaves reached
 through one parse-clean, unambiguous workspace or retained direct-dependency
-import. A dependency application selects the public handler only when its
-module is exported by that exact retained package revision. The package,
-module, declaration, and selected project remain part of the identity. The
-declaration and each included handler name select one identity, and every
-returned range covers only the handler-name token.
+import. A workspace qualifier can use the full module path or its unique
+implicit leaf alias. An explicitly aliased workspace import still permits the
+full module path, but neither the written alias nor the module's leaf name
+becomes an implicit qualifier. A retained direct-dependency qualifier can use
+the full module path or its unique import alias: the written alias when one is
+declared, otherwise the implicit leaf alias. An exact full path takes
+precedence over a colliding alias. A dependency application selects the public
+handler only when its module is exported by that exact retained package
+revision. The package, module, declaration, and selected
+project remain part of the identity. The declaration and each included handler
+name select one identity, and every returned range covers only the handler-name
+token.
 
 A definition request at an eligible application returns the workspace
 declaration or the canonical retained `veln-pkg:` declaration. LSP references
 contain only matching saved-workspace applications from the selected project.
-`includeDeclaration` adds a workspace declaration before sorting, but it never
-adds a package declaration.
+`includeDeclaration` prepends a workspace declaration to the sorted shared
+references, but it never adds a package declaration.
 
 Handler definition and reference lookup require one unrecovered declaration
 for the complete owner identity. A dependency handler must be public, valid
 cased, exported, and owned by a retained direct dependency. Lookup excludes
 private or non-exported dependency handlers, duplicate or recovered
-declarations, ambiguous or recovered imports, standard-library and transitive-dependency
-declarations, and unresolved, incomplete, recovered, or wrong-kind handler
-paths. Selecting the handler-name leaf of a wrong-kind application does not
+declarations, ambiguous or recovered imports, standard-library and
+transitive-dependency declarations, and unresolved, incomplete, recovered, or
+wrong-kind handler paths. Selecting a wrong-kind handler-name leaf does not
 fall back to definition or reference results for the value, type, or other
 symbol named by that path. Equal spelling in another module or symbol class,
 including a handler parameter or operation-clause binding, does not enter the
