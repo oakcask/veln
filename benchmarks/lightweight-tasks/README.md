@@ -11,6 +11,12 @@ runtime identity and JVM arguments. Each phase keeps the fixed per-JVM timeout.
 The runner combines the population observations and cost results before it
 evaluates the sample.
 
+For rendezvous channel, bounded channel, and loopback delivery latency, one
+sample retains every delivery observation from its five cost epochs and
+publishes the p95 of that complete set. The summaries then take the median of
+the seven sample p95 values for the adoption gate. The complete-noise check
+uses those same seven sample values.
+
 The loopback resource gate requires Linux process-descriptor measurement to
 succeed before and after the workload. The harness closes every stream and the
 listener before the second measurement, and every measured run must return to

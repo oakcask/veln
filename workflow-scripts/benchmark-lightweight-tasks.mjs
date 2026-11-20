@@ -27,6 +27,8 @@ const DEFAULT_OUTPUT = join(
 const VIRTUAL_WORKER = "return startTaskWorker(future, Thread::startVirtualThread);";
 const PLATFORM_WORKER =
   "return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task));";
+const SELECTED_CHANNEL_BOUNDARY_SHA256 =
+  "330880dd30819ccd996bad541f6973c4be3603be15d6b0f305167981b9f6d299";
 export const JVM_ARGS = [
   "-Xms512m",
   "-Xmx512m",
@@ -436,6 +438,26 @@ function buildRuntimeSource() {
 }
 
 export function runtimeSourceVariants(original) {
+  if (original.includes("waitingSenders")) {
+    throw new Error(
+      "runtime channel send/receive boundary differs from the selected comparison base",
+    );
+  }
+  const channelSend = original.indexOf("    public static Object channelSend");
+  const channelSelect = original.indexOf(
+    "    public static Object channelSelect",
+    channelSend,
+  );
+  if (channelSend < 0 || channelSelect < 0) {
+    throw new Error("runtime is missing the governed channel send/receive boundary");
+  }
+  const channelBoundary = original.slice(channelSend, channelSelect);
+  const channelBoundarySha256 = createHash("sha256").update(channelBoundary).digest("hex");
+  if (channelBoundarySha256 !== SELECTED_CHANNEL_BOUNDARY_SHA256) {
+    throw new Error(
+      "runtime channel send/receive boundary differs from the selected comparison base",
+    );
+  }
   const occurrences = original.split(PLATFORM_WORKER).length - 1;
   if (occurrences !== 1) {
     throw new Error(`runtime contains ${occurrences} platform worker constructors; expected one`);

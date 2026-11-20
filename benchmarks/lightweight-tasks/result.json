@@ -16,9 +16,9 @@
     "available_parallelism": 16
   },
   "identity": {
-    "harness_sha256": "501fe28b227a6bdc429355c20f88914f40f43e617862b69597bee0551d4455b6",
-    "platform_runtime_source_sha256": "a306a74f2322ea3be85d65766223c7611009004e6075d605d6e192de42fdfb2f",
-    "virtual_runtime_source_sha256": "84bbb69ff614682198c0b3b0bd5b8241983556ff1fcbae3ec0e2307e4fc37839",
+    "harness_sha256": "37c4fed5ea24668f8230127cb8039ae57f896c93baa7267be66f3db5d8a85df0",
+    "platform_runtime_source_sha256": "29702d981af98207358a863a7e17be6be5976f9f5015d1af623e09b9b9fc5364",
+    "virtual_runtime_source_sha256": "0a71973932fc0661ec4b0217998f4799e0497db7ed1864523a2ac9b513d54261",
     "baseline_difference": "return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task));",
     "candidate_difference": "return startTaskWorker(future, Thread::startVirtualThread);",
     "jvm_args": [
@@ -70,28 +70,28 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 152.778573571,
-      "peak_rss_kb": 562736,
+      "duration_seconds": 156.476784656,
+      "peak_rss_kb": 565592,
       "peak_os_threads": 16397,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 86364,
+          "peak_rss_kb": 87676,
           "peak_os_threads": 269
         },
         {
           "population": 1024,
-          "peak_rss_kb": 94556,
+          "peak_rss_kb": 95512,
           "peak_os_threads": 1037
         },
         {
           "population": 4096,
-          "peak_rss_kb": 188620,
+          "peak_rss_kb": 191820,
           "peak_os_threads": 4109
         },
         {
           "population": 16384,
-          "peak_rss_kb": 520756,
+          "peak_rss_kb": 519188,
           "peak_os_threads": 16397
         }
       ],
@@ -103,88 +103,88 @@
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 257347068,
-              "complete_nanos": 103453002,
+              "create_nanos": 257472728,
+              "complete_nanos": 105407457,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 1044592864,
-              "complete_nanos": 410671723,
+              "create_nanos": 1037752210,
+              "complete_nanos": 410836143,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 4143137625,
-              "complete_nanos": 1641211211,
+              "create_nanos": 4100038203,
+              "complete_nanos": 1643523294,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 19980707723,
-              "complete_nanos": 6577526991,
+              "create_nanos": 23612971845,
+              "complete_nanos": 6588651620,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 2000.0513223618805,
-            "latency_p95_nanos": 96251,
+            "throughput_per_second": 2000.0552075785838,
+            "latency_p95_nanos": 90767,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 45536,
-              "relay_processing_p95_nanos": 206,
-              "relay_to_consumer_p95_nanos": 49919
+              "producer_to_relay_p95_nanos": 44763,
+              "relay_processing_p95_nanos": 196,
+              "relay_to_consumer_p95_nanos": 46453
             }
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.0619262337761,
-            "latency_p95_nanos": 62589,
+            "throughput_per_second": 2000.068518704748,
+            "latency_p95_nanos": 62223,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 31187,
-              "relay_processing_p95_nanos": 65,
-              "relay_to_consumer_p95_nanos": 31267
+              "producer_to_relay_p95_nanos": 32061,
+              "relay_processing_p95_nanos": 66,
+              "relay_to_consumer_p95_nanos": 30417
             }
           },
           "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.5188533194726,
-            "latency_p95_nanos": 61954,
+            "throughput_per_second": 2000.522062020064,
+            "latency_p95_nanos": 60404,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 29035,
-              "relay_processing_p95_nanos": 228,
-              "relay_to_consumer_p95_nanos": 33887
+              "producer_to_relay_p95_nanos": 28602,
+              "relay_processing_p95_nanos": 239,
+              "relay_to_consumer_p95_nanos": 34005
             }
           },
           "select": {
-            "latency_p95_nanos": 1104902,
+            "latency_p95_nanos": 1102741,
             "idle_cpu_nanos": 170000000,
-            "wakeups": 245
+            "wakeups": 246
           },
           "loopback": {
-            "throughput_per_second": 250.18734053713396,
-            "latency_p95_nanos": 2050482,
+            "throughput_per_second": 250.19447856262607,
+            "latency_p95_nanos": 415276,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 639.40364420614,
+            "throughput_per_second": 639.5788629019336,
             "latency_p95_nanos": 5000000,
             "cancellation_latency_nanos": 5000000,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              2031864,
-              2033144,
-              2033176,
-              2033400,
-              2033240,
-              2033720,
-              2033304,
-              2033336,
-              2033368,
-              2033400
+              2032312,
+              2033848,
+              2033624,
+              2033656,
+              2033688,
+              2033912,
+              2033752,
+              2033784,
+              2033816,
+              2034040
             ],
             "completed_registrations": 0,
             "retained_owners": 0
@@ -227,28 +227,28 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 147.02503520800002,
-      "peak_rss_kb": 214664,
-      "peak_os_threads": 19,
+      "duration_seconds": 147.37063228600002,
+      "peak_rss_kb": 218700,
+      "peak_os_threads": 18,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 57608,
+          "peak_rss_kb": 58368,
           "peak_os_threads": 16
         },
         {
           "population": 1024,
-          "peak_rss_kb": 61944,
+          "peak_rss_kb": 64008,
           "peak_os_threads": 16
         },
         {
           "population": 4096,
-          "peak_rss_kb": 81424,
+          "peak_rss_kb": 85136,
           "peak_os_threads": 16
         },
         {
           "population": 16384,
-          "peak_rss_kb": 129484,
+          "peak_rss_kb": 133212,
           "peak_os_threads": 16
         }
       ],
@@ -260,88 +260,88 @@
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 263711754,
-              "complete_nanos": 104417266,
+              "create_nanos": 271259035,
+              "complete_nanos": 108886948,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 1032105069,
-              "complete_nanos": 419147430,
+              "create_nanos": 1068971483,
+              "complete_nanos": 422054539,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 4115785379,
-              "complete_nanos": 1665318601,
+              "create_nanos": 4158254143,
+              "complete_nanos": 1670726725,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 16428697456,
-              "complete_nanos": 6582063476,
+              "create_nanos": 16466311009,
+              "complete_nanos": 6674042294,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 2000.041662733108,
-            "latency_p95_nanos": 155211,
+            "throughput_per_second": 2000.0371801345277,
+            "latency_p95_nanos": 149870,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 77020,
-              "relay_processing_p95_nanos": 206,
-              "relay_to_consumer_p95_nanos": 79439
+              "producer_to_relay_p95_nanos": 74779,
+              "relay_processing_p95_nanos": 199,
+              "relay_to_consumer_p95_nanos": 75869
             }
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.058678235189,
-            "latency_p95_nanos": 117879,
+            "throughput_per_second": 2000.0433805795888,
+            "latency_p95_nanos": 115673,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 62638,
-              "relay_processing_p95_nanos": 65,
-              "relay_to_consumer_p95_nanos": 57679
+              "producer_to_relay_p95_nanos": 59822,
+              "relay_processing_p95_nanos": 66,
+              "relay_to_consumer_p95_nanos": 57549
             }
           },
           "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.5131687466803,
-            "latency_p95_nanos": 52917,
+            "throughput_per_second": 2000.4759941176198,
+            "latency_p95_nanos": 52922,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 32818,
-              "relay_processing_p95_nanos": 212,
-              "relay_to_consumer_p95_nanos": 19898
+              "producer_to_relay_p95_nanos": 32182,
+              "relay_processing_p95_nanos": 196,
+              "relay_to_consumer_p95_nanos": 20762
             }
           },
           "select": {
-            "latency_p95_nanos": 1120062,
+            "latency_p95_nanos": 1132975,
             "idle_cpu_nanos": 470000000,
             "wakeups": 239
           },
           "loopback": {
-            "throughput_per_second": 250.19340499947828,
-            "latency_p95_nanos": 1619787,
+            "throughput_per_second": 250.19199407447235,
+            "latency_p95_nanos": 357615,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 319.8658882297125,
-            "latency_p95_nanos": 1000049349,
-            "cancellation_latency_nanos": 999917277,
+            "throughput_per_second": 319.82649812259973,
+            "latency_p95_nanos": 1000528207,
+            "cancellation_latency_nanos": 1000373077,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              3842384,
-              3843856,
-              3843888,
-              3845776,
-              3847856,
-              3847888,
-              3848112,
-              3847952,
-              3847984,
-              3848016
+              3871080,
+              3872360,
+              3872392,
+              3872616,
+              3874504,
+              3874536,
+              3874760,
+              3874600,
+              3874632,
+              3874856
             ],
             "completed_registrations": 0,
             "retained_owners": 0
@@ -384,28 +384,28 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 147.253283335,
-      "peak_rss_kb": 214876,
+      "duration_seconds": 147.251443781,
+      "peak_rss_kb": 203972,
       "peak_os_threads": 19,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 58240,
+          "peak_rss_kb": 58088,
           "peak_os_threads": 16
         },
         {
           "population": 1024,
-          "peak_rss_kb": 62224,
+          "peak_rss_kb": 63280,
           "peak_os_threads": 16
         },
         {
           "population": 4096,
-          "peak_rss_kb": 80672,
+          "peak_rss_kb": 85448,
           "peak_os_threads": 16
         },
         {
           "population": 16384,
-          "peak_rss_kb": 133760,
+          "peak_rss_kb": 135352,
           "peak_os_threads": 16
         }
       ],
@@ -417,88 +417,88 @@
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 273677163,
-              "complete_nanos": 107307085,
+              "create_nanos": 271772934,
+              "complete_nanos": 107349764,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 1058964674,
-              "complete_nanos": 423595939,
+              "create_nanos": 1065665211,
+              "complete_nanos": 421107652,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 4117321867,
-              "complete_nanos": 1680511747,
+              "create_nanos": 4122237335,
+              "complete_nanos": 1709362143,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 16433756735,
-              "complete_nanos": 6652167873,
+              "create_nanos": 16405221381,
+              "complete_nanos": 6596438662,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 2000.0453689490694,
-            "latency_p95_nanos": 156530,
+            "throughput_per_second": 2000.0314072314807,
+            "latency_p95_nanos": 151618,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 77920,
-              "relay_processing_p95_nanos": 196,
-              "relay_to_consumer_p95_nanos": 79207
+              "producer_to_relay_p95_nanos": 77105,
+              "relay_processing_p95_nanos": 207,
+              "relay_to_consumer_p95_nanos": 78059
             }
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.0596524139178,
-            "latency_p95_nanos": 120337,
+            "throughput_per_second": 2000.0445063614798,
+            "latency_p95_nanos": 123218,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 61921,
+              "producer_to_relay_p95_nanos": 63264,
               "relay_processing_p95_nanos": 66,
-              "relay_to_consumer_p95_nanos": 61021
+              "relay_to_consumer_p95_nanos": 60408
             }
           },
           "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.5307560479973,
-            "latency_p95_nanos": 56683,
+            "throughput_per_second": 2000.5130905815868,
+            "latency_p95_nanos": 51351,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 36087,
-              "relay_processing_p95_nanos": 203,
-              "relay_to_consumer_p95_nanos": 21399
+              "producer_to_relay_p95_nanos": 31746,
+              "relay_processing_p95_nanos": 237,
+              "relay_to_consumer_p95_nanos": 19100
             }
           },
           "select": {
-            "latency_p95_nanos": 1135401,
-            "idle_cpu_nanos": 460000000,
+            "latency_p95_nanos": 1147994,
+            "idle_cpu_nanos": 450000000,
             "wakeups": 238
           },
           "loopback": {
-            "throughput_per_second": 250.191609757421,
-            "latency_p95_nanos": 1598528,
+            "throughput_per_second": 250.19611459962016,
+            "latency_p95_nanos": 362179,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 319.84855490773674,
-            "latency_p95_nanos": 1000311936,
-            "cancellation_latency_nanos": 1000411661,
+            "throughput_per_second": 319.88063334286176,
+            "latency_p95_nanos": 999705847,
+            "cancellation_latency_nanos": 999555870,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              3843416,
-              3844888,
-              3844920,
-              3844760,
-              3844792,
-              3844824,
-              3844856,
-              3844888,
-              3844920,
-              3844952
+              3868472,
+              3869752,
+              3869976,
+              3869816,
+              3869848,
+              3873992,
+              3872152,
+              3872184,
+              3872024,
+              3872248
             ],
             "completed_registrations": 0,
             "retained_owners": 0
@@ -541,28 +541,28 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 152.279240872,
-      "peak_rss_kb": 562964,
+      "duration_seconds": 157.473762803,
+      "peak_rss_kb": 568148,
       "peak_os_threads": 16397,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 87532,
+          "peak_rss_kb": 87856,
           "peak_os_threads": 269
         },
         {
           "population": 1024,
-          "peak_rss_kb": 95516,
+          "peak_rss_kb": 95824,
           "peak_os_threads": 1037
         },
         {
           "population": 4096,
-          "peak_rss_kb": 188376,
+          "peak_rss_kb": 189104,
           "peak_os_threads": 4109
         },
         {
           "population": 16384,
-          "peak_rss_kb": 518080,
+          "peak_rss_kb": 518296,
           "peak_os_threads": 16397
         }
       ],
@@ -574,245 +574,245 @@
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 257655789,
-              "complete_nanos": 103701221,
+              "create_nanos": 257285975,
+              "complete_nanos": 103486853,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 1046807290,
-              "complete_nanos": 410838336,
+              "create_nanos": 1035025836,
+              "complete_nanos": 410923020,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 4165641858,
-              "complete_nanos": 1642593806,
+              "create_nanos": 4108492997,
+              "complete_nanos": 1644829780,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 19701166537,
-              "complete_nanos": 6554355891,
+              "create_nanos": 24449598410,
+              "complete_nanos": 6561245778,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 2000.0626479584157,
-            "latency_p95_nanos": 97294,
+            "throughput_per_second": 2000.0588449930344,
+            "latency_p95_nanos": 91372,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 46206,
-              "relay_processing_p95_nanos": 215,
-              "relay_to_consumer_p95_nanos": 50025
+              "producer_to_relay_p95_nanos": 44632,
+              "relay_processing_p95_nanos": 195,
+              "relay_to_consumer_p95_nanos": 45643
             }
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.0698242149692,
-            "latency_p95_nanos": 62769,
+            "throughput_per_second": 2000.0713985448788,
+            "latency_p95_nanos": 59832,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 32420,
+              "producer_to_relay_p95_nanos": 30401,
               "relay_processing_p95_nanos": 66,
-              "relay_to_consumer_p95_nanos": 31737
+              "relay_to_consumer_p95_nanos": 29922
             }
           },
           "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.5123988207765,
-            "latency_p95_nanos": 62441,
+            "throughput_per_second": 2000.5286475096696,
+            "latency_p95_nanos": 60953,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 28969,
+              "producer_to_relay_p95_nanos": 28939,
               "relay_processing_p95_nanos": 217,
-              "relay_to_consumer_p95_nanos": 34113
+              "relay_to_consumer_p95_nanos": 33757
             }
           },
           "select": {
-            "latency_p95_nanos": 1039497,
-            "idle_cpu_nanos": 170000000,
-            "wakeups": 247
-          },
-          "loopback": {
-            "throughput_per_second": 250.19702575979125,
-            "latency_p95_nanos": 2062753,
-            "descriptor_growth": 0,
-            "selector_operations": 4096
-          },
-          "cpu_saturation": {
-            "throughput_per_second": 639.5049687962294,
-            "latency_p95_nanos": 5000000,
-            "cancellation_latency_nanos": 5000000,
-            "cancellation_observed": true
-          },
-          "reclamation": {
-            "live_heap_bytes": [
-              2031768,
-              2033304,
-              2033080,
-              2033112,
-              2033144,
-              2033432,
-              2033208,
-              2033240,
-              2033272,
-              2033560
-            ],
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        },
-        "functional_outcomes": {
-          "parked": {
-            "completed_populations": [
-              256,
-              1024,
-              4096,
-              16384
-            ]
-          },
-          "rendezvous_channel": {
-            "checksum": 134225920
-          },
-          "bounded_channel": {
-            "checksum": 134225920
-          },
-          "select": {
-            "checksum": 8128
-          },
-          "loopback": {
-            "checksum": -1849463478784
-          },
-          "cpu_saturation": {
-            "checksum": 8128
-          },
-          "reclamation": {
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        }
-      }
-    },
-    {
-      "variant": "platform",
-      "run": 3,
-      "status": "passed",
-      "exit_code": 0,
-      "signal": null,
-      "duration_seconds": 152.818157194,
-      "peak_rss_kb": 566144,
-      "peak_os_threads": 16397,
-      "population_observations": [
-        {
-          "population": 256,
-          "peak_rss_kb": 87324,
-          "peak_os_threads": 269
-        },
-        {
-          "population": 1024,
-          "peak_rss_kb": 95372,
-          "peak_os_threads": 1037
-        },
-        {
-          "population": 4096,
-          "peak_rss_kb": 188508,
-          "peak_os_threads": 4109
-        },
-        {
-          "population": 16384,
-          "peak_rss_kb": 519056,
-          "peak_os_threads": 16397
-        }
-      ],
-      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: complete\nworkload: preparation\nworkload: handoff diagnostic\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
-      "result": {
-        "schema_version": 2,
-        "workload": {
-          "parked": [
-            {
-              "population": 256,
-              "completed": true,
-              "create_nanos": 257124512,
-              "complete_nanos": 103787398,
-              "failure": null
-            },
-            {
-              "population": 1024,
-              "completed": true,
-              "create_nanos": 1044488387,
-              "complete_nanos": 410494325,
-              "failure": null
-            },
-            {
-              "population": 4096,
-              "completed": true,
-              "create_nanos": 4136899613,
-              "complete_nanos": 1645691045,
-              "failure": null
-            },
-            {
-              "population": 16384,
-              "completed": true,
-              "create_nanos": 20022530996,
-              "complete_nanos": 6554809243,
-              "failure": null
-            }
-          ],
-          "rendezvous_channel": {
-            "throughput_per_second": 2000.0543757458988,
-            "latency_p95_nanos": 94397,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 45326,
-              "relay_processing_p95_nanos": 207,
-              "relay_to_consumer_p95_nanos": 49363
-            }
-          },
-          "bounded_channel": {
-            "throughput_per_second": 2000.071424181475,
-            "latency_p95_nanos": 62781,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 32052,
-              "relay_processing_p95_nanos": 66,
-              "relay_to_consumer_p95_nanos": 31010
-            }
-          },
-          "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.5328528657749,
-            "latency_p95_nanos": 64200,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 28969,
-              "relay_processing_p95_nanos": 217,
-              "relay_to_consumer_p95_nanos": 34797
-            }
-          },
-          "select": {
-            "latency_p95_nanos": 1098693,
-            "idle_cpu_nanos": 170000000,
+            "latency_p95_nanos": 1112259,
+            "idle_cpu_nanos": 160000000,
             "wakeups": 246
           },
           "loopback": {
-            "throughput_per_second": 250.20128601833727,
-            "latency_p95_nanos": 2058275,
+            "throughput_per_second": 250.19525143354323,
+            "latency_p95_nanos": 422577,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 639.5207623263356,
+            "throughput_per_second": 639.533715967688,
             "latency_p95_nanos": 5000000,
             "cancellation_latency_nanos": 5000000,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              2031768,
-              2033048,
-              2033272,
-              2033112,
-              2033144,
+              2032208,
+              2033744,
+              2033520,
+              2033744,
+              2033584,
+              2033616,
+              2033648,
+              2033680,
+              2033712,
+              2034000
+            ],
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        },
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": -1849463478784
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "platform",
+      "run": 3,
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_seconds": 158.070998607,
+      "peak_rss_kb": 570232,
+      "peak_os_threads": 16397,
+      "population_observations": [
+        {
+          "population": 256,
+          "peak_rss_kb": 87504,
+          "peak_os_threads": 269
+        },
+        {
+          "population": 1024,
+          "peak_rss_kb": 95548,
+          "peak_os_threads": 1037
+        },
+        {
+          "population": 4096,
+          "peak_rss_kb": 191444,
+          "peak_os_threads": 4109
+        },
+        {
+          "population": 16384,
+          "peak_rss_kb": 525724,
+          "peak_os_threads": 16397
+        }
+      ],
+      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: complete\nworkload: preparation\nworkload: handoff diagnostic\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
+      "result": {
+        "schema_version": 2,
+        "workload": {
+          "parked": [
+            {
+              "population": 256,
+              "completed": true,
+              "create_nanos": 257076285,
+              "complete_nanos": 103488125,
+              "failure": null
+            },
+            {
+              "population": 1024,
+              "completed": true,
+              "create_nanos": 1030123475,
+              "complete_nanos": 410473028,
+              "failure": null
+            },
+            {
+              "population": 4096,
+              "completed": true,
+              "create_nanos": 4103681487,
+              "complete_nanos": 1639576255,
+              "failure": null
+            },
+            {
+              "population": 16384,
+              "completed": true,
+              "create_nanos": 25115814616,
+              "complete_nanos": 6575367063,
+              "failure": null
+            }
+          ],
+          "rendezvous_channel": {
+            "throughput_per_second": 2000.0548601473547,
+            "latency_p95_nanos": 92245,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 44467,
+              "relay_processing_p95_nanos": 177,
+              "relay_to_consumer_p95_nanos": 46068
+            }
+          },
+          "bounded_channel": {
+            "throughput_per_second": 2000.0641382872627,
+            "latency_p95_nanos": 61299,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 30909,
+              "relay_processing_p95_nanos": 66,
+              "relay_to_consumer_p95_nanos": 30224
+            }
+          },
+          "unpark_handoff_diagnostic": {
+            "throughput_per_second": 2000.528696363612,
+            "latency_p95_nanos": 63912,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 30207,
+              "relay_processing_p95_nanos": 227,
+              "relay_to_consumer_p95_nanos": 34399
+            }
+          },
+          "select": {
+            "latency_p95_nanos": 1113491,
+            "idle_cpu_nanos": 160000000,
+            "wakeups": 244
+          },
+          "loopback": {
+            "throughput_per_second": 250.19304580229507,
+            "latency_p95_nanos": 427580,
+            "descriptor_growth": 0,
+            "selector_operations": 4096
+          },
+          "cpu_saturation": {
+            "throughput_per_second": 639.6193337516144,
+            "latency_p95_nanos": 5000000,
+            "cancellation_latency_nanos": 5000000,
+            "cancellation_observed": true
+          },
+          "reclamation": {
+            "live_heap_bytes": [
+              2032056,
+              2033336,
+              2033368,
+              2033400,
               2033432,
-              2033208,
-              2033240,
-              2033272,
-              2033560
+              2033720,
+              2033496,
+              2033528,
+              2033560,
+              2033592
             ],
             "completed_registrations": 0,
             "retained_owners": 0
@@ -855,28 +855,28 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 147.40128956,
-      "peak_rss_kb": 209732,
+      "duration_seconds": 147.59514027699998,
+      "peak_rss_kb": 221208,
       "peak_os_threads": 18,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 51132,
+          "peak_rss_kb": 58280,
           "peak_os_threads": 16
         },
         {
           "population": 1024,
-          "peak_rss_kb": 56208,
+          "peak_rss_kb": 63372,
           "peak_os_threads": 16
         },
         {
           "population": 4096,
-          "peak_rss_kb": 78892,
+          "peak_rss_kb": 84980,
           "peak_os_threads": 16
         },
         {
           "population": 16384,
-          "peak_rss_kb": 126956,
+          "peak_rss_kb": 135764,
           "peak_os_threads": 16
         }
       ],
@@ -888,88 +888,88 @@
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 264481822,
-              "complete_nanos": 105176275,
+              "create_nanos": 272467362,
+              "complete_nanos": 107301058,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 1026109597,
-              "complete_nanos": 418530003,
+              "create_nanos": 1095642316,
+              "complete_nanos": 433268723,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 4163682606,
-              "complete_nanos": 1690305788,
+              "create_nanos": 4197682893,
+              "complete_nanos": 1730981948,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 16626862822,
-              "complete_nanos": 6695603114,
+              "create_nanos": 16566451211,
+              "complete_nanos": 6594007632,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 2000.038861594941,
-            "latency_p95_nanos": 155645,
+            "throughput_per_second": 2000.0354955030011,
+            "latency_p95_nanos": 150964,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 80557,
+              "producer_to_relay_p95_nanos": 75465,
               "relay_processing_p95_nanos": 206,
-              "relay_to_consumer_p95_nanos": 78593
+              "relay_to_consumer_p95_nanos": 76498
             }
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.050154089716,
-            "latency_p95_nanos": 120553,
+            "throughput_per_second": 2000.039588674241,
+            "latency_p95_nanos": 116931,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 64179,
-              "relay_processing_p95_nanos": 65,
-              "relay_to_consumer_p95_nanos": 59219
+              "producer_to_relay_p95_nanos": 61018,
+              "relay_processing_p95_nanos": 66,
+              "relay_to_consumer_p95_nanos": 57274
             }
           },
           "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.4538373358,
-            "latency_p95_nanos": 54910,
+            "throughput_per_second": 2000.5109195485586,
+            "latency_p95_nanos": 56472,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 33745,
-              "relay_processing_p95_nanos": 228,
-              "relay_to_consumer_p95_nanos": 21013
+              "producer_to_relay_p95_nanos": 34501,
+              "relay_processing_p95_nanos": 199,
+              "relay_to_consumer_p95_nanos": 21898
             }
           },
           "select": {
-            "latency_p95_nanos": 1140491,
-            "idle_cpu_nanos": 490000000,
+            "latency_p95_nanos": 1158599,
+            "idle_cpu_nanos": 450000000,
             "wakeups": 238
           },
           "loopback": {
-            "throughput_per_second": 250.20229044544598,
-            "latency_p95_nanos": 1625769,
+            "throughput_per_second": 250.18374108410165,
+            "latency_p95_nanos": 338626,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 319.8498592775565,
-            "latency_p95_nanos": 1000606565,
-            "cancellation_latency_nanos": 1000432225,
+            "throughput_per_second": 319.8481273133281,
+            "latency_p95_nanos": 1000141395,
+            "cancellation_latency_nanos": 1000191658,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              3848384,
-              3849856,
-              3849888,
-              3849920,
-              3849760,
-              3849792,
-              3850016,
-              3850048,
-              3849888,
-              3850112
+              3868384,
+              3869664,
+              3869888,
+              3872104,
+              3872136,
+              3872168,
+              3872200,
+              3872424,
+              3872264,
+              3872296
             ],
             "completed_registrations": 0,
             "retained_owners": 0
@@ -1012,28 +1012,28 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 147.219013779,
-      "peak_rss_kb": 214524,
+      "duration_seconds": 147.473140271,
+      "peak_rss_kb": 204604,
       "peak_os_threads": 18,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 50836,
+          "peak_rss_kb": 58228,
           "peak_os_threads": 16
         },
         {
           "population": 1024,
-          "peak_rss_kb": 56136,
+          "peak_rss_kb": 63400,
           "peak_os_threads": 16
         },
         {
           "population": 4096,
-          "peak_rss_kb": 79948,
+          "peak_rss_kb": 84836,
           "peak_os_threads": 16
         },
         {
           "population": 16384,
-          "peak_rss_kb": 127664,
+          "peak_rss_kb": 137176,
           "peak_os_threads": 16
         }
       ],
@@ -1045,88 +1045,88 @@
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 256525978,
-              "complete_nanos": 102853465,
+              "create_nanos": 270789511,
+              "complete_nanos": 107633408,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 1024523879,
-              "complete_nanos": 410131285,
+              "create_nanos": 1062870357,
+              "complete_nanos": 428857592,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 4132853978,
-              "complete_nanos": 1681070095,
+              "create_nanos": 4123472227,
+              "complete_nanos": 1717887869,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 16436736155,
-              "complete_nanos": 6634574211,
+              "create_nanos": 16486042027,
+              "complete_nanos": 6725841803,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 2000.0375651586824,
-            "latency_p95_nanos": 152985,
+            "throughput_per_second": 2000.0332813155326,
+            "latency_p95_nanos": 155763,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 76596,
-              "relay_processing_p95_nanos": 184,
-              "relay_to_consumer_p95_nanos": 79906
+              "producer_to_relay_p95_nanos": 79207,
+              "relay_processing_p95_nanos": 196,
+              "relay_to_consumer_p95_nanos": 80110
             }
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.054952193424,
-            "latency_p95_nanos": 118838,
+            "throughput_per_second": 2000.0501882711185,
+            "latency_p95_nanos": 122894,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 61323,
-              "relay_processing_p95_nanos": 70,
-              "relay_to_consumer_p95_nanos": 59490
+              "producer_to_relay_p95_nanos": 64284,
+              "relay_processing_p95_nanos": 67,
+              "relay_to_consumer_p95_nanos": 59595
             }
           },
           "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.2042884428777,
-            "latency_p95_nanos": 57147,
+            "throughput_per_second": 2000.4633397388698,
+            "latency_p95_nanos": 56977,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 35253,
-              "relay_processing_p95_nanos": 196,
-              "relay_to_consumer_p95_nanos": 22620
+              "producer_to_relay_p95_nanos": 36135,
+              "relay_processing_p95_nanos": 207,
+              "relay_to_consumer_p95_nanos": 22112
             }
           },
           "select": {
-            "latency_p95_nanos": 1135423,
-            "idle_cpu_nanos": 460000000,
+            "latency_p95_nanos": 1137581,
+            "idle_cpu_nanos": 440000000,
             "wakeups": 238
           },
           "loopback": {
-            "throughput_per_second": 250.19701121051932,
-            "latency_p95_nanos": 1586188,
+            "throughput_per_second": 250.18668092102675,
+            "latency_p95_nanos": 351409,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 319.8441183716395,
-            "latency_p95_nanos": 1000325514,
-            "cancellation_latency_nanos": 1000404877,
+            "throughput_per_second": 319.93582327337003,
+            "latency_p95_nanos": 997578401,
+            "cancellation_latency_nanos": 997740055,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              3844144,
-              3849728,
-              3856288,
-              3850104,
-              3849944,
-              3850168,
-              3850008,
-              3850040,
-              3852120,
-              3856224
+              3868680,
+              3869960,
+              3869992,
+              3870024,
+              3872104,
+              3872136,
+              3872168,
+              3872392,
+              3872232,
+              3872264
             ],
             "completed_registrations": 0,
             "retained_owners": 0
@@ -1169,641 +1169,13 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 152.29332751,
-      "peak_rss_kb": 562676,
+      "duration_seconds": 157.37866675499998,
+      "peak_rss_kb": 566408,
       "peak_os_threads": 16397,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 87348,
-          "peak_os_threads": 269
-        },
-        {
-          "population": 1024,
-          "peak_rss_kb": 95524,
-          "peak_os_threads": 1037
-        },
-        {
-          "population": 4096,
-          "peak_rss_kb": 188612,
-          "peak_os_threads": 4109
-        },
-        {
-          "population": 16384,
-          "peak_rss_kb": 519068,
-          "peak_os_threads": 16397
-        }
-      ],
-      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: complete\nworkload: preparation\nworkload: handoff diagnostic\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
-      "result": {
-        "schema_version": 2,
-        "workload": {
-          "parked": [
-            {
-              "population": 256,
-              "completed": true,
-              "create_nanos": 258252650,
-              "complete_nanos": 104242729,
-              "failure": null
-            },
-            {
-              "population": 1024,
-              "completed": true,
-              "create_nanos": 1049926224,
-              "complete_nanos": 410774921,
-              "failure": null
-            },
-            {
-              "population": 4096,
-              "completed": true,
-              "create_nanos": 4144405442,
-              "complete_nanos": 1639158595,
-              "failure": null
-            },
-            {
-              "population": 16384,
-              "completed": true,
-              "create_nanos": 19614062962,
-              "complete_nanos": 6567248564,
-              "failure": null
-            }
-          ],
-          "rendezvous_channel": {
-            "throughput_per_second": 2000.0529777216418,
-            "latency_p95_nanos": 94856,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 45403,
-              "relay_processing_p95_nanos": 207,
-              "relay_to_consumer_p95_nanos": 49712
-            }
-          },
-          "bounded_channel": {
-            "throughput_per_second": 2000.0698207967616,
-            "latency_p95_nanos": 62312,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 31519,
-              "relay_processing_p95_nanos": 65,
-              "relay_to_consumer_p95_nanos": 30856
-            }
-          },
-          "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.5173838083874,
-            "latency_p95_nanos": 61356,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 29251,
-              "relay_processing_p95_nanos": 249,
-              "relay_to_consumer_p95_nanos": 32704
-            }
-          },
-          "select": {
-            "latency_p95_nanos": 1071917,
-            "idle_cpu_nanos": 170000000,
-            "wakeups": 247
-          },
-          "loopback": {
-            "throughput_per_second": 250.18332457968185,
-            "latency_p95_nanos": 2025671,
-            "descriptor_growth": 0,
-            "selector_operations": 4096
-          },
-          "cpu_saturation": {
-            "throughput_per_second": 639.4823070982886,
-            "latency_p95_nanos": 5000000,
-            "cancellation_latency_nanos": 5000000,
-            "cancellation_observed": true
-          },
-          "reclamation": {
-            "live_heap_bytes": [
-              2031768,
-              2033304,
-              2033080,
-              2033112,
-              2033144,
-              2033176,
-              2033208,
-              2033240,
-              2033272,
-              2033304
-            ],
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        },
-        "functional_outcomes": {
-          "parked": {
-            "completed_populations": [
-              256,
-              1024,
-              4096,
-              16384
-            ]
-          },
-          "rendezvous_channel": {
-            "checksum": 134225920
-          },
-          "bounded_channel": {
-            "checksum": 134225920
-          },
-          "select": {
-            "checksum": 8128
-          },
-          "loopback": {
-            "checksum": -1849463478784
-          },
-          "cpu_saturation": {
-            "checksum": 8128
-          },
-          "reclamation": {
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        }
-      }
-    },
-    {
-      "variant": "platform",
-      "run": 5,
-      "status": "passed",
-      "exit_code": 0,
-      "signal": null,
-      "duration_seconds": 153.206392309,
-      "peak_rss_kb": 561916,
-      "peak_os_threads": 16397,
-      "population_observations": [
-        {
-          "population": 256,
-          "peak_rss_kb": 87356,
-          "peak_os_threads": 269
-        },
-        {
-          "population": 1024,
-          "peak_rss_kb": 95636,
-          "peak_os_threads": 1037
-        },
-        {
-          "population": 4096,
-          "peak_rss_kb": 188920,
-          "peak_os_threads": 4109
-        },
-        {
-          "population": 16384,
-          "peak_rss_kb": 519380,
-          "peak_os_threads": 16397
-        }
-      ],
-      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: complete\nworkload: preparation\nworkload: handoff diagnostic\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
-      "result": {
-        "schema_version": 2,
-        "workload": {
-          "parked": [
-            {
-              "population": 256,
-              "completed": true,
-              "create_nanos": 257927038,
-              "complete_nanos": 103698020,
-              "failure": null
-            },
-            {
-              "population": 1024,
-              "completed": true,
-              "create_nanos": 1039866429,
-              "complete_nanos": 410866190,
-              "failure": null
-            },
-            {
-              "population": 4096,
-              "completed": true,
-              "create_nanos": 4178608708,
-              "complete_nanos": 1642006346,
-              "failure": null
-            },
-            {
-              "population": 16384,
-              "completed": true,
-              "create_nanos": 20265196543,
-              "complete_nanos": 6568817711,
-              "failure": null
-            }
-          ],
-          "rendezvous_channel": {
-            "throughput_per_second": 2000.0564984221626,
-            "latency_p95_nanos": 95903,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 45783,
-              "relay_processing_p95_nanos": 217,
-              "relay_to_consumer_p95_nanos": 49733
-            }
-          },
-          "bounded_channel": {
-            "throughput_per_second": 2000.071699591808,
-            "latency_p95_nanos": 63398,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 32463,
-              "relay_processing_p95_nanos": 65,
-              "relay_to_consumer_p95_nanos": 31303
-            }
-          },
-          "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.586466843141,
-            "latency_p95_nanos": 62203,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 30369,
-              "relay_processing_p95_nanos": 228,
-              "relay_to_consumer_p95_nanos": 32431
-            }
-          },
-          "select": {
-            "latency_p95_nanos": 1102372,
-            "idle_cpu_nanos": 170000000,
-            "wakeups": 245
-          },
-          "loopback": {
-            "throughput_per_second": 250.18674400342871,
-            "latency_p95_nanos": 2022196,
-            "descriptor_growth": 0,
-            "selector_operations": 4096
-          },
-          "cpu_saturation": {
-            "throughput_per_second": 639.4198096473203,
-            "latency_p95_nanos": 5000000,
-            "cancellation_latency_nanos": 5000000,
-            "cancellation_observed": true
-          },
-          "reclamation": {
-            "live_heap_bytes": [
-              2031768,
-              2033688,
-              2033080,
-              2033112,
-              2033144,
-              2033432,
-              2033208,
-              2033240,
-              2033272,
-              2033560
-            ],
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        },
-        "functional_outcomes": {
-          "parked": {
-            "completed_populations": [
-              256,
-              1024,
-              4096,
-              16384
-            ]
-          },
-          "rendezvous_channel": {
-            "checksum": 134225920
-          },
-          "bounded_channel": {
-            "checksum": 134225920
-          },
-          "select": {
-            "checksum": 8128
-          },
-          "loopback": {
-            "checksum": -1849463478784
-          },
-          "cpu_saturation": {
-            "checksum": 8128
-          },
-          "reclamation": {
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        }
-      }
-    },
-    {
-      "variant": "virtual",
-      "run": 5,
-      "status": "passed",
-      "exit_code": 0,
-      "signal": null,
-      "duration_seconds": 147.023014086,
-      "peak_rss_kb": 210296,
-      "peak_os_threads": 19,
-      "population_observations": [
-        {
-          "population": 256,
-          "peak_rss_kb": 58140,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 1024,
-          "peak_rss_kb": 62112,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 4096,
-          "peak_rss_kb": 84588,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 16384,
-          "peak_rss_kb": 138400,
-          "peak_os_threads": 16
-        }
-      ],
-      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: complete\nworkload: preparation\nworkload: handoff diagnostic\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
-      "result": {
-        "schema_version": 2,
-        "workload": {
-          "parked": [
-            {
-              "population": 256,
-              "completed": true,
-              "create_nanos": 262898947,
-              "complete_nanos": 104068639,
-              "failure": null
-            },
-            {
-              "population": 1024,
-              "completed": true,
-              "create_nanos": 1030610944,
-              "complete_nanos": 415333484,
-              "failure": null
-            },
-            {
-              "population": 4096,
-              "completed": true,
-              "create_nanos": 4113140577,
-              "complete_nanos": 1679558034,
-              "failure": null
-            },
-            {
-              "population": 16384,
-              "completed": true,
-              "create_nanos": 16457079233,
-              "complete_nanos": 6636061336,
-              "failure": null
-            }
-          ],
-          "rendezvous_channel": {
-            "throughput_per_second": 2000.0420941476586,
-            "latency_p95_nanos": 150932,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 74599,
-              "relay_processing_p95_nanos": 203,
-              "relay_to_consumer_p95_nanos": 78019
-            }
-          },
-          "bounded_channel": {
-            "throughput_per_second": 2000.0536120327897,
-            "latency_p95_nanos": 117696,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 61927,
-              "relay_processing_p95_nanos": 75,
-              "relay_to_consumer_p95_nanos": 58231
-            }
-          },
-          "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.4622669769392,
-            "latency_p95_nanos": 56439,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 34928,
-              "relay_processing_p95_nanos": 218,
-              "relay_to_consumer_p95_nanos": 21697
-            }
-          },
-          "select": {
-            "latency_p95_nanos": 1099330,
-            "idle_cpu_nanos": 470000000,
-            "wakeups": 240
-          },
-          "loopback": {
-            "throughput_per_second": 250.18641850591118,
-            "latency_p95_nanos": 1644797,
-            "descriptor_growth": 0,
-            "selector_operations": 4096
-          },
-          "cpu_saturation": {
-            "throughput_per_second": 319.8362861997736,
-            "latency_p95_nanos": 1000244493,
-            "cancellation_latency_nanos": 1000386093,
-            "cancellation_observed": true
-          },
-          "reclamation": {
-            "live_heap_bytes": [
-              3847440,
-              3853024,
-              3850800,
-              3851024,
-              3850864,
-              3850896,
-              3850928,
-              3850960,
-              3850992,
-              3851024
-            ],
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        },
-        "functional_outcomes": {
-          "parked": {
-            "completed_populations": [
-              256,
-              1024,
-              4096,
-              16384
-            ]
-          },
-          "rendezvous_channel": {
-            "checksum": 134225920
-          },
-          "bounded_channel": {
-            "checksum": 134225920
-          },
-          "select": {
-            "checksum": 8128
-          },
-          "loopback": {
-            "checksum": -1849463478784
-          },
-          "cpu_saturation": {
-            "checksum": 8128
-          },
-          "reclamation": {
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        }
-      }
-    },
-    {
-      "variant": "virtual",
-      "run": 6,
-      "status": "passed",
-      "exit_code": 0,
-      "signal": null,
-      "duration_seconds": 147.091471097,
-      "peak_rss_kb": 209672,
-      "peak_os_threads": 19,
-      "population_observations": [
-        {
-          "population": 256,
-          "peak_rss_kb": 50908,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 1024,
-          "peak_rss_kb": 56040,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 4096,
-          "peak_rss_kb": 81592,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 16384,
-          "peak_rss_kb": 130164,
-          "peak_os_threads": 16
-        }
-      ],
-      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: complete\nworkload: preparation\nworkload: handoff diagnostic\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
-      "result": {
-        "schema_version": 2,
-        "workload": {
-          "parked": [
-            {
-              "population": 256,
-              "completed": true,
-              "create_nanos": 265024533,
-              "complete_nanos": 105169187,
-              "failure": null
-            },
-            {
-              "population": 1024,
-              "completed": true,
-              "create_nanos": 1033955728,
-              "complete_nanos": 425246093,
-              "failure": null
-            },
-            {
-              "population": 4096,
-              "completed": true,
-              "create_nanos": 4140637037,
-              "complete_nanos": 1660332471,
-              "failure": null
-            },
-            {
-              "population": 16384,
-              "completed": true,
-              "create_nanos": 16407299511,
-              "complete_nanos": 6625455828,
-              "failure": null
-            }
-          ],
-          "rendezvous_channel": {
-            "throughput_per_second": 2000.0433749641109,
-            "latency_p95_nanos": 153890,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 76548,
-              "relay_processing_p95_nanos": 212,
-              "relay_to_consumer_p95_nanos": 77853
-            }
-          },
-          "bounded_channel": {
-            "throughput_per_second": 2000.0487384923788,
-            "latency_p95_nanos": 119306,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 61316,
-              "relay_processing_p95_nanos": 66,
-              "relay_to_consumer_p95_nanos": 58550
-            }
-          },
-          "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.5333218656929,
-            "latency_p95_nanos": 56906,
-            "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 35242,
-              "relay_processing_p95_nanos": 220,
-              "relay_to_consumer_p95_nanos": 22208
-            }
-          },
-          "select": {
-            "latency_p95_nanos": 1135408,
-            "idle_cpu_nanos": 500000000,
-            "wakeups": 237
-          },
-          "loopback": {
-            "throughput_per_second": 250.19686528997403,
-            "latency_p95_nanos": 1759596,
-            "descriptor_growth": 0,
-            "selector_operations": 4096
-          },
-          "cpu_saturation": {
-            "throughput_per_second": 319.8414585869967,
-            "latency_p95_nanos": 998086864,
-            "cancellation_latency_nanos": 998040918,
-            "cancellation_observed": true
-          },
-          "reclamation": {
-            "live_heap_bytes": [
-              3839512,
-              3840984,
-              3843200,
-              3843424,
-              3843264,
-              3845864,
-              3845704,
-              3845736,
-              3845768,
-              3845992
-            ],
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        },
-        "functional_outcomes": {
-          "parked": {
-            "completed_populations": [
-              256,
-              1024,
-              4096,
-              16384
-            ]
-          },
-          "rendezvous_channel": {
-            "checksum": 134225920
-          },
-          "bounded_channel": {
-            "checksum": 134225920
-          },
-          "select": {
-            "checksum": 8128
-          },
-          "loopback": {
-            "checksum": -1849463478784
-          },
-          "cpu_saturation": {
-            "checksum": 8128
-          },
-          "reclamation": {
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        }
-      }
-    },
-    {
-      "variant": "platform",
-      "run": 6,
-      "status": "passed",
-      "exit_code": 0,
-      "signal": null,
-      "duration_seconds": 152.52543862800002,
-      "peak_rss_kb": 562892,
-      "peak_os_threads": 16397,
-      "population_observations": [
-        {
-          "population": 256,
-          "peak_rss_kb": 87616,
+          "peak_rss_kb": 87696,
           "peak_os_threads": 269
         },
         {
@@ -1813,12 +1185,12 @@
         },
         {
           "population": 4096,
-          "peak_rss_kb": 189444,
+          "peak_rss_kb": 188972,
           "peak_os_threads": 4109
         },
         {
           "population": 16384,
-          "peak_rss_kb": 518840,
+          "peak_rss_kb": 519264,
           "peak_os_threads": 16397
         }
       ],
@@ -1830,88 +1202,716 @@
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 258595571,
-              "complete_nanos": 103647030,
+              "create_nanos": 257516842,
+              "complete_nanos": 105000193,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 1042977565,
-              "complete_nanos": 410719256,
+              "create_nanos": 1038465756,
+              "complete_nanos": 411258681,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 4138368827,
-              "complete_nanos": 1639660235,
+              "create_nanos": 4100249733,
+              "complete_nanos": 1645005475,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 19894004893,
-              "complete_nanos": 6555153169,
+              "create_nanos": 24497895922,
+              "complete_nanos": 6568432020,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 2000.061723584529,
-            "latency_p95_nanos": 85835,
+            "throughput_per_second": 2000.0596775619026,
+            "latency_p95_nanos": 97527,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 42849,
-              "relay_processing_p95_nanos": 203,
-              "relay_to_consumer_p95_nanos": 43726
+              "producer_to_relay_p95_nanos": 46925,
+              "relay_processing_p95_nanos": 209,
+              "relay_to_consumer_p95_nanos": 49542
             }
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.0731462297751,
-            "latency_p95_nanos": 58221,
+            "throughput_per_second": 2000.0697368065264,
+            "latency_p95_nanos": 63904,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 29327,
-              "relay_processing_p95_nanos": 65,
-              "relay_to_consumer_p95_nanos": 28859
+              "producer_to_relay_p95_nanos": 30253,
+              "relay_processing_p95_nanos": 76,
+              "relay_to_consumer_p95_nanos": 30528
             }
           },
           "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.524055249731,
-            "latency_p95_nanos": 57108,
+            "throughput_per_second": 2000.4933052387753,
+            "latency_p95_nanos": 63888,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 27090,
-              "relay_processing_p95_nanos": 243,
-              "relay_to_consumer_p95_nanos": 31327
+              "producer_to_relay_p95_nanos": 29905,
+              "relay_processing_p95_nanos": 218,
+              "relay_to_consumer_p95_nanos": 34461
             }
           },
           "select": {
-            "latency_p95_nanos": 1081109,
-            "idle_cpu_nanos": 160000000,
+            "latency_p95_nanos": 1103263,
+            "idle_cpu_nanos": 150000000,
             "wakeups": 246
           },
           "loopback": {
-            "throughput_per_second": 250.1912953115182,
-            "latency_p95_nanos": 1934876,
+            "throughput_per_second": 250.19676876365742,
+            "latency_p95_nanos": 424735,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 639.5104291860409,
+            "throughput_per_second": 639.4472394255871,
             "latency_p95_nanos": 5000000,
             "cancellation_latency_nanos": 5000000,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              2031864,
-              2033400,
-              2034680,
-              2033208,
+              2031960,
               2033240,
               2033272,
               2033304,
               2033336,
+              2033624,
+              2033400,
+              2033432,
+              2033464,
+              2033496
+            ],
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        },
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": -1849463478784
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "platform",
+      "run": 5,
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_seconds": 157.008481979,
+      "peak_rss_kb": 566952,
+      "peak_os_threads": 16397,
+      "population_observations": [
+        {
+          "population": 256,
+          "peak_rss_kb": 87496,
+          "peak_os_threads": 269
+        },
+        {
+          "population": 1024,
+          "peak_rss_kb": 95564,
+          "peak_os_threads": 1037
+        },
+        {
+          "population": 4096,
+          "peak_rss_kb": 189212,
+          "peak_os_threads": 4109
+        },
+        {
+          "population": 16384,
+          "peak_rss_kb": 518756,
+          "peak_os_threads": 16397
+        }
+      ],
+      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: complete\nworkload: preparation\nworkload: handoff diagnostic\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
+      "result": {
+        "schema_version": 2,
+        "workload": {
+          "parked": [
+            {
+              "population": 256,
+              "completed": true,
+              "create_nanos": 257648751,
+              "complete_nanos": 104427783,
+              "failure": null
+            },
+            {
+              "population": 1024,
+              "completed": true,
+              "create_nanos": 1034834750,
+              "complete_nanos": 411062059,
+              "failure": null
+            },
+            {
+              "population": 4096,
+              "completed": true,
+              "create_nanos": 4105310628,
+              "complete_nanos": 1642466142,
+              "failure": null
+            },
+            {
+              "population": 16384,
+              "completed": true,
+              "create_nanos": 24150858761,
+              "complete_nanos": 6556046916,
+              "failure": null
+            }
+          ],
+          "rendezvous_channel": {
+            "throughput_per_second": 2000.0574198613635,
+            "latency_p95_nanos": 89649,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 44722,
+              "relay_processing_p95_nanos": 209,
+              "relay_to_consumer_p95_nanos": 45550
+            }
+          },
+          "bounded_channel": {
+            "throughput_per_second": 2000.0657416628653,
+            "latency_p95_nanos": 61696,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 30848,
+              "relay_processing_p95_nanos": 75,
+              "relay_to_consumer_p95_nanos": 30220
+            }
+          },
+          "unpark_handoff_diagnostic": {
+            "throughput_per_second": 2000.5199163713908,
+            "latency_p95_nanos": 62731,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 28269,
+              "relay_processing_p95_nanos": 264,
+              "relay_to_consumer_p95_nanos": 36424
+            }
+          },
+          "select": {
+            "latency_p95_nanos": 1117998,
+            "idle_cpu_nanos": 160000000,
+            "wakeups": 244
+          },
+          "loopback": {
+            "throughput_per_second": 250.19945789610867,
+            "latency_p95_nanos": 430013,
+            "descriptor_growth": 0,
+            "selector_operations": 4096
+          },
+          "cpu_saturation": {
+            "throughput_per_second": 639.498093119106,
+            "latency_p95_nanos": 5000000,
+            "cancellation_latency_nanos": 5000000,
+            "cancellation_observed": true
+          },
+          "reclamation": {
+            "live_heap_bytes": [
+              2032056,
+              2033592,
               2033368,
-              2033400
+              2033400,
+              2033432,
+              2033464,
+              2033496,
+              2033528,
+              2033560,
+              2033592
+            ],
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        },
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": -1849463478784
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "virtual",
+      "run": 5,
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_seconds": 147.39089814300002,
+      "peak_rss_kb": 202120,
+      "peak_os_threads": 18,
+      "population_observations": [
+        {
+          "population": 256,
+          "peak_rss_kb": 58248,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 1024,
+          "peak_rss_kb": 63696,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 4096,
+          "peak_rss_kb": 85272,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 16384,
+          "peak_rss_kb": 134428,
+          "peak_os_threads": 16
+        }
+      ],
+      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: complete\nworkload: preparation\nworkload: handoff diagnostic\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
+      "result": {
+        "schema_version": 2,
+        "workload": {
+          "parked": [
+            {
+              "population": 256,
+              "completed": true,
+              "create_nanos": 268276253,
+              "complete_nanos": 107656016,
+              "failure": null
+            },
+            {
+              "population": 1024,
+              "completed": true,
+              "create_nanos": 1079321006,
+              "complete_nanos": 427029216,
+              "failure": null
+            },
+            {
+              "population": 4096,
+              "completed": true,
+              "create_nanos": 4162620484,
+              "complete_nanos": 1655828037,
+              "failure": null
+            },
+            {
+              "population": 16384,
+              "completed": true,
+              "create_nanos": 16449993483,
+              "complete_nanos": 6683145262,
+              "failure": null
+            }
+          ],
+          "rendezvous_channel": {
+            "throughput_per_second": 2000.0285419112208,
+            "latency_p95_nanos": 152962,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 75195,
+              "relay_processing_p95_nanos": 198,
+              "relay_to_consumer_p95_nanos": 77830
+            }
+          },
+          "bounded_channel": {
+            "throughput_per_second": 2000.0510117991155,
+            "latency_p95_nanos": 124887,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 65870,
+              "relay_processing_p95_nanos": 76,
+              "relay_to_consumer_p95_nanos": 62929
+            }
+          },
+          "unpark_handoff_diagnostic": {
+            "throughput_per_second": 2000.4824698761454,
+            "latency_p95_nanos": 56085,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 33636,
+              "relay_processing_p95_nanos": 209,
+              "relay_to_consumer_p95_nanos": 21678
+            }
+          },
+          "select": {
+            "latency_p95_nanos": 1142152,
+            "idle_cpu_nanos": 470000000,
+            "wakeups": 238
+          },
+          "loopback": {
+            "throughput_per_second": 250.1868946189047,
+            "latency_p95_nanos": 337473,
+            "descriptor_growth": 0,
+            "selector_operations": 4096
+          },
+          "cpu_saturation": {
+            "throughput_per_second": 319.87249002898096,
+            "latency_p95_nanos": 1000390637,
+            "cancellation_latency_nanos": 1000308172,
+            "cancellation_observed": true
+          },
+          "reclamation": {
+            "live_heap_bytes": [
+              3873440,
+              3874720,
+              3876800,
+              3876832,
+              3878912,
+              3878944,
+              3878976,
+              3879008,
+              3879040,
+              3879264
+            ],
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        },
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": -1849463478784
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "virtual",
+      "run": 6,
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_seconds": 147.357576087,
+      "peak_rss_kb": 204588,
+      "peak_os_threads": 18,
+      "population_observations": [
+        {
+          "population": 256,
+          "peak_rss_kb": 58328,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 1024,
+          "peak_rss_kb": 63736,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 4096,
+          "peak_rss_kb": 81592,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 16384,
+          "peak_rss_kb": 140460,
+          "peak_os_threads": 16
+        }
+      ],
+      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: complete\nworkload: preparation\nworkload: handoff diagnostic\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
+      "result": {
+        "schema_version": 2,
+        "workload": {
+          "parked": [
+            {
+              "population": 256,
+              "completed": true,
+              "create_nanos": 270260917,
+              "complete_nanos": 108206780,
+              "failure": null
+            },
+            {
+              "population": 1024,
+              "completed": true,
+              "create_nanos": 1064225281,
+              "complete_nanos": 426007153,
+              "failure": null
+            },
+            {
+              "population": 4096,
+              "completed": true,
+              "create_nanos": 4169227775,
+              "complete_nanos": 1680901472,
+              "failure": null
+            },
+            {
+              "population": 16384,
+              "completed": true,
+              "create_nanos": 16450268785,
+              "complete_nanos": 6651067851,
+              "failure": null
+            }
+          ],
+          "rendezvous_channel": {
+            "throughput_per_second": 2000.034930053403,
+            "latency_p95_nanos": 151866,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 75659,
+              "relay_processing_p95_nanos": 207,
+              "relay_to_consumer_p95_nanos": 76232
+            }
+          },
+          "bounded_channel": {
+            "throughput_per_second": 2000.0502473561166,
+            "latency_p95_nanos": 119819,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 62479,
+              "relay_processing_p95_nanos": 76,
+              "relay_to_consumer_p95_nanos": 59149
+            }
+          },
+          "unpark_handoff_diagnostic": {
+            "throughput_per_second": 2000.5058447039567,
+            "latency_p95_nanos": 52495,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 32627,
+              "relay_processing_p95_nanos": 218,
+              "relay_to_consumer_p95_nanos": 19702
+            }
+          },
+          "select": {
+            "latency_p95_nanos": 1162468,
+            "idle_cpu_nanos": 460000000,
+            "wakeups": 237
+          },
+          "loopback": {
+            "throughput_per_second": 250.19529129065586,
+            "latency_p95_nanos": 364471,
+            "descriptor_growth": 0,
+            "selector_operations": 4096
+          },
+          "cpu_saturation": {
+            "throughput_per_second": 319.8301182348231,
+            "latency_p95_nanos": 1000200353,
+            "cancellation_latency_nanos": 1000088181,
+            "cancellation_observed": true
+          },
+          "reclamation": {
+            "live_heap_bytes": [
+              3869224,
+              3873072,
+              3872912,
+              3873136,
+              3872976,
+              3873008,
+              3873040,
+              3873072,
+              3873104,
+              3873136
+            ],
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        },
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": -1849463478784
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "platform",
+      "run": 6,
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_seconds": 157.789305532,
+      "peak_rss_kb": 566484,
+      "peak_os_threads": 16397,
+      "population_observations": [
+        {
+          "population": 256,
+          "peak_rss_kb": 87196,
+          "peak_os_threads": 269
+        },
+        {
+          "population": 1024,
+          "peak_rss_kb": 95248,
+          "peak_os_threads": 1037
+        },
+        {
+          "population": 4096,
+          "peak_rss_kb": 188772,
+          "peak_os_threads": 4109
+        },
+        {
+          "population": 16384,
+          "peak_rss_kb": 519888,
+          "peak_os_threads": 16397
+        }
+      ],
+      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: complete\nworkload: preparation\nworkload: handoff diagnostic\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
+      "result": {
+        "schema_version": 2,
+        "workload": {
+          "parked": [
+            {
+              "population": 256,
+              "completed": true,
+              "create_nanos": 257312009,
+              "complete_nanos": 103588503,
+              "failure": null
+            },
+            {
+              "population": 1024,
+              "completed": true,
+              "create_nanos": 1033060843,
+              "complete_nanos": 411289278,
+              "failure": null
+            },
+            {
+              "population": 4096,
+              "completed": true,
+              "create_nanos": 4100863710,
+              "complete_nanos": 1646650178,
+              "failure": null
+            },
+            {
+              "population": 16384,
+              "completed": true,
+              "create_nanos": 24752890976,
+              "complete_nanos": 6554854560,
+              "failure": null
+            }
+          ],
+          "rendezvous_channel": {
+            "throughput_per_second": 2000.0572379661705,
+            "latency_p95_nanos": 94295,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 46243,
+              "relay_processing_p95_nanos": 210,
+              "relay_to_consumer_p95_nanos": 47720
+            }
+          },
+          "bounded_channel": {
+            "throughput_per_second": 2000.0680289252168,
+            "latency_p95_nanos": 65157,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 32005,
+              "relay_processing_p95_nanos": 66,
+              "relay_to_consumer_p95_nanos": 30957
+            }
+          },
+          "unpark_handoff_diagnostic": {
+            "throughput_per_second": 2000.5080137718528,
+            "latency_p95_nanos": 67023,
+            "handoff_diagnostics": {
+              "producer_to_relay_p95_nanos": 31210,
+              "relay_processing_p95_nanos": 253,
+              "relay_to_consumer_p95_nanos": 36181
+            }
+          },
+          "select": {
+            "latency_p95_nanos": 1120633,
+            "idle_cpu_nanos": 170000000,
+            "wakeups": 244
+          },
+          "loopback": {
+            "throughput_per_second": 250.19585803327396,
+            "latency_p95_nanos": 527007,
+            "descriptor_growth": 0,
+            "selector_operations": 4096
+          },
+          "cpu_saturation": {
+            "throughput_per_second": 639.6965951034255,
+            "latency_p95_nanos": 5000000,
+            "cancellation_latency_nanos": 5000000,
+            "cancellation_observed": true
+          },
+          "reclamation": {
+            "live_heap_bytes": [
+              2032192,
+              2033728,
+              2033504,
+              2033536,
+              2033568,
+              2033600,
+              2033632,
+              2033664,
+              2033696,
+              2033728
             ],
             "completed_registrations": 0,
             "retained_owners": 0
@@ -1954,28 +1954,28 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 151.734795062,
-      "peak_rss_kb": 565384,
+      "duration_seconds": 198.491374702,
+      "peak_rss_kb": 567616,
       "peak_os_threads": 16397,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 87220,
+          "peak_rss_kb": 86440,
           "peak_os_threads": 269
         },
         {
           "population": 1024,
-          "peak_rss_kb": 95680,
+          "peak_rss_kb": 95516,
           "peak_os_threads": 1037
         },
         {
           "population": 4096,
-          "peak_rss_kb": 191040,
+          "peak_rss_kb": 188776,
           "peak_os_threads": 4109
         },
         {
           "population": 16384,
-          "peak_rss_kb": 524508,
+          "peak_rss_kb": 518388,
           "peak_os_threads": 16397
         }
       ],
@@ -1987,88 +1987,88 @@
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 256953528,
-              "complete_nanos": 103572534,
+              "create_nanos": 257329678,
+              "complete_nanos": 103740531,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 1050858954,
-              "complete_nanos": 410619861,
+              "create_nanos": 1038046720,
+              "complete_nanos": 411056802,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 4134604310,
-              "complete_nanos": 1643291900,
+              "create_nanos": 4665588185,
+              "complete_nanos": 1655399851,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 18966164040,
-              "complete_nanos": 6588379921,
+              "create_nanos": 56815073112,
+              "complete_nanos": 6569601333,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 2000.0551348206636,
-            "latency_p95_nanos": 96802,
+            "throughput_per_second": 2000.0515377049865,
+            "latency_p95_nanos": 95407,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 45944,
-              "relay_processing_p95_nanos": 212,
-              "relay_to_consumer_p95_nanos": 52276
+              "producer_to_relay_p95_nanos": 45957,
+              "relay_processing_p95_nanos": 208,
+              "relay_to_consumer_p95_nanos": 50028
             }
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.0635603695055,
-            "latency_p95_nanos": 59294,
+            "throughput_per_second": 2000.0655692882672,
+            "latency_p95_nanos": 62039,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 30125,
-              "relay_processing_p95_nanos": 65,
-              "relay_to_consumer_p95_nanos": 29061
+              "producer_to_relay_p95_nanos": 31629,
+              "relay_processing_p95_nanos": 66,
+              "relay_to_consumer_p95_nanos": 30559
             }
           },
           "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.5285947474142,
-            "latency_p95_nanos": 69913,
+            "throughput_per_second": 2000.5156524457036,
+            "latency_p95_nanos": 59741,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 36236,
-              "relay_processing_p95_nanos": 235,
-              "relay_to_consumer_p95_nanos": 40890
+              "producer_to_relay_p95_nanos": 28570,
+              "relay_processing_p95_nanos": 251,
+              "relay_to_consumer_p95_nanos": 32340
             }
           },
           "select": {
-            "latency_p95_nanos": 1102440,
-            "idle_cpu_nanos": 160000000,
-            "wakeups": 246
+            "latency_p95_nanos": 1122538,
+            "idle_cpu_nanos": 150000000,
+            "wakeups": 244
           },
           "loopback": {
-            "throughput_per_second": 250.19026615467737,
-            "latency_p95_nanos": 2289853,
+            "throughput_per_second": 250.1794712155048,
+            "latency_p95_nanos": 556096,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 639.6064597394193,
+            "throughput_per_second": 639.4980483893485,
             "latency_p95_nanos": 5000000,
             "cancellation_latency_nanos": 5000000,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              2031864,
-              2033400,
-              2033176,
-              2033208,
-              2033240,
-              2033528,
-              2033304,
-              2033336,
+              2032056,
+              2033592,
               2033368,
-              2033656
+              2033400,
+              2033432,
+              2033464,
+              2033496,
+              2033528,
+              2033560,
+              2033848
             ],
             "completed_registrations": 0,
             "retained_owners": 0
@@ -2111,28 +2111,28 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 147.147122763,
-      "peak_rss_kb": 215088,
-      "peak_os_threads": 19,
+      "duration_seconds": 147.538744692,
+      "peak_rss_kb": 223036,
+      "peak_os_threads": 18,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 50952,
+          "peak_rss_kb": 58240,
           "peak_os_threads": 16
         },
         {
           "population": 1024,
-          "peak_rss_kb": 55984,
+          "peak_rss_kb": 63280,
           "peak_os_threads": 16
         },
         {
           "population": 4096,
-          "peak_rss_kb": 81708,
+          "peak_rss_kb": 82980,
           "peak_os_threads": 16
         },
         {
           "population": 16384,
-          "peak_rss_kb": 132904,
+          "peak_rss_kb": 135912,
           "peak_os_threads": 16
         }
       ],
@@ -2144,88 +2144,88 @@
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 256650400,
-              "complete_nanos": 102793943,
+              "create_nanos": 269536730,
+              "complete_nanos": 108822873,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 1031265088,
-              "complete_nanos": 422745895,
+              "create_nanos": 1067504201,
+              "complete_nanos": 430198723,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 4193277894,
-              "complete_nanos": 1677578543,
+              "create_nanos": 4135508290,
+              "complete_nanos": 1731408797,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 16462440889,
-              "complete_nanos": 6637179560,
+              "create_nanos": 16522632810,
+              "complete_nanos": 6688574431,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 2000.0396353069475,
-            "latency_p95_nanos": 160199,
+            "throughput_per_second": 2000.0368590777207,
+            "latency_p95_nanos": 150499,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 81222,
-              "relay_processing_p95_nanos": 196,
-              "relay_to_consumer_p95_nanos": 78434
+              "producer_to_relay_p95_nanos": 75735,
+              "relay_processing_p95_nanos": 188,
+              "relay_to_consumer_p95_nanos": 75960
             }
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.0573163397999,
-            "latency_p95_nanos": 118600,
+            "throughput_per_second": 2000.057105878541,
+            "latency_p95_nanos": 116057,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 61672,
-              "relay_processing_p95_nanos": 66,
-              "relay_to_consumer_p95_nanos": 58339
+              "producer_to_relay_p95_nanos": 60266,
+              "relay_processing_p95_nanos": 67,
+              "relay_to_consumer_p95_nanos": 56557
             }
           },
           "unpark_handoff_diagnostic": {
-            "throughput_per_second": 2000.5364817583722,
-            "latency_p95_nanos": 54846,
+            "throughput_per_second": 2000.512361692385,
+            "latency_p95_nanos": 56658,
             "handoff_diagnostics": {
-              "producer_to_relay_p95_nanos": 33442,
-              "relay_processing_p95_nanos": 192,
-              "relay_to_consumer_p95_nanos": 21860
+              "producer_to_relay_p95_nanos": 34285,
+              "relay_processing_p95_nanos": 265,
+              "relay_to_consumer_p95_nanos": 21711
             }
           },
           "select": {
-            "latency_p95_nanos": 1106250,
-            "idle_cpu_nanos": 520000000,
+            "latency_p95_nanos": 1141062,
+            "idle_cpu_nanos": 440000000,
             "wakeups": 239
           },
           "loopback": {
-            "throughput_per_second": 250.1903369410314,
-            "latency_p95_nanos": 1930183,
+            "throughput_per_second": 250.19481013301765,
+            "latency_p95_nanos": 356695,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 319.8334123684173,
-            "latency_p95_nanos": 1000349409,
-            "cancellation_latency_nanos": 1000443854,
+            "throughput_per_second": 319.833146245935,
+            "latency_p95_nanos": 1000207019,
+            "cancellation_latency_nanos": 1000438658,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              3846840,
-              3848120,
-              3850200,
-              3850232,
-              3850264,
-              3850488,
-              3850328,
-              3850360,
-              3850392,
-              3850424
+              3870680,
+              3871960,
+              3871992,
+              3872216,
+              3872056,
+              3872088,
+              3872120,
+              3872152,
+              3872184,
+              3872216
             ],
             "completed_registrations": 0,
             "retained_owners": 0
@@ -2267,17 +2267,17 @@
     "platform": {
       "status": "passed",
       "duration_seconds": {
-        "median": 152.52543862800002,
-        "minimum": 151.734795062,
-        "maximum": 153.206392309,
-        "range": 1.4715972470000054,
-        "stable": true
+        "median": 157.473762803,
+        "minimum": 156.476784656,
+        "maximum": 198.491374702,
+        "range": 42.014590045999995,
+        "stable": false
       },
       "peak_rss_kb": {
-        "median": 562892,
-        "minimum": 561916,
-        "maximum": 566144,
-        "range": 4228,
+        "median": 566952,
+        "minimum": 565592,
+        "maximum": 570232,
+        "range": 4640,
         "stable": true
       },
       "peak_os_threads": {
@@ -2288,10 +2288,10 @@
         "stable": true
       },
       "parked_256_rss_kb": {
-        "median": 87348,
-        "minimum": 86364,
-        "maximum": 87616,
-        "range": 1252,
+        "median": 87504,
+        "minimum": 86440,
+        "maximum": 87856,
+        "range": 1416,
         "stable": true
       },
       "parked_256_os_threads": {
@@ -2302,24 +2302,24 @@
         "stable": true
       },
       "parked_256_create_nanos": {
-        "median": 257655789,
-        "minimum": 256953528,
-        "maximum": 258595571,
-        "range": 1642043,
+        "median": 257329678,
+        "minimum": 257076285,
+        "maximum": 257648751,
+        "range": 572466,
         "stable": true
       },
       "parked_256_complete_nanos": {
-        "median": 103698020,
-        "minimum": 103453002,
-        "maximum": 104242729,
-        "range": 789727,
+        "median": 103740531,
+        "minimum": 103486853,
+        "maximum": 105407457,
+        "range": 1920604,
         "stable": true
       },
       "parked_1024_rss_kb": {
-        "median": 95524,
-        "minimum": 94556,
-        "maximum": 95736,
-        "range": 1180,
+        "median": 95548,
+        "minimum": 95248,
+        "maximum": 95824,
+        "range": 576,
         "stable": true
       },
       "parked_1024_os_threads": {
@@ -2330,24 +2330,24 @@
         "stable": true
       },
       "parked_1024_create_nanos": {
-        "median": 1044592864,
-        "minimum": 1039866429,
-        "maximum": 1050858954,
-        "range": 10992525,
+        "median": 1035025836,
+        "minimum": 1030123475,
+        "maximum": 1038465756,
+        "range": 8342281,
         "stable": true
       },
       "parked_1024_complete_nanos": {
-        "median": 410719256,
-        "minimum": 410494325,
-        "maximum": 410866190,
-        "range": 371865,
+        "median": 411056802,
+        "minimum": 410473028,
+        "maximum": 411289278,
+        "range": 816250,
         "stable": true
       },
       "parked_4096_rss_kb": {
-        "median": 188620,
-        "minimum": 188376,
-        "maximum": 191040,
-        "range": 2664,
+        "median": 189104,
+        "minimum": 188772,
+        "maximum": 191820,
+        "range": 3048,
         "stable": true
       },
       "parked_4096_os_threads": {
@@ -2358,24 +2358,24 @@
         "stable": true
       },
       "parked_4096_create_nanos": {
-        "median": 4143137625,
-        "minimum": 4134604310,
-        "maximum": 4178608708,
-        "range": 44004398,
+        "median": 4103681487,
+        "minimum": 4100038203,
+        "maximum": 4665588185,
+        "range": 565549982,
         "stable": true
       },
       "parked_4096_complete_nanos": {
-        "median": 1642006346,
-        "minimum": 1639158595,
-        "maximum": 1645691045,
-        "range": 6532450,
+        "median": 1644829780,
+        "minimum": 1639576255,
+        "maximum": 1655399851,
+        "range": 15823596,
         "stable": true
       },
       "parked_16384_rss_kb": {
-        "median": 519068,
-        "minimum": 518080,
-        "maximum": 524508,
-        "range": 6428,
+        "median": 519188,
+        "minimum": 518296,
+        "maximum": 525724,
+        "range": 7428,
         "stable": true
       },
       "parked_16384_os_threads": {
@@ -2386,99 +2386,99 @@
         "stable": true
       },
       "parked_16384_create_nanos": {
-        "median": 19894004893,
-        "minimum": 18966164040,
-        "maximum": 20265196543,
-        "range": 1299032503,
-        "stable": true
+        "median": 24497895922,
+        "minimum": 23612971845,
+        "maximum": 56815073112,
+        "range": 33202101267,
+        "stable": false
       },
       "parked_16384_complete_nanos": {
-        "median": 6567248564,
-        "minimum": 6554355891,
-        "maximum": 6588379921,
-        "range": 34024030,
+        "median": 6568432020,
+        "minimum": 6554854560,
+        "maximum": 6588651620,
+        "range": 33797060,
         "stable": true
       },
       "parked_16384_completed": true,
       "workload": {
         "rendezvous_channel": {
           "throughput_per_second": {
-            "median": 2000.0551348206636,
-            "minimum": 2000.0513223618805,
-            "maximum": 2000.0626479584157,
-            "range": 0.011325596535243676,
+            "median": 2000.0572379661705,
+            "minimum": 2000.0515377049865,
+            "maximum": 2000.0596775619026,
+            "range": 0.00813985691615926,
             "stable": true
           },
           "latency_p95_nanos": {
-            "median": 95903,
-            "minimum": 85835,
-            "maximum": 97294,
-            "range": 11459,
+            "median": 92245,
+            "minimum": 89649,
+            "maximum": 97527,
+            "range": 7878,
             "stable": true
           }
         },
         "bounded_channel": {
           "throughput_per_second": {
-            "median": 2000.0698242149692,
-            "minimum": 2000.0619262337761,
-            "maximum": 2000.0731462297751,
-            "range": 0.011219995998999366,
+            "median": 2000.0680289252168,
+            "minimum": 2000.0641382872627,
+            "maximum": 2000.0713985448788,
+            "range": 0.007260257616053423,
             "stable": true
           },
           "latency_p95_nanos": {
-            "median": 62589,
-            "minimum": 58221,
-            "maximum": 63398,
-            "range": 5177,
+            "median": 62039,
+            "minimum": 59832,
+            "maximum": 65157,
+            "range": 5325,
             "stable": true
           }
         },
         "loopback": {
           "throughput_per_second": {
-            "median": 250.19026615467737,
-            "minimum": 250.18332457968185,
-            "maximum": 250.20128601833727,
-            "range": 0.017961438655419215,
+            "median": 250.19525143354323,
+            "minimum": 250.1794712155048,
+            "maximum": 250.19945789610867,
+            "range": 0.019986680603864215,
             "stable": true
           },
           "latency_p95_nanos": {
-            "median": 2050482,
-            "minimum": 1934876,
-            "maximum": 2289853,
-            "range": 354977,
-            "stable": true
+            "median": 427580,
+            "minimum": 415276,
+            "maximum": 556096,
+            "range": 140820,
+            "stable": false
           }
         }
       },
       "select": {
         "latency_p95_nanos": {
-          "median": 1098693,
-          "minimum": 1039497,
-          "maximum": 1104902,
-          "range": 65405,
+          "median": 1113491,
+          "minimum": 1102741,
+          "maximum": 1122538,
+          "range": 19797,
           "stable": true
         },
         "idle_cpu_nanos": {
-          "median": 170000000,
-          "minimum": 160000000,
+          "median": 160000000,
+          "minimum": 150000000,
           "maximum": 170000000,
-          "range": 10000000,
+          "range": 20000000,
           "stable": true
         },
         "wakeups": {
-          "median": 246,
-          "minimum": 245,
-          "maximum": 247,
+          "median": 244,
+          "minimum": 244,
+          "maximum": 246,
           "range": 2,
           "stable": true
         }
       },
       "cpu_saturation": {
         "throughput_per_second": {
-          "median": 639.5049687962294,
-          "minimum": 639.40364420614,
-          "maximum": 639.6064597394193,
-          "range": 0.2028155332792494,
+          "median": 639.533715967688,
+          "minimum": 639.4472394255871,
+          "maximum": 639.6965951034255,
+          "range": 0.24935567783836632,
           "stable": true
         },
         "latency_p95_nanos": {
@@ -2513,73 +2513,73 @@
       },
       "reclamation": {
         "live_heap_batch_1_bytes": {
-          "median": 2031768,
-          "minimum": 2031768,
-          "maximum": 2031864,
-          "range": 96,
+          "median": 2032056,
+          "minimum": 2031960,
+          "maximum": 2032312,
+          "range": 352,
           "stable": true
         },
         "live_heap_batch_2_bytes": {
-          "median": 2033304,
-          "minimum": 2033048,
-          "maximum": 2033688,
-          "range": 640,
+          "median": 2033592,
+          "minimum": 2033240,
+          "maximum": 2033848,
+          "range": 608,
           "stable": true
         },
         "live_heap_batch_3_bytes": {
-          "median": 2033176,
-          "minimum": 2033080,
-          "maximum": 2034680,
-          "range": 1600,
+          "median": 2033368,
+          "minimum": 2033272,
+          "maximum": 2033624,
+          "range": 352,
           "stable": true
         },
         "live_heap_batch_4_bytes": {
-          "median": 2033112,
-          "minimum": 2033112,
-          "maximum": 2033400,
-          "range": 288,
+          "median": 2033400,
+          "minimum": 2033304,
+          "maximum": 2033744,
+          "range": 440,
           "stable": true
         },
         "live_heap_batch_5_bytes": {
-          "median": 2033144,
-          "minimum": 2033144,
-          "maximum": 2033240,
-          "range": 96,
+          "median": 2033432,
+          "minimum": 2033336,
+          "maximum": 2033688,
+          "range": 352,
           "stable": true
         },
         "live_heap_batch_6_bytes": {
-          "median": 2033432,
-          "minimum": 2033176,
-          "maximum": 2033720,
-          "range": 544,
+          "median": 2033616,
+          "minimum": 2033464,
+          "maximum": 2033912,
+          "range": 448,
           "stable": true
         },
         "live_heap_batch_7_bytes": {
-          "median": 2033208,
-          "minimum": 2033208,
-          "maximum": 2033304,
-          "range": 96,
+          "median": 2033496,
+          "minimum": 2033400,
+          "maximum": 2033752,
+          "range": 352,
           "stable": true
         },
         "live_heap_batch_8_bytes": {
-          "median": 2033240,
-          "minimum": 2033240,
-          "maximum": 2033336,
-          "range": 96,
+          "median": 2033528,
+          "minimum": 2033432,
+          "maximum": 2033784,
+          "range": 352,
           "stable": true
         },
         "live_heap_batch_9_bytes": {
-          "median": 2033272,
-          "minimum": 2033272,
-          "maximum": 2033368,
-          "range": 96,
+          "median": 2033560,
+          "minimum": 2033464,
+          "maximum": 2033816,
+          "range": 352,
           "stable": true
         },
         "live_heap_batch_10_bytes": {
-          "median": 2033560,
-          "minimum": 2033304,
-          "maximum": 2033656,
-          "range": 352,
+          "median": 2033728,
+          "minimum": 2033496,
+          "maximum": 2034040,
+          "range": 544,
           "stable": true
         },
         "completed_registrations": {
@@ -2604,31 +2604,31 @@
     "virtual": {
       "status": "passed",
       "duration_seconds": {
-        "median": 147.147122763,
-        "minimum": 147.023014086,
-        "maximum": 147.40128956,
-        "range": 0.37827547400002004,
+        "median": 147.39089814300002,
+        "minimum": 147.251443781,
+        "maximum": 147.59514027699998,
+        "range": 0.3436964959999784,
         "stable": true
       },
       "peak_rss_kb": {
-        "median": 214524,
-        "minimum": 209672,
-        "maximum": 215088,
-        "range": 5416,
+        "median": 204604,
+        "minimum": 202120,
+        "maximum": 223036,
+        "range": 20916,
         "stable": true
       },
       "peak_os_threads": {
-        "median": 19,
+        "median": 18,
         "minimum": 18,
         "maximum": 19,
         "range": 1,
         "stable": true
       },
       "parked_256_rss_kb": {
-        "median": 51132,
-        "minimum": 50836,
-        "maximum": 58240,
-        "range": 7404,
+        "median": 58248,
+        "minimum": 58088,
+        "maximum": 58368,
+        "range": 280,
         "stable": true
       },
       "parked_256_os_threads": {
@@ -2639,24 +2639,24 @@
         "stable": true
       },
       "parked_256_create_nanos": {
-        "median": 263711754,
-        "minimum": 256525978,
-        "maximum": 273677163,
-        "range": 17151185,
+        "median": 270789511,
+        "minimum": 268276253,
+        "maximum": 272467362,
+        "range": 4191109,
         "stable": true
       },
       "parked_256_complete_nanos": {
-        "median": 104417266,
-        "minimum": 102793943,
-        "maximum": 107307085,
-        "range": 4513142,
+        "median": 107656016,
+        "minimum": 107301058,
+        "maximum": 108886948,
+        "range": 1585890,
         "stable": true
       },
       "parked_1024_rss_kb": {
-        "median": 56208,
-        "minimum": 55984,
-        "maximum": 62224,
-        "range": 6240,
+        "median": 63400,
+        "minimum": 63280,
+        "maximum": 64008,
+        "range": 728,
         "stable": true
       },
       "parked_1024_os_threads": {
@@ -2667,24 +2667,24 @@
         "stable": true
       },
       "parked_1024_create_nanos": {
-        "median": 1031265088,
-        "minimum": 1024523879,
-        "maximum": 1058964674,
-        "range": 34440795,
+        "median": 1067504201,
+        "minimum": 1062870357,
+        "maximum": 1095642316,
+        "range": 32771959,
         "stable": true
       },
       "parked_1024_complete_nanos": {
-        "median": 419147430,
-        "minimum": 410131285,
-        "maximum": 425246093,
-        "range": 15114808,
+        "median": 427029216,
+        "minimum": 421107652,
+        "maximum": 433268723,
+        "range": 12161071,
         "stable": true
       },
       "parked_4096_rss_kb": {
-        "median": 81424,
-        "minimum": 78892,
-        "maximum": 84588,
-        "range": 5696,
+        "median": 84980,
+        "minimum": 81592,
+        "maximum": 85448,
+        "range": 3856,
         "stable": true
       },
       "parked_4096_os_threads": {
@@ -2695,24 +2695,24 @@
         "stable": true
       },
       "parked_4096_create_nanos": {
-        "median": 4132853978,
-        "minimum": 4113140577,
-        "maximum": 4193277894,
-        "range": 80137317,
+        "median": 4158254143,
+        "minimum": 4122237335,
+        "maximum": 4197682893,
+        "range": 75445558,
         "stable": true
       },
       "parked_4096_complete_nanos": {
-        "median": 1679558034,
-        "minimum": 1660332471,
-        "maximum": 1690305788,
-        "range": 29973317,
+        "median": 1709362143,
+        "minimum": 1655828037,
+        "maximum": 1731408797,
+        "range": 75580760,
         "stable": true
       },
       "parked_16384_rss_kb": {
-        "median": 130164,
-        "minimum": 126956,
-        "maximum": 138400,
-        "range": 11444,
+        "median": 135764,
+        "minimum": 133212,
+        "maximum": 140460,
+        "range": 7248,
         "stable": true
       },
       "parked_16384_os_threads": {
@@ -2723,113 +2723,113 @@
         "stable": true
       },
       "parked_16384_create_nanos": {
-        "median": 16436736155,
-        "minimum": 16407299511,
-        "maximum": 16626862822,
-        "range": 219563311,
+        "median": 16466311009,
+        "minimum": 16405221381,
+        "maximum": 16566451211,
+        "range": 161229830,
         "stable": true
       },
       "parked_16384_complete_nanos": {
-        "median": 6636061336,
-        "minimum": 6582063476,
-        "maximum": 6695603114,
-        "range": 113539638,
+        "median": 6674042294,
+        "minimum": 6594007632,
+        "maximum": 6725841803,
+        "range": 131834171,
         "stable": true
       },
       "parked_16384_completed": true,
       "workload": {
         "rendezvous_channel": {
           "throughput_per_second": {
-            "median": 2000.041662733108,
-            "minimum": 2000.0375651586824,
-            "maximum": 2000.0453689490694,
-            "range": 0.007803790387015397,
+            "median": 2000.034930053403,
+            "minimum": 2000.0285419112208,
+            "maximum": 2000.0371801345277,
+            "range": 0.008638223306888904,
             "stable": true
           },
           "latency_p95_nanos": {
-            "median": 155211,
-            "minimum": 150932,
-            "maximum": 160199,
-            "range": 9267,
+            "median": 151618,
+            "minimum": 149870,
+            "maximum": 155763,
+            "range": 5893,
             "stable": true
           }
         },
         "bounded_channel": {
           "throughput_per_second": {
-            "median": 2000.054952193424,
-            "minimum": 2000.0487384923788,
-            "maximum": 2000.0596524139178,
-            "range": 0.01091392153898596,
+            "median": 2000.0501882711185,
+            "minimum": 2000.039588674241,
+            "maximum": 2000.057105878541,
+            "range": 0.01751720430002024,
             "stable": true
           },
           "latency_p95_nanos": {
-            "median": 118838,
-            "minimum": 117696,
-            "maximum": 120553,
-            "range": 2857,
+            "median": 119819,
+            "minimum": 115673,
+            "maximum": 124887,
+            "range": 9214,
             "stable": true
           }
         },
         "loopback": {
           "throughput_per_second": {
-            "median": 250.19340499947828,
-            "minimum": 250.18641850591118,
-            "maximum": 250.20229044544598,
-            "range": 0.01587193953480437,
+            "median": 250.19199407447235,
+            "minimum": 250.18374108410165,
+            "maximum": 250.19611459962016,
+            "range": 0.012373515518504519,
             "stable": true
           },
           "latency_p95_nanos": {
-            "median": 1625769,
-            "minimum": 1586188,
-            "maximum": 1930183,
-            "range": 343995,
-            "stable": false
+            "median": 356695,
+            "minimum": 337473,
+            "maximum": 364471,
+            "range": 26998,
+            "stable": true
           }
         }
       },
       "select": {
         "latency_p95_nanos": {
-          "median": 1135401,
-          "minimum": 1099330,
-          "maximum": 1140491,
-          "range": 41161,
+          "median": 1142152,
+          "minimum": 1132975,
+          "maximum": 1162468,
+          "range": 29493,
           "stable": true
         },
         "idle_cpu_nanos": {
-          "median": 470000000,
-          "minimum": 460000000,
-          "maximum": 520000000,
-          "range": 60000000,
+          "median": 450000000,
+          "minimum": 440000000,
+          "maximum": 470000000,
+          "range": 30000000,
           "stable": true
         },
         "wakeups": {
           "median": 238,
           "minimum": 237,
-          "maximum": 240,
-          "range": 3,
+          "maximum": 239,
+          "range": 2,
           "stable": true
         }
       },
       "cpu_saturation": {
         "throughput_per_second": {
-          "median": 319.8441183716395,
-          "minimum": 319.8334123684173,
-          "maximum": 319.8658882297125,
-          "range": 0.03247586129515412,
+          "median": 319.8481273133281,
+          "minimum": 319.82649812259973,
+          "maximum": 319.93582327337003,
+          "range": 0.10932515077030303,
           "stable": true
         },
         "latency_p95_nanos": {
-          "median": 1000311936,
-          "minimum": 998086864,
-          "maximum": 1000606565,
-          "range": 2519701,
+          "median": 1000200353,
+          "minimum": 997578401,
+          "maximum": 1000528207,
+          "range": 2949806,
           "stable": true
         },
         "cancellation_latency_nanos": {
-          "median": 1000404877,
-          "minimum": 998040918,
-          "maximum": 1000443854,
-          "range": 2402936,
+          "median": 1000191658,
+          "minimum": 997740055,
+          "maximum": 1000438658,
+          "range": 2698603,
           "stable": true
         },
         "cancellation_observed": true
@@ -2850,73 +2850,73 @@
       },
       "reclamation": {
         "live_heap_batch_1_bytes": {
-          "median": 3844144,
-          "minimum": 3839512,
-          "maximum": 3848384,
-          "range": 8872,
+          "median": 3869224,
+          "minimum": 3868384,
+          "maximum": 3873440,
+          "range": 5056,
           "stable": true
         },
         "live_heap_batch_2_bytes": {
-          "median": 3848120,
-          "minimum": 3840984,
-          "maximum": 3853024,
-          "range": 12040,
+          "median": 3871960,
+          "minimum": 3869664,
+          "maximum": 3874720,
+          "range": 5056,
           "stable": true
         },
         "live_heap_batch_3_bytes": {
-          "median": 3849888,
-          "minimum": 3843200,
-          "maximum": 3856288,
-          "range": 13088,
+          "median": 3871992,
+          "minimum": 3869888,
+          "maximum": 3876800,
+          "range": 6912,
           "stable": true
         },
         "live_heap_batch_4_bytes": {
-          "median": 3849920,
-          "minimum": 3843424,
-          "maximum": 3851024,
-          "range": 7600,
+          "median": 3872216,
+          "minimum": 3869816,
+          "maximum": 3876832,
+          "range": 7016,
           "stable": true
         },
         "live_heap_batch_5_bytes": {
-          "median": 3849760,
-          "minimum": 3843264,
-          "maximum": 3850864,
-          "range": 7600,
+          "median": 3872136,
+          "minimum": 3869848,
+          "maximum": 3878912,
+          "range": 9064,
           "stable": true
         },
         "live_heap_batch_6_bytes": {
-          "median": 3849792,
-          "minimum": 3844824,
-          "maximum": 3850896,
-          "range": 6072,
+          "median": 3873008,
+          "minimum": 3872088,
+          "maximum": 3878944,
+          "range": 6856,
           "stable": true
         },
         "live_heap_batch_7_bytes": {
-          "median": 3850008,
-          "minimum": 3844856,
-          "maximum": 3850928,
-          "range": 6072,
+          "median": 3872200,
+          "minimum": 3872120,
+          "maximum": 3878976,
+          "range": 6856,
           "stable": true
         },
         "live_heap_batch_8_bytes": {
-          "median": 3850040,
-          "minimum": 3844888,
-          "maximum": 3850960,
-          "range": 6072,
+          "median": 3872424,
+          "minimum": 3872152,
+          "maximum": 3879008,
+          "range": 6856,
           "stable": true
         },
         "live_heap_batch_9_bytes": {
-          "median": 3849888,
-          "minimum": 3844920,
-          "maximum": 3852120,
-          "range": 7200,
+          "median": 3872264,
+          "minimum": 3872024,
+          "maximum": 3879040,
+          "range": 7016,
           "stable": true
         },
         "live_heap_batch_10_bytes": {
-          "median": 3850112,
-          "minimum": 3844952,
-          "maximum": 3856224,
-          "range": 11272,
+          "median": 3872296,
+          "minimum": 3872216,
+          "maximum": 3879264,
+          "range": 7048,
           "stable": true
         },
         "completed_registrations": {
@@ -2943,7 +2943,7 @@
     "jfr_virtual_thread_pinning": {
       "status": "passed",
       "events": 0,
-      "diagnostic_run_duration_seconds": 116.59470148
+      "diagnostic_run_duration_seconds": 116.596444765
     }
   },
   "adoption": {

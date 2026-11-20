@@ -54,20 +54,29 @@ public final class LightweightTaskBenchmark {
         final long producerToRelayP95Nanos;
         final long relayProcessingP95Nanos;
         final long relayToConsumerP95Nanos;
+        final long[] deliveryLatenciesNanos;
 
         TimedWorkload(double throughput, long p95Nanos, long checksum) {
-            this(throughput, p95Nanos, checksum, -1L, -1L, -1L);
+            this(throughput, p95Nanos, checksum, -1L, -1L, -1L, new long[0]);
         }
 
         TimedWorkload(double throughput, long p95Nanos, long checksum,
                 long producerToRelayP95Nanos, long relayProcessingP95Nanos,
                 long relayToConsumerP95Nanos) {
+            this(throughput, p95Nanos, checksum, producerToRelayP95Nanos,
+                relayProcessingP95Nanos, relayToConsumerP95Nanos, new long[0]);
+        }
+
+        TimedWorkload(double throughput, long p95Nanos, long checksum,
+                long producerToRelayP95Nanos, long relayProcessingP95Nanos,
+                long relayToConsumerP95Nanos, long[] deliveryLatenciesNanos) {
             this.throughput = throughput;
             this.p95Nanos = p95Nanos;
             this.checksum = checksum;
             this.producerToRelayP95Nanos = producerToRelayP95Nanos;
             this.relayProcessingP95Nanos = relayProcessingP95Nanos;
             this.relayToConsumerP95Nanos = relayToConsumerP95Nanos;
+            this.deliveryLatenciesNanos = deliveryLatenciesNanos;
         }
     }
 
@@ -103,7 +112,15 @@ public final class LightweightTaskBenchmark {
 
         LoopbackSample(double throughput, long p95Nanos, long checksum,
                 long descriptorGrowth, long selectorOperations) {
-            super(throughput, p95Nanos, checksum);
+            this(throughput, p95Nanos, checksum, descriptorGrowth, selectorOperations,
+                new long[0]);
+        }
+
+        LoopbackSample(double throughput, long p95Nanos, long checksum,
+                long descriptorGrowth, long selectorOperations,
+                long[] deliveryLatenciesNanos) {
+            super(throughput, p95Nanos, checksum, -1L, -1L, -1L,
+                deliveryLatenciesNanos);
             this.descriptorGrowth = descriptorGrowth;
             this.selectorOperations = selectorOperations;
         }
@@ -134,6 +151,7 @@ public final class LightweightTaskBenchmark {
         boolean parkedOnly = args.length == 1 && args[0].equals("--parked-only");
         boolean costOnly = args.length == 1 && args[0].equals("--cost-only");
         verifyFunctionalNegativeControls();
+        verifyRunAggregationControl();
         verifyReclamationNegativeControl();
         List<ParkedSample> parked = new ArrayList<>();
         if (!costOnly) {
@@ -334,7 +352,7 @@ public final class LightweightTaskBenchmark {
         }
         return new TimedWorkload(operations * 1_000_000_000.0 / elapsed,
             percentile95(latencies), checksum, percentile95(producerToRelay),
-            percentile95(relayProcessing), percentile95(relayToConsumer));
+            percentile95(relayProcessing), percentile95(relayToConsumer), latencies);
     }
 
     private static TimedWorkload runChannelPipelineMeasured(long capacity, int operations) {
@@ -347,7 +365,6 @@ public final class LightweightTaskBenchmark {
 
     private static TimedWorkload medianTimedWorkload(TimedWorkload[] epochs) {
         double[] throughputs = new double[epochs.length];
-        long[] p95Nanos = new long[epochs.length];
         long[] producerToRelay = new long[epochs.length];
         long[] relayProcessing = new long[epochs.length];
         long[] relayToConsumer = new long[epochs.length];
@@ -357,12 +374,11 @@ public final class LightweightTaskBenchmark {
                 throw new AssertionError("measurement epoch checksums differ");
             }
             throughputs[epoch] = epochs[epoch].throughput;
-            p95Nanos[epoch] = epochs[epoch].p95Nanos;
             producerToRelay[epoch] = epochs[epoch].producerToRelayP95Nanos;
             relayProcessing[epoch] = epochs[epoch].relayProcessingP95Nanos;
             relayToConsumer[epoch] = epochs[epoch].relayToConsumerP95Nanos;
         }
-        return new TimedWorkload(medianDouble(throughputs), medianLong(p95Nanos), checksum,
+        return new TimedWorkload(medianDouble(throughputs), deliveryP95(epochs), checksum,
             medianLong(producerToRelay), medianLong(relayProcessing),
             medianLong(relayToConsumer));
     }
@@ -556,7 +572,7 @@ public final class LightweightTaskBenchmark {
         }
         long descriptorGrowth = descriptorCount() - descriptorsBefore;
         return new LoopbackSample(connections * 1_000_000_000.0 / elapsed,
-            percentile95(latencies), checksum, descriptorGrowth, connections * 4L);
+            percentile95(latencies), checksum, descriptorGrowth, connections * 4L, latencies);
     }
 
     private static LoopbackSample runLoopbackMeasured(int connections) throws Exception {
@@ -565,7 +581,6 @@ public final class LightweightTaskBenchmark {
             epochs[epoch] = runLoopback(connections);
         }
         double[] throughputs = new double[epochs.length];
-        long[] p95Nanos = new long[epochs.length];
         long[] descriptorGrowth = new long[epochs.length];
         long[] selectorOperations = new long[epochs.length];
         long checksum = epochs[0].checksum;
@@ -574,11 +589,10 @@ public final class LightweightTaskBenchmark {
                 throw new AssertionError("loopback epoch checksums differ");
             }
             throughputs[epoch] = epochs[epoch].throughput;
-            p95Nanos[epoch] = epochs[epoch].p95Nanos;
             descriptorGrowth[epoch] = epochs[epoch].descriptorGrowth;
             selectorOperations[epoch] = epochs[epoch].selectorOperations;
         }
-        return new LoopbackSample(medianDouble(throughputs), sumLong(p95Nanos), checksum,
+        return new LoopbackSample(medianDouble(throughputs), deliveryP95(epochs), checksum,
             medianLong(descriptorGrowth), medianLong(selectorOperations));
     }
 
@@ -724,6 +738,29 @@ public final class LightweightTaskBenchmark {
         }
     }
 
+    private static void verifyRunAggregationControl() {
+        TimedWorkload[] epochs = new TimedWorkload[5];
+        long[] epochP95 = new long[epochs.length];
+        for (int epoch = 0; epoch < epochs.length; epoch += 1) {
+            long value = (epoch + 1L) * 10L;
+            long[] observations = new long[20];
+            Arrays.fill(observations, value);
+            observations[observations.length - 1] = 1000L;
+            epochP95[epoch] = percentile95(observations);
+            epochs[epoch] = new TimedWorkload(1.0, epochP95[epoch], 1L,
+                -1L, -1L, -1L, observations);
+        }
+        long summedEpochP95 = sumLong(epochP95);
+        long medianEpochP95 = medianLong(epochP95);
+        long fullRunP95 = deliveryP95(epochs);
+        if (summedEpochP95 != 150L || medianEpochP95 != 30L || fullRunP95 != 50L
+                || summedEpochP95 == medianEpochP95
+                || summedEpochP95 == fullRunP95
+                || medianEpochP95 == fullRunP95) {
+            throw new AssertionError("full-run delivery p95 aggregation changed");
+        }
+    }
+
     private static void verifyReclamationNegativeControl() throws Exception {
         Owner owner = new Owner(-1L);
         WeakReference<Owner> retained = new WeakReference<>(owner);
@@ -811,6 +848,27 @@ public final class LightweightTaskBenchmark {
         long[] sorted = values.clone();
         Arrays.sort(sorted);
         return sorted[(int) Math.ceil(sorted.length * 0.95) - 1];
+    }
+
+    private static long deliveryP95(TimedWorkload[] epochs) {
+        int observationCount = 0;
+        for (TimedWorkload epoch : epochs) {
+            observationCount = Math.addExact(
+                observationCount,
+                epoch.deliveryLatenciesNanos.length
+            );
+        }
+        if (observationCount == 0) {
+            throw new AssertionError("delivery observations are required for run p95");
+        }
+        long[] observations = new long[observationCount];
+        int offset = 0;
+        for (TimedWorkload epoch : epochs) {
+            System.arraycopy(epoch.deliveryLatenciesNanos, 0, observations, offset,
+                epoch.deliveryLatenciesNanos.length);
+            offset += epoch.deliveryLatenciesNanos.length;
+        }
+        return percentile95(observations);
     }
 
     private static long medianLong(long[] values) {

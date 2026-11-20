@@ -83,12 +83,15 @@ A functional or resource failure still fails its corresponding gate.
 
 ## Current Blocking Evidence
 
-The controlled comparison remains failed with the retained channel monitor.
-The stable rendezvous-channel p95 medians are 95,903 ns for production and
-155,211 ns for the candidate. The stable bounded-channel medians are 62,589 ns
-and 118,838 ns. Both candidate ratios exceed the fixed 125% ceiling. The
-complete noise rule is also inconclusive because the candidate loopback p95
-range exceeds its allowed fraction of the median.
+The corrected controlled comparison remains failed with the selected-base
+channel monitor and notification boundary. Each run now calculates one p95
+from all delivery observations in its five cost epochs. The stable
+rendezvous-channel p95 medians are 92,245 ns for production and 151,618 ns for
+the candidate. The stable bounded-channel medians are 62,039 ns and 119,819 ns.
+The candidate ratios are approximately 164% and 193%, so both exceed the fixed
+125% ceiling. The complete noise rule is also inconclusive. Production run
+duration, production 16,384-task creation time, and production loopback p95
+each have a range greater than 20% of their median.
 
 The same artifact passes the allocation, common-population, throughput,
 loopback latency, loopback resource, reclamation, CPU-saturation cancellation,

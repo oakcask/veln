@@ -39,6 +39,10 @@ path = "cases.0.failure.related.1"
 equals = "invalid shift count 65 for operator `<<`; expected a value between 0 and 63"
 
 [[json_assert]]
+path = "cases.0.events"
+length = 2
+
+[[json_assert]]
 path = "cases.0.events.0.kind"
 equals = "stdio"
 

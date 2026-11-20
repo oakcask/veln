@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -15,6 +16,11 @@ import {
   summarizeSamples,
   validateArtifact,
 } from "./benchmark-lightweight-tasks.mjs";
+
+const RUNTIME_SOURCE = readFileSync(
+  new URL("../crates/veln-backend-jvm/src/runtime/concurrency.java.inc", import.meta.url),
+  "utf8",
+);
 
 test("summarizes deterministic benchmark samples", () => {
   assert.equal(median([9, 1, 5, 3, 7]), 5);
@@ -89,8 +95,7 @@ function measuredSample(variant, run) {
 }
 
 function passingArtifact() {
-  const runtime = "before return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task)); after";
-  const expectedIdentity = benchmarkIdentityForRuntime(runtime, "harness-digest");
+  const expectedIdentity = benchmarkIdentityForRuntime(RUNTIME_SOURCE, "harness-digest");
   const samples = [];
   for (let run = 1; run <= 7; run += 1) {
     const order = run % 2 === 1 ? ["platform", "virtual"] : ["virtual", "platform"];
@@ -214,6 +219,26 @@ test("applies the offered-load latency budget independently", () => {
   }
 });
 
+test("summarizes governed latency from the seven published run p95 values", () => {
+  const { artifact } = passingArtifact();
+  const runP95Values = [100, 101, 102, 103, 104, 105, 106];
+  for (const sample of artifact.samples) {
+    if (sample.variant === "virtual") {
+      sample.result.workload.rendezvous_channel.latency_p95_nanos =
+        runP95Values[sample.run - 1];
+    }
+  }
+  const summary = summarizeSamples(artifact.samples).virtual.workload
+    .rendezvous_channel.latency_p95_nanos;
+  assert.deepEqual(summary, {
+    median: 103,
+    minimum: 100,
+    maximum: 106,
+    range: 6,
+    stable: true,
+  });
+});
+
 test("enumerates every governed metric in the complete noise gate", () => {
   assert.deepEqual(GOVERNED_NOISE_METRICS, [
     "duration_seconds",
@@ -326,15 +351,36 @@ test("compares corresponding platform and virtual functional outcomes", () => {
 });
 
 test("derives a one-constructor virtual candidate", () => {
-  const runtime = "before return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task)); after";
-  const variants = runtimeSourceVariants(runtime);
-  assert.equal(variants.platform, runtime);
-  assert.equal(
-    variants.virtual,
-    "before return startTaskWorker(future, Thread::startVirtualThread); after",
-  );
+  const variants = runtimeSourceVariants(RUNTIME_SOURCE);
+  assert.equal(variants.platform, RUNTIME_SOURCE);
+  assert.equal(variants.virtual, RUNTIME_SOURCE.replace(
+    "return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task));",
+    "return startTaskWorker(future, Thread::startVirtualThread);",
+  ));
   assert.throws(
-    () => runtimeSourceVariants(`${runtime} ${runtime}`),
+    () => runtimeSourceVariants(`${RUNTIME_SOURCE} ${RUNTIME_SOURCE}`),
     /expected one/,
   );
+});
+
+test("rejects drift from the selected channel notification boundary", () => {
+  for (const drifted of [
+    RUNTIME_SOURCE.replace(
+      "tx.channel.queue.addLast(freezeBoundaryValue(value));\n            tx.channel.notifyAll();",
+      "tx.channel.queue.addLast(freezeBoundaryValue(value));",
+    ),
+    RUNTIME_SOURCE.replace(
+      "rx.channel.waitingReceivers -= 1L;\n                    rx.channel.notifyAll();",
+      "rx.channel.waitingReceivers -= 1L;",
+    ),
+    RUNTIME_SOURCE.replace(
+      "private long waitingReceivers;",
+      "private long waitingSenders;\n        private long waitingReceivers;",
+    ),
+  ]) {
+    assert.throws(
+      () => runtimeSourceVariants(drifted),
+      /differs from the selected comparison base/,
+    );
+  }
 });

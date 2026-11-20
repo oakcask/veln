@@ -1,6 +1,36 @@
 use super::support::*;
 
 #[test]
+fn test_host_failure_json_projects_traced_and_host_stderr_once() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("host-failure-stdio-projection");
+    project.write(
+        "main_test.veln",
+        include_str!(
+            "../../../../examples/specification/test/host-failure-stdio-cleanup-json/main_test.veln"
+        ),
+    );
+
+    let output = project.test(&["--json", "main_test.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_eq!(stdout.matches("traced child stderr").count(), 1, "{stdout}");
+    assert_contains_all(
+        stdout,
+        &[
+            "java.lang.StackOverflowError",
+            "invalid shift count 64 for operator `<<`; expected a value between 0 and 63",
+            "invalid shift count 65 for operator `<<`; expected a value between 0 and 63",
+        ],
+    );
+}
+
+#[test]
 fn test_executes_oversized_module_strings_for_human_and_json_reports() {
     if !jdk_is_available() {
         return;

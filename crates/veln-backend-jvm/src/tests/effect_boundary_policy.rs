@@ -145,6 +145,39 @@ fn task_cancellation_state_is_task_local_and_not_a_retained_thread_registry() {
 }
 
 #[test]
+fn lightweight_task_comparison_retains_the_selected_channel_notification_boundary() {
+    let source = include_str!("../runtime/concurrency.java.inc");
+    let send_start = source
+        .find("public static Object channelSend")
+        .expect("channel send boundary should remain present");
+    let receive_start = source[send_start..]
+        .find("public static Object channelRecv")
+        .map(|offset| send_start + offset)
+        .expect("channel receive boundary should follow send");
+    let select_start = source[receive_start..]
+        .find("public static Object channelSelect")
+        .map(|offset| receive_start + offset)
+        .expect("channel select boundary should follow receive");
+    let send = &source[send_start..receive_start];
+    let receive = &source[receive_start..select_start];
+
+    assert!(!source.contains("waitingSenders"));
+    assert!(send.contains(
+        "tx.channel.queue.addLast(freezeBoundaryValue(value));\n            tx.channel.notifyAll();"
+    ));
+    assert!(
+        receive.contains(
+            "rx.channel.waitingReceivers += 1L;\n                rx.channel.notifyAll();"
+        )
+    );
+    assert!(receive.contains(
+        "rx.channel.waitingReceivers -= 1L;\n                    rx.channel.notifyAll();"
+    ));
+    assert!(receive.contains("Object value = rx.channel.queue.pollFirst();"));
+    assert!(receive.contains("rx.channel.notifyAll();\n            return some(value);"));
+}
+
+#[test]
 fn production_task_start_boundary_has_no_mutable_test_failure_selector() {
     let source = include_str!("../runtime/concurrency.java.inc");
 
