@@ -80,6 +80,28 @@ fn invalid_input_fails_and_does_not_emit_a_success_report() {
     assert_eq!(empty.run(&["."]).status.code(), Some(2));
 }
 
+#[test]
+fn test_consumers_are_information_not_dead_code_in_human_and_json_reports() {
+    let fixture = Fixture::new();
+    fixture.write("src/lib.rs", "pub fn helper() {}\n");
+    fixture.write("tests/contract.rs", "#[test] fn contract() { helper(); }\n");
+    let human = fixture.run(&["."]);
+    assert!(human.status.success());
+    let text = String::from_utf8(human.stdout).unwrap();
+    assert!(text.contains("Suspected dead public items: 0"));
+    assert!(text.contains("informational, not dead-code candidates): 1"));
+    assert!(text.contains("name-matched test reference: ./tests/contract.rs:1"));
+    let json = fixture.run(&["--format", "json", "."]);
+    assert!(json.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+    assert_eq!(
+        report["findings"][0]["references"][0]["file"],
+        "./tests/contract.rs"
+    );
+    assert_eq!(report["findings"][0]["references"][0]["line"], 1);
+    assert_eq!(report["findings"][0]["references_truncated"], false);
+}
+
 #[cfg(unix)]
 #[test]
 fn directory_symlinks_do_not_duplicate_sources_or_recurse() {

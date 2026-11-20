@@ -12,6 +12,14 @@ pub struct Finding {
     pub kind: &'static str,
     pub name: String,
     pub evidence: &'static str,
+    pub references: Vec<ReferenceLocation>,
+    pub references_truncated: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ReferenceLocation {
+    pub file: PathBuf,
+    pub line: usize,
 }
 
 #[derive(Debug)]
@@ -25,6 +33,8 @@ pub struct Report {
 struct References {
     production: bool,
     test: bool,
+    test_sites: BTreeSet<ReferenceLocation>,
+    test_sites_truncated: bool,
 }
 
 #[derive(Default)]
@@ -90,7 +100,6 @@ impl Index {
             index: self,
             file,
             test,
-            owner: None,
             trait_impl: false,
         }
         .visit_file(&syntax);
@@ -112,6 +121,10 @@ impl Index {
                 } else {
                     "no-references"
                 };
+                if let Some(references) = references {
+                    finding.references = references.test_sites.iter().cloned().collect();
+                    finding.references_truncated = references.test_sites_truncated;
+                }
                 Some(finding)
             })
             .collect();
@@ -128,19 +141,24 @@ struct Scanner<'a> {
     index: &'a mut Index,
     file: &'a Path,
     test: bool,
-    owner: Option<String>,
     trait_impl: bool,
 }
 
 impl Scanner<'_> {
     fn reference(&mut self, ident: &proc_macro2::Ident) {
         let name = ident.to_string();
-        if self.owner.as_ref() == Some(&name) {
-            return;
-        }
         let refs = self.index.references.entry(name).or_default();
         if self.test {
             refs.test = true;
+            let site = ReferenceLocation {
+                file: self.file.to_path_buf(),
+                line: ident.span().start().line,
+            };
+            if refs.test_sites.len() < 3 {
+                refs.test_sites.insert(site);
+            } else if !refs.test_sites.contains(&site) {
+                refs.test_sites_truncated = true;
+            }
         } else {
             refs.production = true;
         }
@@ -159,6 +177,8 @@ impl Scanner<'_> {
                 name: ident.to_string(),
                 kind,
                 evidence: "no-references",
+                references: Vec::new(),
+                references_truncated: false,
             });
         }
     }
@@ -208,13 +228,10 @@ impl<'ast> Visit<'ast> for Scanner<'_> {
         };
         let previous_test = self.test;
         self.test |= test_attribute(attrs);
-        let previous_owner = self.owner.clone();
         if let Some((ident, vis, kind)) = definition {
             self.definition(ident, vis, kind);
-            self.owner = Some(ident.to_string());
         }
         visit::visit_item(self, item);
-        self.owner = previous_owner;
         self.test = previous_test;
     }
 
@@ -238,9 +255,7 @@ impl<'ast> Visit<'ast> for Scanner<'_> {
         if !self.trait_impl {
             self.definition(&item.sig.ident, &item.vis, "method");
         }
-        let previous_owner = self.owner.replace(item.sig.ident.to_string());
         visit::visit_impl_item_fn(self, item);
-        self.owner = previous_owner;
         self.test = previous_test;
     }
 

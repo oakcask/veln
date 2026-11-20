@@ -18,7 +18,8 @@ fn run() -> Result<(), String> {
             "--help" | "-h" => {
                 println!(
                     "usage: veln-repo-unused-pub [--format human|json] [ROOT ...]\n\
-                    Reports suspected dead public Rust items; findings do not fail the command.\n\
+                    Reports unreferenced public Rust candidates and separate test-used API information.\n\
+                    Reports do not fail the command. Test-used APIs are not dead-code candidates.\n\
                     Defaults to crates tools. References are matched by name across all roots.\n\
                     Review cfg, macros, external callers, and same-name collisions before removing code."
                 );
@@ -45,6 +46,10 @@ fn run() -> Result<(), String> {
                 json!({
                     "file": finding.file, "line": finding.line, "kind": finding.kind,
                     "name": finding.name, "evidence": finding.evidence,
+                    "references": finding.references.iter().map(|site| json!({
+                        "file": site.file, "line": site.line,
+                    })).collect::<Vec<_>>(),
+                    "references_truncated": finding.references_truncated,
                 })
             })
             .collect();
@@ -57,31 +62,59 @@ fn run() -> Result<(), String> {
                     "imports and macro tokens count as references; same names can hide unused items",
                 "cfg is not evaluated; only cfg(test), test attributes and test file paths mark test references",
                 "cfg(test) on out-of-line module declarations is not propagated to their files",
+                    "same-name calls including recursion count as references; self-only code can be missed",
+                    "test reference examples are matched by name, not resolved to the particular definition",
                     "no macro expansion, string interpolation, external callers, or generated code analysis",
                     "fields, enum variants, foreign items, associated constants and types are not candidates"]
             })
         );
     } else {
-        println!(
-            "Suspected dead public items: {} ({} public definitions, {} Rust files)",
-            report.findings.len(),
-            report.definitions,
-            report.files
-        );
-        for finding in &report.findings {
-            println!(
-                "{}:{}: {} {} [{}]",
-                finding.file.display(),
-                finding.line,
-                finding.kind,
-                finding.name,
-                finding.evidence
-            );
-        }
+        print_human(&report);
         println!(
             "Review references, cfg, macros, and external callers before removing code.\n\
             This is an advisory name-based scan; imports and same-name items can hide unused code."
         );
     }
     Ok(())
+}
+
+fn print_human(report: &veln_repo_unused_pub::Report) {
+    println!(
+        "Analyzed {} public definitions in {} Rust files",
+        report.definitions, report.files
+    );
+    for (evidence, title) in [
+        ("no-references", "Suspected dead public items"),
+        (
+            "test-only-references",
+            "Public APIs referenced only from tests (informational, not dead-code candidates)",
+        ),
+    ] {
+        let items: Vec<_> = report
+            .findings
+            .iter()
+            .filter(|item| item.evidence == evidence)
+            .collect();
+        println!("\n{title}: {}", items.len());
+        for item in items {
+            println!(
+                "{}:{}: {} {} [{}]",
+                item.file.display(),
+                item.line,
+                item.kind,
+                item.name,
+                item.evidence
+            );
+            for site in &item.references {
+                println!(
+                    "  name-matched test reference: {}:{}",
+                    site.file.display(),
+                    site.line
+                );
+            }
+            if item.references_truncated {
+                println!("  additional name-matched test references omitted");
+            }
+        }
+    }
 }

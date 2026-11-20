@@ -57,12 +57,51 @@ fn cross_file_paths_types_and_method_calls_supply_reference_evidence() {
 }
 
 #[test]
-fn recursion_and_impl_headers_do_not_prove_a_consumer_exists() {
+fn recursive_calls_count_as_references_when_symbol_identity_is_unknown() {
     let report = analyze(&[(
         "src/lib.rs",
         "pub struct Empty; impl Empty { pub fn recur() { Self::recur(); } } pub fn recursive() { recursive(); }",
     )]);
-    assert_eq!(names(&report), ["Empty", "recur", "recursive"]);
+    assert_eq!(names(&report), ["Empty"]);
+}
+
+#[test]
+fn same_named_delegation_is_not_discarded_as_recursion() {
+    let report = analyze(&[(
+        "src/lib.rs",
+        "struct Tree { root: Node } struct Node; impl Tree { pub fn walk(&self) { self.root.walk(); } } impl Node { pub fn walk(&self) {} }",
+    )]);
+    assert_eq!(report.definitions, 2);
+    // Without receiver type resolution the reference conservatively covers both methods.
+    assert!(report.findings.is_empty());
+}
+
+#[test]
+fn test_reference_examples_are_bounded_deduplicated_and_located() {
+    let report = analyze(&[
+        ("src/lib.rs", "pub fn helper() {}"),
+        (
+            "tests/calls.rs",
+            "fn test() { helper(); helper();\nhelper();\nhelper();\nhelper();\n}",
+        ),
+    ]);
+    let finding = &report.findings[0];
+    assert_eq!(finding.evidence, "test-only-references");
+    assert_eq!(
+        finding
+            .references
+            .iter()
+            .map(|site| site.line)
+            .collect::<Vec<_>>(),
+        [1, 2, 3]
+    );
+    assert!(
+        finding
+            .references
+            .iter()
+            .all(|site| site.file == Path::new("tests/calls.rs"))
+    );
+    assert!(finding.references_truncated);
 }
 
 #[test]
