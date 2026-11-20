@@ -87,8 +87,9 @@ to an existing primary failure contributes one object with
 `kind: "cleanup_failure"` and its runtime `message`. Objects retain cleanup
 execution order. Cleanup failures collected while cancelling an entry's tasks
 are ordered by task admission, while each task retains its internal cleanup
-order. The original entry failure remains primary. The array is empty when no
-related cleanup failed.
+order. The original entry failure remains primary. No `cleanup_failure` object
+is present when no related cleanup failed; another related note, such as a
+remainder operation location, can still be present.
 
 For an uncaught host failure, `error.kind` is `"runtime"` and the host failure
 message remains primary. Cleanup failures collected while cancelling admitted

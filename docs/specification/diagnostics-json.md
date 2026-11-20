@@ -19,6 +19,12 @@ diagnostics. The command emits one JSON object on stdout. Use
 [run-json.md](run-json.md) and [test-json.md](test-json.md) for completed
 execution records.
 
+Runtime failures that occur after execution starts are not added to this shared
+diagnostic envelope. `run --json` projects them through its `error` object, and
+`test --json` projects them through each case's `failure` object. Those command
+pages own the runtime message, related-cleanup, output-capture, and host-failure
+rules.
+
 ## Envelope and common fields
 
 The envelope has these fields:

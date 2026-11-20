@@ -165,15 +165,16 @@ cases with `failure.kind: "contract"`. The failure details use
 A computed zero divisor reached while evaluating a runtime contract predicate
 terminates the case before a contract result exists. The case has
 `failure.kind: "runtime"`; its message reports the uncaught host throwable when
-the runtime trace provides one and otherwise reports the process exit status.
-Its details use the general runtime-failure shape. Unlike `veln run --json`,
-the test JSON boundary does not project a `runtime.remainder_by_zero` detail
-record.
+the runtime trace provides one. A remainder trace does not supply that host
+message, so this case reports the process exit status. Its details use the
+general runtime-failure shape. Unlike `veln run --json`, the test JSON boundary
+does not project a `runtime.remainder_by_zero` detail record.
 
 Every non-null failure object has a `related` array. It is empty when no
 invocation cleanup failed. For an uncaught host failure, each entry is one
-cleanup failure message in cleanup execution order. The same cleanup message
-is not added as a second synthetic stdio event; a raw host stack can already
+cleanup failure message. Failures from cancelled child tasks use task admission
+order and retain each task's internal cleanup order. The same cleanup message is
+not added as a second synthetic stdio event; a raw host stack can already
 contain its suppressed representation.
 
 Tests or doctests that return `Err(value)` are reported as failed cases with
@@ -289,7 +290,11 @@ capture. The `sequence` field defines the observed operation order across
 stdout and stderr, including output produced by spawned tasks. Because a case
 record is published only after its task lifetime closes, its event list also
 contains the captured output of admitted descendants that finish during normal
-draining or cancellation cleanup.
+draining or cancellation cleanup. For an uncaught host failure, captured host
+stdout and stderr that are not represented by traced calls are appended after
+the traced events as aggregate events. Those aggregate events use their own
+one-based sequence, so consumers use array order, rather than comparing
+`sequence` across the traced and aggregate groups, at that boundary.
 
 ## Static Gate
 

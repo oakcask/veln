@@ -376,6 +376,10 @@ jobs remain resource and scheduling limits rather than new fairness promises.
 The checked lightweight-task adoption benchmark compares the virtual-thread
 worker with the equivalent platform-thread runtime under the fixed parked-task,
 channel, select, loopback, CPU-saturation, and reclamation workloads.
+The checked result at `benchmarks/lightweight-tasks/result.json` records a
+passing adoption verdict for every gate. The route at
+`benchmarks/lightweight-tasks/README.md` defines the controlled collection and
+artifact-validation commands.
 
 ## Cleanup limits
 

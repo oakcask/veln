@@ -174,9 +174,11 @@ ordinary runtime failures. Contract failures identify the failed clause at its
 source span and place blame and related facts in diagnostic details. Decode,
 schema, byte-write, and protocol failures use the diagnostic shapes routed by
 [run JSON](run-json.md). Cleanup failures related to an existing failure are
-printed after the primary message in cleanup execution order. This also applies
-when the primary message comes from an uncaught host failure rather than a Veln
-runtime failure. Runtime trace files remain isolated to this invocation.
+printed after the primary message. Failures from cancelled child tasks use task
+admission order and retain each task's internal cleanup order. Cleanup failures
+within the entry keep their execution order. These rules also apply when the
+primary message comes from an uncaught host failure rather than a Veln runtime
+failure. Runtime trace files remain isolated to this invocation.
 
 An excluded constructor returned by explicit schema runtime validation reports
 `schema.variant_refinement_mismatch` at the exact supplied byte offset. A
