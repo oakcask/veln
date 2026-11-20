@@ -924,13 +924,13 @@ start line, start column, end line, and end column. A nonfinal page contains
 exactly `page_size` locations and `next_cursor`; the final page omits it.
 
 Supported reference identities are valid workspace explicit import aliases,
-workspace effects, effect operations, workspace and retained direct-dependency
-handlers, schemas, eligible workspace, direct-dependency, and standard-library
-schema aliases, functions, types, constructors, workspace and retained
-direct-dependency module immutable values, value bindings, handler context
-parameters, and handler operation-clause parameters. Standard-library module
-immutable values remain unsupported and return the ordinary successful empty
-result.
+workspace effects, effect operations, workspace, retained direct-dependency,
+and retained standard-library handlers, schemas, eligible workspace,
+direct-dependency, and standard-library schema aliases, functions, types,
+constructors, workspace and retained direct-dependency module immutable values,
+value bindings, handler context parameters, and handler operation-clause
+parameters. Standard-library module immutable values remain unsupported and
+return the ordinary successful empty result.
 
 ### Recovery References
 
@@ -1067,10 +1067,10 @@ grants handler navigation. A syntax-recovered package import does not make
 a separate parse-clean import for that package and module ambiguous. The
 parse-clean import can still grant handler navigation.
 
-Declaration uniqueness includes handlers from non-exported dependency source
-files. An otherwise eligible exported handler therefore returns an empty
-result when a non-exported source in the same retained package declares the
-same module and handler name.
+Declaration uniqueness includes handlers from non-exported sources in the
+retained package. An otherwise eligible exported handler therefore returns an
+empty result when a non-exported source in that package declares the same
+module and handler name.
 
 Capture, lookup, position, and pagination failures publish no partial handler
 locations and preserve the saved workspace, retained resources, prior results,

@@ -732,23 +732,25 @@ do not enter the result. Clause parameters and bodies keep their separate
 binding and navigation behavior. The adjacent effect qualifier keeps its
 separate effect identity.
 
-For a selected parse-clean workspace handler declaration, references include
-each complete bare handler name in `handle Body with handler(arguments)` from
-saved workspace sources that declare the same module. If the handler is
-public, references also include complete qualified handler-name leaves reached
-through one parse-clean, unambiguous workspace, retained direct-dependency, or
-retained standard-library import. A workspace qualifier can use the full
+Handler references include each complete bare handler name in
+`handle Body with handler(arguments)` from saved workspace sources that declare
+the same module when the selected declaration is a parse-clean workspace
+handler. A public workspace handler also includes complete qualified
+handler-name leaves reached through one parse-clean, unambiguous workspace
+import. A public retained direct-dependency or standard-library handler
+includes qualified handler-name leaves reached through one parse-clean,
+unambiguous retained-package import. A workspace qualifier can use the full
 module path or its unique implicit leaf alias. An explicitly aliased workspace
 import still permits the full module path, but neither the written alias nor
 the module's leaf name becomes an implicit qualifier. A retained package
-qualifier can use the full module path or its unique import alias: the written alias when one is
-declared, otherwise the implicit leaf alias. An exact full path takes
-precedence over a colliding alias. A package application selects the public,
-valid-cased, unrecovered handler only when its module is exported by that exact
-retained package revision. The package, module, declaration, and selected
-project remain part of the identity. The declaration and each included handler
-name select one identity, and every returned range covers only the handler-name
-token.
+qualifier can use the full module path or its unique import alias: the written
+alias when one is declared, otherwise the implicit leaf alias. An exact full
+path takes precedence over a colliding alias. A package application selects the
+public, valid-cased, unrecovered handler only when its module is exported by
+that exact retained package revision. The package, module, declaration, and
+selected project remain part of the identity. The declaration and each
+included handler name select one identity, and every returned range covers only
+the handler-name token.
 
 A definition request at an eligible application returns the workspace
 declaration or the canonical retained `veln-pkg:` declaration. LSP references
@@ -776,10 +778,10 @@ grants handler navigation. A syntax-recovered package import does not make
 a separate parse-clean import for that package and module ambiguous. The
 parse-clean import can still grant handler navigation.
 
-Declaration uniqueness includes handlers from non-exported dependency source
-files. An otherwise eligible exported handler is therefore ambiguous when a
-non-exported source in the same retained package declares the same module and
-handler name.
+Declaration uniqueness includes handlers from non-exported sources in the
+retained package. An otherwise eligible exported handler is therefore
+ambiguous when a non-exported source in that package declares the same module
+and handler name.
 
 For a selected workspace schema declaration, `textDocument/references` returns
 the declaration when requested plus `decode`, `encode`, runtime-validation,
@@ -1246,7 +1248,10 @@ The checked `examples/specification/lsp/references-workspace-handler/`
 transcript demonstrates declaration policy and UTF-16 conversion for workspace
 handler references. Focused LSP regressions cover retained direct-dependency
 definitions, workspace-only reference results, and package-declaration
-exclusion when `includeDeclaration` is true. The checked MCP transcript
+exclusion when `includeDeclaration` is true. They also cover a retained
+standard-library definition, its readable virtual source, alias selection,
+workspace-only references for both declaration settings, and private-handler
+rejection. The checked MCP transcript
 `examples/specification/mcp/references-direct-dependency-handler/` covers the
 same shared definition and workspace application set in one-based coordinates.
 LSP unit regressions exercise every imported workspace-handler exclusion
