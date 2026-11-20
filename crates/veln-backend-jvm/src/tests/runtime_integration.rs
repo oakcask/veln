@@ -113,7 +113,33 @@ fn lightweight_task_start_failure_settles_a_concurrent_cancellation_snapshot() {
 }
 
 #[test]
-fn lightweight_tasks_park_without_platform_thread_growth_and_release_registrations() {
+fn task_completion_wins_a_later_cancellation_claim_atomically() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "task-completion-cancellation-race",
+        "TaskCompletionCancellationRaceHarness.java",
+        include_str!("../../test-support/TaskCompletionCancellationRaceHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "completion won cancellation race\n"
+    );
+}
+
+#[test]
+fn virtual_candidate_tasks_park_without_platform_thread_growth_and_release_registrations() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()
     {
@@ -126,6 +152,22 @@ fn lightweight_tasks_park_without_platform_thread_growth_and_release_registratio
         "LightweightTaskAllocationHarness.java",
         r#"
 public final class LightweightTaskAllocationHarness {
+    private static Object spawn(VelnRuntime.Fn action) {
+        try {
+            java.lang.reflect.Method method = VelnRuntime.class.getDeclaredMethod(
+                "taskSpawnWithWorkerStarter",
+                VelnRuntime.Fn.class,
+                java.util.function.Function.class
+            );
+            method.setAccessible(true);
+            return method.invoke(null, action,
+                (java.util.function.Function<java.util.concurrent.FutureTask<Object>, Thread>)
+                    java.lang.Thread::startVirtualThread);
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError("virtual candidate spawn failed", failure);
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         int population = 1024;
         int before = java.lang.management.ManagementFactory
@@ -137,7 +179,7 @@ public final class LightweightTaskAllocationHarness {
         java.util.ArrayList<Object> handles = new java.util.ArrayList<Object>();
         VelnRuntime.beginTaskLifetime();
         for (int index = 0; index < population; index += 1) {
-            handles.add(VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
+            handles.add(spawn((VelnRuntime.Fn) ignored -> {
                 ready.countDown();
                 try {
                     release.await();
@@ -178,7 +220,7 @@ public final class LightweightTaskAllocationHarness {
         for (int batch = 0; batch < 10; batch += 1) {
             VelnRuntime.beginTaskLifetime();
             for (int index = 0; index < population; index += 1) {
-                VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> Long.valueOf(1L));
+                spawn((VelnRuntime.Fn) ignored -> Long.valueOf(1L));
             }
             VelnRuntime.finishTaskLifetime(true);
         }

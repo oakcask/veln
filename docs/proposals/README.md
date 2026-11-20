@@ -16,10 +16,9 @@ also states it.
 
 ## Ready
 
-- Complete the lightweight-task adoption evidence for the implemented JVM
-  virtual-thread worker and per-invocation lifetime:
-  [lightweight-tasks.md](lightweight-tasks.md). The corrected D6 controlled
-  comparison remains the blocking acceptance gate.
+- Correct the JVM virtual-thread candidate and complete its D6 controlled
+  comparison: [lightweight-tasks.md](lightweight-tasks.md). Production remains
+  on platform-thread workers until every fixed adoption gate passes together.
 
 ## Design In Progress
 

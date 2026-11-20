@@ -108,9 +108,13 @@ public final class LightweightTaskBenchmark {
         Owner(long marker) { this.marker = marker; }
     }
 
+    private static Object retainedOwnerHandle;
+
     private LightweightTaskBenchmark() { }
 
     public static void main(String[] args) throws Exception {
+        verifyFunctionalNegativeControls();
+        verifyReclamationNegativeControl();
         System.err.println("workload: parked");
         List<ParkedSample> parked = runParkedLadder();
         System.err.println("workload: preparation");
@@ -231,6 +235,7 @@ public final class LightweightTaskBenchmark {
         Object txTwo = VelnRuntime.recordField(channelTwo, "tx");
         Object rxTwo = VelnRuntime.recordField(channelTwo, "rx");
         long[] latencies = new long[operations];
+        long[] submitted = new long[operations];
         long started = System.nanoTime();
         VelnRuntime.beginTaskLifetime();
         Object relay = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
@@ -243,15 +248,18 @@ public final class LightweightTaskBenchmark {
         Object consumer = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
             long sum = 0L;
             for (int index = 0; index < operations; index += 1) {
-                long sent = ((Long) VelnRuntime.optionValue(VelnRuntime.channelRecv(rxTwo))).longValue();
-                latencies[index] = System.nanoTime() - sent;
-                sum += index;
+                long received = ((Long) VelnRuntime.optionValue(
+                    VelnRuntime.channelRecv(rxTwo))).longValue();
+                requireSequence(index, received);
+                latencies[index] = System.nanoTime() - submitted[index];
+                sum += received;
             }
             return Long.valueOf(sum);
         });
         for (int index = 0; index < operations; index += 1) {
             awaitOfferedRate(started, index, CHANNEL_OFFERED_PER_SECOND);
-            VelnRuntime.channelSend(txOne, Long.valueOf(System.nanoTime()));
+            submitted[index] = System.nanoTime();
+            VelnRuntime.channelSend(txOne, Long.valueOf(index));
         }
         VelnRuntime.finishTaskLifetime(true);
         long checksum = resultLong(VelnRuntime.taskJoin(relay)) + resultLong(VelnRuntime.taskJoin(consumer));
@@ -267,6 +275,7 @@ public final class LightweightTaskBenchmark {
         Object leftRx = VelnRuntime.recordField(left, "rx");
         Object rightRx = VelnRuntime.recordField(right, "rx");
         long[] latencies = new long[SELECT_DELIVERIES];
+        long[] submitted = new long[SELECT_DELIVERIES];
         long[] wakeups = {0L};
         long cpuBefore = processCpuNanos();
         VelnRuntime.beginTaskLifetime();
@@ -278,9 +287,11 @@ public final class LightweightTaskBenchmark {
                 wakeups[0] += 1L;
                 if (VelnRuntime.isSome(selected)) {
                     Object selectedRecord = VelnRuntime.optionValue(selected);
-                    long sent = ((Long) VelnRuntime.recordField(selectedRecord, "value")).longValue();
-                    latencies[delivered] = System.nanoTime() - sent;
-                    sum += delivered;
+                    long received = ((Long) VelnRuntime.recordField(
+                        selectedRecord, "value")).longValue();
+                    requireSequence(delivered, received);
+                    latencies[delivered] = System.nanoTime() - submitted[delivered];
+                    sum += received;
                     delivered += 1;
                 }
             }
@@ -288,7 +299,8 @@ public final class LightweightTaskBenchmark {
         });
         for (int index = 0; index < SELECT_DELIVERIES; index += 1) {
             Thread.sleep(2L);
-            VelnRuntime.channelSend(leftTx, Long.valueOf(System.nanoTime()));
+            submitted[index] = System.nanoTime();
+            VelnRuntime.channelSend(leftTx, Long.valueOf(index));
         }
         VelnRuntime.finishTaskLifetime(true);
         long checksum = resultLong(VelnRuntime.taskJoin(selector));
@@ -304,7 +316,7 @@ public final class LightweightTaskBenchmark {
             "veln-lightweight-task-loopback-payload"));
         long[] latencies = new long[connections];
         long[] submitted = new long[connections];
-        long[] clientCounts = new long[connections];
+        long[] clientPayloadHashes = new long[connections];
         long started = System.nanoTime();
         VelnRuntime.beginTaskLifetime();
         Object server = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
@@ -327,8 +339,10 @@ public final class LightweightTaskBenchmark {
                 Object stream = VelnRuntime.netConnect(address);
                 VelnRuntime.netWriteChunk(stream, payload);
                 Object received = VelnRuntime.netReadChunk(stream);
-                clientCounts[clientIndex] = ((Long) VelnRuntime.byteCountToInt(
-                    VelnRuntime.byteChunkCount(received))).longValue();
+                String receivedText = (String) VelnRuntime.resultValue(
+                    VelnRuntime.byteChunkToVisibleAsciiString(received));
+                requirePayload("veln-lightweight-task-loopback-payload", receivedText);
+                clientPayloadHashes[clientIndex] = receivedText.hashCode();
                 VelnRuntime.netCloseStream(stream);
                 latencies[clientIndex] = System.nanoTime() - submitted[clientIndex];
                 return Long.valueOf(clientIndex);
@@ -338,7 +352,7 @@ public final class LightweightTaskBenchmark {
         long checksum = resultLong(VelnRuntime.taskJoin(server));
         for (int index = 0; index < clients.size(); index += 1) {
             checksum += resultLong(VelnRuntime.taskJoin(clients.get(index)));
-            checksum += clientCounts[index];
+            checksum += clientPayloadHashes[index];
         }
         VelnRuntime.netCloseListener(listener);
         long elapsed = System.nanoTime() - started;
@@ -408,17 +422,10 @@ public final class LightweightTaskBenchmark {
         ArrayList<WeakReference<Owner>> owners = new ArrayList<>();
         int registrations = 0;
         for (int batch = 0; batch < RECLAMATION_BATCHES; batch += 1) {
-            Owner[] holder = {new Owner(batch)};
-            owners.add(new WeakReference<>(holder[0]));
-            VelnRuntime.beginTaskLifetime();
-            Object lifetime = currentTaskLifetime();
-            for (int index = 0; index < RECLAMATION_POPULATION; index += 1) {
-                VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> Long.valueOf(holder[0].marker));
-            }
-            VelnRuntime.finishTaskLifetime(true);
-            registrations += lifetimeRegistrations(lifetime);
-            lifetime = null;
-            holder[0] = null;
+            Owner owner = new Owner(batch);
+            owners.add(new WeakReference<>(owner));
+            registrations += runReclamationBatch(owner, false);
+            owner = null;
             collect();
             heaps[batch] = usedHeapBytes();
         }
@@ -426,6 +433,64 @@ public final class LightweightTaskBenchmark {
         int retained = 0;
         for (WeakReference<Owner> owner : owners) if (owner.get() != null) retained += 1;
         return new ReclamationSample(heaps, registrations, retained);
+    }
+
+    private static int runReclamationBatch(Owner owner, boolean retainFirstHandle)
+            throws Exception {
+        VelnRuntime.Fn action = ignored -> owner;
+        VelnRuntime.beginTaskLifetime();
+        Object lifetime = currentTaskLifetime();
+        for (int index = 0; index < RECLAMATION_POPULATION; index += 1) {
+            Object handle = VelnRuntime.taskSpawn(action);
+            if (retainFirstHandle && index == 0) retainedOwnerHandle = handle;
+        }
+        VelnRuntime.finishTaskLifetime(true);
+        return lifetimeRegistrations(lifetime);
+    }
+
+    private static void requireSequence(long expected, long actual) {
+        if (actual != expected) {
+            throw new AssertionError("channel payload out of order: expected " + expected
+                + " but received " + actual);
+        }
+    }
+
+    private static void requirePayload(String expected, String actual) {
+        if (!expected.equals(actual)) {
+            throw new AssertionError("loopback payload identity changed");
+        }
+    }
+
+    private static void verifyFunctionalNegativeControls() {
+        try {
+            requireSequence(7L, 8L);
+            throw new AssertionError("reordered channel payload was accepted");
+        } catch (AssertionError expected) {
+            if (!expected.getMessage().startsWith("channel payload out of order")) throw expected;
+        }
+        try {
+            requirePayload("veln-lightweight-task-loopback-payload",
+                "xeln-lightweight-task-loopback-payload");
+            throw new AssertionError("same-length loopback corruption was accepted");
+        } catch (AssertionError expected) {
+            if (!"loopback payload identity changed".equals(expected.getMessage())) throw expected;
+        }
+    }
+
+    private static void verifyReclamationNegativeControl() throws Exception {
+        Owner owner = new Owner(-1L);
+        WeakReference<Owner> retained = new WeakReference<>(owner);
+        runReclamationBatch(owner, true);
+        owner = null;
+        collect();
+        if (retained.get() == null) {
+            throw new AssertionError("retained completed handle did not retain its owner result");
+        }
+        retainedOwnerHandle = null;
+        collect();
+        if (retained.get() != null) {
+            throw new AssertionError("released completed handle still retained its owner result");
+        }
     }
 
     private static Object currentTaskLifetime() throws Exception {

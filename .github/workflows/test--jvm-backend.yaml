@@ -58,5 +58,3 @@ jobs:
         run: bash scripts/ci-run cargo test --locked -p veln-backend-jvm bytecode_backend -- --test-threads=1
       - name: Run JVM CLI fixtures
         run: bash scripts/ci-run cargo test --locked -p veln-cli --test check_json -- --test-threads=1
-      - name: Validate current lightweight-task adoption evidence
-        run: bash scripts/benchmark-lightweight-tasks --check benchmarks/lightweight-tasks/result.json

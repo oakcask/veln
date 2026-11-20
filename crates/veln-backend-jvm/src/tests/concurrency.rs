@@ -453,7 +453,7 @@ end
 }
 
 #[test]
-fn small_carrier_budgets_run_channel_timer_and_join_peers_when_java_is_available() {
+fn platform_workers_run_channel_timer_and_join_peers_when_java_is_available() {
     let ir = lower_to_ir(
         r#"fn send_after_wait(sender: Sender<String>) -> String effects [concurrency, time]
     time::timeout_ms(5)
@@ -495,35 +495,18 @@ end
     );
     let program = generate_classfiles_with_entry(&ir, "main");
 
-    for (name, java_args) in [
-        (
-            "one-carrier-task-progress",
-            [
-                "-Djdk.virtualThreadScheduler.parallelism=1",
-                "-Djdk.virtualThreadScheduler.maxPoolSize=1",
-            ],
-        ),
-        (
-            "two-carrier-task-progress",
-            [
-                "-Djdk.virtualThreadScheduler.parallelism=2",
-                "-Djdk.virtualThreadScheduler.maxPoolSize=2",
-            ],
-        ),
-    ] {
-        let Some(output) =
-            run_jvm_program_with_java_args_when_java_is_available(name, &program, &java_args, &[])
-        else {
-            return;
-        };
+    let Some(output) =
+        run_jvm_program_when_java_is_available("platform-task-progress", &program, &[])
+    else {
+        return;
+    };
 
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        assert_eq!(String::from_utf8_lossy(&output.stdout), "ready:child\n");
-    }
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "ready:child\n");
 }
 
 #[test]

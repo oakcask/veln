@@ -135,7 +135,7 @@ fn task_cancellation_state_is_task_local_and_not_a_retained_thread_registry() {
     let source = include_str!("../runtime/concurrency.java.inc");
 
     assert!(source.contains("ThreadLocal<TaskCancellation>"));
-    assert!(source.contains("Thread::startVirtualThread"));
+    assert!(source.contains("Thread.ofPlatform().daemon(false).start(task)"));
     assert!(!source.contains("new Thread(this.future)"));
     assert!(source.contains("LinkedHashSet<TaskFuture> incomplete"));
     assert!(!source.contains("CANCELLED_TASK_THREADS"));
@@ -153,15 +153,18 @@ fn production_task_start_boundary_has_no_mutable_test_failure_selector() {
     assert!(!source.contains("NEXT_TASK_START_FAILURE"));
     assert!(source.contains("taskSpawnWithWorkerStarter"));
     assert!(source.contains("return new Task((Fn) fn)"));
-    assert!(source.contains("return startTaskWorker(future, Thread::startVirtualThread)"));
+    assert!(source.contains(
+        "return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task))"
+    ));
 }
 
 #[test]
 fn concurrent_task_cancellation_uses_one_atomic_initiation_claim() {
     let source = include_str!("../runtime/concurrency.java.inc");
 
-    assert!(source.contains("AtomicBoolean cancellationRequested"));
-    assert!(source.contains("cancellationRequested.compareAndSet(false, true)"));
+    assert!(source.contains("AtomicInteger outcome"));
+    assert!(source.contains("outcome.compareAndSet(INCOMPLETE, CANCELLATION_CLAIMED)"));
+    assert!(source.contains("outcome.compareAndSet(INCOMPLETE, COMPLETED)"));
     assert!(!source.contains("!handle.cancellationRequested"));
 }
 

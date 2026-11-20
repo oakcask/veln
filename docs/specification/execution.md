@@ -329,12 +329,9 @@ literal zero divisor is rejected during analysis instead, as specified by
 
 ## Lightweight task execution and invocation lifetime
 
-The JVM starts one unpooled virtual thread for each admitted Veln task. Logical
-task cancellation and handler state belong to that virtual thread and do not
-depend on the carrier platform thread that runs it. Java 25 permits virtual
-threads to release carriers at the channel monitor waits used by the current
-runtime. Timer and task-join waits also permit runnable peers to proceed when
-the carrier parallelism is one or two.
+The JVM currently starts one unpooled non-daemon platform thread for each
+admitted Veln task. Logical task cancellation and handler state belong to that
+worker thread. A waiting task retains its platform thread until the wait ends.
 
 Each run entry and each reusable test entry owns a distinct task lifetime. The
 entry launcher is a non-daemon platform thread and remains alive until the
@@ -369,12 +366,11 @@ inherit children, cancellation state, or handler frames from the closed
 lifetime.
 
 The runtime retains the existing polling select, per-operation socket selector,
-and bounded DNS-worker algorithms. Native calls, filesystem calls, DNS,
-class initialization, and arbitrary host calls have no carrier-release
-guarantee. Polling CPU, descriptors, selectors, and continuously runnable CPU
-jobs remain resource and scheduling limits rather than new fairness promises.
-The lightweight-task adoption benchmark compares the virtual-thread worker
-with the equivalent platform-thread runtime under the fixed parked-task,
+and bounded DNS-worker algorithms. Platform threads, polling CPU, descriptors,
+selectors, and continuously runnable CPU jobs remain resource and scheduling
+limits rather than new fairness promises.
+The lightweight-task adoption benchmark compares the platform-thread production
+worker with an equivalent virtual-thread candidate under the fixed parked-task,
 channel, select, loopback, CPU-saturation, and reclamation workloads. The
 controlled comparison remains proposal-owned until its corrected functional,
 latency, and noise gates all pass. The route at

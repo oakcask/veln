@@ -568,13 +568,13 @@ handle is never joined. A retained handle continues to own its settled join
 result after that removal. Children inherit the active handler stack at task
 creation. Handler changes remain lexical to the child, and siblings do not
 replace each other's stacks. Shared provider resources retain their creating
-owner. Worker-carrier reuse does not transfer cancellation state or handler
+owner. Separate worker threads do not transfer cancellation state or handler
 frames between unrelated tasks.
 
-Channel, timer, and task-join waits allow runnable peers to make progress with
-a small JVM carrier budget when the program has no dependency cycle. This
-contract does not promise bounded CPU fairness, bounded cancellation latency,
-or starvation freedom for continuously runnable jobs. The
+Channel, timer, and task-join waits block the current platform worker until the
+wait ends. Progress is therefore subject to host platform-thread resources.
+This contract does not promise bounded CPU fairness, bounded cancellation
+latency, or starvation freedom for continuously runnable jobs. The
 [execution boundary](execution.md#lightweight-task-execution-and-invocation-lifetime)
 defines invocation lifetime and the remaining host-wait limits. The checked
 [`task-invocation-drain`](../../examples/specification/run/task-invocation-drain/)

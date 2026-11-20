@@ -65,7 +65,7 @@ export const FUNCTIONAL_EXPECTATIONS = {
   rendezvous_channel: { checksum: 134225920 },
   bounded_channel: { checksum: 134225920 },
   select: { checksum: 8128 },
-  loopback: { checksum: 563712 },
+  loopback: { checksum: -1849463478784 },
   cpu_saturation: { checksum: 8128 },
   reclamation: { completed_registrations: 0, retained_owners: 0 },
 };
@@ -429,13 +429,13 @@ function buildRuntimeSource() {
 }
 
 export function runtimeSourceVariants(original) {
-  const occurrences = original.split(VIRTUAL_WORKER).length - 1;
+  const occurrences = original.split(PLATFORM_WORKER).length - 1;
   if (occurrences !== 1) {
-    throw new Error(`runtime contains ${occurrences} virtual worker constructors; expected one`);
+    throw new Error(`runtime contains ${occurrences} platform worker constructors; expected one`);
   }
   return {
-    platform: original.replace(VIRTUAL_WORKER, PLATFORM_WORKER),
-    virtual: original,
+    platform: original,
+    virtual: original.replace(PLATFORM_WORKER, VIRTUAL_WORKER),
   };
 }
 

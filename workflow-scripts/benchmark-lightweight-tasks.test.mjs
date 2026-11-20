@@ -89,7 +89,7 @@ function measuredSample(variant, run) {
 }
 
 function passingArtifact() {
-  const runtime = "before return startTaskWorker(future, Thread::startVirtualThread); after";
+  const runtime = "before return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task)); after";
   const expectedIdentity = benchmarkIdentityForRuntime(runtime, "harness-digest");
   const samples = [];
   for (let run = 1; run <= 7; run += 1) {
@@ -143,6 +143,22 @@ test("validates recomputed samples and current runtime identities", () => {
   assert.throws(
     () => validateArtifact(staleAdoption, expectedIdentity),
     /adoption verdict does not match the raw samples/,
+  );
+});
+
+test("validator rejects a self-consistent failed adoption artifact", () => {
+  const { artifact, expectedIdentity } = passingArtifact();
+  for (const sample of artifact.samples) {
+    if (sample.variant === "virtual") {
+      sample.result.workload.rendezvous_channel.latency_p95_nanos = 200;
+    }
+  }
+  artifact.summaries = summarizeSamples(artifact.samples);
+  artifact.adoption = evaluateGates(artifact.samples, artifact.summaries);
+  assert.equal(artifact.adoption.status, "failed");
+  assert.throws(
+    () => validateArtifact(artifact, expectedIdentity),
+    /rendezvous_delivery_latency_p95_at_most_125_percent/,
   );
 });
 
@@ -291,13 +307,13 @@ test("compares corresponding platform and virtual functional outcomes", () => {
   assert.equal(verdict.gates.functional_outcomes_equal_between_variants, false);
 });
 
-test("derives a one-constructor platform baseline", () => {
-  const runtime = "before return startTaskWorker(future, Thread::startVirtualThread); after";
+test("derives a one-constructor virtual candidate", () => {
+  const runtime = "before return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task)); after";
   const variants = runtimeSourceVariants(runtime);
-  assert.equal(variants.virtual, runtime);
+  assert.equal(variants.platform, runtime);
   assert.equal(
-    variants.platform,
-    "before return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task)); after",
+    variants.virtual,
+    "before return startTaskWorker(future, Thread::startVirtualThread); after",
   );
   assert.throws(
     () => runtimeSourceVariants(`${runtime} ${runtime}`),
