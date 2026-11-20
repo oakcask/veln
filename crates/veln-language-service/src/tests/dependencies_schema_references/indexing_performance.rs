@@ -1,3 +1,7 @@
+    // Exact work counters enforce linearity; adjacent doubling sizes only need
+    // to exercise the same path at multiple fixture sizes.
+    const LINEAR_WORK_COUNTS: [usize; 3] = [10, 20, 40];
+
     #[test]
     fn dependency_schema_alias_reference_lookup_avoids_nonlinear_import_rescans() {
         for count in [50, 100, 200] {
@@ -18,7 +22,7 @@
     #[test]
     fn workspace_schema_composition_lookup_work_grows_linearly() {
         let mut token_visits_per_reference = None;
-        for count in [25, 50, 100] {
+        for count in LINEAR_WORK_COUNTS {
             let mut declarations = String::from("mod model\n\n");
             let mut fields = String::from("mod app\nuse model\n\nschema Host\n");
             for index in 0..count {
@@ -88,7 +92,7 @@
     #[test]
     fn dependency_schema_composition_index_work_grows_linearly() {
         let mut field_token_visits_per_schema = None;
-        for count in [25, 50, 100] {
+        for count in LINEAR_WORK_COUNTS {
             let mut declarations = String::new();
             let mut fields = String::from("schema Host\n");
             for index in 0..count {
@@ -141,7 +145,7 @@
     #[test]
     fn eligible_schema_alias_composition_index_work_grows_linearly() {
         let mut field_token_visits_per_field = None;
-        for count in [25, 50, 100] {
+        for count in LINEAR_WORK_COUNTS {
             let started = std::time::Instant::now();
             let mut declarations = String::new();
             let mut fields = String::from("schema Host\n");
