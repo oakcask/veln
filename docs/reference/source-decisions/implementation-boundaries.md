@@ -36,6 +36,7 @@ compatibility boundaries need rationale.
 - [Channel-First Concurrency Runtime](records/result-channel-first-concurrency-runtime.md)
 - [Contract Blame Boundary](records/result-contract-blame-boundary.md)
 - [Hole Runtime Boundary](records/result-hole-runtime-boundary.md)
+- [JVM Lightweight Task Worker Selection](records/result-jvm-lightweight-task-worker-selection.md)
 - [Prelude Complexity Guarantees](records/result-prelude-complexity-guarantees.md)
 - [Runtime Value Freeze Boundary](records/result-runtime-value-freeze-boundary.md)
 - [Transitive Effect Diagnostics](records/result-transitive-effect-diagnostics.md)

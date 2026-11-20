@@ -72,6 +72,7 @@ smallest category page.
 - [First Implementation Runtime Targets](result-first-implementation-runtime-targets.md)
 - [Hole Runtime Boundary](result-hole-runtime-boundary.md)
 - [Internal SHA-256 Backend](result-internal-sha256-backend.md)
+- [JVM Lightweight Task Worker Selection](result-jvm-lightweight-task-worker-selection.md)
 - [Module Metadata Location](result-module-metadata-location.md)
 - [Prelude Complexity Guarantees](result-prelude-complexity-guarantees.md)
 - [Runtime Value Freeze Boundary](result-runtime-value-freeze-boundary.md)

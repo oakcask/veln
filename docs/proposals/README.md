@@ -16,11 +16,7 @@ also states it.
 
 ## Ready
 
-- Lightweight task execution using JVM virtual threads, with the implemented
-  Java 25 baseline as a prerequisite and planned per-invocation drain/cancel
-  lifetime, wait-boundary progress, and controlled adoption budgets:
-  [lightweight-tasks.md](lightweight-tasks.md). D2-D6 and their acceptance
-  evidence remain planned.
+No proposal is ready for implementation.
 
 ## Design In Progress
 
@@ -40,6 +36,10 @@ also states it.
 
 ## Scope Decisions
 
+- The one-virtual-thread-per-task JVM candidate did not satisfy its fixed
+  controlled adoption gates with the retained wait algorithms. It is no longer
+  active proposal work; see
+  [JVM Lightweight Task Worker Selection](../reference/source-decisions/records/result-jvm-lightweight-task-worker-selection.md).
 - The hypothetical missing-provider descriptor diagnostic has no independently
   justified production provider feature. It is no longer active proposal work;
   see [Variant Descriptor Provider Boundary](../reference/source-decisions/variant-descriptor-provider.md).
