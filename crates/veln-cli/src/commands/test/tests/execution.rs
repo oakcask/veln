@@ -82,6 +82,15 @@ fn production_paths_report_mixed_case_outcomes_in_discovered_order() {
         return;
     }
 
+    let project = mixed_outcome_project();
+    let records = run_mixed_outcome_cases(&project);
+
+    assert_mixed_outcome_order_and_successes(&records);
+    assert_mixed_outcome_failures(&records);
+    assert_mixed_outcome_block_and_runner_error(&records);
+}
+
+fn mixed_outcome_project() -> TempProject {
     let project = TempProject::new("production-mixed-results");
     project.write(
         "main.veln",
@@ -117,6 +126,11 @@ fn production_paths_report_mixed_case_outcomes_in_discovered_order() {
             "end\n",
         ),
     );
+
+    project
+}
+
+fn run_mixed_outcome_cases(project: &TempProject) -> Vec<TestCase> {
     let (analysis, cases) = analyzed_cases(&project.root);
     let analysis_mutex = Mutex::new(analysis);
     let execution = Arc::new(TestJvmExecution::ready(JvmExecution::for_test(
@@ -134,7 +148,7 @@ fn production_paths_report_mixed_case_outcomes_in_discovered_order() {
         },
     ));
 
-    let records = run_test_case_jobs(
+    run_test_case_jobs(
         cases,
         3,
         |case| {
@@ -145,14 +159,22 @@ fn production_paths_report_mixed_case_outcomes_in_discovered_order() {
         },
         execute_test_case_job,
     )
-    .expect("mixed production path should complete");
+    .expect("mixed production path should complete")
+}
 
+fn assert_mixed_outcome_order_and_successes(records: &[TestCase]) {
     assert_eq!(
-        case_names_of(&records),
+        case_names_of(records),
         ["pass", "fail", "blocked", "runner", "doctest_1"]
     );
     assert_eq!(records[0].status, TestCaseStatus::Passed);
     assert_stdout_event(&records[0], "pass out");
+    assert_eq!(records[4].kind, "doctest");
+    assert_eq!(records[4].status, TestCaseStatus::Passed);
+    assert_stdio_event(&records[4], "stdout", "doctest out");
+}
+
+fn assert_mixed_outcome_failures(records: &[TestCase]) {
     assert_eq!(records[1].status, TestCaseStatus::Failed);
     assert_eq!(
         records[1]
@@ -161,6 +183,9 @@ fn production_paths_report_mixed_case_outcomes_in_discovered_order() {
             .map(|failure| failure.kind.as_str()),
         Some("result")
     );
+}
+
+fn assert_mixed_outcome_block_and_runner_error(records: &[TestCase]) {
     assert_eq!(records[2].status, TestCaseStatus::Blocked);
     assert_eq!(records[2].reason.as_deref(), Some("static_gate"));
     assert!(
@@ -179,9 +204,6 @@ fn production_paths_report_mixed_case_outcomes_in_discovered_order() {
             .map(|failure| failure.message.as_str()),
         Some("injected runner tool error")
     );
-    assert_eq!(records[4].kind, "doctest");
-    assert_eq!(records[4].status, TestCaseStatus::Passed);
-    assert_stdio_event(&records[4], "stdout", "doctest out");
 }
 
 #[test]
