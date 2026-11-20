@@ -32,6 +32,7 @@ mod module_value_order;
 mod pattern_and_value_emission;
 mod schema_invocation;
 mod schema_metadata;
+mod stack_map;
 
 use class_builder::*;
 use constant_pool::*;
@@ -47,7 +48,7 @@ use function_flow::{ContractCheckPosition, FunctionBytecodeEmitter};
 use method_code::*;
 use module_value_order::module_values_in_dependency_order;
 
-const PROGRAM_MAJOR_VERSION: u16 = 49;
+const PROGRAM_MAJOR_VERSION: u16 = 69;
 const JAVA_LANG_OBJECT: &str = "java/lang/Object";
 const VELN_ENTRY: &str = "VelnEntry";
 const MODULE_VALUE_DESCRIPTOR: &str = "Ljava/lang/Object;";

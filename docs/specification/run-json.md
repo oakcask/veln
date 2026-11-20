@@ -53,10 +53,14 @@ by a newline; raw Java stderr is discarded.
 
 A tool failure represented after run-report preparation has
 `error.kind: "runner"`, `details.phase: "tool"`, empty `stdout` and `stderr`,
-and does not claim that the program reached the backend. A JVM classfile
-generation failure occurs before report preparation. Even with `--json`, it
-writes a `veln: JVM backend could not generate the program: REASON` command
-error to standard error, exits with status 2, and emits no run JSON envelope.
+and does not claim that the program reached the backend. A selected Java with
+a major version below 25 uses this tool-failure shape. Its message names the
+required and detected major versions, and the command does not launch
+`VelnEntry`. A version probe that fails or has no single recognized Java major
+uses the same shape and also suppresses launch. A JVM classfile generation
+failure occurs before report preparation. Even with `--json`, it writes a
+`veln: JVM backend could not generate the program: REASON` command error to
+standard error, exits with status 2, and emits no run JSON envelope.
 An accepted module immutable string that needs more than 65,535 bytes in JVM
 modified UTF-8 is not a generation failure for that reason alone. A successful
 entry that reads the complete value produces the normal passed envelope and
@@ -453,8 +457,17 @@ failure. Transport failures use the replacement stderr rule above. It does not
 retry failed host operations, infer unknown ownership or commit facts, or add
 typed fields to unrecognized returned values.
 
+## References
+
 The report implementation is `crates/veln-cli/src/commands/run_report.rs`;
 entry selection and execution are implemented in
 `crates/veln-cli/src/commands/run.rs`. The CLI JSON assertions under
 `crates/veln-cli/tests/check_json/run.rs` are the executable verification
-route for the envelope and projections.
+route for the envelope and projections. The
+[`java-25-execution-baseline`](../../examples/specification/run/java-25-execution-baseline/)
+case checks the passed envelope when a real Java 25-or-newer runtime loads and
+executes a generated classfile. The
+[`java-modern-underscore-rejected-json`](../../examples/specification/run/java-modern-underscore-rejected-json/)
+case checks the runner-error envelope and absence of entry launch when the
+selected runtime reports `25_0`. Backend tests check the generated classfile's
+Java 25 major version separately.

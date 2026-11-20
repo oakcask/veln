@@ -10,6 +10,7 @@ on:
       - .github/actions/cargo-dependencies/action.yaml
       - .github/actions/cargo-workflow-scripts/action.yaml
       - .github/actions/nextest/action.yaml
+      - .github/actions/setup-jdk/action.yaml
       - Cargo.lock
       - Cargo.toml
       - rust-toolchain.toml
@@ -30,6 +31,7 @@ on:
       - .github/actions/cargo-dependencies/action.yaml
       - .github/actions/cargo-workflow-scripts/action.yaml
       - .github/actions/nextest/action.yaml
+      - .github/actions/setup-jdk/action.yaml
       - Cargo.lock
       - Cargo.toml
       - rust-toolchain.toml
@@ -161,6 +163,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Set up supported JDK
+        uses: ./.github/actions/setup-jdk
       - name: Prepare Cargo dependencies
         uses: ./.github/actions/cargo-dependencies
       - name: Run Rust doctests

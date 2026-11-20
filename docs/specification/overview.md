@@ -17,6 +17,13 @@ The following behavior is fixed for the implemented slice:
 - The standard edit loop is `veln fmt`, `veln check --json`,
   `veln run [--json] <entry> [-- arg ...]`, `veln test [--json]`, and
   `veln doc`.
+- The JVM toolchain has a Java 25 baseline. Building the backend requires
+  `javac` 25 or newer, generated classes target Java 25, and `veln run` and
+  `veln test` reject an older selected runtime before entry launch. There is no
+  older-JDK or lower-classfile fallback. See
+  [execution.md](execution.md#runtime-readiness-and-host-boundaries),
+  [command-run.md](command-run.md#analysis-and-execution-gates), and
+  [command-test.md](command-test.md#gates-and-failures).
 - `veln check` and `veln test` extract executable doctest fences from sources
   with canonical virtual-source origins; a rejected origin reports
   `module.invalid_source_path` without stopping analysis of other selected

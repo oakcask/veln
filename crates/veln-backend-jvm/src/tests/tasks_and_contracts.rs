@@ -622,6 +622,22 @@ fn bytecode_backend_return_invariant_failure_blames_implementation_when_java_is_
 }
 
 #[test]
+fn bytecode_backend_emits_java_25_classfile_major_for_runtime_and_generated_classes() {
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    for class in &program.classes {
+        assert_eq!(&class.contents[..4], &[0xca, 0xfe, 0xba, 0xbe]);
+        assert_eq!(
+            u16::from_be_bytes([class.contents[6], class.contents[7]]),
+            69,
+            "{} must target Java 25",
+            class.path
+        );
+    }
+}
+
+#[test]
 fn bytecode_backend_javap_reports_target_version_and_entry_descriptor_when_available() {
     if Command::new("javap").arg("-version").output().is_err() {
         return;
@@ -647,7 +663,7 @@ fn bytecode_backend_javap_reports_target_version_and_entry_descriptor_when_avail
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("major version: 49"));
+    assert!(stdout.contains("major version: 69"));
     assert!(stdout.contains("public static void main(java.lang.String[]);"));
     assert!(stdout.contains("descriptor: ([Ljava/lang/String;)V"));
 }

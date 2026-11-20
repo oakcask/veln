@@ -1,0 +1,40 @@
+# CLI/JVM integration: test rejects the malformed modern Java version before
+# cache preparation or VelnEntry launch and owns the JSON runtime failure.
+command = ["test", "--json", "main_test.veln"]
+exit = 1
+
+[tools]
+java = "fake-java-modern-underscore"
+
+[env]
+JAVA_MARKER = "java-started"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "error"
+
+[[json_assert]]
+path = "cases.0.reason"
+equals = "runner_error"
+
+[[json_assert]]
+path = "cases.0.failure.kind"
+equals = "runtime"
+
+[[json_assert]]
+path = "cases.0.failure.message"
+contains = "could not determine the selected `java` major version"
+
+[[file_assert]]
+path = ".veln-harness-cache/jvm"
+missing = true
+
+[[file_assert]]
+path = "java-started"
+missing = true

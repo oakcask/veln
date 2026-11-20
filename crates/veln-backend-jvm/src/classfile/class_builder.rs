@@ -47,7 +47,10 @@ impl ClassBuilder {
 
     pub(super) fn finish(self) -> Result<Vec<u8>, JvmBackendError> {
         validate_method_limits(&self.methods)?;
-        let class = serialize_class(&self);
+        if let Some(error) = self.constant_pool.borrow().error() {
+            return Err(error);
+        }
+        let class = serialize_class(&self)?;
         class.write(&self.constant_pool)
     }
 }
@@ -70,25 +73,32 @@ fn validate_method_limits(methods: &[MethodInfo]) -> Result<(), JvmBackendError>
     Ok(())
 }
 
-fn serialize_class(class: &ClassBuilder) -> SerializedClass {
+fn serialize_class(class: &ClassBuilder) -> Result<SerializedClass, JvmBackendError> {
     let this_class = class.constant_pool.borrow_mut().class(&class.name);
     let super_class = class.constant_pool.borrow_mut().class(JAVA_LANG_OBJECT);
     let code_name = class.constant_pool.borrow_mut().utf8("Code");
+    let stack_map_name = class.constant_pool.borrow_mut().utf8("StackMapTable");
     let fields = serialize_fields(&class.constant_pool, &class.fields);
-    let methods = serialize_methods(&class.constant_pool, &class.methods, code_name);
+    let methods = serialize_methods(
+        &class.constant_pool,
+        &class.name,
+        &class.methods,
+        code_name,
+        stack_map_name,
+    )?;
     let interfaces = class
         .interfaces
         .iter()
         .map(|interface| class.constant_pool.borrow_mut().class(interface))
         .collect();
-    SerializedClass {
+    Ok(SerializedClass {
         access_flags: class.access_flags,
         this_class,
         super_class,
         fields,
         methods,
         interfaces,
-    }
+    })
 }
 
 fn serialize_fields(
@@ -116,24 +126,31 @@ fn serialize_field(
 
 fn serialize_methods(
     constant_pool: &Rc<RefCell<ConstantPool>>,
+    class_name: &str,
     methods: &[MethodInfo],
     code_name: u16,
-) -> Vec<SerializedMethod> {
+    stack_map_name: u16,
+) -> Result<Vec<SerializedMethod>, JvmBackendError> {
     methods
         .iter()
-        .map(|method| serialize_method(constant_pool, method, code_name))
+        .map(|method| {
+            serialize_method(constant_pool, class_name, method, code_name, stack_map_name)
+        })
         .collect()
 }
 
 fn serialize_method(
     constant_pool: &Rc<RefCell<ConstantPool>>,
+    class_name: &str,
     method: &MethodInfo,
     code_name: u16,
-) -> SerializedMethod {
+    stack_map_name: u16,
+) -> Result<SerializedMethod, JvmBackendError> {
     let name = constant_pool.borrow_mut().utf8(&method.name);
     let descriptor = constant_pool.borrow_mut().utf8(&method.descriptor);
     let exceptions = serialize_exception_handlers(constant_pool, &method.exceptions);
-    SerializedMethod {
+    let stack_map = stack_map::stack_map_table(constant_pool, class_name, method)?;
+    Ok(SerializedMethod {
         access_flags: method.access_flags,
         name,
         descriptor,
@@ -142,7 +159,9 @@ fn serialize_method(
         max_locals: method.max_locals,
         code: method.code.clone(),
         exceptions,
-    }
+        stack_map_name,
+        stack_map,
+    })
 }
 
 fn serialize_exception_handlers(
@@ -199,6 +218,190 @@ impl SerializedClass {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn finish_class_with_dead_goto_chain(block_count: usize) -> Result<Vec<u8>, JvmBackendError> {
+        let mut code = Vec::with_capacity(2 + block_count * 3);
+        code.push(0xb1);
+        for _ in 0..block_count {
+            code.extend_from_slice(&[0xa7, 0, 3]);
+        }
+        code.push(0xb1);
+
+        let mut class = ClassBuilder::new("DeadGotoChain");
+        class.add_method(MethodInfo {
+            access_flags: 0x0008,
+            name: "dead_gotos".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: 0,
+            max_locals: 0,
+            code,
+            exceptions: Vec::new(),
+        });
+        class.finish()
+    }
+
+    fn finish_dead_goto_chain_requiring_a_local(
+        block_count: usize,
+    ) -> Result<Vec<u8>, JvmBackendError> {
+        let mut code = Vec::with_capacity(4 + block_count * 3);
+        code.push(0xb1);
+        for _ in 0..block_count {
+            code.extend_from_slice(&[0xa7, 0, 3]);
+        }
+        code.extend_from_slice(&[0x1a, 0x57, 0xb1]);
+
+        let mut class = ClassBuilder::new("DeadGotoLocalChain");
+        class.add_method(MethodInfo {
+            access_flags: 0x0008,
+            name: "dead_gotos_reading_local".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: 1,
+            max_locals: 1,
+            code,
+            exceptions: Vec::new(),
+        });
+        class.finish()
+    }
+
+    fn finish_class_with_many_locals_and_straight_line_expressions(
+        expression_count: usize,
+    ) -> Result<Vec<u8>, JvmBackendError> {
+        const LOCAL_COUNT: u8 = 250;
+        let mut code = Vec::with_capacity(usize::from(LOCAL_COUNT) * 3 + expression_count * 4 + 1);
+        for slot in 0..LOCAL_COUNT {
+            code.extend_from_slice(&[0x03, 0x36, slot]);
+        }
+        for _ in 0..expression_count {
+            code.extend_from_slice(&[0x03, 0x57, 0x00, 0x00]);
+        }
+        code.push(0xb1);
+
+        let mut class = ClassBuilder::new("StraightLineFrames");
+        class.add_method(MethodInfo {
+            access_flags: 0x0008,
+            name: "straight_line".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: 1,
+            max_locals: u16::from(LOCAL_COUNT),
+            code,
+            exceptions: Vec::new(),
+        });
+        class.finish()
+    }
+
+    #[test]
+    fn java_25_verifies_widened_frames_through_converging_dead_blocks() {
+        let mut class = ClassBuilder::new("VelnEntry");
+        class.add_method(MethodInfo {
+            access_flags: 0x0009,
+            name: "main".to_string(),
+            descriptor: "([Ljava/lang/String;)V".to_string(),
+            max_stack: 1,
+            max_locals: 1,
+            code: vec![
+                0xb1, // return
+                0x03, // iconst_0
+                0x99, 0x00, 0x07, // ifeq 9
+                0x01, // aconst_null
+                0xa7, 0x00, 0x0a, // goto 16
+                0xa7, 0x00, 0x03, // goto 12
+                0x2a, // aload_0
+                0xa7, 0x00, 0x03, // goto 16
+                0xa7, 0x00, 0x03, // goto 19
+                0x57, // pop
+                0xb1, // return
+            ],
+            exceptions: Vec::new(),
+        });
+        let program = JvmProgram {
+            classes: vec![JvmClassFile {
+                path: "VelnEntry.class".to_string(),
+                contents: class.finish().expect("class serialization should succeed"),
+            }],
+        };
+
+        let output = crate::tests::run_jvm_program_with_java_args_when_java_is_available(
+            "converging-dead-stack-map-frames",
+            &program,
+            &["-Xverify:all"],
+            &[],
+        )
+        .expect("the Java 25 test runtime should be available");
+
+        assert!(
+            output.status.success(),
+            "JVM verification failed:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    #[test]
+    fn finish_bounds_frames_for_many_locals_and_straight_line_instructions() {
+        finish_class_with_many_locals_and_straight_line_expressions(15_000)
+            .expect("straight-line analysis should not retain one full frame per instruction");
+    }
+
+    #[test]
+    fn finish_bounds_frames_for_adjacent_larger_straight_line_input() {
+        finish_class_with_many_locals_and_straight_line_expressions(15_100)
+            .expect("adjacent straight-line analysis should remain bounded");
+    }
+
+    #[test]
+    fn finish_preserves_branch_merges_and_exception_handler_frames() {
+        let mut class = ClassBuilder::new("SparseFrameControlFlow");
+        class.add_method(MethodInfo {
+            access_flags: 0x0008,
+            name: "branch_merge".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: 1,
+            max_locals: 0,
+            code: vec![0x03, 0x99, 0x00, 0x06, 0x03, 0x57, 0x00, 0xb1],
+            exceptions: Vec::new(),
+        });
+        class.add_method(MethodInfo {
+            access_flags: 0x0008,
+            name: "exception_handler".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: 1,
+            max_locals: 0,
+            code: vec![0x00, 0xb1, 0x57, 0xb1],
+            exceptions: vec![ExceptionHandler {
+                start_pc: 0,
+                end_pc: 1,
+                handler_pc: 2,
+                catch_type: "java/lang/Throwable".to_string(),
+            }],
+        });
+
+        class
+            .finish()
+            .expect("sparse analysis should retain branch and handler entry frames");
+    }
+
+    #[test]
+    fn finish_handles_adjacent_smaller_dead_goto_chain() {
+        finish_class_with_dead_goto_chain(20_000)
+            .expect("dead control-flow traversal should complete without recursive stack growth");
+    }
+
+    #[test]
+    fn finish_handles_near_limit_dead_goto_chain() {
+        finish_class_with_dead_goto_chain(21_000)
+            .expect("dead control-flow traversal should complete without recursive stack growth");
+    }
+
+    #[test]
+    fn finish_bounds_local_completion_for_near_limit_dead_goto_chain() {
+        finish_dead_goto_chain_requiring_a_local(21_000)
+            .expect("dead local completion should scale with the control-flow chain");
+    }
+
+    #[test]
+    fn finish_bounds_local_completion_for_adjacent_dead_goto_chain() {
+        finish_dead_goto_chain_requiring_a_local(20_000)
+            .expect("adjacent dead local completion should remain bounded");
+    }
 
     #[test]
     fn finish_rejects_method_code_above_the_classfile_limit() {
@@ -282,6 +485,8 @@ struct SerializedMethod {
     max_locals: u16,
     code: Vec<u8>,
     exceptions: Vec<SerializedExceptionHandler>,
+    stack_map_name: u16,
+    stack_map: Vec<u8>,
 }
 
 impl SerializedMethod {
@@ -291,7 +496,13 @@ impl SerializedMethod {
         write_u16(out, self.descriptor);
         write_u16(out, 1);
         write_u16(out, self.code_name);
-        let attribute_length = 12 + self.code.len() + self.exceptions.len() * 8;
+        let nested_attribute_length = if self.stack_map.len() > 2 {
+            6 + self.stack_map.len()
+        } else {
+            0
+        };
+        let attribute_length =
+            12 + self.code.len() + self.exceptions.len() * 8 + nested_attribute_length;
         write_u32(out, attribute_length as u32);
         write_u16(out, self.max_stack);
         write_u16(out, self.max_locals);
@@ -304,7 +515,14 @@ impl SerializedMethod {
             write_u16(out, exception.handler_pc as u16);
             write_u16(out, exception.catch_type);
         }
-        write_u16(out, 0);
+        if self.stack_map.len() > 2 {
+            write_u16(out, 1);
+            write_u16(out, self.stack_map_name);
+            write_u32(out, self.stack_map.len() as u32);
+            out.extend_from_slice(&self.stack_map);
+        } else {
+            write_u16(out, 0);
+        }
     }
 }
 

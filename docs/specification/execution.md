@@ -13,6 +13,42 @@ host boundaries, and observable output. HTTP/2 protocol details belong to
 
 ## Runtime readiness and host boundaries
 
+Building the JVM backend requires `javac` major version 25 or newer. The build
+checks the selected compiler version before runtime compilation, reports both
+required major 25 and the detected older major, and compiles the bundled
+runtime with `javac --release 25`. The backend emits generated classes with
+classfile major version 69. Consequently, executing generated code requires
+Java 25 or newer; the `run` and `test` command specifications define the owned
+pre-launch rejection for an older selected runtime. The toolchain provides no
+older-JDK or lower-classfile fallback.
+The build selects a usable `javac` from `PATH` and retains that selected path
+for both the version probe and runtime compilation. A relative `PATH` entry is
+resolved against the build working directory before either invocation. A
+failed version-probe process stops the build even if its output contains a
+recognized compiler banner; the build does not retry compilation with another
+`javac` from `PATH`.
+The build accepts a compiler major only from a `javac VERSION` banner. The
+execution commands accept a runtime major only from a `java version "VERSION"`
+or `openjdk version "VERSION"` banner. Unrelated wrapper output does not supply
+the selected Java major. Missing, malformed, or conflicting recognized version
+banners stop the build or command before runtime compilation or entry launch.
+The accepted version starts with decimal release components, such as `25` or
+`25.0.1`. It also accepts the legacy `1.8.0_472` form and an alphanumeric
+prerelease after `-`, such as `25-ea`, with an optional numeric `+` build.
+Modern release components are decimal and dot-separated. An underscore is
+accepted only before the update component in the legacy `1.x` spelling.
+Compiler banners must end after the version except for outer whitespace.
+Text in a release component, a modern underscore component such as `25_0`, or
+any compiler-banner suffix is malformed. Runtime banners can retain text after
+the closing version quote, as produced by Java launchers.
+
+Generated Java 25 classes exercised through the backend and command runtime are
+loadable by the supported Java runtime. If class construction cannot represent
+a compatible generated class, it returns a bounded backend failure instead of
+writing an invalid classfile. This includes methods whose unreachable control
+flow converges after paths carry different local verification types: the
+emitted stack-map frames pass Java 25 full verification.
+
 Explicit import aliases affect source lookup only. Lowering and reachability
 use the selected target module and declaration identity for calls,
 constructors, schemas, effects, and handlers. An invalid, recovered, reserved,
@@ -840,6 +876,23 @@ than degrading it to a generic rendered result value.
 
 ## References
 
+- JVM build-boundary tests check older, unsuccessful, wrong-tool, and
+  conflicting `javac` probes. They also check that a compiler selected through
+  a relative `PATH` entry performs both the probe and `--release 25`
+  compilation in
+  [`build_boundary.rs`](../../crates/veln-backend-jvm/src/tests/build_boundary.rs).
+- The checked
+  [`run`](../../examples/specification/run/java-modern-underscore-rejected-json/)
+  and
+  [`test`](../../examples/specification/test/java-modern-underscore-rejected-json/)
+  cases reject a modern underscore version before cache preparation or entry
+  launch and preserve the command-owned JSON error shape.
+- Class-builder tests require `ClassBuilder::finish()` to succeed for selected
+  branch, exception-handler, long straight-line, and unreachable-branch inputs,
+  including a converging unreachable graph checked by Java 25 with
+  `-Xverify:all`, or to return the expected bounded backend failure for an
+  oversized method, in
+  [`class_builder.rs`](../../crates/veln-backend-jvm/src/classfile/class_builder.rs).
 - Host stack exhaustion with a waiting child task is checked for both run and
   reusable test entries in `crates/veln-backend-jvm/src/tests/concurrency.rs`.
 

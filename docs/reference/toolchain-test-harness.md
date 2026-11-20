@@ -131,8 +131,10 @@ captured standard output and standard error in the failure.
   `[[lsp_assert]]`, `[[mcp_assert]]`, `[[diagnostics]]`, `[[file_assert]]`,
   `[[binary_fixture]]`, and `[[output_chunk_list]]`.
 - Manifest-failure checks: `[manifest_error]`.
-- External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
-  `"real"` and `[tools] git = "missing"` or `"real"`.
+- External tool setup: `[tools] java = "missing"`, `"fake-success"`,
+  `"fake-java-modern-underscore"`, or `"real"` and `[tools] git = "missing"`
+  or `"real"`. The modern-underscore Java fixture reports `25_0` for the
+  version probe and records any entry-launch attempt through `JAVA_MARKER`.
 
 ## Manifest Value Syntax
 
@@ -701,12 +703,16 @@ results, and other command-visible state changes.
 
 Use `[tools]` for controlled external tool availability owned by the harness.
 The implemented keys are `java` and `git`. Java accepts `"missing"`,
-`"fake-success"`, and `"real"`. Git accepts `"missing"` and `"real"`.
+`"fake-success"`, `"fake-java-modern-underscore"`, and `"real"`. Git accepts
+`"missing"` and `"real"`.
 `"missing"` runs the command with an isolated tool path that contains no
 launcher for that tool. Java `"fake-success"` installs a harness-owned wrapper
-that exits successfully without running arbitrary manifest code. `"real"`
-exposes the host launcher under the isolated tool path; Java cases that use it
-should also declare `[requires] jdk = true`.
+that reports a Java 25-compatible version for `-version` and exits successfully
+for other invocations without running arbitrary manifest code. Java
+`"fake-java-modern-underscore"` reports the malformed modern version `25_0`
+and records an attempted entry launch in `JAVA_MARKER`. `"real"` exposes the
+host launcher under the isolated tool path; Java cases that use it should also
+declare `[requires] jdk = true`.
 
 Test harness-owned tool setup with harness or runner unit tests. Do not add CLI
 cases solely to prove Java launcher setup, because JVM availability and wrapper

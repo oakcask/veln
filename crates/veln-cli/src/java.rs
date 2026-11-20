@@ -53,6 +53,17 @@ pub(crate) fn prepare_jvm_execution(command_name: &str) -> Result<JvmExecutionPr
         )));
     };
     let cache_root = resolve_veln_cache_root()?.join("jvm");
+    prepare_jvm_execution_with(command_name, java_launcher, cache_root)
+}
+
+fn prepare_jvm_execution_with(
+    command_name: &str,
+    java_launcher: PathBuf,
+    cache_root: PathBuf,
+) -> Result<JvmExecutionPreparation, String> {
+    if let Some(message) = java_version_error(&java_launcher, command_name) {
+        return Ok(JvmExecutionPreparation::ToolError(message));
+    }
     fs::create_dir_all(&cache_root)
         .map_err(|error| format!("could not prepare the Veln cache root: {error}"))?;
     if !cache_root.is_dir() {
@@ -161,6 +172,10 @@ enum CachedJvmClasses {
 
 mod environment;
 use environment::*;
+mod cache;
+use cache::*;
+mod version;
+use version::*;
 
 #[cfg(test)]
 fn ensure_cached_jvm_classes_in(
@@ -182,13 +197,8 @@ fn ensure_cached_jvm_classes_in_with_hooks(
     let lock_dir = cache_lock_dir(cache_root, &key);
 
     for _ in 0..JVM_CACHE_PREPARE_ATTEMPTS {
-        {
-            let _lock = JvmCacheLock::acquire(&lock_dir).map_err(|error| error.to_string())?;
-            hooks.after_initial_lock();
-            if validated_cache_exists(&cache_dir, program)? {
-                return Ok(CachedJvmClasses::Ready(cache_dir));
-            }
-            remove_invalid_cache(&cache_dir, hooks)?;
+        if reuse_valid_cache_or_remove_invalid(&lock_dir, &cache_dir, program, hooks)? {
+            return Ok(CachedJvmClasses::Ready(cache_dir));
         }
 
         hooks.before_prepare();
@@ -200,18 +210,13 @@ fn ensure_cached_jvm_classes_in_with_hooks(
         };
 
         hooks.before_publish_lock();
-        let _lock = match JvmCacheLock::acquire(&lock_dir) {
-            Ok(lock) => lock,
-            Err(error) => {
-                let _ = fs::remove_dir_all(&compile_dir);
-                return Err(error.to_string());
-            }
-        };
-        if let Err(error) = hooks.at_fault_point(JvmCacheFaultPoint::Publication) {
-            let _ = fs::remove_dir_all(&compile_dir);
-            return Err(format!("could not publish JVM cache entry: {error}"));
-        }
-        match publish_prepared_jvm_cache(&compile_dir, &cache_dir, program)? {
+        match publish_prepared_cache_under_lock(
+            &lock_dir,
+            &compile_dir,
+            &cache_dir,
+            program,
+            hooks,
+        )? {
             CachePublish::Published | CachePublish::ReusedValidated => {
                 return Ok(CachedJvmClasses::Ready(cache_dir));
             }
@@ -288,9 +293,7 @@ fn prepare_jvm_cache_compile_dir(
         }
         Ok(CacheCompilePreparation::Ready(compile_dir.clone()))
     })();
-    if preparation.is_err() || matches!(&preparation, Ok(CacheCompilePreparation::ToolError(_))) {
-        let _ = fs::remove_dir_all(&compile_dir);
-    }
+    remove_failed_cache_preparation(&compile_dir, &preparation);
     preparation.map_err(|error| format!("could not prepare JVM cache entry: {error}"))
 }
 
@@ -656,10 +659,6 @@ pub(crate) fn exit_code_from_status(status: ExitStatus) -> ExitCode {
         Some(code) if (0..=255).contains(&code) => ExitCode::from(code as u8),
         Some(_) | None => ExitCode::from(1),
     }
-}
-
-fn missing_java_message(command_name: &str) -> String {
-    format!("veln: `java` was not found; install a JDK to use `{command_name}`")
 }
 
 #[cfg(test)]

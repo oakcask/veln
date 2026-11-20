@@ -449,6 +449,7 @@ impl ToolName {
 pub(super) enum ToolAvailability {
     Missing,
     FakeSuccess,
+    FakeJavaModernUnderscore,
     FakeGitRevParse,
     Real,
 }

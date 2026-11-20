@@ -344,6 +344,7 @@ pub(super) fn parse_tool_availability(path: &Path, value: &ManifestValue<'_>) ->
     match value.as_str() {
         "missing" => ToolAvailability::Missing,
         "fake-success" => ToolAvailability::FakeSuccess,
+        "fake-java-modern-underscore" => ToolAvailability::FakeJavaModernUnderscore,
         "fake-git-rev-parse" => ToolAvailability::FakeGitRevParse,
         "real" => ToolAvailability::Real,
         _ => manifest_error(

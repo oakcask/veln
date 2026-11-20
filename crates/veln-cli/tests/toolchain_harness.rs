@@ -68,6 +68,8 @@ mod file_and_manifest_values;
 mod fixture_helpers;
 #[path = "toolchain_harness/inventory_and_policy.rs"]
 mod inventory_and_policy;
+#[path = "toolchain_harness/java_runtime_baseline.rs"]
+mod java_runtime_baseline;
 #[path = "toolchain_harness/json_assertions.rs"]
 mod json_assertions;
 #[path = "toolchain_harness/json_number_semantics.rs"]

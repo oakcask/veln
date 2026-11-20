@@ -112,8 +112,12 @@ discovered case with `reason: "static_gate"`.
 
 JDK setup failures are reported on the affected case with
 `status: "error"`, `reason: "runner_error"`, and
-`failure.kind: "runtime"`. This includes a missing `java` before compilation
-or class loading.
+`failure.kind: "runtime"`. This includes a missing `java` before class loading
+or case launch. When the selected `java` reports a major version below 25,
+every runnable case that reaches runner preparation has this error shape. The
+failure message names the required and detected major versions, and no case JVM
+starts. A version probe that fails or has no single recognized Java major uses
+the same error shape and also suppresses the case JVM.
 
 Before report construction or Java launch, the command attempts JVM classfile
 generation for the reusable suite program or for every independently lowered
@@ -306,7 +310,10 @@ command boundary. The
 [`module-value-imported-static-gate-json`](../../examples/specification/test/module-value-imported-static-gate-json/)
 case verifies package-aware imported value typing, annotation-visibility
 failures, blocked case records, empty event lists, and the absence of Java
-startup.
+startup. The
+[`java-modern-underscore-rejected-json`](../../examples/specification/test/java-modern-underscore-rejected-json/)
+case checks the runner-error case record and absence of entry launch when the
+selected runtime reports `25_0`.
 
 ## Usage and limits
 

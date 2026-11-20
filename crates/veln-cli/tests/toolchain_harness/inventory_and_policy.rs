@@ -9,14 +9,17 @@ command = ["run", "main", "main.veln"]
 exit = 0
 
 [tools]
-java = "fake-success"
+java = "fake-java-modern-underscore"
 git = "fake-git-rev-parse"
 "#,
     );
 
     assert!(manifest.tools.needs_path());
     assert!(!manifest.tools.requires_jdk());
-    assert_eq!(manifest.tools.java, Some(ToolAvailability::FakeSuccess));
+    assert_eq!(
+        manifest.tools.java,
+        Some(ToolAvailability::FakeJavaModernUnderscore)
+    );
     assert_eq!(manifest.tools.git, Some(ToolAvailability::FakeGitRevParse));
 
     let manifest = parse_manifest(

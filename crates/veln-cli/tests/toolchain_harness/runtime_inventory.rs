@@ -240,7 +240,7 @@ pub(super) fn write_cache_test_java(tool_dir: &Path) {
     let java = tool_dir.join("java");
     fs::write(
         &java,
-        "#!/bin/sh\nif [ -n \"${JAVA_MARKER:-}\" ]; then printf started > \"$JAVA_MARKER\"; fi\nexit 0\n",
+        "#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then printf 'openjdk version \"25.0.1\"\\n' >&2; exit 0; fi\nif [ -n \"${JAVA_MARKER:-}\" ]; then printf started > \"$JAVA_MARKER\"; fi\nexit 0\n",
     )
     .expect("fake java should be written");
     let mut permissions = fs::metadata(&java)

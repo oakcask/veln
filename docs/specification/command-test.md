@@ -10,7 +10,8 @@ specification-coverage: usage=#test-command; behavior=#selection-and-jobs; limit
 Use `veln test [TARGET ...]` to execute selected top-level `test`
 declarations and executable doctests. It shares parsing, semantic analysis,
 checked-core lowering, typed IR, JVM execution, and cache behavior with
-`run`. Ordinary functions are not selected merely because they have no
+`run`, including the [cache and launcher ordering](command-run.md#jvm-cache).
+Ordinary functions are not selected merely because they have no
 parameters.
 
 ## Selection and jobs
@@ -117,7 +118,13 @@ as a contract failure. The test command does not project the structured
 A runtime expectation passes only when the actual structured failure matches.
 A different failure or successful execution fails with
 `reason: "expected_runtime_failure"`. Missing Java is a case error with
-`reason: "runner_error"`.
+`reason: "runner_error"`. Before any selected case launches, `test` invokes
+the selected `java -version` and requires major version 25 or newer. An older
+runtime produces an owned runner error naming required major 25 and the
+detected major; no `VelnEntry` process starts. There is no older-runtime
+fallback. An unsuccessful probe or malformed or conflicting recognized version
+banner is also a runner error. The probe ignores unrelated wrapper output when
+determining the selected Java major.
 
 JVM classfile generation can reject a suite program or an independently
 lowered test that exceeds a classfile representation limit. Before it launches
@@ -158,6 +165,7 @@ satisfy an output fence.
 
 Backend representation failures are command errors rather than case failures.
 They do not start workers and cannot be matched by runtime expectations.
+Java versions older than 25 are runner errors and do not start a case JVM.
 
 Timing stage durations are diagnostic measurements rather than stable
 performance thresholds. Their values depend on the host and selected workload.

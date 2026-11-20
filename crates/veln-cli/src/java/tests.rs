@@ -237,7 +237,11 @@ fn write_fake_java(root: &Path) -> PathBuf {
 
     fs::create_dir_all(root).expect("fake java directory should be created");
     let tool = root.join("java");
-    fs::write(&tool, "#!/bin/sh\nexit 0\n").expect("fake java should be written");
+    fs::write(
+        &tool,
+        "#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then printf 'openjdk version \"25.0.1\"\\n' >&2; fi\nexit 0\n",
+    )
+    .expect("fake java should be written");
     let mut permissions = fs::metadata(&tool)
         .expect("fake java metadata should be available")
         .permissions();
@@ -252,7 +256,7 @@ fn write_recording_fake_java(root: &Path) -> PathBuf {
 
     fs::create_dir_all(root).expect("fake java directory should be created");
     let tool = root.join("java");
-    fs::write(&tool, "#!/bin/sh\nprintf started > \"$JAVA_MARKER\"\n")
+    fs::write(&tool, "#!/bin/sh\nif [ \"$1\" = \"-version\" ]; then printf 'openjdk version \"25.0.1\"\\n' >&2; exit 0; fi\nprintf started > \"$JAVA_MARKER\"\n")
         .expect("recording fake java should be written");
     let mut permissions = fs::metadata(&tool)
         .expect("recording fake java metadata should be available")
@@ -266,7 +270,7 @@ fn write_recording_fake_java(root: &Path) -> PathBuf {
 fn write_fake_java(root: &Path) -> PathBuf {
     fs::create_dir_all(root).expect("fake java directory should be created");
     let tool = root.join("java.cmd");
-    fs::write(&tool, "@echo off\r\nexit /b 0\r\n").expect("fake java should be written");
+    fs::write(&tool, "@echo off\r\nif \"%1\"==\"-version\" echo openjdk version \"25.0.1\" 1>&2\r\nexit /b 0\r\n").expect("fake java should be written");
     tool
 }
 
@@ -274,7 +278,7 @@ fn write_fake_java(root: &Path) -> PathBuf {
 fn write_recording_fake_java(root: &Path) -> PathBuf {
     fs::create_dir_all(root).expect("fake java directory should be created");
     let tool = root.join("java.cmd");
-    fs::write(&tool, "@echo off\r\n>\"%JAVA_MARKER%\" echo started\r\n")
+    fs::write(&tool, "@echo off\r\nif \"%1\"==\"-version\" (echo openjdk version \"25.0.1\" 1>&2 & exit /b 0)\r\n>\"%JAVA_MARKER%\" echo started\r\n")
         .expect("recording fake java should be written");
     tool
 }

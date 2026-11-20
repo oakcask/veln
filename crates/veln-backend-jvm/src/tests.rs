@@ -30,6 +30,7 @@ use veln_syntax::parse;
 static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 
 mod basic_backend;
+mod build_boundary;
 mod collections_and_tail_recursion;
 mod concurrency;
 mod deferred_cleanup;
@@ -156,7 +157,7 @@ fn run_jvm_program_with_env_when_java_is_available(
     run_jvm_program_with_env_and_java_args_when_java_is_available(name, program, env, &[], args)
 }
 
-fn run_jvm_program_with_java_args_when_java_is_available(
+pub(crate) fn run_jvm_program_with_java_args_when_java_is_available(
     name: &str,
     program: &JvmProgram,
     java_args: &[&str],

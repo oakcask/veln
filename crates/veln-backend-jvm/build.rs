@@ -2,11 +2,16 @@ use std::collections::BTreeMap;
 use std::env;
 use std::fmt::Write as FmtWrite;
 use std::fs;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use unicode_normalization::char::{canonical_combining_class, compose, decompose_canonical};
+
+#[path = "src/java_version.rs"]
+mod java_version;
+
+use java_version::{JavaTool, REQUIRED_JAVA_MAJOR, parse_java_major, require_java_major};
 
 const RUNTIME_FRAGMENTS: &[&str] = &[
     "values.java.inc",
@@ -31,34 +36,114 @@ struct PortableUnicodeData {
 }
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=PATH");
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("manifest dir"));
     let runtime_source_dir = manifest_dir.join("src").join("runtime");
     let runtime_source = runtime_source(&runtime_source_dir);
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("out dir"));
     let runtime_dir = out_dir.join("runtime");
+    prepare_runtime_source(&runtime_dir, runtime_source);
+    let javac = require_selected_javac();
+    compile_runtime(&javac, &runtime_dir);
+    write_runtime_class_manifest(&out_dir, &runtime_dir);
+}
+
+fn prepare_runtime_source(runtime_dir: &Path, runtime_source: String) {
     if runtime_dir.exists() {
-        fs::remove_dir_all(&runtime_dir).expect("failed to remove stale generated runtime classes; check build output permissions before retrying so removed runtime implementations cannot remain in the bundle");
+        fs::remove_dir_all(runtime_dir).expect("failed to remove stale generated runtime classes; check build output permissions before retrying so removed runtime implementations cannot remain in the bundle");
     }
-    fs::create_dir_all(&runtime_dir).expect("runtime output dir should be created");
+    fs::create_dir_all(runtime_dir).expect("runtime output dir should be created");
     fs::write(runtime_dir.join("VelnRuntime.java"), runtime_source)
         .expect("runtime source should be written");
+}
 
-    let output = Command::new("javac")
+fn require_selected_javac() -> PathBuf {
+    let candidates =
+        javac_candidates().expect("PATH should be available when building veln-backend-jvm");
+    for javac in candidates {
+        let version_output = match Command::new(&javac).arg("-version").output() {
+            Ok(output) => output,
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied
+                ) =>
+            {
+                continue;
+            }
+            Err(_) => panic!(
+                "selected javac could not report its major version; Java {REQUIRED_JAVA_MAJOR} or newer is required"
+            ),
+        };
+        validate_selected_javac(&version_output);
+        return javac;
+    }
+    panic!("javac should be found on PATH; install JDK 25 or newer to build veln-backend-jvm");
+}
+
+fn validate_selected_javac(version_output: &std::process::Output) {
+    if !version_output.status.success() {
+        panic!(
+            "selected javac could not report its major version; Java {REQUIRED_JAVA_MAJOR} or newer is required"
+        );
+    }
+    let stdout = String::from_utf8_lossy(&version_output.stdout);
+    let stderr = String::from_utf8_lossy(&version_output.stderr);
+    let detected_major = parse_java_major(JavaTool::Compiler, &[&stdout, &stderr]).unwrap_or_else(|| {
+        panic!(
+            "could not determine selected javac major version; Java {REQUIRED_JAVA_MAJOR} or newer is required"
+        )
+    });
+    if let Err(version) = require_java_major(detected_major) {
+        panic!(
+            "Java {} or newer is required to build the JVM runtime; selected javac has major version {}",
+            version.required, version.detected
+        );
+    }
+}
+
+fn javac_candidates() -> Option<Vec<PathBuf>> {
+    let current_dir = env::current_dir().ok()?;
+    let path = env::var_os("PATH")?;
+    let mut candidates = Vec::new();
+    for entry in env::split_paths(&path) {
+        let directory = if entry.is_absolute() {
+            entry
+        } else {
+            current_dir.join(entry)
+        };
+        for name in javac_executable_names() {
+            candidates.push(directory.join(name));
+        }
+    }
+    Some(candidates)
+}
+
+#[cfg(windows)]
+fn javac_executable_names() -> &'static [&'static str] {
+    &["javac.exe", "javac"]
+}
+
+#[cfg(not(windows))]
+fn javac_executable_names() -> &'static [&'static str] {
+    &["javac"]
+}
+
+fn compile_runtime(javac: &Path, runtime_dir: &Path) {
+    let output = Command::new(javac)
         .arg("--release")
-        .arg("8")
+        .arg(REQUIRED_JAVA_MAJOR.to_string())
         .arg("VelnRuntime.java")
-        .current_dir(&runtime_dir)
+        .current_dir(runtime_dir)
         .output()
-        .expect("javac should run; install a JDK to build veln-backend-jvm");
+        .expect("javac should run; install JDK 25 or newer to build veln-backend-jvm");
     if !output.status.success() {
         panic!(
             "javac failed while building JVM runtime classes:\n{}",
             String::from_utf8_lossy(&output.stderr)
         );
     }
-
-    write_runtime_class_manifest(&out_dir, &runtime_dir);
 }
 
 fn runtime_source(runtime_source_dir: &Path) -> String {

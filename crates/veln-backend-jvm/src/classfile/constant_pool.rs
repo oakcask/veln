@@ -3,6 +3,7 @@ use super::*;
 #[derive(Default)]
 pub(super) struct ConstantPool {
     entries: Vec<CpEntry>,
+    keys: Vec<Option<CpKey>>,
     indexes: BTreeMap<CpKey, u16>,
     error: Option<JvmBackendError>,
 }
@@ -14,6 +15,10 @@ impl ConstantPool {
 
     pub(super) fn slot_count(&self) -> usize {
         self.entries.len()
+    }
+
+    pub(super) fn error(&self) -> Option<JvmBackendError> {
+        self.error.clone()
     }
 
     pub(super) fn utf8(&mut self, value: &str) -> u16 {
@@ -116,11 +121,20 @@ impl ConstantPool {
         };
         let entry = build(&key);
         self.entries.push(entry);
+        self.keys.push(Some(key.clone()));
         if entry_slots == 2 {
             self.entries.push(CpEntry::Padding);
+            self.keys.push(None);
         }
         self.indexes.insert(key, index);
         index
+    }
+
+    pub(super) fn key(&self, index: u16) -> Option<&CpKey> {
+        index
+            .checked_sub(1)
+            .and_then(|index| self.keys.get(usize::from(index)))
+            .and_then(Option::as_ref)
     }
 
     pub(super) fn write(&self, out: &mut Vec<u8>) -> Result<(), JvmBackendError> {
@@ -398,6 +412,7 @@ mod tests {
     fn write_rejects_an_oversized_utf8_entry_before_writing_bytes() {
         let pool = ConstantPool {
             entries: vec![CpEntry::Utf8(vec![b'x'; usize::from(u16::MAX) + 1])],
+            keys: vec![None],
             indexes: BTreeMap::new(),
             error: None,
         };

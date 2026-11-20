@@ -455,7 +455,7 @@ fn run_ignores_unreachable_semantic_diagnostics() {
     assert_eq!(stdout(&output), "");
     assert_contains_all(
         stderr,
-        &["veln: `java` was not found; install a JDK to use `veln run`"],
+        &["veln: `java` was not found; install JDK 25 or newer to use `veln run`"],
     );
     assert!(
         !stderr.contains("type.mismatch"),
@@ -558,7 +558,7 @@ fn run_ignores_function_shadowed_by_local_binding() {
     assert_eq!(stdout(&output), "");
     assert_contains_all(
         stderr,
-        &["veln: `java` was not found; install a JDK to use `veln run`"],
+        &["veln: `java` was not found; install JDK 25 or newer to use `veln run`"],
     );
     assert!(
         !stderr.contains("hole.unfilled"),

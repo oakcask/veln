@@ -151,7 +151,7 @@ fn prepare_run_jvm_execution(
         Ok(JvmExecutionPreparation::ToolError(message)) => {
             push_backend_runtime_timing(timings, backend_start);
             write_timings(timings)?;
-            report_run_tool_error(json, message)?;
+            let _ = report_run_tool_error(json, message)?;
             Ok(None)
         }
         Err(message) => {
