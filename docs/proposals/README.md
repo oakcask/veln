@@ -16,7 +16,10 @@ also states it.
 
 ## Ready
 
-No proposal is currently ready for implementation.
+- Complete the lightweight-task adoption evidence for the implemented JVM
+  virtual-thread worker and per-invocation lifetime:
+  [lightweight-tasks.md](lightweight-tasks.md). The corrected D6 controlled
+  comparison remains the blocking acceptance gate.
 
 ## Design In Progress
 

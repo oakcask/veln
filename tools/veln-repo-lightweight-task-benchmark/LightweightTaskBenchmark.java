@@ -129,10 +129,8 @@ public final class LightweightTaskBenchmark {
         CpuSaturationSample cpu = runCpuSaturation();
         System.err.println("workload: reclamation");
         ReclamationSample reclamation = runReclamation();
-        long functional = rendezvous.checksum ^ bounded.checksum ^ select.checksum
-            ^ loopback.checksum ^ cpu.checksum;
         System.out.println(toJson(parked, rendezvous, bounded, select, loopback,
-            cpu, reclamation, functional));
+            cpu, reclamation));
         System.err.println("workload: complete");
     }
 
@@ -140,8 +138,9 @@ public final class LightweightTaskBenchmark {
         List<ParkedSample> samples = new ArrayList<>();
         for (int population : PARKED_POPULATIONS) {
             beginParkedObservation(population);
-            CountDownLatch ready = new CountDownLatch(population);
-            CountDownLatch release = new CountDownLatch(1);
+            Object release = VelnRuntime.channelBounded(Long.valueOf(0L));
+            Object releaseTx = VelnRuntime.recordField(release, "tx");
+            Object releaseRx = VelnRuntime.recordField(release, "rx");
             ArrayList<Object> handles = new ArrayList<>(population);
             long started = System.nanoTime();
             String failure = null;
@@ -149,25 +148,27 @@ public final class LightweightTaskBenchmark {
             try {
                 for (int index = 0; index < population; index += 1) {
                     handles.add(VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
-                        ready.countDown();
-                        try {
-                            release.await();
-                        } catch (InterruptedException interrupted) {
-                            Thread.currentThread().interrupt();
-                        }
+                        VelnRuntime.channelRecv(releaseRx);
                         return Long.valueOf(1L);
                     }));
                 }
-                if (!ready.await(30, TimeUnit.SECONDS)) {
-                    failure = "population did not become ready";
+                if (!awaitChannelReceivers(
+                    releaseRx,
+                    population,
+                    30L,
+                    TimeUnit.SECONDS
+                )) {
+                    failure = "population did not reach the channel receive boundary";
                 }
             } catch (Throwable resourceFailure) {
                 failure = resourceFailure.getClass().getName() + ": "
                     + String.valueOf(resourceFailure.getMessage());
             }
             long created = System.nanoTime();
-            finishParkedObservation(population);
-            release.countDown();
+            if (failure == null) {
+                finishParkedObservation(population);
+                VelnRuntime.channelClose(releaseTx);
+            }
             VelnRuntime.finishTaskLifetime(failure == null);
             long completed = System.nanoTime();
             boolean allJoined = failure == null;
@@ -181,6 +182,31 @@ public final class LightweightTaskBenchmark {
             if (!allJoined) break;
         }
         return samples;
+    }
+
+    private static boolean awaitChannelReceivers(
+        Object receiver,
+        long expected,
+        long timeout,
+        TimeUnit unit
+    ) throws Exception {
+        java.lang.reflect.Field channelField = receiver.getClass().getDeclaredField("channel");
+        channelField.setAccessible(true);
+        Object channel = channelField.get(receiver);
+        java.lang.reflect.Field waitingField = channel.getClass().getDeclaredField("waitingReceivers");
+        waitingField.setAccessible(true);
+        long deadline = System.nanoTime() + unit.toNanos(timeout);
+        while (System.nanoTime() < deadline) {
+            synchronized (channel) {
+                if (waitingField.getLong(channel) == expected) {
+                    return true;
+                }
+            }
+            Thread.yield();
+        }
+        synchronized (channel) {
+            return waitingField.getLong(channel) == expected;
+        }
     }
 
     private static void beginParkedObservation(int population) {
@@ -472,8 +498,8 @@ public final class LightweightTaskBenchmark {
 
     private static String toJson(List<ParkedSample> parked, TimedWorkload rendezvous,
             TimedWorkload bounded, SelectSample select, LoopbackSample loopback,
-            CpuSaturationSample cpu, ReclamationSample reclamation, long functional) {
-        StringBuilder json = new StringBuilder("{\"schema_version\":1,\"workload\":{");
+            CpuSaturationSample cpu, ReclamationSample reclamation) {
+        StringBuilder json = new StringBuilder("{\"schema_version\":2,\"workload\":{");
         json.append("\"parked\":[");
         for (int index = 0; index < parked.size(); index += 1) {
             if (index > 0) json.append(',');
@@ -500,7 +526,25 @@ public final class LightweightTaskBenchmark {
             .append(Arrays.toString(reclamation.liveHeapBytes))
             .append(",\"completed_registrations\":").append(reclamation.completedRegistrations)
             .append(",\"retained_owners\":").append(reclamation.retainedOwners).append("}},")
-            .append("\"functional_result\":").append(functional).append('}');
+            .append("\"functional_outcomes\":{")
+            .append("\"parked\":{\"completed_populations\":[");
+        boolean firstCompleted = true;
+        for (ParkedSample sample : parked) {
+            if (!sample.completed) continue;
+            if (!firstCompleted) json.append(',');
+            json.append(sample.population);
+            firstCompleted = false;
+        }
+        json.append("]},\"rendezvous_channel\":{\"checksum\":")
+            .append(rendezvous.checksum)
+            .append("},\"bounded_channel\":{\"checksum\":").append(bounded.checksum)
+            .append("},\"select\":{\"checksum\":").append(select.checksum)
+            .append("},\"loopback\":{\"checksum\":").append(loopback.checksum)
+            .append("},\"cpu_saturation\":{\"checksum\":").append(cpu.checksum)
+            .append("},\"reclamation\":{\"completed_registrations\":")
+            .append(reclamation.completedRegistrations)
+            .append(",\"retained_owners\":").append(reclamation.retainedOwners)
+            .append("}}}");
         return json.toString();
     }
 

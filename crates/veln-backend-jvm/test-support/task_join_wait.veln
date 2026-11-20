@@ -1,0 +1,8 @@
+use host_effects from "std"
+
+handler signal_task_join_wait(waiting: Sender<()>) for host_effects::TaskJoin effects [concurrency]
+	waiting() => begin
+		let _ = channel::send(waiting, ())
+		()
+	end
+end

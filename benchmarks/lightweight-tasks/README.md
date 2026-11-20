@@ -32,4 +32,6 @@ bash scripts/benchmark-lightweight-tasks --check \
 Validation rebuilds the current generated JVM runtime, derives the controlled
 platform-worker baseline, and verifies both source digests. It also recomputes
 all summaries and adoption gates from the stored raw samples before accepting
-the artifact.
+the artifact. A checked artifact with a reproduced failed adoption verdict
+returns a nonzero status and names the failed gates; this preserves measured
+blocking evidence without presenting it as adoption success.

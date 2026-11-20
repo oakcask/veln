@@ -1394,6 +1394,37 @@ fn jvm_runtime_concurrent_cancellation_preserves_cleanup_before_join_when_java_i
 }
 
 #[test]
+fn jvm_runtime_cancellation_during_join_preserves_target_and_waiter_cleanup_when_java_is_available()
+{
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = super::effect_injection::lower_with_host_effects(format!(
+        "{}\n{}",
+        include_str!("../../test-support/task_join_wait.veln"),
+        include_str!("../../test-support/cancellation_during_join.veln")
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-cancellation-during-join",
+        "CancellationDuringJoinHarness.java",
+        include_str!("../../test-support/CancellationDuringJoinHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "join waiter cancelled after cleanup; target released and drained\n"
+    );
+}
+
+#[test]
 fn jvm_runtime_cleanup_diagnostics_aggregate_nested_failures_linearly_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "benchmark": "veln-jvm-lightweight-task-adoption",
   "constraints": {
     "process_tree_memory_mib": 4096,
@@ -16,7 +16,7 @@
     "available_parallelism": 16
   },
   "identity": {
-    "harness_sha256": "27cbd068a1da3e5d89dd59f15083a80227f959a16e7f9cfd80fea0ceaee83138",
+    "harness_sha256": "779019fde7c3c9a22d222dc70946ab791d1e479bac1242b944990759a800197f",
     "platform_runtime_source_sha256": "0efcee5c0b5b585e45f62a7e03cee7ddbdf6d39cb9a54288df1c6f12c8c9ec7a",
     "virtual_runtime_source_sha256": "8f4fd44fdfb67863d8ab5feb94aa5cb0eee5ecfea568313e584955d3e23c5dae",
     "baseline_difference": "return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task));",
@@ -67,108 +67,136 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 30.289762838,
-      "peak_rss_kb": 538388,
+      "duration_seconds": 30.968460505,
+      "peak_rss_kb": 484368,
       "peak_os_threads": 16397,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 73556,
+          "peak_rss_kb": 74244,
           "peak_os_threads": 269
         },
         {
           "population": 1024,
-          "peak_rss_kb": 115372,
+          "peak_rss_kb": 111488,
           "peak_os_threads": 1037
         },
         {
           "population": 4096,
-          "peak_rss_kb": 159560,
+          "peak_rss_kb": 166080,
           "peak_os_threads": 4109
         },
         {
           "population": 16384,
-          "peak_rss_kb": 462456,
+          "peak_rss_kb": 469932,
           "peak_os_threads": 16397
         }
       ],
       "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
       "result": {
-        "schema_version": 1,
+        "schema_version": 2,
         "workload": {
           "parked": [
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 55939310,
-              "complete_nanos": 11280453,
+              "create_nanos": 49413312,
+              "complete_nanos": 10310574,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 132776954,
-              "complete_nanos": 38177346,
+              "create_nanos": 143368814,
+              "complete_nanos": 39502762,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 566946852,
-              "complete_nanos": 136514226,
+              "create_nanos": 721280943,
+              "complete_nanos": 149470674,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 3031230120,
-              "complete_nanos": 855846413,
+              "create_nanos": 3745030453,
+              "complete_nanos": 728380709,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 2000.0499936812935,
-            "latency_p95_nanos": 86107
+            "throughput_per_second": 2000.068294080008,
+            "latency_p95_nanos": 91910
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.0504031256742,
-            "latency_p95_nanos": 62156
+            "throughput_per_second": 2000.0792226204094,
+            "latency_p95_nanos": 58332
           },
           "select": {
-            "latency_p95_nanos": 1069837,
-            "idle_cpu_nanos": 10000000,
-            "wakeups": 243
+            "latency_p95_nanos": 1066322,
+            "idle_cpu_nanos": 20000000,
+            "wakeups": 244
           },
           "loopback": {
-            "throughput_per_second": 250.18520668457148,
-            "latency_p95_nanos": 520591,
+            "throughput_per_second": 250.19892524901513,
+            "latency_p95_nanos": 510142,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 639.5707520897349,
-            "latency_p95_nanos": 322824,
-            "cancellation_latency_nanos": 254959,
+            "throughput_per_second": 639.7038299208233,
+            "latency_p95_nanos": 315819,
+            "cancellation_latency_nanos": 137300,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              2650176,
-              2635344,
-              2635400,
-              2635408,
-              2635464,
-              2424232,
-              2191104,
-              2020408,
-              2016040,
-              2016048
+              2585136,
+              2570304,
+              2570360,
+              2386160,
+              2181392,
+              2027552,
+              2027848,
+              2027616,
+              2027672,
+              2027680
             ],
             "completed_registrations": 0,
             "retained_owners": 0
           }
         },
-        "functional_result": 563712
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
       }
     },
     {
@@ -177,108 +205,136 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 24.164375712,
-      "peak_rss_kb": 171328,
-      "peak_os_threads": 18,
+      "duration_seconds": 26.289195161,
+      "peak_rss_kb": 164624,
+      "peak_os_threads": 19,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 48296,
+          "peak_rss_kb": 56404,
           "peak_os_threads": 16
         },
         {
           "population": 1024,
-          "peak_rss_kb": 52712,
+          "peak_rss_kb": 60076,
           "peak_os_threads": 16
         },
         {
           "population": 4096,
-          "peak_rss_kb": 68712,
+          "peak_rss_kb": 72252,
           "peak_os_threads": 16
         },
         {
           "population": 16384,
-          "peak_rss_kb": 120524,
+          "peak_rss_kb": 115832,
           "peak_os_threads": 16
         }
       ],
       "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
       "result": {
-        "schema_version": 1,
+        "schema_version": 2,
         "workload": {
           "parked": [
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 31003394,
-              "complete_nanos": 7056682,
+              "create_nanos": 41099344,
+              "complete_nanos": 14550132,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 6242360,
-              "complete_nanos": 7162448,
+              "create_nanos": 77256184,
+              "complete_nanos": 30634265,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 7903908,
-              "complete_nanos": 12051959,
+              "create_nanos": 197796954,
+              "complete_nanos": 92709485,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 20684684,
-              "complete_nanos": 23193448,
+              "create_nanos": 1414274120,
+              "complete_nanos": 347080115,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 2000.0475607012957,
-            "latency_p95_nanos": 140823
+            "throughput_per_second": 2000.0482033101891,
+            "latency_p95_nanos": 139862
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.0653136563046,
-            "latency_p95_nanos": 111323
+            "throughput_per_second": 2000.0709781047938,
+            "latency_p95_nanos": 111317
           },
           "select": {
-            "latency_p95_nanos": 1115306,
-            "idle_cpu_nanos": 40000000,
-            "wakeups": 235
+            "latency_p95_nanos": 1142655,
+            "idle_cpu_nanos": 80000000,
+            "wakeups": 233
           },
           "loopback": {
-            "throughput_per_second": 250.17193163725182,
-            "latency_p95_nanos": 459800,
+            "throughput_per_second": 250.19354883757757,
+            "latency_p95_nanos": 421970,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 319.83385111185515,
-            "latency_p95_nanos": 199257151,
-            "cancellation_latency_nanos": 199877599,
+            "throughput_per_second": 319.820593439904,
+            "latency_p95_nanos": 199436866,
+            "cancellation_latency_nanos": 199926969,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              3894160,
-              3877864,
-              3880296,
-              3880496,
-              3880552,
-              3882936,
-              3883184,
-              3883000,
-              3883056,
-              3882872
+              4057744,
+              4044744,
+              4044800,
+              4044808,
+              4049168,
+              4046920,
+              4046976,
+              4046984,
+              4047232,
+              4047048
             ],
             "completed_registrations": 0,
             "retained_owners": 0
           }
         },
-        "functional_result": 563712
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
       }
     },
     {
@@ -287,988 +343,1240 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 24.13358408,
-      "peak_rss_kb": 171168,
+      "duration_seconds": 26.059163676,
+      "peak_rss_kb": 165820,
       "peak_os_threads": 18,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 48336,
+          "peak_rss_kb": 55856,
           "peak_os_threads": 16
         },
         {
           "population": 1024,
-          "peak_rss_kb": 53436,
+          "peak_rss_kb": 59880,
           "peak_os_threads": 16
         },
         {
           "population": 4096,
-          "peak_rss_kb": 67876,
+          "peak_rss_kb": 73340,
           "peak_os_threads": 16
         },
         {
           "population": 16384,
-          "peak_rss_kb": 120796,
+          "peak_rss_kb": 116872,
           "peak_os_threads": 16
         }
       ],
       "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
       "result": {
-        "schema_version": 1,
+        "schema_version": 2,
         "workload": {
           "parked": [
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 22568912,
-              "complete_nanos": 5598276,
+              "create_nanos": 27381949,
+              "complete_nanos": 13610504,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 8736781,
-              "complete_nanos": 6764258,
+              "create_nanos": 65344186,
+              "complete_nanos": 28914783,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 6510657,
-              "complete_nanos": 11308788,
+              "create_nanos": 198642014,
+              "complete_nanos": 89856169,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 17219219,
-              "complete_nanos": 26549102,
+              "create_nanos": 1261366376,
+              "complete_nanos": 338141961,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 2000.059129189485,
-            "latency_p95_nanos": 147855
+            "throughput_per_second": 2000.0488425013596,
+            "latency_p95_nanos": 144325
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.073570088992,
-            "latency_p95_nanos": 111078
+            "throughput_per_second": 2000.075704037317,
+            "latency_p95_nanos": 111448
           },
           "select": {
-            "latency_p95_nanos": 1123608,
-            "idle_cpu_nanos": 70000000,
-            "wakeups": 236
-          },
-          "loopback": {
-            "throughput_per_second": 250.18846912384817,
-            "latency_p95_nanos": 430835,
-            "descriptor_growth": 0,
-            "selector_operations": 4096
-          },
-          "cpu_saturation": {
-            "throughput_per_second": 319.8275649683473,
-            "latency_p95_nanos": 199425874,
-            "cancellation_latency_nanos": 199951995,
-            "cancellation_observed": true
-          },
-          "reclamation": {
-            "live_heap_bytes": [
-              3890000,
-              3875944,
-              3878376,
-              3878384,
-              3878440,
-              3878640,
-              3882808,
-              3880560,
-              3884728,
-              3882672
-            ],
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        },
-        "functional_result": 563712
-      }
-    },
-    {
-      "variant": "platform",
-      "run": 2,
-      "status": "passed",
-      "exit_code": 0,
-      "signal": null,
-      "duration_seconds": 30.575413776,
-      "peak_rss_kb": 538644,
-      "peak_os_threads": 16397,
-      "population_observations": [
-        {
-          "population": 256,
-          "peak_rss_kb": 73656,
-          "peak_os_threads": 269
-        },
-        {
-          "population": 1024,
-          "peak_rss_kb": 115336,
-          "peak_os_threads": 1037
-        },
-        {
-          "population": 4096,
-          "peak_rss_kb": 159968,
-          "peak_os_threads": 4109
-        },
-        {
-          "population": 16384,
-          "peak_rss_kb": 461832,
-          "peak_os_threads": 16397
-        }
-      ],
-      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
-      "result": {
-        "schema_version": 1,
-        "workload": {
-          "parked": [
-            {
-              "population": 256,
-              "completed": true,
-              "create_nanos": 60245729,
-              "complete_nanos": 11507925,
-              "failure": null
-            },
-            {
-              "population": 1024,
-              "completed": true,
-              "create_nanos": 133326026,
-              "complete_nanos": 37937286,
-              "failure": null
-            },
-            {
-              "population": 4096,
-              "completed": true,
-              "create_nanos": 576311215,
-              "complete_nanos": 136312321,
-              "failure": null
-            },
-            {
-              "population": 16384,
-              "completed": true,
-              "create_nanos": 3092639439,
-              "complete_nanos": 868090361,
-              "failure": null
-            }
-          ],
-          "rendezvous_channel": {
-            "throughput_per_second": 1999.4300777351896,
-            "latency_p95_nanos": 82168
-          },
-          "bounded_channel": {
-            "throughput_per_second": 2000.0772410200818,
-            "latency_p95_nanos": 57576
-          },
-          "select": {
-            "latency_p95_nanos": 1066726,
-            "idle_cpu_nanos": 10000000,
-            "wakeups": 244
-          },
-          "loopback": {
-            "throughput_per_second": 250.18663043067755,
-            "latency_p95_nanos": 476431,
-            "descriptor_growth": 0,
-            "selector_operations": 4096
-          },
-          "cpu_saturation": {
-            "throughput_per_second": 640.0324592461707,
-            "latency_p95_nanos": 317045,
-            "cancellation_latency_nanos": 205135,
-            "cancellation_observed": true
-          },
-          "reclamation": {
-            "live_heap_bytes": [
-              2632504,
-              2617480,
-              2618824,
-              2617544,
-              2413024,
-              2186192,
-              2017880,
-              2015840,
-              2016136,
-              2015904
-            ],
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        },
-        "functional_result": 563712
-      }
-    },
-    {
-      "variant": "platform",
-      "run": 3,
-      "status": "passed",
-      "exit_code": 0,
-      "signal": null,
-      "duration_seconds": 30.600286416,
-      "peak_rss_kb": 537784,
-      "peak_os_threads": 16397,
-      "population_observations": [
-        {
-          "population": 256,
-          "peak_rss_kb": 73556,
-          "peak_os_threads": 269
-        },
-        {
-          "population": 1024,
-          "peak_rss_kb": 115392,
-          "peak_os_threads": 1037
-        },
-        {
-          "population": 4096,
-          "peak_rss_kb": 159760,
-          "peak_os_threads": 4109
-        },
-        {
-          "population": 16384,
-          "peak_rss_kb": 459576,
-          "peak_os_threads": 16397
-        }
-      ],
-      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
-      "result": {
-        "schema_version": 1,
-        "workload": {
-          "parked": [
-            {
-              "population": 256,
-              "completed": true,
-              "create_nanos": 54631738,
-              "complete_nanos": 11051205,
-              "failure": null
-            },
-            {
-              "population": 1024,
-              "completed": true,
-              "create_nanos": 130482924,
-              "complete_nanos": 38279779,
-              "failure": null
-            },
-            {
-              "population": 4096,
-              "completed": true,
-              "create_nanos": 559130439,
-              "complete_nanos": 136044424,
-              "failure": null
-            },
-            {
-              "population": 16384,
-              "completed": true,
-              "create_nanos": 3087026955,
-              "complete_nanos": 992539818,
-              "failure": null
-            }
-          ],
-          "rendezvous_channel": {
-            "throughput_per_second": 2000.0739272930682,
-            "latency_p95_nanos": 87318
-          },
-          "bounded_channel": {
-            "throughput_per_second": 2000.0770259156004,
-            "latency_p95_nanos": 58368
-          },
-          "select": {
-            "latency_p95_nanos": 1057275,
-            "idle_cpu_nanos": 10000000,
-            "wakeups": 244
-          },
-          "loopback": {
-            "throughput_per_second": 250.18296651168401,
-            "latency_p95_nanos": 497532,
-            "descriptor_growth": 0,
-            "selector_operations": 4096
-          },
-          "cpu_saturation": {
-            "throughput_per_second": 640.2238158437808,
-            "latency_p95_nanos": 305931,
-            "cancellation_latency_nanos": 200476,
-            "cancellation_observed": true
-          },
-          "reclamation": {
-            "live_heap_bytes": [
-              2648080,
-              2633248,
-              2633304,
-              2633312,
-              2633368,
-              2421448,
-              2128600,
-              2015888,
-              2015944,
-              2015952
-            ],
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        },
-        "functional_result": 563712
-      }
-    },
-    {
-      "variant": "virtual",
-      "run": 3,
-      "status": "passed",
-      "exit_code": 0,
-      "signal": null,
-      "duration_seconds": 24.131820434,
-      "peak_rss_kb": 168828,
-      "peak_os_threads": 19,
-      "population_observations": [
-        {
-          "population": 256,
-          "peak_rss_kb": 48280,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 1024,
-          "peak_rss_kb": 52672,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 4096,
-          "peak_rss_kb": 67580,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 16384,
-          "peak_rss_kb": 120596,
-          "peak_os_threads": 16
-        }
-      ],
-      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
-      "result": {
-        "schema_version": 1,
-        "workload": {
-          "parked": [
-            {
-              "population": 256,
-              "completed": true,
-              "create_nanos": 22276981,
-              "complete_nanos": 6156510,
-              "failure": null
-            },
-            {
-              "population": 1024,
-              "completed": true,
-              "create_nanos": 6579337,
-              "complete_nanos": 6400566,
-              "failure": null
-            },
-            {
-              "population": 4096,
-              "completed": true,
-              "create_nanos": 9049171,
-              "complete_nanos": 12929630,
-              "failure": null
-            },
-            {
-              "population": 16384,
-              "completed": true,
-              "create_nanos": 20329256,
-              "complete_nanos": 24573997,
-              "failure": null
-            }
-          ],
-          "rendezvous_channel": {
-            "throughput_per_second": 2000.0572428492626,
-            "latency_p95_nanos": 141333
-          },
-          "bounded_channel": {
-            "throughput_per_second": 2000.0724296248834,
-            "latency_p95_nanos": 109488
-          },
-          "select": {
-            "latency_p95_nanos": 1100982,
-            "idle_cpu_nanos": 70000000,
-            "wakeups": 235
-          },
-          "loopback": {
-            "throughput_per_second": 250.18234707725034,
-            "latency_p95_nanos": 435350,
-            "descriptor_growth": 0,
-            "selector_operations": 4096
-          },
-          "cpu_saturation": {
-            "throughput_per_second": 319.79916852066276,
-            "latency_p95_nanos": 199052172,
-            "cancellation_latency_nanos": 199986910,
-            "cancellation_observed": true
-          },
-          "reclamation": {
-            "live_heap_bytes": [
-              3904392,
-              3888288,
-              3888344,
-              3888544,
-              3888600,
-              3888416,
-              3888472,
-              3888672,
-              3888728,
-              3888544
-            ],
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        },
-        "functional_result": 563712
-      }
-    },
-    {
-      "variant": "virtual",
-      "run": 4,
-      "status": "passed",
-      "exit_code": 0,
-      "signal": null,
-      "duration_seconds": 24.130265593,
-      "peak_rss_kb": 171688,
-      "peak_os_threads": 19,
-      "population_observations": [
-        {
-          "population": 256,
-          "peak_rss_kb": 48372,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 1024,
-          "peak_rss_kb": 52820,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 4096,
-          "peak_rss_kb": 68524,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 16384,
-          "peak_rss_kb": 121616,
-          "peak_os_threads": 16
-        }
-      ],
-      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
-      "result": {
-        "schema_version": 1,
-        "workload": {
-          "parked": [
-            {
-              "population": 256,
-              "completed": true,
-              "create_nanos": 23133091,
-              "complete_nanos": 5634345,
-              "failure": null
-            },
-            {
-              "population": 1024,
-              "completed": true,
-              "create_nanos": 6556336,
-              "complete_nanos": 6035544,
-              "failure": null
-            },
-            {
-              "population": 4096,
-              "completed": true,
-              "create_nanos": 7583269,
-              "complete_nanos": 12456174,
-              "failure": null
-            },
-            {
-              "population": 16384,
-              "completed": true,
-              "create_nanos": 19506037,
-              "complete_nanos": 21635390,
-              "failure": null
-            }
-          ],
-          "rendezvous_channel": {
-            "throughput_per_second": 2000.0554815195255,
-            "latency_p95_nanos": 150001
-          },
-          "bounded_channel": {
-            "throughput_per_second": 2000.0687130540202,
-            "latency_p95_nanos": 109607
-          },
-          "select": {
-            "latency_p95_nanos": 1109687,
-            "idle_cpu_nanos": 70000000,
-            "wakeups": 235
-          },
-          "loopback": {
-            "throughput_per_second": 250.1864494357797,
-            "latency_p95_nanos": 417528,
-            "descriptor_growth": 0,
-            "selector_operations": 4096
-          },
-          "cpu_saturation": {
-            "throughput_per_second": 319.7684412820878,
-            "latency_p95_nanos": 199151633,
-            "cancellation_latency_nanos": 199933772,
-            "cancellation_observed": true
-          },
-          "reclamation": {
-            "live_heap_bytes": [
-              3883272,
-              3874296,
-              3874352,
-              3874360,
-              3874416,
-              3874424,
-              3874672,
-              3874488,
-              3874544,
-              3874744
-            ],
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        },
-        "functional_result": 563712
-      }
-    },
-    {
-      "variant": "platform",
-      "run": 4,
-      "status": "passed",
-      "exit_code": 0,
-      "signal": null,
-      "duration_seconds": 30.571898858,
-      "peak_rss_kb": 541112,
-      "peak_os_threads": 16395,
-      "population_observations": [
-        {
-          "population": 256,
-          "peak_rss_kb": 73568,
-          "peak_os_threads": 269
-        },
-        {
-          "population": 1024,
-          "peak_rss_kb": 115420,
-          "peak_os_threads": 1037
-        },
-        {
-          "population": 4096,
-          "peak_rss_kb": 159816,
-          "peak_os_threads": 4109
-        },
-        {
-          "population": 16384,
-          "peak_rss_kb": 465176,
-          "peak_os_threads": 16397
-        }
-      ],
-      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
-      "result": {
-        "schema_version": 1,
-        "workload": {
-          "parked": [
-            {
-              "population": 256,
-              "completed": true,
-              "create_nanos": 56497727,
-              "complete_nanos": 11171116,
-              "failure": null
-            },
-            {
-              "population": 1024,
-              "completed": true,
-              "create_nanos": 134784342,
-              "complete_nanos": 38589875,
-              "failure": null
-            },
-            {
-              "population": 4096,
-              "completed": true,
-              "create_nanos": 564983887,
-              "complete_nanos": 137267083,
-              "failure": null
-            },
-            {
-              "population": 16384,
-              "completed": true,
-              "create_nanos": 3112247955,
-              "complete_nanos": 816859219,
-              "failure": null
-            }
-          ],
-          "rendezvous_channel": {
-            "throughput_per_second": 2000.0578393191295,
-            "latency_p95_nanos": 83572
-          },
-          "bounded_channel": {
-            "throughput_per_second": 2000.077385074187,
-            "latency_p95_nanos": 58325
-          },
-          "select": {
-            "latency_p95_nanos": 1073578,
-            "idle_cpu_nanos": 10000000,
-            "wakeups": 244
-          },
-          "loopback": {
-            "throughput_per_second": 250.1840508655116,
-            "latency_p95_nanos": 506202,
-            "descriptor_growth": 0,
-            "selector_operations": 4096
-          },
-          "cpu_saturation": {
-            "throughput_per_second": 640.2047919098601,
-            "latency_p95_nanos": 303339,
-            "cancellation_latency_nanos": 193695,
-            "cancellation_observed": true
-          },
-          "reclamation": {
-            "live_heap_bytes": [
-              2653512,
-              2638680,
-              2638928,
-              2638744,
-              2638800,
-              2427984,
-              2193520,
-              2023664,
-              2016296,
-              2016112
-            ],
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        },
-        "functional_result": 563712
-      }
-    },
-    {
-      "variant": "platform",
-      "run": 5,
-      "status": "passed",
-      "exit_code": 0,
-      "signal": null,
-      "duration_seconds": 30.654205379,
-      "peak_rss_kb": 544124,
-      "peak_os_threads": 16397,
-      "population_observations": [
-        {
-          "population": 256,
-          "peak_rss_kb": 73504,
-          "peak_os_threads": 269
-        },
-        {
-          "population": 1024,
-          "peak_rss_kb": 115392,
-          "peak_os_threads": 1037
-        },
-        {
-          "population": 4096,
-          "peak_rss_kb": 159740,
-          "peak_os_threads": 4109
-        },
-        {
-          "population": 16384,
-          "peak_rss_kb": 464808,
-          "peak_os_threads": 16397
-        }
-      ],
-      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
-      "result": {
-        "schema_version": 1,
-        "workload": {
-          "parked": [
-            {
-              "population": 256,
-              "completed": true,
-              "create_nanos": 53499029,
-              "complete_nanos": 11019401,
-              "failure": null
-            },
-            {
-              "population": 1024,
-              "completed": true,
-              "create_nanos": 131283697,
-              "complete_nanos": 38231508,
-              "failure": null
-            },
-            {
-              "population": 4096,
-              "completed": true,
-              "create_nanos": 557981742,
-              "complete_nanos": 138806451,
-              "failure": null
-            },
-            {
-              "population": 16384,
-              "completed": true,
-              "create_nanos": 3171299103,
-              "complete_nanos": 915457428,
-              "failure": null
-            }
-          ],
-          "rendezvous_channel": {
-            "throughput_per_second": 1999.3843843738632,
-            "latency_p95_nanos": 84476
-          },
-          "bounded_channel": {
-            "throughput_per_second": 2000.0796625967664,
-            "latency_p95_nanos": 57536
-          },
-          "select": {
-            "latency_p95_nanos": 1098586,
-            "idle_cpu_nanos": 20000000,
-            "wakeups": 245
-          },
-          "loopback": {
-            "throughput_per_second": 250.17697950743607,
-            "latency_p95_nanos": 504749,
-            "descriptor_growth": 0,
-            "selector_operations": 4096
-          },
-          "cpu_saturation": {
-            "throughput_per_second": 639.7822341220607,
-            "latency_p95_nanos": 310839,
-            "cancellation_latency_nanos": 197543,
-            "cancellation_observed": true
-          },
-          "reclamation": {
-            "live_heap_bytes": [
-              2651136,
-              2636496,
-              2636552,
-              2636368,
-              2636424,
-              2425768,
-              2192096,
-              2023896,
-              2017384,
-              2016048
-            ],
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        },
-        "functional_result": 563712
-      }
-    },
-    {
-      "variant": "virtual",
-      "run": 5,
-      "status": "passed",
-      "exit_code": 0,
-      "signal": null,
-      "duration_seconds": 24.132527519,
-      "peak_rss_kb": 164172,
-      "peak_os_threads": 19,
-      "population_observations": [
-        {
-          "population": 256,
-          "peak_rss_kb": 48284,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 1024,
-          "peak_rss_kb": 52796,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 4096,
-          "peak_rss_kb": 66824,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 16384,
-          "peak_rss_kb": 112888,
-          "peak_os_threads": 16
-        }
-      ],
-      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
-      "result": {
-        "schema_version": 1,
-        "workload": {
-          "parked": [
-            {
-              "population": 256,
-              "completed": true,
-              "create_nanos": 30110168,
-              "complete_nanos": 6480028,
-              "failure": null
-            },
-            {
-              "population": 1024,
-              "completed": true,
-              "create_nanos": 8773914,
-              "complete_nanos": 7510922,
-              "failure": null
-            },
-            {
-              "population": 4096,
-              "completed": true,
-              "create_nanos": 7569468,
-              "complete_nanos": 12266251,
-              "failure": null
-            },
-            {
-              "population": 16384,
-              "completed": true,
-              "create_nanos": 19436565,
-              "complete_nanos": 17800299,
-              "failure": null
-            }
-          ],
-          "rendezvous_channel": {
-            "throughput_per_second": 2000.0428065802446,
-            "latency_p95_nanos": 144084
-          },
-          "bounded_channel": {
-            "throughput_per_second": 2000.0723956868792,
-            "latency_p95_nanos": 113859
-          },
-          "select": {
-            "latency_p95_nanos": 1050652,
-            "idle_cpu_nanos": 90000000,
-            "wakeups": 234
-          },
-          "loopback": {
-            "throughput_per_second": 250.18479427067498,
-            "latency_p95_nanos": 437892,
-            "descriptor_growth": 0,
-            "selector_operations": 4096
-          },
-          "cpu_saturation": {
-            "throughput_per_second": 319.82930390221435,
-            "latency_p95_nanos": 199330601,
-            "cancellation_latency_nanos": 199982272,
-            "cancellation_observed": true
-          },
-          "reclamation": {
-            "live_heap_bytes": [
-              3915544,
-              3899632,
-              3899880,
-              3899504,
-              3899560,
-              3899568,
-              3899624,
-              3899824,
-              3899880,
-              3899888
-            ],
-            "completed_registrations": 0,
-            "retained_owners": 0
-          }
-        },
-        "functional_result": 563712
-      }
-    },
-    {
-      "variant": "virtual",
-      "run": 6,
-      "status": "passed",
-      "exit_code": 0,
-      "signal": null,
-      "duration_seconds": 24.129101626,
-      "peak_rss_kb": 170592,
-      "peak_os_threads": 18,
-      "population_observations": [
-        {
-          "population": 256,
-          "peak_rss_kb": 48288,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 1024,
-          "peak_rss_kb": 53520,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 4096,
-          "peak_rss_kb": 68080,
-          "peak_os_threads": 16
-        },
-        {
-          "population": 16384,
-          "peak_rss_kb": 120892,
-          "peak_os_threads": 16
-        }
-      ],
-      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
-      "result": {
-        "schema_version": 1,
-        "workload": {
-          "parked": [
-            {
-              "population": 256,
-              "completed": true,
-              "create_nanos": 22516985,
-              "complete_nanos": 6011239,
-              "failure": null
-            },
-            {
-              "population": 1024,
-              "completed": true,
-              "create_nanos": 8693833,
-              "complete_nanos": 7091164,
-              "failure": null
-            },
-            {
-              "population": 4096,
-              "completed": true,
-              "create_nanos": 6216693,
-              "complete_nanos": 11715241,
-              "failure": null
-            },
-            {
-              "population": 16384,
-              "completed": true,
-              "create_nanos": 19971457,
-              "complete_nanos": 20604898,
-              "failure": null
-            }
-          ],
-          "rendezvous_channel": {
-            "throughput_per_second": 2000.0616430131531,
-            "latency_p95_nanos": 144584
-          },
-          "bounded_channel": {
-            "throughput_per_second": 2000.0761068999261,
-            "latency_p95_nanos": 110278
-          },
-          "select": {
-            "latency_p95_nanos": 1107168,
+            "latency_p95_nanos": 1106575,
             "idle_cpu_nanos": 80000000,
             "wakeups": 235
           },
           "loopback": {
-            "throughput_per_second": 250.18931249890238,
-            "latency_p95_nanos": 421072,
+            "throughput_per_second": 250.19365660928352,
+            "latency_p95_nanos": 452740,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 319.7561763228685,
-            "latency_p95_nanos": 199378772,
-            "cancellation_latency_nanos": 199930114,
+            "throughput_per_second": 319.75830189416,
+            "latency_p95_nanos": 199277248,
+            "cancellation_latency_nanos": 199979674,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              3893480,
-              3879752,
-              3880000,
-              3879816,
-              3879872,
-              3882256,
-              3882504,
-              3882512,
-              3882568,
-              3882384
+              4060344,
+              4044048,
+              4044104,
+              4044112,
+              4044168,
+              4044368,
+              4044616,
+              4044240,
+              4046456,
+              4044304
             ],
             "completed_registrations": 0,
             "retained_owners": 0
           }
         },
-        "functional_result": 563712
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "platform",
+      "run": 2,
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_seconds": 31.155505712,
+      "peak_rss_kb": 484700,
+      "peak_os_threads": 16397,
+      "population_observations": [
+        {
+          "population": 256,
+          "peak_rss_kb": 74276,
+          "peak_os_threads": 269
+        },
+        {
+          "population": 1024,
+          "peak_rss_kb": 111688,
+          "peak_os_threads": 1037
+        },
+        {
+          "population": 4096,
+          "peak_rss_kb": 165736,
+          "peak_os_threads": 4109
+        },
+        {
+          "population": 16384,
+          "peak_rss_kb": 470248,
+          "peak_os_threads": 16397
+        }
+      ],
+      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
+      "result": {
+        "schema_version": 2,
+        "workload": {
+          "parked": [
+            {
+              "population": 256,
+              "completed": true,
+              "create_nanos": 50133281,
+              "complete_nanos": 10487515,
+              "failure": null
+            },
+            {
+              "population": 1024,
+              "completed": true,
+              "create_nanos": 171156457,
+              "complete_nanos": 39351366,
+              "failure": null
+            },
+            {
+              "population": 4096,
+              "completed": true,
+              "create_nanos": 731644051,
+              "complete_nanos": 146593706,
+              "failure": null
+            },
+            {
+              "population": 16384,
+              "completed": true,
+              "create_nanos": 3788059716,
+              "complete_nanos": 705286335,
+              "failure": null
+            }
+          ],
+          "rendezvous_channel": {
+            "throughput_per_second": 2000.071293312762,
+            "latency_p95_nanos": 82982
+          },
+          "bounded_channel": {
+            "throughput_per_second": 2000.0755223829574,
+            "latency_p95_nanos": 57151
+          },
+          "select": {
+            "latency_p95_nanos": 1057663,
+            "idle_cpu_nanos": 20000000,
+            "wakeups": 245
+          },
+          "loopback": {
+            "throughput_per_second": 250.1940167251695,
+            "latency_p95_nanos": 513865,
+            "descriptor_growth": 0,
+            "selector_operations": 4096
+          },
+          "cpu_saturation": {
+            "throughput_per_second": 640.0481252185352,
+            "latency_p95_nanos": 284748,
+            "cancellation_latency_nanos": 135964,
+            "cancellation_observed": true
+          },
+          "reclamation": {
+            "live_heap_bytes": [
+              2585288,
+              2570456,
+              2570512,
+              2386120,
+              2181800,
+              2028144,
+              2027752,
+              2027760,
+              2028056,
+              2027824
+            ],
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        },
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "platform",
+      "run": 3,
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_seconds": 31.134409272,
+      "peak_rss_kb": 484484,
+      "peak_os_threads": 16397,
+      "population_observations": [
+        {
+          "population": 256,
+          "peak_rss_kb": 74124,
+          "peak_os_threads": 269
+        },
+        {
+          "population": 1024,
+          "peak_rss_kb": 111888,
+          "peak_os_threads": 1037
+        },
+        {
+          "population": 4096,
+          "peak_rss_kb": 165916,
+          "peak_os_threads": 4109
+        },
+        {
+          "population": 16384,
+          "peak_rss_kb": 470560,
+          "peak_os_threads": 16397
+        }
+      ],
+      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
+      "result": {
+        "schema_version": 2,
+        "workload": {
+          "parked": [
+            {
+              "population": 256,
+              "completed": true,
+              "create_nanos": 49477448,
+              "complete_nanos": 10119961,
+              "failure": null
+            },
+            {
+              "population": 1024,
+              "completed": true,
+              "create_nanos": 165530205,
+              "complete_nanos": 38879902,
+              "failure": null
+            },
+            {
+              "population": 4096,
+              "completed": true,
+              "create_nanos": 730009840,
+              "complete_nanos": 148041450,
+              "failure": null
+            },
+            {
+              "population": 16384,
+              "completed": true,
+              "create_nanos": 3795966185,
+              "complete_nanos": 747716992,
+              "failure": null
+            }
+          ],
+          "rendezvous_channel": {
+            "throughput_per_second": 2000.0474361836627,
+            "latency_p95_nanos": 83880
+          },
+          "bounded_channel": {
+            "throughput_per_second": 2000.081142207911,
+            "latency_p95_nanos": 56932
+          },
+          "select": {
+            "latency_p95_nanos": 1080880,
+            "idle_cpu_nanos": 20000000,
+            "wakeups": 244
+          },
+          "loopback": {
+            "throughput_per_second": 250.18291700082608,
+            "latency_p95_nanos": 497848,
+            "descriptor_growth": 0,
+            "selector_operations": 4096
+          },
+          "cpu_saturation": {
+            "throughput_per_second": 640.243013839548,
+            "latency_p95_nanos": 303748,
+            "cancellation_latency_nanos": 145590,
+            "cancellation_observed": true
+          },
+          "reclamation": {
+            "live_heap_bytes": [
+              2585224,
+              2570392,
+              2571016,
+              2386248,
+              2181472,
+              2027928,
+              2027920,
+              2027688,
+              2027984,
+              2027752
+            ],
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        },
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "virtual",
+      "run": 3,
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_seconds": 26.084517295,
+      "peak_rss_kb": 167884,
+      "peak_os_threads": 19,
+      "population_observations": [
+        {
+          "population": 256,
+          "peak_rss_kb": 50640,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 1024,
+          "peak_rss_kb": 59824,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 4096,
+          "peak_rss_kb": 73232,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 16384,
+          "peak_rss_kb": 117224,
+          "peak_os_threads": 16
+        }
+      ],
+      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
+      "result": {
+        "schema_version": 2,
+        "workload": {
+          "parked": [
+            {
+              "population": 256,
+              "completed": true,
+              "create_nanos": 14119302,
+              "complete_nanos": 13162960,
+              "failure": null
+            },
+            {
+              "population": 1024,
+              "completed": true,
+              "create_nanos": 58310264,
+              "complete_nanos": 31121277,
+              "failure": null
+            },
+            {
+              "population": 4096,
+              "completed": true,
+              "create_nanos": 185350993,
+              "complete_nanos": 81470770,
+              "failure": null
+            },
+            {
+              "population": 16384,
+              "completed": true,
+              "create_nanos": 1328822498,
+              "complete_nanos": 341857120,
+              "failure": null
+            }
+          ],
+          "rendezvous_channel": {
+            "throughput_per_second": 2000.0492978459683,
+            "latency_p95_nanos": 140832
+          },
+          "bounded_channel": {
+            "throughput_per_second": 2000.0702771275537,
+            "latency_p95_nanos": 109649
+          },
+          "select": {
+            "latency_p95_nanos": 1107153,
+            "idle_cpu_nanos": 70000000,
+            "wakeups": 235
+          },
+          "loopback": {
+            "throughput_per_second": 250.1839352169555,
+            "latency_p95_nanos": 430904,
+            "descriptor_growth": 0,
+            "selector_operations": 4096
+          },
+          "cpu_saturation": {
+            "throughput_per_second": 319.8993220851017,
+            "latency_p95_nanos": 199107290,
+            "cancellation_latency_nanos": 199913263,
+            "cancellation_observed": true
+          },
+          "reclamation": {
+            "live_heap_bytes": [
+              4032328,
+              4021184,
+              4021240,
+              4021248,
+              4021496,
+              4021504,
+              4021560,
+              4021376,
+              4024552,
+              4021440
+            ],
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        },
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "virtual",
+      "run": 4,
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_seconds": 26.066151123,
+      "peak_rss_kb": 166492,
+      "peak_os_threads": 18,
+      "population_observations": [
+        {
+          "population": 256,
+          "peak_rss_kb": 55948,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 1024,
+          "peak_rss_kb": 59864,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 4096,
+          "peak_rss_kb": 71984,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 16384,
+          "peak_rss_kb": 116844,
+          "peak_os_threads": 16
+        }
+      ],
+      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
+      "result": {
+        "schema_version": 2,
+        "workload": {
+          "parked": [
+            {
+              "population": 256,
+              "completed": true,
+              "create_nanos": 27071519,
+              "complete_nanos": 13366233,
+              "failure": null
+            },
+            {
+              "population": 1024,
+              "completed": true,
+              "create_nanos": 55020376,
+              "complete_nanos": 29801285,
+              "failure": null
+            },
+            {
+              "population": 4096,
+              "completed": true,
+              "create_nanos": 191328654,
+              "complete_nanos": 82670695,
+              "failure": null
+            },
+            {
+              "population": 16384,
+              "completed": true,
+              "create_nanos": 1291141218,
+              "complete_nanos": 340651841,
+              "failure": null
+            }
+          ],
+          "rendezvous_channel": {
+            "throughput_per_second": 2000.04973341441,
+            "latency_p95_nanos": 140258
+          },
+          "bounded_channel": {
+            "throughput_per_second": 2000.072474305855,
+            "latency_p95_nanos": 115419
+          },
+          "select": {
+            "latency_p95_nanos": 1097641,
+            "idle_cpu_nanos": 60000000,
+            "wakeups": 234
+          },
+          "loopback": {
+            "throughput_per_second": 250.19320321073633,
+            "latency_p95_nanos": 398552,
+            "descriptor_growth": 0,
+            "selector_operations": 4096
+          },
+          "cpu_saturation": {
+            "throughput_per_second": 319.8108342900987,
+            "latency_p95_nanos": 199174818,
+            "cancellation_latency_nanos": 199975823,
+            "cancellation_observed": true
+          },
+          "reclamation": {
+            "live_heap_bytes": [
+              4060728,
+              4044432,
+              4044680,
+              4044496,
+              4044552,
+              4044752,
+              4045000,
+              4044624,
+              4044680,
+              4044688
+            ],
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        },
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "platform",
+      "run": 4,
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_seconds": 31.055931598,
+      "peak_rss_kb": 484872,
+      "peak_os_threads": 16397,
+      "population_observations": [
+        {
+          "population": 256,
+          "peak_rss_kb": 74200,
+          "peak_os_threads": 269
+        },
+        {
+          "population": 1024,
+          "peak_rss_kb": 111288,
+          "peak_os_threads": 1037
+        },
+        {
+          "population": 4096,
+          "peak_rss_kb": 165900,
+          "peak_os_threads": 4109
+        },
+        {
+          "population": 16384,
+          "peak_rss_kb": 470400,
+          "peak_os_threads": 16397
+        }
+      ],
+      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
+      "result": {
+        "schema_version": 2,
+        "workload": {
+          "parked": [
+            {
+              "population": 256,
+              "completed": true,
+              "create_nanos": 48852082,
+              "complete_nanos": 9883574,
+              "failure": null
+            },
+            {
+              "population": 1024,
+              "completed": true,
+              "create_nanos": 142025575,
+              "complete_nanos": 39765522,
+              "failure": null
+            },
+            {
+              "population": 4096,
+              "completed": true,
+              "create_nanos": 737219882,
+              "complete_nanos": 152830610,
+              "failure": null
+            },
+            {
+              "population": 16384,
+              "completed": true,
+              "create_nanos": 3788212497,
+              "complete_nanos": 726040791,
+              "failure": null
+            }
+          ],
+          "rendezvous_channel": {
+            "throughput_per_second": 2000.0702829873405,
+            "latency_p95_nanos": 87597
+          },
+          "bounded_channel": {
+            "throughput_per_second": 2000.0678914647035,
+            "latency_p95_nanos": 58382
+          },
+          "select": {
+            "latency_p95_nanos": 1058339,
+            "idle_cpu_nanos": 20000000,
+            "wakeups": 244
+          },
+          "loopback": {
+            "throughput_per_second": 250.19707093590262,
+            "latency_p95_nanos": 482033,
+            "descriptor_growth": 0,
+            "selector_operations": 4096
+          },
+          "cpu_saturation": {
+            "throughput_per_second": 640.6570899443013,
+            "latency_p95_nanos": 304643,
+            "cancellation_latency_nanos": 151436,
+            "cancellation_observed": true
+          },
+          "reclamation": {
+            "live_heap_bytes": [
+              2585280,
+              2570448,
+              2570504,
+              2386112,
+              2181352,
+              2027696,
+              2027752,
+              2027760,
+              2028056,
+              2027824
+            ],
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        },
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "platform",
+      "run": 5,
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_seconds": 30.395713551,
+      "peak_rss_kb": 485256,
+      "peak_os_threads": 16397,
+      "population_observations": [
+        {
+          "population": 256,
+          "peak_rss_kb": 79776,
+          "peak_os_threads": 269
+        },
+        {
+          "population": 1024,
+          "peak_rss_kb": 111596,
+          "peak_os_threads": 1037
+        },
+        {
+          "population": 4096,
+          "peak_rss_kb": 166040,
+          "peak_os_threads": 4109
+        },
+        {
+          "population": 16384,
+          "peak_rss_kb": 470380,
+          "peak_os_threads": 16397
+        }
+      ],
+      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
+      "result": {
+        "schema_version": 2,
+        "workload": {
+          "parked": [
+            {
+              "population": 256,
+              "completed": true,
+              "create_nanos": 55634670,
+              "complete_nanos": 10284795,
+              "failure": null
+            },
+            {
+              "population": 1024,
+              "completed": true,
+              "create_nanos": 140730684,
+              "complete_nanos": 39681270,
+              "failure": null
+            },
+            {
+              "population": 4096,
+              "completed": true,
+              "create_nanos": 733438544,
+              "complete_nanos": 155945619,
+              "failure": null
+            },
+            {
+              "population": 16384,
+              "completed": true,
+              "create_nanos": 3765161459,
+              "complete_nanos": 710446265,
+              "failure": null
+            }
+          ],
+          "rendezvous_channel": {
+            "throughput_per_second": 2000.0469327419403,
+            "latency_p95_nanos": 84628
+          },
+          "bounded_channel": {
+            "throughput_per_second": 2000.0830134552396,
+            "latency_p95_nanos": 56574
+          },
+          "select": {
+            "latency_p95_nanos": 1088097,
+            "idle_cpu_nanos": 10000000,
+            "wakeups": 245
+          },
+          "loopback": {
+            "throughput_per_second": 250.18471590790958,
+            "latency_p95_nanos": 508239,
+            "descriptor_growth": 0,
+            "selector_operations": 4096
+          },
+          "cpu_saturation": {
+            "throughput_per_second": 640.3641975318833,
+            "latency_p95_nanos": 283865,
+            "cancellation_latency_nanos": 302058,
+            "cancellation_observed": true
+          },
+          "reclamation": {
+            "live_heap_bytes": [
+              2585104,
+              2570272,
+              2570328,
+              2385952,
+              2181192,
+              2039192,
+              2027800,
+              2027808,
+              2028104,
+              2027680
+            ],
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        },
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "virtual",
+      "run": 5,
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_seconds": 26.142005587,
+      "peak_rss_kb": 165664,
+      "peak_os_threads": 18,
+      "population_observations": [
+        {
+          "population": 256,
+          "peak_rss_kb": 56316,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 1024,
+          "peak_rss_kb": 59868,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 4096,
+          "peak_rss_kb": 72724,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 16384,
+          "peak_rss_kb": 116780,
+          "peak_os_threads": 16
+        }
+      ],
+      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
+      "result": {
+        "schema_version": 2,
+        "workload": {
+          "parked": [
+            {
+              "population": 256,
+              "completed": true,
+              "create_nanos": 34110183,
+              "complete_nanos": 13599296,
+              "failure": null
+            },
+            {
+              "population": 1024,
+              "completed": true,
+              "create_nanos": 98895159,
+              "complete_nanos": 26554880,
+              "failure": null
+            },
+            {
+              "population": 4096,
+              "completed": true,
+              "create_nanos": 183963096,
+              "complete_nanos": 82658464,
+              "failure": null
+            },
+            {
+              "population": 16384,
+              "completed": true,
+              "create_nanos": 1315303848,
+              "complete_nanos": 358116179,
+              "failure": null
+            }
+          ],
+          "rendezvous_channel": {
+            "throughput_per_second": 2000.050984698124,
+            "latency_p95_nanos": 143510
+          },
+          "bounded_channel": {
+            "throughput_per_second": 2000.0644837684642,
+            "latency_p95_nanos": 112090
+          },
+          "select": {
+            "latency_p95_nanos": 1134530,
+            "idle_cpu_nanos": 70000000,
+            "wakeups": 234
+          },
+          "loopback": {
+            "throughput_per_second": 250.1897838549376,
+            "latency_p95_nanos": 433919,
+            "descriptor_growth": 0,
+            "selector_operations": 4096
+          },
+          "cpu_saturation": {
+            "throughput_per_second": 319.88871551420334,
+            "latency_p95_nanos": 198967250,
+            "cancellation_latency_nanos": 199938881,
+            "cancellation_observed": true
+          },
+          "reclamation": {
+            "live_heap_bytes": [
+              4046416,
+              4033088,
+              4035712,
+              4035528,
+              4035584,
+              4037640,
+              4040264,
+              4042320,
+              4042376,
+              4042192
+            ],
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        },
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
+      }
+    },
+    {
+      "variant": "virtual",
+      "run": 6,
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_seconds": 25.687894192,
+      "peak_rss_kb": 161124,
+      "peak_os_threads": 18,
+      "population_observations": [
+        {
+          "population": 256,
+          "peak_rss_kb": 56460,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 1024,
+          "peak_rss_kb": 59832,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 4096,
+          "peak_rss_kb": 72248,
+          "peak_os_threads": 16
+        },
+        {
+          "population": 16384,
+          "peak_rss_kb": 112456,
+          "peak_os_threads": 16
+        }
+      ],
+      "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
+      "result": {
+        "schema_version": 2,
+        "workload": {
+          "parked": [
+            {
+              "population": 256,
+              "completed": true,
+              "create_nanos": 40099012,
+              "complete_nanos": 12680056,
+              "failure": null
+            },
+            {
+              "population": 1024,
+              "completed": true,
+              "create_nanos": 56480783,
+              "complete_nanos": 28279595,
+              "failure": null
+            },
+            {
+              "population": 4096,
+              "completed": true,
+              "create_nanos": 358217158,
+              "complete_nanos": 90550381,
+              "failure": null
+            },
+            {
+              "population": 16384,
+              "completed": true,
+              "create_nanos": 732848712,
+              "complete_nanos": 341294084,
+              "failure": null
+            }
+          ],
+          "rendezvous_channel": {
+            "throughput_per_second": 2000.0509617477355,
+            "latency_p95_nanos": 142383
+          },
+          "bounded_channel": {
+            "throughput_per_second": 2000.067161434941,
+            "latency_p95_nanos": 108566
+          },
+          "select": {
+            "latency_p95_nanos": 1095443,
+            "idle_cpu_nanos": 40000000,
+            "wakeups": 235
+          },
+          "loopback": {
+            "throughput_per_second": 250.1859916622811,
+            "latency_p95_nanos": 439610,
+            "descriptor_growth": 0,
+            "selector_operations": 4096
+          },
+          "cpu_saturation": {
+            "throughput_per_second": 319.84665991392075,
+            "latency_p95_nanos": 198672203,
+            "cancellation_latency_nanos": 199892608,
+            "cancellation_observed": true
+          },
+          "reclamation": {
+            "live_heap_bytes": [
+              4045544,
+              4032544,
+              4032792,
+              4032608,
+              4032664,
+              4032672,
+              4032728,
+              4032928,
+              4032984,
+              4032800
+            ],
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        },
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
       }
     },
     {
@@ -1277,108 +1585,136 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 30.662099351,
-      "peak_rss_kb": 539108,
-      "peak_os_threads": 16395,
+      "duration_seconds": 30.991017025,
+      "peak_rss_kb": 481884,
+      "peak_os_threads": 16397,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 73572,
+          "peak_rss_kb": 73884,
           "peak_os_threads": 269
         },
         {
           "population": 1024,
-          "peak_rss_kb": 115632,
+          "peak_rss_kb": 105192,
           "peak_os_threads": 1037
         },
         {
           "population": 4096,
-          "peak_rss_kb": 159652,
+          "peak_rss_kb": 160756,
           "peak_os_threads": 4109
         },
         {
           "population": 16384,
-          "peak_rss_kb": 459696,
+          "peak_rss_kb": 468172,
           "peak_os_threads": 16397
         }
       ],
       "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
       "result": {
-        "schema_version": 1,
+        "schema_version": 2,
         "workload": {
           "parked": [
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 55655103,
-              "complete_nanos": 11353504,
+              "create_nanos": 49097772,
+              "complete_nanos": 10212027,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 133756895,
-              "complete_nanos": 37898850,
+              "create_nanos": 146421945,
+              "complete_nanos": 39393470,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 554528442,
-              "complete_nanos": 139428781,
+              "create_nanos": 731069413,
+              "complete_nanos": 145427032,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 3142531185,
-              "complete_nanos": 924926432,
+              "create_nanos": 3751217038,
+              "complete_nanos": 693758468,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 1999.3856826473657,
-            "latency_p95_nanos": 83097
+            "throughput_per_second": 2000.0710362143884,
+            "latency_p95_nanos": 86580
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.077430732018,
-            "latency_p95_nanos": 57563
+            "throughput_per_second": 2000.0733659724342,
+            "latency_p95_nanos": 57452
           },
           "select": {
-            "latency_p95_nanos": 1070659,
+            "latency_p95_nanos": 1065117,
             "idle_cpu_nanos": 20000000,
             "wakeups": 244
           },
           "loopback": {
-            "throughput_per_second": 250.17686209289255,
-            "latency_p95_nanos": 543868,
+            "throughput_per_second": 250.1941825707734,
+            "latency_p95_nanos": 485564,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 639.6948847308299,
-            "latency_p95_nanos": 297796,
-            "cancellation_latency_nanos": 133543,
+            "throughput_per_second": 639.7101249525297,
+            "latency_p95_nanos": 302777,
+            "cancellation_latency_nanos": 133482,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              2647696,
-              2632864,
-              2632920,
-              2633120,
-              2633176,
-              2421664,
-              2189400,
-              2015888,
-              2015944,
-              2015952
+              2585128,
+              2570296,
+              2570352,
+              2385968,
+              2181424,
+              2034392,
+              2027800,
+              2027616,
+              2029016,
+              2027680
             ],
             "completed_registrations": 0,
             "retained_owners": 0
           }
         },
-        "functional_result": 563712
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
       }
     },
     {
@@ -1387,108 +1723,136 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 30.595839089,
-      "peak_rss_kb": 540000,
+      "duration_seconds": 31.147588485,
+      "peak_rss_kb": 482072,
       "peak_os_threads": 16397,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 73516,
+          "peak_rss_kb": 74024,
           "peak_os_threads": 269
         },
         {
           "population": 1024,
-          "peak_rss_kb": 115616,
+          "peak_rss_kb": 95204,
           "peak_os_threads": 1037
         },
         {
           "population": 4096,
-          "peak_rss_kb": 160152,
+          "peak_rss_kb": 160592,
           "peak_os_threads": 4109
         },
         {
           "population": 16384,
-          "peak_rss_kb": 460712,
+          "peak_rss_kb": 467712,
           "peak_os_threads": 16397
         }
       ],
       "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
       "result": {
-        "schema_version": 1,
+        "schema_version": 2,
         "workload": {
           "parked": [
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 62179115,
-              "complete_nanos": 10698450,
+              "create_nanos": 50181564,
+              "complete_nanos": 10300289,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 136922959,
-              "complete_nanos": 37936440,
+              "create_nanos": 140487894,
+              "complete_nanos": 39753063,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 559133129,
-              "complete_nanos": 136853969,
+              "create_nanos": 735934439,
+              "complete_nanos": 147357894,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 3088077697,
-              "complete_nanos": 823547643,
+              "create_nanos": 3821854329,
+              "complete_nanos": 689116440,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 1999.3784620136075,
-            "latency_p95_nanos": 83555
+            "throughput_per_second": 2000.0683409582105,
+            "latency_p95_nanos": 83435
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.0768164268309,
-            "latency_p95_nanos": 60986
+            "throughput_per_second": 2000.0594265703937,
+            "latency_p95_nanos": 58045
           },
           "select": {
-            "latency_p95_nanos": 1070640,
+            "latency_p95_nanos": 1062700,
             "idle_cpu_nanos": 10000000,
-            "wakeups": 243
+            "wakeups": 244
           },
           "loopback": {
-            "throughput_per_second": 250.18413173398937,
-            "latency_p95_nanos": 504285,
+            "throughput_per_second": 250.17215570020548,
+            "latency_p95_nanos": 517733,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 640.4946924806844,
-            "latency_p95_nanos": 302017,
-            "cancellation_latency_nanos": 298545,
+            "throughput_per_second": 639.865455490674,
+            "latency_p95_nanos": 316425,
+            "cancellation_latency_nanos": 170686,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              2632760,
-              2618120,
-              2620016,
-              2617992,
-              2413416,
-              2186528,
-              2023632,
-              2016136,
-              2016192,
-              2016392
+              2585208,
+              2570376,
+              2570432,
+              2386040,
+              2181840,
+              2029608,
+              2027672,
+              2027680,
+              2027736,
+              2027744
             ],
             "completed_registrations": 0,
             "retained_owners": 0
           }
         },
-        "functional_result": 563712
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
       }
     },
     {
@@ -1497,126 +1861,168 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "duration_seconds": 24.147057574,
-      "peak_rss_kb": 169280,
+      "duration_seconds": 26.141171212,
+      "peak_rss_kb": 167356,
       "peak_os_threads": 19,
       "population_observations": [
         {
           "population": 256,
-          "peak_rss_kb": 48360,
+          "peak_rss_kb": 50448,
           "peak_os_threads": 16
         },
         {
           "population": 1024,
-          "peak_rss_kb": 52720,
+          "peak_rss_kb": 59628,
           "peak_os_threads": 16
         },
         {
           "population": 4096,
-          "peak_rss_kb": 68456,
+          "peak_rss_kb": 73108,
           "peak_os_threads": 16
         },
         {
           "population": 16384,
-          "peak_rss_kb": 119500,
+          "peak_rss_kb": 116948,
           "peak_os_threads": 16
         }
       ],
       "stderr": "workload: parked\nVELN_BENCHMARK_OBSERVE\tstart\t256\nVELN_BENCHMARK_OBSERVE\tready\t256\nVELN_BENCHMARK_OBSERVE\tstart\t1024\nVELN_BENCHMARK_OBSERVE\tready\t1024\nVELN_BENCHMARK_OBSERVE\tstart\t4096\nVELN_BENCHMARK_OBSERVE\tready\t4096\nVELN_BENCHMARK_OBSERVE\tstart\t16384\nVELN_BENCHMARK_OBSERVE\tready\t16384\nworkload: preparation\nworkload: rendezvous channel\nworkload: bounded channel\nworkload: select\nworkload: loopback\nworkload: CPU saturation\nworkload: reclamation\nworkload: complete",
       "result": {
-        "schema_version": 1,
+        "schema_version": 2,
         "workload": {
           "parked": [
             {
               "population": 256,
               "completed": true,
-              "create_nanos": 25989145,
-              "complete_nanos": 7056454,
+              "create_nanos": 16255429,
+              "complete_nanos": 14208458,
               "failure": null
             },
             {
               "population": 1024,
               "completed": true,
-              "create_nanos": 7022047,
-              "complete_nanos": 6325695,
+              "create_nanos": 69526772,
+              "complete_nanos": 30288611,
               "failure": null
             },
             {
               "population": 4096,
               "completed": true,
-              "create_nanos": 8087667,
-              "complete_nanos": 13589757,
+              "create_nanos": 185993837,
+              "complete_nanos": 78518273,
               "failure": null
             },
             {
               "population": 16384,
               "completed": true,
-              "create_nanos": 18772806,
-              "complete_nanos": 19091569,
+              "create_nanos": 1335616533,
+              "complete_nanos": 373230256,
               "failure": null
             }
           ],
           "rendezvous_channel": {
-            "throughput_per_second": 2000.0579772665706,
-            "latency_p95_nanos": 140860
+            "throughput_per_second": 2000.0461209365928,
+            "latency_p95_nanos": 141133
           },
           "bounded_channel": {
-            "throughput_per_second": 2000.0722321008316,
-            "latency_p95_nanos": 114736
+            "throughput_per_second": 2000.0707390741854,
+            "latency_p95_nanos": 113106
           },
           "select": {
-            "latency_p95_nanos": 1087196,
+            "latency_p95_nanos": 1101467,
             "idle_cpu_nanos": 50000000,
-            "wakeups": 235
+            "wakeups": 234
           },
           "loopback": {
-            "throughput_per_second": 250.1778628399559,
-            "latency_p95_nanos": 435045,
+            "throughput_per_second": 250.19643510961674,
+            "latency_p95_nanos": 411297,
             "descriptor_growth": 0,
             "selector_operations": 4096
           },
           "cpu_saturation": {
-            "throughput_per_second": 319.76001611090857,
-            "latency_p95_nanos": 199208825,
-            "cancellation_latency_nanos": 200001384,
+            "throughput_per_second": 319.7481687404113,
+            "latency_p95_nanos": 199682577,
+            "cancellation_latency_nanos": 199958173,
             "cancellation_observed": true
           },
           "reclamation": {
             "live_heap_bytes": [
-              3897264,
-              3881160,
-              3881216,
-              3881224,
-              3881280,
-              3885848,
-              3888280,
-              3888288,
-              3892456,
-              3890400
+              4044816,
+              4028712,
+              4033520,
+              4033528,
+              4036152,
+              4036160,
+              4036408,
+              4036032,
+              4036088,
+              4036096
             ],
             "completed_registrations": 0,
             "retained_owners": 0
           }
         },
-        "functional_result": 563712
+        "functional_outcomes": {
+          "parked": {
+            "completed_populations": [
+              256,
+              1024,
+              4096,
+              16384
+            ]
+          },
+          "rendezvous_channel": {
+            "checksum": 134225920
+          },
+          "bounded_channel": {
+            "checksum": 134225920
+          },
+          "select": {
+            "checksum": 8128
+          },
+          "loopback": {
+            "checksum": 563712
+          },
+          "cpu_saturation": {
+            "checksum": 8128
+          },
+          "reclamation": {
+            "completed_registrations": 0,
+            "retained_owners": 0
+          }
+        }
       }
     }
   ],
   "summaries": {
     "platform": {
       "status": "passed",
+      "duration_seconds": {
+        "median": 31.055931598,
+        "minimum": 30.395713551,
+        "maximum": 31.155505712,
+        "range": 0.759792161,
+        "stable": true
+      },
       "peak_rss_kb": {
-        "median": 539108,
-        "minimum": 537784,
-        "maximum": 544124,
-        "range": 6340,
+        "median": 484484,
+        "minimum": 481884,
+        "maximum": 485256,
+        "range": 3372,
         "stable": true
       },
       "peak_os_threads": {
         "median": 16397,
-        "minimum": 16395,
+        "minimum": 16397,
         "maximum": 16397,
-        "range": 2,
+        "range": 0,
+        "stable": true
+      },
+      "parked_256_rss_kb": {
+        "median": 74200,
+        "minimum": 73884,
+        "maximum": 79776,
+        "range": 5892,
         "stable": true
       },
       "parked_256_os_threads": {
@@ -1626,11 +2032,81 @@
         "range": 0,
         "stable": true
       },
+      "parked_256_create_nanos": {
+        "median": 49477448,
+        "minimum": 48852082,
+        "maximum": 55634670,
+        "range": 6782588,
+        "stable": true
+      },
+      "parked_256_complete_nanos": {
+        "median": 10284795,
+        "minimum": 9883574,
+        "maximum": 10487515,
+        "range": 603941,
+        "stable": true
+      },
+      "parked_1024_rss_kb": {
+        "median": 111488,
+        "minimum": 95204,
+        "maximum": 111888,
+        "range": 16684,
+        "stable": true
+      },
       "parked_1024_os_threads": {
         "median": 1037,
         "minimum": 1037,
         "maximum": 1037,
         "range": 0,
+        "stable": true
+      },
+      "parked_1024_create_nanos": {
+        "median": 143368814,
+        "minimum": 140487894,
+        "maximum": 171156457,
+        "range": 30668563,
+        "stable": false
+      },
+      "parked_1024_complete_nanos": {
+        "median": 39502762,
+        "minimum": 38879902,
+        "maximum": 39765522,
+        "range": 885620,
+        "stable": true
+      },
+      "parked_4096_rss_kb": {
+        "median": 165900,
+        "minimum": 160592,
+        "maximum": 166080,
+        "range": 5488,
+        "stable": true
+      },
+      "parked_4096_os_threads": {
+        "median": 4109,
+        "minimum": 4109,
+        "maximum": 4109,
+        "range": 0,
+        "stable": true
+      },
+      "parked_4096_create_nanos": {
+        "median": 731644051,
+        "minimum": 721280943,
+        "maximum": 737219882,
+        "range": 15938939,
+        "stable": true
+      },
+      "parked_4096_complete_nanos": {
+        "median": 148041450,
+        "minimum": 145427032,
+        "maximum": 155945619,
+        "range": 10518587,
+        "stable": true
+      },
+      "parked_16384_rss_kb": {
+        "median": 470248,
+        "minimum": 467712,
+        "maximum": 470560,
+        "range": 2848,
         "stable": true
       },
       "parked_16384_os_threads": {
@@ -1640,74 +2116,81 @@
         "range": 0,
         "stable": true
       },
-      "parked_1024_rss_kb": {
-        "median": 115392,
-        "minimum": 115336,
-        "maximum": 115632,
-        "range": 296,
+      "parked_16384_create_nanos": {
+        "median": 3788059716,
+        "minimum": 3745030453,
+        "maximum": 3821854329,
+        "range": 76823876,
+        "stable": true
+      },
+      "parked_16384_complete_nanos": {
+        "median": 710446265,
+        "minimum": 689116440,
+        "maximum": 747716992,
+        "range": 58600552,
         "stable": true
       },
       "parked_16384_completed": true,
       "workload": {
         "rendezvous_channel": {
           "throughput_per_second": {
-            "median": 1999.4300777351896,
-            "minimum": 1999.3784620136075,
-            "maximum": 2000.0739272930682,
-            "range": 0.6954652794606773,
+            "median": 2000.0683409582105,
+            "minimum": 2000.0469327419403,
+            "maximum": 2000.071293312762,
+            "range": 0.02436057082172738,
             "stable": true
           },
           "latency_p95_nanos": {
-            "median": 83572,
-            "minimum": 82168,
-            "maximum": 87318,
-            "range": 5150,
+            "median": 84628,
+            "minimum": 82982,
+            "maximum": 91910,
+            "range": 8928,
             "stable": true
           }
         },
         "bounded_channel": {
           "throughput_per_second": {
-            "median": 2000.0772410200818,
-            "minimum": 2000.0504031256742,
-            "maximum": 2000.0796625967664,
-            "range": 0.029259471092245803,
+            "median": 2000.0755223829574,
+            "minimum": 2000.0594265703937,
+            "maximum": 2000.0830134552396,
+            "range": 0.023586884845826717,
             "stable": true
           },
           "latency_p95_nanos": {
-            "median": 58325,
-            "minimum": 57536,
-            "maximum": 62156,
-            "range": 4620,
+            "median": 57452,
+            "minimum": 56574,
+            "maximum": 58382,
+            "range": 1808,
             "stable": true
           }
         },
         "loopback": {
           "throughput_per_second": {
-            "median": 250.1840508655116,
-            "minimum": 250.17686209289255,
-            "maximum": 250.18663043067755,
-            "range": 0.009768337785004633,
+            "median": 250.1940167251695,
+            "minimum": 250.17215570020548,
+            "maximum": 250.19892524901513,
+            "range": 0.026769548809653543,
             "stable": true
           },
           "latency_p95_nanos": {
-            "median": 504749,
-            "minimum": 476431,
-            "maximum": 543868,
-            "range": 67437,
+            "median": 508239,
+            "minimum": 482033,
+            "maximum": 517733,
+            "range": 35700,
             "stable": true
           }
         }
       },
       "select": {
         "latency_p95_nanos": {
-          "median": 1070640,
-          "minimum": 1057275,
-          "maximum": 1098586,
-          "range": 41311,
+          "median": 1065117,
+          "minimum": 1057663,
+          "maximum": 1088097,
+          "range": 30434,
           "stable": true
         },
         "idle_cpu_nanos": {
-          "median": 10000000,
+          "median": 20000000,
           "minimum": 10000000,
           "maximum": 20000000,
           "range": 10000000,
@@ -1715,25 +2198,32 @@
         },
         "wakeups": {
           "median": 244,
-          "minimum": 243,
+          "minimum": 244,
           "maximum": 245,
-          "range": 2,
+          "range": 1,
           "stable": true
         }
       },
       "cpu_saturation": {
+        "throughput_per_second": {
+          "median": 640.0481252185352,
+          "minimum": 639.7038299208233,
+          "maximum": 640.6570899443013,
+          "range": 0.9532600234780375,
+          "stable": true
+        },
         "latency_p95_nanos": {
-          "median": 305931,
-          "minimum": 297796,
-          "maximum": 322824,
-          "range": 25028,
+          "median": 303748,
+          "minimum": 283865,
+          "maximum": 316425,
+          "range": 32560,
           "stable": true
         },
         "cancellation_latency_nanos": {
-          "median": 200476,
-          "minimum": 133543,
-          "maximum": 298545,
-          "range": 165002,
+          "median": 145590,
+          "minimum": 133482,
+          "maximum": 302058,
+          "range": 168576,
           "stable": false
         },
         "cancellation_observed": true
@@ -1753,25 +2243,123 @@
         "stable": true
       },
       "reclamation": {
-        "final_five_stable": false,
+        "live_heap_batch_1_bytes": {
+          "median": 2585208,
+          "minimum": 2585104,
+          "maximum": 2585288,
+          "range": 184,
+          "stable": true
+        },
+        "live_heap_batch_2_bytes": {
+          "median": 2570376,
+          "minimum": 2570272,
+          "maximum": 2570456,
+          "range": 184,
+          "stable": true
+        },
+        "live_heap_batch_3_bytes": {
+          "median": 2570432,
+          "minimum": 2570328,
+          "maximum": 2571016,
+          "range": 688,
+          "stable": true
+        },
+        "live_heap_batch_4_bytes": {
+          "median": 2386112,
+          "minimum": 2385952,
+          "maximum": 2386248,
+          "range": 296,
+          "stable": true
+        },
+        "live_heap_batch_5_bytes": {
+          "median": 2181424,
+          "minimum": 2181192,
+          "maximum": 2181840,
+          "range": 648,
+          "stable": true
+        },
+        "live_heap_batch_6_bytes": {
+          "median": 2028144,
+          "minimum": 2027552,
+          "maximum": 2039192,
+          "range": 11640,
+          "stable": true
+        },
+        "live_heap_batch_7_bytes": {
+          "median": 2027800,
+          "minimum": 2027672,
+          "maximum": 2027920,
+          "range": 248,
+          "stable": true
+        },
+        "live_heap_batch_8_bytes": {
+          "median": 2027688,
+          "minimum": 2027616,
+          "maximum": 2027808,
+          "range": 192,
+          "stable": true
+        },
+        "live_heap_batch_9_bytes": {
+          "median": 2028056,
+          "minimum": 2027672,
+          "maximum": 2029016,
+          "range": 1344,
+          "stable": true
+        },
+        "live_heap_batch_10_bytes": {
+          "median": 2027744,
+          "minimum": 2027680,
+          "maximum": 2027824,
+          "range": 144,
+          "stable": true
+        },
+        "completed_registrations": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "range": 0,
+          "stable": true
+        },
+        "retained_owners": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "range": 0,
+          "stable": true
+        },
+        "final_five_stable": true,
         "completed_registrations_zero": true,
         "retained_owners_zero": true
       }
     },
     "virtual": {
       "status": "passed",
+      "duration_seconds": {
+        "median": 26.084517295,
+        "minimum": 25.687894192,
+        "maximum": 26.289195161,
+        "range": 0.6013009689999969,
+        "stable": true
+      },
       "peak_rss_kb": {
-        "median": 170592,
-        "minimum": 164172,
-        "maximum": 171688,
-        "range": 7516,
+        "median": 165820,
+        "minimum": 161124,
+        "maximum": 167884,
+        "range": 6760,
         "stable": true
       },
       "peak_os_threads": {
-        "median": 19,
+        "median": 18,
         "minimum": 18,
         "maximum": 19,
         "range": 1,
+        "stable": true
+      },
+      "parked_256_rss_kb": {
+        "median": 55948,
+        "minimum": 50448,
+        "maximum": 56460,
+        "range": 6012,
         "stable": true
       },
       "parked_256_os_threads": {
@@ -1781,11 +2369,81 @@
         "range": 0,
         "stable": true
       },
+      "parked_256_create_nanos": {
+        "median": 27381949,
+        "minimum": 14119302,
+        "maximum": 41099344,
+        "range": 26980042,
+        "stable": false
+      },
+      "parked_256_complete_nanos": {
+        "median": 13599296,
+        "minimum": 12680056,
+        "maximum": 14550132,
+        "range": 1870076,
+        "stable": true
+      },
+      "parked_1024_rss_kb": {
+        "median": 59864,
+        "minimum": 59628,
+        "maximum": 60076,
+        "range": 448,
+        "stable": true
+      },
       "parked_1024_os_threads": {
         "median": 16,
         "minimum": 16,
         "maximum": 16,
         "range": 0,
+        "stable": true
+      },
+      "parked_1024_create_nanos": {
+        "median": 65344186,
+        "minimum": 55020376,
+        "maximum": 98895159,
+        "range": 43874783,
+        "stable": false
+      },
+      "parked_1024_complete_nanos": {
+        "median": 29801285,
+        "minimum": 26554880,
+        "maximum": 31121277,
+        "range": 4566397,
+        "stable": true
+      },
+      "parked_4096_rss_kb": {
+        "median": 72724,
+        "minimum": 71984,
+        "maximum": 73340,
+        "range": 1356,
+        "stable": true
+      },
+      "parked_4096_os_threads": {
+        "median": 16,
+        "minimum": 16,
+        "maximum": 16,
+        "range": 0,
+        "stable": true
+      },
+      "parked_4096_create_nanos": {
+        "median": 191328654,
+        "minimum": 183963096,
+        "maximum": 358217158,
+        "range": 174254062,
+        "stable": false
+      },
+      "parked_4096_complete_nanos": {
+        "median": 82670695,
+        "minimum": 78518273,
+        "maximum": 92709485,
+        "range": 14191212,
+        "stable": true
+      },
+      "parked_16384_rss_kb": {
+        "median": 116844,
+        "minimum": 112456,
+        "maximum": 117224,
+        "range": 4768,
         "stable": true
       },
       "parked_16384_os_threads": {
@@ -1795,100 +2453,114 @@
         "range": 0,
         "stable": true
       },
-      "parked_1024_rss_kb": {
-        "median": 52796,
-        "minimum": 52672,
-        "maximum": 53520,
-        "range": 848,
+      "parked_16384_create_nanos": {
+        "median": 1315303848,
+        "minimum": 732848712,
+        "maximum": 1414274120,
+        "range": 681425408,
+        "stable": false
+      },
+      "parked_16384_complete_nanos": {
+        "median": 341857120,
+        "minimum": 338141961,
+        "maximum": 373230256,
+        "range": 35088295,
         "stable": true
       },
       "parked_16384_completed": true,
       "workload": {
         "rendezvous_channel": {
           "throughput_per_second": {
-            "median": 2000.0572428492626,
-            "minimum": 2000.0428065802446,
-            "maximum": 2000.0616430131531,
-            "range": 0.018836432908528877,
+            "median": 2000.0492978459683,
+            "minimum": 2000.0461209365928,
+            "maximum": 2000.050984698124,
+            "range": 0.004863761531169075,
             "stable": true
           },
           "latency_p95_nanos": {
-            "median": 144084,
-            "minimum": 140823,
-            "maximum": 150001,
-            "range": 9178,
+            "median": 141133,
+            "minimum": 139862,
+            "maximum": 144325,
+            "range": 4463,
             "stable": true
           }
         },
         "bounded_channel": {
           "throughput_per_second": {
-            "median": 2000.0723956868792,
-            "minimum": 2000.0653136563046,
-            "maximum": 2000.0761068999261,
-            "range": 0.010793243621492365,
+            "median": 2000.0707390741854,
+            "minimum": 2000.0644837684642,
+            "maximum": 2000.075704037317,
+            "range": 0.011220268852866866,
             "stable": true
           },
           "latency_p95_nanos": {
-            "median": 111078,
-            "minimum": 109488,
-            "maximum": 114736,
-            "range": 5248,
+            "median": 111448,
+            "minimum": 108566,
+            "maximum": 115419,
+            "range": 6853,
             "stable": true
           }
         },
         "loopback": {
           "throughput_per_second": {
-            "median": 250.18479427067498,
-            "minimum": 250.17193163725182,
-            "maximum": 250.18931249890238,
-            "range": 0.017380861650565294,
+            "median": 250.19320321073633,
+            "minimum": 250.1839352169555,
+            "maximum": 250.19643510961674,
+            "range": 0.012499892661253398,
             "stable": true
           },
           "latency_p95_nanos": {
-            "median": 435045,
-            "minimum": 417528,
-            "maximum": 459800,
-            "range": 42272,
+            "median": 430904,
+            "minimum": 398552,
+            "maximum": 452740,
+            "range": 54188,
             "stable": true
           }
         }
       },
       "select": {
         "latency_p95_nanos": {
-          "median": 1107168,
-          "minimum": 1050652,
-          "maximum": 1123608,
-          "range": 72956,
+          "median": 1106575,
+          "minimum": 1095443,
+          "maximum": 1142655,
+          "range": 47212,
           "stable": true
         },
         "idle_cpu_nanos": {
           "median": 70000000,
           "minimum": 40000000,
-          "maximum": 90000000,
-          "range": 50000000,
+          "maximum": 80000000,
+          "range": 40000000,
           "stable": false
         },
         "wakeups": {
-          "median": 235,
-          "minimum": 234,
-          "maximum": 236,
+          "median": 234,
+          "minimum": 233,
+          "maximum": 235,
           "range": 2,
           "stable": true
         }
       },
       "cpu_saturation": {
+        "throughput_per_second": {
+          "median": 319.820593439904,
+          "minimum": 319.7481687404113,
+          "maximum": 319.8993220851017,
+          "range": 0.15115334469038544,
+          "stable": true
+        },
         "latency_p95_nanos": {
-          "median": 199257151,
-          "minimum": 199052172,
-          "maximum": 199425874,
-          "range": 373702,
+          "median": 199174818,
+          "minimum": 198672203,
+          "maximum": 199682577,
+          "range": 1010374,
           "stable": true
         },
         "cancellation_latency_nanos": {
-          "median": 199951995,
-          "minimum": 199877599,
-          "maximum": 200001384,
-          "range": 123785,
+          "median": 199938881,
+          "minimum": 199892608,
+          "maximum": 199979674,
+          "range": 87066,
           "stable": true
         },
         "cancellation_observed": true
@@ -1908,6 +2580,90 @@
         "stable": true
       },
       "reclamation": {
+        "live_heap_batch_1_bytes": {
+          "median": 4046416,
+          "minimum": 4032328,
+          "maximum": 4060728,
+          "range": 28400,
+          "stable": true
+        },
+        "live_heap_batch_2_bytes": {
+          "median": 4033088,
+          "minimum": 4021184,
+          "maximum": 4044744,
+          "range": 23560,
+          "stable": true
+        },
+        "live_heap_batch_3_bytes": {
+          "median": 4035712,
+          "minimum": 4021240,
+          "maximum": 4044800,
+          "range": 23560,
+          "stable": true
+        },
+        "live_heap_batch_4_bytes": {
+          "median": 4035528,
+          "minimum": 4021248,
+          "maximum": 4044808,
+          "range": 23560,
+          "stable": true
+        },
+        "live_heap_batch_5_bytes": {
+          "median": 4036152,
+          "minimum": 4021496,
+          "maximum": 4049168,
+          "range": 27672,
+          "stable": true
+        },
+        "live_heap_batch_6_bytes": {
+          "median": 4037640,
+          "minimum": 4021504,
+          "maximum": 4046920,
+          "range": 25416,
+          "stable": true
+        },
+        "live_heap_batch_7_bytes": {
+          "median": 4040264,
+          "minimum": 4021560,
+          "maximum": 4046976,
+          "range": 25416,
+          "stable": true
+        },
+        "live_heap_batch_8_bytes": {
+          "median": 4042320,
+          "minimum": 4021376,
+          "maximum": 4046984,
+          "range": 25608,
+          "stable": true
+        },
+        "live_heap_batch_9_bytes": {
+          "median": 4042376,
+          "minimum": 4024552,
+          "maximum": 4047232,
+          "range": 22680,
+          "stable": true
+        },
+        "live_heap_batch_10_bytes": {
+          "median": 4042192,
+          "minimum": 4021440,
+          "maximum": 4047048,
+          "range": 25608,
+          "stable": true
+        },
+        "completed_registrations": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "range": 0,
+          "stable": true
+        },
+        "retained_owners": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "range": 0,
+          "stable": true
+        },
         "final_five_stable": true,
         "completed_registrations_zero": true,
         "retained_owners_zero": true
@@ -1918,13 +2674,14 @@
     "jfr_virtual_thread_pinning": {
       "status": "passed",
       "events": 0,
-      "diagnostic_run_duration_seconds": 24.372948894
+      "diagnostic_run_duration_seconds": 26.430270556
     }
   },
   "adoption": {
-    "status": "passed",
+    "status": "failed",
     "gates": {
-      "functional_results_equal": true,
+      "functional_outcomes_match_expectations": true,
+      "functional_outcomes_equal_between_variants": true,
       "common_population_completed": true,
       "candidate_16384_completed": true,
       "candidate_os_thread_growth_at_most_8": true,
@@ -1932,12 +2689,14 @@
       "candidate_1024_os_threads_at_most_quarter_baseline": true,
       "channel_throughput_at_least_80_percent": true,
       "loopback_throughput_at_least_80_percent": true,
-      "delivery_latency_p95_at_most_125_percent": true,
+      "rendezvous_delivery_latency_p95_at_most_125_percent": false,
+      "bounded_delivery_latency_p95_at_most_125_percent": false,
+      "loopback_delivery_latency_p95_at_most_125_percent": true,
       "reclamation_final_five_within_10_percent": true,
       "completed_registrations_absent": true,
       "released_owners_absent": true,
       "cpu_saturation_cancellation_observed": true,
-      "sample_ranges_conclusive": true
+      "sample_ranges_conclusive": false
     }
   }
 }

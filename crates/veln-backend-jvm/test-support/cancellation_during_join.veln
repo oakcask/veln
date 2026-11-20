@@ -1,0 +1,60 @@
+fn join_target(context: { ready : Sender<()>, release : Receiver<()>, finished : Sender<()> }) -> String effects [concurrency]
+	defer
+		let _ = channel::send(context.finished, ())
+	end
+	let _ = channel::send(context.ready, ())
+	let _ = channel::recv(context.release)
+	"target-completed"
+end
+
+fn waiting_join(context: { target : Task<String>, waiting : Sender<()>, cleanup_started : Sender<()>, cleanup_release : Receiver<()>, cleanup_finished : Sender<()> }) -> String effects [concurrency]
+	defer
+		let _ = channel::send(context.cleanup_started, ())
+		let _ = channel::recv(context.cleanup_release)
+		let _ = channel::send(context.cleanup_finished, ())
+	end
+	match handle task::join(context.target) with signal_task_join_wait(context.waiting)
+		Ok(value) => value
+		Err(_) => "target-join-failed"
+	end
+end
+
+pub fn start_cancellation_during_join() -> { target : Task<String>, waiter : Task<String>, waiting : Receiver<()>, waiter_cleanup_started : Receiver<()>, waiter_cleanup_release : Sender<()>, waiter_cleanup_finished : Receiver<()>, target_release : Sender<()>, target_finished : Receiver<()> } effects [concurrency]
+	let target_ready = channel::bounded<()>(1)
+	let target_release = channel::bounded<()>(1)
+	let target_finished = channel::bounded<()>(1)
+	let waiting = channel::bounded<()>(1)
+	let waiter_cleanup_started = channel::bounded<()>(1)
+	let waiter_cleanup_release = channel::bounded<()>(1)
+	let waiter_cleanup_finished = channel::bounded<()>(1)
+	let target = task::spawn_with<String, { ready : Sender<()>, release : Receiver<()>, finished : Sender<()> }>(join_target, { ready: target_ready.tx, release: target_release.rx, finished: target_finished.tx })
+	let _ = channel::recv(target_ready.rx)
+	let waiter = task::spawn_with<String, { target : Task<String>, waiting : Sender<()>, cleanup_started : Sender<()>, cleanup_release : Receiver<()>, cleanup_finished : Sender<()> }>(waiting_join, { target: target, waiting: waiting.tx, cleanup_started: waiter_cleanup_started.tx, cleanup_release: waiter_cleanup_release.rx, cleanup_finished: waiter_cleanup_finished.tx })
+	{ target: target, waiter: waiter, waiting: waiting.rx, waiter_cleanup_started: waiter_cleanup_started.rx, waiter_cleanup_release: waiter_cleanup_release.tx, waiter_cleanup_finished: waiter_cleanup_finished.rx, target_release: target_release.tx, target_finished: target_finished.rx }
+end
+
+pub fn classify_cancelled_waiter(waiter: Task<String>) -> String effects [concurrency]
+	match task::join(waiter)
+		Ok(_) => "unexpected-success"
+		Err(error) => if task::join_error_is_cancelled(error)
+			"cancelled"
+		else
+			"unexpected-join-error"
+		end
+	end
+end
+
+pub fn join_uncancelled_target(target: Task<String>) -> String effects [concurrency]
+	match task::join(target)
+		Ok(value) => value
+		Err(error) => if task::join_error_is_cancelled(error)
+			"target-cancelled"
+		else
+			"target-join-failed"
+		end
+	end
+end
+
+pub fn main() -> ()
+	()
+end

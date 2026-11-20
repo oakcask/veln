@@ -60,6 +60,62 @@ export const WORKLOAD = {
 const REQUIRED_SAMPLES = 7;
 const TIMEOUT_MILLIS = 180_000;
 const PROCESS_TREE_RSS_LIMIT_KB = 4 * 1024 * 1024;
+export const FUNCTIONAL_EXPECTATIONS = {
+  parked: { completed_populations: [256, 1024, 4096, 16384] },
+  rendezvous_channel: { checksum: 134225920 },
+  bounded_channel: { checksum: 134225920 },
+  select: { checksum: 8128 },
+  loopback: { checksum: 563712 },
+  cpu_saturation: { checksum: 8128 },
+  reclamation: { completed_registrations: 0, retained_owners: 0 },
+};
+export const GOVERNED_NOISE_METRICS = [
+  "duration_seconds",
+  "peak_rss_kb",
+  "peak_os_threads",
+  "parked_256_rss_kb",
+  "parked_256_os_threads",
+  "parked_256_create_nanos",
+  "parked_256_complete_nanos",
+  "parked_1024_rss_kb",
+  "parked_1024_os_threads",
+  "parked_1024_create_nanos",
+  "parked_1024_complete_nanos",
+  "parked_4096_rss_kb",
+  "parked_4096_os_threads",
+  "parked_4096_create_nanos",
+  "parked_4096_complete_nanos",
+  "parked_16384_rss_kb",
+  "parked_16384_os_threads",
+  "parked_16384_create_nanos",
+  "parked_16384_complete_nanos",
+  "workload.rendezvous_channel.throughput_per_second",
+  "workload.rendezvous_channel.latency_p95_nanos",
+  "workload.bounded_channel.throughput_per_second",
+  "workload.bounded_channel.latency_p95_nanos",
+  "workload.loopback.throughput_per_second",
+  "workload.loopback.latency_p95_nanos",
+  "select.latency_p95_nanos",
+  "select.idle_cpu_nanos",
+  "select.wakeups",
+  "cpu_saturation.throughput_per_second",
+  "cpu_saturation.latency_p95_nanos",
+  "cpu_saturation.cancellation_latency_nanos",
+  "descriptor_growth",
+  "selector_operations",
+  "reclamation.live_heap_batch_1_bytes",
+  "reclamation.live_heap_batch_2_bytes",
+  "reclamation.live_heap_batch_3_bytes",
+  "reclamation.live_heap_batch_4_bytes",
+  "reclamation.live_heap_batch_5_bytes",
+  "reclamation.live_heap_batch_6_bytes",
+  "reclamation.live_heap_batch_7_bytes",
+  "reclamation.live_heap_batch_8_bytes",
+  "reclamation.live_heap_batch_9_bytes",
+  "reclamation.live_heap_batch_10_bytes",
+  "reclamation.completed_registrations",
+  "reclamation.retained_owners",
+];
 
 export function median(values) {
   const sorted = [...values].sort((left, right) => left - right);
@@ -111,18 +167,27 @@ export function summarizeVariant(samples) {
         (sample) => sample.result.workload[workload].latency_p95_nanos)),
     };
   }
+  const parkedMetrics = Object.fromEntries(WORKLOAD.parked_populations.flatMap((population) => [
+    [`parked_${population}_rss_kb`, metricSummary(values(samples,
+      (sample) => parkedObservationAt(sample, population).peak_rss_kb))],
+    [`parked_${population}_os_threads`, metricSummary(values(samples,
+      (sample) => parkedObservationAt(sample, population).peak_os_threads))],
+    [`parked_${population}_create_nanos`, metricSummary(values(samples,
+      (sample) => parkedAt(sample, population).create_nanos))],
+    [`parked_${population}_complete_nanos`, metricSummary(values(samples,
+      (sample) => parkedAt(sample, population).complete_nanos))],
+  ]));
+  const reclamationMetrics = Object.fromEntries(Array.from(
+    { length: WORKLOAD.reclamation_batches },
+    (_, index) => [`live_heap_batch_${index + 1}_bytes`, metricSummary(values(samples,
+      (sample) => sample.result.workload.reclamation.live_heap_bytes[index]))],
+  ));
   return {
     status: "passed",
+    duration_seconds: metricSummary(values(samples, (sample) => sample.duration_seconds)),
     peak_rss_kb: metricSummary(values(samples, (sample) => sample.peak_rss_kb)),
     peak_os_threads: metricSummary(values(samples, (sample) => sample.peak_os_threads)),
-    parked_256_os_threads: metricSummary(values(samples,
-      (sample) => parkedObservationAt(sample, 256).peak_os_threads)),
-    parked_1024_os_threads: metricSummary(values(samples,
-      (sample) => parkedObservationAt(sample, 1024).peak_os_threads)),
-    parked_16384_os_threads: metricSummary(values(samples,
-      (sample) => parkedObservationAt(sample, 16384).peak_os_threads)),
-    parked_1024_rss_kb: metricSummary(values(samples,
-      (sample) => parkedObservationAt(sample, 1024).peak_rss_kb)),
+    ...parkedMetrics,
     parked_16384_completed: samples.every((sample) => parkedAt(sample, 16384)?.completed === true),
     workload: workloadMetrics,
     select: {
@@ -133,6 +198,8 @@ export function summarizeVariant(samples) {
       wakeups: metricSummary(values(samples, (sample) => sample.result.workload.select.wakeups)),
     },
     cpu_saturation: {
+      throughput_per_second: metricSummary(values(samples,
+        (sample) => sample.result.workload.cpu_saturation.throughput_per_second)),
       latency_p95_nanos: metricSummary(values(samples,
         (sample) => sample.result.workload.cpu_saturation.latency_p95_nanos)),
       cancellation_latency_nanos: metricSummary(values(samples,
@@ -145,6 +212,11 @@ export function summarizeVariant(samples) {
     selector_operations: metricSummary(values(samples,
       (sample) => sample.result.workload.loopback.selector_operations)),
     reclamation: {
+      ...reclamationMetrics,
+      completed_registrations: metricSummary(values(samples,
+        (sample) => sample.result.workload.reclamation.completed_registrations)),
+      retained_owners: metricSummary(values(samples,
+        (sample) => sample.result.workload.reclamation.retained_owners)),
       final_five_stable: samples.every((sample) => {
         const heaps = sample.result.workload.reclamation.live_heap_bytes.slice(-5);
         const center = median(heaps);
@@ -173,23 +245,33 @@ export function evaluateGates(samples, summaries) {
   const baseline = summaries.platform;
   const candidate = summaries.virtual;
   const passedSamples = samples.filter((sample) => sample.status === "passed");
-  const functional = passedSamples.length === REQUIRED_SAMPLES * 2
-    && new Set(passedSamples.map((sample) => sample.result.functional_result)).size === 1;
+  const functionalOutcomesExpected = passedSamples.length === REQUIRED_SAMPLES * 2
+    && passedSamples.every((sample) => canonicalJson(sample.result.functional_outcomes)
+      === canonicalJson(FUNCTIONAL_EXPECTATIONS));
+  const functionalOutcomesEqual = passedSamples.length === REQUIRED_SAMPLES * 2
+    && Array.from({ length: REQUIRED_SAMPLES }, (_, index) => index + 1).every((run) => {
+      const pair = passedSamples.filter((sample) => sample.run === run);
+      return pair.length === 2
+        && pair.some((sample) => sample.variant === "platform")
+        && pair.some((sample) => sample.variant === "virtual")
+        && canonicalJson(pair[0].result.functional_outcomes)
+          === canonicalJson(pair[1].result.functional_outcomes);
+    });
   const commonPopulation = ["platform", "virtual"].every((variant) =>
     samples.filter((sample) => sample.variant === variant).every((sample) =>
       sample.status === "passed" && parkedAt(sample, 1024)?.completed === true));
-  const noiseMetrics = [];
-  for (const variant of [baseline, candidate]) {
-    if (variant.status !== "passed") continue;
-    noiseMetrics.push(variant.parked_1024_rss_kb);
-    for (const workload of Object.values(variant.workload)) {
-      noiseMetrics.push(workload.throughput_per_second);
-    }
-    noiseMetrics.push(variant.select.latency_p95_nanos);
-  }
-  const conclusive = noiseMetrics.length === 10 && noiseMetrics.every((metric) => metric.stable);
+  const noiseMetrics = [baseline, candidate].flatMap((variant) =>
+    variant.status === "passed"
+      ? GOVERNED_NOISE_METRICS.map((path) => path.split(".").reduce(
+        (value, component) => value?.[component], variant,
+      ))
+      : []
+  );
+  const conclusive = noiseMetrics.length === GOVERNED_NOISE_METRICS.length * 2
+    && noiseMetrics.every((metric) => metric?.stable === true);
   const gates = {
-    functional_results_equal: functional,
+    functional_outcomes_match_expectations: functionalOutcomesExpected,
+    functional_outcomes_equal_between_variants: functionalOutcomesEqual,
     common_population_completed: commonPopulation,
     candidate_16384_completed: candidate.parked_16384_completed === true,
     candidate_os_thread_growth_at_most_8:
@@ -211,9 +293,18 @@ export function evaluateGates(samples, summaries) {
       candidate.status === "passed" && baseline.status === "passed"
       && candidate.workload.loopback.throughput_per_second.median
         >= baseline.workload.loopback.throughput_per_second.median * 0.8,
-    delivery_latency_p95_at_most_125_percent:
+    rendezvous_delivery_latency_p95_at_most_125_percent:
       candidate.status === "passed" && baseline.status === "passed"
-      && candidate.select.latency_p95_nanos.median <= baseline.select.latency_p95_nanos.median * 1.25,
+      && candidate.workload.rendezvous_channel.latency_p95_nanos.median
+        <= baseline.workload.rendezvous_channel.latency_p95_nanos.median * 1.25,
+    bounded_delivery_latency_p95_at_most_125_percent:
+      candidate.status === "passed" && baseline.status === "passed"
+      && candidate.workload.bounded_channel.latency_p95_nanos.median
+        <= baseline.workload.bounded_channel.latency_p95_nanos.median * 1.25,
+    loopback_delivery_latency_p95_at_most_125_percent:
+      candidate.status === "passed" && baseline.status === "passed"
+      && candidate.workload.loopback.latency_p95_nanos.median
+        <= baseline.workload.loopback.latency_p95_nanos.median * 1.25,
     reclamation_final_five_within_10_percent: candidate.reclamation?.final_five_stable === true,
     completed_registrations_absent: candidate.reclamation?.completed_registrations_zero === true,
     released_owners_absent: candidate.reclamation?.retained_owners_zero === true,
@@ -241,7 +332,7 @@ function requireEquivalent(actual, expected, message) {
 }
 
 export function validateArtifact(artifact, expectedIdentity) {
-  if (artifact.schema_version !== 2 || artifact.benchmark !== "veln-jvm-lightweight-task-adoption") {
+  if (artifact.schema_version !== 3 || artifact.benchmark !== "veln-jvm-lightweight-task-adoption") {
     throw new Error("unexpected lightweight-task benchmark schema");
   }
   if (!Array.isArray(artifact.samples) || artifact.samples.length !== REQUIRED_SAMPLES * 2) {
@@ -587,7 +678,7 @@ async function main() {
     }
     const summaries = summarizeSamples(samples);
     const artifact = {
-      schema_version: 2,
+      schema_version: 3,
       benchmark: "veln-jvm-lightweight-task-adoption",
       constraints: {
         process_tree_memory_mib: 4096,
@@ -623,12 +714,12 @@ async function main() {
       console.error("controlled collection did not pass; inspect these summaries before rerunning:");
       console.error(JSON.stringify({ summaries, adoption: artifact.adoption }, null, 2));
     }
+    mkdirSync(dirname(output), { recursive: true });
+    writeFileSync(output, `${JSON.stringify(artifact, null, 2)}\n`);
     validateArtifact(artifact, benchmarkIdentityForRuntime(
       readFileSync(runtimeSource, "utf8"),
       sha256(HARNESS),
     ));
-    mkdirSync(dirname(output), { recursive: true });
-    writeFileSync(output, `${JSON.stringify(artifact, null, 2)}\n`);
     console.log(`wrote ${output}`);
     console.log(`adoption: ${artifact.adoption.status}`);
     if (artifact.adoption.status !== "passed") process.exitCode = 1;

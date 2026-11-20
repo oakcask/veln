@@ -1,6 +1,6 @@
 use super::*;
 
-fn lower_with_host_effects(text: String) -> TypedProgram {
+pub(super) fn lower_with_host_effects(text: String) -> TypedProgram {
     let source = SourceFile::new("main.veln", text);
     let parsed = parse(&source);
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
