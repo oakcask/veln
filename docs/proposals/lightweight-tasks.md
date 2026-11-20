@@ -66,8 +66,8 @@ resource failure still fails its corresponding gate.
 ## Current Blocking Evidence
 
 The corrected comparison remains failed. The stable rendezvous-channel p95
-medians are 84,020 ns for production and 142,404 ns for the candidate. The
-stable bounded-channel medians are 58,107 ns and 111,067 ns. Both candidate
+medians are 84,404 ns for production and 143,338 ns for the candidate. The
+stable bounded-channel medians are 59,367 ns and 111,244 ns. Both candidate
 ratios exceed the fixed 125% ceiling. The complete noise rule is also
 inconclusive because several governed metrics exceed their allowed range.
 
