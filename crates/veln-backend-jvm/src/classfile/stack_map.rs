@@ -281,9 +281,9 @@ fn propagate_dead_frame_updates(
             complete_dead_frame_locals(
                 source,
                 &mut frame,
-                &dead_facts,
-                &exception_handlers,
-                &frame_map,
+                dead_facts,
+                exception_handlers,
+                frame_map,
             )?;
             if frame != *current {
                 updates.insert(source, frame);
