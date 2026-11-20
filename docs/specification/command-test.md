@@ -121,6 +121,11 @@ uses result failure details. A computed zero divisor inside a runtime contract
 predicate terminates the selected case as a general runtime failure rather than
 as a contract failure. The test command does not project the structured
 `runtime.remainder_by_zero` record provided by `run --json`.
+An uncaught host throwable is the primary runtime failure even when the case
+has already written standard error. The command preserves traced stdio calls
+and adds command-visible host output that is not represented by those calls.
+Cleanup failures from cancelled child tasks remain ordered related failures on
+the primary failure after the invocation lifetime drains.
 A runtime expectation passes only when the actual structured failure matches.
 A different failure or successful execution fails with
 `reason: "expected_runtime_failure"`. Missing Java is a case error with

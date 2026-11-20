@@ -32,12 +32,16 @@ A runnable case is not finished when its entry body alone returns. Its distinct
 task lifetime must first drain every admitted task, including descendants
 created during draining. On entry failure or cancellation, the case waits for
 incomplete tasks to receive cancellation and finish cleanup before publishing
-its record. An uncaught host exception or error remains the case's process
-failure, while cleanup failures from cancelled children remain ordered captured
-standard-error output. A task or cleanup that never finishes leaves the case
-incomplete; an outer harness timeout is not represented as an implicit
-test-command task deadline. Reusable JVM entries create a new lifetime for each
-case, so a later case cannot inherit an earlier case's tasks, cancellation
+its record. An uncaught host exception or error remains the case's structured
+runtime failure, even when a traced stdio call wrote standard error first. Its
+`failure.related` array contains cancelled-child cleanup messages in reporting
+order. The case events retain the traced call and also expose command-visible
+host output that is not already represented by that trace. The checked
+[`host-failure-stdio-cleanup-json`](../../examples/specification/test/host-failure-stdio-cleanup-json/)
+case covers this combined boundary. A task or cleanup that never finishes
+leaves the case incomplete; an outer harness timeout is not represented as an
+implicit test-command task deadline. Reusable JVM entries create a new lifetime
+for each case, so a later case cannot inherit an earlier case's tasks, cancellation
 state, or handlers.
 
 ## Selection
@@ -159,9 +163,17 @@ cases with `failure.kind: "contract"`. The failure details use
 
 A computed zero divisor reached while evaluating a runtime contract predicate
 terminates the case before a contract result exists. The case has
-`failure.kind: "runtime"`; its message reports the process exit status, and its
-details use the general runtime-failure shape. Unlike `veln run --json`, the
-test JSON boundary does not project a `runtime.remainder_by_zero` detail record.
+`failure.kind: "runtime"`; its message reports the uncaught host throwable when
+the runtime trace provides one and otherwise reports the process exit status.
+Its details use the general runtime-failure shape. Unlike `veln run --json`,
+the test JSON boundary does not project a `runtime.remainder_by_zero` detail
+record.
+
+Every failure record has a `related` array. It is empty when no invocation
+cleanup failed. For an uncaught host failure, each entry is one cleanup failure
+message in cleanup execution order. The same cleanup message is not added as a
+second synthetic stdio event; a raw host stack can already contain its
+suppressed representation.
 
 Tests or doctests that return `Err(value)` are reported as failed cases with
 `failure.kind: "result"`. The failure details use `kind: "result"` and

@@ -1,13 +1,14 @@
 # This command case checks the JVM entry boundary: an uncaught host failure stays
 # primary while invocation cancellation drains and exposes admitted child cleanup.
-fn should_not_start() -> ()
+fn fail_cleanup(count: Int) -> ()
+	let ignored = 1 << count
 	()
 end
 
 fn wait_first(context: { entered : Sender<()>, gate : Receiver<()> }) -> () effects [concurrency, stdio]
 	defer
 		stdio::println("first cleanup")
-		let _ = task::spawn(should_not_start)
+		fail_cleanup(64)
 	end
 	let _ = channel::send(context.entered, ())
 	let _ = channel::recv(context.gate)
@@ -17,7 +18,7 @@ end
 fn wait_second(context: { entered : Sender<()>, gate : Receiver<()> }) -> () effects [concurrency, stdio]
 	defer
 		stdio::println("second cleanup")
-		let _ = task::spawn(should_not_start)
+		fail_cleanup(65)
 	end
 	let _ = channel::send(context.entered, ())
 	let _ = channel::recv(context.gate)

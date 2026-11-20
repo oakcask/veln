@@ -1,0 +1,39 @@
+# A traced stdio call remains visible beside the raw host failure, while
+# cancelled child cleanup failures retain their structured order.
+fn fail(message: String) -> ()
+	let invalid_count = match message
+		"first child cleanup" => 64
+		_ => 65
+	end
+	let ignored = 1 << invalid_count
+	()
+end
+
+fn wait_child(context: { entered : Sender<()>, gate : Receiver<()>, message : String }) -> () effects [concurrency]
+	defer
+		fail(context.message)
+	end
+	let _ = channel::send(context.entered, ())
+	let _ = channel::recv(context.gate)
+	()
+end
+
+fn overflow(remaining: Int) -> Int
+	if remaining <= 0
+		0
+	else
+		1 + overflow(remaining - 1)
+	end
+end
+
+test host_failure_keeps_stdio_and_cleanup() -> () effects [concurrency, stdio]
+	let entered = channel::bounded<()>(2)
+	let gate = channel::bounded<()>(0)
+	let _ = task::spawn_with(wait_child, { entered: entered.tx, gate: gate.rx, message: "first child cleanup" })
+	let _ = task::spawn_with(wait_child, { entered: entered.tx, gate: gate.rx, message: "second child cleanup" })
+	let _ = channel::recv(entered.rx)
+	let _ = channel::recv(entered.rx)
+	stdio::eprintln("traced child stderr")
+	let _ = overflow(1000000)
+	()
+end

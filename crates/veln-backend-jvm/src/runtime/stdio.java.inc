@@ -8,7 +8,9 @@
     public static Object stdioPrint(Object value, String nodeId, String sourceFile) {
         String text = format(value);
         synchronized (stdioLock) {
-            System.out.print(text);
+            if (!stdioEventTraceEnabled()) {
+                System.out.print(text);
+            }
             recordStdioEvent("stdout", "print", "none", text, nodeId, sourceFile);
         }
         return UNIT;
@@ -21,8 +23,10 @@
     public static Object stdioPrintln(Object value, String nodeId, String sourceFile) {
         String text = format(value);
         synchronized (stdioLock) {
-            System.out.print(text);
-            System.out.print(System.lineSeparator());
+            if (!stdioEventTraceEnabled()) {
+                System.out.print(text);
+                System.out.print(System.lineSeparator());
+            }
             recordStdioEvent("stdout", "println", "newline", text, nodeId, sourceFile);
         }
         return UNIT;
@@ -35,7 +39,9 @@
     public static Object stdioEprint(Object value, String nodeId, String sourceFile) {
         String text = format(value);
         synchronized (stdioLock) {
-            System.err.print(text);
+            if (!stdioEventTraceEnabled()) {
+                System.err.print(text);
+            }
             recordStdioEvent("stderr", "eprint", "none", text, nodeId, sourceFile);
         }
         return UNIT;
@@ -48,12 +54,20 @@
     public static Object stdioEprintln(Object value, String nodeId, String sourceFile) {
         String text = format(value);
         synchronized (stdioLock) {
-            System.err.print(text);
-            System.err.print(System.lineSeparator());
+            if (!stdioEventTraceEnabled()) {
+                System.err.print(text);
+                System.err.print(System.lineSeparator());
+            }
             recordStdioEvent("stderr", "eprintln", "newline", text, nodeId, sourceFile);
         }
         return UNIT;
     }
+
+    private static boolean stdioEventTraceEnabled() {
+        String path = System.getenv("VELN_STDIO_EVENTS");
+        return path != null && !path.isEmpty();
+    }
+
     private static void recordStdioEvent(
         String stream,
         String operation,

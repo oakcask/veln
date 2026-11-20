@@ -388,7 +388,7 @@ fn contract_trace_becomes_structured_test_failure() {
             "\"blame\":\"caller\",\"node_id\":\"contract-2\",",
             "\"span\":{\"file\":\"main_test.veln\",",
             "\"start\":{\"line\":2,\"column\":1,\"offset\":0},",
-            "\"end\":{\"line\":2,\"column\":14,\"offset\":0}}}}"
+            "\"end\":{\"line\":2,\"column\":14,\"offset\":0}}},\"related\":[]}"
         )
     );
 }
@@ -407,7 +407,7 @@ fn result_trace_becomes_structured_test_failure() {
             "{\"kind\":\"result\",\"message\":\"runtime result failure: Err(bad)\",",
             "\"expected\":null,\"actual\":null,\"span\":null,",
             "\"details\":{\"kind\":\"result\",\"phase\":\"runtime\",",
-            "\"value\":\"bad\"}}"
+            "\"value\":\"bad\"},\"related\":[]}"
         )
     );
 }

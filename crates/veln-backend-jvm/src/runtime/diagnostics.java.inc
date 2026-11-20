@@ -88,6 +88,7 @@
     }
 
     public static void printHostFailure(Throwable failure) {
+        recordRuntimeFailure(failure);
         failure.printStackTrace();
         java.util.List<Throwable> pending = TASK_LIFETIME_RELATED_FAILURES.get();
         TASK_LIFETIME_RELATED_FAILURES.remove();
@@ -121,8 +122,12 @@
                 + "\t" + remainder.operationEndOffset
                 + System.lineSeparator();
         } else {
+            String message = failure.getMessage();
+            if (message == null || message.isEmpty()) {
+                message = failure.getClass().getName();
+            }
             line = "runtime\t"
-                + hex(String.valueOf(failure.getMessage()))
+                + hex(message)
                 + System.lineSeparator();
         }
         try {

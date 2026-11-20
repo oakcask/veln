@@ -171,6 +171,7 @@ pub struct TestFailure {
     pub kind: String,
     pub message: String,
     pub details: JsonValue,
+    pub related: Vec<String>,
 }
 
 impl TestFailure {
@@ -179,6 +180,7 @@ impl TestFailure {
             kind: "runtime".to_string(),
             message: message.into(),
             details: JsonValue::object(Vec::<(String, JsonValue)>::new()),
+            related: Vec::new(),
         }
     }
 
@@ -204,6 +206,7 @@ impl TestFailure {
                 ("node_id", JsonValue::string(node_id)),
                 ("span", source_span_to_json(&span)),
             ]),
+            related: Vec::new(),
         }
     }
 
@@ -254,6 +257,7 @@ impl TestFailure {
             kind: "result".to_string(),
             message: format!("runtime result failure: Err({value})"),
             details: JsonValue::object(details),
+            related: Vec::new(),
         }
     }
 
@@ -283,6 +287,7 @@ impl TestFailure {
             kind: "output".to_string(),
             message: format!("expected {stream} output did not match"),
             details: JsonValue::object(details),
+            related: Vec::new(),
         }
     }
 
@@ -302,7 +307,13 @@ impl TestFailure {
                     actual.map_or(JsonValue::Null, |failure| failure.to_json()),
                 ),
             ]),
+            related: Vec::new(),
         }
+    }
+
+    pub fn with_related(mut self, related: Vec<String>) -> Self {
+        self.related = related;
+        self
     }
 
     pub fn to_json(&self) -> JsonValue {
@@ -313,6 +324,10 @@ impl TestFailure {
             ("actual", JsonValue::Null),
             ("span", JsonValue::Null),
             ("details", self.details.clone()),
+            (
+                "related",
+                JsonValue::array(self.related.iter().map(JsonValue::string)),
+            ),
         ])
     }
 }

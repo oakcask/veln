@@ -54,6 +54,7 @@ fn value_result_failure_diagnostic_routes_supported_encode_failures() {
                     ]),
                 ),
             ]),
+            related: Vec::new(),
         };
 
         let diagnostic = value_result_failure_diagnostic(&failure)
@@ -94,6 +95,7 @@ fn value_result_failure_diagnostic_projects_byte_write_context() {
             ),
             ("value_diagnostic", value_diagnostic),
         ]),
+        related: Vec::new(),
     };
 
     let diagnostic =
@@ -167,6 +169,7 @@ fn value_result_failure_diagnostic_projects_byte_view_encode_context() {
             ),
             ("value_diagnostic", value_diagnostic),
         ]),
+        related: Vec::new(),
     };
 
     let diagnostic =

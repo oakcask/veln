@@ -11,6 +11,10 @@
     private static final java.util.concurrent.atomic.AtomicReference<RuntimeException>
         NEXT_TASK_START_FAILURE_FOR_TEST =
             new java.util.concurrent.atomic.AtomicReference<RuntimeException>();
+    private static volatile java.util.concurrent.CountDownLatch TASK_START_PAUSED_FOR_TEST;
+    private static volatile java.util.concurrent.CountDownLatch TASK_START_RELEASE_FOR_TEST;
+    private static volatile java.util.concurrent.CountDownLatch
+        TASK_CANCELLATION_SNAPSHOT_FOR_TEST;
 
     private enum TaskLifetimeState {
         RUNNING,
@@ -66,6 +70,11 @@
                 } else {
                     state = TaskLifetimeState.CANCELLING;
                     cancellationTargets = new java.util.ArrayList<TaskFuture>(incomplete);
+                    java.util.concurrent.CountDownLatch snapshot =
+                        TASK_CANCELLATION_SNAPSHOT_FOR_TEST;
+                    if (snapshot != null) {
+                        snapshot.countDown();
+                    }
                 }
                 closeWhenEmpty();
             }
@@ -139,6 +148,8 @@
         private final TaskLifetime lifetime;
         private final TaskCancellation cancellation;
         private final java.util.concurrent.atomic.AtomicBoolean cancellationRequested;
+        private final java.util.concurrent.atomic.AtomicBoolean cancellationInterruptDelivered =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
         private volatile Thread worker;
 
         private TaskFuture(
@@ -158,7 +169,8 @@
             worker = Thread.currentThread();
             CURRENT_TASK_LIFETIME.set(lifetime);
             CURRENT_TASK_CANCELLATION.set(cancellation);
-            if (cancellation.requested) {
+            if (cancellation.requested
+                && cancellationInterruptDelivered.compareAndSet(false, true)) {
                 worker.interrupt();
             }
             try {
@@ -174,13 +186,18 @@
             if (!isDone() && cancellationRequested.compareAndSet(false, true)) {
                 cancellation.request();
                 Thread currentWorker = worker;
-                if (currentWorker != null) {
+                if (currentWorker != null
+                    && cancellationInterruptDelivered.compareAndSet(false, true)) {
                     currentWorker.interrupt();
                 }
             }
         }
 
         private void rollbackStart() {
+            // A failed worker start has no runner that can settle this future. Settle it
+            // before removing the lifetime registration so a concurrent cancellation
+            // snapshot can never wait forever for a task that did not start.
+            cancel(false);
             lifetime.rollback(this);
         }
     }
@@ -235,6 +252,12 @@
         try {
             RuntimeException injected = NEXT_TASK_START_FAILURE_FOR_TEST.getAndSet(null);
             if (injected != null) {
+                java.util.concurrent.CountDownLatch paused = TASK_START_PAUSED_FOR_TEST;
+                java.util.concurrent.CountDownLatch release = TASK_START_RELEASE_FOR_TEST;
+                if (paused != null && release != null) {
+                    paused.countDown();
+                    awaitTestLatch(release);
+                }
                 throw injected;
             }
             return Thread.startVirtualThread(task);
@@ -246,6 +269,37 @@
 
     public static void failNextTaskStartForTest(String message) {
         NEXT_TASK_START_FAILURE_FOR_TEST.set(new RuntimeException(message));
+    }
+
+    public static void pauseNextTaskStartForTest(String message) {
+        TASK_START_PAUSED_FOR_TEST = new java.util.concurrent.CountDownLatch(1);
+        TASK_START_RELEASE_FOR_TEST = new java.util.concurrent.CountDownLatch(1);
+        TASK_CANCELLATION_SNAPSHOT_FOR_TEST = new java.util.concurrent.CountDownLatch(1);
+        failNextTaskStartForTest(message);
+    }
+
+    public static void awaitTaskStartPauseForTest() {
+        awaitTestLatch(TASK_START_PAUSED_FOR_TEST);
+    }
+
+    public static void releaseTaskStartAfterCancellationSnapshotForTest() {
+        awaitTestLatch(TASK_CANCELLATION_SNAPSHOT_FOR_TEST);
+        TASK_START_RELEASE_FOR_TEST.countDown();
+    }
+
+    private static void awaitTestLatch(java.util.concurrent.CountDownLatch latch) {
+        boolean interrupted = false;
+        while (true) {
+            try {
+                latch.await();
+                break;
+            } catch (InterruptedException waitingInterrupted) {
+                interrupted = true;
+            }
+        }
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static java.util.concurrent.FutureTask<Object> newTaskFuture(

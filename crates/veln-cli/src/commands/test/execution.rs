@@ -250,6 +250,8 @@ pub(super) fn execute_test_case_job(job: TestCaseJob) -> Result<TestCase, String
         event_trace,
         contract_error_trace,
         result_error_trace,
+        cleanup_error_trace,
+        runtime_error_trace,
     } = match execute_test_program(&case.name, &program, &java_args, execution.as_deref())? {
         TestExecution::Ran(artifacts) => artifacts,
         TestExecution::ToolError(message) => {
@@ -266,6 +268,8 @@ pub(super) fn execute_test_case_job(job: TestCaseJob) -> Result<TestCase, String
         &output,
         &contract_error_trace,
         &result_error_trace,
+        &cleanup_error_trace,
+        &runtime_error_trace,
     );
     if case.status == TestCaseStatus::Passed {
         compare_expected_output(&mut case);
@@ -278,6 +282,8 @@ pub(super) struct TestRunArtifacts {
     event_trace: String,
     contract_error_trace: String,
     result_error_trace: String,
+    cleanup_error_trace: String,
+    runtime_error_trace: String,
 }
 
 pub(super) struct TestRunFiles {
@@ -285,6 +291,8 @@ pub(super) struct TestRunFiles {
     pub(super) event_file: PathBuf,
     pub(super) contract_error_file: PathBuf,
     pub(super) result_error_file: PathBuf,
+    pub(super) cleanup_error_file: PathBuf,
+    pub(super) runtime_error_file: PathBuf,
 }
 
 impl TestRunFiles {
@@ -294,15 +302,19 @@ impl TestRunFiles {
             event_file: build_dir.join("stdio-events.tsv"),
             contract_error_file: build_dir.join("contract-errors.tsv"),
             result_error_file: build_dir.join("result-errors.tsv"),
+            cleanup_error_file: build_dir.join("cleanup-errors.tsv"),
+            runtime_error_file: build_dir.join("runtime-errors.tsv"),
             build_dir,
         })
     }
 
-    fn read_traces(&self) -> (String, String, String) {
+    fn read_traces(&self) -> (String, String, String, String, String) {
         (
             fs::read_to_string(&self.event_file).unwrap_or_default(),
             fs::read_to_string(&self.contract_error_file).unwrap_or_default(),
             fs::read_to_string(&self.result_error_file).unwrap_or_default(),
+            fs::read_to_string(&self.cleanup_error_file).unwrap_or_default(),
+            fs::read_to_string(&self.runtime_error_file).unwrap_or_default(),
         )
     }
 }
@@ -360,6 +372,8 @@ pub(super) fn execute_test_program(
             files.contract_error_file.as_os_str(),
         ),
         ("VELN_RESULT_ERRORS", files.result_error_file.as_os_str()),
+        ("VELN_CLEANUP_ERRORS", files.cleanup_error_file.as_os_str()),
+        ("VELN_RUNTIME_ERRORS", files.runtime_error_file.as_os_str()),
     ];
     let result = if let Some(prepared_execution) = prepared_execution {
         match prepared_execution {
@@ -381,7 +395,13 @@ pub(super) fn execute_test_program(
             java_args,
         )
     };
-    let (event_trace, contract_error_trace, result_error_trace) = files.read_traces();
+    let (
+        event_trace,
+        contract_error_trace,
+        result_error_trace,
+        cleanup_error_trace,
+        runtime_error_trace,
+    ) = files.read_traces();
 
     match result? {
         JvmRunResult::Ran(output) => Ok(TestExecution::Ran(TestRunArtifacts {
@@ -389,6 +409,8 @@ pub(super) fn execute_test_program(
             event_trace,
             contract_error_trace,
             result_error_trace,
+            cleanup_error_trace,
+            runtime_error_trace,
         })),
         JvmRunResult::ToolError(message) => Ok(TestExecution::ToolError(message)),
     }
@@ -474,11 +496,13 @@ fn collect_test_events(
     event_trace: &str,
 ) {
     let call_spans = stdio_call_spans(module);
-    case.events = if event_trace.is_empty() {
-        stdio_events_from_output(output, &case.source)
-    } else {
-        stdio_events_from_trace(event_trace, &call_spans, &case.source)
-    };
+    if event_trace.is_empty() {
+        case.events = stdio_events_from_output(output, &case.source);
+        return;
+    }
+    case.events = stdio_events_from_trace(event_trace, &call_spans, &case.source);
+    case.events
+        .extend(stdio_events_from_output(output, &case.source));
 }
 
 fn apply_test_process_result(
@@ -486,6 +510,8 @@ fn apply_test_process_result(
     output: &Output,
     contract_error_trace: &str,
     result_error_trace: &str,
+    cleanup_error_trace: &str,
+    runtime_error_trace: &str,
 ) {
     if output.status.success() {
         apply_runtime_result(case, None);
@@ -493,7 +519,9 @@ fn apply_test_process_result(
         let message = format!("test process exited with status {}", output.status);
         let actual_failure = contract_failure_from_trace(contract_error_trace)
             .or_else(|| result_failure_from_trace(result_error_trace))
-            .or_else(|| Some(TestFailure::runtime(message)));
+            .or_else(|| runtime_failure_from_trace(runtime_error_trace).map(TestFailure::runtime))
+            .or_else(|| Some(TestFailure::runtime(message)))
+            .map(|failure| failure.with_related(cleanup_related_failures(cleanup_error_trace)));
         apply_runtime_result(case, actual_failure);
     }
 }

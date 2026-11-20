@@ -23,6 +23,10 @@ path = "stdout"
 contains = "second cleanup"
 
 [[json_assert]]
+path = "stderr"
+contains = "child stderr before host failure"
+
+[[json_assert]]
 path = "error.kind"
 equals = "runtime"
 
@@ -40,7 +44,7 @@ equals = "cleanup_failure"
 
 [[json_assert]]
 path = "error.related.0.message"
-equals = "task lifetime is closed"
+equals = "invalid shift count 64 for operator `<<`; expected a value between 0 and 63"
 
 [[json_assert]]
 path = "error.related.1.kind"
@@ -48,4 +52,4 @@ equals = "cleanup_failure"
 
 [[json_assert]]
 path = "error.related.1.message"
-equals = "task lifetime is closed"
+equals = "invalid shift count 65 for operator `<<`; expected a value between 0 and 63"

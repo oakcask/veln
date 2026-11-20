@@ -108,6 +108,67 @@ public final class LightweightTaskStartRollbackHarness {
 }
 
 #[test]
+fn lightweight_task_start_failure_settles_a_concurrent_cancellation_snapshot() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "lightweight-task-start-rollback-overlap",
+        "LightweightTaskStartRollbackOverlapHarness.java",
+        r#"
+public final class LightweightTaskStartRollbackOverlapHarness {
+    public static void main(String[] args) throws Exception {
+        java.util.concurrent.CountDownLatch parentEntered =
+            new java.util.concurrent.CountDownLatch(1);
+        VelnRuntime.beginTaskLifetime();
+        Object parent = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
+            parentEntered.countDown();
+            VelnRuntime.pauseNextTaskStartForTest("overlapped start failure");
+            try {
+                Object unpublished = VelnRuntime.taskSpawn(
+                    (VelnRuntime.Fn) childIgnored -> null
+                );
+                throw new AssertionError("failed child start published " + unpublished);
+            } catch (VelnRuntime.RuntimeFailure failure) {
+                if (failure.getCause() == null
+                        || !"overlapped start failure".equals(
+                            failure.getCause().getMessage())) {
+                    throw new AssertionError("start cause was not preserved", failure);
+                }
+            }
+            return null;
+        });
+        if (!parentEntered.await(10, java.util.concurrent.TimeUnit.SECONDS)) {
+            throw new AssertionError("parent task did not start");
+        }
+        VelnRuntime.awaitTaskStartPauseForTest();
+        Thread releaser = Thread.ofPlatform().start(
+            VelnRuntime::releaseTaskStartAfterCancellationSnapshotForTest
+        );
+        VelnRuntime.finishTaskLifetime(false);
+        releaser.join();
+        System.out.println("overlap drained " + VelnRuntime.taskJoin(parent));
+    }
+}
+"#,
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "overlap drained Err(cancelled)\n"
+    );
+}
+
+#[test]
 fn lightweight_tasks_park_without_platform_thread_growth_and_release_registrations() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

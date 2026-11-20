@@ -84,12 +84,6 @@ impl RunHumanReport {
         };
         let exit_code = exit_code_from_status(output.status);
         let stderr = String::from_utf8_lossy(&output.stderr);
-        let cleanup_stderr = cleanup_related
-            .iter()
-            .map(|failure| format!("related cleanup failure: {failure}\n"))
-            .collect::<String>();
-        let cleanup_already_reported =
-            !cleanup_stderr.is_empty() && stderr.ends_with(&cleanup_stderr);
         if let Some(failure) = result_failure {
             if let Some(diagnostic) = diagnostic_for(&failure) {
                 io::stdout()
@@ -105,8 +99,8 @@ impl RunHumanReport {
         } else {
             forward_process_output(&output)?;
         }
-        if !cleanup_already_reported {
-            for related in cleanup_related {
+        for related in cleanup_related {
+            if !stderr.contains(&related) {
                 eprintln!("related cleanup failure: {related}");
             }
         }

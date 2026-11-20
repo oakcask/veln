@@ -1,0 +1,59 @@
+command = ["test", "--json", "main_test.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "host_failure_keeps_stdio_and_cleanup"
+
+[[json_assert]]
+path = "cases.0.failure.kind"
+equals = "runtime"
+
+[[json_assert]]
+path = "cases.0.failure.message"
+equals = "java.lang.StackOverflowError"
+
+[[json_assert]]
+path = "cases.0.failure.related"
+length = 2
+
+[[json_assert]]
+path = "cases.0.failure.related.0"
+equals = "invalid shift count 64 for operator `<<`; expected a value between 0 and 63"
+
+[[json_assert]]
+path = "cases.0.failure.related.1"
+equals = "invalid shift count 65 for operator `<<`; expected a value between 0 and 63"
+
+[[json_assert]]
+path = "cases.0.events.0.kind"
+equals = "stdio"
+
+[[json_assert]]
+path = "cases.0.events.0.stream"
+equals = "stderr"
+
+[[json_assert]]
+path = "cases.0.events.0.text"
+equals = "traced child stderr"
+
+[[json_assert]]
+path = "cases.0.events.1.stream"
+equals = "stderr"
+
+[[json_assert]]
+path = "cases.0.events.1.text"
+contains = "java.lang.StackOverflowError"

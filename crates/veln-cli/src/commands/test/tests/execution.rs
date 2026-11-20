@@ -54,6 +54,8 @@ fn test_run_files_isolate_case_artifacts() {
     assert_ne!(first.event_file, second.event_file);
     assert_ne!(first.contract_error_file, second.contract_error_file);
     assert_ne!(first.result_error_file, second.result_error_file);
+    assert_ne!(first.cleanup_error_file, second.cleanup_error_file);
+    assert_ne!(first.runtime_error_file, second.runtime_error_file);
 
     drop(first);
     drop(second);
