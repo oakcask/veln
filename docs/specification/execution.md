@@ -45,7 +45,9 @@ the closing version quote, as produced by Java launchers.
 Generated Java 25 classes exercised through the backend and command runtime are
 loadable by the supported Java runtime. If class construction cannot represent
 a compatible generated class, it returns a bounded backend failure instead of
-writing an invalid classfile.
+writing an invalid classfile. This includes methods whose unreachable control
+flow converges after paths carry different local verification types: the
+emitted stack-map frames pass Java 25 full verification.
 
 Explicit import aliases affect source lookup only. Lowering and reachability
 use the selected target module and declaration identity for calls,
@@ -887,7 +889,9 @@ than degrading it to a generic rendered result value.
   launch and preserve the command-owned JSON error shape.
 - Class-builder tests require `ClassBuilder::finish()` to succeed for selected
   branch, exception-handler, long straight-line, and unreachable-branch inputs,
-  or to return the expected bounded backend failure for an oversized method, in
+  including a converging unreachable graph checked by Java 25 with
+  `-Xverify:all`, or to return the expected bounded backend failure for an
+  oversized method, in
   [`class_builder.rs`](../../crates/veln-backend-jvm/src/classfile/class_builder.rs).
 - Host stack exhaustion with a waiting child task is checked for both run and
   reusable test entries in `crates/veln-backend-jvm/src/tests/concurrency.rs`.
