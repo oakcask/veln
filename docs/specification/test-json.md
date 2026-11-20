@@ -28,6 +28,15 @@ explicit bounded `--jobs <JOBS>`, and automatic job modes, regardless of worker
 completion order. Summary counts and top-level status are computed from the
 finished case and suite records.
 
+A runnable case is not finished when its entry body alone returns. Its distinct
+task lifetime must first drain every admitted task, including descendants
+created during draining. On entry failure or cancellation, the case waits for
+incomplete tasks to receive cancellation and finish cleanup before publishing
+its record. A task or cleanup that never finishes leaves the case incomplete;
+an outer harness timeout is not represented as an implicit test-command task
+deadline. Reusable JVM entries create a new lifetime for each case, so a later
+case cannot inherit an earlier case's tasks, cancellation state, or handlers.
+
 ## Selection
 
 Selection fields are:
@@ -261,7 +270,10 @@ tracing is unavailable, output may be represented as aggregate stdout or stderr
 events attached to the case source.
 When runtime tracing is available, stdio operations are serialized before
 capture. The `sequence` field defines the observed operation order across
-stdout and stderr, including output produced by spawned tasks.
+stdout and stderr, including output produced by spawned tasks. Because a case
+record is published only after its task lifetime closes, its event list also
+contains the captured output of admitted descendants that finish during normal
+draining or cancellation cleanup.
 
 ## Static Gate
 

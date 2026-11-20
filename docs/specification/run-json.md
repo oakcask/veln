@@ -51,6 +51,15 @@ stderr is also empty, the process exit status supplies the message. A transport
 failure replaces the captured stderr with its stable transport message followed
 by a newline; raw Java stderr is discarded.
 
+Run-report construction waits for the entry's task lifetime to close. After a
+successful entry return, `stdout` and `stderr` therefore include output from
+every admitted descendant that completes while the invocation drains. If the
+entry fails, returns an error, or is cancelled, the report waits for admitted
+tasks to receive cancellation and finish cleanup before it fixes the captured
+output and failure. A task or cleanup that never finishes prevents the JSON
+document from being emitted; `run --json` adds no task deadline or partial
+envelope.
+
 A tool failure represented after run-report preparation has
 `error.kind: "runner"`, `details.phase: "tool"`, empty `stdout` and `stderr`,
 and does not claim that the program reached the backend. A selected Java with
@@ -75,7 +84,10 @@ failure includes an `operation` note with the complete `%` expression span.
 A cleanup failure attached
 to an existing primary failure contributes one object with
 `kind: "cleanup_failure"` and its runtime `message`. Objects retain cleanup
-execution order. The array is empty when no related cleanup failed.
+execution order. Cleanup failures collected while cancelling an entry's tasks
+are ordered by task admission, while each task retains its internal cleanup
+order. The original entry failure remains primary. The array is empty when no
+related cleanup failed.
 
 ## Static diagnostic gate
 
