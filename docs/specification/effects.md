@@ -571,10 +571,13 @@ replace each other's stacks. Shared provider resources retain their creating
 owner. Separate worker threads do not transfer cancellation state or handler
 frames between unrelated tasks.
 
-Channel, timer, and task-join waits block the current platform worker until the
-wait ends. Progress is therefore subject to host platform-thread resources.
-This contract does not promise bounded CPU fairness, bounded cancellation
-latency, or starvation freedom for continuously runnable jobs. The
+Each admitted task runs on its own unpooled virtual thread. Channel, timer, and
+task-join waits suspend that virtual worker. Supported waits unmount it from a
+carrier until the wait becomes ready or observes cancellation, so a waiting
+task does not reserve one platform thread. Native host calls and continuously
+runnable jobs can still occupy carrier resources. This contract does not
+promise bounded CPU fairness, bounded cancellation latency, or starvation
+freedom for continuously runnable jobs. The
 [execution boundary](execution.md#lightweight-task-execution-and-invocation-lifetime)
 defines invocation lifetime and the remaining host-wait limits. The checked
 [`task-invocation-drain`](../../examples/specification/run/task-invocation-drain/)
