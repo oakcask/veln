@@ -718,7 +718,11 @@ requests cancellation by interrupting the task and returns `()`. The first
 call that observes an incomplete task claims cancellation atomically.
 Concurrent or later calls do not send another interruption, including while
 the task is running deferred cleanup. A call that observes an already completed
-task has no effect. Cancellation is cooperative at the JVM runtime boundary,
+task has no effect. If the cancelled task is waiting in `task::join`, the
+interruption cancels only that waiting task. It does not cancel the task named
+by the joined handle. The waiting task finishes its cleanup before its own
+handle reports cancellation, while the joined task can still complete and be
+joined independently. Cancellation is cooperative at the JVM runtime boundary,
 and [execution](execution.md#runtime-readiness-and-host-boundaries) specifies
 cleanup completion before `task::join` reports cancellation.
 

@@ -275,3 +275,6 @@ selected scope satisfies that evidence.
 - Existing cancellation ordering and failure-identity evidence:
   [`JoinBlockingHarness.java`](../../crates/veln-backend-jvm/test-support/JoinBlockingHarness.java)
   and [`CancellationIdentityHarness.java`](../../crates/veln-backend-jvm/test-support/CancellationIdentityHarness.java).
+- Cancellation while a task waits in `task::join`, including waiter cleanup
+  and independent target completion:
+  [`CancellationDuringJoinHarness.java`](../../crates/veln-backend-jvm/test-support/CancellationDuringJoinHarness.java).
