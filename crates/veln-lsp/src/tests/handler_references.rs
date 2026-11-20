@@ -125,11 +125,15 @@ fn direct_dependency_handler_navigation_returns_virtual_definition_and_workspace
 
 #[test]
 fn standard_library_handler_navigation_returns_virtual_definition_and_workspace_references() {
+    let (_project, main_uri, mut server) = standard_library_handler_navigation_server();
+    let definition = assert_standard_library_handler_definition(&mut server, &main_uri);
+    assert_standard_library_handler_alias_and_references(&mut server, &main_uri, &definition);
+    assert_ineligible_standard_library_handler_is_empty(&mut server, &main_uri);
+}
+
+fn standard_library_handler_navigation_server() -> (TempProject, String, Server) {
     let manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"observe.veln\"]\n";
-    let handler_source = concat!(
-        "pub handler noop() for Observe\n  record() => 1\nend\n\n",
-        "handler hidden() for Observe\n  record() => 2\nend\n",
-    );
+    let handler_source = standard_library_handler_source();
     let snapshot = capture_embedded_package_snapshot(
         manifest.as_bytes(),
         [PackageSnapshotSource::new(
@@ -158,21 +162,31 @@ fn standard_library_handler_navigation_returns_virtual_definition_and_workspace_
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     let mut server = Server::default().with_standard_library(standard_library);
     server.handle_message(&initialize_request(&root_uri));
+    (project, main_uri, server)
+}
 
-    let definition = server.handle_message(&definition_request(&main_uri, 3, 25));
+fn assert_standard_library_handler_definition(server: &mut Server, main_uri: &str) -> Vec<String> {
+    let definition = server.handle_message(&definition_request(main_uri, 3, 25));
     assert_eq!(definition.len(), 1);
     let definition_uri = extract_string_field(&definition[0], "uri").unwrap();
     assert!(definition_uri.starts_with("veln-pkg:///std/snapshot/"));
     assert!(definition[0].contains(
         r#""range":{"start":{"line":0,"character":12},"end":{"line":0,"character":16}}"#
     ));
-    assert_virtual_document_text(&mut server, "3", &definition_uri, handler_source);
+    assert_virtual_document_text(server, "3", &definition_uri, standard_library_handler_source());
+    definition
+}
 
-    let alias_definition = server.handle_message(&definition_request(&main_uri, 7, 23));
+fn assert_standard_library_handler_alias_and_references(
+    server: &mut Server,
+    main_uri: &str,
+    definition: &[String],
+) {
+    let alias_definition = server.handle_message(&definition_request(main_uri, 7, 23));
     assert_eq!(alias_definition, definition);
     for include_declaration in [false, true] {
         let references = server.handle_message(&references_request_with_declaration(
-            &main_uri,
+            main_uri,
             7,
             23,
             include_declaration,
@@ -181,17 +195,26 @@ fn standard_library_handler_navigation_returns_virtual_definition_and_workspace_
         assert_eq!(references[0].matches(&format!(r#""uri":"{main_uri}""#)).count(), 2);
         assert!(!references[0].contains("veln-pkg:"), "{}", references[0]);
     }
+}
 
+fn assert_ineligible_standard_library_handler_is_empty(server: &mut Server, main_uri: &str) {
     assert_eq!(
-        server.handle_message(&definition_request(&main_uri, 11, 25)),
+        server.handle_message(&definition_request(main_uri, 11, 25)),
         [response("2", "null")]
     );
     assert_eq!(
         server.handle_message(&references_request_with_declaration(
-            &main_uri, 11, 25, true,
+            main_uri, 11, 25, true,
         )),
         [response("2", "[]")]
     );
+}
+
+fn standard_library_handler_source() -> &'static str {
+    concat!(
+        "pub handler noop() for Observe\n  record() => 1\nend\n\n",
+        "handler hidden() for Observe\n  record() => 2\nend\n",
+    )
 }
 
 #[test]
