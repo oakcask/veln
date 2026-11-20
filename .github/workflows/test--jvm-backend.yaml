@@ -78,6 +78,7 @@ jobs:
         run: |
           bash scripts/ci-run cargo test --locked -p veln-backend-jvm jvm_runtime_concurrent_cancellation_preserves_cleanup_before_join_when_java_is_available -- --test-threads=1
           bash scripts/ci-run cargo test --locked -p veln-backend-jvm jvm_runtime_cancellation_during_join_preserves_target_and_waiter_cleanup_when_java_is_available -- --test-threads=1
+          bash scripts/ci-run cargo test --locked -p veln-backend-jvm jvm_runtime_preserves_cancellation_entering_host_connect_when_java_is_available -- --test-threads=1
       - name: Test lightweight-task benchmark validator
         run: node --test workflow-scripts/benchmark-lightweight-tasks.test.mjs
       - name: Run JVM CLI fixtures
