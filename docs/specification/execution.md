@@ -345,6 +345,7 @@ lifetime closes. The lifetime follows these transitions:
 | Running | The entry and its lexical cleanup succeed. | Draining. Preserve the entry result and wait for every admitted job. |
 | Running | The entry fails, returns an entry error, is cancelled, or throws an uncaught host failure. | Cancelling. Close admission, request cancellation once on every incomplete job, and wait for their cleanup. |
 | Running or Draining | An admitted job spawns a descendant. | Admit the descendant to the same lifetime before returning its handle. |
+| Running or Draining | An admitted spawn cannot start its worker. | Fail the spawn with its host cause, publish no handle, and remove its incomplete-job registration. A concurrent cancellation does not wait for the worker that failed to start. |
 | Cancelling | A job attempts to spawn. | Reject the spawn before its job executes. Cleanup-failure precedence still applies. |
 | Draining or Cancelling | The last incomplete job finishes. | Closed. Publish the preserved entry result or original entry failure. |
 | Draining or Cancelling | A job or cleanup never finishes. | Remain in the current state without a deadline or forced termination. |
@@ -354,7 +355,9 @@ retained application handle keeps its own settled result. The lifetime keeps no
 permanent completed-job history, so released handles and handler owners can be
 reclaimed. Admission, registration, transition to a closed lifetime, and
 worker-start rollback are atomic with respect to spawn. A failed start retains
-its host cause and publishes no handle.
+its host cause and publishes no handle. It settles before rollback removes its
+registration, so a cancellation that already selected the job can still close
+the lifetime.
 
 An ordinary unjoined child failure does not replace the entry result. On an
 entry failure, including an uncaught host exception or error, the original
@@ -946,6 +949,10 @@ than degrading it to a generic rendered result value.
   [`JSON`](../../examples/specification/run/host-failure-child-cleanup-json/)
   command cases independently check that the host failure remains primary and
   child cleanup failures remain visible in admission order.
+- JVM runtime integration coverage overlaps invocation cancellation with an
+  injected worker-start failure and requires the failed spawn to settle without
+  preventing the lifetime from closing. It is in
+  `crates/veln-backend-jvm/src/tests/runtime_integration.rs`.
 
 - Cross-package function and handler selection through reachability, lowering,
   and JVM linkage, together with validation operand evaluation order, are

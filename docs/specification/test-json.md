@@ -103,7 +103,8 @@ Each case has:
 - `source`: object with non-null `file`, `node_id`, and `span`; `span` has
   `start` and `end`, each containing `line`, `column`, and `offset`.
 - `reason`: nullable string.
-- `failure`: nullable failure object with `kind`, `message`, and `details`.
+- `failure`: nullable failure object with `kind`, `message`, `details`, and
+  `related`.
 - `events`: an array of serialized stdio events, empty when none were captured.
 - `diagnostics`: an array of diagnostic objects for the case.
 
@@ -169,11 +170,11 @@ Its details use the general runtime-failure shape. Unlike `veln run --json`,
 the test JSON boundary does not project a `runtime.remainder_by_zero` detail
 record.
 
-Every failure record has a `related` array. It is empty when no invocation
-cleanup failed. For an uncaught host failure, each entry is one cleanup failure
-message in cleanup execution order. The same cleanup message is not added as a
-second synthetic stdio event; a raw host stack can already contain its
-suppressed representation.
+Every non-null failure object has a `related` array. It is empty when no
+invocation cleanup failed. For an uncaught host failure, each entry is one
+cleanup failure message in cleanup execution order. The same cleanup message
+is not added as a second synthetic stdio event; a raw host stack can already
+contain its suppressed representation.
 
 Tests or doctests that return `Err(value)` are reported as failed cases with
 `failure.kind: "result"`. The failure details use `kind: "result"` and

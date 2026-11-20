@@ -161,8 +161,9 @@ exit status in discovered-case order regardless of completion order.
 When a case fails or is cancelled, its invocation closes admission, requests
 cancellation once for incomplete tasks, drains cleanup, and preserves the case
 failure as primary. An uncaught host exception or error follows the same
-boundary. Its process failure stays primary, and child cleanup failures remain
-visible in captured standard error in task-admission order.
+boundary. Its structured runtime failure stays primary, and child cleanup
+failures remain ordered related failures. Captured events also retain traced
+stdio and command-visible host output.
 
 When `VELN_TEST_TIMINGS` is present, the command emits diagnostic timing lines
 to standard error after the report. Each line starts with
