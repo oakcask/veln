@@ -207,53 +207,6 @@ fn run_jvm_program_with_env_and_java_args_when_java_is_available(
     Some(output)
 }
 
-pub(crate) fn run_jvm_program_with_virtual_worker_when_java_is_available(
-    name: &str,
-    program: &JvmProgram,
-    args: &[&str],
-) -> Option<std::process::Output> {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
-        return None;
-    }
-    let root = temp_dir(name);
-    write_jvm_program(&root, program);
-    const PLATFORM_WORKER: &str =
-        "return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task));";
-    const VIRTUAL_WORKER: &str = "return startTaskWorker(future, Thread::startVirtualThread);";
-    let platform_runtime = include_str!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime.java"));
-    assert_eq!(platform_runtime.matches(PLATFORM_WORKER).count(), 1);
-    fs::write(
-        root.join("VelnRuntime.java"),
-        platform_runtime.replace(PLATFORM_WORKER, VIRTUAL_WORKER),
-    )
-    .expect("virtual candidate runtime source should be written");
-    let compiled = Command::new("javac")
-        .args(["--release", "25", "VelnRuntime.java"])
-        .current_dir(&root)
-        .output()
-        .expect("candidate javac should run");
-    assert!(
-        compiled.status.success(),
-        "candidate javac failed:\n{}",
-        String::from_utf8_lossy(&compiled.stderr)
-    );
-    let mut command = Command::new("java");
-    command
-        .arg("-cp")
-        .arg(&root)
-        .arg("VelnEntry")
-        .current_dir(&root)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .args(args);
-    let child = command.spawn().expect("candidate Java entry should run");
-    let output = wait_for_test_child(child, name, std::time::Duration::from_secs(30));
-    let _ = fs::remove_dir_all(&root);
-    Some(output)
-}
-
 fn wait_for_test_child(
     child: std::process::Child,
     name: &str,

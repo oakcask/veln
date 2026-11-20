@@ -499,7 +499,7 @@ end
 }
 
 #[test]
-fn platform_workers_run_channel_timer_and_join_peers_when_java_is_available() {
+fn production_workers_run_channel_timer_and_join_peers_when_java_is_available() {
     let ir = lower_to_ir(
         r#"fn send_after_wait(sender: Sender<String>) -> String effects [concurrency, time]
     time::timeout_ms(5)

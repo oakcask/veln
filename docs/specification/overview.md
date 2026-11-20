@@ -24,8 +24,8 @@ The following behavior is fixed for the implemented slice:
   [execution.md](execution.md#runtime-readiness-and-host-boundaries),
   [command-run.md](command-run.md#analysis-and-execution-gates), and
   [command-test.md](command-test.md#gates-and-failures).
-- JVM task execution currently uses one non-daemon platform thread per admitted
-  task. Each run and
+- JVM task execution uses one unpooled virtual thread per admitted task, while a
+  non-daemon platform entry launcher owns invocation lifetime. Each run and
   test entry owns a distinct task lifetime: successful entries drain admitted
   descendants, failed entries cancel and drain them, and a task or cleanup
   that never finishes keeps the invocation incomplete without an implicit

@@ -40,6 +40,9 @@ export const WORKLOAD = {
   channel_operations: 16384,
   channel_offered_operations_per_second: 2000,
   channel_capacities: [0, 64],
+  noise_measurement_epochs: 5,
+  cost_measurement_epochs: 5,
+  select_measurement_epochs: 20,
   select_deliveries: 128,
   select_timeout_millis: 1,
   select_offered_interval_millis: 2,
@@ -433,13 +436,13 @@ function buildRuntimeSource() {
 }
 
 export function runtimeSourceVariants(original) {
-  const occurrences = original.split(PLATFORM_WORKER).length - 1;
+  const occurrences = original.split(VIRTUAL_WORKER).length - 1;
   if (occurrences !== 1) {
-    throw new Error(`runtime contains ${occurrences} platform worker constructors; expected one`);
+    throw new Error(`runtime contains ${occurrences} virtual worker constructors; expected one`);
   }
   return {
-    platform: original,
-    virtual: original.replace(PLATFORM_WORKER, VIRTUAL_WORKER),
+    platform: original.replace(VIRTUAL_WORKER, PLATFORM_WORKER),
+    virtual: original,
   };
 }
 
@@ -487,10 +490,17 @@ function procStatus(pid) {
   }
 }
 
-async function runSample(variant, run, directory, extraJvmArgs = []) {
+async function runSampleProcess(
+  variant,
+  run,
+  directory,
+  extraJvmArgs = [],
+  harnessArgs = [],
+  requireParkedObservations = true,
+) {
   const started = process.hrtime.bigint();
   const child = spawn("java", [...JVM_ARGS, ...extraJvmArgs, "-cp", directory,
-    "LightweightTaskBenchmark"], {
+    "LightweightTaskBenchmark", ...harnessArgs], {
     cwd: directory,
     detached: true,
     stdio: ["pipe", "pipe", "pipe"],
@@ -524,7 +534,7 @@ async function runSample(variant, run, directory, extraJvmArgs = []) {
       return;
     }
     if (fields[1] === "start") {
-      if (currentParkedObservation !== null || parkedObservations.has(population)) {
+      if (currentParkedObservation !== null) {
         observationErrors.push(`duplicate parked observation start ${population}`);
         return;
       }
@@ -541,7 +551,9 @@ async function runSample(variant, run, directory, extraJvmArgs = []) {
         observationErrors.push(`parked observation ready without start ${population}`);
       } else {
         updateParkedObservation();
-        parkedObservations.set(population, currentParkedObservation);
+        const observations = parkedObservations.get(population) ?? [];
+        observations.push(currentParkedObservation);
+        parkedObservations.set(population, observations);
         currentParkedObservation = null;
       }
       child.stdin.write("continue\n");
@@ -590,7 +602,12 @@ async function runSample(variant, run, directory, extraJvmArgs = []) {
     duration_seconds: duration,
     peak_rss_kb: peakRss,
     peak_os_threads: peakThreads,
-    population_observations: [...parkedObservations.values()]
+    population_observations: [...parkedObservations.entries()]
+      .map(([population, observations]) => ({
+        population,
+        peak_rss_kb: median(observations.map((entry) => entry.peak_rss_kb)),
+        peak_os_threads: median(observations.map((entry) => entry.peak_os_threads)),
+      }))
       .sort((left, right) => left.population - right.population),
     stderr: stderr.trim(),
   };
@@ -609,12 +626,43 @@ async function runSample(variant, run, directory, extraJvmArgs = []) {
   }
   if (sample.status === "passed"
       && (observationErrors.length > 0
-        || sample.population_observations.length !== WORKLOAD.parked_populations.length)) {
+        || (requireParkedObservations
+          && sample.population_observations.length !== WORKLOAD.parked_populations.length))) {
     sample.status = "failed";
     sample.observation_error = observationErrors.join("; ")
       || `observed ${sample.population_observations.length} parked populations`;
   }
   return sample;
+}
+
+async function runSample(variant, run, directory, extraJvmArgs = []) {
+  const parked = await runSampleProcess(
+    variant,
+    `${run}-parked`,
+    directory,
+    extraJvmArgs,
+    ["--parked-only"],
+    true,
+  );
+  if (parked.status !== "passed") return { ...parked, run };
+  const cost = await runSampleProcess(
+    variant,
+    `${run}-cost`,
+    directory,
+    extraJvmArgs,
+    ["--cost-only"],
+    false,
+  );
+  if (cost.status !== "passed") return { ...cost, run };
+  cost.run = run;
+  cost.duration_seconds += parked.duration_seconds;
+  cost.peak_rss_kb = Math.max(cost.peak_rss_kb, parked.peak_rss_kb);
+  cost.peak_os_threads = Math.max(cost.peak_os_threads, parked.peak_os_threads);
+  cost.population_observations = parked.population_observations;
+  cost.stderr = `${parked.stderr}\n${cost.stderr}`.trim();
+  cost.result.workload.parked = parked.result.workload.parked;
+  cost.result.functional_outcomes.parked = parked.result.functional_outcomes.parked;
+  return cost;
 }
 
 function javaIdentity() {
@@ -626,9 +674,9 @@ function javaIdentity() {
 
 async function countJfrPinningEvents(directory, root) {
   const recording = join(root, "candidate-pinning.jfr");
-  const sample = await runSample("virtual", "jfr-diagnostic", directory, [
+  const sample = await runSampleProcess("virtual", "jfr-diagnostic", directory, [
     `-XX:StartFlightRecording=filename=${recording},settings=profile,dumponexit=true`,
-  ]);
+  ], ["--cost-only"], false);
   if (sample.status !== "passed" || !existsSync(recording)) {
     return { status: "failed", sample };
   }
@@ -677,6 +725,8 @@ async function main() {
         {
           rendezvous_channel: warmups[variant].result.workload.rendezvous_channel,
           bounded_channel: warmups[variant].result.workload.bounded_channel,
+          unpark_handoff_diagnostic:
+            warmups[variant].result.workload.unpark_handoff_diagnostic,
         },
       ])), null, 2));
       return;

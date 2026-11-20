@@ -69,11 +69,11 @@ jobs:
           bash scripts/ci-run cargo test --locked -p veln-backend-jvm entry_lifetime_drains_descendants_spawned_after_entry_returns_when_java_is_available -- --test-threads=1
           bash scripts/ci-run cargo test --locked -p veln-backend-jvm failed_entry -- --test-threads=1
           bash scripts/ci-run cargo test --locked -p veln-backend-jvm reusable_test_entries_drain_distinct_task_lifetimes_when_java_is_available -- --test-threads=1
-      - name: Check candidate worker boundaries
+      - name: Check production worker boundaries
         run: |
           bash scripts/ci-run cargo test --locked -p veln-backend-jvm lightweight_task_start_failure -- --test-threads=1
           bash scripts/ci-run cargo test --locked -p veln-backend-jvm task_completion_wins_a_later_cancellation_claim_atomically -- --test-threads=1
-          bash scripts/ci-run cargo test --locked -p veln-backend-jvm virtual_candidate -- --test-threads=1
+          bash scripts/ci-run cargo test --locked -p veln-backend-jvm production_virtual -- --test-threads=1
       - name: Check task cancellation cleanup
         run: |
           bash scripts/ci-run cargo test --locked -p veln-backend-jvm jvm_runtime_concurrent_cancellation_preserves_cleanup_before_join_when_java_is_available -- --test-threads=1
@@ -81,5 +81,7 @@ jobs:
           bash scripts/ci-run cargo test --locked -p veln-backend-jvm jvm_runtime_preserves_cancellation_entering_host_connect_when_java_is_available -- --test-threads=1
       - name: Test lightweight-task benchmark validator
         run: node --test workflow-scripts/benchmark-lightweight-tasks.test.mjs
+      - name: Validate lightweight-task adoption artifact
+        run: bash scripts/benchmark-lightweight-tasks --check benchmarks/lightweight-tasks/result.json
       - name: Run JVM CLI fixtures
         run: bash scripts/ci-run cargo test --locked -p veln-cli --test check_json -- --test-threads=1

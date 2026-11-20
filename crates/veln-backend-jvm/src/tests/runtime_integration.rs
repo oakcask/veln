@@ -33,7 +33,7 @@ fn run_java_runtime_harness(
     source: &str,
     program: &JvmProgram,
 ) -> std::process::Output {
-    run_java_runtime_harness_with_options(name, source_name, source, program, &[], &[])
+    run_java_runtime_harness_with_options(name, source_name, source, program, &[], &[], true)
 }
 
 fn run_java_runtime_harness_with_env(
@@ -43,7 +43,7 @@ fn run_java_runtime_harness_with_env(
     program: &JvmProgram,
     env: &[(&str, &str)],
 ) -> std::process::Output {
-    run_java_runtime_harness_with_options(name, source_name, source, program, env, &[])
+    run_java_runtime_harness_with_options(name, source_name, source, program, env, &[], true)
 }
 
 fn run_java_runtime_harness_with_options(
@@ -53,6 +53,7 @@ fn run_java_runtime_harness_with_options(
     program: &JvmProgram,
     env: &[(&str, &str)],
     jvm_args: &[&str],
+    compare_platform_baseline: bool,
 ) -> std::process::Output {
     let root = temp_dir(name);
     write_jvm_program(&root, program);
@@ -74,37 +75,42 @@ fn run_java_runtime_harness_with_options(
         .expect("Java harness source should end in .java");
     let output = run_compiled_java_harness(&root, name, class_name, env, jvm_args);
 
-    let platform_runtime = include_str!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime.java"));
+    if !compare_platform_baseline {
+        let _ = fs::remove_dir_all(&root);
+        return output;
+    }
+
+    let virtual_runtime = include_str!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime.java"));
     assert_eq!(
-        platform_runtime.matches(PLATFORM_TASK_WORKER).count(),
+        virtual_runtime.matches(VIRTUAL_TASK_WORKER).count(),
         1,
         "generated runtime should have one production worker constructor"
     );
-    let virtual_runtime = platform_runtime.replace(PLATFORM_TASK_WORKER, VIRTUAL_TASK_WORKER);
-    fs::write(root.join("VelnRuntime.java"), virtual_runtime)
-        .expect("virtual candidate runtime source should be written");
-    let candidate_compiled = Command::new("javac")
+    let platform_runtime = virtual_runtime.replace(VIRTUAL_TASK_WORKER, PLATFORM_TASK_WORKER);
+    fs::write(root.join("VelnRuntime.java"), platform_runtime)
+        .expect("platform baseline runtime source should be written");
+    let baseline_compiled = Command::new("javac")
         .args(["--release", "25", "VelnRuntime.java"])
         .current_dir(&root)
         .output()
         .expect("candidate javac should run");
     assert!(
-        candidate_compiled.status.success(),
-        "candidate javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
-        candidate_compiled.status.code(),
-        String::from_utf8_lossy(&candidate_compiled.stdout),
-        String::from_utf8_lossy(&candidate_compiled.stderr)
+        baseline_compiled.status.success(),
+        "baseline javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
+        baseline_compiled.status.code(),
+        String::from_utf8_lossy(&baseline_compiled.stdout),
+        String::from_utf8_lossy(&baseline_compiled.stderr)
     );
-    let candidate_output = run_compiled_java_harness(
+    let baseline_output = run_compiled_java_harness(
         &root,
-        &format!("{name}-virtual-candidate"),
+        &format!("{name}-platform-baseline"),
         class_name,
         env,
         jvm_args,
     );
-    assert_eq!(candidate_output.status.success(), output.status.success());
-    assert_eq!(candidate_output.stdout, output.stdout);
-    assert_eq!(candidate_output.stderr, output.stderr);
+    assert_eq!(baseline_output.status.success(), output.status.success());
+    assert_eq!(baseline_output.stdout, output.stdout);
+    assert_eq!(baseline_output.stderr, output.stderr);
     let _ = fs::remove_dir_all(&root);
     output
 }
@@ -186,7 +192,7 @@ fn task_completion_wins_a_later_cancellation_claim_atomically() {
 }
 
 #[test]
-fn virtual_candidate_tasks_park_without_platform_thread_growth_and_release_registrations() {
+fn production_virtual_tasks_park_without_platform_thread_growth_and_release_registrations() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()
     {
@@ -200,19 +206,7 @@ fn virtual_candidate_tasks_park_without_platform_thread_growth_and_release_regis
         r#"
 public final class LightweightTaskAllocationHarness {
     private static Object spawn(VelnRuntime.Fn action) {
-        try {
-            java.lang.reflect.Method method = VelnRuntime.class.getDeclaredMethod(
-                "taskSpawnWithWorkerStarter",
-                VelnRuntime.Fn.class,
-                java.util.function.Function.class
-            );
-            method.setAccessible(true);
-            return method.invoke(null, action,
-                (java.util.function.Function<java.util.concurrent.FutureTask<Object>, Thread>)
-                    java.lang.Thread::startVirtualThread);
-        } catch (ReflectiveOperationException failure) {
-            throw new AssertionError("virtual candidate spawn failed", failure);
-        }
+        return VelnRuntime.taskSpawn(action);
     }
 
     public static void main(String[] args) throws Exception {
@@ -285,6 +279,7 @@ public final class LightweightTaskAllocationHarness {
             "-Djdk.virtualThreadScheduler.parallelism=2",
             "-Djdk.virtualThreadScheduler.maxPoolSize=2",
         ],
+        false,
     );
     assert!(
         output.status.success(),
@@ -298,7 +293,7 @@ public final class LightweightTaskAllocationHarness {
 }
 
 #[test]
-fn virtual_candidate_progresses_with_one_and_two_carriers() {
+fn production_virtual_tasks_progress_with_one_and_two_carriers() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()
     {
@@ -317,6 +312,7 @@ fn virtual_candidate_progresses_with_one_and_two_carriers() {
             &program,
             &[],
             &[parallelism.as_str(), maximum.as_str()],
+            false,
         );
         assert!(
             output.status.success(),
@@ -325,7 +321,7 @@ fn virtual_candidate_progresses_with_one_and_two_carriers() {
         );
         assert_eq!(
             String::from_utf8_lossy(&output.stdout),
-            "virtual candidate progress complete\n"
+            "production virtual progress complete\n"
         );
     }
 }
@@ -627,6 +623,7 @@ public final class SchemaPredicateStackSafetyHarness {
         &program,
         &[],
         &["-Xss256k", "-Xms16m", "-Xmx128m"],
+        true,
     );
     assert!(
         output.status.success(),
@@ -1011,6 +1008,7 @@ public final class SchemaRefinementBoundedListHarness {
         &program,
         &[],
         &["-Xms16m", "-Xmx64m"],
+        true,
     );
     assert!(
         output.status.success(),
@@ -1087,6 +1085,7 @@ public final class SchemaRefinementBoundedVectorHarness {
         &program,
         &[],
         &["-Xms16m", "-Xmx64m"],
+        true,
     );
     assert!(
         output.status.success(),

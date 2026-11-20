@@ -267,15 +267,6 @@ end
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "110\n121\n33\n");
-    let candidate = run_jvm_program_with_virtual_worker_when_java_is_available(
-        "clock-task-scopes-virtual-candidate",
-        &program,
-        &[],
-    )
-    .expect("Java availability should remain unchanged during the test");
-    assert_eq!(candidate.status.success(), output.status.success());
-    assert_eq!(candidate.stdout, output.stdout);
-    assert_eq!(candidate.stderr, output.stderr);
 }
 
 #[test]

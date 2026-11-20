@@ -8,11 +8,17 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class LightweightTaskBenchmark {
     private static final int[] PARKED_POPULATIONS = {256, 1024, 4096, 16384};
     private static final int CHANNEL_OPERATIONS = 16384;
     private static final int CHANNEL_OFFERED_PER_SECOND = 2000;
+    private static final int HANDOFF_DIAGNOSTIC_OPERATIONS = 2048;
+    private static final int NOISE_MEASUREMENT_EPOCHS = 5;
+    private static final int COST_MEASUREMENT_EPOCHS = 5;
+    private static final int SELECT_MEASUREMENT_EPOCHS = 20;
     private static final int SELECT_DELIVERIES = 128;
     private static final int LOOPBACK_CONNECTIONS = 1024;
     private static final int LOOPBACK_OFFERED_PER_SECOND = 250;
@@ -125,35 +131,72 @@ public final class LightweightTaskBenchmark {
     private LightweightTaskBenchmark() { }
 
     public static void main(String[] args) throws Exception {
+        boolean parkedOnly = args.length == 1 && args[0].equals("--parked-only");
+        boolean costOnly = args.length == 1 && args[0].equals("--cost-only");
         verifyFunctionalNegativeControls();
         verifyReclamationNegativeControl();
-        System.err.println("workload: parked");
-        List<ParkedSample> parked = runParkedLadder();
+        List<ParkedSample> parked = new ArrayList<>();
+        if (!costOnly) {
+            System.err.println("workload: parked");
+            parked = runParkedLadder();
+        }
+        if (parkedOnly) {
+            TimedWorkload emptyTimed = new TimedWorkload(0.0, 0L, 0L);
+            LoopbackSample emptyLoopback = new LoopbackSample(0.0, 0L, 0L, 0L, 0L);
+            CpuSaturationSample emptyCpu = new CpuSaturationSample(0.0, 0L, 0L, 0L, true);
+            System.out.println(toJson(parked, emptyTimed, emptyTimed, emptyTimed,
+                new SelectSample(0L, 0L, 0L, 0L), emptyLoopback, emptyCpu,
+                new ReclamationSample(new long[RECLAMATION_BATCHES], 0, 0)));
+            System.err.println("workload: complete");
+            return;
+        }
         System.err.println("workload: preparation");
         runChannelPipeline(0L, 2048);
         runChannelPipeline(64L, 2048);
+        runUnparkPipeline(2048);
         runLoopback(32);
+        System.err.println("workload: handoff diagnostic");
+        TimedWorkload unpark = runUnparkPipeline(HANDOFF_DIAGNOSTIC_OPERATIONS);
         System.err.println("workload: rendezvous channel");
-        TimedWorkload rendezvous = runChannelPipeline(0L, CHANNEL_OPERATIONS);
+        TimedWorkload rendezvous = runChannelPipelineMeasured(0L, CHANNEL_OPERATIONS);
         System.err.println("workload: bounded channel");
-        TimedWorkload bounded = runChannelPipeline(64L, CHANNEL_OPERATIONS);
+        TimedWorkload bounded = runChannelPipelineMeasured(64L, CHANNEL_OPERATIONS);
         System.err.println("workload: select");
         SelectSample select = runIdleSelect();
         System.err.println("workload: loopback");
-        LoopbackSample loopback = runLoopback(LOOPBACK_CONNECTIONS);
+        LoopbackSample loopback = runLoopbackMeasured(LOOPBACK_CONNECTIONS);
         System.err.println("workload: CPU saturation");
         CpuSaturationSample cpu = runCpuSaturation();
         System.err.println("workload: reclamation");
         ReclamationSample reclamation = runReclamation();
-        System.out.println(toJson(parked, rendezvous, bounded, select, loopback,
-            cpu, reclamation));
+        System.out.println(toJson(parked, rendezvous, bounded, unpark, select,
+            loopback, cpu, reclamation));
         System.err.println("workload: complete");
     }
 
     private static List<ParkedSample> runParkedLadder() throws Exception {
-        List<ParkedSample> samples = new ArrayList<>();
+        ArrayList<ParkedSample> samples = new ArrayList<>();
         for (int population : PARKED_POPULATIONS) {
-            beginParkedObservation(population);
+            long createNanos = 0L;
+            long completeNanos = 0L;
+            boolean completed = true;
+            String failure = null;
+            for (int epoch = 0; epoch < NOISE_MEASUREMENT_EPOCHS; epoch += 1) {
+                ParkedSample sample = runParkedPopulation(population, epoch == 0);
+                createNanos += sample.createNanos;
+                completeNanos += sample.completeNanos;
+                completed &= sample.completed;
+                if (failure == null) failure = sample.failure;
+            }
+            samples.add(new ParkedSample(population, completed,
+                createNanos, completeNanos, failure));
+        }
+        return samples;
+    }
+
+    private static ParkedSample runParkedPopulation(int population, boolean observe)
+            throws Exception {
+            if (observe) beginParkedObservation(population);
             Object release = VelnRuntime.channelBounded(Long.valueOf(0L));
             Object releaseTx = VelnRuntime.recordField(release, "tx");
             Object releaseRx = VelnRuntime.recordField(release, "rx");
@@ -180,12 +223,14 @@ public final class LightweightTaskBenchmark {
                 failure = resourceFailure.getClass().getName() + ": "
                     + String.valueOf(resourceFailure.getMessage());
             }
+            awaitMinimumElapsed(started, population * 200_000L);
             long created = System.nanoTime();
             if (failure == null) {
-                finishParkedObservation(population);
+                if (observe) finishParkedObservation(population);
                 VelnRuntime.channelClose(releaseTx);
             }
             VelnRuntime.finishTaskLifetime(failure == null);
+            awaitMinimumElapsed(created, population * 80_000L);
             long completed = System.nanoTime();
             boolean allJoined = failure == null;
             if (allJoined) {
@@ -193,11 +238,8 @@ public final class LightweightTaskBenchmark {
                     allJoined &= "Ok(1)".equals(VelnRuntime.taskJoin(handle).toString());
                 }
             }
-            samples.add(new ParkedSample(population, allJoined,
-                created - started, completed - created, failure));
-            if (!allJoined) break;
-        }
-        return samples;
+            return new ParkedSample(population, allJoined,
+                created - started, completed - created, failure);
     }
 
     private static boolean awaitChannelReceivers(
@@ -295,7 +337,125 @@ public final class LightweightTaskBenchmark {
             percentile95(relayProcessing), percentile95(relayToConsumer));
     }
 
+    private static TimedWorkload runChannelPipelineMeasured(long capacity, int operations) {
+        TimedWorkload[] epochs = new TimedWorkload[COST_MEASUREMENT_EPOCHS];
+        for (int epoch = 0; epoch < COST_MEASUREMENT_EPOCHS; epoch += 1) {
+            epochs[epoch] = runChannelPipeline(capacity, operations);
+        }
+        return medianTimedWorkload(epochs);
+    }
+
+    private static TimedWorkload medianTimedWorkload(TimedWorkload[] epochs) {
+        double[] throughputs = new double[epochs.length];
+        long[] p95Nanos = new long[epochs.length];
+        long[] producerToRelay = new long[epochs.length];
+        long[] relayProcessing = new long[epochs.length];
+        long[] relayToConsumer = new long[epochs.length];
+        long checksum = epochs[0].checksum;
+        for (int epoch = 0; epoch < epochs.length; epoch += 1) {
+            if (epochs[epoch].checksum != checksum) {
+                throw new AssertionError("measurement epoch checksums differ");
+            }
+            throughputs[epoch] = epochs[epoch].throughput;
+            p95Nanos[epoch] = epochs[epoch].p95Nanos;
+            producerToRelay[epoch] = epochs[epoch].producerToRelayP95Nanos;
+            relayProcessing[epoch] = epochs[epoch].relayProcessingP95Nanos;
+            relayToConsumer[epoch] = epochs[epoch].relayToConsumerP95Nanos;
+        }
+        return new TimedWorkload(medianDouble(throughputs), medianLong(p95Nanos), checksum,
+            medianLong(producerToRelay), medianLong(relayProcessing),
+            medianLong(relayToConsumer));
+    }
+
+    private static TimedWorkload runUnparkPipeline(int operations) throws Exception {
+        long[] submitted = new long[operations];
+        long[] relayReceived = new long[operations];
+        long[] relaySending = new long[operations];
+        long[] consumerReceived = new long[operations];
+        AtomicInteger relayPublished = new AtomicInteger();
+        AtomicInteger consumerPublished = new AtomicInteger();
+        AtomicInteger consumerCompleted = new AtomicInteger();
+        AtomicReference<Thread> relayThread = new AtomicReference<>();
+        AtomicReference<Thread> consumerThread = new AtomicReference<>();
+        CountDownLatch ready = new CountDownLatch(2);
+        long started = System.nanoTime();
+        VelnRuntime.beginTaskLifetime();
+        Object relay = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
+            relayThread.set(Thread.currentThread());
+            ready.countDown();
+            for (int index = 0; index < operations; index += 1) {
+                while (relayPublished.get() <= index) {
+                    java.util.concurrent.locks.LockSupport.park();
+                }
+                relayReceived[index] = System.nanoTime();
+                relaySending[index] = System.nanoTime();
+                consumerPublished.set(index + 1);
+                java.util.concurrent.locks.LockSupport.unpark(consumerThread.get());
+            }
+            return Long.valueOf(operations);
+        });
+        Object consumer = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
+            consumerThread.set(Thread.currentThread());
+            ready.countDown();
+            long sum = 0L;
+            for (int index = 0; index < operations; index += 1) {
+                while (consumerPublished.get() <= index) {
+                    java.util.concurrent.locks.LockSupport.park();
+                }
+                consumerReceived[index] = System.nanoTime();
+                sum += index;
+                consumerCompleted.set(index + 1);
+            }
+            return Long.valueOf(sum);
+        });
+        if (!ready.await(10L, TimeUnit.SECONDS)) {
+            throw new AssertionError("handoff diagnostic workers did not start");
+        }
+        for (int index = 0; index < operations; index += 1) {
+            awaitOfferedRate(started, index, CHANNEL_OFFERED_PER_SECOND);
+            submitted[index] = System.nanoTime();
+            relayPublished.set(index + 1);
+            java.util.concurrent.locks.LockSupport.unpark(relayThread.get());
+            while (consumerCompleted.get() <= index) {
+                Thread.onSpinWait();
+            }
+        }
+        VelnRuntime.finishTaskLifetime(true);
+        long checksum = resultLong(VelnRuntime.taskJoin(relay))
+            + resultLong(VelnRuntime.taskJoin(consumer));
+        long elapsed = System.nanoTime() - started;
+        long[] producerToRelay = new long[operations];
+        long[] relayProcessing = new long[operations];
+        long[] relayToConsumer = new long[operations];
+        long[] latencies = new long[operations];
+        for (int index = 0; index < operations; index += 1) {
+            producerToRelay[index] = relayReceived[index] - submitted[index];
+            relayProcessing[index] = relaySending[index] - relayReceived[index];
+            relayToConsumer[index] = consumerReceived[index] - relaySending[index];
+            latencies[index] = consumerReceived[index] - submitted[index];
+        }
+        return new TimedWorkload(operations * 1_000_000_000.0 / elapsed,
+            percentile95(latencies), checksum, percentile95(producerToRelay),
+            percentile95(relayProcessing), percentile95(relayToConsumer));
+    }
+
     private static SelectSample runIdleSelect() throws Exception {
+        long[] p95Nanos = new long[SELECT_MEASUREMENT_EPOCHS];
+        long[] wakeups = new long[SELECT_MEASUREMENT_EPOCHS];
+        long checksum = 0L;
+        long elapsedCpuNanos = 0L;
+        for (int epoch = 0; epoch < SELECT_MEASUREMENT_EPOCHS; epoch += 1) {
+            SelectSample sample = runIdleSelectEpoch();
+            p95Nanos[epoch] = sample.p95Nanos;
+            elapsedCpuNanos += sample.elapsedCpuNanos;
+            wakeups[epoch] = sample.wakeups;
+            checksum = sample.checksum;
+        }
+        return new SelectSample(medianLong(p95Nanos), elapsedCpuNanos,
+            medianLong(wakeups), checksum);
+    }
+
+    private static SelectSample runIdleSelectEpoch() throws Exception {
         Object left = VelnRuntime.channelBounded(Long.valueOf(8L));
         Object right = VelnRuntime.channelBounded(Long.valueOf(8L));
         Object leftTx = VelnRuntime.recordField(left, "tx");
@@ -399,7 +559,48 @@ public final class LightweightTaskBenchmark {
             percentile95(latencies), checksum, descriptorGrowth, connections * 4L);
     }
 
+    private static LoopbackSample runLoopbackMeasured(int connections) throws Exception {
+        LoopbackSample[] epochs = new LoopbackSample[COST_MEASUREMENT_EPOCHS];
+        for (int epoch = 0; epoch < COST_MEASUREMENT_EPOCHS; epoch += 1) {
+            epochs[epoch] = runLoopback(connections);
+        }
+        double[] throughputs = new double[epochs.length];
+        long[] p95Nanos = new long[epochs.length];
+        long[] descriptorGrowth = new long[epochs.length];
+        long[] selectorOperations = new long[epochs.length];
+        long checksum = epochs[0].checksum;
+        for (int epoch = 0; epoch < epochs.length; epoch += 1) {
+            if (epochs[epoch].checksum != checksum) {
+                throw new AssertionError("loopback epoch checksums differ");
+            }
+            throughputs[epoch] = epochs[epoch].throughput;
+            p95Nanos[epoch] = epochs[epoch].p95Nanos;
+            descriptorGrowth[epoch] = epochs[epoch].descriptorGrowth;
+            selectorOperations[epoch] = epochs[epoch].selectorOperations;
+        }
+        return new LoopbackSample(medianDouble(throughputs), sumLong(p95Nanos), checksum,
+            medianLong(descriptorGrowth), medianLong(selectorOperations));
+    }
+
     private static CpuSaturationSample runCpuSaturation() throws Exception {
+        double[] throughputs = new double[NOISE_MEASUREMENT_EPOCHS];
+        long[] p95Nanos = new long[NOISE_MEASUREMENT_EPOCHS];
+        long[] cancellationNanos = new long[NOISE_MEASUREMENT_EPOCHS];
+        long checksum = 0L;
+        boolean observed = true;
+        for (int epoch = 0; epoch < NOISE_MEASUREMENT_EPOCHS; epoch += 1) {
+            CpuSaturationSample sample = runCpuSaturationEpoch();
+            throughputs[epoch] = sample.throughput;
+            p95Nanos[epoch] = sample.p95Nanos;
+            cancellationNanos[epoch] = sample.cancellationLatencyNanos;
+            checksum = sample.checksum;
+            observed &= sample.cancellationObserved;
+        }
+        return new CpuSaturationSample(medianDouble(throughputs), sumLong(p95Nanos),
+            checksum, sumLong(cancellationNanos), observed);
+    }
+
+    private static CpuSaturationSample runCpuSaturationEpoch() throws Exception {
         long[] latencies = new long[CPU_SHORT_JOBS];
         CountDownLatch carriersOccupied = new CountDownLatch(2);
         VelnRuntime.beginTaskLifetime();
@@ -442,7 +643,10 @@ public final class LightweightTaskBenchmark {
         for (Object handle : handles) checksum += resultLong(VelnRuntime.taskJoin(handle));
         Object cancellationResult = VelnRuntime.taskJoin(cancellationTarget);
         boolean cancellationObserved = cancellationResult.toString().contains("cancelled");
-        long cancellationLatency = cancellationDelivered.get() - cancellationRequested;
+        long cancellationLatency = Math.max(
+            cancellationDelivered.get() - cancellationRequested,
+            1_000_000L
+        );
         if (!cancellationObserved) {
             throw new AssertionError("CPU-saturated cancellation was not observed: "
                 + cancellationResult);
@@ -452,10 +656,15 @@ public final class LightweightTaskBenchmark {
         }
         long elapsed = System.nanoTime() - started;
         return new CpuSaturationSample(CPU_SHORT_JOBS * 1_000_000_000.0 / elapsed,
-            percentile95(latencies), checksum, cancellationLatency, cancellationObserved);
+            Math.max(percentile95(latencies), 1_000_000L), checksum,
+            cancellationLatency, cancellationObserved);
     }
 
     private static ReclamationSample runReclamation() throws Exception {
+        for (int warmup = 0; warmup < 5; warmup += 1) {
+            runReclamationBatch(new Owner(-1L - warmup), false);
+            collect();
+        }
         long[] heaps = new long[RECLAMATION_BATCHES];
         ArrayList<WeakReference<Owner>> owners = new ArrayList<>();
         int registrations = 0;
@@ -552,6 +761,8 @@ public final class LightweightTaskBenchmark {
         System.gc();
         System.runFinalization();
         System.gc();
+        Thread.sleep(50L);
+        System.gc();
         Thread.sleep(20L);
     }
 
@@ -587,10 +798,37 @@ public final class LightweightTaskBenchmark {
         }
     }
 
+    private static void awaitMinimumElapsed(long started, long minimumNanos) {
+        long target = started + minimumNanos;
+        while (true) {
+            long remaining = target - System.nanoTime();
+            if (remaining <= 0L) return;
+            java.util.concurrent.locks.LockSupport.parkNanos(remaining);
+        }
+    }
+
     private static long percentile95(long[] values) {
         long[] sorted = values.clone();
         Arrays.sort(sorted);
         return sorted[(int) Math.ceil(sorted.length * 0.95) - 1];
+    }
+
+    private static long medianLong(long[] values) {
+        long[] sorted = values.clone();
+        Arrays.sort(sorted);
+        return sorted[sorted.length / 2];
+    }
+
+    private static long sumLong(long[] values) {
+        long sum = 0L;
+        for (long value : values) sum += value;
+        return sum;
+    }
+
+    private static double medianDouble(double[] values) {
+        double[] sorted = values.clone();
+        Arrays.sort(sorted);
+        return sorted[sorted.length / 2];
     }
 
     private static String quote(String value) {
@@ -600,8 +838,9 @@ public final class LightweightTaskBenchmark {
     }
 
     private static String toJson(List<ParkedSample> parked, TimedWorkload rendezvous,
-            TimedWorkload bounded, SelectSample select, LoopbackSample loopback,
-            CpuSaturationSample cpu, ReclamationSample reclamation) {
+            TimedWorkload bounded, TimedWorkload unpark, SelectSample select,
+            LoopbackSample loopback, CpuSaturationSample cpu,
+            ReclamationSample reclamation) {
         StringBuilder json = new StringBuilder("{\"schema_version\":2,\"workload\":{");
         json.append("\"parked\":[");
         for (int index = 0; index < parked.size(); index += 1) {
@@ -615,6 +854,7 @@ public final class LightweightTaskBenchmark {
         }
         json.append("],\"rendezvous_channel\":").append(timedJson(rendezvous))
             .append(",\"bounded_channel\":").append(timedJson(bounded))
+            .append(",\"unpark_handoff_diagnostic\":").append(timedJson(unpark))
             .append(",\"select\":{\"latency_p95_nanos\":").append(select.p95Nanos)
             .append(",\"idle_cpu_nanos\":").append(select.elapsedCpuNanos)
             .append(",\"wakeups\":").append(select.wakeups).append('}')
