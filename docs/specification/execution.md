@@ -373,6 +373,9 @@ and bounded DNS-worker algorithms. Native calls, filesystem calls, DNS,
 class initialization, and arbitrary host calls have no carrier-release
 guarantee. Polling CPU, descriptors, selectors, and continuously runnable CPU
 jobs remain resource and scheduling limits rather than new fairness promises.
+The checked lightweight-task adoption benchmark compares the virtual-thread
+worker with the equivalent platform-thread runtime under the fixed parked-task,
+channel, select, loopback, CPU-saturation, and reclamation workloads.
 
 ## Cleanup limits
 

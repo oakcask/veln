@@ -16,11 +16,7 @@ also states it.
 
 ## Ready
 
-- Controlled adoption measurements for the implemented JVM virtual-thread task
-  runtime. The platform-thread baseline must complete the common population on
-  a suitable bounded runner before the remaining performance and retained-heap
-  budgets can close:
-  [lightweight-tasks.md](lightweight-tasks.md).
+No proposal is currently ready for implementation.
 
 ## Design In Progress
 
