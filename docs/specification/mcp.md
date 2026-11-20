@@ -1030,18 +1030,17 @@ contract.
 
 A handler result contains each complete bare handler name in
 `handle Body with handler(arguments)` from saved sources that declare the
-selected workspace handler's module. A public workspace, retained
-direct-dependency, or retained standard-library handler also has complete
-qualified handler-name leaves reached through one parse-clean, unambiguous import. A workspace qualifier can
+selected workspace handler's module. A public workspace or retained
+direct-dependency handler also has complete qualified handler-name leaves
+reached through one parse-clean, unambiguous import. A workspace qualifier can
 use the full module path or its unique implicit leaf alias. An explicitly
 aliased workspace import still permits the full module path, but neither the
 written alias nor the module's leaf name becomes an implicit qualifier. A
-retained package qualifier can use the full module path or its unique
+retained direct-dependency qualifier can use the full module path or its unique
 import alias: the written alias when one is declared, otherwise the implicit
 leaf alias. An exact full path takes precedence over a colliding alias. A
-package application selects only a public, valid-cased, unrecovered handler in
-an exported module of that exact retained direct dependency or retained
-embedded standard library. The package revision,
+dependency application selects only a public, valid-cased handler in an
+exported module of that exact retained direct dependency. The package revision,
 module, declaration, and selected project remain part of the identity. Each
 location covers only the handler-name token.
 
@@ -1054,23 +1053,43 @@ declaration.
 
 Handler definition and reference lookup require one unrecovered declaration
 for the complete owner identity. Private, non-exported, invalid-cased,
-duplicate, or recovered package declarations, ambiguous or recovered
-imports, transitive-dependency and test-only standard-library declarations,
+duplicate, or recovered dependency declarations, ambiguous or recovered
+imports, standard-library and transitive-dependency declarations,
 unresolved, incomplete, recovered, and wrong-kind paths return a successful
 empty result. A wrong-kind handler-name leaf does not fall back to the
 definition or references of the value, type, or other symbol named by that
 path. Equal spelling in another module or symbol class is excluded. An
 unrelated parse error does not remove a complete parse-clean occurrence.
-Imports that repeat the same retained package and module are ambiguous even
+Imports that repeat the same dependency package and module are ambiguous even
 when they use different explicit aliases. None of their full paths or aliases
-grants handler navigation. A syntax-recovered package import does not make
+grants handler navigation. A syntax-recovered dependency import does not make
 a separate parse-clean import for that package and module ambiguous. The
 parse-clean import can still grant handler navigation.
 
-Declaration uniqueness includes handlers from non-exported sources in the
-retained package. An otherwise eligible exported handler therefore returns an
-empty result when a non-exported source in that package declares the same
-module and handler name.
+Declaration uniqueness includes handlers from non-exported dependency source
+files. An otherwise eligible exported handler therefore returns an empty
+result when a non-exported source in the same retained package declares the
+same module and handler name.
+
+Standard-library handler selection is a separate supported surface. It accepts
+one public, valid-cased, unrecovered handler declaration in an exported module
+of the retained embedded `std` snapshot. A complete qualified application
+reaches that declaration through one parse-clean, unambiguous `std` import by
+using the exact full module path or its unique import alias. The exact path
+wins over a colliding alias. Selecting any matching complete application in
+the saved project returns the canonical `veln-pkg:` declaration as its
+definition and the deterministic set of matching application locations in
+that project as its references. Each returned range covers only the handler
+name.
+
+For project scope, `include_declaration: true` adds that package declaration
+exactly once before sorting and pagination; false omits it. Single-file and
+anonymous requests omit the package declaration. The checked
+standard-library guards reject a private, non-exported, invalid-cased,
+duplicate, or recovered handler declaration. Repeated parse-clean imports of
+the same `std` module are ambiguous and grant no route. A recovered import
+grants no route, but it does not make a separate parse-clean import ambiguous.
+These rejections return the existing empty definition or reference result.
 
 Capture, lookup, position, and pagination failures publish no partial handler
 locations and preserve the saved workspace, retained resources, prior results,

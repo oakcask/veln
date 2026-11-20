@@ -732,25 +732,23 @@ do not enter the result. Clause parameters and bodies keep their separate
 binding and navigation behavior. The adjacent effect qualifier keeps its
 separate effect identity.
 
-Handler references include each complete bare handler name in
-`handle Body with handler(arguments)` from saved workspace sources that declare
-the same module when the selected declaration is a parse-clean workspace
-handler. A public workspace handler also includes complete qualified
-handler-name leaves reached through one parse-clean, unambiguous workspace
-import. A public retained direct-dependency or standard-library handler
-includes qualified handler-name leaves reached through one parse-clean,
-unambiguous retained-package import. A workspace qualifier can use the full
-module path or its unique implicit leaf alias. An explicitly aliased workspace
-import still permits the full module path, but neither the written alias nor
-the module's leaf name becomes an implicit qualifier. A retained package
-qualifier can use the full module path or its unique import alias: the written
-alias when one is declared, otherwise the implicit leaf alias. An exact full
-path takes precedence over a colliding alias. A package application selects the
-public, valid-cased, unrecovered handler only when its module is exported by
-that exact retained package revision. The package, module, declaration, and
-selected project remain part of the identity. The declaration and each
-included handler name select one identity, and every returned range covers only
-the handler-name token.
+For a selected parse-clean workspace handler declaration, references include
+each complete bare handler name in `handle Body with handler(arguments)` from
+saved workspace sources that declare the same module. If the handler is
+public, references also include complete qualified handler-name leaves reached
+through one parse-clean, unambiguous workspace or retained direct-dependency
+import. A workspace qualifier can use the full module path or its unique
+implicit leaf alias. An explicitly aliased workspace import still permits the
+full module path, but neither the written alias nor the module's leaf name
+becomes an implicit qualifier. A retained direct-dependency qualifier can use
+the full module path or its unique import alias: the written alias when one is
+declared, otherwise the implicit leaf alias. An exact full path takes
+precedence over a colliding alias. A dependency application selects the public
+handler only when its module is exported by that exact retained package
+revision. The package, module, declaration, and selected
+project remain part of the identity. The declaration and each included handler
+name select one identity, and every returned range covers only the handler-name
+token.
 
 A definition request at an eligible application returns the workspace
 declaration or the canonical retained `veln-pkg:` declaration. LSP references
@@ -759,12 +757,12 @@ contain only matching saved-workspace applications from the selected project.
 references, but it never adds a package declaration.
 
 Handler definition and reference lookup require one unrecovered declaration
-for the complete owner identity. A package handler must be public, valid
-cased, exported, and owned by a retained direct dependency or the retained
-embedded standard library. Lookup excludes private or non-exported package
-handlers, duplicate or recovered declarations, ambiguous or recovered imports,
-transitive-dependency and test-only standard-library declarations, and
-unresolved, incomplete, recovered, or wrong-kind handler paths. Selecting a wrong-kind handler-name leaf does not
+for the complete owner identity. A dependency handler must be public, valid
+cased, exported, and owned by a retained direct dependency. Lookup excludes
+private or non-exported dependency handlers, duplicate or recovered
+declarations, ambiguous or recovered imports, standard-library and
+transitive-dependency declarations, and unresolved, incomplete, recovered, or
+wrong-kind handler paths. Selecting a wrong-kind handler-name leaf does not
 fall back to definition or reference results for the value, type, or other
 symbol named by that path. Equal spelling in another module or symbol class,
 including a handler parameter or operation-clause binding, does not enter the
@@ -772,16 +770,35 @@ result. Comments and strings do not contribute handler references. An
 unrelated parse error does not remove a complete parse-clean handler
 occurrence.
 
-Imports that repeat the same retained package and module are ambiguous even
+Imports that repeat the same dependency package and module are ambiguous even
 when they use different explicit aliases. None of their full paths or aliases
-grants handler navigation. A syntax-recovered package import does not make
+grants handler navigation. A syntax-recovered dependency import does not make
 a separate parse-clean import for that package and module ambiguous. The
 parse-clean import can still grant handler navigation.
 
-Declaration uniqueness includes handlers from non-exported sources in the
-retained package. An otherwise eligible exported handler is therefore
-ambiguous when a non-exported source in that package declares the same module
-and handler name.
+Declaration uniqueness includes handlers from non-exported dependency source
+files. An otherwise eligible exported handler is therefore ambiguous when a
+non-exported source in the same retained package declares the same module and
+handler name.
+
+Standard-library handler selection is a separate supported surface. It accepts
+one public, valid-cased, unrecovered handler declaration in an exported module
+of the retained embedded `std` snapshot. A complete qualified application
+reaches that declaration through one parse-clean, unambiguous `std` import by
+using the exact full module path or its unique import alias. The exact path
+wins over a colliding alias. Selecting any matching complete application in
+the saved project returns the canonical `veln-pkg:` declaration as its
+definition and the deterministic set of matching application locations in
+that project as its references. Each returned range covers only the handler
+name. LSP omits the package declaration from references even when
+`includeDeclaration` is true.
+
+The checked standard-library guards reject a private, non-exported,
+invalid-cased, duplicate, or recovered handler declaration. Repeated
+parse-clean imports of the same `std` module are ambiguous and grant no route.
+A recovered import grants no route, but it does not make a separate
+parse-clean import ambiguous. These rejections return the existing empty
+definition or reference result.
 
 For a selected workspace schema declaration, `textDocument/references` returns
 the declaration when requested plus `decode`, `encode`, runtime-validation,

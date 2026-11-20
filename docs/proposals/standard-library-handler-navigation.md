@@ -9,14 +9,15 @@ Current standard-library handler selection and adapter projection are specified
 by [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
 and [MCP](../specification/mcp.md#saved-workspace-navigation). Checked shared,
 LSP, MCP transcript, and cross-adapter evidence owns the implemented S1 and S2
-surface. This proposal retains only the exhaustive isolation, rejection, and
-retained-state work in S3 through S6.
+surface. This proposal retains the unimplemented contract and evidence work
+for S3 through S6. Those rows do not describe current standard-library
+behavior until their planned evidence passes and the current specifications
+adopt the resulting contract.
 
 ## Remaining Acceptance And Verification
 
-All evidence in this section remains planned. Each row verifies the current
-standard-library handler contract across an exhaustive boundary matrix without
-adding new behavior to its implemented baseline.
+All evidence and standard-library observations in this section remain planned.
+Each row completes a contract boundary that S1 and S2 do not establish.
 
 | Case | Input | Required observation | Planned evidence |
 | --- | --- | --- | --- |
@@ -36,8 +37,9 @@ runtime behavior. Identity and rejection matrices belong in
 retained-package handler identity and LSP and MCP projection for direct
 dependencies. The current implementation now reuses those handler traversal,
 package declaration, adapter, and failure-state boundaries for the implemented
-standard-library selection. The remaining matrices test stronger isolation and
-state preservation rather than introducing another navigation identity.
+standard-library selection. That reuse supports S1 and S2, but it does not
+establish the standard-library-specific isolation, rejection, or retained-state
+observations planned below.
 
 [Veln PR #1251](https://github.com/oakcask/veln/pull/1251) added retained
 embedded-standard-library definitions and readable immutable virtual sources.
@@ -74,9 +76,9 @@ contracts are the relevant related work for this bounded extension.
 
 ## Implementation And Specification Route
 
-Implement S3 through S6 as separately reviewable verification additions for
-the current shared identity. Add their executable matrices before retiring
-this proposal. Do not infer identity from spelling or introduce an
-adapter-specific handler scan. Remove this page and its Ready catalog entry
+Implement S3 through S6 as separately reviewable contract and evidence
+additions. Add each executable matrix before promoting its observations into
+the current specifications. Do not infer identity from spelling or introduce
+an adapter-specific handler scan. Remove this page and its Ready catalog entry
 when all four remaining rows are covered and the current specifications and
-executable evidence own their verification.
+executable evidence own those boundaries.

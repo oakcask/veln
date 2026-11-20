@@ -16,9 +16,9 @@ also states it.
 
 ## Ready
 
-- Exhaustive owner and revision isolation, source and project boundaries,
-  rejection cases, and retained failure-state coverage for the implemented
-  standard-library handler navigation identity:
+- Standard-library handler owner and revision isolation, source and project
+  boundaries, rejection cases, and retained-state contract and evidence work
+  not established by the implemented S1 and S2 surface:
   [standard-library-handler-navigation.md](standard-library-handler-navigation.md).
 
 ## Design In Progress
