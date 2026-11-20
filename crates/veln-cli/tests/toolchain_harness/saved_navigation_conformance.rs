@@ -91,20 +91,56 @@ fn assert_standard_library_handler_conformance(
         mcp_workspace,
         &[response(mcp, 33), response(mcp, 34)],
     );
+    let expected_workspace_references = vec![
+        NormalizedLocation {
+            source: "main.veln".to_string(),
+            range: NormalizedRange {
+                start: NormalizedPosition {
+                    line: 47,
+                    column: 26,
+                },
+                end: NormalizedPosition {
+                    line: 47,
+                    column: 30,
+                },
+            },
+        },
+        NormalizedLocation {
+            source: "main.veln".to_string(),
+            range: NormalizedRange {
+                start: NormalizedPosition {
+                    line: 51,
+                    column: 24,
+                },
+                end: NormalizedPosition {
+                    line: 51,
+                    column: 28,
+                },
+            },
+        },
+        NormalizedLocation {
+            source: "other.veln".to_string(),
+            range: NormalizedRange {
+                start: NormalizedPosition {
+                    line: 13,
+                    column: 26,
+                },
+                end: NormalizedPosition {
+                    line: 13,
+                    column: 30,
+                },
+            },
+        },
+    ];
     assert_eq!(lsp_without, mcp_without);
+    assert_eq!(lsp_without, expected_workspace_references);
     assert_eq!(
         lsp_with, lsp_without,
         "LSP must exclude the std declaration"
     );
-    assert_eq!(mcp_with.len(), mcp_without.len() + 1);
-    assert_eq!(
-        mcp_with
-            .iter()
-            .filter(|location| location == &&declaration)
-            .count(),
-        1
-    );
-    assert_eq!(mcp_with.last(), Some(&declaration));
+    let mut expected_mcp_with = mcp_without;
+    expected_mcp_with.push(declaration);
+    assert_eq!(mcp_with, expected_mcp_with);
 }
 
 fn assert_dependency_handler_conformance(
@@ -529,7 +565,7 @@ fn lsp_success_requests(workspace: &SavedWorkspace) -> Vec<String> {
         lsp_definition(4, &workspace.main_uri, 7, 2),
         lsp_definition(5, &workspace.main_uri, 7, 8),
         lsp_definition(6, &workspace.main_uri, 11, 15),
-        lsp_definition(7, &workspace.other_uri, 3, 8),
+        lsp_definition(7, &workspace.other_uri, 4, 8),
         lsp_references(8, &workspace.main_uri, 7, 2, false),
         lsp_references(9, &workspace.main_uri, 7, 2, true),
         lsp_definition(10, &workspace.main_uri, 1, 0),
@@ -538,8 +574,8 @@ fn lsp_success_requests(workspace: &SavedWorkspace) -> Vec<String> {
         lsp_references(13, &workspace.main_uri, 7, 99, true),
         lsp_definition(14, &workspace.main_uri, 7, 2),
         lsp_references(15, &workspace.main_uri, 15, 16, true),
-        lsp_definition(37, &workspace.other_uri, 7, 22),
-        lsp_references(38, &workspace.other_uri, 7, 22, false),
+        lsp_definition(37, &workspace.other_uri, 8, 22),
+        lsp_references(38, &workspace.other_uri, 8, 22, false),
         lsp_references(39, &workspace.main_uri, 29, 12, true),
         lsp_definition(40, &workspace.main_uri, 38, 23),
         lsp_references(41, &workspace.main_uri, 38, 23, false),
@@ -653,7 +689,7 @@ fn run_mcp(workspace: &SavedWorkspace) -> Output {
         mcp_call(4, "definition", r#"{"source":"main.veln","line":8,"column":3}"#),
         mcp_call(5, "definition", r#"{"source":"main.veln","line":8,"column":9}"#),
         mcp_call(6, "definition", r#"{"source":"main.veln","line":12,"column":15}"#),
-        mcp_call(7, "definition", r#"{"source":"other.veln","line":4,"column":9}"#),
+        mcp_call(7, "definition", r#"{"source":"other.veln","line":5,"column":9}"#),
         mcp_call(8, "references", r#"{"source":"main.veln","line":8,"column":3,"include_declaration":false}"#),
         mcp_call(9, "references", r#"{"source":"main.veln","line":8,"column":3,"include_declaration":true,"page_size":2}"#),
         mcp_call(10, "references", r#"{"source":"main.veln","line":100,"column":1,"include_declaration":true,"page_size":2}"#),
@@ -668,8 +704,8 @@ fn run_mcp(workspace: &SavedWorkspace) -> Output {
         mcp_call(19, "references", r#"{"cursor":"$mcp_cursor:18"}"#),
         mcp_call(20, "references", r#"{"source":"main.veln","line":28,"column":21,"include_declaration":false}"#),
         mcp_call(21, "references", r#"{"source":"main.veln","line":28,"column":21,"include_declaration":true}"#),
-        mcp_call(22, "definition", r#"{"source":"other.veln","line":8,"column":23}"#),
-        mcp_call(23, "references", r#"{"source":"other.veln","line":8,"column":23,"include_declaration":false}"#),
+        mcp_call(22, "definition", r#"{"source":"other.veln","line":9,"column":23}"#),
+        mcp_call(23, "references", r#"{"source":"other.veln","line":9,"column":23,"include_declaration":false}"#),
         mcp_call(24, "references", r#"{"source":"main.veln","line":30,"column":13,"include_declaration":true,"page_size":2}"#),
         mcp_call(25, "references", r#"{"cursor":"$mcp_cursor:24"}"#),
         mcp_call(26, "definition", r#"{"source":"main.veln","line":39,"column":24}"#),

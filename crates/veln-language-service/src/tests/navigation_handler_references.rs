@@ -480,14 +480,23 @@ mod navigation_handler_references_tests {
 
     #[test]
     fn standard_library_handler_references_share_exact_and_unique_alias_identity() {
-        let snapshot = EffectiveProjectSnapshot::new(vec![source(
-            "main.veln",
-            concat!(
-                "use observe as trace from \"std\"\n\n",
-                "fn first() -> Int\n  handle 1 with observe::noop()\nend\n\n",
-                "fn second() -> Int\n  handle 2 with trace::noop()\nend\n",
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use observe as trace from \"std\"\n\n",
+                    "fn first() -> Int\n  handle 1 with observe::noop()\nend\n\n",
+                    "fn second() -> Int\n  handle 2 with trace::noop()\nend\n",
+                ),
             ),
-        )])
+            source(
+                "other.veln",
+                concat!(
+                    "use observe from \"std\"\n\n",
+                    "fn third() -> Int\n  handle 3 with observe::noop()\nend\n",
+                ),
+            ),
+        ])
         .with_standard_library(standard_library_snapshot(
             &[(
                 "observe.veln",
@@ -513,9 +522,17 @@ mod navigation_handler_references_tests {
             exact.definition.source,
             NavigationSource::Package { .. }
         ));
-        let expected = [("main.veln", 4, 26), ("main.veln", 8, 24)];
+        let expected = [
+            ("main.veln", 4, 26),
+            ("main.veln", 8, 24),
+            ("other.veln", 4, 26),
+        ];
         assert_eq!(locations(&exact.references), expected);
         assert_eq!(locations(&alias.references), expected);
+        assert!(exact.references.iter().all(|span| {
+            span.start.line == span.end.line && span.end.column - span.start.column == 4
+        }));
+        assert_eq!(alias.references, exact.references);
     }
 
     #[test]

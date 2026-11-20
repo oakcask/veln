@@ -36,9 +36,24 @@ path = "/result/structuredContent/references/1/uri"
 workspace_file_uri = "app/main.veln"
 
 [[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":4,"column":26},"end":{"line":4,"column":30}}
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":8,"column":24},"end":{"line":8,"column":28}}
+
+[[mcp_assert]]
 id = 5
 path = "/result/structuredContent/references"
 length = 2
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references"
+equals_response = {"id":4,"path":"/result/structuredContent/references"}
 
 [[mcp_assert]]
 id = 5
@@ -54,6 +69,11 @@ length = 1
 id = 6
 path = "/result/structuredContent/references/0/uri"
 contains = "veln-pkg:///std/snapshot/"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/0/range"
+equals_response = {"id":2,"path":"/result/structuredContent/definition/range"}
 
 [[mcp_assert]]
 id = 6
