@@ -327,6 +327,49 @@ inside a runtime-required `require`, `ensure`, or `invariant` predicate. A
 literal zero divisor is rejected during analysis instead, as specified by
 [contracts](contracts.md#predicate-usage-and-validation).
 
+## Lightweight task execution and invocation lifetime
+
+The JVM starts one unpooled virtual thread for each admitted Veln task. Logical
+task cancellation and handler state belong to that virtual thread and do not
+depend on the carrier platform thread that runs it. Java 25 permits virtual
+threads to release carriers at the channel monitor waits used by the current
+runtime. Timer and task-join waits also permit runnable peers to proceed when
+the carrier parallelism is one or two.
+
+Each run entry and each reusable test entry owns a distinct task lifetime. The
+entry launcher is a non-daemon platform thread and remains alive until the
+lifetime closes. The lifetime follows these transitions:
+
+| State | Event | Next state and observable result |
+| --- | --- | --- |
+| Running | The entry and its lexical cleanup succeed. | Draining. Preserve the entry result and wait for every admitted job. |
+| Running | The entry fails, returns an entry error, or is cancelled. | Cancelling. Close admission, request cancellation once on every incomplete job, and wait for their cleanup. |
+| Running or Draining | An admitted job spawns a descendant. | Admit the descendant to the same lifetime before returning its handle. |
+| Cancelling | A job attempts to spawn. | Reject the spawn before its job executes. Cleanup-failure precedence still applies. |
+| Draining or Cancelling | The last incomplete job finishes. | Closed. Publish the preserved entry result or original entry failure. |
+| Draining or Cancelling | A job or cleanup never finishes. | Remain in the current state without a deadline or forced termination. |
+
+Only incomplete jobs are registered. Completion removes registration, while a
+retained application handle keeps its own settled result. The lifetime keeps no
+permanent completed-job history, so released handles and handler owners can be
+reclaimed. Admission, registration, transition to a closed lifetime, and
+worker-start rollback are atomic with respect to spawn. A failed start retains
+its host cause and publishes no handle.
+
+An ordinary unjoined child failure does not replace the entry result. On an
+entry failure, the original failure remains primary. Cleanup failures from
+cancelled children are related in task-admission order and preserve each
+task's internal cleanup order. Output committed before or during draining
+remains visible; relative output order between concurrent tasks is
+unspecified. A later test invocation cannot inherit children, cancellation
+state, or handler frames from the closed lifetime.
+
+The runtime retains the existing polling select, per-operation socket selector,
+and bounded DNS-worker algorithms. Native calls, filesystem calls, DNS,
+class initialization, and arbitrary host calls have no carrier-release
+guarantee. Polling CPU, descriptors, selectors, and continuously runnable CPU
+jobs remain resource and scheduling limits rather than new fairness promises.
+
 ## Cleanup limits
 
 Registered cleanup is guaranteed only while the Veln task, JVM, and executing
@@ -342,10 +385,11 @@ interface, destructor protocol, or automatic resource-management convention.
 `begin` defines a cleanup region; it does not add rescue, ensure, or exception
 syntax.
 
-An uncaught JVM exception or error from the selected run or test entry is
-reported on standard error and terminates the process with a nonzero status,
-even when spawned tasks are still waiting. A fatal host error such as stack
-exhaustion does not guarantee completion of task cleanup.
+An uncaught JVM exception or error from the selected run or test entry closes
+admission, cancels incomplete tasks, drains their cleanup, and then terminates
+the process with a nonzero status. Process or virtual-machine termination, loss
+of the executing machine, and fatal host failures that prevent the runtime from
+continuing cannot guarantee task cleanup.
 
 The JVM backend emits classfile artifacts and invokes the selected entry. Java
 source generation and Java source compilation are outside the command contract.

@@ -38,6 +38,12 @@ workers. The option is parsed before `--`, including after a target; after
 `--`, the token is a test target. Zero, missing, malformed, repeated,
 mixed-spelling, and overflowing values fail before discovery.
 
+Each selected case owns a distinct task lifetime, including cases dispatched
+through one reusable JVM entry. A case does not complete and its captured
+output is not published until every task admitted by that case has drained.
+Parallel cases use independent lifetimes. A later case cannot inherit an
+earlier case's children, cancellation state, or handler frames.
+
 ## Executable doctests
 
 A doc-comment fence with info string `veln` becomes a generated private test.
@@ -147,6 +153,9 @@ defines the supported values and remaining classfile limits.
 Workers capture output per case. The coordinator waits for all workers and
 renders human status, JSON cases, diagnostics, events, summaries, failures, and
 exit status in discovered-case order regardless of completion order.
+When a case fails or is cancelled, its invocation closes admission, requests
+cancellation once for incomplete tasks, drains cleanup, and preserves the case
+failure as primary. Related child cleanup failures follow task-admission order.
 
 When `VELN_TEST_TIMINGS` is present, the command emits diagnostic timing lines
 to standard error after the report. Each line starts with
@@ -166,6 +175,9 @@ satisfy an output fence.
 Backend representation failures are command errors rather than case failures.
 They do not start workers and cannot be matched by runtime expectations.
 Java versions older than 25 are runner errors and do not start a case JVM.
+A task or cleanup that never finishes leaves its case incomplete. Any outer
+integration-harness timeout is an enforcement boundary, not test-command task
+lifetime behavior.
 
 Timing stage durations are diagnostic measurements rather than stable
 performance thresholds. Their values depend on the host and selected workload.

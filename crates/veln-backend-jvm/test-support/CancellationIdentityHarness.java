@@ -1,5 +1,6 @@
 public final class CancellationIdentityHarness {
     public static void main(String[] args) {
+        VelnRuntime.beginTaskLifetime();
         Object task = VelnRuntime.taskSpawn(new VelnRuntime.Fn() {
             public Object call(Object... ignored) {
                 throw new VelnRuntime.RuntimeFailure("task cancelled");
@@ -14,6 +15,7 @@ public final class CancellationIdentityHarness {
                 throw new AssertionError("runtime failure message changed", expected);
             }
         }
+        VelnRuntime.finishTaskLifetime(true);
         System.out.println("runtime failure identity remained primary");
     }
 }

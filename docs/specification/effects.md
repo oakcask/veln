@@ -555,6 +555,33 @@ status into the implemented backend status range.
 
 ## Concurrency Calls
 
+Every spawned task belongs to the current run or test invocation. `spawn` and
+`spawn_with` freeze their arguments before the job starts and publish a handle
+only after the invocation admits the job and its worker starts. A closed or
+cancelling invocation rejects the spawn before the job runs. Allocation or
+worker-start failure is a runtime failure whose cause is retained; it publishes
+no handle and leaves no incomplete-job registration.
+
+An admitted task can spawn descendants while a successfully completed entry is
+draining. Completion removes a job from invocation tracking even when its
+handle is never joined. A retained handle continues to own its settled join
+result after that removal. Children inherit the active handler stack at task
+creation. Handler changes remain lexical to the child, and siblings do not
+replace each other's stacks. Shared provider resources retain their creating
+owner. Worker-carrier reuse does not transfer cancellation state or handler
+frames between unrelated tasks.
+
+Channel, timer, and task-join waits allow runnable peers to make progress with
+a small JVM carrier budget when the program has no dependency cycle. This
+contract does not promise bounded CPU fairness, bounded cancellation latency,
+or starvation freedom for continuously runnable jobs. The
+[execution boundary](execution.md#lightweight-task-execution-and-invocation-lifetime)
+defines invocation lifetime and the remaining host-wait limits. The checked
+[`task-invocation-drain`](../../examples/specification/run/task-invocation-drain/)
+and
+[`task-invocation-failure-cancel`](../../examples/specification/run/task-invocation-failure-cancel/)
+cases cover command-visible draining and cancellation.
+
 The checker recognizes these channel-operation call targets through the
 standard symbol table for effect metadata, and through the existing
 concurrency signature rules for static type checking:

@@ -4,6 +4,102 @@
         new java.util.concurrent.atomic.AtomicInteger(0);
     private static final ThreadLocal<TaskCancellation> CURRENT_TASK_CANCELLATION =
         new ThreadLocal<TaskCancellation>();
+    private static final ThreadLocal<TaskLifetime> CURRENT_TASK_LIFETIME =
+        new ThreadLocal<TaskLifetime>();
+    private static final ThreadLocal<java.util.List<Throwable>> TASK_LIFETIME_RELATED_FAILURES =
+        new ThreadLocal<java.util.List<Throwable>>();
+    private static final java.util.concurrent.atomic.AtomicReference<RuntimeException>
+        NEXT_TASK_START_FAILURE_FOR_TEST =
+            new java.util.concurrent.atomic.AtomicReference<RuntimeException>();
+
+    private enum TaskLifetimeState {
+        RUNNING,
+        DRAINING,
+        CANCELLING,
+        CLOSED
+    }
+
+    private static final class TaskLifetime {
+        private TaskLifetimeState state = TaskLifetimeState.RUNNING;
+        private final java.util.LinkedHashSet<TaskFuture> incomplete =
+            new java.util.LinkedHashSet<TaskFuture>();
+
+        private synchronized void admit(TaskFuture task) {
+            boolean descendant = CURRENT_TASK_CANCELLATION.get() != null
+                && CURRENT_TASK_LIFETIME.get() == this;
+            if (state == TaskLifetimeState.CANCELLING
+                || state == TaskLifetimeState.CLOSED
+                || (state == TaskLifetimeState.DRAINING && !descendant)) {
+                throw new RuntimeFailure("task lifetime is closed");
+            }
+            incomplete.add(task);
+        }
+
+        private synchronized void rollback(TaskFuture task) {
+            incomplete.remove(task);
+            closeWhenEmpty();
+        }
+
+        private synchronized void complete(TaskFuture task) {
+            incomplete.remove(task);
+            closeWhenEmpty();
+        }
+
+        private synchronized void closeWhenEmpty() {
+            if (incomplete.isEmpty()
+                && (state == TaskLifetimeState.DRAINING
+                    || state == TaskLifetimeState.CANCELLING)) {
+                state = TaskLifetimeState.CLOSED;
+            }
+            notifyAll();
+        }
+
+        private java.util.List<Throwable> finish(boolean succeeded) {
+            java.util.List<TaskFuture> cancellationTargets =
+                java.util.Collections.<TaskFuture>emptyList();
+            synchronized (this) {
+                if (state != TaskLifetimeState.RUNNING) {
+                    throw new IllegalStateException("task lifetime already finished");
+                }
+                if (succeeded) {
+                    state = TaskLifetimeState.DRAINING;
+                } else {
+                    state = TaskLifetimeState.CANCELLING;
+                    cancellationTargets = new java.util.ArrayList<TaskFuture>(incomplete);
+                }
+                closeWhenEmpty();
+            }
+            for (TaskFuture task : cancellationTargets) {
+                task.requestCancellation();
+            }
+            boolean interrupted = false;
+            synchronized (this) {
+                while (state != TaskLifetimeState.CLOSED) {
+                    try {
+                        wait();
+                    } catch (InterruptedException waitingInterrupted) {
+                        interrupted = true;
+                    }
+                }
+            }
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            java.util.ArrayList<Throwable> related = new java.util.ArrayList<Throwable>();
+            for (TaskFuture task : cancellationTargets) {
+                try {
+                    task.get();
+                } catch (InterruptedException waitingInterrupted) {
+                    Thread.currentThread().interrupt();
+                } catch (java.util.concurrent.ExecutionException failed) {
+                    related.addAll(cleanupRelatedFailures(failed.getCause()));
+                } catch (java.util.concurrent.CancellationException cancelled) {
+                    // Task cancellation uses cooperative interruption, not Future.cancel.
+                }
+            }
+            return related;
+        }
+    }
 
     private static final class TaskCancellation {
         private final java.util.concurrent.atomic.AtomicBoolean delivered =
@@ -39,18 +135,134 @@
         return CURRENT_TASK_CANCELLATION.get() != null;
     }
 
-    private static java.util.concurrent.FutureTask<Object> newTaskFuture(
-        TaskCancellation cancellation,
-        java.util.concurrent.Callable<Object> action
-    ) {
-        return new java.util.concurrent.FutureTask<Object>(() -> {
+    private static final class TaskFuture extends java.util.concurrent.FutureTask<Object> {
+        private final TaskLifetime lifetime;
+        private final TaskCancellation cancellation;
+        private final java.util.concurrent.atomic.AtomicBoolean cancellationRequested;
+        private volatile Thread worker;
+
+        private TaskFuture(
+            TaskLifetime lifetime,
+            TaskCancellation cancellation,
+            java.util.concurrent.atomic.AtomicBoolean cancellationRequested,
+            java.util.concurrent.Callable<Object> action
+        ) {
+            super(action);
+            this.lifetime = lifetime;
+            this.cancellation = cancellation;
+            this.cancellationRequested = cancellationRequested;
+        }
+
+        @Override
+        public void run() {
+            worker = Thread.currentThread();
+            CURRENT_TASK_LIFETIME.set(lifetime);
             CURRENT_TASK_CANCELLATION.set(cancellation);
+            if (cancellation.requested) {
+                worker.interrupt();
+            }
             try {
-                return action.call();
+                super.run();
             } finally {
                 CURRENT_TASK_CANCELLATION.remove();
+                CURRENT_TASK_LIFETIME.remove();
+                lifetime.complete(this);
             }
-        });
+        }
+
+        private void requestCancellation() {
+            if (!isDone() && cancellationRequested.compareAndSet(false, true)) {
+                cancellation.request();
+                Thread currentWorker = worker;
+                if (currentWorker != null) {
+                    currentWorker.interrupt();
+                }
+            }
+        }
+
+        private void rollbackStart() {
+            lifetime.rollback(this);
+        }
+    }
+
+    public static void beginTaskLifetime() {
+        if (CURRENT_TASK_LIFETIME.get() != null) {
+            throw new IllegalStateException("task lifetime already active");
+        }
+        TASK_LIFETIME_RELATED_FAILURES.remove();
+        CURRENT_TASK_LIFETIME.set(new TaskLifetime());
+    }
+
+    public static void finishTaskLifetime(boolean succeeded) {
+        TaskLifetime lifetime = CURRENT_TASK_LIFETIME.get();
+        if (lifetime == null || CURRENT_TASK_CANCELLATION.get() != null) {
+            throw new IllegalStateException("task lifetime is not owned by this entry");
+        }
+        try {
+            java.util.List<Throwable> related = lifetime.finish(succeeded);
+            if (!related.isEmpty()) {
+                TASK_LIFETIME_RELATED_FAILURES.set(related);
+            }
+        } finally {
+            CURRENT_TASK_LIFETIME.remove();
+        }
+    }
+
+    public static void attachTaskLifetimeFailures(Throwable primary) {
+        java.util.List<Throwable> related = TASK_LIFETIME_RELATED_FAILURES.get();
+        TASK_LIFETIME_RELATED_FAILURES.remove();
+        if (related == null) {
+            return;
+        }
+        for (Throwable failure : related) {
+            attachCleanupFailure(primary, failure);
+        }
+    }
+
+    public static void printTaskLifetimeFailures() {
+        java.util.List<Throwable> related = TASK_LIFETIME_RELATED_FAILURES.get();
+        TASK_LIFETIME_RELATED_FAILURES.remove();
+        if (related == null) {
+            return;
+        }
+        emitTaskLifetimeCleanupFailures(related);
+    }
+
+    private static Thread startTaskWorker(java.util.concurrent.FutureTask<Object> future) {
+        TaskFuture task = (TaskFuture) future;
+        try {
+            RuntimeException injected = NEXT_TASK_START_FAILURE_FOR_TEST.getAndSet(null);
+            if (injected != null) {
+                throw injected;
+            }
+            return Thread.startVirtualThread(task);
+        } catch (RuntimeException | Error failure) {
+            task.rollbackStart();
+            throw new RuntimeFailure("task worker could not start", failure);
+        }
+    }
+
+    public static void failNextTaskStartForTest(String message) {
+        NEXT_TASK_START_FAILURE_FOR_TEST.set(new RuntimeException(message));
+    }
+
+    private static java.util.concurrent.FutureTask<Object> newTaskFuture(
+        TaskCancellation cancellation,
+        java.util.concurrent.atomic.AtomicBoolean cancellationRequested,
+        java.util.concurrent.Callable<Object> action
+    ) {
+        TaskLifetime lifetime = CURRENT_TASK_LIFETIME.get();
+        if (lifetime == null) {
+            throw new RuntimeFailure("task spawn requires an active invocation");
+        }
+        TaskFuture future = new TaskFuture(
+            lifetime,
+            cancellation,
+            cancellationRequested,
+            action
+        );
+        lifetime.admit(future);
+        return future;
     }
 
     public static final class Channel {
@@ -98,11 +310,10 @@
             new java.util.concurrent.atomic.AtomicBoolean(false);
 
         private Task(Fn fn) {
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object[] args) {
@@ -110,41 +321,37 @@
             for (int index = 0; index < args.length; index += 1) {
                 frozenArgs[index] = freezeBoundaryValue(args[index]);
             }
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenArgs))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object arg) {
             Object frozenArg = freezeBoundaryValue(arg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg) {
             Object frozenFirstArg = freezeBoundaryValue(firstArg);
             Object frozenSecondArg = freezeBoundaryValue(secondArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg) {
             Object frozenFirstArg = freezeBoundaryValue(firstArg);
             Object frozenSecondArg = freezeBoundaryValue(secondArg);
             Object frozenThirdArg = freezeBoundaryValue(thirdArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg) {
@@ -152,11 +359,10 @@
             Object frozenSecondArg = freezeBoundaryValue(secondArg);
             Object frozenThirdArg = freezeBoundaryValue(thirdArg);
             Object frozenFourthArg = freezeBoundaryValue(fourthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg) {
@@ -165,11 +371,10 @@
             Object frozenThirdArg = freezeBoundaryValue(thirdArg);
             Object frozenFourthArg = freezeBoundaryValue(fourthArg);
             Object frozenFifthArg = freezeBoundaryValue(fifthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg) {
@@ -179,11 +384,10 @@
             Object frozenFourthArg = freezeBoundaryValue(fourthArg);
             Object frozenFifthArg = freezeBoundaryValue(fifthArg);
             Object frozenSixthArg = freezeBoundaryValue(sixthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg) {
@@ -194,11 +398,10 @@
             Object frozenFifthArg = freezeBoundaryValue(fifthArg);
             Object frozenSixthArg = freezeBoundaryValue(sixthArg);
             Object frozenSeventhArg = freezeBoundaryValue(seventhArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg) {
@@ -210,11 +413,10 @@
             Object frozenSixthArg = freezeBoundaryValue(sixthArg);
             Object frozenSeventhArg = freezeBoundaryValue(seventhArg);
             Object frozenEighthArg = freezeBoundaryValue(eighthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg) {
@@ -227,11 +429,10 @@
             Object frozenSeventhArg = freezeBoundaryValue(seventhArg);
             Object frozenEighthArg = freezeBoundaryValue(eighthArg);
             Object frozenNinthArg = freezeBoundaryValue(ninthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg, frozenNinthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg) {
@@ -245,11 +446,10 @@
             Object frozenEighthArg = freezeBoundaryValue(eighthArg);
             Object frozenNinthArg = freezeBoundaryValue(ninthArg);
             Object frozenTenthArg = freezeBoundaryValue(tenthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg, frozenNinthArg, frozenTenthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg) {
@@ -264,11 +464,10 @@
             Object frozenNinthArg = freezeBoundaryValue(ninthArg);
             Object frozenTenthArg = freezeBoundaryValue(tenthArg);
             Object frozenEleventhArg = freezeBoundaryValue(eleventhArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg, frozenNinthArg, frozenTenthArg, frozenEleventhArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg) {
@@ -284,11 +483,10 @@
             Object frozenTenthArg = freezeBoundaryValue(tenthArg);
             Object frozenEleventhArg = freezeBoundaryValue(eleventhArg);
             Object frozenTwelfthArg = freezeBoundaryValue(twelfthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg, frozenNinthArg, frozenTenthArg, frozenEleventhArg, frozenTwelfthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg) {
@@ -305,11 +503,10 @@
             Object frozenEleventhArg = freezeBoundaryValue(eleventhArg);
             Object frozenTwelfthArg = freezeBoundaryValue(twelfthArg);
             Object frozenThirteenthArg = freezeBoundaryValue(thirteenthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg, frozenNinthArg, frozenTenthArg, frozenEleventhArg, frozenTwelfthArg, frozenThirteenthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg) {
@@ -327,11 +524,10 @@
             Object frozenTwelfthArg = freezeBoundaryValue(twelfthArg);
             Object frozenThirteenthArg = freezeBoundaryValue(thirteenthArg);
             Object frozenFourteenthArg = freezeBoundaryValue(fourteenthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg, frozenNinthArg, frozenTenthArg, frozenEleventhArg, frozenTwelfthArg, frozenThirteenthArg, frozenFourteenthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg, Object fifteenthArg) {
@@ -350,11 +546,10 @@
             Object frozenThirteenthArg = freezeBoundaryValue(thirteenthArg);
             Object frozenFourteenthArg = freezeBoundaryValue(fourteenthArg);
             Object frozenFifteenthArg = freezeBoundaryValue(fifteenthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg, frozenNinthArg, frozenTenthArg, frozenEleventhArg, frozenTwelfthArg, frozenThirteenthArg, frozenFourteenthArg, frozenFifteenthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg, Object fifteenthArg, Object sixteenthArg) {
@@ -374,11 +569,10 @@
             Object frozenFourteenthArg = freezeBoundaryValue(fourteenthArg);
             Object frozenFifteenthArg = freezeBoundaryValue(fifteenthArg);
             Object frozenSixteenthArg = freezeBoundaryValue(sixteenthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg, frozenNinthArg, frozenTenthArg, frozenEleventhArg, frozenTwelfthArg, frozenThirteenthArg, frozenFourteenthArg, frozenFifteenthArg, frozenSixteenthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg, Object fifteenthArg, Object sixteenthArg, Object seventeenthArg) {
@@ -399,11 +593,10 @@
             Object frozenFifteenthArg = freezeBoundaryValue(fifteenthArg);
             Object frozenSixteenthArg = freezeBoundaryValue(sixteenthArg);
             Object frozenSeventeenthArg = freezeBoundaryValue(seventeenthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg, frozenNinthArg, frozenTenthArg, frozenEleventhArg, frozenTwelfthArg, frozenThirteenthArg, frozenFourteenthArg, frozenFifteenthArg, frozenSixteenthArg, frozenSeventeenthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg, Object fifteenthArg, Object sixteenthArg, Object seventeenthArg, Object eighteenthArg) {
@@ -425,11 +618,10 @@
             Object frozenSixteenthArg = freezeBoundaryValue(sixteenthArg);
             Object frozenSeventeenthArg = freezeBoundaryValue(seventeenthArg);
             Object frozenEighteenthArg = freezeBoundaryValue(eighteenthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg, frozenNinthArg, frozenTenthArg, frozenEleventhArg, frozenTwelfthArg, frozenThirteenthArg, frozenFourteenthArg, frozenFifteenthArg, frozenSixteenthArg, frozenSeventeenthArg, frozenEighteenthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg, Object fifteenthArg, Object sixteenthArg, Object seventeenthArg, Object eighteenthArg, Object nineteenthArg) {
@@ -452,11 +644,10 @@
             Object frozenSeventeenthArg = freezeBoundaryValue(seventeenthArg);
             Object frozenEighteenthArg = freezeBoundaryValue(eighteenthArg);
             Object frozenNineteenthArg = freezeBoundaryValue(nineteenthArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg, frozenNinthArg, frozenTenthArg, frozenEleventhArg, frozenTwelfthArg, frozenThirteenthArg, frozenFourteenthArg, frozenFifteenthArg, frozenSixteenthArg, frozenSeventeenthArg, frozenEighteenthArg, frozenNineteenthArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
 
         private Task(Fn fn, Object firstArg, Object secondArg, Object thirdArg, Object fourthArg, Object fifthArg, Object sixthArg, Object seventhArg, Object eighthArg, Object ninthArg, Object tenthArg, Object eleventhArg, Object twelfthArg, Object thirteenthArg, Object fourteenthArg, Object fifteenthArg, Object sixteenthArg, Object seventeenthArg, Object eighteenthArg, Object nineteenthArg, Object twentiethArg) {
@@ -480,11 +671,10 @@
             Object frozenEighteenthArg = freezeBoundaryValue(eighteenthArg);
             Object frozenNineteenthArg = freezeBoundaryValue(nineteenthArg);
             Object frozenTwentiethArg = freezeBoundaryValue(twentiethArg);
-            this.future = newTaskFuture(this.cancellation,
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
                 () -> freezeBoundaryValue(call(fn, frozenFirstArg, frozenSecondArg, frozenThirdArg, frozenFourthArg, frozenFifthArg, frozenSixthArg, frozenSeventhArg, frozenEighthArg, frozenNinthArg, frozenTenthArg, frozenEleventhArg, frozenTwelfthArg, frozenThirteenthArg, frozenFourteenthArg, frozenFifteenthArg, frozenSixteenthArg, frozenSeventeenthArg, frozenEighteenthArg, frozenNineteenthArg, frozenTwentiethArg))
             );
-            this.thread = new Thread(this.future);
-            this.thread.start();
+            this.thread = startTaskWorker(this.future);
         }
     }
     public static Object channelBounded(Object capacity) {
@@ -884,10 +1074,6 @@
 
     public static Object taskCancel(Object task) {
         Task handle = (Task) task;
-        if (!handle.future.isDone()
-            && handle.cancellationRequested.compareAndSet(false, true)) {
-            handle.cancellation.request();
-            handle.thread.interrupt();
-        }
+        ((TaskFuture) handle.future).requestCancellation();
         return UNIT;
     }

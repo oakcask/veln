@@ -64,6 +64,145 @@ fn run_java_runtime_harness_with_options(
 }
 
 #[test]
+fn lightweight_task_start_failure_rolls_back_admission_and_preserves_cause() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "lightweight-task-start-rollback",
+        "LightweightTaskStartRollbackHarness.java",
+        r#"
+public final class LightweightTaskStartRollbackHarness {
+    public static void main(String[] args) {
+        VelnRuntime.beginTaskLifetime();
+        VelnRuntime.failNextTaskStartForTest("injected start failure");
+        try {
+            Object handle = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> null);
+            throw new AssertionError("failed task start published a handle: " + handle);
+        } catch (VelnRuntime.RuntimeFailure failure) {
+            if (!"task worker could not start".equals(failure.getMessage())) {
+                throw new AssertionError("unexpected failure: " + failure.getMessage());
+            }
+            if (failure.getCause() == null
+                    || !"injected start failure".equals(failure.getCause().getMessage())) {
+                throw new AssertionError("start cause was not preserved", failure);
+            }
+        }
+        VelnRuntime.finishTaskLifetime(false);
+        System.out.println("rolled back");
+    }
+}
+"#,
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "rolled back\n");
+}
+
+#[test]
+fn lightweight_tasks_park_without_platform_thread_growth_and_release_registrations() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness_with_options(
+        "lightweight-task-allocation-reclamation",
+        "LightweightTaskAllocationHarness.java",
+        r#"
+public final class LightweightTaskAllocationHarness {
+    public static void main(String[] args) throws Exception {
+        int population = 1024;
+        int before = java.lang.management.ManagementFactory
+            .getThreadMXBean().getThreadCount();
+        java.util.concurrent.CountDownLatch ready =
+            new java.util.concurrent.CountDownLatch(population);
+        java.util.concurrent.CountDownLatch release =
+            new java.util.concurrent.CountDownLatch(1);
+        java.util.ArrayList<Object> handles = new java.util.ArrayList<Object>();
+        VelnRuntime.beginTaskLifetime();
+        for (int index = 0; index < population; index += 1) {
+            handles.add(VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
+                ready.countDown();
+                try {
+                    release.await();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+                return Long.valueOf(1L);
+            }));
+        }
+        if (!ready.await(10, java.util.concurrent.TimeUnit.SECONDS)) {
+            throw new AssertionError("parked population did not start");
+        }
+        java.lang.reflect.Field workerField = handles.get(0).getClass()
+            .getDeclaredField("thread");
+        workerField.setAccessible(true);
+        for (Object handle : handles) {
+            Thread worker = (Thread) workerField.get(handle);
+            if (!worker.isVirtual()) {
+                throw new AssertionError("task used a platform worker");
+            }
+        }
+        int parked = java.lang.management.ManagementFactory
+            .getThreadMXBean().getThreadCount();
+        int platformGrowth = parked - before;
+        if (platformGrowth > 8) {
+            throw new AssertionError("platform threads grew by " + platformGrowth);
+        }
+        release.countDown();
+        VelnRuntime.finishTaskLifetime(true);
+        for (Object handle : handles) {
+            Object joined = VelnRuntime.taskJoin(handle);
+            if (!joined.toString().equals("Ok(1)")) {
+                throw new AssertionError("retained handle lost result: " + joined);
+            }
+        }
+        handles.clear();
+
+        for (int batch = 0; batch < 10; batch += 1) {
+            VelnRuntime.beginTaskLifetime();
+            for (int index = 0; index < population; index += 1) {
+                VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> Long.valueOf(1L));
+            }
+            VelnRuntime.finishTaskLifetime(true);
+        }
+        System.gc();
+        System.out.println("allocation and reclamation complete");
+    }
+}
+"#,
+        &program,
+        &[],
+        &[
+            "-Xmx512m",
+            "-Xss256k",
+            "-Djdk.virtualThreadScheduler.parallelism=2",
+            "-Djdk.virtualThreadScheduler.maxPoolSize=2",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "allocation and reclamation complete\n"
+    );
+}
+
+#[test]
 fn jvm_runtime_schema_refinement_validation_rejects_negative_offsets() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

@@ -1559,6 +1559,7 @@ public final class NetworkSystemLifecycleHarness {
     }
 
     public static void main(String[] args) throws Exception {
+        VelnRuntime.beginTaskLifetime();
         verifyConnectCommitOrdering();
         verifyIpv6EndpointTextIsBracketedAndParseable();
         verifyOwnedResourcesDoNotCrossHandlerDispatch();
@@ -1579,6 +1580,7 @@ public final class NetworkSystemLifecycleHarness {
         verifyUnexpectedFailuresRemainAbrupt();
         verifyIdleAcceptReusesReadinessState();
         verifyIdleReadReusesOperationState();
+        VelnRuntime.finishTaskLifetime(true);
         System.out.println("network system lifecycle invariants held");
     }
 }

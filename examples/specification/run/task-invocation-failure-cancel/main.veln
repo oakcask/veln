@@ -1,0 +1,23 @@
+fn should_not_start() -> () effects [stdio]
+	stdio::println("unexpected child")
+end
+
+fn wait_for_cancel(context: { entered : Sender<()>, release : Receiver<()> }) -> () effects [concurrency, stdio]
+	begin
+		defer
+			stdio::println("cleanup")
+			let _ = task::spawn(should_not_start)
+		end
+		let _ = channel::send(context.entered, ())
+		let _ = channel::recv(context.release)
+		()
+	end
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, stdio]
+	let entered = channel::bounded<()>(1)
+	let release = channel::bounded<()>(1)
+	let _ = task::spawn_with(wait_for_cancel, { entered: entered.tx, release: release.rx })
+	let _ = channel::recv(entered.rx)
+	Err("entry failed")
+end

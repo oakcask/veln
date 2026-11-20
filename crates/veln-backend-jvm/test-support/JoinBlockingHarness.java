@@ -13,6 +13,7 @@ public final class JoinBlockingHarness {
     }
 
     public static void main(String[] args) throws Exception {
+        VelnRuntime.beginTaskLifetime();
         Object context = VelnProgram.fn_start_cleanup_worker();
         Object worker = VelnRuntime.recordField(context, "worker");
         Object cleanupStarted = VelnRuntime.recordField(context, "cleanup_started");
@@ -93,6 +94,7 @@ public final class JoinBlockingHarness {
         if (!"cancelled".equals(result.get())) {
             throw new AssertionError("unexpected join result: " + result.get());
         }
+        VelnRuntime.finishTaskLifetime(true);
         System.out.println("concurrent cancellation preserved cleanup completion ordering");
     }
 }

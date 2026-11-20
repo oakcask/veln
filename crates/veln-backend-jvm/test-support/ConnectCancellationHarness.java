@@ -116,11 +116,13 @@ public final class ConnectCancellationHarness {
     }
 
     public static void main(String[] args) throws Exception {
+        VelnRuntime.beginTaskLifetime();
         try {
             runConnectWait();
         } catch (java.net.SocketException restrictedHost) {
             runRestrictedHostFallback();
         }
+        VelnRuntime.finishTaskLifetime(true);
         System.out.println("connect cancellation remained primary");
     }
 }

@@ -903,8 +903,10 @@ impl<'a> ClassfileEmitter<'a> {
             "setProcessArgs",
             "([Ljava/lang/String;)V",
         );
+        self.emit_begin_task_lifetime(&mut code);
         self.emit_entry_argument_conversions(&mut code, entry_arg_types);
         self.emit_entry_invocation_and_result(&mut code, entry_function, entry_arg_types);
+        self.emit_finish_task_lifetime(&mut code, true);
         let try_end = code.mark();
         code.op(0xb1);
 
@@ -931,6 +933,7 @@ impl<'a> ClassfileEmitter<'a> {
         code.op(0xbe);
         code.branch_to(0xa2, loop_done);
 
+        self.emit_begin_task_lifetime(&mut code);
         let dispatched = code.new_label();
         self.emit_test_entry_dispatch(&mut code, entry_functions, dispatched);
 
@@ -964,9 +967,11 @@ impl<'a> ClassfileEmitter<'a> {
             );
             code.astore(1);
             self.emit_entry_result(code);
+            self.emit_finish_task_lifetime(code, true);
             code.branch_to(0xa7, dispatched);
             code.bind(next);
         }
+        self.emit_finish_task_lifetime(code, false);
         code.getstatic("java/lang/System", "err", "Ljava/io/PrintStream;");
         code.ldc_string("unknown test entry");
         code.invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V");
@@ -1133,6 +1138,7 @@ impl<'a> ClassfileEmitter<'a> {
     }
 
     fn emit_entry_failure(&self, code: &mut MethodCode, local: u16) {
+        self.emit_finish_task_lifetime(code, false);
         code.aload(local);
         code.invokestatic(
             &self.options.runtime_class,
@@ -1147,6 +1153,11 @@ impl<'a> ClassfileEmitter<'a> {
             "(Ljava/lang/Object;)Ljava/lang/String;",
         );
         code.invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V");
+        code.invokestatic(
+            &self.options.runtime_class,
+            "printTaskLifetimeFailures",
+            "()V",
+        );
         code.push_i32(1);
         code.invokestatic("java/lang/System", "exit", "(I)V");
     }
@@ -1179,6 +1190,13 @@ impl<'a> ClassfileEmitter<'a> {
     ) {
         let handler = code.mark();
         code.astore(2);
+        self.emit_finish_task_lifetime(code, false);
+        code.aload(2);
+        code.invokestatic(
+            &self.options.runtime_class,
+            "attachTaskLifetimeFailures",
+            "(Ljava/lang/Throwable;)V",
+        );
         if record_contract_failure {
             code.aload(2);
             code.invokestatic(
@@ -1211,6 +1229,15 @@ impl<'a> ClassfileEmitter<'a> {
         try_end: usize,
     ) {
         let handler = code.mark();
+        code.astore(2);
+        self.emit_finish_task_lifetime(code, false);
+        code.aload(2);
+        code.invokestatic(
+            &self.options.runtime_class,
+            "attachTaskLifetimeFailures",
+            "(Ljava/lang/Throwable;)V",
+        );
+        code.aload(2);
         code.invokevirtual("java/lang/Throwable", "printStackTrace", "()V");
         code.push_i32(1);
         code.invokestatic("java/lang/System", "exit", "(I)V");
@@ -1221,6 +1248,15 @@ impl<'a> ClassfileEmitter<'a> {
             handler_pc: handler,
             catch_type: "java/lang/Throwable".to_string(),
         });
+    }
+
+    fn emit_begin_task_lifetime(&self, code: &mut MethodCode) {
+        code.invokestatic(&self.options.runtime_class, "beginTaskLifetime", "()V");
+    }
+
+    fn emit_finish_task_lifetime(&self, code: &mut MethodCode, succeeded: bool) {
+        code.push_i32(if succeeded { 1 } else { 0 });
+        code.invokestatic(&self.options.runtime_class, "finishTaskLifetime", "(Z)V");
     }
 
     fn add_entry_main_method(&self, class: &mut ClassBuilder, code: MethodCode) {

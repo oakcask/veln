@@ -31,6 +31,18 @@
         primary.addSuppressed(diagnostic);
     }
 
+    private static void emitTaskLifetimeCleanupFailures(
+        java.util.List<Throwable> related
+    ) {
+        String cleanupPath = System.getenv("VELN_CLEANUP_ERRORS");
+        if (cleanupPath == null || cleanupPath.isEmpty()) {
+            for (Throwable failure : related) {
+                System.err.println("related cleanup failure: " + failure.getMessage());
+            }
+        }
+        recordCleanupFailures(related);
+    }
+
     private static final class CleanupDiagnostic extends Throwable {
         private CleanupDiagnostic(String message) {
             super(message, null, true, false);

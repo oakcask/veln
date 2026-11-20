@@ -135,6 +135,9 @@ fn task_cancellation_state_is_task_local_and_not_a_retained_thread_registry() {
     let source = include_str!("../runtime/concurrency.java.inc");
 
     assert!(source.contains("ThreadLocal<TaskCancellation>"));
+    assert!(source.contains("Thread.startVirtualThread(task)"));
+    assert!(!source.contains("new Thread(this.future)"));
+    assert!(source.contains("LinkedHashSet<TaskFuture> incomplete"));
     assert!(!source.contains("CANCELLED_TASK_THREADS"));
     assert!(!source.contains("Set<Thread>"));
     assert!(!source.contains("Set<java.io.Closeable>"));

@@ -375,6 +375,201 @@ fn bytecode_backend_reports_source_cancelled_wait_when_java_is_available() {
 }
 
 #[test]
+fn entry_lifetime_drains_descendants_spawned_after_entry_returns_when_java_is_available() {
+    let ir = lower_to_ir(
+        r#"fn descendant() -> () effects [stdio]
+    stdio::println("descendant")
+end
+fn parent() -> () effects [concurrency, time]
+    time::timeout_ms(10)
+    let _ = task::spawn(descendant)
+    ()
+end
+pub fn main() -> () effects [concurrency, stdio, time]
+    let _ = task::spawn(parent)
+    stdio::println("entry")
+end
+"#,
+    );
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("entry-lifetime-descendant-drain", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "entry\ndescendant\n"
+    );
+}
+
+#[test]
+fn failed_entry_cancels_and_drains_child_cleanup_before_reporting_when_java_is_available() {
+    let ir = lower_to_ir(
+        r#"fn should_not_start() -> () effects [stdio]
+    stdio::println("unexpected child")
+end
+fn wait_for_cancel(context: { entered : Sender<()>, release : Receiver<()> }) -> () effects [concurrency, stdio]
+    begin
+        defer
+            stdio::println("cleanup")
+            let _ = task::spawn(should_not_start)
+        end
+        let _ = channel::send(context.entered, ())
+        let _ = channel::recv(context.release)
+        ()
+    end
+end
+pub fn main() -> Result<(), String> effects [concurrency, stdio]
+    let entered = channel::bounded<()>(1)
+    let release = channel::bounded<()>(1)
+    let _ = task::spawn_with(wait_for_cancel, { entered: entered.tx, release: release.rx })
+    let _ = channel::recv(entered.rx)
+    Err("entry failed")
+end
+"#,
+    );
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("failed-entry-cancels-child-cleanup", &program, &[])
+    else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "cleanup\n");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "Err(entry failed)\nrelated cleanup failure: task lifetime is closed\n"
+    );
+}
+
+#[test]
+fn small_carrier_budgets_run_channel_timer_and_join_peers_when_java_is_available() {
+    let ir = lower_to_ir(
+        r#"fn send_after_wait(sender: Sender<String>) -> String effects [concurrency, time]
+    time::timeout_ms(5)
+    let _ = channel::send(sender, "ready")
+    "child"
+end
+fn receive_two(receiver: Receiver<String>) -> String effects [concurrency]
+    let _: Option<String> = channel::recv(receiver)
+    let _: Option<String> = channel::recv(receiver)
+    "drained"
+end
+fn parent() -> Result<String, JoinError> effects [concurrency, time]
+    let channel = channel::bounded<String>(0)
+    let child = task::spawn_with(send_after_wait, channel.tx)
+    let received: Option<String> = channel::recv(channel.rx)
+    let value: String = task::join(child)?
+    let buffer = channel::bounded<String>(1)
+    let _ = channel::send(buffer.tx, "first")
+    let drainer = task::spawn_with(receive_two, buffer.rx)
+    let _ = channel::send(buffer.tx, "second")
+    let _: String = task::join(drainer)?
+    match received
+        Some(message) => Ok(string::concat(string::concat(message, ":"), value))
+        None => Ok("closed")
+    end
+end
+pub fn main() -> Result<(), String> effects [concurrency, stdio, time]
+    let parent_task = task::spawn(parent)
+    match task::join(parent_task)
+        Ok(Ok(value)) => begin
+            stdio::println(value)
+            Ok(())
+        end
+        Ok(Err(_)) => Err("child join failed")
+        Err(_) => Err("parent join failed")
+    end
+end
+"#,
+    );
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    for (name, java_args) in [
+        (
+            "one-carrier-task-progress",
+            [
+                "-Djdk.virtualThreadScheduler.parallelism=1",
+                "-Djdk.virtualThreadScheduler.maxPoolSize=1",
+            ],
+        ),
+        (
+            "two-carrier-task-progress",
+            [
+                "-Djdk.virtualThreadScheduler.parallelism=2",
+                "-Djdk.virtualThreadScheduler.maxPoolSize=2",
+            ],
+        ),
+    ] {
+        let Some(output) =
+            run_jvm_program_with_java_args_when_java_is_available(name, &program, &java_args, &[])
+        else {
+            return;
+        };
+
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "ready:child\n");
+    }
+}
+
+#[test]
+fn reusable_test_entries_drain_distinct_task_lifetimes_when_java_is_available() {
+    let ir = lower_to_ir(
+        r#"fn delayed_output() -> () effects [stdio, time]
+    time::timeout_ms(5)
+    stdio::println("first child")
+end
+test first() -> Result<(), String> effects [concurrency, stdio, time]
+    let _ = task::spawn(delayed_output)
+    stdio::println("first entry")
+    Ok(())
+end
+test second() -> Result<(), String> effects [stdio]
+    stdio::println("second entry")
+    Ok(())
+end
+"#,
+    );
+    let program = try_generate_classfiles_with_test_entries(
+        &ir,
+        &["first".to_string(), "second".to_string()],
+    )
+    .expect("test entries should generate");
+
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "reusable-test-task-lifetimes",
+        &program,
+        &["first", "second"],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "first entry\nfirst child\nsecond entry\n"
+    );
+}
+
+#[test]
 fn entry_stack_overflow_exits_with_a_waiting_worker_when_java_is_available() {
     let ir = lower_to_ir(
         r#"fn wait_for_release(context: { entered : Sender<()>, release : Receiver<()> }) -> () effects [concurrency]

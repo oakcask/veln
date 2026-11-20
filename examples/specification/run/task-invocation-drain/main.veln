@@ -1,0 +1,14 @@
+fn descendant() -> () effects [stdio]
+	stdio::println("descendant")
+end
+
+fn parent() -> () effects [concurrency, time]
+	time::timeout_ms(10)
+	let _ = task::spawn(descendant)
+	()
+end
+
+pub fn main() -> () effects [concurrency, stdio, time]
+	let _ = task::spawn(parent)
+	stdio::println("entry")
+end

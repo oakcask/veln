@@ -99,6 +99,15 @@ failure. The probe accepts the major only from a `java version "VERSION"` or
 `openjdk version "VERSION"` banner, so unrelated wrapper output cannot satisfy
 the requirement. There is no older-runtime fallback.
 
+After a successful entry return, `run` keeps its launcher alive and delays the
+command result until all tasks admitted to that invocation, including
+descendants spawned while draining, have finished. If the entry fails, returns
+an entry error, or is cancelled, `run` closes task admission, requests
+cancellation once for every incomplete task, waits for their cleanup, and then
+reports the original entry outcome. Child cleanup failures are related to that
+outcome in admission order. A child or cleanup that never finishes leaves the
+command incomplete; the command adds no implicit task deadline.
+
 JVM classfile generation can reject a program that exceeds a classfile
 representation limit. This failure occurs after typed-IR readiness and before
 cache configuration, artifact publication, or Java launch. The command writes
@@ -211,6 +220,9 @@ static failure. Backend representation failures also prevent artifact
 publication and Java launch. Java versions older than 25 prevent cache-directory
 creation and entry launch. A call-site-aware entry is a static failure
 even when its body does not read the built-in value.
+The command can remain incomplete after the entry body returns or fails when an
+admitted task or its cleanup does not finish. It does not forcibly terminate
+that invocation or publish a partial final result.
 
 ## References
 
