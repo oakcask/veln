@@ -16,7 +16,10 @@ also states it.
 
 ## Ready
 
-No proposal is ready for implementation.
+- Navigation for public handlers from the retained embedded standard library,
+  including shared definition and selected-project reference results through
+  LSP and MCP:
+  [standard-library-handler-navigation.md](standard-library-handler-navigation.md).
 
 ## Design In Progress
 
@@ -31,8 +34,9 @@ No proposal is ready for implementation.
 
 - The [agent-language-services umbrella](agent-language-services.md) remains a
   planning inventory only for the unimplemented transitive-dependency,
-  remaining symbol, conformance-gate, and plugin work. Do not select the
-  umbrella directly.
+  remaining symbol, conformance-gate, and plugin work. The independently
+  selectable standard-library handler slice is listed under Ready; do not
+  select the umbrella directly.
 
 ## Scope Decisions
 
