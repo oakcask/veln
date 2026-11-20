@@ -66,43 +66,18 @@ fn analyze_frames(
     let mut dead_frames = BTreeMap::new();
 
     while let Some(start) = queue.pop_front() {
-        let mut offset = start;
-        let mut frame = states[start]
-            .clone()
-            .ok_or_else(|| stack_map_error("missing reachable frame"))?;
-        loop {
-            reachable[offset] = true;
-            merge_reachable_handlers(method, offset, &frame, &mut states, &mut queue)?;
-            let dead_locals =
-                matches!(method.code[offset], 0xa7 | 0xac | 0xb0 | 0xb1 | 0xbf | 0xc8)
-                    .then(|| frame.locals.clone());
-            let (next, successors) = execute_instruction(pool, &method.code, offset, frame)?;
-            merge_reachable_successors(successors, &mut states, &mut queue, &mut frame_offsets)?;
-            let next_offset = instruction_end(&method.code, offset)?;
-            let Some(next_frame) = next else {
-                start_dead_fallthrough(
-                    pool,
-                    method,
-                    next_offset,
-                    dead_locals.ok_or_else(|| stack_map_error("missing terminal locals"))?,
-                    &exception_handlers,
-                    &control_targets,
-                    &mut states,
-                    &mut frame_offsets,
-                    &mut dead_frames,
-                )?;
-                break;
-            };
-            if next_offset >= method.code.len() {
-                break;
-            }
-            if control_targets.contains(&next_offset) {
-                merge_state(&mut states, next_offset, next_frame, &mut queue)?;
-                break;
-            }
-            offset = next_offset;
-            frame = next_frame;
-        }
+        analyze_reachable_block(
+            pool,
+            method,
+            start,
+            &exception_handlers,
+            &control_targets,
+            &mut states,
+            &mut reachable,
+            &mut queue,
+            &mut frame_offsets,
+            &mut dead_frames,
+        )?;
     }
     Ok(FrameAnalysis {
         states,
@@ -111,6 +86,57 @@ fn analyze_frames(
         frame_offsets,
         dead_frames,
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn analyze_reachable_block(
+    pool: &Rc<RefCell<ConstantPool>>,
+    method: &MethodInfo,
+    start: usize,
+    exception_handlers: &BTreeSet<usize>,
+    control_targets: &BTreeSet<usize>,
+    states: &mut [Option<Frame>],
+    reachable: &mut [bool],
+    queue: &mut VecDeque<usize>,
+    frame_offsets: &mut BTreeSet<usize>,
+    dead_frames: &mut BTreeMap<usize, Frame>,
+) -> Result<(), JvmBackendError> {
+    let mut offset = start;
+    let mut frame = states[start]
+        .clone()
+        .ok_or_else(|| stack_map_error("missing reachable frame"))?;
+    loop {
+        reachable[offset] = true;
+        merge_reachable_handlers(method, offset, &frame, states, queue)?;
+        let dead_locals = matches!(method.code[offset], 0xa7 | 0xac | 0xb0 | 0xb1 | 0xbf | 0xc8)
+            .then(|| frame.locals.clone());
+        let (next, successors) = execute_instruction(pool, &method.code, offset, frame)?;
+        merge_reachable_successors(successors, states, queue, frame_offsets)?;
+        let next_offset = instruction_end(&method.code, offset)?;
+        let Some(next_frame) = next else {
+            start_dead_fallthrough(
+                pool,
+                method,
+                next_offset,
+                dead_locals.ok_or_else(|| stack_map_error("missing terminal locals"))?,
+                exception_handlers,
+                control_targets,
+                states,
+                frame_offsets,
+                dead_frames,
+            )?;
+            return Ok(());
+        };
+        if next_offset >= method.code.len() {
+            return Ok(());
+        }
+        if control_targets.contains(&next_offset) {
+            merge_state(states, next_offset, next_frame, queue)?;
+            return Ok(());
+        }
+        offset = next_offset;
+        frame = next_frame;
+    }
 }
 
 fn merge_reachable_handlers(
@@ -185,9 +211,29 @@ fn complete_dead_frames(
 ) -> Result<BTreeMap<usize, Frame>, JvmBackendError> {
     let mut frame_map = initial_frame_map(analysis);
     let dead_facts = collect_dead_block_facts(method, analysis, &frame_map)?;
+    let (reverse_dependencies, exception_handlers) =
+        dead_frame_dependencies(method, analysis, &frame_map, &dead_facts);
+    propagate_dead_frame_updates(
+        &mut frame_map,
+        &dead_facts,
+        &reverse_dependencies,
+        &exception_handlers,
+    )?;
+    Ok(frame_map)
+}
+
+fn dead_frame_dependencies(
+    method: &MethodInfo,
+    analysis: &FrameAnalysis,
+    frame_map: &BTreeMap<usize, Frame>,
+    dead_facts: &BTreeMap<usize, DeadBlockFacts>,
+) -> (
+    BTreeMap<usize, BTreeSet<usize>>,
+    BTreeMap<usize, Vec<usize>>,
+) {
     let mut reverse_dependencies = BTreeMap::<usize, BTreeSet<usize>>::new();
     let mut exception_handlers = BTreeMap::<usize, Vec<usize>>::new();
-    for (&source, facts) in &dead_facts {
+    for (&source, facts) in dead_facts {
         if let Some(target) = facts.target.filter(|target| frame_map.contains_key(target)) {
             reverse_dependencies
                 .entry(target)
@@ -215,7 +261,15 @@ fn complete_dead_frames(
             .or_default()
             .insert(exception.start_pc);
     }
+    (reverse_dependencies, exception_handlers)
+}
 
+fn propagate_dead_frame_updates(
+    frame_map: &mut BTreeMap<usize, Frame>,
+    dead_facts: &BTreeMap<usize, DeadBlockFacts>,
+    reverse_dependencies: &BTreeMap<usize, BTreeSet<usize>>,
+    exception_handlers: &BTreeMap<usize, Vec<usize>>,
+) -> Result<(), JvmBackendError> {
     let mut affected = dead_facts.keys().copied().collect::<BTreeSet<_>>();
     while !affected.is_empty() {
         let mut updates = BTreeMap::new();
@@ -236,7 +290,7 @@ fn complete_dead_frames(
             }
         }
         if updates.is_empty() {
-            return Ok(frame_map);
+            return Ok(());
         }
         let mut next_affected = BTreeSet::new();
         for (source, frame) in updates {
@@ -247,7 +301,7 @@ fn complete_dead_frames(
         }
         affected = next_affected;
     }
-    Ok(frame_map)
+    Ok(())
 }
 
 fn initial_frame_map(analysis: &FrameAnalysis) -> BTreeMap<usize, Frame> {

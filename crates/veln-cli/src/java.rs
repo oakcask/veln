@@ -8,7 +8,6 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use sha2::{Digest, Sha256};
-use veln_backend_jvm::{JavaTool, REQUIRED_JAVA_MAJOR, parse_java_major, require_java_major};
 use veln_project::LowerHexBytes;
 
 const JVM_CACHE_MARKER: &str = ".veln-cache-ok";
@@ -77,39 +76,6 @@ fn prepare_jvm_execution_with(
         cache_root,
         java_launcher,
     }))
-}
-
-fn java_version_error(java_launcher: &Path, command_name: &str) -> Option<String> {
-    let output = match ProcessCommand::new(java_launcher).arg("-version").output() {
-        Ok(output) => output,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return Some(missing_java_message(command_name));
-        }
-        Err(_) => {
-            return Some(format!(
-                "veln: selected `java` could not report its major version; Java {REQUIRED_JAVA_MAJOR} or newer is required for `{command_name}`"
-            ));
-        }
-    };
-    if !output.status.success() {
-        return Some(format!(
-            "veln: selected `java` could not report its major version; Java {REQUIRED_JAVA_MAJOR} or newer is required for `{command_name}`"
-        ));
-    }
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let Some(detected_major) = parse_java_major(JavaTool::Runtime, &[&stdout, &stderr]) else {
-        return Some(format!(
-            "veln: could not determine the selected `java` major version; Java {REQUIRED_JAVA_MAJOR} or newer is required for `{command_name}`"
-        ));
-    };
-    if let Err(version) = require_java_major(detected_major) {
-        return Some(format!(
-            "veln: Java {} or newer is required for `{command_name}`; selected `java` has major version {}",
-            version.required, version.detected
-        ));
-    }
-    None
 }
 
 pub(crate) fn prepare_and_run_jvm_capture_with_env(
@@ -206,6 +172,10 @@ enum CachedJvmClasses {
 
 mod environment;
 use environment::*;
+mod cache;
+use cache::*;
+mod version;
+use version::*;
 
 #[cfg(test)]
 fn ensure_cached_jvm_classes_in(
@@ -227,13 +197,8 @@ fn ensure_cached_jvm_classes_in_with_hooks(
     let lock_dir = cache_lock_dir(cache_root, &key);
 
     for _ in 0..JVM_CACHE_PREPARE_ATTEMPTS {
-        {
-            let _lock = JvmCacheLock::acquire(&lock_dir).map_err(|error| error.to_string())?;
-            hooks.after_initial_lock();
-            if validated_cache_exists(&cache_dir, program)? {
-                return Ok(CachedJvmClasses::Ready(cache_dir));
-            }
-            remove_invalid_cache(&cache_dir, hooks)?;
+        if reuse_valid_cache_or_remove_invalid(&lock_dir, &cache_dir, program, hooks)? {
+            return Ok(CachedJvmClasses::Ready(cache_dir));
         }
 
         hooks.before_prepare();
@@ -245,18 +210,13 @@ fn ensure_cached_jvm_classes_in_with_hooks(
         };
 
         hooks.before_publish_lock();
-        let _lock = match JvmCacheLock::acquire(&lock_dir) {
-            Ok(lock) => lock,
-            Err(error) => {
-                let _ = fs::remove_dir_all(&compile_dir);
-                return Err(error.to_string());
-            }
-        };
-        if let Err(error) = hooks.at_fault_point(JvmCacheFaultPoint::Publication) {
-            let _ = fs::remove_dir_all(&compile_dir);
-            return Err(format!("could not publish JVM cache entry: {error}"));
-        }
-        match publish_prepared_jvm_cache(&compile_dir, &cache_dir, program)? {
+        match publish_prepared_cache_under_lock(
+            &lock_dir,
+            &compile_dir,
+            &cache_dir,
+            program,
+            hooks,
+        )? {
             CachePublish::Published | CachePublish::ReusedValidated => {
                 return Ok(CachedJvmClasses::Ready(cache_dir));
             }
@@ -333,9 +293,7 @@ fn prepare_jvm_cache_compile_dir(
         }
         Ok(CacheCompilePreparation::Ready(compile_dir.clone()))
     })();
-    if preparation.is_err() || matches!(&preparation, Ok(CacheCompilePreparation::ToolError(_))) {
-        let _ = fs::remove_dir_all(&compile_dir);
-    }
+    remove_failed_cache_preparation(&compile_dir, &preparation);
     preparation.map_err(|error| format!("could not prepare JVM cache entry: {error}"))
 }
 
@@ -701,10 +659,6 @@ pub(crate) fn exit_code_from_status(status: ExitStatus) -> ExitCode {
         Some(code) if (0..=255).contains(&code) => ExitCode::from(code as u8),
         Some(_) | None => ExitCode::from(1),
     }
-}
-
-fn missing_java_message(command_name: &str) -> String {
-    format!("veln: `java` was not found; install JDK 25 or newer to use `{command_name}`")
 }
 
 #[cfg(test)]
