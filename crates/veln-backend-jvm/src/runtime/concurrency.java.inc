@@ -8,13 +8,6 @@
         new ThreadLocal<TaskLifetime>();
     private static final ThreadLocal<java.util.List<Throwable>> TASK_LIFETIME_RELATED_FAILURES =
         new ThreadLocal<java.util.List<Throwable>>();
-    private static final java.util.concurrent.atomic.AtomicReference<RuntimeException>
-        NEXT_TASK_START_FAILURE_FOR_TEST =
-            new java.util.concurrent.atomic.AtomicReference<RuntimeException>();
-    private static volatile java.util.concurrent.CountDownLatch TASK_START_PAUSED_FOR_TEST;
-    private static volatile java.util.concurrent.CountDownLatch TASK_START_RELEASE_FOR_TEST;
-    private static volatile java.util.concurrent.CountDownLatch
-        TASK_CANCELLATION_SNAPSHOT_FOR_TEST;
 
     private enum TaskLifetimeState {
         RUNNING,
@@ -79,11 +72,6 @@
                     // the transition, but it was incomplete when cancellation began.
                     for (TaskFuture task : cancellationTargets) {
                         task.requestCancellation();
-                    }
-                    java.util.concurrent.CountDownLatch snapshot =
-                        TASK_CANCELLATION_SNAPSHOT_FOR_TEST;
-                    if (snapshot != null) {
-                        snapshot.countDown();
                     }
                 }
                 closeWhenEmpty();
@@ -255,57 +243,19 @@
     }
 
     private static Thread startTaskWorker(java.util.concurrent.FutureTask<Object> future) {
+        return startTaskWorker(future, Thread::startVirtualThread);
+    }
+
+    private static Thread startTaskWorker(
+        java.util.concurrent.FutureTask<Object> future,
+        java.util.function.Function<java.util.concurrent.FutureTask<Object>, Thread> starter
+    ) {
         TaskFuture task = (TaskFuture) future;
         try {
-            RuntimeException injected = NEXT_TASK_START_FAILURE_FOR_TEST.getAndSet(null);
-            if (injected != null) {
-                java.util.concurrent.CountDownLatch paused = TASK_START_PAUSED_FOR_TEST;
-                java.util.concurrent.CountDownLatch release = TASK_START_RELEASE_FOR_TEST;
-                if (paused != null && release != null) {
-                    paused.countDown();
-                    awaitTestLatch(release);
-                }
-                throw injected;
-            }
-            return Thread.startVirtualThread(task);
+            return starter.apply(task);
         } catch (RuntimeException | Error failure) {
             task.rollbackStart();
             throw new RuntimeFailure("task worker could not start", failure);
-        }
-    }
-
-    public static void failNextTaskStartForTest(String message) {
-        NEXT_TASK_START_FAILURE_FOR_TEST.set(new RuntimeException(message));
-    }
-
-    public static void pauseNextTaskStartForTest(String message) {
-        TASK_START_PAUSED_FOR_TEST = new java.util.concurrent.CountDownLatch(1);
-        TASK_START_RELEASE_FOR_TEST = new java.util.concurrent.CountDownLatch(1);
-        TASK_CANCELLATION_SNAPSHOT_FOR_TEST = new java.util.concurrent.CountDownLatch(1);
-        failNextTaskStartForTest(message);
-    }
-
-    public static void awaitTaskStartPauseForTest() {
-        awaitTestLatch(TASK_START_PAUSED_FOR_TEST);
-    }
-
-    public static void releaseTaskStartAfterCancellationSnapshotForTest() {
-        awaitTestLatch(TASK_CANCELLATION_SNAPSHOT_FOR_TEST);
-        TASK_START_RELEASE_FOR_TEST.countDown();
-    }
-
-    private static void awaitTestLatch(java.util.concurrent.CountDownLatch latch) {
-        boolean interrupted = false;
-        while (true) {
-            try {
-                latch.await();
-                break;
-            } catch (InterruptedException waitingInterrupted) {
-                interrupted = true;
-            }
-        }
-        if (interrupted) {
-            Thread.currentThread().interrupt();
         }
     }
 
@@ -377,6 +327,16 @@
                 () -> freezeBoundaryValue(call(fn))
             );
             this.thread = startTaskWorker(this.future);
+        }
+
+        private Task(
+            Fn fn,
+            java.util.function.Function<java.util.concurrent.FutureTask<Object>, Thread> starter
+        ) {
+            this.future = newTaskFuture(this.cancellation, this.cancellationRequested,
+                () -> freezeBoundaryValue(call(fn))
+            );
+            this.thread = startTaskWorker(this.future, starter);
         }
 
         private Task(Fn fn, Object[] args) {
@@ -1078,6 +1038,13 @@
 
     public static Object taskSpawn(Object fn) {
         return new Task((Fn) fn);
+    }
+
+    private static Object taskSpawnWithWorkerStarter(
+        Fn fn,
+        java.util.function.Function<java.util.concurrent.FutureTask<Object>, Thread> starter
+    ) {
+        return new Task(fn, starter);
     }
 
     public static Object taskSpawnWith(Object fn, Object arg) {

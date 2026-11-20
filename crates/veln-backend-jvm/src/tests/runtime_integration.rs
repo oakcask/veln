@@ -74,29 +74,8 @@ fn lightweight_task_start_failure_rolls_back_admission_and_preserves_cause() {
     let program = generate_classfiles_with_entry(&ir, "main");
     let output = run_java_runtime_harness(
         "lightweight-task-start-rollback",
-        "LightweightTaskStartRollbackHarness.java",
-        r#"
-public final class LightweightTaskStartRollbackHarness {
-    public static void main(String[] args) {
-        VelnRuntime.beginTaskLifetime();
-        VelnRuntime.failNextTaskStartForTest("injected start failure");
-        try {
-            Object handle = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> null);
-            throw new AssertionError("failed task start published a handle: " + handle);
-        } catch (VelnRuntime.RuntimeFailure failure) {
-            if (!"task worker could not start".equals(failure.getMessage())) {
-                throw new AssertionError("unexpected failure: " + failure.getMessage());
-            }
-            if (failure.getCause() == null
-                    || !"injected start failure".equals(failure.getCause().getMessage())) {
-                throw new AssertionError("start cause was not preserved", failure);
-            }
-        }
-        VelnRuntime.finishTaskLifetime(false);
-        System.out.println("rolled back");
-    }
-}
-"#,
+        "TaskStartRollbackHarness.java",
+        include_str!("../../test-support/TaskStartRollbackHarness.java"),
         &program,
     );
     assert!(
@@ -118,43 +97,8 @@ fn lightweight_task_start_failure_settles_a_concurrent_cancellation_snapshot() {
     let program = generate_classfiles_with_entry(&ir, "main");
     let output = run_java_runtime_harness(
         "lightweight-task-start-rollback-overlap",
-        "LightweightTaskStartRollbackOverlapHarness.java",
-        r#"
-public final class LightweightTaskStartRollbackOverlapHarness {
-    public static void main(String[] args) throws Exception {
-        java.util.concurrent.CountDownLatch parentEntered =
-            new java.util.concurrent.CountDownLatch(1);
-        VelnRuntime.beginTaskLifetime();
-        Object parent = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
-            parentEntered.countDown();
-            VelnRuntime.pauseNextTaskStartForTest("overlapped start failure");
-            try {
-                Object unpublished = VelnRuntime.taskSpawn(
-                    (VelnRuntime.Fn) childIgnored -> null
-                );
-                throw new AssertionError("failed child start published " + unpublished);
-            } catch (VelnRuntime.RuntimeFailure failure) {
-                if (failure.getCause() == null
-                        || !"overlapped start failure".equals(
-                            failure.getCause().getMessage())) {
-                    throw new AssertionError("start cause was not preserved", failure);
-                }
-            }
-            return null;
-        });
-        if (!parentEntered.await(10, java.util.concurrent.TimeUnit.SECONDS)) {
-            throw new AssertionError("parent task did not start");
-        }
-        VelnRuntime.awaitTaskStartPauseForTest();
-        Thread releaser = Thread.ofPlatform().start(
-            VelnRuntime::releaseTaskStartAfterCancellationSnapshotForTest
-        );
-        VelnRuntime.finishTaskLifetime(false);
-        releaser.join();
-        System.out.println("overlap drained " + VelnRuntime.taskJoin(parent));
-    }
-}
-"#,
+        "TaskStartRollbackOverlapHarness.java",
+        include_str!("../../test-support/TaskStartRollbackOverlapHarness.java"),
         &program,
     );
     assert!(

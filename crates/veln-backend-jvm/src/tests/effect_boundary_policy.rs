@@ -135,13 +135,25 @@ fn task_cancellation_state_is_task_local_and_not_a_retained_thread_registry() {
     let source = include_str!("../runtime/concurrency.java.inc");
 
     assert!(source.contains("ThreadLocal<TaskCancellation>"));
-    assert!(source.contains("Thread.startVirtualThread(task)"));
+    assert!(source.contains("Thread::startVirtualThread"));
     assert!(!source.contains("new Thread(this.future)"));
     assert!(source.contains("LinkedHashSet<TaskFuture> incomplete"));
     assert!(!source.contains("CANCELLED_TASK_THREADS"));
     assert!(!source.contains("Set<Thread>"));
     assert!(!source.contains("Set<java.io.Closeable>"));
     assert!(!source.contains("blocker.close()"));
+}
+
+#[test]
+fn production_task_start_boundary_has_no_mutable_test_failure_selector() {
+    let source = include_str!("../runtime/concurrency.java.inc");
+
+    assert!(!source.contains("FOR_TEST"));
+    assert!(!source.contains("ForTest"));
+    assert!(!source.contains("NEXT_TASK_START_FAILURE"));
+    assert!(source.contains("taskSpawnWithWorkerStarter"));
+    assert!(source.contains("return new Task((Fn) fn)"));
+    assert!(source.contains("return startTaskWorker(future, Thread::startVirtualThread)"));
 }
 
 #[test]
