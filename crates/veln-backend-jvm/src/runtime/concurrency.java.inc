@@ -828,7 +828,10 @@
         synchronized (rx.channel) {
             if (rx.channel.capacity == 0L) {
                 rx.channel.waitingReceivers += 1L;
-                rx.channel.notifyAll();
+                if (rx.channel.waitingReceivers == 1L
+                    && !rx.channel.hasRendezvousValue) {
+                    rx.channel.notifyAll();
+                }
                 boolean interruptedAfterTransfer = false;
                 try {
                     while (!rx.channel.hasRendezvousValue && !rx.channel.closed) {
@@ -856,7 +859,6 @@
                     return some(value);
                 } finally {
                     rx.channel.waitingReceivers -= 1L;
-                    rx.channel.notifyAll();
                 }
             }
             while (rx.channel.queue.isEmpty() && !rx.channel.closed) {
