@@ -18,6 +18,8 @@ on:
       - scripts/ci-run
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - crates/veln-backend-jvm/src/runtime/*.java.inc
+      - crates/veln-backend-jvm/test-support/**
       - crates/veln-stdlib/veln/**
       - examples/specification/**
       - examples/test-support/**
@@ -39,6 +41,8 @@ on:
       - scripts/ci-run
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - crates/veln-backend-jvm/src/runtime/*.java.inc
+      - crates/veln-backend-jvm/test-support/**
       - crates/veln-stdlib/veln/**
       - examples/specification/**
       - examples/test-support/**
