@@ -694,7 +694,7 @@ test-companion private-function access, and unique class-compatible invalid
 source recovery records. Eligible direct-dependency selections include public
 functions, module immutable values, types, constructors, schemas, handlers,
 and public function aliases. Embedded `std` supports the same package
-selections except module immutable values and handlers. Exported
+selections except module immutable values. Exported
 direct-dependency public type aliases are eligible when their target resolves
 to a type in that retained dependency.
 Invalid-cased package records, private or non-exported package declarations,
@@ -1054,9 +1054,9 @@ declaration.
 Handler definition and reference lookup require one unrecovered declaration
 for the complete owner identity. Private, non-exported, invalid-cased,
 duplicate, or recovered dependency declarations, ambiguous or recovered
-imports, standard-library and transitive-dependency declarations,
-unresolved, incomplete, recovered, and wrong-kind paths return a successful
-empty result. A wrong-kind handler-name leaf does not fall back to the
+imports, transitive-dependency declarations, unresolved, incomplete,
+recovered, and wrong-kind paths return a successful empty result. A
+wrong-kind handler-name leaf does not fall back to the
 definition or references of the value, type, or other symbol named by that
 path. Equal spelling in another module or symbol class is excluded. An
 unrelated parse error does not remove a complete parse-clean occurrence.

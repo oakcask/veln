@@ -760,9 +760,9 @@ Handler definition and reference lookup require one unrecovered declaration
 for the complete owner identity. A dependency handler must be public, valid
 cased, exported, and owned by a retained direct dependency. Lookup excludes
 private or non-exported dependency handlers, duplicate or recovered
-declarations, ambiguous or recovered imports, standard-library and
-transitive-dependency declarations, and unresolved, incomplete, recovered, or
-wrong-kind handler paths. Selecting a wrong-kind handler-name leaf does not
+declarations, ambiguous or recovered imports, transitive-dependency
+declarations, and unresolved, incomplete, recovered, or wrong-kind handler
+paths. Selecting a wrong-kind handler-name leaf does not
 fall back to definition or reference results for the value, type, or other
 symbol named by that path. Equal spelling in another module or symbol class,
 including a handler parameter or operation-clause binding, does not enter the

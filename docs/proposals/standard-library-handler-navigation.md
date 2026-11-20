@@ -16,14 +16,15 @@ adopt the resulting contract.
 
 ## Remaining Acceptance And Verification
 
-All evidence and standard-library observations in this section remain planned.
-Each row completes a contract boundary that S1 and S2 do not establish.
+The acceptance rows below describe the remaining matrix-level coverage. The
+current specifications and focused tests already own the individual rejection
+guards they describe; those guards are not requirements of this proposal.
 
 | Case | Input | Required observation | Planned evidence |
 | --- | --- | --- | --- |
 | S3: owner and revision isolation | Provide equal module and handler names in a dependency and workspace module, then repeat the selection across sequential snapshots with different retained standard-library revisions. | Each selection retains its exact `std` owner and revision. No location is rewritten to another owner or stale revision. | Shared-language-service collision tests plus adapter snapshot tests. |
 | S4: source and project boundaries | Place equal applications in standard-library bodies, a different workspace project, comments, and strings, then select each workspace project independently. | Each result contains only applications from its selected saved project and exposes no standard-library build path. | MCP project-isolation tests plus focused LSP virtual-document cases. |
-| S5: rejection table | Use private, non-exported, invalid-cased, duplicate, recovered, ambiguous-import, duplicate-import, transitive, mismatched, unresolved, incomplete, additionally qualified, test-only, and wrong-kind inputs. | Every input keeps its existing empty or separate result without contaminating an unrelated valid handler identity. | Table-driven shared-selection and adapter negative tests. |
+| S5: remaining rejection table | Use transitive, mismatched, unresolved, incomplete, additionally qualified, test-only, and wrong-kind inputs alongside an unrelated valid handler identity. | Every input keeps its existing empty or separate result without contaminating the unrelated valid identity. | Table-driven shared-selection and adapter negative tests. |
 | S6: retained state | Keep a live MCP cursor, then reject a workspace capture and trigger resource-admission, position, and cursor failures. | Capture and admission failures publish no partial result or resource. Position and cursor failures preserve the prior declaration, workspace result, resources, and existing cursors at their original snapshots. | Focused MCP refresh, capacity, capture-failure, position, and cursor tests. |
 
 Standard-library API companion tests are not applicable because the remaining
@@ -38,8 +39,8 @@ retained-package handler identity and LSP and MCP projection for direct
 dependencies. The current implementation now reuses those handler traversal,
 package declaration, adapter, and failure-state boundaries for the implemented
 standard-library selection. That reuse supports S1 and S2, but it does not
-establish the standard-library-specific isolation, rejection, or retained-state
-observations planned below.
+establish the remaining standard-library-specific isolation, rejection, or
+retained-state observations planned below.
 
 [Veln PR #1251](https://github.com/oakcask/veln/pull/1251) added retained
 embedded-standard-library definitions and readable immutable virtual sources.
