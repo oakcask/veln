@@ -277,14 +277,18 @@ Captured stdio events use:
   newline for `println` or `eprintln`
 - `terminator`: `none` for `print` and `eprint`, or `newline` for `println`
   and `eprintln`
-- `sequence`: a monotonic integer within the case
+- `sequence`: a monotonic integer within one captured group; traced operations
+  and aggregate output are separate groups
 - `node_id`: the source call node identifier
 - `span`: the source call span
 
 The event list is operation-oriented. `println` and `eprintln` preserve their
 logical newline through `terminator`, not by appending it to `text`. If runtime
 tracing is unavailable, output may be represented as aggregate stdout or stderr
-events attached to the case source.
+events attached to the case source. An aggregate event uses `print`, retains
+the captured bytes in `text`, uses `none` as its terminator, and uses the case
+source's `node_id` and `span`. When both streams are nonempty, the stdout
+aggregate precedes the stderr aggregate.
 When runtime tracing is available, stdio operations are serialized before
 capture. The `sequence` field defines the observed operation order across
 stdout and stderr, including output produced by spawned tasks. Because a case

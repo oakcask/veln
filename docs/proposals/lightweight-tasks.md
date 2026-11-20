@@ -57,6 +57,11 @@ from the same generated runtime. Change only the worker constructor. Use the
 same JDK, JVM flags, heap limit, source workload, and host for both variants.
 Build and analysis time are outside the measurement.
 
+Candidate preparation rejects a runtime whose channel send and receive
+boundary differs from the selected comparison base. This check prevents a
+channel wait or notification change from becoming an unreported second
+variable in the worker comparison.
+
 The checked `benchmarks/lightweight-tasks/result.json` artifact records seven
 independent measured runs per variant after one discarded warm-up. Variant
 order alternates. Each sample separates parked-task and common-cost JVM phases
