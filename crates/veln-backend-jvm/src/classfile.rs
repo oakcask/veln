@@ -1238,7 +1238,11 @@ impl<'a> ClassfileEmitter<'a> {
             "(Ljava/lang/Throwable;)V",
         );
         code.aload(2);
-        code.invokevirtual("java/lang/Throwable", "printStackTrace", "()V");
+        code.invokestatic(
+            &self.options.runtime_class,
+            "printHostFailure",
+            "(Ljava/lang/Throwable;)V",
+        );
         code.push_i32(1);
         code.invokestatic("java/lang/System", "exit", "(I)V");
         code.op(0xb1);

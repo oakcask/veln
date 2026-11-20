@@ -1,0 +1,16 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "text"
+contains = ["first cleanup", "second cleanup"]
+
+[stderr]
+format = "text"
+contains = [
+  "java.lang.StackOverflowError",
+  "task lifetime is closed",
+]

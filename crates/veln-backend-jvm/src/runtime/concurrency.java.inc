@@ -214,7 +214,11 @@
         if (related == null) {
             return;
         }
+        int suppressedBefore = primary.getSuppressed().length;
         attachFlattenedCleanupFailures(primary, related);
+        if (primary.getSuppressed().length == suppressedBefore) {
+            TASK_LIFETIME_RELATED_FAILURES.set(related);
+        }
     }
 
     public static void printTaskLifetimeFailures() {

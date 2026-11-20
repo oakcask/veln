@@ -47,9 +47,7 @@ impl RunHumanTraceFiles {
             };
         }
         let result_failure = result_failure_from_trace(&read_trace(&self.result_error));
-        let cleanup_related = result_failure.as_ref().map_or_else(Vec::new, |_| {
-            cleanup_related_failures(&read_trace(&self.cleanup_error))
-        });
+        let cleanup_related = cleanup_related_failures(&read_trace(&self.cleanup_error));
         RunHumanReport::Ran {
             output,
             result_failure,
@@ -97,11 +95,11 @@ impl RunHumanReport {
             } else {
                 forward_process_output(&output)?;
             }
-            for related in cleanup_related {
-                eprintln!("related cleanup failure: {related}");
-            }
         } else {
             forward_process_output(&output)?;
+        }
+        for related in cleanup_related {
+            eprintln!("related cleanup failure: {related}");
         }
         Ok(exit_code)
     }

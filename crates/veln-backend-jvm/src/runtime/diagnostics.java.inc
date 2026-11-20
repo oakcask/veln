@@ -87,6 +87,17 @@
         recordCleanupFailures(relatedFailures);
     }
 
+    public static void printHostFailure(Throwable failure) {
+        failure.printStackTrace();
+        java.util.List<Throwable> pending = TASK_LIFETIME_RELATED_FAILURES.get();
+        TASK_LIFETIME_RELATED_FAILURES.remove();
+        if (pending == null) {
+            recordCleanupFailures(cleanupRelatedFailures(failure));
+        } else {
+            emitTaskLifetimeCleanupFailures(pending);
+        }
+    }
+
     private static void recordRuntimeFailure(Throwable failure) {
         String path = System.getenv("VELN_RUNTIME_ERRORS");
         if (path == null || path.isEmpty()) {

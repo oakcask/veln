@@ -570,9 +570,25 @@ end
 }
 
 #[test]
-fn entry_stack_overflow_exits_with_a_waiting_worker_when_java_is_available() {
+fn entry_stack_overflow_records_ordered_child_cleanup_failures_when_java_is_available() {
     let ir = lower_to_ir(
-        r#"fn wait_for_release(context: { entered : Sender<()>, release : Receiver<()> }) -> () effects [concurrency]
+        r#"fn should_not_start() -> ()
+    ()
+end
+fn wait_first(context: { entered : Sender<()>, release : Receiver<()> }) -> () effects [concurrency, stdio]
+    defer
+        stdio::println("first cleanup")
+        let _ = task::spawn(should_not_start)
+    end
+    let _ = channel::send(context.entered, ())
+    let _ = channel::recv(context.release)
+    ()
+end
+fn wait_second(context: { entered : Sender<()>, release : Receiver<()> }) -> () effects [concurrency, stdio]
+    defer
+        stdio::println("second cleanup")
+        let _ = task::spawn(should_not_start)
+    end
     let _ = channel::send(context.entered, ())
     let _ = channel::recv(context.release)
     ()
@@ -584,23 +600,28 @@ fn overflow(remaining: Int) -> Int
         1 + overflow(remaining - 1)
     end
 end
-fn fail_with_waiting_worker() -> () effects [concurrency]
-    let entered = channel::bounded<()>(1)
+fn fail_with_waiting_worker() -> () effects [concurrency, stdio]
+    let entered = channel::bounded<()>(2)
     let release = channel::bounded<()>(1)
-    let _ = task::spawn_with(wait_for_release, { entered: entered.tx, release: release.rx })
+    let _ = task::spawn_with(wait_first, { entered: entered.tx, release: release.rx })
+    let _ = task::spawn_with(wait_second, { entered: entered.tx, release: release.rx })
+    let _ = channel::recv(entered.rx)
     let _ = channel::recv(entered.rx)
     let _ = overflow(1000000)
     ()
 end
-pub fn main() -> () effects [concurrency]
+pub fn main() -> () effects [concurrency, stdio]
     fail_with_waiting_worker()
 end
-test overflow_with_waiting_worker() -> Result<(), String> effects [concurrency]
+test overflow_with_waiting_worker() -> Result<(), String> effects [concurrency, stdio]
     fail_with_waiting_worker()
     Ok(())
 end
 "#,
     );
+    let trace_root = temp_dir("entry-host-failure-cleanup-trace");
+    let cleanup_trace = trace_root.join("cleanup-errors.tsv");
+    let cleanup_trace_value = cleanup_trace.to_string_lossy().into_owned();
     let programs = [
         (
             "run-entry-stack-overflow",
@@ -618,20 +639,32 @@ end
         ),
     ];
     for (name, program, args) in programs {
-        let Some(output) = run_jvm_program_with_java_args_when_java_is_available(
+        let Some(output) = run_jvm_program_with_env_and_java_args_when_java_is_available(
             name,
             &program,
+            &[("VELN_CLEANUP_ERRORS", cleanup_trace_value.as_str())],
             &["-Xss256k"],
             &args,
         ) else {
+            let _ = fs::remove_dir_all(&trace_root);
             return;
         };
         assert_eq!(output.status.code(), Some(1));
-        assert!(output.stdout.is_empty());
-        assert!(
-            String::from_utf8_lossy(&output.stderr).contains("java.lang.StackOverflowError"),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
+        assert_eq!(String::from_utf8_lossy(&output.stdout).lines().count(), 2);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let cleanup_records = fs::read_to_string(&cleanup_trace).unwrap_or_default();
+        let primary = stderr
+            .find("java.lang.StackOverflowError")
+            .expect("host failure should remain primary");
+        assert_eq!(primary, 0, "{stderr}");
+        assert_eq!(
+            cleanup_records,
+            concat!(
+                "cleanup\t7461736b206c69666574696d6520697320636c6f736564\n",
+                "cleanup\t7461736b206c69666574696d6520697320636c6f736564\n",
+            )
         );
+        fs::remove_file(&cleanup_trace).expect("cleanup trace should reset between entries");
     }
+    let _ = fs::remove_dir_all(&trace_root);
 }

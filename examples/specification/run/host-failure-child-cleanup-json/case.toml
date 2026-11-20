@@ -1,0 +1,51 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "stdout"
+contains = "first cleanup"
+
+[[json_assert]]
+path = "stdout"
+contains = "second cleanup"
+
+[[json_assert]]
+path = "error.kind"
+equals = "runtime"
+
+[[json_assert]]
+path = "error.message"
+equals = "java.lang.StackOverflowError"
+
+[[json_assert]]
+path = "error.related"
+length = 2
+
+[[json_assert]]
+path = "error.related.0.kind"
+equals = "cleanup_failure"
+
+[[json_assert]]
+path = "error.related.0.message"
+equals = "task lifetime is closed"
+
+[[json_assert]]
+path = "error.related.1.kind"
+equals = "cleanup_failure"
+
+[[json_assert]]
+path = "error.related.1.message"
+equals = "task lifetime is closed"

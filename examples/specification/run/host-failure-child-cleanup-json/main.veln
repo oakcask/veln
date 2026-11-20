@@ -1,0 +1,44 @@
+# This JSON command case checks the JVM host boundary rather than task API values:
+# child cleanup is drained, ordered, de-duplicated, and projected as related data.
+fn should_not_start() -> ()
+	()
+end
+
+fn wait_first(context: { entered : Sender<()>, gate : Receiver<()> }) -> () effects [concurrency, stdio]
+	defer
+		stdio::println("first cleanup")
+		let _ = task::spawn(should_not_start)
+	end
+	let _ = channel::send(context.entered, ())
+	let _ = channel::recv(context.gate)
+	()
+end
+
+fn wait_second(context: { entered : Sender<()>, gate : Receiver<()> }) -> () effects [concurrency, stdio]
+	defer
+		stdio::println("second cleanup")
+		let _ = task::spawn(should_not_start)
+	end
+	let _ = channel::send(context.entered, ())
+	let _ = channel::recv(context.gate)
+	()
+end
+
+fn overflow(remaining: Int) -> Int
+	if remaining <= 0
+		0
+	else
+		1 + overflow(remaining - 1)
+	end
+end
+
+pub fn main() -> () effects [concurrency, stdio]
+	let entered = channel::bounded<()>(2)
+	let gate = channel::bounded<()>(0)
+	let _ = task::spawn_with(wait_first, { entered: entered.tx, gate: gate.rx })
+	let _ = task::spawn_with(wait_second, { entered: entered.tx, gate: gate.rx })
+	let _ = channel::recv(entered.rx)
+	let _ = channel::recv(entered.rx)
+	let _ = overflow(1000000)
+	()
+end
