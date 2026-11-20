@@ -6,6 +6,12 @@ source. Candidate preparation changes only the worker constructor. The
 artifact records the two source digests, fixed workload identity, raw samples,
 summaries, diagnostics, and every adoption verdict.
 
+The loopback resource gate requires Linux process-descriptor measurement to
+succeed before and after the workload. The harness closes every stream and the
+listener before the second measurement, and every measured run must return to
+zero descriptor growth. Selector-operation count is a diagnostic rather than
+an observed resource-closure signal.
+
 The runner observes RSS and OS-thread peaks externally while each parked-task
 population is being created and while that population is fully parked. The
 1,024-task observations own the common-population gates; the 256-task and

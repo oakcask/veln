@@ -56,6 +56,7 @@ reclamation before cost gates are evaluated.
 | Carrier progress | With candidate carrier parallelism and maximum pool size fixed first to one and then to two, finite channel rendezvous and full-buffer schedules that include timer waits and nested task joins complete within the bounded harness timeout. |
 | Common-population cost | At 1,024 tasks both variants complete. Candidate median peak RSS does not exceed production, and candidate worker OS threads are at most one quarter of production. |
 | Runtime cost | Channel and loopback throughput are at least 80% of production. Their delivery-latency p95 medians are at most 125% of production under the fixed offered load. |
+| Loopback resources | Linux process-descriptor measurement is available before and after the fixed loopback workload. Every accepted and connected stream and the listener close, and every measured run returns to zero descriptor growth. Selector-operation count remains diagnostic. |
 | Reclamation | Ten batches of 1,024 completed and released tasks leave the last five live-heap samples within 10% of their median, zero completed registrations, and zero retained released owners. |
 | Functional and lifecycle results | Both variants produce the identity-sensitive expected outcomes, candidate cancellation is observed under CPU saturation, and the existing bounded lifetime and host-integration evidence passes. |
 
@@ -66,13 +67,14 @@ resource failure still fails its corresponding gate.
 ## Current Blocking Evidence
 
 The corrected comparison remains failed. The stable rendezvous-channel p95
-medians are 84,404 ns for production and 143,338 ns for the candidate. The
-stable bounded-channel medians are 59,367 ns and 111,244 ns. Both candidate
+medians are 85,209 ns for production and 143,714 ns for the candidate. The
+stable bounded-channel medians are 58,957 ns and 112,054 ns. Both candidate
 ratios exceed the fixed 125% ceiling. The complete noise rule is also
 inconclusive because several governed metrics exceed their allowed range.
 
-The allocation, common-population, throughput, loopback latency, reclamation,
-lifecycle, and identity-sensitive functional gates pass in the same artifact.
+The allocation, common-population, throughput, loopback latency, loopback
+resource, reclamation, lifecycle, and identity-sensitive functional gates pass
+in the same artifact.
 Those results do not override a failed required gate. Production adoption and
 required-CI artifact validation remain blocked until one complete recollection
 passes every gate without changing the workload, budgets, or retained wait

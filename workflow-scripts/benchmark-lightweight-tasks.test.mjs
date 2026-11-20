@@ -162,6 +162,24 @@ test("validator rejects a self-consistent failed adoption artifact", () => {
   );
 });
 
+test("resource gate rejects unavailable descriptor measurement and leaks", () => {
+  for (const descriptorGrowth of [-1, 999999]) {
+    const { artifact, expectedIdentity } = passingArtifact();
+    artifact.samples[0].result.workload.loopback.descriptor_growth = descriptorGrowth;
+    artifact.summaries = summarizeSamples(artifact.samples);
+    artifact.adoption = evaluateGates(artifact.samples, artifact.summaries);
+    assert.equal(
+      artifact.adoption.gates.loopback_descriptors_returned_to_baseline,
+      false,
+    );
+    assert.equal(artifact.adoption.status, "failed");
+    assert.throws(
+      () => validateArtifact(artifact, expectedIdentity),
+      /loopback_descriptors_returned_to_baseline/,
+    );
+  }
+});
+
 function setPath(value, path, replacement) {
   const components = path.split(".");
   const key = components.pop();

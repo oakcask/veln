@@ -228,6 +228,7 @@ public final class LightweightTaskAllocationHarness {
         System.out.println("allocation and reclamation complete");
     }
 }
+
 "#,
         &program,
         &[],
@@ -247,6 +248,39 @@ public final class LightweightTaskAllocationHarness {
         String::from_utf8_lossy(&output.stdout),
         "allocation and reclamation complete\n"
     );
+}
+
+#[test]
+fn virtual_candidate_progresses_with_one_and_two_carriers() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    for carriers in ["1", "2"] {
+        let name = format!("virtual-task-progress-{carriers}-carriers");
+        let parallelism = format!("-Djdk.virtualThreadScheduler.parallelism={carriers}");
+        let maximum = format!("-Djdk.virtualThreadScheduler.maxPoolSize={carriers}");
+        let output = run_java_runtime_harness_with_options(
+            &name,
+            "VirtualTaskProgressHarness.java",
+            include_str!("../../test-support/VirtualTaskProgressHarness.java"),
+            &program,
+            &[],
+            &[parallelism.as_str(), maximum.as_str()],
+        );
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            "virtual candidate progress complete\n"
+        );
+    }
 }
 
 #[test]

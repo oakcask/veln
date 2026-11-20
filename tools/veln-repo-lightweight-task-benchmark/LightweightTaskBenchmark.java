@@ -311,52 +311,63 @@ public final class LightweightTaskBenchmark {
     private static LoopbackSample runLoopback(int connections) throws Exception {
         long descriptorsBefore = descriptorCount();
         Object listener = VelnRuntime.netListen("127.0.0.1:0");
-        String address = (String) VelnRuntime.netListenerLocalAddr(listener);
-        Object payload = VelnRuntime.resultValue(VelnRuntime.byteChunkFromVisibleAsciiString(
-            "veln-lightweight-task-loopback-payload"));
         long[] latencies = new long[connections];
-        long[] submitted = new long[connections];
-        long[] clientPayloadHashes = new long[connections];
-        long started = System.nanoTime();
-        VelnRuntime.beginTaskLifetime();
-        Object server = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
-            long count = 0L;
+        long checksum = 0L;
+        long elapsed;
+        try {
+            String address = (String) VelnRuntime.netListenerLocalAddr(listener);
+            Object payload = VelnRuntime.resultValue(VelnRuntime.byteChunkFromVisibleAsciiString(
+                "veln-lightweight-task-loopback-payload"));
+            long[] submitted = new long[connections];
+            long[] clientPayloadHashes = new long[connections];
+            long started = System.nanoTime();
+            VelnRuntime.beginTaskLifetime();
+            Object server = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
+                long count = 0L;
+                for (int index = 0; index < connections; index += 1) {
+                    Object stream = VelnRuntime.netAccept(listener);
+                    try {
+                        Object received = VelnRuntime.netReadChunk(stream);
+                        VelnRuntime.netWriteChunk(stream, received);
+                        count += 1L;
+                    } finally {
+                        VelnRuntime.netCloseStream(stream);
+                    }
+                }
+                return Long.valueOf(count);
+            });
+            ArrayList<Object> clients = new ArrayList<>(connections);
             for (int index = 0; index < connections; index += 1) {
-                Object stream = VelnRuntime.netAccept(listener);
-                Object received = VelnRuntime.netReadChunk(stream);
-                VelnRuntime.netWriteChunk(stream, received);
-                VelnRuntime.netCloseStream(stream);
-                count += 1L;
+                final int clientIndex = index;
+                awaitOfferedRate(started, index, LOOPBACK_OFFERED_PER_SECOND);
+                submitted[index] = System.nanoTime();
+                clients.add(VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
+                    Object stream = VelnRuntime.netConnect(address);
+                    try {
+                        VelnRuntime.netWriteChunk(stream, payload);
+                        Object received = VelnRuntime.netReadChunk(stream);
+                        String receivedText = (String) VelnRuntime.resultValue(
+                            VelnRuntime.byteChunkToVisibleAsciiString(received));
+                        requirePayload("veln-lightweight-task-loopback-payload", receivedText);
+                        clientPayloadHashes[clientIndex] = receivedText.hashCode();
+                        latencies[clientIndex] = System.nanoTime() - submitted[clientIndex];
+                        return Long.valueOf(clientIndex);
+                    } finally {
+                        VelnRuntime.netCloseStream(stream);
+                    }
+                }));
             }
-            return Long.valueOf(count);
-        });
-        ArrayList<Object> clients = new ArrayList<>(connections);
-        for (int index = 0; index < connections; index += 1) {
-            final int clientIndex = index;
-            awaitOfferedRate(started, index, LOOPBACK_OFFERED_PER_SECOND);
-            submitted[index] = System.nanoTime();
-            clients.add(VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
-                Object stream = VelnRuntime.netConnect(address);
-                VelnRuntime.netWriteChunk(stream, payload);
-                Object received = VelnRuntime.netReadChunk(stream);
-                String receivedText = (String) VelnRuntime.resultValue(
-                    VelnRuntime.byteChunkToVisibleAsciiString(received));
-                requirePayload("veln-lightweight-task-loopback-payload", receivedText);
-                clientPayloadHashes[clientIndex] = receivedText.hashCode();
-                VelnRuntime.netCloseStream(stream);
-                latencies[clientIndex] = System.nanoTime() - submitted[clientIndex];
-                return Long.valueOf(clientIndex);
-            }));
+            VelnRuntime.finishTaskLifetime(true);
+            checksum = resultLong(VelnRuntime.taskJoin(server));
+            for (int index = 0; index < clients.size(); index += 1) {
+                checksum += resultLong(VelnRuntime.taskJoin(clients.get(index)));
+                checksum += clientPayloadHashes[index];
+            }
+            elapsed = System.nanoTime() - started;
+        } finally {
+            VelnRuntime.netCloseListener(listener);
         }
-        VelnRuntime.finishTaskLifetime(true);
-        long checksum = resultLong(VelnRuntime.taskJoin(server));
-        for (int index = 0; index < clients.size(); index += 1) {
-            checksum += resultLong(VelnRuntime.taskJoin(clients.get(index)));
-            checksum += clientPayloadHashes[index];
-        }
-        VelnRuntime.netCloseListener(listener);
-        long elapsed = System.nanoTime() - started;
-        long descriptorGrowth = Math.max(0L, descriptorCount() - descriptorsBefore);
+        long descriptorGrowth = descriptorCount() - descriptorsBefore;
         return new LoopbackSample(connections * 1_000_000_000.0 / elapsed,
             percentile95(latencies), checksum, descriptorGrowth, connections * 4L);
     }
@@ -526,7 +537,7 @@ public final class LightweightTaskBenchmark {
         try (java.util.stream.Stream<Path> paths = Files.list(Path.of("/proc/self/fd"))) {
             return paths.count();
         } catch (Exception unavailable) {
-            return -1L;
+            throw new AssertionError("descriptor measurement is required", unavailable);
         }
     }
 

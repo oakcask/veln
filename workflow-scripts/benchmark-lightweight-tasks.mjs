@@ -305,6 +305,10 @@ export function evaluateGates(samples, summaries) {
       candidate.status === "passed" && baseline.status === "passed"
       && candidate.workload.loopback.latency_p95_nanos.median
         <= baseline.workload.loopback.latency_p95_nanos.median * 1.25,
+    loopback_descriptors_returned_to_baseline:
+      passedSamples.length === REQUIRED_SAMPLES * 2
+      && passedSamples.every((sample) =>
+        sample.result.workload.loopback.descriptor_growth === 0),
     reclamation_final_five_within_10_percent: candidate.reclamation?.final_five_stable === true,
     completed_registrations_absent: candidate.reclamation?.completed_registrations_zero === true,
     released_owners_absent: candidate.reclamation?.retained_owners_zero === true,

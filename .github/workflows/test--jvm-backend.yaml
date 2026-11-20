@@ -12,13 +12,17 @@ on:
       - Cargo.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - crates/veln-backend-jvm/test-support/**
       - crates/veln-backend-jvm/src/runtime/*.java.inc
       - crates/veln-backend-jvm/runtime/*.class
+      - crates/veln-stdlib/veln/**
+      - rust-toolchain.toml
       - scripts/agent-run
       - scripts/benchmark-lightweight-tasks
       - scripts/ci-run
       - tools/veln-repo-lightweight-task-benchmark/**
       - workflow-scripts/benchmark-lightweight-tasks.mjs
+      - workflow-scripts/benchmark-lightweight-tasks.test.mjs
   pull_request:
     paths:
       - .github/workflows/test--jvm-backend.yaml
@@ -28,13 +32,17 @@ on:
       - Cargo.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - crates/veln-backend-jvm/test-support/**
       - crates/veln-backend-jvm/src/runtime/*.java.inc
       - crates/veln-backend-jvm/runtime/*.class
+      - crates/veln-stdlib/veln/**
+      - rust-toolchain.toml
       - scripts/agent-run
       - scripts/benchmark-lightweight-tasks
       - scripts/ci-run
       - tools/veln-repo-lightweight-task-benchmark/**
       - workflow-scripts/benchmark-lightweight-tasks.mjs
+      - workflow-scripts/benchmark-lightweight-tasks.test.mjs
 
 permissions:
   contents: read
@@ -46,7 +54,7 @@ env:
 jobs:
   bytecode:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Set up supported JDK
@@ -56,5 +64,21 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Run JVM backend tests
         run: bash scripts/ci-run cargo test --locked -p veln-backend-jvm bytecode_backend -- --test-threads=1
+      - name: Check invocation task lifetime
+        run: |
+          bash scripts/ci-run cargo test --locked -p veln-backend-jvm entry_lifetime_drains_descendants_spawned_after_entry_returns_when_java_is_available -- --test-threads=1
+          bash scripts/ci-run cargo test --locked -p veln-backend-jvm failed_entry -- --test-threads=1
+          bash scripts/ci-run cargo test --locked -p veln-backend-jvm reusable_test_entries_drain_distinct_task_lifetimes_when_java_is_available -- --test-threads=1
+      - name: Check candidate worker boundaries
+        run: |
+          bash scripts/ci-run cargo test --locked -p veln-backend-jvm lightweight_task_start_failure -- --test-threads=1
+          bash scripts/ci-run cargo test --locked -p veln-backend-jvm task_completion_wins_a_later_cancellation_claim_atomically -- --test-threads=1
+          bash scripts/ci-run cargo test --locked -p veln-backend-jvm virtual_candidate -- --test-threads=1
+      - name: Check task cancellation cleanup
+        run: |
+          bash scripts/ci-run cargo test --locked -p veln-backend-jvm jvm_runtime_concurrent_cancellation_preserves_cleanup_before_join_when_java_is_available -- --test-threads=1
+          bash scripts/ci-run cargo test --locked -p veln-backend-jvm jvm_runtime_cancellation_during_join_preserves_target_and_waiter_cleanup_when_java_is_available -- --test-threads=1
+      - name: Test lightweight-task benchmark validator
+        run: node --test workflow-scripts/benchmark-lightweight-tasks.test.mjs
       - name: Run JVM CLI fixtures
         run: bash scripts/ci-run cargo test --locked -p veln-cli --test check_json -- --test-threads=1
