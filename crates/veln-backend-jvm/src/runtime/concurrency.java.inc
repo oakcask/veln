@@ -74,6 +74,12 @@
                 } else {
                     state = TaskLifetimeState.CANCELLING;
                     cancellationTargets = new java.util.ArrayList<TaskFuture>(incomplete);
+                    // Claim cancellation while the lifetime lock still defines the
+                    // incomplete-job snapshot. A task may settle immediately after
+                    // the transition, but it was incomplete when cancellation began.
+                    for (TaskFuture task : cancellationTargets) {
+                        task.requestCancellation();
+                    }
                     java.util.concurrent.CountDownLatch snapshot =
                         TASK_CANCELLATION_SNAPSHOT_FOR_TEST;
                     if (snapshot != null) {
@@ -81,9 +87,6 @@
                     }
                 }
                 closeWhenEmpty();
-            }
-            for (TaskFuture task : cancellationTargets) {
-                task.requestCancellation();
             }
             boolean interrupted = false;
             synchronized (this) {
