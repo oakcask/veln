@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The JVM virtual-thread candidate, controlled lightweight-task comparison, adoption budgets, or adoption verdict changes.
+update-when: The JVM virtual-thread candidate, controlled lightweight-task comparison, adoption budgets, adoption verdict, or checked adoption evidence changes.
 ---
 
 # Lightweight Task Adoption
@@ -60,9 +60,10 @@ reclamation before cost gates are evaluated.
 | Reclamation | Ten batches of 1,024 completed and released tasks leave the last five live-heap samples within 10% of their median, zero completed registrations, and zero retained released owners. |
 | Functional and lifecycle results | Both variants produce the identity-sensitive expected outcomes, candidate cancellation is observed under CPU saturation, and the existing bounded lifetime and host-integration evidence passes. |
 
-Polling-select CPU, wakeups, descriptors, selector operations, CPU-saturation
-latency, and JFR pinning events remain reported diagnostics. A functional or
-resource failure still fails its corresponding gate.
+Polling-select CPU, wakeups, selector-operation count, CPU-saturation latency,
+and JFR pinning events remain reported diagnostics. The measured descriptor
+delta supplies the loopback resource gate instead of remaining diagnostic only.
+A functional or resource failure still fails its corresponding gate.
 
 ## Current Blocking Evidence
 
@@ -72,13 +73,15 @@ stable bounded-channel medians are 58,957 ns and 112,054 ns. Both candidate
 ratios exceed the fixed 125% ceiling. The complete noise rule is also
 inconclusive because several governed metrics exceed their allowed range.
 
-The allocation, common-population, throughput, loopback latency, loopback
-resource, reclamation, lifecycle, and identity-sensitive functional gates pass
-in the same artifact.
-Those results do not override a failed required gate. Production adoption and
-required-CI artifact validation remain blocked until one complete recollection
-passes every gate without changing the workload, budgets, or retained wait
-algorithms merely to obtain success.
+The same artifact passes the allocation, common-population, throughput,
+loopback latency, loopback resource, reclamation, CPU-saturation cancellation,
+and identity-sensitive functional gates. Separate JVM CI checks pass the
+one-carrier and two-carrier progress schedules and the production task-lifetime
+and host-integration cases. These passing results do not override a failed
+required gate. Production adoption and required-CI artifact validation remain
+blocked until one complete recollection passes every artifact gate without
+changing the workload, budgets, or retained wait algorithms merely to obtain
+success.
 
 ## Completion
 

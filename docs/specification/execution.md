@@ -373,7 +373,8 @@ The lightweight-task adoption benchmark compares the platform-thread production
 worker with an equivalent virtual-thread candidate under the fixed parked-task,
 channel, select, loopback, CPU-saturation, and reclamation workloads. The
 controlled comparison remains proposal-owned until its corrected functional,
-latency, and noise gates all pass. The route at
+resource, cost, latency, reclamation, and noise gates all pass together with
+the independent carrier-progress and production-lifecycle checks. The route at
 `benchmarks/lightweight-tasks/README.md` defines the controlled collection and
 artifact-validation commands.
 
@@ -956,6 +957,11 @@ than degrading it to a generic rendered result value.
   injected worker-start failure and requires the failed spawn to settle without
   preventing the lifetime from closing. It is in
   `crates/veln-backend-jvm/src/tests/runtime_integration.rs`.
+- The same runtime integration suite checks the virtual-thread candidate with
+  one and two carriers. Each schedule combines channel rendezvous, a full
+  bounded channel, timer waits, and nested task joins. JVM CI runs these
+  carrier-progress checks together with the focused production lifetime,
+  worker-start, cancellation-race, and cleanup checks.
 
 - Cross-package function and handler selection through reachability, lowering,
   and JVM linkage, together with validation operand evaluation order, are
