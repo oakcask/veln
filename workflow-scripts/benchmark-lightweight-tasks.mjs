@@ -7,9 +7,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
-  readdirSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -26,7 +24,10 @@ const DEFAULT_OUTPUT = join(
   REPO_ROOT,
   "benchmarks/lightweight-tasks/result.json",
 );
-const JVM_ARGS = [
+const VIRTUAL_WORKER = "return startTaskWorker(future, Thread::startVirtualThread);";
+const PLATFORM_WORKER =
+  "return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task));";
+export const JVM_ARGS = [
   "-Xms512m",
   "-Xmx512m",
   "-Xss256k",
@@ -34,7 +35,7 @@ const JVM_ARGS = [
   "-Djdk.virtualThreadScheduler.parallelism=2",
   "-Djdk.virtualThreadScheduler.maxPoolSize=2",
 ];
-const WORKLOAD = {
+export const WORKLOAD = {
   parked_populations: [256, 1024, 4096, 16384],
   channel_operations: 16384,
   channel_offered_operations_per_second: 2000,
@@ -45,7 +46,7 @@ const WORKLOAD = {
   loopback_connections: 1024,
   loopback_offered_connections_per_second: 250,
   loopback_payload: "veln-lightweight-task-loopback-payload",
-  cpu_saturators: 2,
+  cpu_saturators: 3,
   cpu_saturation_millis: 200,
   cpu_short_jobs: 128,
   reclamation_batches: 10,
@@ -89,6 +90,10 @@ function parkedAt(sample, population) {
   return sample.result.workload.parked.find((entry) => entry.population === population);
 }
 
+function parkedObservationAt(sample, population) {
+  return sample.population_observations.find((entry) => entry.population === population);
+}
+
 function values(samples, selector) {
   return samples.map(selector);
 }
@@ -110,10 +115,14 @@ export function summarizeVariant(samples) {
     status: "passed",
     peak_rss_kb: metricSummary(values(samples, (sample) => sample.peak_rss_kb)),
     peak_os_threads: metricSummary(values(samples, (sample) => sample.peak_os_threads)),
-    parked_256_threads: metricSummary(values(samples,
-      (sample) => parkedAt(sample, 256).platform_threads)),
-    parked_1024_threads: metricSummary(values(samples,
-      (sample) => parkedAt(sample, 1024).platform_threads)),
+    parked_256_os_threads: metricSummary(values(samples,
+      (sample) => parkedObservationAt(sample, 256).peak_os_threads)),
+    parked_1024_os_threads: metricSummary(values(samples,
+      (sample) => parkedObservationAt(sample, 1024).peak_os_threads)),
+    parked_16384_os_threads: metricSummary(values(samples,
+      (sample) => parkedObservationAt(sample, 16384).peak_os_threads)),
+    parked_1024_rss_kb: metricSummary(values(samples,
+      (sample) => parkedObservationAt(sample, 1024).peak_rss_kb)),
     parked_16384_completed: samples.every((sample) => parkedAt(sample, 16384)?.completed === true),
     workload: workloadMetrics,
     select: {
@@ -126,6 +135,10 @@ export function summarizeVariant(samples) {
     cpu_saturation: {
       latency_p95_nanos: metricSummary(values(samples,
         (sample) => sample.result.workload.cpu_saturation.latency_p95_nanos)),
+      cancellation_latency_nanos: metricSummary(values(samples,
+        (sample) => sample.result.workload.cpu_saturation.cancellation_latency_nanos)),
+      cancellation_observed: samples.every((sample) =>
+        sample.result.workload.cpu_saturation.cancellation_observed === true),
     },
     descriptor_growth: metricSummary(values(samples,
       (sample) => sample.result.workload.loopback.descriptor_growth)),
@@ -145,6 +158,17 @@ export function summarizeVariant(samples) {
   };
 }
 
+export function summarizeSamples(samples) {
+  const byVariant = Object.fromEntries(["platform", "virtual"].map((variant) => [
+    variant,
+    samples.filter((sample) => sample.variant === variant),
+  ]));
+  return Object.fromEntries(Object.entries(byVariant).map(([variant, entries]) => [
+    variant,
+    summarizeVariant(entries),
+  ]));
+}
+
 export function evaluateGates(samples, summaries) {
   const baseline = summaries.platform;
   const candidate = summaries.virtual;
@@ -157,7 +181,7 @@ export function evaluateGates(samples, summaries) {
   const noiseMetrics = [];
   for (const variant of [baseline, candidate]) {
     if (variant.status !== "passed") continue;
-    noiseMetrics.push(variant.peak_rss_kb);
+    noiseMetrics.push(variant.parked_1024_rss_kb);
     for (const workload of Object.values(variant.workload)) {
       noiseMetrics.push(workload.throughput_per_second);
     }
@@ -168,16 +192,16 @@ export function evaluateGates(samples, summaries) {
     functional_results_equal: functional,
     common_population_completed: commonPopulation,
     candidate_16384_completed: candidate.parked_16384_completed === true,
-    candidate_platform_thread_growth_at_most_8:
+    candidate_os_thread_growth_at_most_8:
       candidate.status === "passed"
       && candidate.parked_16384_completed
-      && candidate.parked_16384_threads?.median - candidate.parked_256_threads.median <= 8,
-    candidate_peak_rss_not_above_baseline:
+      && candidate.parked_16384_os_threads.median - candidate.parked_256_os_threads.median <= 8,
+    candidate_1024_rss_not_above_baseline:
       candidate.status === "passed" && baseline.status === "passed"
-      && candidate.peak_rss_kb.median <= baseline.peak_rss_kb.median,
-    candidate_worker_threads_at_most_quarter_baseline:
+      && candidate.parked_1024_rss_kb.median <= baseline.parked_1024_rss_kb.median,
+    candidate_1024_os_threads_at_most_quarter_baseline:
       candidate.status === "passed" && baseline.status === "passed"
-      && candidate.parked_1024_threads.median <= baseline.parked_1024_threads.median / 4,
+      && candidate.parked_1024_os_threads.median <= baseline.parked_1024_os_threads.median / 4,
     channel_throughput_at_least_80_percent: ["rendezvous_channel", "bounded_channel"].every(
       (workload) => candidate.status === "passed" && baseline.status === "passed"
         && candidate.workload[workload].throughput_per_second.median
@@ -193,6 +217,8 @@ export function evaluateGates(samples, summaries) {
     reclamation_final_five_within_10_percent: candidate.reclamation?.final_five_stable === true,
     completed_registrations_absent: candidate.reclamation?.completed_registrations_zero === true,
     released_owners_absent: candidate.reclamation?.retained_owners_zero === true,
+    cpu_saturation_cancellation_observed:
+      candidate.cpu_saturation?.cancellation_observed === true,
     sample_ranges_conclusive: conclusive,
   };
   return {
@@ -201,8 +227,21 @@ export function evaluateGates(samples, summaries) {
   };
 }
 
-export function validateArtifact(artifact, harnessSha256) {
-  if (artifact.schema_version !== 1 || artifact.benchmark !== "veln-jvm-lightweight-task-adoption") {
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) =>
+      `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function requireEquivalent(actual, expected, message) {
+  if (canonicalJson(actual) !== canonicalJson(expected)) throw new Error(message);
+}
+
+export function validateArtifact(artifact, expectedIdentity) {
+  if (artifact.schema_version !== 2 || artifact.benchmark !== "veln-jvm-lightweight-task-adoption") {
     throw new Error("unexpected lightweight-task benchmark schema");
   }
   if (!Array.isArray(artifact.samples) || artifact.samples.length !== REQUIRED_SAMPLES * 2) {
@@ -218,12 +257,46 @@ export function validateArtifact(artifact, harnessSha256) {
   if (artifact.samples.some((sample) => sample.status !== "passed")) {
     throw new Error("artifact contains a failed measured sample");
   }
-  if (artifact.identity?.harness_sha256 !== harnessSha256) {
+  for (const sample of artifact.samples) {
+    const populations = sample.population_observations?.map((entry) => entry.population);
+    if (canonicalJson(populations) !== canonicalJson(WORKLOAD.parked_populations)
+        || sample.population_observations.some((entry) =>
+          !Number.isFinite(entry.peak_rss_kb) || entry.peak_rss_kb <= 0
+          || !Number.isInteger(entry.peak_os_threads) || entry.peak_os_threads <= 0)) {
+      throw new Error("artifact is missing external parked-population observations");
+    }
+  }
+  if (artifact.identity?.harness_sha256 !== expectedIdentity.harness_sha256) {
     throw new Error("artifact harness digest does not match the benchmark source");
   }
-  if (artifact.adoption?.status !== "passed"
-      || Object.values(artifact.adoption.gates ?? {}).some((gate) => gate !== true)) {
-    throw new Error("artifact does not pass every adoption gate");
+  if (artifact.identity?.virtual_runtime_source_sha256
+      !== expectedIdentity.virtual_runtime_source_sha256
+      || artifact.identity?.platform_runtime_source_sha256
+      !== expectedIdentity.platform_runtime_source_sha256) {
+    throw new Error("artifact runtime digest does not match the current generated runtime");
+  }
+  requireEquivalent(artifact.identity.jvm_args, JVM_ARGS,
+    "artifact JVM arguments do not match the benchmark protocol");
+  requireEquivalent(artifact.identity.workload, WORKLOAD,
+    "artifact workload identity does not match the benchmark protocol");
+  if (artifact.identity.baseline_difference !== PLATFORM_WORKER
+      || artifact.identity.candidate_difference !== VIRTUAL_WORKER) {
+    throw new Error("artifact worker difference does not match the benchmark protocol");
+  }
+  const summaries = summarizeSamples(artifact.samples);
+  requireEquivalent(artifact.summaries, summaries,
+    "artifact summaries do not match the raw samples");
+  const adoption = evaluateGates(artifact.samples, summaries);
+  requireEquivalent(artifact.adoption, adoption,
+    "artifact adoption verdict does not match the raw samples");
+  if (adoption.status !== "passed"
+      || Object.values(adoption.gates).some((gate) => gate !== true)) {
+    const failed = Object.entries(adoption.gates)
+      .filter(([, passed]) => passed !== true)
+      .map(([gate]) => gate);
+    throw new Error(
+      `artifact fails adoption gates: ${failed.join(", ")}; inspect the raw samples and rerun the controlled collection after resolving the failed evidence`,
+    );
   }
   if (artifact.diagnostics?.jfr_virtual_thread_pinning?.status !== "passed") {
     throw new Error("artifact is missing the JFR pinning diagnostic");
@@ -234,33 +307,63 @@ function sha256(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-function newestRuntimeSource() {
-  const buildRoot = join(REPO_ROOT, "target/debug/build");
-  const candidates = readdirSync(buildRoot)
-    .filter((entry) => entry.startsWith("veln-backend-jvm-"))
-    .map((entry) => join(buildRoot, entry, "out/runtime/VelnRuntime.java"))
-    .filter(existsSync)
-    .sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs);
-  if (candidates.length === 0) throw new Error("prebuilt JVM runtime source was not found");
+function buildRuntimeSource() {
+  const build = spawnSync("cargo", [
+    "build",
+    "--locked",
+    "-p",
+    "veln-backend-jvm",
+    "--message-format=json-render-diagnostics",
+  ], {
+    cwd: REPO_ROOT,
+    encoding: "utf8",
+  });
+  if (build.status !== 0) throw new Error(`backend prebuild failed: ${build.stderr}`);
+  const candidates = build.stdout.split("\n").flatMap((line) => {
+    if (!line.startsWith("{")) return [];
+    try {
+      const message = JSON.parse(line);
+      if (message.reason !== "build-script-executed"
+          || !message.package_id?.includes("veln-backend-jvm")) return [];
+      const path = join(message.out_dir, "runtime/VelnRuntime.java");
+      return existsSync(path) ? [path] : [];
+    } catch {
+      return [];
+    }
+  });
+  if (candidates.length !== 1) {
+    throw new Error(`backend build identified ${candidates.length} generated runtime sources`);
+  }
   return candidates[0];
 }
 
-function prepareVariants(root, runtimeSource) {
-  const original = readFileSync(runtimeSource, "utf8");
-  const virtualWorker = "return Thread.startVirtualThread(task);";
-  if (!original.includes(virtualWorker)) {
-    throw new Error("runtime does not contain the expected virtual worker constructor");
+export function runtimeSourceVariants(original) {
+  const occurrences = original.split(VIRTUAL_WORKER).length - 1;
+  if (occurrences !== 1) {
+    throw new Error(`runtime contains ${occurrences} virtual worker constructors; expected one`);
   }
+  return {
+    platform: original.replace(VIRTUAL_WORKER, PLATFORM_WORKER),
+    virtual: original,
+  };
+}
+
+export function benchmarkIdentityForRuntime(original, harnessSha256) {
+  const sources = runtimeSourceVariants(original);
+  return {
+    harness_sha256: harnessSha256,
+    platform_runtime_source_sha256: createHash("sha256").update(sources.platform).digest("hex"),
+    virtual_runtime_source_sha256: createHash("sha256").update(sources.virtual).digest("hex"),
+  };
+}
+
+function prepareVariants(root, runtimeSource) {
+  const sourceVariants = runtimeSourceVariants(readFileSync(runtimeSource, "utf8"));
   const variants = {};
   for (const variant of ["platform", "virtual"]) {
     const directory = join(root, variant);
     mkdirSync(directory, { recursive: true });
-    const source = variant === "platform"
-      ? original.replace(virtualWorker, "return Thread.ofPlatform().daemon(false).start(task);")
-      : original;
-    if (variant === "platform" && source.includes(virtualWorker)) {
-      throw new Error("platform baseline did not replace exactly one worker constructor");
-    }
+    const source = sourceVariants[variant];
     writeFileSync(join(directory, "VelnRuntime.java"), source);
     cpSync(HARNESS, join(directory, basename(HARNESS)));
     const compiled = spawnSync("javac", ["--release", "25", "VelnRuntime.java", basename(HARNESS)], {
@@ -295,23 +398,80 @@ async function runSample(variant, run, directory, extraJvmArgs = []) {
     "LightweightTaskBenchmark"], {
     cwd: directory,
     detached: true,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["pipe", "pipe", "pipe"],
   });
   let stdout = "";
   let stderr = "";
+  let stderrPending = "";
   let peakRss = 0;
   let peakThreads = 0;
+  let currentParkedObservation = null;
+  const parkedObservations = new Map();
+  const observationErrors = [];
+  const updateParkedObservation = () => {
+    if (currentParkedObservation === null) return;
+    const current = procStatus(child.pid);
+    currentParkedObservation.peak_rss_kb = Math.max(
+      currentParkedObservation.peak_rss_kb,
+      current.rss,
+    );
+    currentParkedObservation.peak_os_threads = Math.max(
+      currentParkedObservation.peak_os_threads,
+      current.threads,
+    );
+  };
+  const handleObservationLine = (line) => {
+    const fields = line.split("\t");
+    if (fields[0] !== "VELN_BENCHMARK_OBSERVE") return;
+    const population = Number(fields[2]);
+    if (!WORKLOAD.parked_populations.includes(population)) {
+      observationErrors.push(`unexpected parked population ${fields[2]}`);
+      return;
+    }
+    if (fields[1] === "start") {
+      if (currentParkedObservation !== null || parkedObservations.has(population)) {
+        observationErrors.push(`duplicate parked observation start ${population}`);
+        return;
+      }
+      currentParkedObservation = {
+        population,
+        peak_rss_kb: 0,
+        peak_os_threads: 0,
+      };
+      updateParkedObservation();
+      return;
+    }
+    if (fields[1] === "ready") {
+      if (currentParkedObservation?.population !== population) {
+        observationErrors.push(`parked observation ready without start ${population}`);
+      } else {
+        updateParkedObservation();
+        parkedObservations.set(population, currentParkedObservation);
+        currentParkedObservation = null;
+      }
+      child.stdin.write("continue\n");
+      return;
+    }
+    observationErrors.push(`unexpected parked observation event ${fields[1]}`);
+  };
   child.stdout.setEncoding("utf8");
   child.stderr.setEncoding("utf8");
   child.stdout.on("data", (chunk) => { stdout += chunk; });
   child.stderr.on("data", (chunk) => {
     stderr += chunk;
+    stderrPending += chunk;
+    while (stderrPending.includes("\n")) {
+      const newline = stderrPending.indexOf("\n");
+      handleObservationLine(stderrPending.slice(0, newline).replace(/\r$/, ""));
+      stderrPending = stderrPending.slice(newline + 1);
+    }
     if (process.env.VELN_BENCHMARK_DEBUG === "1") process.stderr.write(chunk);
   });
   const sampler = setInterval(() => {
     const current = procStatus(child.pid);
     peakRss = Math.max(peakRss, current.rss);
     peakThreads = Math.max(peakThreads, current.threads);
+    updateParkedObservation();
     if (current.rss > PROCESS_TREE_RSS_LIMIT_KB) {
       try { process.kill(-child.pid, "SIGKILL"); } catch { /* exited */ }
     }
@@ -335,6 +495,8 @@ async function runSample(variant, run, directory, extraJvmArgs = []) {
     duration_seconds: duration,
     peak_rss_kb: peakRss,
     peak_os_threads: peakThreads,
+    population_observations: [...parkedObservations.values()]
+      .sort((left, right) => left.population - right.population),
     stderr: stderr.trim(),
   };
   if (result.error) sample.spawn_error = result.error.message;
@@ -349,6 +511,13 @@ async function runSample(variant, run, directory, extraJvmArgs = []) {
     }
   } else {
     sample.stdout = stdout.trim();
+  }
+  if (sample.status === "passed"
+      && (observationErrors.length > 0
+        || sample.population_observations.length !== WORKLOAD.parked_populations.length)) {
+    sample.status = "failed";
+    sample.observation_error = observationErrors.join("; ")
+      || `observed ${sample.population_observations.length} parked populations`;
   }
   return sample;
 }
@@ -384,20 +553,20 @@ async function main() {
   const checkIndex = process.argv.indexOf("--check");
   if (checkIndex >= 0) {
     const artifactPath = resolve(process.argv[checkIndex + 1] ?? DEFAULT_OUTPUT);
-    validateArtifact(JSON.parse(readFileSync(artifactPath, "utf8")), sha256(HARNESS));
+    const runtimeSource = buildRuntimeSource();
+    const expectedIdentity = benchmarkIdentityForRuntime(
+      readFileSync(runtimeSource, "utf8"),
+      sha256(HARNESS),
+    );
+    validateArtifact(JSON.parse(readFileSync(artifactPath, "utf8")), expectedIdentity);
     console.log(`validated ${artifactPath}`);
     return;
   }
   const outputIndex = process.argv.indexOf("--output");
   const output = outputIndex >= 0 ? resolve(process.argv[outputIndex + 1]) : DEFAULT_OUTPUT;
-  const build = spawnSync("cargo", ["build", "--locked", "-p", "veln-backend-jvm"], {
-    cwd: REPO_ROOT,
-    encoding: "utf8",
-  });
-  if (build.status !== 0) throw new Error(`backend prebuild failed: ${build.stderr}`);
+  const runtimeSource = buildRuntimeSource();
   const temporary = mkdtempSync(join(tmpdir(), "veln-lightweight-task-benchmark-"));
   try {
-    const runtimeSource = newestRuntimeSource();
     const variants = prepareVariants(temporary, runtimeSource);
     for (const variant of ["platform", "virtual"]) {
       const warmup = await runSample(variant, "warmup", variants[variant].directory);
@@ -416,20 +585,9 @@ async function main() {
         samples.push(await runSample(variant, run, variants[variant].directory));
       }
     }
-    const byVariant = Object.fromEntries(["platform", "virtual"].map((variant) => [
-      variant,
-      samples.filter((sample) => sample.variant === variant),
-    ]));
-    const summaries = Object.fromEntries(Object.entries(byVariant).map(([variant, entries]) => [
-      variant,
-      summarizeVariant(entries),
-    ]));
-    if (summaries.virtual.status === "passed") {
-      summaries.virtual.parked_16384_threads = metricSummary(values(byVariant.virtual,
-        (sample) => parkedAt(sample, 16384).platform_threads));
-    }
+    const summaries = summarizeSamples(samples);
     const artifact = {
-      schema_version: 1,
+      schema_version: 2,
       benchmark: "veln-jvm-lightweight-task-adoption",
       constraints: {
         process_tree_memory_mib: 4096,
@@ -449,8 +607,8 @@ async function main() {
         harness_sha256: sha256(HARNESS),
         platform_runtime_source_sha256: variants.platform.runtime_source_sha256,
         virtual_runtime_source_sha256: variants.virtual.runtime_source_sha256,
-        baseline_difference: "Thread.ofPlatform().daemon(false).start(task)",
-        candidate_difference: "Thread.startVirtualThread(task)",
+        baseline_difference: PLATFORM_WORKER,
+        candidate_difference: VIRTUAL_WORKER,
         jvm_args: JVM_ARGS,
         workload: WORKLOAD,
       },
@@ -461,7 +619,14 @@ async function main() {
       },
     };
     artifact.adoption = evaluateGates(samples, summaries);
-    validateArtifact(artifact, sha256(HARNESS));
+    if (artifact.adoption.status !== "passed") {
+      console.error("controlled collection did not pass; inspect these summaries before rerunning:");
+      console.error(JSON.stringify({ summaries, adoption: artifact.adoption }, null, 2));
+    }
+    validateArtifact(artifact, benchmarkIdentityForRuntime(
+      readFileSync(runtimeSource, "utf8"),
+      sha256(HARNESS),
+    ));
     mkdirSync(dirname(output), { recursive: true });
     writeFileSync(output, `${JSON.stringify(artifact, null, 2)}\n`);
     console.log(`wrote ${output}`);

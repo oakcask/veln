@@ -1,3 +1,6 @@
+# CLI/JVM integration contract: failed `veln run` closes task admission,
+# cancels the active child, and drains its cleanup before reporting. Exact
+# streams detect missing cleanup or an erroneously admitted cleanup spawn.
 command = ["run", "main", "main.veln"]
 exit = 1
 

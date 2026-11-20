@@ -7,30 +7,41 @@ on:
     paths:
       - .github/workflows/test--jvm-backend.yaml
       - .github/actions/setup-jdk/action.yaml
+      - benchmarks/lightweight-tasks/**
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - crates/veln-backend-jvm/src/runtime/*.java.inc
       - crates/veln-backend-jvm/runtime/*.class
       - scripts/agent-run
+      - scripts/benchmark-lightweight-tasks
       - scripts/ci-run
+      - tools/veln-repo-lightweight-task-benchmark/**
+      - workflow-scripts/benchmark-lightweight-tasks.mjs
   pull_request:
     paths:
       - .github/workflows/test--jvm-backend.yaml
       - .github/actions/setup-jdk/action.yaml
+      - benchmarks/lightweight-tasks/**
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
+      - crates/veln-backend-jvm/src/runtime/*.java.inc
       - crates/veln-backend-jvm/runtime/*.class
       - scripts/agent-run
+      - scripts/benchmark-lightweight-tasks
       - scripts/ci-run
+      - tools/veln-repo-lightweight-task-benchmark/**
+      - workflow-scripts/benchmark-lightweight-tasks.mjs
 
 permissions:
   contents: read
 
 env:
   CARGO_TERM_COLOR: always
+  NODE_VERSION: "26"
 
 jobs:
   bytecode:
@@ -40,7 +51,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Set up supported JDK
         uses: ./.github/actions/setup-jdk
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - name: Run JVM backend tests
         run: bash scripts/ci-run cargo test --locked -p veln-backend-jvm bytecode_backend -- --test-threads=1
       - name: Run JVM CLI fixtures
         run: bash scripts/ci-run cargo test --locked -p veln-cli --test check_json -- --test-threads=1
+      - name: Validate current lightweight-task adoption evidence
+        run: bash scripts/benchmark-lightweight-tasks --check benchmarks/lightweight-tasks/result.json

@@ -18,20 +18,23 @@ public final class LightweightTaskBenchmark {
     private static final int LOOPBACK_OFFERED_PER_SECOND = 250;
     private static final int RECLAMATION_BATCHES = 10;
     private static final int RECLAMATION_POPULATION = 1024;
+    private static final int CPU_SATURATORS = 3;
+    private static final int CPU_SHORT_JOBS = 128;
+    private static final long CPU_SATURATION_NANOS = 200_000_000L;
+    private static final java.io.BufferedReader OBSERVATION_INPUT =
+        new java.io.BufferedReader(new java.io.InputStreamReader(System.in));
 
     private static final class ParkedSample {
         final int population;
         final boolean completed;
-        final int platformThreads;
         final long createNanos;
         final long completeNanos;
         final String failure;
 
-        ParkedSample(int population, boolean completed, int platformThreads,
+        ParkedSample(int population, boolean completed,
                 long createNanos, long completeNanos, String failure) {
             this.population = population;
             this.completed = completed;
-            this.platformThreads = platformThreads;
             this.createNanos = createNanos;
             this.completeNanos = completeNanos;
             this.failure = failure;
@@ -61,6 +64,18 @@ public final class LightweightTaskBenchmark {
             this.elapsedCpuNanos = elapsedCpuNanos;
             this.wakeups = wakeups;
             this.checksum = checksum;
+        }
+    }
+
+    private static final class CpuSaturationSample extends TimedWorkload {
+        final long cancellationLatencyNanos;
+        final boolean cancellationObserved;
+
+        CpuSaturationSample(double throughput, long p95Nanos, long checksum,
+                long cancellationLatencyNanos, boolean cancellationObserved) {
+            super(throughput, p95Nanos, checksum);
+            this.cancellationLatencyNanos = cancellationLatencyNanos;
+            this.cancellationObserved = cancellationObserved;
         }
     }
 
@@ -111,7 +126,7 @@ public final class LightweightTaskBenchmark {
         System.err.println("workload: loopback");
         LoopbackSample loopback = runLoopback(LOOPBACK_CONNECTIONS);
         System.err.println("workload: CPU saturation");
-        TimedWorkload cpu = runCpuSaturation();
+        CpuSaturationSample cpu = runCpuSaturation();
         System.err.println("workload: reclamation");
         ReclamationSample reclamation = runReclamation();
         long functional = rendezvous.checksum ^ bounded.checksum ^ select.checksum
@@ -124,6 +139,7 @@ public final class LightweightTaskBenchmark {
     private static List<ParkedSample> runParkedLadder() throws Exception {
         List<ParkedSample> samples = new ArrayList<>();
         for (int population : PARKED_POPULATIONS) {
+            beginParkedObservation(population);
             CountDownLatch ready = new CountDownLatch(population);
             CountDownLatch release = new CountDownLatch(1);
             ArrayList<Object> handles = new ArrayList<>(population);
@@ -150,7 +166,7 @@ public final class LightweightTaskBenchmark {
                     + String.valueOf(resourceFailure.getMessage());
             }
             long created = System.nanoTime();
-            int platformThreads = ManagementFactory.getThreadMXBean().getThreadCount();
+            finishParkedObservation(population);
             release.countDown();
             VelnRuntime.finishTaskLifetime(failure == null);
             long completed = System.nanoTime();
@@ -160,11 +176,25 @@ public final class LightweightTaskBenchmark {
                     allJoined &= "Ok(1)".equals(VelnRuntime.taskJoin(handle).toString());
                 }
             }
-            samples.add(new ParkedSample(population, allJoined, platformThreads,
+            samples.add(new ParkedSample(population, allJoined,
                 created - started, completed - created, failure));
             if (!allJoined) break;
         }
         return samples;
+    }
+
+    private static void beginParkedObservation(int population) {
+        System.err.println("VELN_BENCHMARK_OBSERVE\tstart\t" + population);
+    }
+
+    private static void finishParkedObservation(int population) throws Exception {
+        System.err.println("VELN_BENCHMARK_OBSERVE\tready\t" + population);
+        String response = OBSERVATION_INPUT.readLine();
+        if (!"continue".equals(response)) {
+            throw new IllegalStateException(
+                "external parked observation was not acknowledged for " + population
+            );
+        }
     }
 
     private static TimedWorkload runChannelPipeline(long capacity, int operations) {
@@ -291,26 +321,37 @@ public final class LightweightTaskBenchmark {
             percentile95(latencies), checksum, descriptorGrowth, connections * 4L);
     }
 
-    private static TimedWorkload runCpuSaturation() throws Exception {
-        int shortJobs = 128;
-        long[] latencies = new long[shortJobs];
-        CountDownLatch saturatorsStarted = new CountDownLatch(2);
+    private static CpuSaturationSample runCpuSaturation() throws Exception {
+        long[] latencies = new long[CPU_SHORT_JOBS];
+        CountDownLatch carriersOccupied = new CountDownLatch(2);
         VelnRuntime.beginTaskLifetime();
-        for (int worker = 0; worker < 2; worker += 1) {
+        for (int worker = 0; worker < CPU_SATURATORS; worker += 1) {
             VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
-                saturatorsStarted.countDown();
-                long until = System.nanoTime() + 200_000_000L;
+                carriersOccupied.countDown();
+                long until = System.nanoTime() + CPU_SATURATION_NANOS;
                 long value = 0L;
                 while (System.nanoTime() < until) value += 1L;
                 return Long.valueOf(value);
             });
         }
-        if (!saturatorsStarted.await(10, TimeUnit.SECONDS)) {
-            throw new AssertionError("CPU saturators did not start");
+        if (!carriersOccupied.await(10, TimeUnit.SECONDS)) {
+            throw new AssertionError("CPU saturators did not occupy both carriers");
         }
+        java.util.concurrent.atomic.AtomicLong cancellationDelivered =
+            new java.util.concurrent.atomic.AtomicLong(0L);
+        Object cancellationTarget = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
+            try {
+                while (true) VelnRuntime.taskCancellationCheckpoint();
+            } catch (RuntimeException cancelled) {
+                cancellationDelivered.compareAndSet(0L, System.nanoTime());
+                throw cancelled;
+            }
+        });
+        long cancellationRequested = System.nanoTime();
+        VelnRuntime.taskCancel(cancellationTarget);
         long started = System.nanoTime();
-        ArrayList<Object> handles = new ArrayList<>(shortJobs);
-        for (int index = 0; index < shortJobs; index += 1) {
+        ArrayList<Object> handles = new ArrayList<>(CPU_SHORT_JOBS);
+        for (int index = 0; index < CPU_SHORT_JOBS; index += 1) {
             final int job = index;
             final long submitted = System.nanoTime();
             handles.add(VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
@@ -321,9 +362,19 @@ public final class LightweightTaskBenchmark {
         VelnRuntime.finishTaskLifetime(true);
         long checksum = 0L;
         for (Object handle : handles) checksum += resultLong(VelnRuntime.taskJoin(handle));
+        Object cancellationResult = VelnRuntime.taskJoin(cancellationTarget);
+        boolean cancellationObserved = cancellationResult.toString().contains("cancelled");
+        long cancellationLatency = cancellationDelivered.get() - cancellationRequested;
+        if (!cancellationObserved) {
+            throw new AssertionError("CPU-saturated cancellation was not observed: "
+                + cancellationResult);
+        }
+        if (cancellationLatency < 0L) {
+            throw new AssertionError("CPU-saturated cancellation delivery was not timestamped");
+        }
         long elapsed = System.nanoTime() - started;
-        return new TimedWorkload(shortJobs * 1_000_000_000.0 / elapsed,
-            percentile95(latencies), checksum);
+        return new CpuSaturationSample(CPU_SHORT_JOBS * 1_000_000_000.0 / elapsed,
+            percentile95(latencies), checksum, cancellationLatency, cancellationObserved);
     }
 
     private static ReclamationSample runReclamation() throws Exception {
@@ -334,11 +385,13 @@ public final class LightweightTaskBenchmark {
             Owner[] holder = {new Owner(batch)};
             owners.add(new WeakReference<>(holder[0]));
             VelnRuntime.beginTaskLifetime();
+            Object lifetime = currentTaskLifetime();
             for (int index = 0; index < RECLAMATION_POPULATION; index += 1) {
                 VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> Long.valueOf(holder[0].marker));
             }
             VelnRuntime.finishTaskLifetime(true);
-            registrations += currentLifetimeRegistrations();
+            registrations += lifetimeRegistrations(lifetime);
+            lifetime = null;
             holder[0] = null;
             collect();
             heaps[batch] = usedHeapBytes();
@@ -349,12 +402,18 @@ public final class LightweightTaskBenchmark {
         return new ReclamationSample(heaps, registrations, retained);
     }
 
-    private static int currentLifetimeRegistrations() throws Exception {
+    private static Object currentTaskLifetime() throws Exception {
         java.lang.reflect.Field localField = VelnRuntime.class.getDeclaredField("CURRENT_TASK_LIFETIME");
         localField.setAccessible(true);
         ThreadLocal<?> local = (ThreadLocal<?>) localField.get(null);
         Object lifetime = local.get();
-        if (lifetime == null) return 0;
+        if (lifetime == null) {
+            throw new AssertionError("active task lifetime was not observable");
+        }
+        return lifetime;
+    }
+
+    private static int lifetimeRegistrations(Object lifetime) throws Exception {
         java.lang.reflect.Field incompleteField = lifetime.getClass().getDeclaredField("incomplete");
         incompleteField.setAccessible(true);
         return ((java.util.Set<?>) incompleteField.get(lifetime)).size();
@@ -413,7 +472,7 @@ public final class LightweightTaskBenchmark {
 
     private static String toJson(List<ParkedSample> parked, TimedWorkload rendezvous,
             TimedWorkload bounded, SelectSample select, LoopbackSample loopback,
-            TimedWorkload cpu, ReclamationSample reclamation, long functional) {
+            CpuSaturationSample cpu, ReclamationSample reclamation, long functional) {
         StringBuilder json = new StringBuilder("{\"schema_version\":1,\"workload\":{");
         json.append("\"parked\":[");
         for (int index = 0; index < parked.size(); index += 1) {
@@ -421,7 +480,6 @@ public final class LightweightTaskBenchmark {
             ParkedSample sample = parked.get(index);
             json.append("{\"population\":").append(sample.population)
                 .append(",\"completed\":").append(sample.completed)
-                .append(",\"platform_threads\":").append(sample.platformThreads)
                 .append(",\"create_nanos\":").append(sample.createNanos)
                 .append(",\"complete_nanos\":").append(sample.completeNanos)
                 .append(",\"failure\":").append(quote(sample.failure)).append('}');
@@ -434,7 +492,10 @@ public final class LightweightTaskBenchmark {
             .append(",\"loopback\":").append(timedJson(loopback).replace("}",
                 ",\"descriptor_growth\":" + loopback.descriptorGrowth
                 + ",\"selector_operations\":" + loopback.selectorOperations + "}"))
-            .append(",\"cpu_saturation\":").append(timedJson(cpu))
+            .append(",\"cpu_saturation\":")
+            .append(timedJson(cpu).replace("}",
+                ",\"cancellation_latency_nanos\":" + cpu.cancellationLatencyNanos
+                + ",\"cancellation_observed\":" + cpu.cancellationObserved + "}"))
             .append(",\"reclamation\":{\"live_heap_bytes\":")
             .append(Arrays.toString(reclamation.liveHeapBytes))
             .append(",\"completed_registrations\":").append(reclamation.completedRegistrations)
