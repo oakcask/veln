@@ -262,7 +262,9 @@ fn merge_or_queue_dead_frame(
         return Ok(());
     }
     if let Some(existing) = dead_frames.get_mut(&offset) {
-        let _ = merge_frame(existing, frame)?;
+        if merge_frame(existing, frame)? {
+            queue.push_back(offset);
+        }
         return Ok(());
     }
     dead_frames.insert(offset, frame);

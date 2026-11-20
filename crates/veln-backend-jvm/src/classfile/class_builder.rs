@@ -290,6 +290,52 @@ mod tests {
     }
 
     #[test]
+    fn java_25_verifies_widened_frames_through_converging_dead_blocks() {
+        let mut class = ClassBuilder::new("VelnEntry");
+        class.add_method(MethodInfo {
+            access_flags: 0x0009,
+            name: "main".to_string(),
+            descriptor: "([Ljava/lang/String;)V".to_string(),
+            max_stack: 1,
+            max_locals: 1,
+            code: vec![
+                0xb1, // return
+                0x03, // iconst_0
+                0x99, 0x00, 0x07, // ifeq 9
+                0x01, // aconst_null
+                0xa7, 0x00, 0x0a, // goto 16
+                0xa7, 0x00, 0x03, // goto 12
+                0x2a, // aload_0
+                0xa7, 0x00, 0x03, // goto 16
+                0xa7, 0x00, 0x03, // goto 19
+                0x57, // pop
+                0xb1, // return
+            ],
+            exceptions: Vec::new(),
+        });
+        let program = JvmProgram {
+            classes: vec![JvmClassFile {
+                path: "VelnEntry.class".to_string(),
+                contents: class.finish().expect("class serialization should succeed"),
+            }],
+        };
+
+        let output = crate::tests::run_jvm_program_with_java_args_when_java_is_available(
+            "converging-dead-stack-map-frames",
+            &program,
+            &["-Xverify:all"],
+            &[],
+        )
+        .expect("the Java 25 test runtime should be available");
+
+        assert!(
+            output.status.success(),
+            "JVM verification failed:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    #[test]
     fn finish_bounds_frames_for_many_locals_and_straight_line_instructions() {
         finish_class_with_many_locals_and_straight_line_expressions(15_000)
             .expect("straight-line analysis should not retain one full frame per instruction");
