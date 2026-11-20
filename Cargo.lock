@@ -584,6 +584,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "veln-repo-unused-pub"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "serde_json",
+ "syn",
+]
+
+[[package]]
 name = "veln-repo-workflow-scripts"
 version = "0.1.0"
 dependencies = [

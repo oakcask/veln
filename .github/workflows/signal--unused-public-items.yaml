@@ -1,0 +1,37 @@
+name: signal / unused public items
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/signal--unused-public-items.yaml
+      - .github/actions/cargo-dependencies/action.yaml
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - crates/**/*.rs
+      - tools/**/*.rs
+      - tools/**/Cargo.toml
+      - crates/**/Cargo.toml
+
+permissions:
+  contents: read
+
+jobs:
+  suspected-dead-public-items:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Prepare Cargo dependencies
+        uses: ./.github/actions/cargo-dependencies
+      - name: Record suspected dead public items
+        run: cargo run --locked -p veln-repo-unused-pub -- --format json crates tools > "${RUNNER_TEMP}/unused-public-items.json"
+      - name: Upload advisory report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: unused-public-items
+          path: ${{ runner.temp }}/unused-public-items.json
+          if-no-files-found: error
+      - name: Explain how to review the signal
+        run: echo 'Download the unused-public-items artifact and review suspected dead code before refactoring. Findings are advisory; check cfg, macros, external callers, and same-name collisions before removing code. Scan errors fail this job.' >> "$GITHUB_STEP_SUMMARY"
