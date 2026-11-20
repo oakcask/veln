@@ -14,8 +14,9 @@ retained-state work in S3 through S6.
 
 ## Remaining Acceptance And Verification
 
-All evidence in this section remains planned. Each row extends the current
-standard-library handler contract without redefining its implemented baseline.
+All evidence in this section remains planned. Each row verifies the current
+standard-library handler contract across an exhaustive boundary matrix without
+adding new behavior to its implemented baseline.
 
 | Case | Input | Required observation | Planned evidence |
 | --- | --- | --- | --- |
@@ -73,9 +74,9 @@ contracts are the relevant related work for this bounded extension.
 
 ## Implementation And Specification Route
 
-Implement S3 through S6 as separately reviewable extensions of the current
-shared identity. Add their executable matrices before broadening current
-specification claims. Do not infer identity from spelling or introduce an
+Implement S3 through S6 as separately reviewable verification additions for
+the current shared identity. Add their executable matrices before retiring
+this proposal. Do not infer identity from spelling or introduce an
 adapter-specific handler scan. Remove this page and its Ready catalog entry
-when all four remaining rows are implemented and the current specifications
-and executable evidence own their behavior.
+when all four remaining rows are covered and the current specifications and
+executable evidence own their verification.
