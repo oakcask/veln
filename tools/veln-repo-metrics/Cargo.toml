@@ -4,6 +4,10 @@ edition.workspace = true
 version.workspace = true
 publish = false
 
+[package.metadata.cargo-machete]
+# Enables Span::start() through syn; no direct proc_macro2 import is needed.
+ignored = ["proc-macro2"]
+
 [dependencies]
 proc-macro2 = { workspace = true, features = ["span-locations"] }
 syn = { workspace = true, features = ["full", "parsing", "visit"] }
