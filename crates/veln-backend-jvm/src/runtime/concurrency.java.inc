@@ -65,6 +65,10 @@
                 if (state != TaskLifetimeState.RUNNING) {
                     throw new IllegalStateException("task lifetime already finished");
                 }
+                // A waiter can observe FutureTask completion just before the worker's
+                // finally block removes the lifetime registration. Do not select that
+                // already-settled task for cancellation or report its cleanup twice.
+                incomplete.removeIf(task -> task.isDone());
                 if (succeeded) {
                     state = TaskLifetimeState.DRAINING;
                 } else {

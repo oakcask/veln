@@ -262,7 +262,13 @@ pub(super) fn execute_test_case_job(job: TestCaseJob) -> Result<TestCase, String
         }
     };
 
-    collect_test_events(&mut case, &module, &output, &event_trace);
+    collect_test_events(
+        &mut case,
+        &module,
+        &output,
+        &event_trace,
+        runtime_trace_has_host_failure(&runtime_error_trace),
+    );
     apply_test_process_result(
         &mut case,
         &output,
@@ -494,6 +500,7 @@ fn collect_test_events(
     module: &SurfaceModule,
     output: &Output,
     event_trace: &str,
+    include_raw_output: bool,
 ) {
     let call_spans = stdio_call_spans(module);
     if event_trace.is_empty() {
@@ -501,8 +508,10 @@ fn collect_test_events(
         return;
     }
     case.events = stdio_events_from_trace(event_trace, &call_spans, &case.source);
-    case.events
-        .extend(stdio_events_from_output(output, &case.source));
+    if include_raw_output {
+        case.events
+            .extend(stdio_events_from_output(output, &case.source));
+    }
 }
 
 fn apply_test_process_result(

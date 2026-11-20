@@ -68,7 +68,7 @@
         if (failure instanceof TransportFailure) {
             ((TransportFailure) failure).record();
         }
-        recordRuntimeFailure(failure);
+        recordRuntimeFailure("runtime", failure);
         if (failure instanceof RemainderFailure) {
             RemainderFailure remainder = (RemainderFailure) failure;
             System.err.println(remainder.sourceFile + ":" + remainder.divisorStartLine + ":"
@@ -88,7 +88,7 @@
     }
 
     public static void printHostFailure(Throwable failure) {
-        recordRuntimeFailure(failure);
+        recordRuntimeFailure("host", failure);
         failure.printStackTrace();
         java.util.List<Throwable> pending = TASK_LIFETIME_RELATED_FAILURES.get();
         TASK_LIFETIME_RELATED_FAILURES.remove();
@@ -99,7 +99,7 @@
         }
     }
 
-    private static void recordRuntimeFailure(Throwable failure) {
+    private static void recordRuntimeFailure(String kind, Throwable failure) {
         String path = System.getenv("VELN_RUNTIME_ERRORS");
         if (path == null || path.isEmpty()) {
             return;
@@ -126,7 +126,7 @@
             if (message == null || message.isEmpty()) {
                 message = failure.getClass().getName();
             }
-            line = "runtime\t"
+            line = kind + "\t"
                 + hex(message)
                 + System.lineSeparator();
         }

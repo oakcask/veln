@@ -77,8 +77,18 @@ pub(super) fn runtime_failure_from_trace(trace: &str) -> Option<String> {
     trace
         .lines()
         .rev()
-        .find_map(|line| line.strip_prefix("runtime\t"))
+        .find_map(|line| {
+            line.strip_prefix("runtime\t")
+                .or_else(|| line.strip_prefix("host\t"))
+        })
         .and_then(trace_string)
+}
+
+pub(super) fn runtime_trace_has_host_failure(trace: &str) -> bool {
+    trace.lines().any(|line| {
+        line.strip_prefix("host\t")
+            .is_some_and(|value| trace_string(value).is_some())
+    })
 }
 
 pub(super) fn runtime_error_message(
@@ -589,11 +599,17 @@ mod tests {
 
     #[test]
     fn runtime_failure_trace_uses_the_recorded_primary_message() {
-        let trace = format!("runtime\t{}\n", trace_hex("actual runtime failure"));
+        let trace = format!(
+            "runtime\t{}\nhost\t{}\n",
+            trace_hex("earlier runtime failure"),
+            trace_hex("actual host failure"),
+        );
         assert_eq!(
             runtime_failure_from_trace(&trace).as_deref(),
-            Some("actual runtime failure")
+            Some("actual host failure")
         );
+        assert!(runtime_trace_has_host_failure(&trace));
+        assert!(!runtime_trace_has_host_failure("host\tzz\n"));
     }
 
     #[test]

@@ -26,7 +26,9 @@ use veln_test::{
     stdio_events_from_output, stdio_events_from_trace,
 };
 
-use super::run_report::{cleanup_related_failures, runtime_failure_from_trace};
+use super::run_report::{
+    cleanup_related_failures, runtime_failure_from_trace, runtime_trace_has_host_failure,
+};
 
 use crate::commands::test_scheduler::{SchedulerError, run_ordered_bounded};
 use crate::diagnostics::{
