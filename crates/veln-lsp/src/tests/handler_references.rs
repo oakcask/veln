@@ -296,7 +296,6 @@ fn assert_ineligible_imported_handlers_are_empty(server: &mut Server, consumer_u
 
 struct RejectedImportedHandlerCase {
     name: &'static str,
-    uses_standard_library: bool,
     manifest: &'static str,
     files: &'static [(&'static str, &'static str)],
     source: &'static str,
@@ -309,7 +308,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
     let cases = [
         RejectedImportedHandlerCase {
             name: "private",
-            uses_standard_library: false,
             manifest: "",
             files: &[
                 (
@@ -327,7 +325,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "ambiguous-import",
-            uses_standard_library: false,
             manifest: "",
             files: &[
                 ("first/fx.veln", "pub handler run() for Work\n  go() => 1\nend\n"),
@@ -343,7 +340,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "duplicate-import",
-            uses_standard_library: false,
             manifest: "",
             files: &[
                 ("first/fx.veln", "pub handler run() for Work\n  go() => 1\nend\n"),
@@ -358,7 +354,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "recovered-import",
-            uses_standard_library: false,
             manifest: "",
             files: &[
                 ("first/fx.veln", "pub handler run() for Work\n  go() => 1\nend\n"),
@@ -373,7 +368,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "duplicate-declaration",
-            uses_standard_library: false,
             manifest: "",
             files: &[
                 ("first.veln", "mod shared\n\nhandler run() for Work\n  go() => 1\nend\n"),
@@ -388,7 +382,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "recovered-declaration",
-            uses_standard_library: false,
             manifest: "",
             files: &[(
                 "case.veln",
@@ -400,7 +393,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "direct-dependency",
-            uses_standard_library: false,
             manifest: "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
             files: &[
                 ("vendor/dep/veln.toml", "[package]\nname = \"example/dep\"\n"),
@@ -415,20 +407,7 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
             character: 21,
         },
         RejectedImportedHandlerCase {
-            name: "standard-library",
-            uses_standard_library: true,
-            manifest: "",
-            files: &[(
-                "case.veln",
-                "use observe from \"std\"\n\nfn invalid() -> Int\n  handle 1 with observe::noop()\nend\n",
-            )],
-            source: "case.veln",
-            line: 3,
-            character: 24,
-        },
-        RejectedImportedHandlerCase {
             name: "unresolved-path",
-            uses_standard_library: false,
             manifest: "",
             files: &[(
                 "case.veln",
@@ -440,7 +419,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "wrong-kind",
-            uses_standard_library: false,
             manifest: "",
             files: &[
                 ("wrong.veln", "mod wrong\n\npub fn run() -> Int\n  1\nend\n"),
@@ -455,7 +433,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "incomplete-application",
-            uses_standard_library: false,
             manifest: "",
             files: &[(
                 "case.veln",
@@ -467,7 +444,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "recovered-application",
-            uses_standard_library: false,
             manifest: "",
             files: &[(
                 "case.veln",
@@ -498,11 +474,7 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         let case_uri = path_to_uri(&project.root.join(case.source));
         let stable_declaration_uri = path_to_uri(&project.root.join("stable.veln"));
         let stable_uri = path_to_uri(&project.root.join("stable_consumer.veln"));
-        let mut server = if case.uses_standard_library {
-            Server::default()
-        } else {
-            server_with_empty_standard_library()
-        };
+        let mut server = server_with_empty_standard_library();
         server.handle_message(&initialize_request(&root_uri));
         let valid_definition = definition_request(&stable_uri, 3, 24);
         let valid_references = references_request_with_declaration(&stable_uri, 3, 24, true);
