@@ -340,7 +340,7 @@ lifetime closes. The lifetime follows these transitions:
 | State | Event | Next state and observable result |
 | --- | --- | --- |
 | Running | The entry and its lexical cleanup succeed. | Draining. Preserve the entry result and wait for every admitted job. |
-| Running | The entry fails, returns an entry error, is cancelled, or throws an uncaught host failure. | Cancelling. Close admission, request cancellation once on every incomplete job, and wait for their cleanup. |
+| Running | The entry fails, returns an entry error, is cancelled, or throws an uncaught host failure. | Cancelling. Close admission, atomically claim cancellation on every job that has not already completed, and wait for all incomplete jobs to finish. |
 | Running or Draining | An admitted job spawns a descendant. | Admit the descendant to the same lifetime before returning its handle. |
 | Running or Draining | An admitted spawn cannot start its worker. | Fail the spawn with its host cause, publish no handle, and remove its incomplete-job registration. A concurrent cancellation does not wait for the worker that failed to start. |
 | Cancelling | A job attempts to spawn. | Reject the spawn before its job executes. Cleanup-failure precedence still applies. |
@@ -358,12 +358,14 @@ the lifetime.
 
 An ordinary unjoined child failure does not replace the entry result. On an
 entry failure, including an uncaught host exception or error, the original
-failure remains primary. Cleanup failures from cancelled children are related
-in task-admission order and preserve each task's internal cleanup order. Output
+failure remains primary. Completion and cancellation claim one outcome
+atomically for each child. A child whose completion wins is not a cancelled
+cleanup source, even when its registration was present when the lifetime began
+cancelling. Cleanup failures from cancellation-claimed children are related in
+task-admission order and preserve each task's internal cleanup order. Output
 committed before or during draining remains visible; relative output order
-between concurrent tasks is unspecified. A later test invocation cannot
-inherit children, cancellation state, or handler frames from the closed
-lifetime.
+between concurrent tasks is unspecified. A later test invocation cannot inherit
+children, cancellation state, or handler frames from the closed lifetime.
 
 The runtime retains the existing polling select, per-operation socket selector,
 and bounded DNS-worker algorithms. Platform threads, polling CPU, descriptors,
