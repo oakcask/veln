@@ -32,10 +32,13 @@ A runnable case is not finished when its entry body alone returns. Its distinct
 task lifetime must first drain every admitted task, including descendants
 created during draining. On entry failure or cancellation, the case waits for
 incomplete tasks to receive cancellation and finish cleanup before publishing
-its record. A task or cleanup that never finishes leaves the case incomplete;
-an outer harness timeout is not represented as an implicit test-command task
-deadline. Reusable JVM entries create a new lifetime for each case, so a later
-case cannot inherit an earlier case's tasks, cancellation state, or handlers.
+its record. An uncaught host exception or error remains the case's process
+failure, while cleanup failures from cancelled children remain ordered captured
+standard-error output. A task or cleanup that never finishes leaves the case
+incomplete; an outer harness timeout is not represented as an implicit
+test-command task deadline. Reusable JVM entries create a new lifetime for each
+case, so a later case cannot inherit an earlier case's tasks, cancellation
+state, or handlers.
 
 ## Selection
 
@@ -325,7 +328,9 @@ failures, blocked case records, empty event lists, and the absence of Java
 startup. The
 [`java-modern-underscore-rejected-json`](../../examples/specification/test/java-modern-underscore-rejected-json/)
 case checks the runner-error case record and absence of entry launch when the
-selected runtime reports `25_0`.
+selected runtime reports `25_0`. Host-failure cancellation and ordered child
+cleanup output for reusable entries are checked in
+`crates/veln-backend-jvm/src/tests/concurrency.rs`.
 
 ## Usage and limits
 

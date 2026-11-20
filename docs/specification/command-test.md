@@ -155,7 +155,9 @@ renders human status, JSON cases, diagnostics, events, summaries, failures, and
 exit status in discovered-case order regardless of completion order.
 When a case fails or is cancelled, its invocation closes admission, requests
 cancellation once for incomplete tasks, drains cleanup, and preserves the case
-failure as primary. Related child cleanup failures follow task-admission order.
+failure as primary. An uncaught host exception or error follows the same
+boundary. Its process failure stays primary, and child cleanup failures remain
+visible in captured standard error in task-admission order.
 
 When `VELN_TEST_TIMINGS` is present, the command emits diagnostic timing lines
 to standard error after the report. Each line starts with
@@ -197,3 +199,5 @@ Variant-refinement selection and recovery are checked by the
 `examples/specification/test/adt-variant-refinement-command-selection/`,
 `adt-variant-refinement-command-recovery-human/`, and
 `adt-variant-refinement-command-recovery/` cases.
+Host-failure cancellation and child cleanup ordering for reusable test entries
+are checked in `crates/veln-backend-jvm/src/tests/concurrency.rs`.

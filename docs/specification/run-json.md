@@ -56,9 +56,10 @@ successful entry return, `stdout` and `stderr` therefore include output from
 every admitted descendant that completes while the invocation drains. If the
 entry fails, returns an error, or is cancelled, the report waits for admitted
 tasks to receive cancellation and finish cleanup before it fixes the captured
-output and failure. A task or cleanup that never finishes prevents the JSON
-document from being emitted; `run --json` adds no task deadline or partial
-envelope.
+output and failure. An uncaught host exception or error remains the runtime
+failure for that report; cleanup failures from cancelled children do not
+replace it. A task or cleanup that never finishes prevents the JSON document
+from being emitted; `run --json` adds no task deadline or partial envelope.
 
 A tool failure represented after run-report preparation has
 `error.kind: "runner"`, `details.phase: "tool"`, empty `stdout` and `stderr`,
@@ -88,6 +89,10 @@ execution order. Cleanup failures collected while cancelling an entry's tasks
 are ordered by task admission, while each task retains its internal cleanup
 order. The original entry failure remains primary. The array is empty when no
 related cleanup failed.
+
+For an uncaught host failure, `error.kind` is `"runtime"` and the host failure
+message remains primary. Cleanup failures collected while cancelling admitted
+children use the same ordered `cleanup_failure` objects in `error.related`.
 
 ## Static diagnostic gate
 
@@ -479,6 +484,9 @@ route for the envelope and projections. The
 [`java-25-execution-baseline`](../../examples/specification/run/java-25-execution-baseline/)
 case checks the passed envelope when a real Java 25-or-newer runtime loads and
 executes a generated classfile. The
+[`host-failure-child-cleanup-json`](../../examples/specification/run/host-failure-child-cleanup-json/)
+case checks primary host-failure projection and ordered child cleanup failures.
+The
 [`java-modern-underscore-rejected-json`](../../examples/specification/run/java-modern-underscore-rejected-json/)
 case checks the runner-error envelope and absence of entry launch when the
 selected runtime reports `25_0`. Backend tests check the generated classfile's

@@ -105,8 +105,11 @@ descendants spawned while draining, have finished. If the entry fails, returns
 an entry error, or is cancelled, `run` closes task admission, requests
 cancellation once for every incomplete task, waits for their cleanup, and then
 reports the original entry outcome. Child cleanup failures are related to that
-outcome in admission order. A child or cleanup that never finishes leaves the
-command incomplete; the command adds no implicit task deadline.
+outcome in admission order. An uncaught host exception or error follows the
+same boundary: it remains the primary failure after cancellation, while child
+cleanup failures remain visible as related failures. A child or cleanup that
+never finishes leaves the command incomplete; the command adds no implicit
+task deadline.
 
 JVM classfile generation can reject a program that exceeds a classfile
 representation limit. This failure occurs after typed-IR readiness and before
@@ -171,8 +174,9 @@ ordinary runtime failures. Contract failures identify the failed clause at its
 source span and place blame and related facts in diagnostic details. Decode,
 schema, byte-write, and protocol failures use the diagnostic shapes routed by
 [run JSON](run-json.md). Cleanup failures related to an existing failure are
-printed after the primary message in cleanup execution order. Runtime trace
-files remain isolated to this invocation.
+printed after the primary message in cleanup execution order. This also applies
+when the primary message comes from an uncaught host failure rather than a Veln
+runtime failure. Runtime trace files remain isolated to this invocation.
 
 An excluded constructor returned by explicit schema runtime validation reports
 `schema.variant_refinement_mismatch` at the exact supplied byte offset. A
@@ -247,6 +251,9 @@ case checks selected-entry identity when an imported function has the same
 name. The
 [`java-25-execution-baseline`](../../examples/specification/run/java-25-execution-baseline/)
 case checks successful Java 25-or-newer class loading and entry launch. The
+[`host-failure-child-cleanup-human`](../../examples/specification/run/host-failure-child-cleanup-human/)
+case checks that an uncaught host failure stays primary while cancelled-child
+cleanup output and related failures remain visible. The
 [`explicit-import-alias-owner-package-scope`](../../examples/specification/run/explicit-import-alias-owner-package-scope/)
 case checks that application and standard-library import owners with the same
 module spelling remain independently executable.

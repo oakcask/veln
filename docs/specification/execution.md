@@ -343,7 +343,7 @@ lifetime closes. The lifetime follows these transitions:
 | State | Event | Next state and observable result |
 | --- | --- | --- |
 | Running | The entry and its lexical cleanup succeed. | Draining. Preserve the entry result and wait for every admitted job. |
-| Running | The entry fails, returns an entry error, or is cancelled. | Cancelling. Close admission, request cancellation once on every incomplete job, and wait for their cleanup. |
+| Running | The entry fails, returns an entry error, is cancelled, or throws an uncaught host failure. | Cancelling. Close admission, request cancellation once on every incomplete job, and wait for their cleanup. |
 | Running or Draining | An admitted job spawns a descendant. | Admit the descendant to the same lifetime before returning its handle. |
 | Cancelling | A job attempts to spawn. | Reject the spawn before its job executes. Cleanup-failure precedence still applies. |
 | Draining or Cancelling | The last incomplete job finishes. | Closed. Publish the preserved entry result or original entry failure. |
@@ -357,12 +357,13 @@ worker-start rollback are atomic with respect to spawn. A failed start retains
 its host cause and publishes no handle.
 
 An ordinary unjoined child failure does not replace the entry result. On an
-entry failure, the original failure remains primary. Cleanup failures from
-cancelled children are related in task-admission order and preserve each
-task's internal cleanup order. Output committed before or during draining
-remains visible; relative output order between concurrent tasks is
-unspecified. A later test invocation cannot inherit children, cancellation
-state, or handler frames from the closed lifetime.
+entry failure, including an uncaught host exception or error, the original
+failure remains primary. Cleanup failures from cancelled children are related
+in task-admission order and preserve each task's internal cleanup order. Output
+committed before or during draining remains visible; relative output order
+between concurrent tasks is unspecified. A later test invocation cannot
+inherit children, cancellation state, or handler frames from the closed
+lifetime.
 
 The runtime retains the existing polling select, per-operation socket selector,
 and bounded DNS-worker algorithms. Native calls, filesystem calls, DNS,
@@ -937,8 +938,14 @@ than degrading it to a generic rendered result value.
   `-Xverify:all`, or to return the expected bounded backend failure for an
   oversized method, in
   [`class_builder.rs`](../../crates/veln-backend-jvm/src/classfile/class_builder.rs).
-- Host stack exhaustion with a waiting child task is checked for both run and
+- Host stack exhaustion with waiting child tasks is checked for both run and
   reusable test entries in `crates/veln-backend-jvm/src/tests/concurrency.rs`.
+  The
+  [`human`](../../examples/specification/run/host-failure-child-cleanup-human/)
+  and
+  [`JSON`](../../examples/specification/run/host-failure-child-cleanup-json/)
+  command cases independently check that the host failure remains primary and
+  child cleanup failures remain visible in admission order.
 
 - Cross-package function and handler selection through reachability, lowering,
   and JVM linkage, together with validation operand evaluation order, are
