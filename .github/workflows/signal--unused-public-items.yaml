@@ -9,6 +9,8 @@ on:
       - Cargo.toml
       - Cargo.lock
       - rust-toolchain.toml
+      - workflow-scripts/summarize-unused-public-items.mjs
+      - workflow-scripts/summarize-unused-public-items.test.mjs
       - crates/**/*.rs
       - tools/**/*.rs
       - tools/**/Cargo.toml
@@ -16,6 +18,9 @@ on:
 
 permissions:
   contents: read
+
+env:
+  NODE_VERSION: "26"
 
 jobs:
   suspected-dead-public-items:
@@ -25,6 +30,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Prepare Cargo dependencies
         uses: ./.github/actions/cargo-dependencies
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - name: Record suspected dead public items
         run: cargo run --locked -p veln-repo-unused-pub -- --format json crates tools > "${RUNNER_TEMP}/unused-public-items.json"
       - name: Upload advisory report
@@ -33,5 +41,5 @@ jobs:
           name: unused-public-items
           path: ${{ runner.temp }}/unused-public-items.json
           if-no-files-found: error
-      - name: Explain how to review the signal
-        run: echo 'Download the unused-public-items artifact and review suspected dead code before refactoring. Findings are advisory; check cfg, macros, external callers, and same-name collisions before removing code. Scan errors fail this job.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Summarize suspected dead public items
+        run: node workflow-scripts/summarize-unused-public-items.mjs "${RUNNER_TEMP}/unused-public-items.json"
