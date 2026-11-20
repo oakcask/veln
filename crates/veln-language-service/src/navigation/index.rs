@@ -589,9 +589,10 @@ impl SymbolIndex {
                                 .schema_alias_module_imports
                                 .get(&file.module)?
                                 .valid_handler_external_route(qualifier)?;
+                            let package_origin = handler_package_origin(&package);
                             (
                                 Some(package),
-                                Some(PackageOrigin::DirectDependency),
+                                Some(package_origin),
                                 module,
                                 name.to_string(),
                             )
@@ -618,9 +619,10 @@ impl SymbolIndex {
                                 .schema_alias_module_imports
                                 .get(&file.module)?
                                 .valid_handler_external_route(qualifier)?;
+                            let package_origin = handler_package_origin(&package);
                             (
                                 Some(package),
-                                Some(PackageOrigin::DirectDependency),
+                                Some(package_origin),
                                 module,
                                 name.to_string(),
                             )
@@ -700,5 +702,13 @@ impl SymbolIndex {
             &clause.operation_name,
         )
         .cloned()
+    }
+}
+
+fn handler_package_origin(package: &str) -> PackageOrigin {
+    if package == "std" {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
     }
 }

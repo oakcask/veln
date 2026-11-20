@@ -66,13 +66,12 @@ fn eligible_navigable_handler_indices(
     let eligibility_by_source = handler_declaration_eligibility_by_source(files);
     let mut candidates = BTreeMap::<ModuleMemberIdentity, Vec<usize>>::new();
     for (index, symbol) in handlers.iter().enumerate() {
-        if symbol.package_origin != Some(PackageOrigin::StandardLibrary)
-            && (symbol.package.is_none()
-                || symbol
-                    .name
-                    .chars()
-                    .next()
-                    .is_some_and(|initial| initial.is_ascii_lowercase()))
+        if symbol.package.is_none()
+            || symbol
+                .name
+                .chars()
+                .next()
+                .is_some_and(|initial| initial.is_ascii_lowercase())
         {
             candidates
                 .entry((

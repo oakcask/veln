@@ -736,16 +736,16 @@ For a selected parse-clean workspace handler declaration, references include
 each complete bare handler name in `handle Body with handler(arguments)` from
 saved workspace sources that declare the same module. If the handler is
 public, references also include complete qualified handler-name leaves reached
-through one parse-clean, unambiguous workspace or retained direct-dependency
-import. A workspace qualifier can use the full module path or its unique
-implicit leaf alias. An explicitly aliased workspace import still permits the
-full module path, but neither the written alias nor the module's leaf name
-becomes an implicit qualifier. A retained direct-dependency qualifier can use
-the full module path or its unique import alias: the written alias when one is
+through one parse-clean, unambiguous workspace, retained direct-dependency, or
+retained standard-library import. A workspace qualifier can use the full
+module path or its unique implicit leaf alias. An explicitly aliased workspace
+import still permits the full module path, but neither the written alias nor
+the module's leaf name becomes an implicit qualifier. A retained package
+qualifier can use the full module path or its unique import alias: the written alias when one is
 declared, otherwise the implicit leaf alias. An exact full path takes
-precedence over a colliding alias. A dependency application selects the public
-handler only when its module is exported by that exact retained package
-revision. The package, module, declaration, and selected
+precedence over a colliding alias. A package application selects the public,
+valid-cased, unrecovered handler only when its module is exported by that exact
+retained package revision. The package, module, declaration, and selected
 project remain part of the identity. The declaration and each included handler
 name select one identity, and every returned range covers only the handler-name
 token.
@@ -757,12 +757,12 @@ contain only matching saved-workspace applications from the selected project.
 references, but it never adds a package declaration.
 
 Handler definition and reference lookup require one unrecovered declaration
-for the complete owner identity. A dependency handler must be public, valid
-cased, exported, and owned by a retained direct dependency. Lookup excludes
-private or non-exported dependency handlers, duplicate or recovered
-declarations, ambiguous or recovered imports, standard-library and
-transitive-dependency declarations, and unresolved, incomplete, recovered, or
-wrong-kind handler paths. Selecting a wrong-kind handler-name leaf does not
+for the complete owner identity. A package handler must be public, valid
+cased, exported, and owned by a retained direct dependency or the retained
+embedded standard library. Lookup excludes private or non-exported package
+handlers, duplicate or recovered declarations, ambiguous or recovered imports,
+transitive-dependency and test-only standard-library declarations, and
+unresolved, incomplete, recovered, or wrong-kind handler paths. Selecting a wrong-kind handler-name leaf does not
 fall back to definition or reference results for the value, type, or other
 symbol named by that path. Equal spelling in another module or symbol class,
 including a handler parameter or operation-clause binding, does not enter the
@@ -770,9 +770,9 @@ result. Comments and strings do not contribute handler references. An
 unrelated parse error does not remove a complete parse-clean handler
 occurrence.
 
-Imports that repeat the same dependency package and module are ambiguous even
+Imports that repeat the same retained package and module are ambiguous even
 when they use different explicit aliases. None of their full paths or aliases
-grants handler navigation. A syntax-recovered dependency import does not make
+grants handler navigation. A syntax-recovered package import does not make
 a separate parse-clean import for that package and module ambiguous. The
 parse-clean import can still grant handler navigation.
 
@@ -1277,3 +1277,6 @@ and declaration-excluding reference sets. For a retained direct-dependency
 handler, it compares the canonical package definition and workspace-only
 references, verifies that LSP omits the package declaration, and verifies that
 MCP includes it exactly once when requested across continuation pages.
+For a retained standard-library handler, it repeats that adapter comparison
+across exact-module and unique-alias applications and verifies the same LSP
+declaration exclusion and MCP declaration-inclusive pagination behavior.

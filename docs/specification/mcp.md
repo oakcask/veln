@@ -1030,17 +1030,18 @@ contract.
 
 A handler result contains each complete bare handler name in
 `handle Body with handler(arguments)` from saved sources that declare the
-selected workspace handler's module. A public workspace or retained
-direct-dependency handler also has complete qualified handler-name leaves
-reached through one parse-clean, unambiguous import. A workspace qualifier can
+selected workspace handler's module. A public workspace, retained
+direct-dependency, or retained standard-library handler also has complete
+qualified handler-name leaves reached through one parse-clean, unambiguous import. A workspace qualifier can
 use the full module path or its unique implicit leaf alias. An explicitly
 aliased workspace import still permits the full module path, but neither the
 written alias nor the module's leaf name becomes an implicit qualifier. A
-retained direct-dependency qualifier can use the full module path or its unique
+retained package qualifier can use the full module path or its unique
 import alias: the written alias when one is declared, otherwise the implicit
 leaf alias. An exact full path takes precedence over a colliding alias. A
-dependency application selects only a public, valid-cased handler in an
-exported module of that exact retained direct dependency. The package revision,
+package application selects only a public, valid-cased, unrecovered handler in
+an exported module of that exact retained direct dependency or retained
+embedded standard library. The package revision,
 module, declaration, and selected project remain part of the identity. Each
 location covers only the handler-name token.
 
@@ -1053,16 +1054,16 @@ declaration.
 
 Handler definition and reference lookup require one unrecovered declaration
 for the complete owner identity. Private, non-exported, invalid-cased,
-duplicate, or recovered dependency declarations, ambiguous or recovered
-imports, standard-library and transitive-dependency declarations,
+duplicate, or recovered package declarations, ambiguous or recovered
+imports, transitive-dependency and test-only standard-library declarations,
 unresolved, incomplete, recovered, and wrong-kind paths return a successful
 empty result. A wrong-kind handler-name leaf does not fall back to the
 definition or references of the value, type, or other symbol named by that
 path. Equal spelling in another module or symbol class is excluded. An
 unrelated parse error does not remove a complete parse-clean occurrence.
-Imports that repeat the same dependency package and module are ambiguous even
+Imports that repeat the same retained package and module are ambiguous even
 when they use different explicit aliases. None of their full paths or aliases
-grants handler navigation. A syntax-recovered dependency import does not make
+grants handler navigation. A syntax-recovered package import does not make
 a separate parse-clean import for that package and module ambiguous. The
 parse-clean import can still grant handler navigation.
 
@@ -1253,6 +1254,11 @@ The checked
 demonstrates a canonical retained dependency definition, workspace-only
 references, declaration exclusion, and declaration-inclusive sorted
 pagination.
+The checked
+`examples/specification/mcp/references-standard-library-handler/` transcript
+demonstrates exact-module and unique-alias selection of one canonical retained
+standard-library definition, workspace-only references, declaration-inclusive
+project pagination, and package-declaration exclusion for single-file scope.
 MCP unit regressions exercise every imported workspace-handler exclusion
 specified above. They verify that each empty definition and reference result
 preserves an unrelated valid handler result. Capture-failure coverage also
@@ -1275,3 +1281,5 @@ reference sets. For a retained direct-dependency handler, it compares the
 canonical package definition and workspace-only references, verifies LSP
 package-declaration exclusion, and collects the one MCP package declaration
 across declaration-inclusive continuation pages.
+It repeats that comparison for a retained standard-library handler selected
+through exact-module and unique-alias applications.

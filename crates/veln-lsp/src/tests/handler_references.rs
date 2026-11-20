@@ -124,6 +124,77 @@ fn direct_dependency_handler_navigation_returns_virtual_definition_and_workspace
 }
 
 #[test]
+fn standard_library_handler_navigation_returns_virtual_definition_and_workspace_references() {
+    let manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"observe.veln\"]\n";
+    let handler_source = concat!(
+        "pub handler noop() for Observe\n  record() => 1\nend\n\n",
+        "handler hidden() for Observe\n  record() => 2\nend\n",
+    );
+    let snapshot = capture_embedded_package_snapshot(
+        manifest.as_bytes(),
+        [PackageSnapshotSource::new(
+            "observe.veln",
+            handler_source.as_bytes(),
+        )],
+    )
+    .unwrap();
+    let standard_library = DirectDependencySnapshot::from_validated_standard_library(
+        snapshot,
+        parse_manifest_text("veln.toml", manifest),
+    )
+    .unwrap();
+    let project = TempProject::new("standard-library-handler-references");
+    project.write("veln.toml", "");
+    project.write(
+        "main.veln",
+        concat!(
+            "use observe as trace from \"std\"\n\n",
+            "fn first() -> Int\n  handle 1 with observe::noop()\nend\n\n",
+            "fn second() -> Int\n  handle 2 with trace::noop()\nend\n\n",
+            "fn private() -> Int\n  handle 3 with observe::hidden()\nend\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default().with_standard_library(standard_library);
+    server.handle_message(&initialize_request(&root_uri));
+
+    let definition = server.handle_message(&definition_request(&main_uri, 3, 25));
+    assert_eq!(definition.len(), 1);
+    let definition_uri = extract_string_field(&definition[0], "uri").unwrap();
+    assert!(definition_uri.starts_with("veln-pkg:///std/snapshot/"));
+    assert!(definition[0].contains(
+        r#""range":{"start":{"line":0,"character":12},"end":{"line":0,"character":16}}"#
+    ));
+    assert_virtual_document_text(&mut server, "3", &definition_uri, handler_source);
+
+    let alias_definition = server.handle_message(&definition_request(&main_uri, 7, 23));
+    assert_eq!(alias_definition, definition);
+    for include_declaration in [false, true] {
+        let references = server.handle_message(&references_request_with_declaration(
+            &main_uri,
+            7,
+            23,
+            include_declaration,
+        ));
+        assert_eq!(references.len(), 1);
+        assert_eq!(references[0].matches(&format!(r#""uri":"{main_uri}""#)).count(), 2);
+        assert!(!references[0].contains("veln-pkg:"), "{}", references[0]);
+    }
+
+    assert_eq!(
+        server.handle_message(&definition_request(&main_uri, 11, 25)),
+        [response("2", "null")]
+    );
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 11, 25, true,
+        )),
+        [response("2", "[]")]
+    );
+}
+
+#[test]
 fn imported_workspace_handler_navigation_preserves_utf16_and_declaration_policy() {
     let project = TempProject::new("workspace-imported-handler-references");
     write_imported_handler_project(&project);

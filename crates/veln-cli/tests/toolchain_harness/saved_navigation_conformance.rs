@@ -53,9 +53,58 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
     assert_reference_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_imported_handler_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_dependency_handler_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
+    assert_standard_library_handler_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_module_value_reference_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_failure_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
     assert_recovery_conformance(&lsp_workspace, &mcp_workspace, &lsp, &mcp);
+}
+
+fn assert_standard_library_handler_conformance(
+    lsp_workspace: &SavedWorkspace,
+    mcp_workspace: &SavedWorkspace,
+    lsp: &[JsonValue],
+    mcp: &[JsonValue],
+) {
+    let lsp_definition = normalize_lsp_definition(lsp_workspace, response(lsp, 43));
+    let mcp_definition = normalize_mcp_definition(mcp_workspace, response(mcp, 31));
+    assert_eq!(lsp_definition, mcp_definition);
+    let declaration = lsp_definition.expect("standard-library handler definition should exist");
+    assert!(declaration.source.starts_with("veln-pkg:///std/snapshot/"));
+    assert_eq!(
+        declaration.range,
+        NormalizedRange {
+            start: NormalizedPosition {
+                line: 250,
+                column: 13,
+            },
+            end: NormalizedPosition {
+                line: 250,
+                column: 17,
+            },
+        }
+    );
+
+    let lsp_without = normalize_lsp_references_in_order(lsp_workspace, response(lsp, 44));
+    let lsp_with = normalize_lsp_references_in_order(lsp_workspace, response(lsp, 45));
+    let mcp_without = normalize_mcp_reference_pages_in_order(mcp_workspace, &[response(mcp, 32)]);
+    let mcp_with = normalize_mcp_reference_pages_in_order(
+        mcp_workspace,
+        &[response(mcp, 33), response(mcp, 34)],
+    );
+    assert_eq!(lsp_without, mcp_without);
+    assert_eq!(
+        lsp_with, lsp_without,
+        "LSP must exclude the std declaration"
+    );
+    assert_eq!(mcp_with.len(), mcp_without.len() + 1);
+    assert_eq!(
+        mcp_with
+            .iter()
+            .filter(|location| location == &&declaration)
+            .count(),
+        1
+    );
+    assert_eq!(mcp_with.last(), Some(&declaration));
 }
 
 fn assert_dependency_handler_conformance(
@@ -495,6 +544,9 @@ fn lsp_success_requests(workspace: &SavedWorkspace) -> Vec<String> {
         lsp_definition(40, &workspace.main_uri, 38, 23),
         lsp_references(41, &workspace.main_uri, 38, 23, false),
         lsp_references(42, &workspace.main_uri, 42, 23, true),
+        lsp_definition(43, &workspace.main_uri, 46, 25),
+        lsp_references(44, &workspace.main_uri, 46, 25, false),
+        lsp_references(45, &workspace.main_uri, 50, 23, true),
     ]
 }
 
@@ -625,6 +677,10 @@ fn run_mcp(workspace: &SavedWorkspace) -> Output {
         mcp_call(28, "references", r#"{"source":"main.veln","line":43,"column":24,"include_declaration":true,"page_size":1}"#),
         mcp_call(29, "references", r#"{"cursor":"$mcp_cursor:28"}"#),
         mcp_call(30, "references", r#"{"cursor":"$mcp_cursor:29"}"#),
+        mcp_call(31, "definition", r#"{"source":"main.veln","line":47,"column":26}"#),
+        mcp_call(32, "references", r#"{"source":"main.veln","line":47,"column":26,"include_declaration":false}"#),
+        mcp_call(33, "references", r#"{"source":"main.veln","line":51,"column":24,"include_declaration":true,"page_size":2}"#),
+        mcp_call(34, "references", r#"{"cursor":"$mcp_cursor:33"}"#),
     ];
     workspace.project.veln_with_interactive_mcp(
         &["mcp".to_string()],
@@ -811,7 +867,9 @@ fn source_identity(workspace: &SavedWorkspace, uri: &str) -> String {
 }
 
 fn source_text<'a>(workspace: &'a SavedWorkspace, uri: &str) -> &'a str {
-    if uri.starts_with("veln-pkg:") {
+    if uri.starts_with("veln-pkg:") && uri.ends_with("/observe.veln") {
+        include_str!("../../../veln-stdlib/veln/observe.veln")
+    } else if uri.starts_with("veln-pkg:") {
         workspace.source_text["model.veln"].as_str()
     } else {
         workspace

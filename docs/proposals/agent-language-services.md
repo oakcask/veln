@@ -16,9 +16,8 @@ The following work remains planned:
 
 - transitive-dependency navigation;
 - remaining package definition and reference symbol classes outside the
-  implemented explicit-import-alias, module immutable-value, and
-  direct-dependency handler navigation scopes and the extracted
-  standard-library handler slice;
+  implemented explicit-import-alias, module immutable-value, direct-dependency
+  handler, and standard-library handler navigation scopes;
 - other workspace symbol reference classes outside the implemented
   same-module and imported-workspace effect boundaries, the implemented
   same-module and imported-workspace effect-operation boundaries, and the
@@ -56,11 +55,6 @@ current specification page names the executable authority, the evidence
 passes independently of proposal prose, and the conformance manifest (when
 present) has no missing or orphaned mapping. This preserves the umbrella as a
 partial proposal rather than a second current-behavior specification.
-
-The independently complete standard-library handler navigation slice has
-moved to
-[Standard-Library Handler Navigation](standard-library-handler-navigation.md).
-It is not an implementation requirement for the remaining inventory.
 
 ## Non-goals
 

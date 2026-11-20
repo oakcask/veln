@@ -479,6 +479,162 @@ mod navigation_handler_references_tests {
     }
 
     #[test]
+    fn standard_library_handler_references_share_exact_and_unique_alias_identity() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use observe as trace from \"std\"\n\n",
+                "fn first() -> Int\n  handle 1 with observe::noop()\nend\n\n",
+                "fn second() -> Int\n  handle 2 with trace::noop()\nend\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "observe.veln",
+                "pub handler noop() for Observe\n  record() => 1\nend\n",
+            )],
+            ["observe.veln"],
+        ));
+
+        let exact = query_snapshot(&snapshot, "main.veln", 4, 26).unwrap();
+        let alias = query_snapshot(&snapshot, "main.veln", 8, 24).unwrap();
+        assert_eq!(
+            exact.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(
+            alias.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(exact.definition.span.file.as_str(), "observe.veln");
+        assert_eq!(alias.definition, exact.definition);
+        assert_eq!(alias.selected_symbol, exact.selected_symbol);
+        assert!(matches!(
+            exact.definition.source,
+            NavigationSource::Package { .. }
+        ));
+        let expected = [("main.veln", 4, 26), ("main.veln", 8, 24)];
+        assert_eq!(locations(&exact.references), expected);
+        assert_eq!(locations(&alias.references), expected);
+    }
+
+    #[test]
+    fn standard_library_handler_exact_module_path_wins_over_alias_collision() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use observe from \"std\"\n",
+                "use telemetry as observe from \"std\"\n\n",
+                "fn selected() -> Int\n  handle 1 with observe::noop()\nend\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[
+                (
+                    "observe.veln",
+                    "pub handler noop() for Observe\n  record() => 1\nend\n",
+                ),
+                (
+                    "telemetry.veln",
+                    "pub handler noop() for Observe\n  record() => 2\nend\n",
+                ),
+            ],
+            ["observe.veln", "telemetry.veln"],
+        ));
+
+        let selected = query_snapshot(&snapshot, "main.veln", 5, 26).unwrap();
+        assert_eq!(selected.definition.span.file.as_str(), "observe.veln");
+        assert_eq!(locations(&selected.references), [("main.veln", 5, 26)]);
+    }
+
+    #[test]
+    fn standard_library_handler_references_preserve_declaration_eligibility_guards() {
+        let cases = [
+            (
+                "private",
+                "handler noop() for Observe\n  record() => 1\nend\n",
+                vec!["observe.veln"],
+            ),
+            (
+                "unexported",
+                "pub handler noop() for Observe\n  record() => 1\nend\n",
+                Vec::new(),
+            ),
+            (
+                "invalid case",
+                "pub handler Noop() for Observe\n  record() => 1\nend\n",
+                vec!["observe.veln"],
+            ),
+            (
+                "duplicate",
+                concat!(
+                    "pub handler noop() for Observe\n  record() => 1\nend\n\n",
+                    "pub handler noop() for Observe\n  record() => 2\nend\n",
+                ),
+                vec!["observe.veln"],
+            ),
+            (
+                "recovered",
+                "pub handler noop() for Observe @\n  record() => 1\nend\n",
+                vec!["observe.veln"],
+            ),
+        ];
+
+        for (case, declaration, exports) in cases {
+            let name = if case == "invalid case" { "Noop" } else { "noop" };
+            let source_text = format!(
+                "use observe from \"std\"\n\nfn selected() -> Int\n  handle 1 with observe::{name}()\nend\n"
+            );
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)])
+                .with_standard_library(standard_library_snapshot(
+                    &[("observe.veln", declaration)],
+                    exports,
+                ));
+            assert!(
+                query_snapshot(&snapshot, "main.veln", 4, 26).is_none(),
+                "{case}"
+            );
+        }
+    }
+
+    #[test]
+    fn standard_library_handler_import_guards_keep_recovery_and_ambiguity_separate() {
+        let standard_library = || {
+            standard_library_snapshot(
+                &[(
+                    "observe.veln",
+                    "pub handler noop() for Observe\n  record() => 1\nend\n",
+                )],
+                ["observe.veln"],
+            )
+        };
+        let ambiguous = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use observe as first from \"std\"\n",
+                "use observe as second from \"std\"\n\n",
+                "fn selected() -> Int\n  handle 1 with first::noop()\nend\n",
+            ),
+        )])
+        .with_standard_library(standard_library());
+        assert!(query_snapshot(&ambiguous, "main.veln", 5, 24).is_none());
+
+        let recovered = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use observe as bad from \"std\" unexpected\n",
+                "use observe as trace from \"std\"\n\n",
+                "fn invalid() -> Int\n  handle 0 with bad::noop()\nend\n\n",
+                "fn valid() -> Int\n  handle 1 with trace::noop()\nend\n",
+            ),
+        )])
+        .with_standard_library(standard_library());
+        assert!(query_snapshot(&recovered, "main.veln", 5, 22).is_none());
+        let valid = query_snapshot(&recovered, "main.veln", 9, 24).unwrap();
+        assert_eq!(locations(&valid.references), [("main.veln", 9, 24)]);
+    }
+
+    #[test]
     fn direct_dependency_handlers_keep_exact_owners_across_captured_revisions() {
         let original = "pub handler run() for Work\n  go() => 1\nend\n";
         let changed = "\npub handler run() for Work\n  go() => 2\nend\n";
@@ -823,15 +979,10 @@ mod navigation_handler_references_tests {
             )],
             ["bridge.veln"],
         );
-        let standard = standard_library_snapshot(
-            &[("dep.veln", "pub handler run() for Work\n  go() => 3\nend\n")],
-            ["dep.veln"],
-        );
         let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
             vec![stable_package_handler_use()],
             vec![stable_package_handler(), other, bridge],
-        )
-        .with_standard_library(standard);
+        );
         let expected = query_snapshot(&snapshot, "stable.veln", 4, 22).unwrap();
         assert_eq!(locations(&expected.references), [("stable.veln", 4, 22)]);
         let ordinary_function = query_snapshot(&snapshot, "stable.veln", 8, 8).unwrap();
@@ -839,7 +990,6 @@ mod navigation_handler_references_tests {
 
         let stable_import = "use dep from \"stable/pkg\"\n";
         for (case, imports, application) in [
-            ("standard library", "use dep from \"std\"\n", "dep::run()"),
             (
                 "transitive owner",
                 "use dep from \"transitive/pkg\"\n",
