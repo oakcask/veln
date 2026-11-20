@@ -228,6 +228,27 @@ fn retained_direct_dependencies_use_the_supplied_workspace_manifest() {
 }
 
 #[test]
+fn unavailable_direct_dependencies_remain_available_to_analysis() {
+    let project = TempProject::new("unavailable-direct-dependency-analysis");
+    let manifest = parse_manifest_text(
+        "veln.toml",
+        concat!(
+            "[package]\nname = \"app\"\n\n",
+            "[dependencies.\"example/missing\"]\npath = \"vendor/missing\"\n",
+        ),
+    );
+
+    let (direct_dependencies, analysis_dependencies) =
+        capture_direct_dependencies(&project.root, &manifest);
+
+    assert!(direct_dependencies.is_empty());
+    assert_eq!(analysis_dependencies.len(), 1);
+    assert_eq!(analysis_dependencies[0].package, "example/missing");
+    assert_eq!(analysis_dependencies[0].source, "vendor/missing");
+    assert!(analysis_dependencies[0].project.is_none());
+}
+
+#[test]
 fn dependency_definition_requires_external_import_path() {
     let mut server = Server::default();
     let project = TempProject::new("dependency-import-boundary");

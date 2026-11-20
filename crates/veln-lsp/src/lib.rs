@@ -24,7 +24,7 @@ use veln_language_service::{
     navigation_result_for_rename, signature_help_at, validate_rename_in_snapshot,
 };
 use veln_project::{
-    PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
+    CapturedPackageSnapshot, PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
     capture_embedded_package_snapshot, capture_package_snapshot, parse_manifest_text,
 };
 use veln_source::{SourceFile, SourcePath};
@@ -851,32 +851,8 @@ fn capture_direct_dependencies(
     let mut analysis_dependencies = Vec::new();
     for dependency in &manifest.dependencies {
         let source = dependency_source(dependency);
-        let captured = dependency
-            .direct_analysis_source_root(root)
-            .ok()
-            .flatten()
-            .and_then(|dependency_root| {
-                let snapshot = capture_package_snapshot(&dependency_root).ok()?;
-                let manifest_text = std::str::from_utf8(snapshot.manifest_bytes()).ok()?;
-                let dependency_manifest = parse_manifest_text("veln.toml", manifest_text);
-                let dependency_project = Project {
-                    root: dependency_root,
-                    files: snapshot
-                        .sources()
-                        .iter()
-                        .map(|source| {
-                            SourceFile::new(
-                                source.path(),
-                                std::str::from_utf8(source.bytes())
-                                    .expect("captured package source text is valid UTF-8"),
-                            )
-                        })
-                        .collect(),
-                    manifest: Some(dependency_manifest),
-                };
-                Some((snapshot, dependency_project))
-            });
-        let Some((snapshot, dependency_project)) = captured else {
+        let Some((snapshot, dependency_project)) = capture_dependency_project(root, dependency)
+        else {
             analysis_dependencies.push(CapturedDependencyProject {
                 package: dependency.package.clone(),
                 source,
@@ -884,33 +860,70 @@ fn capture_direct_dependencies(
             });
             continue;
         };
+        let direct_dependency =
+            validated_direct_dependency_snapshot(dependency, snapshot, &dependency_project);
         analysis_dependencies.push(CapturedDependencyProject {
             package: dependency.package.clone(),
             source,
-            project: Some(dependency_project.clone()),
+            project: Some(dependency_project),
         });
-        let Ok(identity) = PackageIdentity::new(&dependency.package) else {
-            continue;
-        };
-        let export_diagnostics = validate_manifest_exports(&dependency_project);
-        if export_diagnostics
-            .iter()
-            .any(|diagnostic| !is_source_path_invalid_case_diagnostic(diagnostic))
-        {
-            continue;
-        }
-        let Some(dependency_manifest) = dependency_project.manifest else {
-            continue;
-        };
-        if let Ok(direct) = DirectDependencySnapshot::from_validated_manifest(
-            &identity,
-            snapshot,
-            dependency_manifest,
-        ) {
+        if let Some(direct) = direct_dependency {
             direct_dependencies.push(direct);
         }
     }
     (direct_dependencies, analysis_dependencies)
+}
+
+fn capture_dependency_project(
+    root: &Path,
+    dependency: &veln_project::ManifestDependency,
+) -> Option<(CapturedPackageSnapshot, Project)> {
+    let dependency_root = dependency
+        .direct_analysis_source_root(root)
+        .ok()
+        .flatten()?;
+    let snapshot = capture_package_snapshot(&dependency_root).ok()?;
+    let manifest_text = std::str::from_utf8(snapshot.manifest_bytes()).ok()?;
+    let manifest = parse_manifest_text("veln.toml", manifest_text);
+    let files = snapshot
+        .sources()
+        .iter()
+        .map(|source| {
+            SourceFile::new(
+                source.path(),
+                std::str::from_utf8(source.bytes())
+                    .expect("captured package source text is valid UTF-8"),
+            )
+        })
+        .collect();
+    Some((
+        snapshot,
+        Project {
+            root: dependency_root,
+            files,
+            manifest: Some(manifest),
+        },
+    ))
+}
+
+fn validated_direct_dependency_snapshot(
+    dependency: &veln_project::ManifestDependency,
+    snapshot: CapturedPackageSnapshot,
+    project: &Project,
+) -> Option<DirectDependencySnapshot> {
+    let identity = PackageIdentity::new(&dependency.package).ok()?;
+    let has_invalid_export = validate_manifest_exports(project)
+        .iter()
+        .any(|diagnostic| !is_source_path_invalid_case_diagnostic(diagnostic));
+    if has_invalid_export {
+        return None;
+    }
+    DirectDependencySnapshot::from_validated_manifest(
+        &identity,
+        snapshot,
+        project.manifest.clone()?,
+    )
+    .ok()
 }
 
 #[cfg(test)]
