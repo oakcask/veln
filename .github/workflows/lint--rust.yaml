@@ -51,9 +51,11 @@ jobs:
         with:
           tool: cargo-machete@${{ env.CARGO_MACHETE_VERSION }}
       - name: Check for unused Cargo dependencies
-        run: |
-          echo 'Remove the unused dependencies reported below to keep manifests accurate and avoid unnecessary builds. For a false positive, add a narrowly scoped cargo-machete ignore with a comment explaining why the dependency is required.'
-          cargo machete
+        id: unused-dependencies
+        run: cargo machete
+      - name: Explain how to resolve unused dependencies
+        if: failure() && steps.unused-dependencies.outcome == 'failure'
+        run: echo '::error::Remove the unused dependencies reported above to keep manifests accurate and avoid unnecessary builds. For a false positive, add a narrowly scoped cargo-machete ignore with a comment explaining why the dependency is required.'
 
   rustfmt:
     runs-on: ubuntu-latest
