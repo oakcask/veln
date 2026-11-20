@@ -139,7 +139,7 @@ fn test_scope_is_restored_and_file_inner_cfg_is_respected() {
 fn standalone_test_attributes_mark_references_as_test_only() {
     let report = analyze(&[(
         "src/lib.rs",
-        "pub fn helper() {} #[test] fn check() { helper(); }",
+        "pub fn helper() {} #[test] fn fixture_test_consumer() { helper(); }",
     )]);
     assert_eq!(names(&report), ["helper"]);
     assert_eq!(report.findings[0].evidence, "test-only-references");
