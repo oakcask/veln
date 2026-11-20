@@ -1,0 +1,13 @@
+[package]
+name = "veln-repo-unused-pub"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+proc-macro2 = { workspace = true, features = ["span-locations"] }
+serde_json.workspace = true
+syn = { workspace = true, features = ["full", "visit"] }
+
+[lints]
+workspace = true
