@@ -37,8 +37,26 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  # renovate: datasource=github-releases depName=bnjbvr/cargo-machete
+  CARGO_MACHETE_VERSION: "0.10.1"
 
 jobs:
+  unused-dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install cargo-machete
+        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2
+        with:
+          tool: cargo-machete@${{ env.CARGO_MACHETE_VERSION }}
+      - name: Check for unused Cargo dependencies
+        id: unused-dependencies
+        run: cargo machete
+      - name: Explain how to resolve unused dependencies
+        if: failure() && steps.unused-dependencies.outcome == 'failure'
+        run: echo '::error::Remove the unused dependencies reported above to keep manifests accurate and avoid unnecessary builds. For a false positive, add a narrowly scoped cargo-machete ignore with a comment explaining why the dependency is required.'
+
   rustfmt:
     runs-on: ubuntu-latest
     timeout-minutes: 5
