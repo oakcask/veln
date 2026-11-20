@@ -436,13 +436,13 @@ function buildRuntimeSource() {
 }
 
 export function runtimeSourceVariants(original) {
-  const occurrences = original.split(VIRTUAL_WORKER).length - 1;
+  const occurrences = original.split(PLATFORM_WORKER).length - 1;
   if (occurrences !== 1) {
-    throw new Error(`runtime contains ${occurrences} virtual worker constructors; expected one`);
+    throw new Error(`runtime contains ${occurrences} platform worker constructors; expected one`);
   }
   return {
-    platform: original.replace(VIRTUAL_WORKER, PLATFORM_WORKER),
-    virtual: original,
+    platform: original,
+    virtual: original.replace(PLATFORM_WORKER, VIRTUAL_WORKER),
   };
 }
 

@@ -1,6 +1,23 @@
 public final class VirtualTaskProgressHarness {
     private static Object spawn(VelnRuntime.Fn action) {
-        return VelnRuntime.taskSpawn(action);
+        try {
+            java.lang.reflect.Method method = VelnRuntime.class.getDeclaredMethod(
+                "taskSpawnWithWorkerStarter",
+                VelnRuntime.Fn.class,
+                java.util.function.Function.class
+            );
+            method.setAccessible(true);
+            return method.invoke(null, action,
+                (java.util.function.Function<java.util.concurrent.FutureTask<Object>, Thread>)
+                    Thread::startVirtualThread);
+        } catch (java.lang.reflect.InvocationTargetException failure) {
+            Throwable cause = failure.getCause();
+            if (cause instanceof RuntimeException runtimeFailure) throw runtimeFailure;
+            if (cause instanceof Error error) throw error;
+            throw new AssertionError("virtual candidate spawn failed", cause);
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError("virtual candidate spawn boundary is unavailable", failure);
+        }
     }
 
     private static Object field(Object record, String name) {
@@ -57,6 +74,6 @@ public final class VirtualTaskProgressHarness {
         if (result != 112L) {
             throw new AssertionError("candidate progress result changed: " + result);
         }
-        System.out.println("production virtual progress complete");
+        System.out.println("virtual candidate progress complete");
     }
 }

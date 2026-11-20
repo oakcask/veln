@@ -14,6 +14,12 @@ also states it.
 
 - Current behavior: [Language Specification](../specification/README.md).
 
+## Ready
+
+- Correct the JVM virtual-thread candidate and complete its D6 controlled
+  comparison: [lightweight-tasks.md](lightweight-tasks.md). Production remains
+  on platform-thread workers until every fixed adoption gate passes together.
+
 ## Design In Progress
 
 - Filesystem selection, host path conversion, shared byte IO, seek, provider

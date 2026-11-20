@@ -294,7 +294,7 @@
     }
 
     private static Thread startTaskWorker(java.util.concurrent.FutureTask<Object> future) {
-        return startTaskWorker(future, Thread::startVirtualThread);
+        return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task));
     }
 
     private static Thread startTaskWorker(
@@ -341,8 +341,6 @@
         private final long capacity;
         private long waitingSenders;
         private long waitingReceivers;
-        private final java.util.HashSet<Thread> parkedSenders;
-        private final java.util.HashSet<Thread> parkedReceivers;
         private boolean hasRendezvousValue;
         private Object rendezvousValue;
         private boolean closed;
@@ -355,8 +353,6 @@
             this.capacity = capacity;
             this.waitingSenders = 0L;
             this.waitingReceivers = 0L;
-            this.parkedSenders = new java.util.HashSet<Thread>();
-            this.parkedReceivers = new java.util.HashSet<Thread>();
             this.hasRendezvousValue = false;
             this.rendezvousValue = null;
             this.closed = false;
@@ -783,114 +779,141 @@
         return new Sender(tx.channel);
     }
 
-    private static void wakeChannelWaiters(Channel channel) {
-        for (Thread waiter : channel.parkedSenders) {
-            java.util.concurrent.locks.LockSupport.unpark(waiter);
-        }
-        for (Thread waiter : channel.parkedReceivers) {
-            java.util.concurrent.locks.LockSupport.unpark(waiter);
-        }
-        channel.notifyAll();
-    }
-
     public static Object channelSend(Object sender, Object value) {
         Sender tx = (Sender) sender;
-        Object frozen = freezeBoundaryValue(value);
-        Thread current = Thread.currentThread();
-        boolean registered = false;
-        boolean transferred = false;
-        boolean interruptedAfterTransfer = false;
-        try {
-            while (true) {
-                synchronized (tx.channel) {
-                    tx.channel.parkedSenders.remove(current);
-                    if (tx.channel.closed && !transferred) return err("closed");
-                    if (tx.channel.capacity == 0L) {
-                        if (!registered) {
-                            tx.channel.waitingSenders += 1L;
-                            registered = true;
+        synchronized (tx.channel) {
+            if (tx.channel.closed) {
+                return err("closed");
+            }
+            if (tx.channel.capacity == 0L) {
+                Object frozen = freezeBoundaryValue(value);
+                tx.channel.waitingSenders += 1L;
+                try {
+                    while (!tx.channel.closed
+                        && (tx.channel.waitingReceivers == 0L
+                            || tx.channel.hasRendezvousValue)) {
+                        try {
+                            tx.channel.wait();
+                        } catch (InterruptedException interrupted) {
+                            throwTaskCancellationIfRequested();
+                            Thread.currentThread().interrupt();
+                            return err("interrupted");
                         }
-                        if (!transferred && tx.channel.waitingReceivers > 0L
-                                && !tx.channel.hasRendezvousValue) {
-                            tx.channel.rendezvousValue = frozen;
-                            tx.channel.hasRendezvousValue = true;
-                            transferred = true;
-                            wakeChannelWaiters(tx.channel);
-                        }
-                        if (transferred && !tx.channel.hasRendezvousValue) {
-                            if (interruptedAfterTransfer) current.interrupt();
-                            return ok(UNIT);
-                        }
-                    } else if (tx.channel.queue.size() < tx.channel.capacity) {
-                        tx.channel.queue.addLast(frozen);
-                        wakeChannelWaiters(tx.channel);
-                        return ok(UNIT);
-                    } else if (!registered) {
-                        tx.channel.waitingSenders += 1L;
-                        registered = true;
                     }
-                    tx.channel.parkedSenders.add(current);
-                }
-                java.util.concurrent.locks.LockSupport.park();
-                if (Thread.interrupted()) {
-                    throwTaskCancellationIfRequested();
-                    if (transferred) {
-                        interruptedAfterTransfer = true;
-                    } else {
-                        return err("interrupted");
+                    if (tx.channel.closed) {
+                        return err("closed");
                     }
+                    tx.channel.rendezvousValue = frozen;
+                    tx.channel.hasRendezvousValue = true;
+                    tx.channel.notifyAll();
+                    boolean interruptedAfterTransfer = false;
+                    while (tx.channel.hasRendezvousValue) {
+                        try {
+                            tx.channel.wait();
+                        } catch (InterruptedException interrupted) {
+                            throwTaskCancellationIfRequested();
+                            interruptedAfterTransfer = true;
+                        }
+                    }
+                    if (interruptedAfterTransfer) {
+                        Thread.currentThread().interrupt();
+                    }
+                    return ok(UNIT);
+                } finally {
+                    tx.channel.waitingSenders -= 1L;
                 }
             }
-        } finally {
-            synchronized (tx.channel) {
-                tx.channel.parkedSenders.remove(current);
-                if (registered) tx.channel.waitingSenders -= 1L;
+            if (tx.channel.queue.size() >= tx.channel.capacity) {
+                tx.channel.waitingSenders += 1L;
+                try {
+                    while (!tx.channel.closed
+                        && tx.channel.queue.size() >= tx.channel.capacity) {
+                        try {
+                            tx.channel.wait();
+                        } catch (InterruptedException interrupted) {
+                            throwTaskCancellationIfRequested();
+                            Thread.currentThread().interrupt();
+                            return err("interrupted");
+                        }
+                    }
+                } finally {
+                    tx.channel.waitingSenders -= 1L;
+                }
             }
+            if (tx.channel.closed) {
+                return err("closed");
+            }
+            tx.channel.queue.addLast(freezeBoundaryValue(value));
+            if (tx.channel.waitingReceivers > 0L) {
+                tx.channel.notifyAll();
+            }
+            return ok(UNIT);
         }
     }
 
     public static Object channelRecv(Object receiver) {
         Receiver rx = (Receiver) receiver;
-        Thread current = Thread.currentThread();
-        boolean registered = false;
-        try {
-            while (true) {
-                synchronized (rx.channel) {
-                    rx.channel.parkedReceivers.remove(current);
-                    if (!registered) {
-                        rx.channel.waitingReceivers += 1L;
-                        registered = true;
-                        wakeChannelWaiters(rx.channel);
-                    }
-                    if (rx.channel.capacity == 0L && rx.channel.hasRendezvousValue) {
-                        Object value = rx.channel.rendezvousValue;
-                        rx.channel.rendezvousValue = null;
-                        rx.channel.hasRendezvousValue = false;
-                        wakeChannelWaiters(rx.channel);
-                        return some(value);
-                    }
-                    if (rx.channel.capacity > 0L) {
-                        Object value = rx.channel.queue.pollFirst();
-                        if (value != null) {
-                            wakeChannelWaiters(rx.channel);
-                            return some(value);
+        synchronized (rx.channel) {
+            if (rx.channel.capacity == 0L) {
+                rx.channel.waitingReceivers += 1L;
+                if (rx.channel.waitingReceivers == 1L
+                    && rx.channel.waitingSenders > 0L
+                    && !rx.channel.hasRendezvousValue) {
+                    rx.channel.notifyAll();
+                }
+                boolean interruptedAfterTransfer = false;
+                try {
+                    while (!rx.channel.hasRendezvousValue && !rx.channel.closed) {
+                        try {
+                            rx.channel.wait();
+                        } catch (InterruptedException interrupted) {
+                            throwTaskCancellationIfRequested();
+                            if (!rx.channel.hasRendezvousValue) {
+                                Thread.currentThread().interrupt();
+                                return none();
+                            }
+                            interruptedAfterTransfer = true;
                         }
                     }
-                    if (rx.channel.closed) return none();
-                    rx.channel.parkedReceivers.add(current);
-                }
-                java.util.concurrent.locks.LockSupport.park();
-                if (Thread.interrupted()) {
-                    throwTaskCancellationIfRequested();
-                    current.interrupt();
-                    return none();
+                    if (!rx.channel.hasRendezvousValue) {
+                        return none();
+                    }
+                    Object value = rx.channel.rendezvousValue;
+                    rx.channel.rendezvousValue = null;
+                    rx.channel.hasRendezvousValue = false;
+                    rx.channel.notifyAll();
+                    if (interruptedAfterTransfer) {
+                        Thread.currentThread().interrupt();
+                    }
+                    return some(value);
+                } finally {
+                    rx.channel.waitingReceivers -= 1L;
                 }
             }
-        } finally {
-            synchronized (rx.channel) {
-                rx.channel.parkedReceivers.remove(current);
-                if (registered) rx.channel.waitingReceivers -= 1L;
+            if (rx.channel.queue.isEmpty() && !rx.channel.closed) {
+                rx.channel.waitingReceivers += 1L;
+                try {
+                    while (rx.channel.queue.isEmpty() && !rx.channel.closed) {
+                        try {
+                            rx.channel.wait();
+                        } catch (InterruptedException interrupted) {
+                            throwTaskCancellationIfRequested();
+                            Thread.currentThread().interrupt();
+                            return none();
+                        }
+                    }
+                } finally {
+                    rx.channel.waitingReceivers -= 1L;
+                }
             }
+            Object value = rx.channel.queue.pollFirst();
+            if (value == null) {
+                return none();
+            }
+            if (rx.channel.waitingSenders > 0L) {
+                rx.channel.notifyAll();
+            }
+            return some(value);
         }
     }
 
@@ -1017,7 +1040,7 @@
                     synchronized (channel) {
                         channel.waitingReceivers += 1L;
                         registered[i] = true;
-                        wakeChannelWaiters(channel);
+                        channel.notifyAll();
                     }
                 }
             }
@@ -1058,7 +1081,7 @@
                     Channel channel = receivers[i].channel;
                     synchronized (channel) {
                         channel.waitingReceivers -= 1L;
-                        wakeChannelWaiters(channel);
+                        channel.notifyAll();
                     }
                 }
             }
@@ -1087,14 +1110,14 @@
                     value = rx.channel.rendezvousValue;
                     rx.channel.rendezvousValue = null;
                     rx.channel.hasRendezvousValue = false;
-                    wakeChannelWaiters(rx.channel);
+                    rx.channel.notifyAll();
                     return some(record("index", Long.valueOf(index), "value", value));
                 }
                 return rx.channel.closed ? SELECT_CLOSED : SELECT_PENDING;
             }
             value = rx.channel.queue.pollFirst();
             if (value != null) {
-                wakeChannelWaiters(rx.channel);
+                rx.channel.notifyAll();
                 return some(record("index", Long.valueOf(index), "value", value));
             }
             return rx.channel.closed ? SELECT_CLOSED : SELECT_PENDING;
@@ -1105,7 +1128,7 @@
         Sender tx = (Sender) sender;
         synchronized (tx.channel) {
             tx.channel.closed = true;
-            wakeChannelWaiters(tx.channel);
+            tx.channel.notifyAll();
         }
         return UNIT;
     }

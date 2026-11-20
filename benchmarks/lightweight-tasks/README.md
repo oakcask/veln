@@ -1,8 +1,8 @@
 # JVM lightweight-task adoption benchmark
 
 `result.json` is the checked controlled comparison between the current JVM
-virtual-thread worker and a platform-thread baseline built from the same runtime
-source. Baseline preparation changes only the worker constructor. The
+platform-thread worker and a virtual-thread candidate built from the same runtime
+source. Candidate preparation changes only the worker constructor. The
 artifact records the two source digests, fixed workload identity, raw samples,
 summaries, diagnostics, and every adoption verdict.
 
@@ -54,7 +54,8 @@ bash scripts/benchmark-lightweight-tasks --check \
 ```
 
 Validation rebuilds the current generated JVM runtime, derives the controlled
-platform-thread baseline, and verifies both source digests. It also recomputes
+virtual-thread candidate, and verifies both source digests. It also recomputes
 all summaries and adoption gates from the stored raw samples before accepting
-the artifact. JVM CI runs this validation. A checked artifact with a reproduced
-failed adoption verdict returns a nonzero status and names the failed gates.
+the artifact. A checked artifact with a reproduced failed adoption verdict
+returns a nonzero status and names the failed gates; this preserves measured
+blocking evidence without presenting it as adoption success.

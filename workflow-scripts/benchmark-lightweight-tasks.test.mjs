@@ -89,7 +89,7 @@ function measuredSample(variant, run) {
 }
 
 function passingArtifact() {
-  const runtime = "before return startTaskWorker(future, Thread::startVirtualThread); after";
+  const runtime = "before return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task)); after";
   const expectedIdentity = benchmarkIdentityForRuntime(runtime, "harness-digest");
   const samples = [];
   for (let run = 1; run <= 7; run += 1) {
@@ -325,14 +325,14 @@ test("compares corresponding platform and virtual functional outcomes", () => {
   assert.equal(verdict.gates.functional_outcomes_equal_between_variants, false);
 });
 
-test("derives a one-constructor platform baseline from virtual production", () => {
-  const runtime = "before return startTaskWorker(future, Thread::startVirtualThread); after";
+test("derives a one-constructor virtual candidate", () => {
+  const runtime = "before return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task)); after";
   const variants = runtimeSourceVariants(runtime);
+  assert.equal(variants.platform, runtime);
   assert.equal(
-    variants.platform,
-    "before return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task)); after",
+    variants.virtual,
+    "before return startTaskWorker(future, Thread::startVirtualThread); after",
   );
-  assert.equal(variants.virtual, runtime);
   assert.throws(
     () => runtimeSourceVariants(`${runtime} ${runtime}`),
     /expected one/,

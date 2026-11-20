@@ -329,10 +329,9 @@ literal zero divisor is rejected during analysis instead, as specified by
 
 ## Lightweight task execution and invocation lifetime
 
-The JVM starts one unpooled virtual thread for each admitted Veln task. Logical
-task cancellation and handler state belong to that worker. Waiting tasks unmount
-from carrier threads while supported waits are pending. The non-daemon platform
-entry launcher keeps the invocation alive until its task lifetime closes.
+The JVM currently starts one unpooled non-daemon platform thread for each
+admitted Veln task. Logical task cancellation and handler state belong to that
+worker thread. A waiting task retains its platform thread until the wait ends.
 
 Each run entry and each reusable test entry owns a distinct task lifetime. The
 entry launcher is a non-daemon platform thread and remains alive until the
@@ -369,21 +368,17 @@ between concurrent tasks is unspecified. A later test invocation cannot inherit
 children, cancellation state, or handler frames from the closed lifetime.
 
 The runtime retains the existing channel monitor, polling select,
-per-operation socket selector, and bounded DNS-worker algorithms. Carrier
-threads, polling CPU, descriptors, selectors, native host calls, and
-continuously runnable CPU jobs remain resource and scheduling limits rather
-than new fairness promises.
-
-The checked lightweight-task adoption benchmark compares the virtual-thread
-production worker with a platform-thread baseline derived by changing only the
-worker constructor. Its fixed parked-task, channel, select, loopback,
-CPU-saturation, and reclamation workloads pass the functional, allocation,
-resource, cost, latency, retained-state, and complete-noise gates together.
-JVM CI rebuilds both runtime variants and revalidates the checked artifact.
+per-operation socket selector, and bounded DNS-worker algorithms. Platform
+threads, polling CPU, descriptors, selectors, and continuously runnable CPU
+jobs remain resource and scheduling limits rather than new fairness promises.
+The lightweight-task adoption benchmark compares the platform-thread production
+worker with an equivalent virtual-thread candidate under the fixed parked-task,
+channel, select, loopback, CPU-saturation, and reclamation workloads. The
+controlled comparison remains proposal-owned until its corrected functional,
+resource, cost, latency, reclamation, and noise gates all pass together with
+the independent carrier-progress and production-lifecycle checks. The route at
 `benchmarks/lightweight-tasks/README.md` defines the controlled collection and
-artifact-validation commands. The benchmark thresholds apply only to that
-named workload and host-controlled comparison; they are not general latency or
-fairness guarantees.
+artifact-validation commands.
 
 ## Cleanup limits
 
@@ -964,7 +959,7 @@ than degrading it to a generic rendered result value.
   injected worker-start failure and requires the failed spawn to settle without
   preventing the lifetime from closing. It is in
   `crates/veln-backend-jvm/src/tests/runtime_integration.rs`.
-- The same runtime integration suite checks production virtual threads with
+- The same runtime integration suite checks the virtual-thread candidate with
   one and two carriers. Each schedule combines channel rendezvous, a full
   bounded channel, timer waits, and nested task joins. JVM CI runs these
   carrier-progress checks together with the focused production lifetime,
