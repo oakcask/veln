@@ -53,6 +53,7 @@ reclamation before cost gates are evaluated.
 | Bounded runner | Each JVM has a 512 MiB heap, a 4 GiB externally observed RSS ceiling, and a 180 second limit. |
 | Samples and noise | Every governed metric has a range no greater than 20% of its median. A timeout, allocation failure, or inconclusive metric blocks adoption. |
 | Waiting-task allocation | Park 256, 1,024, 4,096, and 16,384 tasks with carrier parallelism and maximum pool size fixed to two. Candidate OS-thread growth from 256 to 16,384 is at most eight, and 16,384 completes. |
+| Carrier progress | With candidate carrier parallelism and maximum pool size fixed first to one and then to two, finite channel rendezvous and full-buffer schedules that include timer waits and nested task joins complete within the bounded harness timeout. |
 | Common-population cost | At 1,024 tasks both variants complete. Candidate median peak RSS does not exceed production, and candidate worker OS threads are at most one quarter of production. |
 | Runtime cost | Channel and loopback throughput are at least 80% of production. Their delivery-latency p95 medians are at most 125% of production under the fixed offered load. |
 | Reclamation | Ten batches of 1,024 completed and released tasks leave the last five live-heap samples within 10% of their median, zero completed registrations, and zero retained released owners. |

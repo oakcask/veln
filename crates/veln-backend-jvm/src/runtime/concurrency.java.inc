@@ -66,17 +66,13 @@
                     state = TaskLifetimeState.DRAINING;
                 } else {
                     state = TaskLifetimeState.CANCELLING;
-                    java.util.ArrayList<TaskFuture> claimed =
-                        new java.util.ArrayList<TaskFuture>();
+                    cancellationTargets = new java.util.ArrayList<TaskFuture>(incomplete);
                     // Claim cancellation while the lifetime lock still defines the
                     // registered-job snapshot. Completion and cancellation then
                     // select one outcome atomically for each task.
-                    for (TaskFuture task : incomplete) {
-                        if (task.requestCancellation()) {
-                            claimed.add(task);
-                        }
+                    for (TaskFuture task : cancellationTargets) {
+                        task.requestCancellation();
                     }
-                    cancellationTargets = claimed;
                 }
                 closeWhenEmpty();
             }

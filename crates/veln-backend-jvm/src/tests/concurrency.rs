@@ -453,6 +453,52 @@ end
 }
 
 #[test]
+fn failed_entry_reports_cleanup_from_an_already_cancelled_child_when_java_is_available() {
+    let ir = lower_to_ir(
+        r#"fn should_not_start() -> () effects [stdio]
+    stdio::println("unexpected child")
+end
+fn wait_for_cancel(entered: Sender<()>) -> () effects [concurrency, stdio, time]
+    begin
+        defer
+            time::timeout_ms(250)
+            stdio::println("cleanup")
+            let _ = task::spawn(should_not_start)
+        end
+        let _ = channel::send(entered, ())
+        let waiting = channel::bounded<()>(0)
+        let _ = channel::recv(waiting.rx)
+        ()
+    end
+end
+pub fn main() -> Result<(), String> effects [concurrency, stdio, time]
+    let entered = channel::bounded<()>(1)
+    let child = task::spawn_with(wait_for_cancel, entered.tx)
+    let _ = channel::recv(entered.rx)
+    task::cancel(child)
+    Err("entry failed")
+end
+"#,
+    );
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "failed-entry-already-cancelled-child-cleanup",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "cleanup\n");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "Err(entry failed)\nrelated cleanup failure: task lifetime is closed\n"
+    );
+}
+
+#[test]
 fn platform_workers_run_channel_timer_and_join_peers_when_java_is_available() {
     let ir = lower_to_ir(
         r#"fn send_after_wait(sender: Sender<String>) -> String effects [concurrency, time]
