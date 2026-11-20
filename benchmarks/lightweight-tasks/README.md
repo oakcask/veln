@@ -17,6 +17,17 @@ population is being created and while that population is fully parked. The
 1,024-task observations own the common-population gates; the 256-task and
 16,384-task observations own the candidate OS-thread growth gate.
 
+The channel workloads also record non-gating p95 diagnostics for the
+producer-to-relay handoff, relay processing, and relay-to-consumer handoff.
+They localize a failed end-to-end latency gate without changing the governed
+workload or adoption budgets. To collect one discarded run of each variant and
+print only those channel diagnostics, run:
+
+```sh
+VELN_AGENT_TIMEOUT=900 VELN_AGENT_MEMORY_MB=32768 \
+  bash scripts/agent-run bash scripts/benchmark-lightweight-tasks --diagnostic-only
+```
+
 Run the controlled collection from the repository root with:
 
 ```sh

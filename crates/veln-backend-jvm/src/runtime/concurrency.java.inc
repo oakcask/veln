@@ -54,6 +54,8 @@
         private java.util.List<Throwable> finish(boolean succeeded) {
             java.util.List<TaskFuture> cancellationTargets =
                 java.util.Collections.<TaskFuture>emptyList();
+            java.util.List<TaskFuture> cleanupTargets =
+                java.util.Collections.<TaskFuture>emptyList();
             synchronized (this) {
                 if (state != TaskLifetimeState.RUNNING) {
                     throw new IllegalStateException("task lifetime already finished");
@@ -67,11 +69,15 @@
                 } else {
                     state = TaskLifetimeState.CANCELLING;
                     cancellationTargets = new java.util.ArrayList<TaskFuture>(incomplete);
+                    cleanupTargets = new java.util.ArrayList<TaskFuture>();
                     // Claim cancellation while the lifetime lock still defines the
                     // registered-job snapshot. Completion and cancellation then
                     // select one outcome atomically for each task.
                     for (TaskFuture task : cancellationTargets) {
                         task.requestCancellation();
+                        if (task.cancellationClaimed()) {
+                            cleanupTargets.add(task);
+                        }
                     }
                 }
                 closeWhenEmpty();
@@ -90,7 +96,7 @@
                 Thread.currentThread().interrupt();
             }
             java.util.ArrayList<Throwable> related = new java.util.ArrayList<Throwable>();
-            for (TaskFuture task : cancellationTargets) {
+            for (TaskFuture task : cleanupTargets) {
                 try {
                     task.get();
                 } catch (InterruptedException waitingInterrupted) {
@@ -226,6 +232,10 @@
                 return true;
             }
             return false;
+        }
+
+        private boolean cancellationClaimed() {
+            return cancellation.cancellationClaimed();
         }
 
         private void rollbackStart() {

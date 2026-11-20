@@ -663,11 +663,23 @@ async function main() {
   const temporary = mkdtempSync(join(tmpdir(), "veln-lightweight-task-benchmark-"));
   try {
     const variants = prepareVariants(temporary, runtimeSource);
+    const warmups = {};
     for (const variant of ["platform", "virtual"]) {
       const warmup = await runSample(variant, "warmup", variants[variant].directory);
       if (warmup.status !== "passed") {
         throw new Error(`${variant} warm-up failed: ${warmup.stderr || warmup.stdout}`);
       }
+      warmups[variant] = warmup;
+    }
+    if (process.argv.includes("--diagnostic-only")) {
+      console.log(JSON.stringify(Object.fromEntries(["platform", "virtual"].map((variant) => [
+        variant,
+        {
+          rendezvous_channel: warmups[variant].result.workload.rendezvous_channel,
+          bounded_channel: warmups[variant].result.workload.bounded_channel,
+        },
+      ])), null, 2));
+      return;
     }
     if (process.argv.includes("--warmup-only")) {
       console.log("warm-ups passed");

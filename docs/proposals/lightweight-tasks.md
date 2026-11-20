@@ -35,6 +35,21 @@ required by the retained channel implementation. Native calls and other host
 operations can still occupy carriers. The proposal does not promise universal
 nonblocking host calls or bounded CPU-task fairness.
 
+## Alternatives And Related Work
+
+| Alternative and inspected source | Finding and applicability | Design consequence |
+| --- | --- | --- |
+| Keep platform workers | The current runtime creates one OS-backed worker for every task, including waiting tasks. | Retain this implementation as the controlled comparison baseline. It keeps the allocation limit that this proposal addresses. |
+| Use a fixed platform-worker pool | With Veln's synchronous blocking calls, every worker can wait for children or channel peers that have no worker available. This is an inference from the current implementation, not a measured prototype result. | A fixed pool alone does not meet the finite-progress requirement. A pool alternative needs a separate suspension mechanism with its own evidence. |
+| Use Java virtual threads: [JEP 444](https://openjdk.org/jeps/444), [JEP 491](https://openjdk.org/jeps/491), the [JDK thread model](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Thread.html), and the [virtual-thread guide](https://docs.oracle.com/en/java/javase/25/core/virtual-threads.html) | Virtual threads retain sequential Java stacks while the JDK multiplexes waiting tasks. JEP 491 covers the monitor suspension used by Veln channels. Native calls and other host work can still occupy carriers. Virtual threads are daemon threads. | This is the selected JVM mechanism. Invocation lifetime must keep the platform entry launcher alive, and the D6 comparison must establish the project-specific cost before adoption. |
+| Use Go-style runtime scheduling: [runtime implementation guidance](https://github.com/golang/go/blob/go1.24.0/src/runtime/HACKING.md) and [runtime release notes](https://go.dev/doc/go1.14#runtime) | Go owns goroutine stacks, OS-thread scheduling, and asynchronous preemption. Those mechanisms are properties of the Go runtime and compiler, not evidence about the measured JVM candidate. | Retain lightweight multiplexing as the goal. Do not promise Go-equivalent CPU fairness or import its stack machinery into synchronous JVM calls. |
+| Lower tasks to async state machines: [Tokio task documentation](https://docs.rs/tokio/1.54.1/tokio/task/) | Tokio tasks schedule cooperatively, blocking work needs separate treatment, and started blocking jobs generally cannot be aborted. This differs from Veln's synchronous execution and cooperative cancellation model. | Keep this as a possible future-backend design. It would require specified suspension across calls, handlers, cleanup, and host effects; it is not a substitute for correcting the selected JVM candidate. |
+
+The controlled comparison measures only the platform-worker baseline and the
+one-constructor virtual-thread candidate. Its failed latency result is not
+evidence for or against the unmeasured pool, Go-runtime, or async-state-machine
+alternatives.
+
 ## Controlled Comparison
 
 Compare a platform-thread production build and a virtual-thread candidate built
@@ -68,10 +83,20 @@ A functional or resource failure still fails its corresponding gate.
 ## Current Blocking Evidence
 
 The corrected comparison remains failed. The stable rendezvous-channel p95
-medians are 85,209 ns for production and 143,714 ns for the candidate. The
-stable bounded-channel medians are 58,957 ns and 112,054 ns. Both candidate
+medians are 86,314 ns for production and 145,113 ns for the candidate. The
+stable bounded-channel medians are 60,179 ns and 112,641 ns. Both candidate
 ratios exceed the fixed 125% ceiling. The complete noise rule is also
 inconclusive because several governed metrics exceed their allowed range.
+
+The same fixed pipeline records non-gating stage diagnostics. The median
+producer-to-relay and relay-to-consumer p95 values are 42,952 ns and 43,814 ns
+for the production rendezvous case, compared with 73,206 ns and 72,938 ns for
+the candidate. The bounded case records 30,028 ns and 29,984 ns for production,
+compared with 59,503 ns and 55,519 ns for the candidate. Relay processing is
+about 200 ns for both variants. This localizes the measured difference to both
+monitor handoffs instead of the relay body. It does not distinguish monitor
+reacquisition from carrier dispatch, and it does not justify changing the
+fixed workload or the retained channel algorithm.
 
 The same artifact passes the allocation, common-population, throughput,
 loopback latency, loopback resource, reclamation, CPU-saturation cancellation,

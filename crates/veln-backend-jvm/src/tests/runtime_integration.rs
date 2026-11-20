@@ -1,5 +1,32 @@
 use super::*;
 
+const PLATFORM_TASK_WORKER: &str =
+    "return startTaskWorker(future, task -> Thread.ofPlatform().daemon(false).start(task));";
+const VIRTUAL_TASK_WORKER: &str = "return startTaskWorker(future, Thread::startVirtualThread);";
+
+fn run_compiled_java_harness(
+    root: &std::path::Path,
+    name: &str,
+    class_name: &str,
+    env: &[(&str, &str)],
+    jvm_args: &[&str],
+) -> std::process::Output {
+    let mut command = Command::new("java");
+    command
+        .args(jvm_args)
+        .arg("-cp")
+        .arg(root)
+        .arg(class_name)
+        .current_dir(root)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    for (key, value) in env {
+        command.env(key, value);
+    }
+    let child = command.spawn().expect("Java harness should run");
+    wait_for_test_child(child, name, std::time::Duration::from_secs(30))
+}
+
 fn run_java_runtime_harness(
     name: &str,
     source_name: &str,
@@ -45,20 +72,39 @@ fn run_java_runtime_harness_with_options(
     let class_name = source_name
         .strip_suffix(".java")
         .expect("Java harness source should end in .java");
-    let mut command = Command::new("java");
-    command
-        .args(jvm_args)
-        .arg("-cp")
-        .arg(&root)
-        .arg(class_name)
+    let output = run_compiled_java_harness(&root, name, class_name, env, jvm_args);
+
+    let platform_runtime = include_str!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime.java"));
+    assert_eq!(
+        platform_runtime.matches(PLATFORM_TASK_WORKER).count(),
+        1,
+        "generated runtime should have one production worker constructor"
+    );
+    let virtual_runtime = platform_runtime.replace(PLATFORM_TASK_WORKER, VIRTUAL_TASK_WORKER);
+    fs::write(root.join("VelnRuntime.java"), virtual_runtime)
+        .expect("virtual candidate runtime source should be written");
+    let candidate_compiled = Command::new("javac")
+        .args(["--release", "25", "VelnRuntime.java"])
         .current_dir(&root)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    for (key, value) in env {
-        command.env(key, value);
-    }
-    let child = command.spawn().expect("Java harness should run");
-    let output = wait_for_test_child(child, name, std::time::Duration::from_secs(30));
+        .output()
+        .expect("candidate javac should run");
+    assert!(
+        candidate_compiled.status.success(),
+        "candidate javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
+        candidate_compiled.status.code(),
+        String::from_utf8_lossy(&candidate_compiled.stdout),
+        String::from_utf8_lossy(&candidate_compiled.stderr)
+    );
+    let candidate_output = run_compiled_java_harness(
+        &root,
+        &format!("{name}-virtual-candidate"),
+        class_name,
+        env,
+        jvm_args,
+    );
+    assert_eq!(candidate_output.status.success(), output.status.success());
+    assert_eq!(candidate_output.stdout, output.stdout);
+    assert_eq!(candidate_output.stderr, output.stderr);
     let _ = fs::remove_dir_all(&root);
     output
 }
@@ -132,9 +178,10 @@ fn task_completion_wins_a_later_cancellation_claim_atomically() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "completion won cancellation race\n"
+        "ordinary completion stayed out of lifetime cleanup\ncompletion won cancellation race\n"
     );
 }
 

@@ -45,11 +45,23 @@ public final class LightweightTaskBenchmark {
         final double throughput;
         final long p95Nanos;
         final long checksum;
+        final long producerToRelayP95Nanos;
+        final long relayProcessingP95Nanos;
+        final long relayToConsumerP95Nanos;
 
         TimedWorkload(double throughput, long p95Nanos, long checksum) {
+            this(throughput, p95Nanos, checksum, -1L, -1L, -1L);
+        }
+
+        TimedWorkload(double throughput, long p95Nanos, long checksum,
+                long producerToRelayP95Nanos, long relayProcessingP95Nanos,
+                long relayToConsumerP95Nanos) {
             this.throughput = throughput;
             this.p95Nanos = p95Nanos;
             this.checksum = checksum;
+            this.producerToRelayP95Nanos = producerToRelayP95Nanos;
+            this.relayProcessingP95Nanos = relayProcessingP95Nanos;
+            this.relayToConsumerP95Nanos = relayToConsumerP95Nanos;
         }
     }
 
@@ -236,11 +248,16 @@ public final class LightweightTaskBenchmark {
         Object rxTwo = VelnRuntime.recordField(channelTwo, "rx");
         long[] latencies = new long[operations];
         long[] submitted = new long[operations];
+        long[] relayReceived = new long[operations];
+        long[] relaySending = new long[operations];
+        long[] consumerReceived = new long[operations];
         long started = System.nanoTime();
         VelnRuntime.beginTaskLifetime();
         Object relay = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored -> {
             for (int index = 0; index < operations; index += 1) {
                 Object received = VelnRuntime.channelRecv(rxOne);
+                relayReceived[index] = System.nanoTime();
+                relaySending[index] = System.nanoTime();
                 VelnRuntime.channelSend(txTwo, VelnRuntime.optionValue(received));
             }
             return Long.valueOf(operations);
@@ -250,6 +267,7 @@ public final class LightweightTaskBenchmark {
             for (int index = 0; index < operations; index += 1) {
                 long received = ((Long) VelnRuntime.optionValue(
                     VelnRuntime.channelRecv(rxTwo))).longValue();
+                consumerReceived[index] = System.nanoTime();
                 requireSequence(index, received);
                 latencies[index] = System.nanoTime() - submitted[index];
                 sum += received;
@@ -264,8 +282,17 @@ public final class LightweightTaskBenchmark {
         VelnRuntime.finishTaskLifetime(true);
         long checksum = resultLong(VelnRuntime.taskJoin(relay)) + resultLong(VelnRuntime.taskJoin(consumer));
         long elapsed = System.nanoTime() - started;
+        long[] producerToRelay = new long[operations];
+        long[] relayProcessing = new long[operations];
+        long[] relayToConsumer = new long[operations];
+        for (int index = 0; index < operations; index += 1) {
+            producerToRelay[index] = relayReceived[index] - submitted[index];
+            relayProcessing[index] = relaySending[index] - relayReceived[index];
+            relayToConsumer[index] = consumerReceived[index] - relaySending[index];
+        }
         return new TimedWorkload(operations * 1_000_000_000.0 / elapsed,
-            percentile95(latencies), checksum);
+            percentile95(latencies), checksum, percentile95(producerToRelay),
+            percentile95(relayProcessing), percentile95(relayToConsumer));
     }
 
     private static SelectSample runIdleSelect() throws Exception {
@@ -625,7 +652,15 @@ public final class LightweightTaskBenchmark {
     }
 
     private static String timedJson(TimedWorkload sample) {
-        return "{\"throughput_per_second\":" + sample.throughput
-            + ",\"latency_p95_nanos\":" + sample.p95Nanos + "}";
+        String json = "{\"throughput_per_second\":" + sample.throughput
+            + ",\"latency_p95_nanos\":" + sample.p95Nanos;
+        if (sample.producerToRelayP95Nanos >= 0L) {
+            json += ",\"handoff_diagnostics\":{"
+                + "\"producer_to_relay_p95_nanos\":" + sample.producerToRelayP95Nanos
+                + ",\"relay_processing_p95_nanos\":" + sample.relayProcessingP95Nanos
+                + ",\"relay_to_consumer_p95_nanos\":" + sample.relayToConsumerP95Nanos
+                + "}";
+        }
+        return json + "}";
     }
 }
