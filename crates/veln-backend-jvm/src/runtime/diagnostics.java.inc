@@ -31,6 +31,21 @@
         primary.addSuppressed(diagnostic);
     }
 
+    private static void attachFlattenedCleanupFailures(
+        Throwable primary,
+        java.util.List<Throwable> failures
+    ) {
+        java.util.Set<Throwable> existing = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<Throwable, Boolean>()
+        );
+        existing.addAll(cleanupRelatedFailures(primary));
+        for (Throwable failure : failures) {
+            if (existing.add(failure)) {
+                primary.addSuppressed(new CleanupDiagnostic(failure.getMessage()));
+            }
+        }
+    }
+
     private static void emitTaskLifetimeCleanupFailures(
         java.util.List<Throwable> related
     ) {

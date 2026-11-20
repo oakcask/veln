@@ -214,9 +214,7 @@
         if (related == null) {
             return;
         }
-        for (Throwable failure : related) {
-            attachCleanupFailure(primary, failure);
-        }
+        attachFlattenedCleanupFailures(primary, related);
     }
 
     public static void printTaskLifetimeFailures() {
