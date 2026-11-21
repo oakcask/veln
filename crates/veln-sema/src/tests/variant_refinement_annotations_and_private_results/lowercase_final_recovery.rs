@@ -616,59 +616,19 @@ fn generic_combined_casing_preserves_independent_base_failure() {
 
 #[test]
 fn unresolved_generic_bases_use_name_resolution_for_lowercase_and_uppercase_finals() {
-    for source in [
-        "fn rejected(value: Missing<Int>::lower) -> ()\n  ()\nend\n",
-        "fn rejected(value: Missing<Int>::Lower) -> ()\n  ()\nend\n",
-    ] {
-        let parsed = parse(&SourceFile::new("main.veln", source));
-        if source.contains("::lower") {
-            assert_eq!(parsed.diagnostics.len(), 1, "{:#?}", parsed.diagnostics);
-            assert!(parsed.diagnostics[0].allows_semantic_analysis());
-        } else {
-            assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-        }
-        let module = lower_surface_ast(&parsed.tree);
-        let environment = TypeEnvironment::from_module(&module);
-        assert_eq!(
-            environment
-                .function("rejected")
-                .expect("unresolved declaration keeps its symbol")
-                .params,
-            [Type::Unknown]
-        );
-
-        let diagnostics = analyze_surface_module(&module);
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.id.as_str())
-                .collect::<Vec<_>>(),
-            ["name.unresolved"],
-            "{diagnostics:#?}"
-        );
-        let unresolved = &diagnostics[0];
-        assert_eq!(unresolved.message, "unresolved type `Missing`");
-        let span = unresolved.span.as_ref().expect("unresolved base span");
-        assert_eq!(&source[span.start.offset..span.end.offset], "Missing");
-        assert_eq!(
-            unresolved.details.to_json(),
-            concat!(
-                "{\"phase\":\"name\",\"node_id\":null,",
-                "\"symbol\":\"Missing\",\"namespace\":\"type\",",
-                "\"resolution_status\":\"unresolved\",\"candidates\":[]}"
-            )
-        );
-    }
+    assert_unresolved_base_uses_name_resolution("Missing<Int>");
 }
 
 #[test]
 fn unresolved_non_generic_bases_use_name_resolution_for_lowercase_and_uppercase_finals() {
-    for source in [
-        "fn rejected(value: Missing::lower) -> ()\n  ()\nend\n",
-        "fn rejected(value: Missing::Lower) -> ()\n  ()\nend\n",
-    ] {
-        let parsed = parse(&SourceFile::new("main.veln", source));
-        if source.contains("::lower") {
+    assert_unresolved_base_uses_name_resolution("Missing");
+}
+
+fn assert_unresolved_base_uses_name_resolution(base: &str) {
+    for final_segment in ["lower", "Lower"] {
+        let source = format!("fn rejected(value: {base}::{final_segment}) -> ()\n  ()\nend\n");
+        let parsed = parse(&SourceFile::new("main.veln", &source));
+        if final_segment == "lower" {
             assert_eq!(parsed.diagnostics.len(), 1, "{:#?}", parsed.diagnostics);
             assert_eq!(parsed.diagnostics[0].id, "parse.variant_refinement_type");
             assert!(parsed.diagnostics[0].allows_semantic_analysis());
