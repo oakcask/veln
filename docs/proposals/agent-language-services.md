@@ -6,9 +6,13 @@ update-when: The remaining package-navigation, workspace-symbol-reference, recov
 # Agent Language Services
 
 This umbrella records only the unimplemented follow-up work for language
-services. The implemented workspace, direct-dependency, and standard-library
-navigation behavior is specified by [Editor Support](../specification/editor-support.md)
-and [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md).
+services. Current specifications describe the implemented workspace and
+direct-dependency navigation behavior plus standard-library handler selection
+and adapter projection: [Editor Support](../specification/editor-support.md) and
+[MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md).
+The remaining standard-library handler matrices stay in the focused
+[Standard-Library Handler Navigation](standard-library-handler-navigation.md)
+proposal.
 
 ## Remaining scope
 
@@ -17,7 +21,8 @@ The following work remains planned:
 - transitive-dependency navigation;
 - remaining package definition and reference symbol classes outside the
   implemented explicit-import-alias, module immutable-value, direct-dependency
-  handler, and standard-library handler navigation scopes;
+  handler, and standard-library handler selection and adapter-projection
+  scopes;
 - other workspace symbol reference classes outside the implemented
   same-module and imported-workspace effect boundaries, the implemented
   same-module and imported-workspace effect-operation boundaries, and the
