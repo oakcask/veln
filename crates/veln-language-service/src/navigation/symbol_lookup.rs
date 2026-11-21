@@ -1230,18 +1230,21 @@ impl SchemaAliasModuleImports {
                 .or_default()
                 .insert(identity.clone());
         }
-        let handler_duplicate_key = (import.module.clone(), import.package.clone());
+        let handler_identity = canonical_handler_external_identity(&import.module, &import.package);
+        let handler_duplicate_key = handler_identity.clone();
         if import.syntax_valid
             && handler_duplicate_counts.get(&handler_duplicate_key) == Some(&1)
         {
-            self.handler_external_imports_by_module
-                .entry(import.module)
-                .or_default()
-                .insert(identity.clone());
+            for exact_path in handler_external_exact_paths(&import.module, &import.package) {
+                self.handler_external_imports_by_module
+                    .entry(exact_path)
+                    .or_default()
+                    .insert(handler_identity.clone());
+            }
             self.handler_external_imports_by_alias
                 .entry(import.alias)
                 .or_default()
-                .insert(identity);
+                .insert(handler_identity);
         }
     }
 
@@ -1259,11 +1262,28 @@ impl SchemaAliasModuleImports {
     }
 
     fn valid_handler_external_route(&self, qualifier: &str) -> Option<(String, String)> {
-        if self.external_imports_by_module.contains_key(qualifier) {
+        if self
+            .handler_external_imports_by_module
+            .contains_key(qualifier)
+        {
             return unique_external_route(
                 self.handler_external_imports_by_module.get(qualifier)?,
                 None,
             );
+        }
+        let (alias, suffix) = split_import_qualifier(qualifier);
+        unique_external_route(self.handler_external_imports_by_alias.get(alias)?, suffix)
+    }
+
+    fn valid_handler_external_alias_route_after_blocked(
+        &self,
+        qualifier: &str,
+    ) -> Option<(String, String)> {
+        if self
+            .handler_external_imports_by_module
+            .contains_key(qualifier)
+        {
+            return None;
         }
         let (alias, suffix) = split_import_qualifier(qualifier);
         unique_external_route(self.handler_external_imports_by_alias.get(alias)?, suffix)
@@ -1344,10 +1364,33 @@ fn handler_import_duplicate_counts(
         .filter(|import| import.syntax_valid)
         .fold(BTreeMap::new(), |mut counts, import| {
             *counts
-                .entry((import.module.clone(), import.package.clone()))
+                .entry(canonical_handler_external_identity(
+                    &import.module,
+                    &import.package,
+                ))
                 .or_default() += 1;
             counts
         })
+}
+
+fn canonical_handler_external_identity(module: &str, package: &str) -> (String, String) {
+    let module = if package == "std" && !module.starts_with("std::") {
+        format!("std::{module}")
+    } else {
+        module.to_string()
+    };
+    (module, package.to_string())
+}
+
+fn handler_external_exact_paths(module: &str, package: &str) -> BTreeSet<String> {
+    let (canonical_module, _) = canonical_handler_external_identity(module, package);
+    let mut paths = BTreeSet::from([module.to_string(), canonical_module.clone()]);
+    if package == "std"
+        && let Some(relative) = canonical_module.strip_prefix("std::")
+    {
+        paths.insert(relative.to_string());
+    }
+    paths
 }
 
 fn split_import_qualifier(qualifier: &str) -> (&str, Option<&str>) {

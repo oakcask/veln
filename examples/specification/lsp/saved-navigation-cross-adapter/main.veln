@@ -50,3 +50,7 @@ end
 fn second_standard_handler() -> Int
   handle 2 with trace::noop()
 end
+
+fn canonical_standard_handler() -> Int
+  handle 3 with std::observe::noop()
+end

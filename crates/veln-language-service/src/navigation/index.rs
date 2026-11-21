@@ -585,15 +585,30 @@ impl SymbolIndex {
                             if target.consumed_segments != qualifier_segments.len() {
                                 return None;
                             }
-                            let (module, package) = self
+                            let mut resolved =
+                                resolved_qualified_module_identity(target, &qualifier_segments);
+                            if resolved.package.as_deref() == Some("std")
+                                && !resolved.module.starts_with("std::")
+                            {
+                                resolved.module = format!("std::{}", resolved.module);
+                            }
+                            let (eligible_module, eligible_package) = self
                                 .schema_alias_module_imports
                                 .get(&file.module)?
                                 .valid_handler_external_route(qualifier)?;
+                            if resolved.module != eligible_module
+                                || resolved.package.as_deref() != Some(eligible_package.as_str())
+                            {
+                                return None;
+                            }
+                            let package = resolved
+                                .package
+                                .expect("resolved external handler import has a package");
                             let package_origin = handler_package_origin(&package);
                             (
                                 Some(package),
                                 Some(package_origin),
-                                module,
+                                resolved.module,
                                 name.to_string(),
                             )
                         }
@@ -607,7 +622,19 @@ impl SymbolIndex {
                                 | QualifiedWorkspaceModule::Unresolved => return None,
                             }
                         }
-                        QualifiedImportResolution::Blocked => return None,
+                        QualifiedImportResolution::Blocked => {
+                            let (module, package) = self
+                                .schema_alias_module_imports
+                                .get(&file.module)?
+                                .valid_handler_external_alias_route_after_blocked(qualifier)?;
+                            let package_origin = handler_package_origin(&package);
+                            (
+                                Some(package),
+                                Some(package_origin),
+                                module,
+                                name.to_string(),
+                            )
+                        }
                     }
                 } else {
                     match self.effect_qualified_workspace_module(file, qualifier) {
@@ -627,8 +654,20 @@ impl SymbolIndex {
                                 name.to_string(),
                             )
                         }
-                        QualifiedWorkspaceModule::Ambiguous
-                        | QualifiedWorkspaceModule::Unresolved => return None,
+                        QualifiedWorkspaceModule::Unresolved => {
+                            let (module, package) = self
+                                .schema_alias_module_imports
+                                .get(&file.module)?
+                                .valid_handler_external_route(qualifier)?;
+                            let package_origin = handler_package_origin(&package);
+                            (
+                                Some(package),
+                                Some(package_origin),
+                                module,
+                                name.to_string(),
+                            )
+                        }
+                        QualifiedWorkspaceModule::Ambiguous => return None,
                     }
                 }
             }

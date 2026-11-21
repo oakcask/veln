@@ -119,6 +119,19 @@ fn assert_standard_library_handler_conformance(
             },
         },
         NormalizedLocation {
+            source: "main.veln".to_string(),
+            range: NormalizedRange {
+                start: NormalizedPosition {
+                    line: 55,
+                    column: 31,
+                },
+                end: NormalizedPosition {
+                    line: 55,
+                    column: 35,
+                },
+            },
+        },
+        NormalizedLocation {
             source: "other.veln".to_string(),
             range: NormalizedRange {
                 start: NormalizedPosition {
@@ -580,8 +593,8 @@ fn lsp_success_requests(workspace: &SavedWorkspace) -> Vec<String> {
         lsp_definition(40, &workspace.main_uri, 38, 23),
         lsp_references(41, &workspace.main_uri, 38, 23, false),
         lsp_references(42, &workspace.main_uri, 42, 23, true),
-        lsp_definition(43, &workspace.main_uri, 46, 25),
-        lsp_references(44, &workspace.main_uri, 46, 25, false),
+        lsp_definition(43, &workspace.main_uri, 54, 30),
+        lsp_references(44, &workspace.main_uri, 54, 30, false),
         lsp_references(45, &workspace.main_uri, 50, 23, true),
     ]
 }
@@ -713,9 +726,9 @@ fn run_mcp(workspace: &SavedWorkspace) -> Output {
         mcp_call(28, "references", r#"{"source":"main.veln","line":43,"column":24,"include_declaration":true,"page_size":1}"#),
         mcp_call(29, "references", r#"{"cursor":"$mcp_cursor:28"}"#),
         mcp_call(30, "references", r#"{"cursor":"$mcp_cursor:29"}"#),
-        mcp_call(31, "definition", r#"{"source":"main.veln","line":47,"column":26}"#),
-        mcp_call(32, "references", r#"{"source":"main.veln","line":47,"column":26,"include_declaration":false}"#),
-        mcp_call(33, "references", r#"{"source":"main.veln","line":51,"column":24,"include_declaration":true,"page_size":2}"#),
+        mcp_call(31, "definition", r#"{"source":"main.veln","line":55,"column":31}"#),
+        mcp_call(32, "references", r#"{"source":"main.veln","line":55,"column":31,"include_declaration":false}"#),
+        mcp_call(33, "references", r#"{"source":"main.veln","line":51,"column":24,"include_declaration":true,"page_size":4}"#),
         mcp_call(34, "references", r#"{"cursor":"$mcp_cursor:33"}"#),
     ];
     workspace.project.veln_with_interactive_mcp(

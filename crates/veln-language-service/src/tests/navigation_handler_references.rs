@@ -536,6 +536,56 @@ mod navigation_handler_references_tests {
     }
 
     #[test]
+    fn standard_library_handler_references_normalize_all_import_and_selection_spellings() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "relative.veln",
+                concat!(
+                    "use observe as trace from \"std\"\n\n",
+                    "fn relative() -> Int\n  handle 1 with observe::noop()\nend\n\n",
+                    "fn canonical() -> Int\n  handle 2 with std::observe::noop()\nend\n\n",
+                    "fn aliased() -> Int\n  handle 3 with trace::noop()\nend\n",
+                ),
+            ),
+            source(
+                "canonical.veln",
+                concat!(
+                    "use std::observe as trace from \"std\"\n\n",
+                    "fn relative() -> Int\n  handle 4 with observe::noop()\nend\n\n",
+                    "fn canonical() -> Int\n  handle 5 with std::observe::noop()\nend\n\n",
+                    "fn aliased() -> Int\n  handle 6 with trace::noop()\nend\n",
+                ),
+            ),
+        ])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "observe.veln",
+                "pub handler noop() for Observe\n  record() => 1\nend\n",
+            )],
+            ["observe.veln"],
+        ));
+
+        let expected = [
+            ("canonical.veln", 4, 26),
+            ("canonical.veln", 8, 31),
+            ("canonical.veln", 12, 24),
+            ("relative.veln", 4, 26),
+            ("relative.veln", 8, 31),
+            ("relative.veln", 12, 24),
+        ];
+        for (path, line, column) in expected {
+            let selected = query_snapshot(&snapshot, path, line, column)
+                .unwrap_or_else(|| panic!("missing selection at {path}:{line}:{column}"));
+            assert_eq!(
+                selected.selected_symbol.package_origin,
+                Some(PackageOrigin::StandardLibrary)
+            );
+            assert_eq!(selected.definition.span.file.as_str(), "observe.veln");
+            assert_eq!(locations(&selected.references), expected);
+        }
+    }
+
+    #[test]
     fn standard_library_handler_exact_module_path_wins_over_alias_collision() {
         let snapshot = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
@@ -649,6 +699,30 @@ mod navigation_handler_references_tests {
         assert!(query_snapshot(&recovered, "main.veln", 5, 22).is_none());
         let valid = query_snapshot(&recovered, "main.veln", 9, 24).unwrap();
         assert_eq!(locations(&valid.references), [("main.veln", 9, 24)]);
+
+        let recovered_exact = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use net from \"std\" unexpected\n",
+                "use observe as net from \"std\"\n\n",
+                "fn selected() -> Int\n  handle 1 with net::noop()\nend\n",
+            ),
+        )])
+        .with_standard_library(standard_library());
+        let selected = query_snapshot(&recovered_exact, "main.veln", 5, 22).unwrap();
+        assert_eq!(selected.definition.span.file.as_str(), "observe.veln");
+        assert_eq!(locations(&selected.references), [("main.veln", 5, 22)]);
+
+        let canonical_duplicate = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use observe as first from \"std\"\n",
+                "use std::observe as second from \"std\"\n\n",
+                "fn selected() -> Int\n  handle 1 with first::noop()\nend\n",
+            ),
+        )])
+        .with_standard_library(standard_library());
+        assert!(query_snapshot(&canonical_duplicate, "main.veln", 5, 24).is_none());
     }
 
     #[test]

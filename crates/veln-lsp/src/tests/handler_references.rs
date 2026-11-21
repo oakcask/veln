@@ -155,7 +155,8 @@ fn standard_library_handler_navigation_server() -> (TempProject, String, Server)
             "use observe as trace from \"std\"\n\n",
             "fn first() -> Int\n  handle 1 with observe::noop()\nend\n\n",
             "fn second() -> Int\n  handle 2 with trace::noop()\nend\n\n",
-            "fn private() -> Int\n  handle 3 with observe::hidden()\nend\n",
+            "fn canonical() -> Int\n  handle 3 with std::observe::noop()\nend\n\n",
+            "fn private() -> Int\n  handle 4 with observe::hidden()\nend\n",
         ),
     );
     let root_uri = path_to_uri(&project.root);
@@ -184,27 +185,29 @@ fn assert_standard_library_handler_alias_and_references(
 ) {
     let alias_definition = server.handle_message(&definition_request(main_uri, 7, 23));
     assert_eq!(alias_definition, definition);
+    let canonical_definition = server.handle_message(&definition_request(main_uri, 11, 30));
+    assert_eq!(canonical_definition, definition);
     for include_declaration in [false, true] {
         let references = server.handle_message(&references_request_with_declaration(
             main_uri,
-            7,
-            23,
+            11,
+            30,
             include_declaration,
         ));
         assert_eq!(references.len(), 1);
-        assert_eq!(references[0].matches(&format!(r#""uri":"{main_uri}""#)).count(), 2);
+        assert_eq!(references[0].matches(&format!(r#""uri":"{main_uri}""#)).count(), 3);
         assert!(!references[0].contains("veln-pkg:"), "{}", references[0]);
     }
 }
 
 fn assert_ineligible_standard_library_handler_is_empty(server: &mut Server, main_uri: &str) {
     assert_eq!(
-        server.handle_message(&definition_request(main_uri, 11, 25)),
+        server.handle_message(&definition_request(main_uri, 15, 25)),
         [response("2", "null")]
     );
     assert_eq!(
         server.handle_message(&references_request_with_declaration(
-            main_uri, 11, 25, true,
+            main_uri, 15, 25, true,
         )),
         [response("2", "[]")]
     );

@@ -7,3 +7,7 @@ end
 fn second() -> Int
   handle 2 with trace::noop()
 end
+
+fn canonical() -> Int
+  handle 3 with std::observe::noop()
+end
