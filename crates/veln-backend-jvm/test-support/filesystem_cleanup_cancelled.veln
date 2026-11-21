@@ -1,0 +1,59 @@
+use io from "std"
+use io_provider from "std"
+use io_lifecycle_test_support_test as lifecycle
+
+# Backend contract: cancellation keeps its classification through task join,
+# after every captured source-provider closer has run in reverse publication order.
+fn failure(message: String) -> io::Error
+	{operation: "close", kind: io::ErrorKind::Other, path: None, other_path: None, network: None, commit: None, message: message}
+end
+
+fn allocate_one(owner: io_provider::Owner, slot: Int, cell: io_provider::State<lifecycle::State>) -> Result<(), String> effects [concurrency]
+	match lifecycle::resource(owner, slot, cell)
+		Ok(_) => Ok(())
+		Err(error) => Err(error.message)
+	end
+end
+
+fn body(context: {cell: io_provider::State<lifecycle::State>, ready: Sender<String>, gate: Receiver<String>}) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let _ = allocate_one(owner, 1, context.cell)?
+	let _ = allocate_one(owner, 2, context.cell)?
+	let _ = allocate_one(owner, 3, context.cell)?
+	let _ = channel::send(context.ready, "ready")
+	let _ = channel::recv(context.gate)
+	Err("cancelled body continued")
+end
+
+fn worker(context: {cell: io_provider::State<lifecycle::State>, ready: Sender<String>, gate: Receiver<String>}) -> Result<(), String> effects [concurrency]
+	handle body(context) with io_provider::scope()
+end
+
+fn slots(events: List<lifecycle::CloseEvent>) -> String
+	match events
+		Nil => ""
+		Cons(lifecycle::CloseEvent(slot, _, _), rest) => string::concat(int_to_string(slot), slots(rest))
+	end
+end
+
+pub fn main() -> Result<(), JoinError> effects [concurrency, stdio]
+	let steps = Cons(lifecycle::CloseStep(3, io::CloseOutcome::CloseFailed(io::Commit::No, failure("third release")), false), Cons(lifecycle::CloseStep(2, io::CloseOutcome::CloseFailed(io::Commit::Unknown, failure("second release")), true), Cons(lifecycle::CloseStep(1, io::CloseOutcome::Closed, true), Nil)))
+	let cell = io_provider::state(lifecycle::initial(steps))
+	let ready = channel::bounded<String>(1)
+	let gate = channel::bounded<String>(0)
+	let task = task::spawn_with(worker, {cell: cell, ready: ready.tx, gate: gate.rx})
+	let _ = channel::recv(ready.rx)
+	task::cancel(task)
+	let joined = task::join(task)
+	let _ = match lifecycle::snapshot(cell)
+		lifecycle::State(_, _, closes, _) => stdio::println(slots(list_reverse(closes)))
+	end
+	match joined
+		Ok(_) => Ok(())
+		Err(error) => if task::join_error_is_cancelled(error)
+			Err(error)
+		else
+			Ok(())
+		end
+	end
+end

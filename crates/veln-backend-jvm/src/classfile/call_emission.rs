@@ -198,7 +198,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         let try_end = code.mark();
         let result_slot = self.alloc_local();
         code.astore(result_slot);
-        self.emit_pop_handler(code);
+        self.emit_pop_handler_with_result(code, result_slot);
         let done = code.new_label();
         code.branch_to(0xa7, done);
         self.emit_handler_unwind(code, try_start, try_end);
@@ -241,6 +241,16 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             &self.program.options.runtime_class,
             "popHandler",
             "()Ljava/lang/Object;",
+        );
+        code.op(0x57);
+    }
+
+    pub(super) fn emit_pop_handler_with_result(&mut self, code: &mut MethodCode, result: u16) {
+        code.aload(result);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "popHandlerWithResult",
+            "(Ljava/lang/Object;)Ljava/lang/Object;",
         );
         code.op(0x57);
     }

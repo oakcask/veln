@@ -1,0 +1,216 @@
+use fs as api from "std"
+use io from "std"
+use path as portable from "std"
+use io_provider from "std"
+use io_provider_test_support_test as memory
+
+# Backend/host contract: explicit selection reaches real FileChannels under a
+# separate working directory; Rust observes the resulting native bytes and
+# namespace. API permutations are covered by the companion filesystem tests.
+fn failure(message: String) -> io::Error
+	{operation: "host-fixture", kind: io::ErrorKind::Other, path: None, other_path: None, network: None, commit: None, message: message}
+end
+
+fn name(text: String) -> Result<portable::Path, io::Error>
+	match portable::parse(text)
+		Ok(value) => Ok(value)
+		Err(_) => Err(failure("invalid fixture name"))
+	end
+end
+
+fn bytes(text: String) -> Result<ByteChunk, io::Error>
+	match byte_chunk_from_visible_ascii_string(text)
+		Ok(value) => Ok(value)
+		Err(_) => Err(failure("invalid fixture bytes"))
+	end
+end
+
+fn count(raw: Int) -> Result<ByteCount, io::Error>
+	match byte_count(raw)
+		Ok(value) => Ok(value)
+		Err(_) => Err(failure("invalid fixture count"))
+	end
+end
+
+fn offset(raw: Int) -> Result<ByteOffset, io::Error>
+	match byte_offset(raw)
+		Ok(value) => Ok(value)
+		Err(_) => Err(failure("invalid fixture offset"))
+	end
+end
+
+fn written(outcome: io::WriteOutcome, expected: Int) -> Result<(), io::Error>
+	match outcome
+		io::WriteOutcome::Written(actual) => if byte_count_to_int(actual) == expected
+			Ok(())
+		else
+			Err(failure("host write count differs from committed bytes"))
+		end
+		io::WriteOutcome::WriteFailed(_, error) => Err(error)
+	end
+end
+
+fn applied(outcome: api::MutationOutcome) -> Result<(), io::Error>
+	match outcome
+		api::MutationOutcome::Applied => Ok(())
+		api::MutationOutcome::MutationFailed(_, error) => Err(error)
+	end
+end
+
+fn entry_names(entries: List<api::Entry>) -> String
+	match entries
+		Nil => ""
+		Cons(entry, rest) => string::concat(string::concat(portable::text(entry.name), ";"), entry_names(rest))
+	end
+end
+
+fn exercise(filesystem: api::MutableFilesystem) -> Result<(), io::Error> effects [api::Read, api::Mutate, io::Read, io::Write, io::Seek, io::WriteAt, io::Sync, io::Close, process]
+	let readonly = api::read_only(filesystem)
+	let file: api::UpdateFile = api::open_read_write(filesystem, name("data")?, {create: api::CreateMode::Existing, truncate: false})?
+	let _ = io::seek(file.seeker, io::SeekOrigin::Start(offset(1)?))?
+	let _ = written(io::write_at(file.writer_at, offset(1)?, bytes("XY")?), 2)?
+	let cursor = io::seek(file.seeker, io::SeekOrigin::Current(0))?
+	let read_back: String = match io::read(file.reader, count(2)?)
+		io::ReadOutcome::Data(observed) => match byte_chunk_to_visible_ascii_string(observed)
+			Ok(text) => Ok(text)
+			Err(_) => Err(failure("host read returned invalid fixture bytes"))
+		end
+		_ => Err(failure("host positional write was not observable"))
+	end?
+	let _ = applied(api::truncate(file.truncater, offset(2)?))?
+	let clamped = io::seek(file.seeker, io::SeekOrigin::Current(0))?
+	let new: api::WriteFile = api::open_write(filesystem, name("new")?, {create: api::CreateMode::CreateNew, truncate: false})?
+	let _ = written(io::write_all(new.writer, bytes("hello")?), 5)?
+	let _ = io::sync(new.syncer)?
+	let renamed = match api::rename(filesystem, name("data")?, name("destination")?)
+		api::MutationOutcome::MutationFailed(io::Commit::No, error) => match error.kind
+			io::ErrorKind::Unsupported => match error.path
+				Some(source) => match error.other_path
+					Some(target) => portable::text(source) == "data" and portable::text(target) == "destination"
+					None => false
+				end
+				None => false
+			end
+			_ => false
+		end
+		_ => false
+	end
+	let entries: List<api::Entry> = api::entries(readonly, portable::root())?
+	let metadata: api::Metadata = api::metadata(readonly, name("new")?, api::FollowLinks::Follow)?
+	let length = match metadata.length
+		Some(value) => byte_count_to_int(value)
+		None => -1
+	end
+	let expected_entries: String = vec_fold(process::args(), "", last_argument)
+	if byte_offset_to_int(cursor) == 1 and read_back == "XY" and byte_offset_to_int(clamped) == 2 and length == 5 and renamed and entry_names(entries) == expected_entries
+		Ok(())
+	else
+		Err(failure("real host state differs from the selected file and namespace"))
+	end
+end
+
+fn last_argument(previous: String, argument: String) -> String
+	argument
+end
+
+fn root_argument(previous: String, argument: String) -> String
+	if previous == ""
+		argument
+	else
+		previous
+	end
+end
+
+pub fn main() -> Result<(), io::Error> effects [fs, concurrency, process, stdio]
+	let root = api::native_path(vec_fold(process::args(), "", root_argument))?
+	let _ = api::with_system(root, exercise)?
+	stdio::println("real filesystem boundary verified")
+	Ok(())
+end
+
+fn exercise_removals(filesystem: api::MutableFilesystem) -> Result<(), io::Error> effects [api::Mutate, io::Read, io::Write, io::Seek]
+	let _ = applied(api::create_directory(filesystem, name("ephemeral")?))?
+	let original: api::UpdateFile = api::open_read_write(filesystem, name("ephemeral/held")?, {create: api::CreateMode::CreateNew, truncate: false})?
+	let _ = written(io::write_all(original.writer, bytes("old")?), 3)?
+	let _ = applied(api::remove_file(filesystem, name("ephemeral/held")?))?
+	let replacement: api::WriteFile = api::open_write(filesystem, name("ephemeral/held")?, {create: api::CreateMode::CreateNew, truncate: false})?
+	let _ = written(io::write_all(replacement.writer, bytes("new")?), 3)?
+	let _ = io::seek(original.seeker, io::SeekOrigin::Start(offset(0)?))?
+	let retained = match io::read(original.reader, count(3)?)
+		io::ReadOutcome::Data(observed) => match byte_chunk_to_visible_ascii_string(observed)
+			Ok(text) => text == "old"
+			Err(_) => false
+		end
+		_ => false
+	end
+	let _ = applied(api::remove_file(filesystem, name("ephemeral/held")?))?
+	let _ = applied(api::remove_directory(filesystem, name("ephemeral")?))?
+	if retained
+		Ok(())
+	else
+		Err(failure("an open host file switched to a replacement directory binding"))
+	end
+end
+
+fn exercise_links(filesystem: api::MutableFilesystem) -> Result<(), io::Error> effects [api::Read, api::Mutate, io::Read]
+	let readonly = api::read_only(filesystem)
+	let link: api::Metadata = api::metadata(readonly, name("link")?, api::FollowLinks::NoFollow)?
+	let target: api::Metadata = api::metadata(readonly, name("link")?, api::FollowLinks::Follow)?
+	let is_link = match link.kind
+		api::Kind::SymbolicLink => match link.length
+			None => true
+			Some(_) => false
+		end
+		_ => false
+	end
+	let target_length = match target.length
+		Some(length) => byte_count_to_int(length)
+		None => -1
+	end
+	let file: api::ReadFile = api::open_read(readonly, name("link")?)?
+	let escaped = match io::read(file.reader, count(6)?)
+		io::ReadOutcome::Data(observed) => match byte_chunk_to_visible_ascii_string(observed)
+			Ok(text) => text == "escape"
+			Err(_) => false
+		end
+		_ => false
+	end
+	let exclusive = match api::open_append(filesystem, name("dangling")?, api::CreateMode::CreateNew)
+		Err(error) => match error.kind
+			io::ErrorKind::AlreadyExists => true
+			_ => false
+		end
+		Ok(_) => false
+	end
+	if is_link and target_length == 6 and escaped and exclusive
+		Ok(())
+	else
+		Err(failure("host link traversal was confined, followed final metadata, or replaced an existing link"))
+	end
+end
+
+fn exercise_memory_copy(filesystem: api::MutableFilesystem) -> Result<(), io::Error> effects [api::Read, io::Read, io::Write, io::Close, io_provider::Scope, concurrency]
+	let source: api::ReadFile = api::open_read(api::read_only(filesystem), name("data")?)?
+	let owner = io_provider::owner()
+	let cell = io_provider::state(memory::initial(byte_chunk([])))
+	let target: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = memory::memory(owner, 10000, cell)?
+	let copied = match io::copy(source.reader, target.writer, count(2)?)
+		io::CopyOutcome::Copied(actual) => byte_count_to_int(actual) == 4
+		_ => false
+	end
+	let closed = match io::close(target.closer)
+		io::CloseOutcome::Closed => true
+		_ => false
+	end
+	let exact = match memory::snapshot(cell)
+		memory::MemoryState(_, output, reads, writes, closes) => match byte_chunk_to_visible_ascii_string(output)
+			Ok(text) => text == "abcd" and reads == 0 and writes == 2 and closes == 1
+			Err(_) => false
+		end
+	end
+	if copied and closed and exact
+		Ok(())
+	else
+		Err(failure("real file to Veln memory copy lost provider routing or byte progress"))
+	end
+end

@@ -579,6 +579,19 @@
         return UNIT;
     }
 
+    public static Object popHandlerWithResult(Object result) {
+        java.util.List<HandlerFrame> stack = HANDLERS.get();
+        boolean providerScope = stack.get(stack.size() - 1).ioOwner != null;
+        try {
+            return popHandler();
+        } catch (RuntimeException | Error failure) {
+            if (providerScope && result instanceof Result && !((Result) result).isOk()) {
+                attachCleanupFailure(failure, new RuntimeFailure("prior ordinary error: " + format(result)));
+            }
+            throw failure;
+        }
+    }
+
     private static HandlerFrame currentHandlerFrame() {
         HandlerFrame frame = INVOKED_HANDLER.get();
         if (frame == null) throw new IllegalStateException("network system intrinsic used outside a handler operation");

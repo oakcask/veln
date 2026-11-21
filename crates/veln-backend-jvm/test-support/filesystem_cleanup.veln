@@ -8,6 +8,11 @@ fn failure(message: String) -> io::Error
 	{operation: "close", kind: io::ErrorKind::Other, path: None, other_path: None, network: None, commit: None, message: message}
 end
 
+fn reject(value: Bool) -> ()
+require value
+	()
+end
+
 fn allocate_one(owner: io_provider::Owner, slot: Int, cell: io_provider::State<lifecycle::State>) -> Result<(), String> effects [concurrency]
 	match lifecycle::resource(owner, slot, cell)
 		Ok(_) => Ok(())

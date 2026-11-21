@@ -53,6 +53,7 @@
 
     private static final class IoProviderOwner {
         private boolean closing;
+        private long nextHostSlot;
         private final java.util.List<IoProviderResource> resources = new java.util.ArrayList<>();
         private final java.util.Set<Long> slots = new java.util.HashSet<>();
     }
@@ -62,16 +63,18 @@
         private final long slot;
         private final String family;
         private final java.util.Map<String, HandlerFrame> handlers;
+        private final Object host;
         private boolean closed;
         private boolean unavailable;
         private boolean busy;
         private boolean closing;
 
-        private IoProviderResource(IoProviderOwner owner, long slot, String family, java.util.Map<String, HandlerFrame> handlers) {
+        private IoProviderResource(IoProviderOwner owner, long slot, String family, java.util.Map<String, HandlerFrame> handlers, Object host) {
             this.owner = owner;
             this.slot = slot;
             this.family = family;
             this.handlers = handlers;
+            this.host = host;
         }
     }
 
@@ -97,19 +100,25 @@
         return err(ioError(operation, kind, kind));
     }
 
-    public static Object ioProviderNativePath(Object value) {
-        String text = asString(value);
+    private static String ioNativeTextError(String text) {
         for (int index = 0; index < text.length(); index++) {
             char unit = text.charAt(index);
-            if (unit == 0) return ioProviderFailure("native_path", "InvalidInput");
+            if (unit == 0) return "InvalidInput";
             if (Character.isHighSurrogate(unit)) {
                 if (++index == text.length() || !Character.isLowSurrogate(text.charAt(index))) {
-                    return ioProviderFailure("native_path", "UnrepresentablePath");
+                    return "UnrepresentablePath";
                 }
             } else if (Character.isLowSurrogate(unit)) {
-                return ioProviderFailure("native_path", "UnrepresentablePath");
+                return "UnrepresentablePath";
             }
         }
+        return null;
+    }
+
+    public static Object ioProviderNativePath(Object value) {
+        String text = asString(value);
+        String invalidKind = ioNativeTextError(text);
+        if (invalidKind != null) return ioProviderFailure("native_path", invalidKind);
         try {
             return ok(pathValue(java.nio.file.Paths.get(text)));
         } catch (java.nio.file.InvalidPathException invalid) {
@@ -180,6 +189,10 @@
     }
 
     private static Object ioProviderRegister(Object ownerValue, Object slotValue, String family) {
+        return ioProviderRegister(ownerValue, slotValue, family, null);
+    }
+
+    private static Object ioProviderRegister(Object ownerValue, Object slotValue, String family, Object host) {
         if (!(ownerValue instanceof IoProviderOwner)) return ioProviderFailure("register", "InvalidResource");
         IoProviderOwner owner = (IoProviderOwner) ownerValue;
         long slot = asLong(slotValue);
@@ -197,7 +210,7 @@
             }
             captured.put(capability, frame);
         }
-        IoProviderResource resource = new IoProviderResource(owner, slot, family, captured);
+        IoProviderResource resource = new IoProviderResource(owner, slot, family, captured, host);
         synchronized (owner) {
             if (!owner.closing) {
                 if (!owner.slots.add(slot)) return ioProviderFailure("register", "InvalidResource");
@@ -261,11 +274,13 @@
     }
 
     private static Object ioProviderCloseResource(IoProviderResource resource) {
+        boolean previouslyUnavailable;
         synchronized (resource.owner) {
             if (resource.closed) return adt("CloseOutcome::Closed", new Object[] {});
             if (resource.closing) {
                 return adt("CloseOutcome::CloseFailed", new Object[] {adt("Commit::No", new Object[] {}), ioError("close", "Busy", "close is already active")});
             }
+            previouslyUnavailable = resource.unavailable;
             resource.closing = true;
             resource.unavailable = true;
         }
@@ -291,7 +306,7 @@
                 || isAdt(outcome, "CloseOutcome::CloseFailed") && isAdt(adtPayload(outcome, 0), "Commit::Yes")) {
                 resource.closed = true;
             } else if (isAdt(outcome, "CloseOutcome::CloseFailed") && isAdt(adtPayload(outcome, 0), "Commit::No")) {
-                resource.unavailable = false;
+                resource.unavailable = previouslyUnavailable;
             }
         }
         return outcome;

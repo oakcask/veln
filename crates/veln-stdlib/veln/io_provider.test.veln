@@ -476,3 +476,43 @@ test child_retaining_an_alias_does_not_extend_its_owner_lifetime() -> Result<(),
 		end
 	end
 end
+
+fn uncertain_retry_body(owner: io_provider::Owner, cell: io_provider::State<lifecycle::State>) -> Result<(), String> effects [io::Read, io::Close, concurrency]
+	let resource: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = match lifecycle::resource(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	let uncertain = match io::close(resource.closer)
+		io::CloseOutcome::CloseFailed(io::Commit::Unknown, _) => true
+		_ => false
+	end
+	let retry_no = match io::close(resource.closer)
+		io::CloseOutcome::CloseFailed(io::Commit::No, _) => true
+		_ => false
+	end
+	let still_unavailable = closed_read(io::read(resource.reader, byte_count(1)?))
+	let finally_closed = released(io::close(resource.closer))
+	if uncertain and retry_no and still_unavailable and finally_closed
+		Ok(())
+	else
+		Err("a non-releasing retry cleared an earlier unknown release state")
+	end
+end
+
+fn uncertain_retry_scope(cell: io_provider::State<lifecycle::State>) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	handle handle uncertain_retry_body(owner, cell) with lifecycle::reader(owner, cell) with lifecycle::closer(owner, cell)
+end
+
+test close_retry_no_cannot_clear_an_earlier_unknown_release() -> Result<(), String> effects [concurrency]
+	let steps = Cons(lifecycle::CloseStep(1, io::CloseOutcome::CloseFailed(io::Commit::Unknown, lifecycle::failure("close")), false), Cons(lifecycle::CloseStep(1, io::CloseOutcome::CloseFailed(io::Commit::No, lifecycle::failure("close")), false), Cons(lifecycle::CloseStep(1, io::CloseOutcome::Closed, true), Nil)))
+	let cell = io_provider::state(lifecycle::initial(steps))
+	let _ = (handle uncertain_retry_scope(cell) with io_provider::scope())?
+	match lifecycle::snapshot(cell)
+		lifecycle::State(remaining, _, events, reads) => if list_is_empty(remaining) and list_fold(events, 0, count_close) == 3 and reads == 0
+			Ok(())
+		else
+			Err("uncertain retry transferred bytes or lost a release obligation")
+		end
+	end
+end

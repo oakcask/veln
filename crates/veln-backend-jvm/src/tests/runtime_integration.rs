@@ -1,6 +1,27 @@
 use super::*;
 
 #[test]
+fn io_provider_host_interruption_preserves_unknown_progress_and_close_facts() {
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "io-provider-host-interruption",
+        "IoProviderHostTransferHarness.java",
+        include_str!("../../test-support/IoProviderHostTransferHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "host interruption progress and closure verified\n"
+    );
+}
+
+#[test]
 fn io_provider_native_paths_reject_lossy_jvm_string_conversion() {
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
     let program = generate_classfiles_with_entry(&ir, "main");

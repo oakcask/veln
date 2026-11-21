@@ -1,6 +1,7 @@
 use prelude
 use path as portable
 use io
+use io_provider as providers
 
 pub type ReadFile
 end
@@ -117,4 +118,88 @@ end
 
 pub fn read_only(filesystem: MutableFilesystem) -> Filesystem
 	prelude_builtin::io_provider_read_only(filesystem)
+end
+
+## Select a real host filesystem under this owner scope.
+pub effect Host
+	system(root: Path, owner: providers::Owner) -> Result<MutableFilesystem, io::Error>
+end
+
+pub fn system(root: Path) -> Result<MutableFilesystem, io::Error> effects [Host, providers::Scope]
+	perform Host::system(root, providers::owner())
+end
+
+pub handler system_handler() for Host effects [fs, concurrency]
+	system(root, owner) => host_system(root, owner)
+end
+
+fn host_system(root: Path, owner: providers::Owner) -> Result<MutableFilesystem, io::Error> effects [fs, concurrency]
+	handle handle prelude_builtin::io_provider_host_request("system", owner, root) with host_namespace() with host_mutations()
+end
+
+handler host_namespace() for Read effects [fs, concurrency]
+	open_read(filesystem, path) => host_open_read(filesystem, path)
+	metadata(filesystem, path, follow) => prelude_builtin::io_provider_host_request("metadata", filesystem, {path: path, follow: follow})
+	entries(filesystem, path) => prelude_builtin::io_provider_host_request("entries", filesystem, {path: path})
+end
+
+handler host_mutations() for Mutate effects [fs, concurrency]
+	open_write(filesystem, path, mode) => host_open_write(filesystem, path, mode)
+	open_read_write(filesystem, path, mode) => host_open_update(filesystem, path, mode)
+	open_append(filesystem, path, create) => host_open_append(filesystem, path, create)
+	create_directory(filesystem, path) => prelude_builtin::io_provider_host_request("create_directory", filesystem, {path: path})
+	remove_file(filesystem, path) => prelude_builtin::io_provider_host_request("remove_file", filesystem, {path: path})
+	remove_directory(filesystem, path) => prelude_builtin::io_provider_host_request("remove_directory", filesystem, {path: path})
+	rename(filesystem, source, target) => prelude_builtin::io_provider_host_request("rename", filesystem, {path: source, target: target})
+	truncate(file, size) => prelude_builtin::io_provider_host_request("truncate", file, {size: size})
+end
+
+handler host_reader() for io::Read effects [fs, concurrency]
+	read(reader, maximum) => prelude_builtin::io_provider_host_request("read", reader, {maximum: maximum})
+end
+handler host_writer() for io::Write effects [fs, concurrency]
+	write(writer, bytes) => prelude_builtin::io_provider_host_request("write", writer, {bytes: bytes})
+end
+handler host_seeker() for io::Seek effects [fs, concurrency]
+	seek(seeker, origin) => prelude_builtin::io_provider_host_request("seek", seeker, {origin: origin})
+end
+handler host_reader_at() for io::ReadAt effects [fs, concurrency]
+	read_at(reader, offset, maximum) => prelude_builtin::io_provider_host_request("read_at", reader, {offset: offset, maximum: maximum})
+end
+handler host_writer_at() for io::WriteAt effects [fs, concurrency]
+	write_at(writer, offset, bytes) => prelude_builtin::io_provider_host_request("write_at", writer, {offset: offset, bytes: bytes})
+end
+handler host_closer() for io::Close effects [fs, concurrency]
+	close(closer) => prelude_builtin::io_provider_host_request("close", closer, ())
+end
+handler host_syncer() for io::Sync effects [fs, concurrency]
+	sync(syncer) => prelude_builtin::io_provider_host_request("sync", syncer, ())
+end
+
+fn host_open_read(filesystem: Filesystem, path: portable::Path) -> Result<ReadFile, io::Error> effects [fs, concurrency]
+	handle handle handle handle handle handle handle handle prelude_builtin::io_provider_host_request("open_read", filesystem, {path: path}) with host_reader() with host_writer() with host_seeker() with host_reader_at() with host_writer_at() with host_closer() with host_syncer() with host_mutations()
+end
+
+fn host_open_write(filesystem: MutableFilesystem, path: portable::Path, mode: WriteMode) -> Result<WriteFile, io::Error> effects [fs, concurrency]
+	handle handle handle handle handle handle handle handle prelude_builtin::io_provider_host_request("open_write", filesystem, {path: path, mode: mode}) with host_reader() with host_writer() with host_seeker() with host_reader_at() with host_writer_at() with host_closer() with host_syncer() with host_mutations()
+end
+
+fn host_open_update(filesystem: MutableFilesystem, path: portable::Path, mode: UpdateMode) -> Result<UpdateFile, io::Error> effects [fs, concurrency]
+	handle handle handle handle handle handle handle handle prelude_builtin::io_provider_host_request("open_read_write", filesystem, {path: path, mode: mode}) with host_reader() with host_writer() with host_seeker() with host_reader_at() with host_writer_at() with host_closer() with host_syncer() with host_mutations()
+end
+
+fn host_open_append(filesystem: MutableFilesystem, path: portable::Path, create: CreateMode) -> Result<AppendFile, io::Error> effects [fs, concurrency]
+	handle handle handle handle handle handle handle handle prelude_builtin::io_provider_host_request("open_append", filesystem, {path: path, create: create}) with host_reader() with host_writer() with host_seeker() with host_reader_at() with host_writer_at() with host_closer() with host_syncer() with host_mutations()
+end
+
+## Run filesystem operations under a fresh owner and real host handlers.
+## Owner cleanup runs before returning, including when the callback returns Err.
+## Cleanup failures remain abrupt and do not become a callback result.
+pub fn with_system<effect E>(root: Path, body: fn(MutableFilesystem) -> Result<(), io::Error> effects [Read, Mutate, io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, Host, providers::Scope, concurrency, ...E]) -> Result<(), io::Error> effects [fs, concurrency, ...E]
+	handle handle handle handle handle handle handle handle handle handle handle host_scope(root, body) with host_namespace() with host_mutations() with host_reader() with host_writer() with host_seeker() with host_reader_at() with host_writer_at() with host_closer() with host_syncer() with system_handler() with providers::scope()
+end
+
+fn host_scope<effect E>(root: Path, body: fn(MutableFilesystem) -> Result<(), io::Error> effects [Read, Mutate, io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, Host, providers::Scope, concurrency, ...E]) -> Result<(), io::Error> effects [Read, Mutate, io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, Host, providers::Scope, concurrency, ...E]
+	let filesystem: MutableFilesystem = system(root)?
+	body(filesystem)
 end

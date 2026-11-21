@@ -27,6 +27,7 @@ runtime_method_table!(stdio_method, "stdioPrintln", {
 });
 
 runtime_method_table!(prelude_method, "vecLen", {
+    "io_provider_host_request" => "ioProviderHostRequest",
     "io_provider_native_path" => "ioProviderNativePath",
     "io_provider_display_native" => "ioProviderDisplayNative",
     "io_provider_compare_text" => "ioProviderCompareText",

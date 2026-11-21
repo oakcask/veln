@@ -36,6 +36,10 @@ pub fn filesystem(owner: io_provider::Owner, slot: Int, cell: io_provider::State
 	handle handle io_provider::mutable_filesystem(owner, slot) with namespace(owner, slot, cell) with mutations(owner, slot, cell)
 end
 
+pub handler selection(slot: Int, cell: io_provider::State<model::State>) for api::Host effects [concurrency]
+	system(root, owner) => filesystem(owner, slot, cell)
+end
+
 fn read_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, reader: bytes_io::Reader, maximum: ByteCount) -> bytes_io::ReadOutcome effects [concurrency]
 	match io_provider::reader_slot(owner, reader)
 		Err(failure) => bytes_io::ReadOutcome::ReadFailed(byte_chunk([]), bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure)

@@ -17,6 +17,7 @@ fn io_provider_file_records_expose_exact_static_capabilities() {
             r#"
 use io from "std"
 use fs from "std"
+use io_provider as providers from "std"
 
 pub fn read(file: fs::ReadFile, maximum: ByteCount) -> io::ReadOutcome effects [io::Read]
     io::read(file.reader, maximum)
@@ -37,6 +38,10 @@ end
 pub fn native(text: String) -> Result<Path, io::Error>
     fs::native_path(text)
 end
+
+pub fn select(root: Path) -> Result<fs::MutableFilesystem, io::Error> effects [fs::Host, providers::Scope]
+    fs::system(root)
+end
 "#,
         ),
         DoctestMode::Exclude,
@@ -56,6 +61,7 @@ fn io_provider_type_boundary_rejects_capability_and_owner_upgrades() {
         "use io from \"std\"\nuse fs from \"std\"\nuse path as portable from \"std\"\npub fn bad(filesystem: fs::Filesystem, name: portable::Path) -> fs::MutationOutcome effects [fs::Mutate]\n  fs::remove_file(filesystem, name)\nend\n",
         "use io from \"std\"\nuse io_provider from \"std\"\npub fn bad() -> Result<io_provider::Resource, io::Error> effects [concurrency]\n  io_provider::resource(0, 0, io_provider::ViewFamily::Duplex)\nend\n",
         "use fs from \"std\"\nuse path as portable from \"std\"\npub fn bad(path: portable::Path) -> String\n  fs::display_native(path)\nend\n",
+        "use io from \"std\"\nuse fs from \"std\"\nuse io_provider from \"std\"\nuse path as portable from \"std\"\npub fn bad(root: portable::Path) -> Result<fs::MutableFilesystem, io::Error> effects [fs::Host, io_provider::Scope]\n  fs::system(root)\nend\n",
     ] {
         let analysis = analyze_project(provider_project(source), DoctestMode::Exclude);
         let diagnostics = analysis.checked_diagnostics();
@@ -127,6 +133,37 @@ end
         } else {
             assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
             assert_eq!(diagnostics[0].id, "type.mismatch", "{diagnostics:#?}");
+        }
+    }
+}
+
+#[test]
+fn io_provider_system_scope_retains_callback_effects() {
+    for effects in ["fs, concurrency, stdio", "fs, concurrency"] {
+        let source = format!(
+            r#"
+use fs from "std"
+use io from "std"
+fn observe(filesystem: fs::MutableFilesystem) -> Result<(), io::Error> effects [stdio]
+    stdio::println("selected")
+    Ok(())
+end
+pub fn select(root: Path) -> Result<(), io::Error> effects [{effects}]
+    fs::with_system(root, observe)
+end
+"#
+        );
+        let analysis = analyze_project(provider_project(&source), DoctestMode::Exclude);
+        let diagnostics = analysis.checked_diagnostics();
+        if effects.contains("stdio") {
+            assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        } else {
+            assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+            assert_eq!(
+                diagnostics[0].id, "effect.missing_public",
+                "{diagnostics:#?}"
+            );
+            assert!(diagnostics[0].message.contains("stdio"), "{diagnostics:#?}");
         }
     }
 }

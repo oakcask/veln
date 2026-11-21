@@ -623,3 +623,30 @@ test native_conversion_reports_invalid_syntax_as_an_ordinary_error() -> Result<(
 		Ok(_) => Err("native path conversion accepted NUL")
 	end
 end
+
+fn selected_metadata() -> Result<(), String> effects [api::Host, api::Read, io_provider::Scope]
+	let root: Path = match api::native_path("unopened-native-root")
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	let selected: api::MutableFilesystem = match api::system(root)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	if size(api::read_only(selected), name("data")?)? == 4
+		Ok(())
+	else
+		Err("filesystem selection did not retain the injected namespace")
+	end
+end
+
+fn fake_selection_scope(cell: io_provider::State<model::State>) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	handle handle selected_metadata() with memory::selection(2, cell) with memory::namespace(owner, 2, cell)
+end
+
+test filesystem_selection_can_be_injected_without_host_fs_effects() -> Result<(), String> effects [concurrency]
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcd")?)
+	let cell = memory::cell(initial)
+	handle fake_selection_scope(cell) with io_provider::scope()
+end

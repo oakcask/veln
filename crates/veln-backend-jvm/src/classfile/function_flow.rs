@@ -427,7 +427,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 }
                 UnwindAction::PopHandler => {
                     let cleanup_start = code.mark();
-                    self.emit_pop_handler(code);
+                    self.emit_pop_handler_with_result(code, self.unwind_result);
                     let cleanup_end = code.mark();
                     code.branch_wide_to(target);
                     let cleanup_failure_handler = code.new_label();

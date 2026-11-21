@@ -187,6 +187,7 @@ pub(crate) const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor
 pub(crate) const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
 compiler_adapter_symbol_set! {
+    "io_provider_host_request",
     "io_provider_native_path",
     "io_provider_display_native",
     "io_provider_compare_text",
@@ -742,6 +743,7 @@ mod tests;
 
 pub(crate) fn io_provider_adapter_arity(name: &str) -> Option<usize> {
     match name {
+        "io_provider_host_request" => Some(3),
         "io_provider_native_path" | "io_provider_display_native" => Some(1),
         "io_provider_compare_text" => Some(2),
         "io_provider_join_chunks" => Some(1),
