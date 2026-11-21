@@ -92,3 +92,25 @@ test("CLI appends the summary, prints locally, and preserves the summary on inva
     fs.rmSync(dir, { recursive: true });
   }
 });
+
+test("CLI preserves an earlier refactor-signal summary in the shared job output", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "veln-unused-pub-shared-summary-"));
+  try {
+    const input = path.join(dir, "report.json");
+    const output = path.join(dir, "summary.md");
+    const earlierSummary = "## Rust Repository Refactor Signals\n\n- Metric findings: 4\n\n";
+    const data = report([candidate]);
+    fs.writeFileSync(input, JSON.stringify(data));
+    fs.writeFileSync(output, earlierSummary);
+
+    const run = spawnSync(process.execPath, [script, input], {
+      encoding: "utf8",
+      env: { ...process.env, GITHUB_STEP_SUMMARY: output },
+    });
+
+    assert.equal(run.status, 0);
+    assert.equal(fs.readFileSync(output, "utf8"), `${earlierSummary}${renderSummary(data)}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true });
+  }
+});

@@ -1,6 +1,7 @@
 name: signal / code metrics
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -12,12 +13,15 @@ on:
       - Cargo.toml
       - package.json
       - pnpm-lock.yaml
+      - rust-toolchain.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
       - tools/**/Cargo.toml
       - tools/**/*.rs
       - workflow-scripts/check-repo-metrics.mjs
       - workflow-scripts/check-repo-metrics.test.mjs
+      - workflow-scripts/summarize-unused-public-items.mjs
+      - workflow-scripts/summarize-unused-public-items.test.mjs
   pull_request:
     paths:
       - .github/workflows/signal--code-metrics.yaml
@@ -27,12 +31,15 @@ on:
       - Cargo.toml
       - package.json
       - pnpm-lock.yaml
+      - rust-toolchain.toml
       - crates/**/Cargo.toml
       - crates/**/*.rs
       - tools/**/Cargo.toml
       - tools/**/*.rs
       - workflow-scripts/check-repo-metrics.mjs
       - workflow-scripts/check-repo-metrics.test.mjs
+      - workflow-scripts/summarize-unused-public-items.mjs
+      - workflow-scripts/summarize-unused-public-items.test.mjs
 
 permissions:
   contents: read
@@ -70,6 +77,16 @@ jobs:
             --file-line-threshold 700 \
             crates tools \
             | node workflow-scripts/check-repo-metrics.mjs
+      - name: Record suspected dead public items
+        run: cargo run --locked -p veln-repo-unused-pub -- --format json crates tools > "${RUNNER_TEMP}/unused-public-items.json"
+      - name: Upload advisory unused-public-items report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: unused-public-items
+          path: ${{ runner.temp }}/unused-public-items.json
+          if-no-files-found: error
+      - name: Summarize suspected dead public items
+        run: node workflow-scripts/summarize-unused-public-items.mjs "${RUNNER_TEMP}/unused-public-items.json"
       - name: Record code duplication refactor signals
         run: |
           pnpm exec jscpd . \
