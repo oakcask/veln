@@ -1183,6 +1183,11 @@ impl SchemaAliasModuleImports {
             .collect::<BTreeSet<_>>();
         let valid_workspace_imports_by_alias =
             workspace_imports_by_alias(&valid_workspace_import_records);
+        let valid_workspace_explicit_import_aliases = valid_workspace_import_records
+            .iter()
+            .filter(|import| !import.bare_exports)
+            .map(|import| import.alias.clone())
+            .collect();
         let duplicate_counts = schema_alias_import_duplicate_counts(&external_imports);
         let handler_duplicate_counts = handler_import_duplicate_counts(&external_imports);
         let mut indexed = Self {
@@ -1190,6 +1195,7 @@ impl SchemaAliasModuleImports {
             workspace_imports_by_alias: raw_workspace_imports_by_alias,
             valid_workspace_imports,
             valid_workspace_imports_by_alias,
+            valid_workspace_explicit_import_aliases,
             ..Self::default()
         };
         for import in external_imports {
@@ -1215,6 +1221,16 @@ impl SchemaAliasModuleImports {
             .entry(import.alias.clone())
             .or_default()
             .insert(identity.clone());
+        self.index_valid_external_import(&import, &identity, duplicate_counts);
+        self.index_valid_handler_external_import(import, handler_duplicate_counts);
+    }
+
+    fn index_valid_external_import(
+        &mut self,
+        import: &ExternalImport,
+        identity: &(String, String),
+        duplicate_counts: &BTreeMap<(String, String, String), usize>,
+    ) {
         let duplicate_key = (
             import.module.clone(),
             import.package.clone(),
@@ -1230,6 +1246,13 @@ impl SchemaAliasModuleImports {
                 .or_default()
                 .insert(identity.clone());
         }
+    }
+
+    fn index_valid_handler_external_import(
+        &mut self,
+        import: ExternalImport,
+        handler_duplicate_counts: &BTreeMap<(String, String), usize>,
+    ) {
         let handler_identity = canonical_handler_external_identity(&import.module, &import.package);
         let handler_duplicate_key = handler_identity.clone();
         if import.syntax_valid
@@ -1286,6 +1309,11 @@ impl SchemaAliasModuleImports {
             return None;
         }
         let (alias, suffix) = split_import_qualifier(qualifier);
+        if self.valid_workspace_imports.contains(qualifier)
+            || self.valid_workspace_explicit_import_aliases.contains(alias)
+        {
+            return None;
+        }
         unique_external_route(self.handler_external_imports_by_alias.get(alias)?, suffix)
     }
 

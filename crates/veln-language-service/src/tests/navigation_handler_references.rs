@@ -713,6 +713,36 @@ mod navigation_handler_references_tests {
         assert_eq!(selected.definition.span.file.as_str(), "observe.veln");
         assert_eq!(locations(&selected.references), [("main.veln", 5, 22)]);
 
+        let workspace_alias_collision = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "mod main\n\n",
+                    "use local as trace\n",
+                    "use observe as trace from \"std\"\n\n",
+                    "fn selected() -> Int\n  handle 1 with trace::noop()\nend\n",
+                ),
+            ),
+            source(
+                "local.veln",
+                "mod local\n\npub fn value() -> Int\n  1\nend\n",
+            ),
+            source(
+                "valid.veln",
+                concat!(
+                    "mod valid\n\n",
+                    "use observe as trace from \"std\"\n\n",
+                    "fn selected() -> Int\n  handle 1 with trace::noop()\nend\n",
+                ),
+            ),
+        ])
+        .with_standard_library(standard_library());
+        let collision = query_snapshot(&workspace_alias_collision, "main.veln", 7, 24);
+        assert!(collision.is_none());
+        let valid = query_snapshot(&workspace_alias_collision, "valid.veln", 6, 24).unwrap();
+        assert_eq!(valid.definition.span.file.as_str(), "observe.veln");
+        assert_eq!(locations(&valid.references), [("valid.veln", 6, 24)]);
+
         let canonical_duplicate = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
             concat!(
