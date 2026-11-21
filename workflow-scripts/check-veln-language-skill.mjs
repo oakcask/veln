@@ -98,7 +98,7 @@ const acceptance = new Map([
 
 const snapshotTopicUri = /^veln-doc:\/\/\/language\/snapshot\/[0-9a-f]{64}\/topic\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const markdownMimeType = "text/markdown; charset=utf-8";
-const canonicalSkillDescription = "Use for Veln language questions and for inspecting or changing the Veln repository through its documentation authority.";
+const canonicalSkillDescription = "Use for Veln language questions and for inspecting or changing Veln implementation or proposal work through repository documentation. Excludes repository maintenance such as CI configuration and agent tooling.";
 const fixtureLimits = {
   scenarios: acceptance.size,
   turnsPerScenario: 2,
@@ -621,6 +621,7 @@ function parseSkillContract(skillText) {
   );
   assert.equal(contract.schema_version, 1, "unsupported veln-language skill contract");
   assert.deepEqual(contract.request_selection, {
+    outside_scope: "Before selecting a route, exclude repository maintenance that does not change Veln behavior, implementation, or proposal state from this skill. Follow the relevant repository policies and skills directly; no language-specification route is required.",
     repository_when: "The request asks to inspect, test, or change the Veln repository or makes the repository, codebase, source code, or proposal state its subject.",
     semantic_basis: "Classify the requested action and subject by meaning. Do not decide from a closed vocabulary of verbs, question words, or sentence frames.",
     language_otherwise: true,
@@ -675,7 +676,7 @@ function parseSkillContract(skillText) {
   );
   assert.equal(
     contract.repository?.no_route,
-    "Stop and report that no repository documentation route covers the request.",
+    "Stop documentation routing and report that no repository documentation route covers the request. This stops the documentation lookup, not authorized repository maintenance under its own policies.",
     "skill must define the missing repository route outcome",
   );
   assert.equal(

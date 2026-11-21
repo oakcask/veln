@@ -30,6 +30,10 @@ Keep event triggers, permissions, concurrency, job dependencies, and matrices
 visible in workflow YAML because they define the GitHub Actions execution
 boundary.
 
+Workflow definitions and repository-local action manifests use `.yaml`; do not
+add `.yml` files under `.github/workflows/` or `.github/actions/`. Run
+`node workflow-scripts/check-github-yaml-extensions.mjs` to check this policy.
+
 ## Workflow
 
 1. Inspect nearby workflows, `workflow-scripts/`, local actions, and workflow

@@ -3,10 +3,9 @@ name: workflow / actionlint
 on:
   pull_request:
     paths:
-      - .github/workflows/*.yaml
-      - .github/workflows/*.yml
-      - .github/actions/**/*.yaml
-      - .github/actions/**/*.yml
+      - .github/workflows/**
+      - .github/actions/**
+      - workflow-scripts/check-github-yaml-extensions.mjs
 
 permissions:
   contents: read
@@ -21,6 +20,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "26"
+      - name: Validate GitHub YAML extensions
+        run: node workflow-scripts/check-github-yaml-extensions.mjs
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: stable
