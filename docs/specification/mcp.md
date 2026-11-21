@@ -1075,21 +1075,27 @@ Standard-library handler selection is a separate supported surface. It accepts
 one public, valid-cased, unrecovered handler declaration in an exported module
 of the retained embedded `std` snapshot. A complete qualified application
 reaches that declaration through one parse-clean, unambiguous `std` import by
-using the exact full module path or its unique import alias. The exact path
-wins over a colliding alias. Selecting any matching complete application in
-the saved project returns the canonical `veln-pkg:` declaration as its
-definition and the deterministic set of matching application locations in
-that project as its references. Each returned range covers only the handler
-name.
+using the standard-library-relative module path, the canonical `std::`-qualified
+module path, or its unique import alias. The import can spell the same module
+with or without the `std::` prefix. All three application spellings select one
+package and module identity. An exact module path wins over a colliding alias.
+Selecting any matching complete application in the saved project returns the
+canonical `veln-pkg:` declaration as its definition and the deterministic set
+of matching application locations in that project as its references. Each
+returned range covers only the handler name.
 
 For project scope, `include_declaration: true` adds that package declaration
 exactly once before sorting and pagination; false omits it. Single-file and
 anonymous requests omit the package declaration. The checked
 standard-library guards reject a private, non-exported, invalid-cased,
 duplicate, or recovered handler declaration. Repeated parse-clean imports of
-the same `std` module are ambiguous and grant no route. A recovered import
+the same `std` module are ambiguous and grant no route, including when one
+import uses the relative module spelling and another uses the canonical
+`std::`-qualified spelling. A recovered import
 grants no route, but it does not make a separate parse-clean import ambiguous.
-These rejections return the existing empty definition or reference result.
+A recovered exact-path import does not block a separate parse-clean unique
+alias. These rejections return the existing empty definition or reference
+result.
 
 Capture, lookup, position, and pagination failures publish no partial handler
 locations and preserve the saved workspace, retained resources, prior results,
@@ -1275,9 +1281,10 @@ references, declaration exclusion, and declaration-inclusive sorted
 pagination.
 The checked
 `examples/specification/mcp/references-standard-library-handler/` transcript
-demonstrates exact-module and unique-alias selection of one canonical retained
-standard-library definition, workspace-only references, declaration-inclusive
-project pagination, and package-declaration exclusion for single-file scope.
+demonstrates standard-library-relative, canonical `std::`-qualified, and
+unique-alias selection of one canonical retained standard-library definition,
+workspace-only references, declaration-inclusive project pagination, and
+package-declaration exclusion for single-file scope.
 MCP unit regressions exercise every imported workspace-handler exclusion
 specified above. They verify that each empty definition and reference result
 preserves an unrelated valid handler result. Capture-failure coverage also
@@ -1301,4 +1308,5 @@ canonical package definition and workspace-only references, verifies LSP
 package-declaration exclusion, and collects the one MCP package declaration
 across declaration-inclusive continuation pages.
 It repeats that comparison for a retained standard-library handler selected
-through exact-module and unique-alias applications.
+through standard-library-relative, canonical `std::`-qualified, and
+unique-alias applications.

@@ -785,19 +785,24 @@ Standard-library handler selection is a separate supported surface. It accepts
 one public, valid-cased, unrecovered handler declaration in an exported module
 of the retained embedded `std` snapshot. A complete qualified application
 reaches that declaration through one parse-clean, unambiguous `std` import by
-using the exact full module path or its unique import alias. The exact path
-wins over a colliding alias. Selecting any matching complete application in
-the accepted project snapshot returns the canonical `veln-pkg:` declaration
-as its definition and the deterministic set of matching application locations
-in that project as its references. Each returned range covers only the handler
-name. LSP omits the package declaration from references even when
-`includeDeclaration` is true.
+using the standard-library-relative module path, the canonical `std::`-qualified
+module path, or its unique import alias. The import can spell the same module
+with or without the `std::` prefix. All three application spellings select one
+package and module identity. An exact module path wins over a colliding alias.
+Selecting any matching complete application in the accepted project snapshot
+returns the canonical `veln-pkg:` declaration as its definition and the
+deterministic set of matching application locations in that project as its
+references. Each returned range covers only the handler name. LSP omits the
+package declaration from references even when `includeDeclaration` is true.
 
 The checked standard-library guards reject a private, non-exported,
 invalid-cased, duplicate, or recovered handler declaration. Repeated
-parse-clean imports of the same `std` module are ambiguous and grant no route.
+parse-clean imports of the same `std` module are ambiguous and grant no route,
+including when one import uses the relative module spelling and another uses
+the canonical `std::`-qualified spelling.
 A recovered import grants no route, but it does not make a separate
-parse-clean import ambiguous. These rejections return the existing empty
+parse-clean import ambiguous. A recovered exact-path import does not block a
+separate parse-clean unique alias. These rejections return the existing empty
 definition or reference result.
 
 For a selected workspace schema declaration, `textDocument/references` returns
@@ -1300,5 +1305,6 @@ handler, it compares the canonical package definition and workspace-only
 references, verifies that LSP omits the package declaration, and verifies that
 MCP includes it exactly once when requested across continuation pages.
 For a retained standard-library handler, it repeats that adapter comparison
-across exact-module and unique-alias applications and verifies the same LSP
-declaration exclusion and MCP declaration-inclusive pagination behavior.
+across standard-library-relative, canonical `std::`-qualified, and unique-alias
+applications and verifies the same LSP declaration exclusion and MCP
+declaration-inclusive pagination behavior.
