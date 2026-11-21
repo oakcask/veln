@@ -1,5 +1,5 @@
 use model from "example/model"
-
+use observe as trace from "std"
 pub fn helper(value: Int) -> Int
   value
 end
@@ -41,4 +41,16 @@ end
 
 fn second_dependency_handler() -> Int
   handle 2 with model::execute()
+end
+
+fn first_standard_handler() -> Int
+  handle 1 with observe::noop()
+end
+
+fn second_standard_handler() -> Int
+  handle 2 with trace::noop()
+end
+
+fn canonical_standard_handler() -> Int
+  handle 3 with std::observe::noop()
 end

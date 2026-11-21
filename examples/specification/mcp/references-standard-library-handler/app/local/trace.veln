@@ -1,0 +1,5 @@
+mod local::trace
+
+pub fn value() -> Int
+  1
+end

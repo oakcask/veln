@@ -1,0 +1,9 @@
+mod blocked
+
+use net as first from "std"
+use net as second from "std"
+use observe as net from "std"
+
+fn selected() -> Int
+  handle 1 with net::noop()
+end

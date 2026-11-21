@@ -124,6 +124,103 @@ fn direct_dependency_handler_navigation_returns_virtual_definition_and_workspace
 }
 
 #[test]
+fn standard_library_handler_navigation_returns_virtual_definition_and_workspace_references() {
+    let (_project, main_uri, mut server) = standard_library_handler_navigation_server();
+    let definition = assert_standard_library_handler_definition(&mut server, &main_uri);
+    assert_standard_library_handler_alias_and_references(&mut server, &main_uri, &definition);
+    assert_ineligible_standard_library_handler_is_empty(&mut server, &main_uri);
+}
+
+fn standard_library_handler_navigation_server() -> (TempProject, String, Server) {
+    let manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"observe.veln\"]\n";
+    let handler_source = standard_library_handler_source();
+    let snapshot = capture_embedded_package_snapshot(
+        manifest.as_bytes(),
+        [PackageSnapshotSource::new(
+            "observe.veln",
+            handler_source.as_bytes(),
+        )],
+    )
+    .unwrap();
+    let standard_library = DirectDependencySnapshot::from_validated_standard_library(
+        snapshot,
+        parse_manifest_text("veln.toml", manifest),
+    )
+    .unwrap();
+    let project = TempProject::new("standard-library-handler-references");
+    project.write("veln.toml", "");
+    project.write(
+        "main.veln",
+        concat!(
+            "use observe as trace from \"std\"\n\n",
+            "fn first() -> Int\n  handle 1 with observe::noop()\nend\n\n",
+            "fn second() -> Int\n  handle 2 with trace::noop()\nend\n\n",
+            "fn canonical() -> Int\n  handle 3 with std::observe::noop()\nend\n\n",
+            "fn private() -> Int\n  handle 4 with observe::hidden()\nend\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default().with_standard_library(standard_library);
+    server.handle_message(&initialize_request(&root_uri));
+    (project, main_uri, server)
+}
+
+fn assert_standard_library_handler_definition(server: &mut Server, main_uri: &str) -> Vec<String> {
+    let definition = server.handle_message(&definition_request(main_uri, 3, 25));
+    assert_eq!(definition.len(), 1);
+    let definition_uri = extract_string_field(&definition[0], "uri").unwrap();
+    assert!(definition_uri.starts_with("veln-pkg:///std/snapshot/"));
+    assert!(definition[0].contains(
+        r#""range":{"start":{"line":0,"character":12},"end":{"line":0,"character":16}}"#
+    ));
+    assert_virtual_document_text(server, "3", &definition_uri, standard_library_handler_source());
+    definition
+}
+
+fn assert_standard_library_handler_alias_and_references(
+    server: &mut Server,
+    main_uri: &str,
+    definition: &[String],
+) {
+    let alias_definition = server.handle_message(&definition_request(main_uri, 7, 23));
+    assert_eq!(alias_definition, definition);
+    let canonical_definition = server.handle_message(&definition_request(main_uri, 11, 30));
+    assert_eq!(canonical_definition, definition);
+    for include_declaration in [false, true] {
+        let references = server.handle_message(&references_request_with_declaration(
+            main_uri,
+            11,
+            30,
+            include_declaration,
+        ));
+        assert_eq!(references.len(), 1);
+        assert_eq!(references[0].matches(&format!(r#""uri":"{main_uri}""#)).count(), 3);
+        assert!(!references[0].contains("veln-pkg:"), "{}", references[0]);
+    }
+}
+
+fn assert_ineligible_standard_library_handler_is_empty(server: &mut Server, main_uri: &str) {
+    assert_eq!(
+        server.handle_message(&definition_request(main_uri, 15, 25)),
+        [response("2", "null")]
+    );
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            main_uri, 15, 25, true,
+        )),
+        [response("2", "[]")]
+    );
+}
+
+fn standard_library_handler_source() -> &'static str {
+    concat!(
+        "pub handler noop() for Observe\n  record() => 1\nend\n\n",
+        "handler hidden() for Observe\n  record() => 2\nend\n",
+    )
+}
+
+#[test]
 fn imported_workspace_handler_navigation_preserves_utf16_and_declaration_policy() {
     let project = TempProject::new("workspace-imported-handler-references");
     write_imported_handler_project(&project);
@@ -225,7 +322,6 @@ fn assert_ineligible_imported_handlers_are_empty(server: &mut Server, consumer_u
 
 struct RejectedImportedHandlerCase {
     name: &'static str,
-    uses_standard_library: bool,
     manifest: &'static str,
     files: &'static [(&'static str, &'static str)],
     source: &'static str,
@@ -238,7 +334,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
     let cases = [
         RejectedImportedHandlerCase {
             name: "private",
-            uses_standard_library: false,
             manifest: "",
             files: &[
                 (
@@ -256,7 +351,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "ambiguous-import",
-            uses_standard_library: false,
             manifest: "",
             files: &[
                 ("first/fx.veln", "pub handler run() for Work\n  go() => 1\nend\n"),
@@ -272,7 +366,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "duplicate-import",
-            uses_standard_library: false,
             manifest: "",
             files: &[
                 ("first/fx.veln", "pub handler run() for Work\n  go() => 1\nend\n"),
@@ -287,7 +380,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "recovered-import",
-            uses_standard_library: false,
             manifest: "",
             files: &[
                 ("first/fx.veln", "pub handler run() for Work\n  go() => 1\nend\n"),
@@ -302,7 +394,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "duplicate-declaration",
-            uses_standard_library: false,
             manifest: "",
             files: &[
                 ("first.veln", "mod shared\n\nhandler run() for Work\n  go() => 1\nend\n"),
@@ -317,7 +408,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "recovered-declaration",
-            uses_standard_library: false,
             manifest: "",
             files: &[(
                 "case.veln",
@@ -329,7 +419,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "direct-dependency",
-            uses_standard_library: false,
             manifest: "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
             files: &[
                 ("vendor/dep/veln.toml", "[package]\nname = \"example/dep\"\n"),
@@ -344,20 +433,7 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
             character: 21,
         },
         RejectedImportedHandlerCase {
-            name: "standard-library",
-            uses_standard_library: true,
-            manifest: "",
-            files: &[(
-                "case.veln",
-                "use observe from \"std\"\n\nfn invalid() -> Int\n  handle 1 with observe::noop()\nend\n",
-            )],
-            source: "case.veln",
-            line: 3,
-            character: 24,
-        },
-        RejectedImportedHandlerCase {
             name: "unresolved-path",
-            uses_standard_library: false,
             manifest: "",
             files: &[(
                 "case.veln",
@@ -369,7 +445,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "wrong-kind",
-            uses_standard_library: false,
             manifest: "",
             files: &[
                 ("wrong.veln", "mod wrong\n\npub fn run() -> Int\n  1\nend\n"),
@@ -384,7 +459,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "incomplete-application",
-            uses_standard_library: false,
             manifest: "",
             files: &[(
                 "case.veln",
@@ -396,7 +470,6 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         },
         RejectedImportedHandlerCase {
             name: "recovered-application",
-            uses_standard_library: false,
             manifest: "",
             files: &[(
                 "case.veln",
@@ -427,11 +500,7 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
         let case_uri = path_to_uri(&project.root.join(case.source));
         let stable_declaration_uri = path_to_uri(&project.root.join("stable.veln"));
         let stable_uri = path_to_uri(&project.root.join("stable_consumer.veln"));
-        let mut server = if case.uses_standard_library {
-            Server::default()
-        } else {
-            server_with_empty_standard_library()
-        };
+        let mut server = server_with_empty_standard_library();
         server.handle_message(&initialize_request(&root_uri));
         let valid_definition = definition_request(&stable_uri, 3, 24);
         let valid_references = references_request_with_declaration(&stable_uri, 3, 24, true);

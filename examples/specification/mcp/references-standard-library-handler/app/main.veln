@@ -1,0 +1,13 @@
+use observe as trace from "std"
+use net as std from "std"
+fn first() -> Int
+  handle 1 with observe::noop()
+end
+
+fn second() -> Int
+  handle 2 with trace::noop()
+end
+
+fn canonical() -> Int
+  handle 3 with std::observe::noop()
+end

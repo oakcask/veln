@@ -6,9 +6,13 @@ update-when: The remaining package-navigation, workspace-symbol-reference, recov
 # Agent Language Services
 
 This umbrella records only the unimplemented follow-up work for language
-services. The implemented workspace, direct-dependency, and standard-library
-navigation behavior is specified by [Editor Support](../specification/editor-support.md)
-and [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md).
+services. Current specifications describe the implemented workspace and
+direct-dependency navigation behavior plus standard-library handler selection
+and adapter projection: [Editor Support](../specification/editor-support.md) and
+[MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md).
+The remaining standard-library handler matrices stay in the focused
+[Standard-Library Handler Navigation](standard-library-handler-navigation.md)
+proposal.
 
 ## Remaining scope
 
@@ -16,9 +20,9 @@ The following work remains planned:
 
 - transitive-dependency navigation;
 - remaining package definition and reference symbol classes outside the
-  implemented explicit-import-alias, module immutable-value, and
-  direct-dependency handler navigation scopes and the extracted
-  standard-library handler slice;
+  implemented explicit-import-alias, module immutable-value, direct-dependency
+  handler, and standard-library handler selection and adapter-projection
+  scopes;
 - other workspace symbol reference classes outside the implemented
   same-module and imported-workspace effect boundaries, the implemented
   same-module and imported-workspace effect-operation boundaries, and the
@@ -56,11 +60,6 @@ current specification page names the executable authority, the evidence
 passes independently of proposal prose, and the conformance manifest (when
 present) has no missing or orphaned mapping. This preserves the umbrella as a
 partial proposal rather than a second current-behavior specification.
-
-The independently complete standard-library handler navigation slice has
-moved to
-[Standard-Library Handler Navigation](standard-library-handler-navigation.md).
-It is not an implementation requirement for the remaining inventory.
 
 ## Non-goals
 

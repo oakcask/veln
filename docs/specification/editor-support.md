@@ -760,9 +760,9 @@ Handler definition and reference lookup require one unrecovered declaration
 for the complete owner identity. A dependency handler must be public, valid
 cased, exported, and owned by a retained direct dependency. Lookup excludes
 private or non-exported dependency handlers, duplicate or recovered
-declarations, ambiguous or recovered imports, standard-library and
-transitive-dependency declarations, and unresolved, incomplete, recovered, or
-wrong-kind handler paths. Selecting a wrong-kind handler-name leaf does not
+declarations, ambiguous or recovered imports, transitive-dependency
+declarations, and unresolved, incomplete, recovered, or wrong-kind handler
+paths. Selecting a wrong-kind handler-name leaf does not
 fall back to definition or reference results for the value, type, or other
 symbol named by that path. Equal spelling in another module or symbol class,
 including a handler parameter or operation-clause binding, does not enter the
@@ -780,6 +780,42 @@ Declaration uniqueness includes handlers from non-exported dependency source
 files. An otherwise eligible exported handler is therefore ambiguous when a
 non-exported source in the same retained package declares the same module and
 handler name.
+
+Standard-library handler selection is a separate supported surface. It accepts
+one public, valid-cased, unrecovered handler declaration in an exported module
+of the retained embedded `std` snapshot. A complete qualified application
+reaches that declaration through one parse-clean, unambiguous `std` import by
+using the standard-library-relative module path, the canonical `std::`-qualified
+module path, or its unique import alias. The import can spell the same module
+with or without the `std::` prefix. All three application spellings select one
+package and module identity. An exact module path wins over a colliding alias.
+Selecting any matching complete application in the accepted project snapshot
+returns the canonical `veln-pkg:` declaration as its definition and the
+deterministic set of matching application locations in that project as its
+references. Each returned range covers only the handler name. LSP omits the
+package declaration from references even when `includeDeclaration` is true.
+
+The checked standard-library guards reject a private, non-exported,
+invalid-cased, duplicate, or recovered handler declaration. Repeated
+parse-clean imports of the same `std` module are ambiguous and grant no route,
+including when one import uses the relative module spelling and another uses
+the canonical `std::`-qualified spelling.
+A standard-library import alias grants no route when the same qualifier is
+also the implicit leaf alias or written explicit alias of a parse-clean
+workspace import. Selecting an application through that colliding qualifier
+returns the existing empty definition and reference results; the exact
+standard-library module path remains a separate route.
+A parse-clean exact imported module route owns its qualifier before handler
+eligibility is considered. If that exact route is duplicate, ambiguous, or
+does not provide the selected handler, lookup returns the empty result instead
+of falling back to an unrelated workspace, dependency, or standard-library
+alias with the same spelling. Likewise, several parse-clean package imports
+that claim one alias remain ambiguous even when only one route could provide
+an eligible handler.
+A recovered import grants no route, but it does not make a separate
+parse-clean import ambiguous. A recovered exact-path import does not block a
+separate parse-clean unique alias. These rejections return the existing empty
+definition or reference result.
 
 For a selected workspace schema declaration, `textDocument/references` returns
 the declaration when requested plus `decode`, `encode`, runtime-validation,
@@ -1246,7 +1282,13 @@ The checked `examples/specification/lsp/references-workspace-handler/`
 transcript demonstrates declaration policy and UTF-16 conversion for workspace
 handler references. Focused LSP regressions cover retained direct-dependency
 definitions, workspace-only reference results, and package-declaration
-exclusion when `includeDeclaration` is true. The checked MCP transcript
+exclusion when `includeDeclaration` is true. They also cover a retained
+standard-library definition, its readable virtual source, alias selection,
+workspace-only references for both declaration settings, and private-handler
+rejection. Shared-language-service regressions cover standard-library alias
+collisions with implicit and explicit workspace import aliases, exact-route
+blockers, and ambiguous package aliases. The checked
+MCP transcript
 `examples/specification/mcp/references-direct-dependency-handler/` covers the
 same shared definition and workspace application set in one-based coordinates.
 LSP unit regressions exercise every imported workspace-handler exclusion
@@ -1277,3 +1319,7 @@ and declaration-excluding reference sets. For a retained direct-dependency
 handler, it compares the canonical package definition and workspace-only
 references, verifies that LSP omits the package declaration, and verifies that
 MCP includes it exactly once when requested across continuation pages.
+For a retained standard-library handler, it repeats that adapter comparison
+across standard-library-relative, canonical `std::`-qualified, and unique-alias
+applications and verifies the same LSP declaration exclusion and MCP
+declaration-inclusive pagination behavior.

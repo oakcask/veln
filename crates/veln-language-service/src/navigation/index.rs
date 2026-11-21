@@ -572,64 +572,8 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<NeutralSymbol> {
         let qualifier = qualifier_for_token(tokens, token_index);
-        let identity = match &qualifier {
-            Some(qualifier) => {
-                let qualifier_segments = qualifier.split("::").collect::<Vec<_>>();
-                if let Some(resolution) =
-                    indexed_qualified_import_resolution(file, &qualifier_segments)
-                {
-                    match resolution {
-                        QualifiedImportResolution::Resolved(target)
-                            if target.shared.package.is_some() =>
-                        {
-                            if target.consumed_segments != qualifier_segments.len() {
-                                return None;
-                            }
-                            let (module, package) = self
-                                .schema_alias_module_imports
-                                .get(&file.module)?
-                                .valid_handler_external_route(qualifier)?;
-                            (
-                                Some(package),
-                                Some(PackageOrigin::DirectDependency),
-                                module,
-                                name.to_string(),
-                            )
-                        }
-                        QualifiedImportResolution::Resolved(_) => {
-                            match self.effect_qualified_workspace_module(file, qualifier) {
-                                QualifiedWorkspaceModule::Workspace(module) => {
-                                    (None, None, module, name.to_string())
-                                }
-                                QualifiedWorkspaceModule::Ambiguous
-                                | QualifiedWorkspaceModule::External
-                                | QualifiedWorkspaceModule::Unresolved => return None,
-                            }
-                        }
-                        QualifiedImportResolution::Blocked => return None,
-                    }
-                } else {
-                    match self.effect_qualified_workspace_module(file, qualifier) {
-                        QualifiedWorkspaceModule::Workspace(module) => {
-                            (None, None, module, name.to_string())
-                        }
-                        QualifiedWorkspaceModule::External => {
-                            let (module, package) = self
-                                .schema_alias_module_imports
-                                .get(&file.module)?
-                                .valid_handler_external_route(qualifier)?;
-                            (
-                                Some(package),
-                                Some(PackageOrigin::DirectDependency),
-                                module,
-                                name.to_string(),
-                            )
-                        }
-                        QualifiedWorkspaceModule::Ambiguous
-                        | QualifiedWorkspaceModule::Unresolved => return None,
-                    }
-                }
-            }
+        let identity = match qualifier.as_deref() {
+            Some(qualifier) => self.qualified_handler_identity(file, qualifier, name)?,
             None => (None, None, file.module.clone(), name.to_string()),
         };
         let candidate = self
@@ -637,6 +581,122 @@ impl SymbolIndex {
             .get(&identity)
             .and_then(|index| self.handlers.get(*index))?;
         (qualifier.is_none() || candidate.public).then(|| candidate.clone())
+    }
+
+    fn qualified_handler_identity(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<ModuleMemberIdentity> {
+        let imports = self.schema_alias_module_imports.get(&file.module)?;
+        if imports.parse_clean_handler_external_exact_route_exists(qualifier) {
+            return imports
+                .valid_handler_external_exact_route(qualifier)
+                .map(|(module, package)| handler_external_identity(module, package, name));
+        }
+        let qualifier_segments = qualifier.split("::").collect::<Vec<_>>();
+        match indexed_qualified_import_resolution(file, &qualifier_segments) {
+            Some(resolution) => self.handler_identity_for_import_resolution(
+                file,
+                qualifier,
+                &qualifier_segments,
+                name,
+                resolution,
+            ),
+            None => self.handler_identity_for_workspace_resolution(file, qualifier, name),
+        }
+    }
+
+    fn handler_identity_for_import_resolution(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        qualifier_segments: &[&str],
+        name: &str,
+        resolution: &QualifiedImportResolution,
+    ) -> Option<ModuleMemberIdentity> {
+        match resolution {
+            QualifiedImportResolution::Resolved(target) if target.shared.package.is_some() => self
+                .handler_identity_for_resolved_external_import(
+                    file,
+                    qualifier,
+                    qualifier_segments,
+                    name,
+                    target,
+                ),
+            QualifiedImportResolution::Resolved(_) => {
+                match self.effect_qualified_workspace_module(file, qualifier) {
+                    QualifiedWorkspaceModule::Workspace(module) => {
+                        Some((None, None, module, name.to_string()))
+                    }
+                    QualifiedWorkspaceModule::Ambiguous
+                    | QualifiedWorkspaceModule::External
+                    | QualifiedWorkspaceModule::Unresolved => None,
+                }
+            }
+            QualifiedImportResolution::Blocked => {
+                let (module, package) = self
+                    .schema_alias_module_imports
+                    .get(&file.module)?
+                    .valid_handler_external_alias_route_after_blocked(qualifier)?;
+                Some(handler_external_identity(module, package, name))
+            }
+        }
+    }
+
+    fn handler_identity_for_resolved_external_import(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        qualifier_segments: &[&str],
+        name: &str,
+        target: &QualifiedImportTarget,
+    ) -> Option<ModuleMemberIdentity> {
+        if target.consumed_segments != qualifier_segments.len() {
+            return None;
+        }
+        let mut resolved = resolved_qualified_module_identity(target, qualifier_segments);
+        if resolved.package.as_deref() == Some("std") && !resolved.module.starts_with("std::") {
+            resolved.module = format!("std::{}", resolved.module);
+        }
+        let (eligible_module, eligible_package) = self
+            .schema_alias_module_imports
+            .get(&file.module)?
+            .valid_handler_external_route(qualifier)?;
+        if resolved.module != eligible_module
+            || resolved.package.as_deref() != Some(eligible_package.as_str())
+        {
+            return None;
+        }
+        Some(handler_external_identity(
+            resolved.module,
+            resolved
+                .package
+                .expect("resolved external handler import has a package"),
+            name,
+        ))
+    }
+
+    fn handler_identity_for_workspace_resolution(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<ModuleMemberIdentity> {
+        match self.effect_qualified_workspace_module(file, qualifier) {
+            QualifiedWorkspaceModule::Workspace(module) => {
+                Some((None, None, module, name.to_string()))
+            }
+            QualifiedWorkspaceModule::External | QualifiedWorkspaceModule::Unresolved => {
+                let (module, package) = self
+                    .schema_alias_module_imports
+                    .get(&file.module)?
+                    .valid_handler_external_route(qualifier)?;
+                Some(handler_external_identity(module, package, name))
+            }
+            QualifiedWorkspaceModule::Ambiguous => None,
+        }
     }
 
     fn handler_declaration_is_unrecovered(&self, symbol: &NeutralSymbol) -> bool {
@@ -700,5 +760,27 @@ impl SymbolIndex {
             &clause.operation_name,
         )
         .cloned()
+    }
+}
+
+fn handler_external_identity(
+    module: String,
+    package: String,
+    name: &str,
+) -> ModuleMemberIdentity {
+    let package_origin = handler_package_origin(&package);
+    (
+        Some(package),
+        Some(package_origin),
+        module,
+        name.to_string(),
+    )
+}
+
+fn handler_package_origin(package: &str) -> PackageOrigin {
+    if package == "std" {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
     }
 }

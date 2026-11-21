@@ -408,9 +408,11 @@ The `saved-navigation-cross-adapter` LSP specification case uses decoded
 assertions for direct `params.position` validation, invalid-coordinate errors,
 empty rename edits for invalid names, and successful navigation repeated after
 failed requests. Its paired LSP/MCP conformance harness also normalizes a
-retained direct-dependency handler definition and reference set, checks LSP
-package-declaration exclusion, and collects one declaration from paginated MCP
-references when inclusion is requested.
+retained direct-dependency handler definition and reference set, then repeats
+that comparison for a retained standard-library handler selected through its
+standard-library-relative path, canonical `std::`-qualified path, and a unique
+import alias. It checks LSP package-declaration exclusion and collects one
+declaration from paginated MCP references when inclusion is requested.
 The `module-value-navigation-boundaries` LSP specification case uses decoded
 assertions for qualified lexical-shadowing selection, retained-dependency
 bare-export conflicts, and declaring-module import precedence.
@@ -529,6 +531,13 @@ The `references-direct-dependency-handler` MCP specification case uses decoded
 assertions for the canonical retained package definition, workspace-only
 handler references, declaration exclusion, and declaration-inclusive cursor
 pagination.
+The `references-standard-library-handler` MCP specification case repeats that
+model for standard-library-relative, canonical `std::`-qualified, and
+unique-alias selection of one retained standard-library handler. It checks
+workspace-only project references, declaration-inclusive cursor pagination,
+package-declaration exclusion in single-file scope, and empty definition and
+reference results when the standard-library alias collides with a workspace
+import's implicit leaf alias or with a duplicate exact standard-library route.
 The `references-workspace-schema-composition` MCP specification case uses the
 same decoded assertion model for canonical reference locations, empty boundary
 results, project scope, and isolated single-file scope.

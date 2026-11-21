@@ -694,7 +694,7 @@ test-companion private-function access, and unique class-compatible invalid
 source recovery records. Eligible direct-dependency selections include public
 functions, module immutable values, types, constructors, schemas, handlers,
 and public function aliases. Embedded `std` supports the same package
-selections except module immutable values and handlers. Exported
+selections except module immutable values. Exported
 direct-dependency public type aliases are eligible when their target resolves
 to a type in that retained dependency.
 Invalid-cased package records, private or non-exported package declarations,
@@ -924,13 +924,13 @@ start line, start column, end line, and end column. A nonfinal page contains
 exactly `page_size` locations and `next_cursor`; the final page omits it.
 
 Supported reference identities are valid workspace explicit import aliases,
-workspace effects, effect operations, workspace and retained direct-dependency
-handlers, schemas, eligible workspace, direct-dependency, and standard-library
-schema aliases, functions, types, constructors, workspace and retained
-direct-dependency module immutable values, value bindings, handler context
-parameters, and handler operation-clause parameters. Standard-library module
-immutable values remain unsupported and return the ordinary successful empty
-result.
+workspace effects, effect operations, workspace, retained direct-dependency,
+and retained standard-library handlers, schemas, eligible workspace,
+direct-dependency, and standard-library schema aliases, functions, types,
+constructors, workspace and retained direct-dependency module immutable values,
+value bindings, handler context parameters, and handler operation-clause
+parameters. Standard-library module immutable values remain unsupported and
+return the ordinary successful empty result.
 
 ### Recovery References
 
@@ -1054,9 +1054,9 @@ declaration.
 Handler definition and reference lookup require one unrecovered declaration
 for the complete owner identity. Private, non-exported, invalid-cased,
 duplicate, or recovered dependency declarations, ambiguous or recovered
-imports, standard-library and transitive-dependency declarations,
-unresolved, incomplete, recovered, and wrong-kind paths return a successful
-empty result. A wrong-kind handler-name leaf does not fall back to the
+imports, transitive-dependency declarations, unresolved, incomplete,
+recovered, and wrong-kind paths return a successful empty result. A
+wrong-kind handler-name leaf does not fall back to the
 definition or references of the value, type, or other symbol named by that
 path. Equal spelling in another module or symbol class is excluded. An
 unrelated parse error does not remove a complete parse-clean occurrence.
@@ -1070,6 +1070,43 @@ Declaration uniqueness includes handlers from non-exported dependency source
 files. An otherwise eligible exported handler therefore returns an empty
 result when a non-exported source in the same retained package declares the
 same module and handler name.
+
+Standard-library handler selection is a separate supported surface. It accepts
+one public, valid-cased, unrecovered handler declaration in an exported module
+of the retained embedded `std` snapshot. A complete qualified application
+reaches that declaration through one parse-clean, unambiguous `std` import by
+using the standard-library-relative module path, the canonical `std::`-qualified
+module path, or its unique import alias. The import can spell the same module
+with or without the `std::` prefix. All three application spellings select one
+package and module identity. An exact module path wins over a colliding alias.
+Selecting any matching complete application in the saved project returns the
+canonical `veln-pkg:` declaration as its definition and the deterministic set
+of matching application locations in that project as its references. Each
+returned range covers only the handler name.
+
+For project scope, `include_declaration: true` adds that package declaration
+exactly once before sorting and pagination; false omits it. Single-file and
+anonymous requests omit the package declaration. The checked
+standard-library guards reject a private, non-exported, invalid-cased,
+duplicate, or recovered handler declaration. Repeated parse-clean imports of
+the same `std` module are ambiguous and grant no route, including when one
+import uses the relative module spelling and another uses the canonical
+`std::`-qualified spelling. A standard-library import alias grants no route
+when the same qualifier is also the implicit leaf alias or written explicit
+alias of a parse-clean workspace import. Selecting an application through that
+colliding qualifier returns the existing empty definition or reference result;
+the exact standard-library module path remains a separate route. A recovered
+import grants no route, but it does not make a separate parse-clean import
+ambiguous. A parse-clean exact imported module route owns its qualifier before
+handler eligibility is considered. If that exact route is duplicate,
+ambiguous, or does not provide the selected handler, lookup returns the empty
+result instead of falling back to an unrelated workspace, dependency, or
+standard-library alias with the same spelling. Likewise, several parse-clean
+package imports that claim one alias remain ambiguous even when only one route
+could provide an eligible handler.
+A recovered exact-path import does not block a separate parse-clean unique
+alias. These rejections return the existing empty definition or reference
+result.
 
 Capture, lookup, position, and pagination failures publish no partial handler
 locations and preserve the saved workspace, retained resources, prior results,
@@ -1253,6 +1290,16 @@ The checked
 demonstrates a canonical retained dependency definition, workspace-only
 references, declaration exclusion, and declaration-inclusive sorted
 pagination.
+The checked
+`examples/specification/mcp/references-standard-library-handler/` transcript
+demonstrates standard-library-relative, canonical `std::`-qualified, and
+unique-alias selection of one canonical retained standard-library definition,
+workspace-only references, declaration-inclusive project pagination, and
+package-declaration exclusion for single-file scope. It also checks empty
+definition and reference results when the standard-library alias collides with
+a workspace import's implicit leaf alias and when a duplicate exact
+standard-library route blocks fallback to an unrelated standard-library
+alias.
 MCP unit regressions exercise every imported workspace-handler exclusion
 specified above. They verify that each empty definition and reference result
 preserves an unrelated valid handler result. Capture-failure coverage also
@@ -1275,3 +1322,6 @@ reference sets. For a retained direct-dependency handler, it compares the
 canonical package definition and workspace-only references, verifies LSP
 package-declaration exclusion, and collects the one MCP package declaration
 across declaration-inclusive continuation pages.
+It repeats that comparison for a retained standard-library handler selected
+through standard-library-relative, canonical `std::`-qualified, and
+unique-alias applications.

@@ -114,7 +114,7 @@ equals = [
 id = 13
 path = "/result/changes/$workspace_file_uri:other.veln"
 equals = [
-  {"range":{"start":{"line":3,"character":8},"end":{"line":3,"character":14}},"newText":"assist"}
+  {"range":{"start":{"line":4,"character":8},"end":{"line":4,"character":14}},"newText":"assist"}
 ]
 
 [[lsp_assert]]
@@ -155,7 +155,7 @@ equals = [
 id = 17
 path = "/result/changes/$workspace_file_uri:other.veln"
 equals = [
-  {"range":{"start":{"line":3,"character":8},"end":{"line":3,"character":14}},"newText":"assist"}
+  {"range":{"start":{"line":4,"character":8},"end":{"line":4,"character":14}},"newText":"assist"}
 ]
 
 [[lsp_assert]]

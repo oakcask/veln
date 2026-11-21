@@ -1,0 +1,13 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"definition","arguments":{"source":"app/main.veln","line":4,"column":26}}}
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"definition","arguments":{"source":"app/main.veln","line":8,"column":24}}}
+{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"references","arguments":{"source":"app/main.veln","line":4,"column":26,"include_declaration":false}}}
+{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"references","arguments":{"source":"app/main.veln","line":12,"column":31,"include_declaration":true,"page_size":3}}}
+{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"references","arguments":{"cursor":"$mcp_cursor:5"}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"references","arguments":{"source":"loose.veln","line":4,"column":26,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"definition","arguments":{"source":"app/main.veln","line":12,"column":31}}}
+{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"references","arguments":{"source":"app/main.veln","line":12,"column":31,"include_declaration":false}}}
+{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"definition","arguments":{"source":"app/ambiguous.veln","line":7,"column":24}}}
+{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"source":"app/ambiguous.veln","line":7,"column":24,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"definition","arguments":{"source":"app/blocked.veln","line":8,"column":22}}}
+{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"references","arguments":{"source":"app/blocked.veln","line":8,"column":22,"include_declaration":true}}}

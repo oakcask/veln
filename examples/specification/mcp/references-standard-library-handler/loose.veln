@@ -1,0 +1,5 @@
+use observe from "std"
+
+fn isolated() -> Int
+  handle 1 with observe::noop()
+end

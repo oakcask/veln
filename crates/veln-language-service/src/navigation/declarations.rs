@@ -266,8 +266,15 @@ fn handler_declaration(
             Some(package_origin(*standard_library)),
         ),
     };
+    let module = if package_origin == Some(PackageOrigin::StandardLibrary)
+        && !file.module.starts_with("std::")
+    {
+        format!("std::{}", file.module)
+    } else {
+        file.module.clone()
+    };
     Some(NeutralSymbol {
-        module: file.module.clone(),
+        module,
         name: name.to_string(),
         declaration,
         package,
