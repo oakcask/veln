@@ -33,10 +33,6 @@ pub const DISCOVERY_ROOTS: [DiscoveryRoot; 2] = [
     },
 ];
 
-pub fn run_preflight(manifest_dir: &Path) -> Result<Preflight, String> {
-    run_preflight_with_roots(manifest_dir, &DISCOVERY_ROOTS)
-}
-
 pub fn run_preflight_with_roots(
     manifest_dir: &Path,
     roots: &[DiscoveryRoot],

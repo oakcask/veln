@@ -138,10 +138,6 @@ fn documentation_type_text(
     )
 }
 
-pub fn declaration_module_value_signature(value: &ModuleValueDecl) -> String {
-    declaration_module_value_signature_inner(value, None)
-}
-
 pub fn declaration_module_value_signature_from_source(
     value: &ModuleValueDecl,
     source: &SourceFile,
