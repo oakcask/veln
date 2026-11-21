@@ -1,4 +1,5 @@
 use super::*;
+use std::path::Path;
 
 fn write_handler_workspace(workspace: &TempWorkspace) {
     workspace.write("veln.toml", "");
@@ -638,8 +639,18 @@ fn standard_library_handler_references_keep_selected_projects_and_source_bodies_
         "  handle 0 with noop()\n",
         "end\n",
     );
+    let standard_library_build_path = workspace.path("standard-library-build");
+    workspace.write("standard-library-build/observe.veln", standard_source);
+    let captured_standard_source = fs::read(standard_library_build_path.join("observe.veln"))
+        .expect("standard library build source should be readable");
     let mut server = initialized_server(&workspace);
-    install_handler_standard_library(&mut server, standard_source);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"observe.veln\"]\n",
+        [veln_project::PackageSnapshotSource::new(
+            "observe.veln",
+            &captured_standard_source,
+        )],
+    );
     assert_eq!(server.selection_result()["roots"], json!(["left", "right"]));
 
     for project in ["left", "right"] {
@@ -648,6 +659,7 @@ fn standard_library_handler_references_keep_selected_projects_and_source_bodies_
             &mut server,
             project,
             standard_source,
+            &standard_library_build_path,
         );
     }
 }
@@ -657,7 +669,9 @@ fn assert_standard_handler_project_isolation(
     server: &mut Server,
     project: &str,
     standard_source: &str,
+    standard_library_build_path: &Path,
 ) {
+    let rejected_build_path = standard_library_build_path.to_string_lossy();
     let source = format!("{project}/main.veln");
     let definition = server.definition_tool(&json!({
         "project": project, "source": source.clone(), "line": 6, "column": 26
@@ -673,6 +687,11 @@ fn assert_standard_handler_project_isolation(
         !definition
             .to_string()
             .contains(workspace.root.to_string_lossy().as_ref())
+    );
+    assert!(
+        !definition
+            .to_string()
+            .contains(rejected_build_path.as_ref())
     );
 
     let references = server.references_tool(&json!({
@@ -696,9 +715,15 @@ fn assert_standard_handler_project_isolation(
             .contains(&format!("/{other}/main.veln"))
     );
     assert!(!references.to_string().contains("veln-pkg:"));
+    assert!(
+        !references
+            .to_string()
+            .contains(rejected_build_path.as_ref())
+    );
 
     let resource = read_handler_resource(server, definition_uri);
     assert_eq!(resource["result"]["contents"][0]["text"], standard_source);
+    assert!(!resource.to_string().contains(rejected_build_path.as_ref()));
 }
 
 fn read_handler_resource(server: &mut Server, uri: &str) -> Value {
