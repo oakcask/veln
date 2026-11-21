@@ -132,21 +132,8 @@ fn standard_library_handler_navigation_returns_virtual_definition_and_workspace_
 }
 
 fn standard_library_handler_navigation_server() -> (TempProject, String, Server) {
-    let manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"observe.veln\"]\n";
     let handler_source = standard_library_handler_source();
-    let snapshot = capture_embedded_package_snapshot(
-        manifest.as_bytes(),
-        [PackageSnapshotSource::new(
-            "observe.veln",
-            handler_source.as_bytes(),
-        )],
-    )
-    .unwrap();
-    let standard_library = DirectDependencySnapshot::from_validated_standard_library(
-        snapshot,
-        parse_manifest_text("veln.toml", manifest),
-    )
-    .unwrap();
+    let standard_library = standard_library_handler_snapshot(handler_source);
     let project = TempProject::new("standard-library-handler-references");
     project.write("veln.toml", "");
     project.write(
@@ -164,6 +151,20 @@ fn standard_library_handler_navigation_server() -> (TempProject, String, Server)
     let mut server = Server::default().with_standard_library(standard_library);
     server.handle_message(&initialize_request(&root_uri));
     (project, main_uri, server)
+}
+
+fn standard_library_handler_snapshot(source: &str) -> DirectDependencySnapshot {
+    let manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"observe.veln\"]\n";
+    let snapshot = capture_embedded_package_snapshot(
+        manifest.as_bytes(),
+        [PackageSnapshotSource::new("observe.veln", source.as_bytes())],
+    )
+    .unwrap();
+    DirectDependencySnapshot::from_validated_standard_library(
+        snapshot,
+        parse_manifest_text("veln.toml", manifest),
+    )
+    .unwrap()
 }
 
 fn assert_standard_library_handler_definition(server: &mut Server, main_uri: &str) -> Vec<String> {
@@ -216,8 +217,72 @@ fn assert_ineligible_standard_library_handler_is_empty(server: &mut Server, main
 fn standard_library_handler_source() -> &'static str {
     concat!(
         "pub handler noop() for Observe\n  record() => 1\nend\n\n",
-        "handler hidden() for Observe\n  record() => 2\nend\n",
+        "handler hidden() for Observe\n  record() => 2\nend\n\n",
+        "fn implementation() -> Int\n",
+        "  # handle 0 with noop()\n",
+        "  let label: String = \"handle 0 with noop()\"\n",
+        "  handle 0 with noop()\n",
+        "end\n",
     )
+}
+
+#[test]
+fn standard_library_handler_references_keep_workspace_projects_isolated() {
+    let project = TempProject::new("standard-library-handler-project-isolation");
+    for root in ["left", "right"] {
+        project.write(&format!("{root}/veln.toml"), "");
+        project.write(
+            &format!("{root}/main.veln"),
+            concat!(
+                "use observe from \"std\"\n\n",
+                "fn selected() -> Int\n",
+                "  # handle 0 with observe::noop()\n",
+                "  let label: String = \"handle 0 with observe::noop()\"\n",
+                "  handle 1 with observe::noop()\n",
+                "end\n",
+            ),
+        );
+    }
+    let left_root = path_to_uri(&project.root.join("left"));
+    let right_root = path_to_uri(&project.root.join("right"));
+    let mut server = Server::default().with_standard_library(standard_library_handler_snapshot(
+        standard_library_handler_source(),
+    ));
+    server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{left_root}","name":"left"}},{{"uri":"{right_root}","name":"right"}}]}}}}"#
+    ));
+
+    for root in ["left", "right"] {
+        assert_standard_handler_lsp_project_isolation(&project, &mut server, root);
+    }
+}
+
+fn assert_standard_handler_lsp_project_isolation(
+    project: &TempProject,
+    server: &mut Server,
+    root: &str,
+) {
+    let uri = path_to_uri(&project.root.join(format!("{root}/main.veln")));
+    let definition = server.handle_message(&definition_request(&uri, 5, 25));
+    let definition_uri = extract_string_field(&definition[0], "uri").unwrap();
+    assert!(definition_uri.starts_with("veln-pkg:///std/snapshot/"));
+    assert!(!definition[0].contains(project.root.to_string_lossy().as_ref()));
+    assert_virtual_document_text(
+        server,
+        if root == "left" { "51" } else { "52" },
+        &definition_uri,
+        standard_library_handler_source(),
+    );
+
+    let references = server.handle_message(&references_request_with_declaration(
+        &uri, 5, 25, true,
+    ));
+    assert_eq!(references.len(), 1);
+    assert_eq!(references[0].matches(r#""uri":"#).count(), 1);
+    assert_eq!(references[0].matches(&format!(r#""uri":"{uri}""#)).count(), 1);
+    let other = if root == "left" { "right" } else { "left" };
+    assert!(!references[0].contains(&format!("/{other}/main.veln")));
+    assert!(!references[0].contains("veln-pkg:"));
 }
 
 #[test]

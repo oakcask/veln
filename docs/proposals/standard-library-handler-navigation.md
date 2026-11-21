@@ -1,12 +1,12 @@
 ---
 role: proposal
-update-when: The planned standard-library handler source, project, rejection, or retained-state matrices or their executable evidence change.
+update-when: The planned standard-library handler rejection or retained-state matrices or their executable evidence change.
 ---
 
 # Standard-Library Handler Navigation
 
 This proposal defines the remaining standard-library handler contract and
-evidence work for S4 through S6. The current [Editor
+evidence work for S5 and S6. The current [Editor
 Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
 and [MCP](../specification/mcp.md#saved-workspace-navigation) specifications own
 the selected-project, package-location, and failure-state rules that constrain
@@ -16,9 +16,8 @@ this work.
 
 | Case | Input | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| S4: source and project boundaries | Place equal applications in standard-library bodies, a different workspace project, comments, and strings, then select each workspace project independently. | Each result contains only applications from its selected saved project and exposes no standard-library build path. | MCP project-isolation tests plus focused LSP virtual-document cases. |
-| S5: remaining rejection table | Use transitive, mismatched, unresolved, incomplete, additionally qualified, test-only, and wrong-kind inputs alongside an unrelated valid handler identity. | Every input keeps its existing empty or separate result without contaminating the unrelated valid identity. | Table-driven shared-selection and adapter negative tests. |
-| S6: retained state | Keep a live MCP cursor, then reject a workspace capture and trigger resource-admission, position, and cursor failures. | Capture and admission failures publish no partial result or resource. Position and cursor failures preserve the prior declaration, workspace result, resources, and existing cursors at their original snapshots. | Focused MCP refresh, capacity, capture-failure, position, and cursor tests. |
+| S5: remaining standard-library rejection table | Use transitive, mismatched, unresolved, incomplete, additionally qualified, test-only, and wrong-kind standard-library inputs alongside an unrelated valid handler identity. | Every input keeps its existing empty or separate result without contaminating the unrelated valid identity. | Table-driven shared-selection and adapter negative tests. |
+| S6: retained standard-library state | Keep a live MCP cursor for a standard-library handler, then reject a workspace capture and trigger resource-admission, position, and cursor failures. | Capture and admission failures publish no partial result or resource. Position and cursor failures preserve the prior declaration, workspace result, resources, and existing cursors at their original snapshots. | Focused MCP refresh, capacity, capture-failure, position, and cursor tests. |
 
 Standard-library API companion tests are not applicable because the remaining
 work changes language-service and adapter navigation contracts, not handler
@@ -30,7 +29,7 @@ runtime behavior. Identity and rejection matrices belong in
 [Veln PR #1981](https://github.com/oakcask/veln/pull/1981) added the shared
 retained-package handler identity and LSP and MCP projection for direct
 dependencies. Its separation between shared selection and adapter projection
-is the design constraint for the remaining work: S4 through S6 must extend the
+is the design constraint for the remaining work: S5 and S6 must extend the
 shared selection and retained-state boundaries instead of adding independent
 adapter scans.
 
@@ -63,9 +62,9 @@ this bounded extension.
 
 ## Implementation And Specification Route
 
-Implement S4 through S6 as separately reviewable contract and evidence
+Implement S5 and S6 as separately reviewable contract and evidence
 additions. Add each executable matrix before promoting its observations into
 the current specifications. Do not infer identity from spelling or introduce
 an adapter-specific handler scan. Remove this page and its Ready catalog entry
-when all three remaining rows are covered and the current specifications and
+when both remaining rows are covered and the current specifications and
 executable evidence own those boundaries.

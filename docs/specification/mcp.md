@@ -1083,6 +1083,9 @@ Selecting any matching complete application in the saved project returns the
 canonical `veln-pkg:` declaration as its definition and the deterministic set
 of matching application locations in that project as its references. Each
 returned range covers only the handler name.
+Applications in retained standard-library source or another saved project do
+not enter that reference set. Comments and strings do not enter it either,
+including when their text has the same application spelling.
 Equal module and handler names in a direct dependency or the workspace remain
 separate owners and do not replace the selected `std` declaration or enter its
 reference set. The definition and optional package declaration preserve the
@@ -1339,4 +1342,5 @@ Focused regressions in
 and
 [`workspace_handlers.rs`](../../crates/veln-mcp/src/server/tests/references/workspace_handlers.rs)
 verify equal-name owner separation, exact retained `std` revision identity,
-and revision-scoped source-resource reads.
+revision-scoped source-resource reads, selected-project isolation, and the
+absence of standard-library build paths from navigation and resource results.

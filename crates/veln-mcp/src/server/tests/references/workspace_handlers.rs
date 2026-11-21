@@ -613,6 +613,94 @@ fn standard_handler_mcp_projection(
     uri
 }
 
+#[test]
+fn standard_library_handler_references_keep_selected_projects_and_source_bodies_isolated() {
+    let workspace = TempWorkspace::new("references-standard-handler-project-isolation");
+    for project in ["left", "right"] {
+        workspace.write(&format!("{project}/veln.toml"), "");
+        workspace.write(
+            &format!("{project}/main.veln"),
+            concat!(
+                "use observe from \"std\"\n\n",
+                "fn selected() -> Int\n",
+                "  # handle 0 with observe::noop()\n",
+                "  let label: String = \"handle 0 with observe::noop()\"\n",
+                "  handle 1 with observe::noop()\n",
+                "end\n",
+            ),
+        );
+    }
+    let standard_source = concat!(
+        "pub handler noop() for Observe\n  record() => 1\nend\n\n",
+        "fn implementation() -> Int\n",
+        "  # handle 0 with noop()\n",
+        "  let label: String = \"handle 0 with noop()\"\n",
+        "  handle 0 with noop()\n",
+        "end\n",
+    );
+    let mut server = initialized_server(&workspace);
+    install_handler_standard_library(&mut server, standard_source);
+    assert_eq!(server.selection_result()["roots"], json!(["left", "right"]));
+
+    for project in ["left", "right"] {
+        assert_standard_handler_project_isolation(
+            &workspace,
+            &mut server,
+            project,
+            standard_source,
+        );
+    }
+}
+
+fn assert_standard_handler_project_isolation(
+    workspace: &TempWorkspace,
+    server: &mut Server,
+    project: &str,
+    standard_source: &str,
+) {
+    let source = format!("{project}/main.veln");
+    let definition = server.definition_tool(&json!({
+        "project": project, "source": source.clone(), "line": 6, "column": 26
+    }));
+    let definition_uri = definition["structuredContent"]["definition"]["uri"]
+        .as_str()
+        .unwrap();
+    assert!(
+        definition_uri.starts_with("veln-pkg:///std/snapshot/"),
+        "{definition:#}"
+    );
+    assert!(
+        !definition
+            .to_string()
+            .contains(workspace.root.to_string_lossy().as_ref())
+    );
+
+    let references = server.references_tool(&json!({
+        "project": project, "source": source, "line": 6, "column": 26,
+        "include_declaration": false
+    }));
+    assert_eq!(references["isError"], false, "{references:#}");
+    assert_eq!(
+        references["structuredContent"]["scope"]["project"], project,
+        "{references:#}"
+    );
+    assert_reference_ranges(
+        &references,
+        &[(source.as_str(), 6, 26, 6, 30)],
+        "standard library handler selected project isolation",
+    );
+    let other = if project == "left" { "right" } else { "left" };
+    assert!(
+        !references
+            .to_string()
+            .contains(&format!("/{other}/main.veln"))
+    );
+    assert!(!references.to_string().contains("veln-pkg:"));
+
+    let resource = read_handler_resource(server, definition_uri);
+    assert_eq!(resource["result"]["contents"][0]["text"], standard_source);
+}
+
 fn read_handler_resource(server: &mut Server, uri: &str) -> Value {
     server
         .handle_request(json!({
