@@ -8,15 +8,18 @@ specification-coverage: usage=#usage; behavior=#routing-and-provenance; limits=#
 # Agent Language Routing
 
 The `veln-language` skill gives agent clients one client-neutral route for Veln
-language questions and repository tasks. Its canonical source is the
-repository agent skill named `veln-language`. Client manifests, installation,
+language questions and Veln implementation or proposal tasks. Its canonical
+source is the repository agent skill named `veln-language`. Client manifests, installation,
 and adapters are outside this contract.
 
 ## Usage
 
 Select the skill for a question about the Veln language or for a request to
-inspect or change this repository. A language question requires the published
-`list_language_topics` and `read_doc` tools. A repository task requires access
+inspect or change Veln implementation or proposal state in this repository.
+Repository maintenance, such as CI configuration or agent tooling, follows its
+own repository policies and skills directly. It does not require a language
+specification or a route under `docs/`. A language question requires the
+published `list_language_topics` and `read_doc` tools. A repository task requires access
 to the repository documentation tree.
 
 ## Routing and provenance
@@ -98,7 +101,8 @@ earlier exact URI with `resource_not_found`.
 Linked repository routing reads at most three distinct documentation files.
 An explicit documentation path uses exactly two reads: `docs/README.md` and
 the named terminal authority. Routing stops when the selected route ends and
-reports when no route covers the request.
+reports when no route covers the request. This ends documentation lookup; it
+does not prevent authorized repository maintenance under its own policies.
 Outside the explicit-path rule, a documentation path contributes to a route
 only when it is the destination of an actual inline or reference-style
 Markdown navigation link. An inline destination takes precedence when a label

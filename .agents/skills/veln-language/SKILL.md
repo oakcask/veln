@@ -1,6 +1,6 @@
 ---
 name: veln-language
-description: Use for Veln language questions and for inspecting or changing the Veln repository through its documentation authority.
+description: Use for Veln language questions and for inspecting or changing Veln implementation or proposal work through repository documentation. Excludes repository maintenance such as CI configuration and agent tooling.
 ---
 
 # Veln Language Routing
@@ -13,6 +13,7 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
 {
   "schema_version": 1,
   "request_selection": {
+    "outside_scope": "Before selecting a route, exclude repository maintenance that does not change Veln behavior, implementation, or proposal state from this skill. Follow the relevant repository policies and skills directly; no language-specification route is required.",
     "repository_when": "The request asks to inspect, test, or change the Veln repository or makes the repository, codebase, source code, or proposal state its subject.",
     "semantic_basis": "Classify the requested action and subject by meaning. Do not decide from a closed vocabulary of verbs, question words, or sentence frames.",
     "language_otherwise": true
@@ -45,7 +46,7 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "repeat_paths": "forbidden",
     "published_reference_is_authority": false,
     "authority_selection": "smallest_current_linked_authority",
-    "no_route": "Stop and report that no repository documentation route covers the request.",
+    "no_route": "Stop documentation routing and report that no repository documentation route covers the request. This stops the documentation lookup, not authorized repository maintenance under its own policies.",
     "semantic_selection": "A request for the agent to examine, validate, or alter Veln behavior or implementation selects repository work. A question whose subject is a compiler or parser implementation also selects repository work. A request for information about how a Veln language feature behaves selects language work. A repository, codebase, source-code, proposal-state, or repository-path subject selects repository work unless the phrase is incidental or being defined.",
     "path_prefixes": [".agents/", ".github/", "crates/", "docs/", "editors/", "examples/", "scripts/", "tools/", "workflow-scripts/"]
   },
