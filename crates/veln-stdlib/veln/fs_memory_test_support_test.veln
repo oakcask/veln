@@ -40,9 +40,13 @@ pub handler selection(slot: Int, cell: io_provider::State<model::State>) for api
 	system(root, owner) => filesystem(owner, slot, cell)
 end
 
+fn operation_failure(operation: String, failure: bytes_io::Error) -> bytes_io::Error
+	{operation: operation, kind: failure.kind, path: failure.path, other_path: failure.other_path, network: failure.network, commit: failure.commit, message: failure.message}
+end
+
 fn read_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, reader: bytes_io::Reader, maximum: ByteCount) -> bytes_io::ReadOutcome effects [concurrency]
 	match io_provider::reader_slot(owner, reader)
-		Err(failure) => bytes_io::ReadOutcome::ReadFailed(byte_chunk([]), bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure)
+		Err(failure) => bytes_io::ReadOutcome::ReadFailed(byte_chunk([]), bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), operation_failure("read", failure))
 		Ok(slot) => read_transition(cell, slot, maximum)
 	end
 end
@@ -54,7 +58,7 @@ end
 
 fn read_at_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, reader: bytes_io::ReaderAt, offset: ByteOffset, maximum: ByteCount) -> bytes_io::ReadOutcome effects [concurrency]
 	match io_provider::reader_at_slot(owner, reader)
-		Err(failure) => bytes_io::ReadOutcome::ReadFailed(byte_chunk([]), bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure)
+		Err(failure) => bytes_io::ReadOutcome::ReadFailed(byte_chunk([]), bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), operation_failure("read_at", failure))
 		Ok(slot) => read_at_transition(cell, slot, offset, maximum)
 	end
 end
@@ -66,7 +70,7 @@ end
 
 fn write_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, writer: bytes_io::Writer, bytes: ByteChunk) -> bytes_io::WriteOutcome effects [concurrency]
 	match io_provider::writer_slot(owner, writer)
-		Err(failure) => bytes_io::WriteOutcome::WriteFailed(bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure)
+		Err(failure) => bytes_io::WriteOutcome::WriteFailed(bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), operation_failure("write", failure))
 		Ok(slot) => write_transition(cell, slot, bytes)
 	end
 end
@@ -78,7 +82,7 @@ end
 
 fn write_at_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, writer: bytes_io::WriterAt, offset: ByteOffset, bytes: ByteChunk) -> bytes_io::WriteOutcome effects [concurrency]
 	match io_provider::writer_at_slot(owner, writer)
-		Err(failure) => bytes_io::WriteOutcome::WriteFailed(bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure)
+		Err(failure) => bytes_io::WriteOutcome::WriteFailed(bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), operation_failure("write_at", failure))
 		Ok(slot) => write_at_transition(cell, slot, offset, bytes)
 	end
 end
@@ -90,7 +94,7 @@ end
 
 fn seek_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, seeker: bytes_io::Seeker, origin: bytes_io::SeekOrigin) -> Result<ByteOffset, bytes_io::Error> effects [concurrency]
 	match io_provider::seeker_slot(owner, seeker)
-		Err(failure) => Err(failure)
+		Err(failure) => Err(operation_failure("seek", failure))
 		Ok(slot) => seek_transition(cell, slot, origin)
 	end
 end
@@ -102,7 +106,7 @@ end
 
 fn truncate_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, file: api::Truncater, size: ByteOffset) -> api::MutationOutcome effects [concurrency]
 	match io_provider::truncater_slot(owner, file)
-		Err(failure) => api::MutationOutcome::MutationFailed(bytes_io::Commit::No, failure)
+		Err(failure) => api::MutationOutcome::MutationFailed(bytes_io::Commit::No, operation_failure("truncate", failure))
 		Ok(slot) => truncate_transition(cell, slot, size)
 	end
 end
@@ -114,14 +118,14 @@ end
 
 fn close_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, resource: bytes_io::Closer) -> bytes_io::CloseOutcome effects [concurrency]
 	match io_provider::closer_slot(owner, resource)
-		Err(failure) => bytes_io::CloseOutcome::CloseFailed(bytes_io::Commit::No, failure)
+		Err(failure) => bytes_io::CloseOutcome::CloseFailed(bytes_io::Commit::No, operation_failure("close", failure))
 		Ok(slot) => io_provider::update(cell, slot, model::close)
 	end
 end
 
 fn sync_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, resource: bytes_io::Syncer) -> Result<(), bytes_io::Error> effects [concurrency]
 	match io_provider::syncer_slot(owner, resource)
-		Err(failure) => Err(failure)
+		Err(failure) => Err(operation_failure("sync", failure))
 		Ok(slot) => io_provider::update(cell, slot, model::sync)
 	end
 end

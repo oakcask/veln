@@ -1,0 +1,468 @@
+use prelude
+use fs as api
+use io
+use io_provider as provider
+use path as portable
+use fs_memory_state_test_support_test as model
+use fs_memory_test_support_test as memory
+
+# Scoped Veln filesystem conformance support; expected observations come from
+# the proposal transition tables rather than from the returned failure payload.
+fn known_position(value: Option<Int>, expected: Int) -> Bool
+	match value
+		Some(actual) => actual == expected
+		None => false
+	end
+end
+
+fn unknown_position(value: Option<Int>) -> Bool
+	match value
+		None => true
+		Some(_) => false
+	end
+end
+
+fn progress_matches(progress: io::Progress, known: Bool) -> Bool
+	match progress
+		io::Progress::Known(amount) => known and byte_count_to_int(amount) == 3
+		io::Progress::Unknown(prefix) => not known and byte_count_to_int(prefix) == 1
+	end
+end
+
+fn failure_matches(failure: io::Error, operation: String) -> Bool
+	failure.operation == operation and (match failure.kind
+		io::ErrorKind::Other => true
+		_ => false
+	end)
+end
+
+fn text(outcome: io::ReadOutcome) -> Result<String, String>
+	match outcome
+		io::ReadOutcome::Data(bytes) => byte_chunk_to_visible_ascii_string(bytes)
+		_ => Err("expected an independent successful read")
+	end
+end
+
+fn cursor_rejected(result: Result<ByteOffset, io::Error>) -> Bool
+	match result
+		Err(failure) => failure.operation == "seek" and (match failure.kind
+			io::ErrorKind::InvalidResource => true
+			_ => false
+		end)
+		Ok(_) => false
+	end
+end
+
+fn exercise(cell: provider::State<model::State>, filesystem: api::MutableFilesystem, writing: Bool, positional: Bool, known: Bool) -> Result<(), String> effects [api::Mutate, io::Read, io::Write, io::ReadAt, io::WriteAt, io::Seek, concurrency]
+	let path = match portable::parse("data")
+		Ok(value) => Ok(value)
+		Err(_) => Err("invalid test path")
+	end?
+	let file: api::UpdateFile = match api::open_read_write(filesystem, path, {create: api::CreateMode::Existing, truncate: false})
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	let operation = if writing
+		if positional
+			"write_at"
+		else
+			"write"
+		end
+	else if positional
+		"read_at"
+	else
+		"read"
+	end
+	let reply_matches = if writing
+		begin
+			let input = byte_chunk_from_visible_ascii_string("WXYZ")?
+			let reply = if positional
+				io::write_at(file.writer_at, byte_offset(2)?, input)
+			else
+				io::write(file.writer, input)
+			end
+			match reply
+				io::WriteOutcome::WriteFailed(progress, failure) => progress_matches(progress, known) and failure_matches(failure, operation)
+				_ => false
+			end
+		end
+	else
+		begin
+			let reply = if positional
+				io::read_at(file.reader_at, byte_offset(2)?, byte_count(4)?)
+			else
+				io::read(file.reader, byte_count(4)?)
+			end
+			match reply
+				io::ReadOutcome::ReadFailed(bytes, progress, failure) => progress_matches(progress, known) and failure_matches(failure, operation) and byte_chunk_to_visible_ascii_string(bytes)? == (if positional
+					"c"
+				else
+					"a"
+				end)
+				_ => false
+			end
+		end
+	end
+	let after_failure = memory::snapshot(cell)
+	let actual_matches = known_position(model::actual_cursor(after_failure, 10), if positional
+		0
+	else
+		3
+	end)
+	let exposed_matches = if positional
+		known_position(model::cursor(after_failure, 10), 0)
+	else if known
+		known_position(model::cursor(after_failure, 10), 3)
+	else
+		unknown_position(model::cursor(after_failure, 10))
+	end
+	let expected = if writing
+		if positional
+			"abWXYf"
+		else
+			"WXYdef"
+		end
+	else
+		"abcdef"
+	end
+	let stored = match dict_get(model::contents(after_failure), 1)
+		Some(bytes) => byte_chunk_to_visible_ascii_string(bytes)? == expected
+		None => false
+	end
+	let observed = text(io::read_at(file.reader_at, byte_offset(0)?, byte_count(6)?))?
+	let after_positional = memory::snapshot(cell)
+	let preserved = if not positional and not known
+		unknown_position(model::cursor(after_positional, 10))
+	else
+		known_position(model::cursor(after_positional, 10), if positional
+			0
+		else
+			3
+		end)
+	end
+	let recovery = if not positional and not known
+		begin
+			let relative_rejected = cursor_rejected(io::seek(file.seeker, io::SeekOrigin::Current(0)))
+			let end_rejected = cursor_rejected(io::seek(file.seeker, io::SeekOrigin::End(0)))
+			let sequential_rejected = match io::read(file.reader, byte_count(1)?)
+				io::ReadOutcome::ReadFailed(bytes, io::Progress::Known(amount), failure) => byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(amount) == 0 and (match failure.kind
+					io::ErrorKind::InvalidResource => true
+					_ => false
+				end)
+				_ => false
+			end
+			let wrote = match io::write_at(file.writer_at, byte_offset(5)?, byte_chunk_from_visible_ascii_string("Z")?)
+				io::WriteOutcome::Written(amount) => byte_count_to_int(amount) == 1
+				_ => false
+			end
+			let still_unknown = unknown_position(model::cursor(memory::snapshot(cell), 10))
+			let restored = match io::seek(file.seeker, io::SeekOrigin::Start(byte_offset(3)?))
+				Ok(position) => byte_offset_to_int(position) == 3
+				Err(_) => false
+			end
+			let next = text(io::read(file.reader, byte_count(1)?))?
+			relative_rejected and end_rejected and sequential_rejected and wrote and still_unknown and restored and next == "d"
+		end
+	else
+		begin
+			let next = text(io::read(file.reader, byte_count(1)?))?
+			next == (if positional
+				"a"
+			else
+				"d"
+			end)
+		end
+	end
+	if reply_matches and actual_matches and exposed_matches and stored and observed == expected and preserved and recovery
+		Ok(())
+	else
+		Err("scripted filesystem transfer disagreed with actual bytes, cursor knowledge, progress, error context, or recovery")
+	end
+end
+
+fn owned(cell: provider::State<model::State>, writing: Bool, positional: Bool, known: Bool) -> Result<(), String> effects [provider::Scope, concurrency]
+	let owner = provider::owner()
+	let filesystem = match memory::filesystem(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	handle handle handle handle handle handle handle handle exercise(cell, filesystem, writing, positional, known) with memory::mutations(owner, 1, cell) with memory::reading(owner, cell) with memory::writing(owner, cell) with memory::reading_at(owner, cell) with memory::writing_at(owner, cell) with memory::seeking(owner, cell) with memory::closing(owner, cell) with memory::syncing(owner, cell)
+end
+
+pub fn transfer(writing: Bool, positional: Bool, known: Bool) -> Result<(), String> effects [concurrency]
+	let operation = if writing
+		if positional
+			"write_at"
+		else
+			"write"
+		end
+	else if positional
+		"read_at"
+	else
+		"read"
+	end
+	let prefix = if known
+		3
+	else
+		1
+	end
+	let delivered = if writing
+		0
+	else
+		1
+	end
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcdef")?)
+	let cell = memory::cell(model::script(initial, Cons(model::Fault::Transfer(operation, 3, delivered, prefix, known), Nil)))
+	let _ = (handle owned(cell, writing, positional, known) with provider::scope())?
+	match model::faults(memory::snapshot(cell))
+		Nil => Ok(())
+		_ => Err("planned filesystem failure was not consumed")
+	end
+end
+
+fn path_matches(value: Option<portable::Path>, expected: String) -> Bool
+	match value
+		Some(path) => portable::text(path) == expected
+		None => expected == ""
+	end
+end
+
+fn commit_matches(value: io::Commit, expected: String) -> Bool
+	match value
+		io::Commit::No => expected == "no"
+		io::Commit::Yes => expected == "yes"
+		io::Commit::Unknown => expected == "unknown"
+	end
+end
+
+fn mutation_exercise(cell: provider::State<model::State>, filesystem: api::MutableFilesystem, operation: String, actual: Bool, committed: String) -> Result<(), String> effects [api::Mutate, io::ReadAt, io::Seek, concurrency]
+	let data = match portable::parse("data")
+		Ok(value) => Ok(value)
+		Err(_) => Err("invalid data fixture path")
+	end?
+	let directory = match portable::parse("directory")
+		Ok(value) => Ok(value)
+		Err(_) => Err("invalid directory fixture path")
+	end?
+	let destination = match portable::parse("destination")
+		Ok(value) => Ok(value)
+		Err(_) => Err("invalid destination fixture path")
+	end?
+	let first: api::UpdateFile = match api::open_read_write(filesystem, data, {create: api::CreateMode::Existing, truncate: false})
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	let second: api::UpdateFile = match api::open_read_write(filesystem, data, {create: api::CreateMode::Existing, truncate: false})
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	let _ = match io::seek(first.seeker, io::SeekOrigin::Start(byte_offset(4)?))
+		Ok(_) => Ok(())
+		Err(failure) => Err(failure.message)
+	end?
+	let _ = match io::seek(second.seeker, io::SeekOrigin::Start(byte_offset(5)?))
+		Ok(_) => Ok(())
+		Err(failure) => Err(failure.message)
+	end?
+	let reply = if operation == "create_directory"
+		api::create_directory(filesystem, destination)
+	else if operation == "remove_file"
+		api::remove_file(filesystem, data)
+	else if operation == "remove_directory"
+		api::remove_directory(filesystem, directory)
+	else if operation == "rename"
+		api::rename(filesystem, data, destination)
+	else
+		api::truncate(first.truncater, byte_offset(2)?)
+	end
+	let expected_path = if operation == "create_directory"
+		"destination"
+	else if operation == "remove_directory"
+		"directory"
+	else if operation == "truncate"
+		""
+	else
+		"data"
+	end
+	let reply_matches = match reply
+		api::MutationOutcome::MutationFailed(commit, failure) => commit_matches(commit, committed) and failure_matches(failure, operation) and path_matches(failure.path, expected_path) and path_matches(failure.other_path, if operation == "rename"
+			"destination"
+		else
+			""
+		end)
+		api::MutationOutcome::Applied => false
+	end
+	let after = memory::snapshot(cell)
+	let bindings = model::bindings(after)
+	let data_present = dict_contains(bindings, "data")
+	let destination_present = dict_contains(bindings, "destination")
+	let directory_present = dict_contains(bindings, "directory")
+	let namespace_matches = data_present == (not actual or (operation != "remove_file" and operation != "rename")) and destination_present == (actual and (operation == "create_directory" or operation == "rename")) and directory_present == (not actual or operation != "remove_directory")
+	let expected_bytes = if operation == "truncate" and actual
+		"ab"
+	else
+		"abcdef"
+	end
+	let stored_matches = match dict_get(model::contents(after), 1)
+		Some(bytes) => byte_chunk_to_visible_ascii_string(bytes)? == expected_bytes
+		None => false
+	end
+	let first_actual = if operation == "truncate" and actual
+		2
+	else
+		4
+	end
+	let cursor_matches = known_position(model::actual_cursor(after, 10), first_actual) and known_position(model::actual_cursor(after, 11), 5) and known_position(model::cursor(after, 11), 5) and (if operation == "truncate" and committed == "unknown"
+		unknown_position(model::cursor(after, 10))
+	else
+		known_position(model::cursor(after, 10), first_actual)
+	end)
+	let retained = text(io::read_at(first.reader_at, byte_offset(0)?, byte_count(6)?))?
+	let other_retained = text(io::read_at(second.reader_at, byte_offset(0)?, byte_count(6)?))?
+	if reply_matches and namespace_matches and stored_matches and cursor_matches and retained == expected_bytes and other_retained == expected_bytes
+		Ok(())
+	else
+		Err("filesystem mutation failure lost actual namespace, open identity, bytes, cursors, commit, or path context")
+	end
+end
+
+fn mutation_owned(cell: provider::State<model::State>, operation: String, actual: Bool, committed: String) -> Result<(), String> effects [provider::Scope, concurrency]
+	let owner = provider::owner()
+	let filesystem = match memory::filesystem(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	handle handle handle handle handle handle handle handle mutation_exercise(cell, filesystem, operation, actual, committed) with memory::mutations(owner, 1, cell) with memory::reading(owner, cell) with memory::writing(owner, cell) with memory::reading_at(owner, cell) with memory::writing_at(owner, cell) with memory::seeking(owner, cell) with memory::closing(owner, cell) with memory::syncing(owner, cell)
+end
+
+pub fn mutation(operation: String, actual: Bool, committed: String) -> Result<(), String> effects [concurrency]
+	let commit = if committed == "no"
+		io::Commit::No
+	else if committed == "yes"
+		io::Commit::Yes
+	else
+		io::Commit::Unknown
+	end
+	let initial = model::seed_directory(model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcdef")?), "directory")
+	let cell = memory::cell(model::script(initial, Cons(model::Fault::Mutation(operation, actual, commit), Nil)))
+	let _ = (handle mutation_owned(cell, operation, actual, committed) with provider::scope())?
+	match model::faults(memory::snapshot(cell))
+		Nil => Ok(())
+		_ => Err("planned filesystem mutation failure was not consumed")
+	end
+end
+
+fn closed_slot(value: model::Open) -> Bool
+	match value
+		model::Open(_, _, _, closed, _) => closed
+	end
+end
+
+fn open_exercise(cell: provider::State<model::State>, filesystem: api::MutableFilesystem, creating: Bool, actual: Bool, committed: String) -> Result<(), String> effects [api::Read, api::Mutate, io::Read, io::ReadAt, concurrency]
+	let data = match portable::parse("data")
+		Ok(value) => Ok(value)
+		Err(_) => Err("invalid existing fixture path")
+	end?
+	let created: portable::Path = match portable::parse("created")
+		Ok(value) => Ok(value)
+		Err(_) => Err("invalid created fixture path")
+	end?
+	let retained: api::ReadFile = match api::open_read(api::read_only(filesystem), data)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	let original = text(io::read(retained.reader, byte_count(3)?))?
+	let target = if creating
+		created
+	else
+		data
+	end
+	let mode = if creating
+		{create: api::CreateMode::CreateNew, truncate: false}
+	else
+		{create: api::CreateMode::Existing, truncate: true}
+	end
+	let failed = match api::open_write(filesystem, target, mode)
+		Err(failure) => failure_matches(failure, "open") and path_matches(failure.path, if creating
+			"created"
+		else
+			"data"
+		end) and (match failure.commit
+			Some(commit) => commit_matches(commit, committed)
+			None => false
+		end)
+		Ok(_) => false
+	end
+	let after = memory::snapshot(cell)
+	let bytes = match dict_get(model::contents(after), 1)
+		Some(value) => byte_chunk_to_visible_ascii_string(value)?
+		None => "<missing>"
+	end
+	let expected_bytes = if not creating and actual
+		""
+	else
+		"abcdef"
+	end
+	let created_matches = dict_contains(model::bindings(after), "created") == (creating and actual)
+	let abandoned = match dict_get(model::opens(after), 11)
+		Some(value) => actual and closed_slot(value)
+		None => not actual
+	end
+	let retained_live = match dict_get(model::opens(after), 10)
+		Some(value) => not closed_slot(value)
+		None => false
+	end
+	let observed = match io::read_at(retained.reader_at, byte_offset(0)?, byte_count(6)?)
+		io::ReadOutcome::Data(value) => byte_chunk_to_visible_ascii_string(value)?
+		io::ReadOutcome::End => ""
+		_ => "<failure>"
+	end
+	if failed and original == "abc" and bytes == expected_bytes and observed == expected_bytes and created_matches and abandoned and retained_live and known_position(model::cursor(after, 10), 3)
+		Ok(())
+	else
+		Err("failed open lost namespace commit, original open identity/cursor, or release of its unpublished resource")
+	end
+end
+
+fn open_owned(cell: provider::State<model::State>, creating: Bool, actual: Bool, committed: String) -> Result<(), String> effects [provider::Scope, concurrency]
+	let owner = provider::owner()
+	let filesystem = match memory::filesystem(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	handle handle handle handle handle open_exercise(cell, filesystem, creating, actual, committed) with memory::namespace(owner, 1, cell) with memory::mutations(owner, 1, cell) with memory::reading(owner, cell) with memory::reading_at(owner, cell) with memory::closing(owner, cell)
+end
+
+fn close_events(total: Int, event: model::Event) -> Int
+	match event
+		model::Event::Closed(_, _) => total + 1
+		_ => total
+	end
+end
+
+pub fn failed_open(creating: Bool, actual: Bool, committed: String) -> Result<(), String> effects [concurrency]
+	let commit = if committed == "no"
+		io::Commit::No
+	else if committed == "yes"
+		io::Commit::Yes
+	else
+		io::Commit::Unknown
+	end
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcdef")?)
+	let cell = memory::cell(model::script(initial, Cons(model::Fault::Mutation("open", actual, commit), Nil)))
+	let _ = (handle open_owned(cell, creating, actual, committed) with provider::scope())?
+	let final = memory::snapshot(cell)
+	let consumed = match model::faults(final)
+		Nil => true
+		_ => false
+	end
+	if consumed and list_fold(model::events(final), 0, close_events) == (if actual
+		2
+	else
+		1
+	end)
+		Ok(())
+	else
+		Err("failed-open plan or unpublished-resource cleanup was lost or repeated")
+	end
+end

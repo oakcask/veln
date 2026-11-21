@@ -6,6 +6,7 @@ use io_provider
 use fs_memory_state_test_support_test as model
 use fs_memory_test_support_test as memory
 use io_admission_test_support_test as admission
+use fs_failure_test_support_test as failures
 
 fn name(text: String) -> Result<portable::Path, String>
 	match portable::parse(text)
@@ -678,4 +679,164 @@ end
 
 test sync_admission_rejects_every_overlapping_operation_without_changing_state() -> Result<(), String> effects [concurrency]
 	admission::run("sync")
+end
+
+test close_preserves_read_late_progress_and_resource_identity() -> Result<(), String> effects [concurrency]
+	admission::close_transfer("read_late")
+end
+
+test close_preserves_read_ready_progress_and_resource_identity() -> Result<(), String> effects [concurrency]
+	admission::close_transfer("read_ready")
+end
+
+test close_preserves_write_late_progress_and_resource_identity() -> Result<(), String> effects [concurrency]
+	admission::close_transfer("write_late")
+end
+
+test close_preserves_write_ready_progress_and_resource_identity() -> Result<(), String> effects [concurrency]
+	admission::close_transfer("write_ready")
+end
+
+test read_failure_preserves_unknown_positive_progress_and_actual_filesystem_state() -> Result<(), String> effects [concurrency]
+	failures::transfer(false, false, false)
+end
+
+test read_failure_preserves_known_positive_progress_and_actual_filesystem_state() -> Result<(), String> effects [concurrency]
+	failures::transfer(false, false, true)
+end
+
+test read_at_failure_preserves_unknown_positive_progress_and_actual_filesystem_state() -> Result<(), String> effects [concurrency]
+	failures::transfer(false, true, false)
+end
+
+test read_at_failure_preserves_known_positive_progress_and_actual_filesystem_state() -> Result<(), String> effects [concurrency]
+	failures::transfer(false, true, true)
+end
+
+test write_failure_preserves_unknown_positive_progress_and_actual_filesystem_state() -> Result<(), String> effects [concurrency]
+	failures::transfer(true, false, false)
+end
+
+test write_failure_preserves_known_positive_progress_and_actual_filesystem_state() -> Result<(), String> effects [concurrency]
+	failures::transfer(true, false, true)
+end
+
+test write_at_failure_preserves_unknown_positive_progress_and_actual_filesystem_state() -> Result<(), String> effects [concurrency]
+	failures::transfer(true, true, false)
+end
+
+test write_at_failure_preserves_known_positive_progress_and_actual_filesystem_state() -> Result<(), String> effects [concurrency]
+	failures::transfer(true, true, true)
+end
+
+test create_directory_failure_preserves_no_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("create_directory", false, "no")
+end
+
+test create_directory_failure_preserves_yes_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("create_directory", true, "yes")
+end
+
+test create_directory_failure_preserves_unknown_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("create_directory", false, "unknown")
+end
+
+test create_directory_failure_preserves_unknown_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("create_directory", true, "unknown")
+end
+
+test remove_file_failure_preserves_no_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("remove_file", false, "no")
+end
+
+test remove_file_failure_preserves_yes_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("remove_file", true, "yes")
+end
+
+test remove_file_failure_preserves_unknown_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("remove_file", false, "unknown")
+end
+
+test remove_file_failure_preserves_unknown_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("remove_file", true, "unknown")
+end
+
+test remove_directory_failure_preserves_no_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("remove_directory", false, "no")
+end
+
+test remove_directory_failure_preserves_yes_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("remove_directory", true, "yes")
+end
+
+test remove_directory_failure_preserves_unknown_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("remove_directory", false, "unknown")
+end
+
+test remove_directory_failure_preserves_unknown_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("remove_directory", true, "unknown")
+end
+
+test rename_failure_preserves_no_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("rename", false, "no")
+end
+
+test rename_failure_preserves_yes_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("rename", true, "yes")
+end
+
+test rename_failure_preserves_unknown_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("rename", false, "unknown")
+end
+
+test rename_failure_preserves_unknown_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("rename", true, "unknown")
+end
+
+test truncate_failure_preserves_no_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("truncate", false, "no")
+end
+
+test truncate_failure_preserves_yes_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("truncate", true, "yes")
+end
+
+test truncate_failure_preserves_unknown_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("truncate", false, "unknown")
+end
+
+test truncate_failure_preserves_unknown_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::mutation("truncate", true, "unknown")
+end
+
+test failed_open_preserves_truncation_no_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::failed_open(false, false, "no")
+end
+
+test failed_open_preserves_truncation_yes_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::failed_open(false, true, "yes")
+end
+
+test failed_open_preserves_truncation_unknown_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::failed_open(false, false, "unknown")
+end
+
+test failed_open_preserves_truncation_unknown_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::failed_open(false, true, "unknown")
+end
+
+test failed_open_preserves_creation_no_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::failed_open(true, false, "no")
+end
+
+test failed_open_preserves_creation_yes_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::failed_open(true, true, "yes")
+end
+
+test failed_open_preserves_creation_unknown_commit_with_unchanged_actual_state() -> Result<(), String> effects [concurrency]
+	failures::failed_open(true, false, "unknown")
+end
+
+test failed_open_preserves_creation_unknown_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
+	failures::failed_open(true, true, "unknown")
 end

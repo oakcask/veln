@@ -18,16 +18,42 @@ fn pause(target: String, operation: String, entered: Sender<String>, gate: Recei
 end
 
 handler reading(owner: provider::Owner, cell: provider::State<model::State>, target: String, entered: Sender<String>, gate: Receiver<String>) for io::Read effects [concurrency]
-	read(reader, maximum) => begin
-		pause(target, "read", entered, gate)
-		handle perform io::Read::read(reader, maximum) with memory::reading(owner, cell)
+	read(reader, maximum) => if target == "read_ready"
+		begin
+			let reply = handle perform io::Read::read(reader, maximum) with memory::reading(owner, cell)
+			pause(target, "read_ready", entered, gate)
+			reply
+		end
+	else
+		begin
+			let held = if target == "read_late"
+				"read_late"
+			else
+				"read"
+			end
+			pause(target, held, entered, gate)
+			handle perform io::Read::read(reader, maximum) with memory::reading(owner, cell)
+		end
 	end
 end
 
 handler writing(owner: provider::Owner, cell: provider::State<model::State>, target: String, entered: Sender<String>, gate: Receiver<String>) for io::Write effects [concurrency]
-	write(writer, bytes) => begin
-		pause(target, "write", entered, gate)
-		handle perform io::Write::write(writer, bytes) with memory::writing(owner, cell)
+	write(writer, bytes) => if target == "write_ready"
+		begin
+			let reply = handle perform io::Write::write(writer, bytes) with memory::writing(owner, cell)
+			pause(target, "write_ready", entered, gate)
+			reply
+		end
+	else
+		begin
+			let held = if target == "write_late"
+				"write_late"
+			else
+				"write"
+			end
+			pause(target, held, entered, gate)
+			handle perform io::Write::write(writer, bytes) with memory::writing(owner, cell)
+		end
 	end
 end
 
@@ -269,5 +295,126 @@ pub fn run(target: String) -> Result<(), String> effects [concurrency]
 			Err("overlap lost an operation or duplicated provider cleanup")
 		end
 		_ => Err("independent opens were not released in reverse publication order")
+	end
+end
+
+fn closed(error: io::Error, operation: String) -> Bool
+	error.operation == operation and match error.kind
+		io::ErrorKind::Closed => true
+		_ => false
+	end
+end
+
+fn closed_read(reply: io::ReadOutcome) -> Bool
+	match reply
+		io::ReadOutcome::ReadFailed(bytes, io::Progress::Known(prefix), error) => byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(prefix) == 0 and closed(error, "read")
+		_ => false
+	end
+end
+
+fn closed_write(reply: io::WriteOutcome) -> Bool
+	match reply
+		io::WriteOutcome::WriteFailed(io::Progress::Known(prefix), error) => byte_count_to_int(prefix) == 0 and closed(error, "write")
+		_ => false
+	end
+end
+
+fn close_job(context: {file: api::UpdateFile, target: String}) -> Result<(), String> effects [io::Read, io::Write]
+	let good = match context.target
+		"read_late" => closed_read(io::read(context.file.reader, byte_count(1)?))
+		"read_ready" => read_is(io::read(context.file.reader, byte_count(1)?), "a")
+		"write_late" => closed_write(io::write(context.file.writer, byte_chunk_from_visible_ascii_string("X")?))
+		"write_ready" => written(io::write(context.file.writer, byte_chunk_from_visible_ascii_string("X")?))
+		_ => false
+	end
+	if good
+		Ok(())
+	else
+		Err("close discarded admitted progress or returned incorrect failure context")
+	end
+end
+
+fn close_exercise(first: api::UpdateFile, second: api::UpdateFile, cell: provider::State<model::State>, target: String, entered: Receiver<String>, gate: Sender<String>) -> Result<(), String> effects [io::Read, io::Write, io::ReadAt, io::Close, concurrency]
+	let child: Task<Result<(), String>> = task::spawn_with(close_job, {file: first, target: target})
+	let _ = channel::recv(entered)
+	defer
+		let _ = channel::send(gate, "finish")
+		let _ = task::join(child)
+	end
+	let prepared = target == "read_ready" or target == "write_ready"
+	let expected_cursor = if prepared
+		1
+	else
+		0
+	end
+	let expected_bytes = if target == "write_ready"
+		"Xbcd"
+	else
+		"abcd"
+	end
+	let before = memory::snapshot(cell)
+	let expected_events = if prepared
+		3
+	else
+		2
+	end
+	let released = match io::close(first.closer)
+		io::CloseOutcome::Closed => true
+		_ => false
+	end
+	let after_close = closed_read(io::read(first.reader, byte_count(1)?))
+	let independent = read_is(io::read_at(second.reader_at, byte_offset(0)?, byte_count(1)?), if target == "write_ready"
+		"X"
+	else
+		"a"
+	end)
+	let _ = channel::send(gate, "finish")
+	let completed: () = match task::join(child)
+		Ok(value) => value
+		Err(_) => Err("close/transfer child failed")
+	end?
+	let after = memory::snapshot(cell)
+	if released and after_close and independent and bytes_are(before, expected_bytes) and bytes_are(after, expected_bytes) and cursor_is(before, 100, expected_cursor) and cursor_is(after, 100, expected_cursor) and cursor_is(after, 101, 0) and list_fold(model::events(before), 0, count) == expected_events and list_fold(model::events(after), 0, count) == expected_events + 2
+		Ok(())
+	else
+		Err("close/transfer interleaving changed bytes, cursors, or provider events")
+	end
+end
+
+fn close_owned(cell: provider::State<model::State>, target: String) -> Result<(), String> effects [provider::Scope, concurrency]
+	let owner = provider::owner()
+	let entered = channel::bounded<String>(1)
+	let gate = channel::bounded<String>(1)
+	let first: api::UpdateFile = match file(owner, cell, target, entered.tx, gate.rx)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	let second: api::UpdateFile = match file(owner, cell, "unused", entered.tx, gate.rx)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	handle handle handle handle close_exercise(first, second, cell, target, entered.rx, gate.tx) with memory::reading(owner, cell) with memory::writing(owner, cell) with memory::reading_at(owner, cell) with memory::closing(owner, cell)
+end
+
+fn close_count(total: Int, event: model::Event) -> Int
+	match event
+		model::Event::Closed(_, _) => total + 1
+		_ => total
+	end
+end
+
+pub fn close_transfer(target: String) -> Result<(), String> effects [concurrency]
+	let cell = memory::cell(model::seed_file(model::initial(100), "data", byte_chunk_from_visible_ascii_string("abcd")?))
+	let _ = (handle close_owned(cell, target) with provider::scope())?
+	let events = model::events(memory::snapshot(cell))
+	let expected = if target == "read_ready" or target == "write_ready"
+		6
+	else
+		5
+	end
+	if list_fold(events, 0, close_count) == 2 and list_fold(events, 0, count) == expected
+		Ok(())
+	else
+		Err("close/transfer interleaving duplicated cleanup or lost a provider event")
 	end
 end

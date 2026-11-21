@@ -11,8 +11,9 @@ pub type Binding
 	pub Other
 end
 
+# Cursor knowledge can be lost without losing the independently observed position.
 pub type Open
-	pub Open(file: Int, cursor: Option<Int>, closed: Bool, family: provider::ViewFamily)
+	pub Open(file: Int, cursor: Option<Int>, actual_cursor: Int, closed: Bool, family: provider::ViewFamily)
 end
 
 pub type Event
@@ -28,15 +29,22 @@ pub type Event
 	pub Changed(operation: String, name: String, other: String, result: api::MutationOutcome)
 end
 
+# Matching plans are consumed once. An open mutation plan waits for a changing
+# create/truncate request, so a retained read-only open can precede that failure.
+pub type Fault
+	pub Transfer(operation: String, actual: Int, delivered: Int, prefix: Int, known: Bool)
+	pub Mutation(operation: String, actual: Bool, committed: bytes_io::Commit)
+end
+
 pub type State
-	pub State(bindings: Dict<String, Binding>, contents: Dict<Int, ByteChunk>, opens: Dict<Int, Open>, next_file: Int, next_slot: Int, events: List<Event>)
+	pub State(bindings: Dict<String, Binding>, contents: Dict<Int, ByteChunk>, opens: Dict<Int, Open>, next_file: Int, next_slot: Int, events: List<Event>, faults: List<Fault>)
 end
 
 pub fn initial(first_slot: Int) -> State
 	let empty_bindings: Dict<String, Binding> = {}
 	let contents: Dict<Int, ByteChunk> = {}
 	let opens: Dict<Int, Open> = {}
-	State(dict_insert(empty_bindings, ".", Binding::Directory), contents, opens, 1, first_slot, Nil)
+	State(dict_insert(empty_bindings, ".", Binding::Directory), contents, opens, 1, first_slot, Nil, Nil)
 end
 
 pub fn error(operation: String, name: String, kind: bytes_io::ErrorKind) -> bytes_io::Error
@@ -60,9 +68,9 @@ pub fn seed_link(state: State, name: String, target: String) -> State
 	set_bindings(state, dict_insert(bindings(state), name, Binding::Link(target)))
 end
 
-fn open_info(value: Open) -> {file: Int, cursor: Option<Int>, closed: Bool, family: provider::ViewFamily}
+fn open_info(value: Open) -> {file: Int, cursor: Option<Int>, actual_cursor: Int, closed: Bool, family: provider::ViewFamily}
 	match value
-		Open(file, cursor, closed, family) => {file: file, cursor: cursor, closed: closed, family: family}
+		Open(file, cursor, actual_cursor, closed, family) => {file: file, cursor: cursor, actual_cursor: actual_cursor, closed: closed, family: family}
 	end
 end
 
@@ -70,6 +78,23 @@ pub fn cursor(state: State, slot: Int) -> Option<Int>
 	match dict_get(opens(state), slot)
 		Some(value) => open_info(value).cursor
 		None => None
+	end
+end
+
+pub fn actual_cursor(state: State, slot: Int) -> Option<Int>
+	match dict_get(opens(state), slot)
+		Some(value) => Some(open_info(value).actual_cursor)
+		None => None
+	end
+end
+
+fn hide_cursor(state: State, slot: Int, positional: Option<ByteOffset>) -> State
+	match positional
+		Some(_) => state
+		None => match dict_get(opens(state), slot)
+			Some(value) => put_open(state, slot, Open(open_info(value).file, None, open_info(value).actual_cursor, open_info(value).closed, open_info(value).family))
+			None => state
+		end
 	end
 end
 
@@ -230,76 +255,219 @@ end
 
 pub fn bindings(state: State) -> Dict<String, Binding>
 	match state
-		State(bindings, contents, opens, next_file, next_slot, events) => bindings
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => bindings
 	end
 end
 
 fn set_bindings(state: State, replacement: Dict<String, Binding>) -> State
 	match state
-		State(bindings, contents, opens, next_file, next_slot, events) => State(replacement, contents, opens, next_file, next_slot, events)
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => State(replacement, contents, opens, next_file, next_slot, events, faults)
 	end
 end
 
 pub fn contents(state: State) -> Dict<Int, ByteChunk>
 	match state
-		State(bindings, contents, opens, next_file, next_slot, events) => contents
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => contents
 	end
 end
 
 fn set_contents(state: State, replacement: Dict<Int, ByteChunk>) -> State
 	match state
-		State(bindings, contents, opens, next_file, next_slot, events) => State(bindings, replacement, opens, next_file, next_slot, events)
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => State(bindings, replacement, opens, next_file, next_slot, events, faults)
 	end
 end
 
 pub fn opens(state: State) -> Dict<Int, Open>
 	match state
-		State(bindings, contents, opens, next_file, next_slot, events) => opens
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => opens
 	end
 end
 
 fn set_opens(state: State, replacement: Dict<Int, Open>) -> State
 	match state
-		State(bindings, contents, opens, next_file, next_slot, events) => State(bindings, contents, replacement, next_file, next_slot, events)
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => State(bindings, contents, replacement, next_file, next_slot, events, faults)
 	end
 end
 
 pub fn next_file(state: State) -> Int
 	match state
-		State(bindings, contents, opens, next_file, next_slot, events) => next_file
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => next_file
 	end
 end
 
 fn set_next_file(state: State, replacement: Int) -> State
 	match state
-		State(bindings, contents, opens, next_file, next_slot, events) => State(bindings, contents, opens, replacement, next_slot, events)
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => State(bindings, contents, opens, replacement, next_slot, events, faults)
 	end
 end
 
 pub fn next_slot(state: State) -> Int
 	match state
-		State(bindings, contents, opens, next_file, next_slot, events) => next_slot
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => next_slot
 	end
 end
 
 fn set_next_slot(state: State, replacement: Int) -> State
 	match state
-		State(bindings, contents, opens, next_file, next_slot, events) => State(bindings, contents, opens, next_file, replacement, events)
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => State(bindings, contents, opens, next_file, replacement, events, faults)
 	end
 end
 
 pub fn events(state: State) -> List<Event>
 	match state
-		State(bindings, contents, opens, next_file, next_slot, events) => events
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => events
 	end
 end
 
 fn set_events(state: State, replacement: List<Event>) -> State
 	match state
-		State(bindings, contents, opens, next_file, next_slot, events) => State(bindings, contents, opens, next_file, next_slot, replacement)
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => State(bindings, contents, opens, next_file, next_slot, replacement, faults)
 	end
 end
 
+
+pub fn faults(state: State) -> List<Fault>
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => faults
+	end
+end
+
+pub fn script(state: State, replacement: List<Fault>) -> State
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events, faults) => State(bindings, contents, opens, next_file, next_slot, events, replacement)
+	end
+end
+
+fn fault_operation(fault: Fault) -> String
+	match fault
+		Fault::Transfer(operation, _, _, _, _) => operation
+		Fault::Mutation(operation, _, _) => operation
+	end
+end
+
+fn select_fault(plans: List<Fault>, operation: String) -> {remaining: List<Fault>, selected: Option<Fault>}
+	match plans
+		Nil => {remaining: Nil, selected: None}
+		Cons(head, tail) => if fault_operation(head) == operation
+			{remaining: tail, selected: Some(head)}
+		else
+			begin
+				let rest = select_fault(tail, operation)
+				{remaining: Cons(head, rest.remaining), selected: rest.selected}
+			end
+		end
+	end
+end
+
+fn transfer_operation(base: String, positional: Option<ByteOffset>) -> String
+	match positional
+		Some(_) => string::concat(base, "_at")
+		None => base
+	end
+end
+
+fn transfer_progress(prefix: Int, known: Bool) -> bytes_io::Progress
+	if known
+		bytes_io::Progress::Known(count(prefix))
+	else
+		bytes_io::Progress::Unknown(count(prefix))
+	end
+end
+
+fn checked_transfer(actual: Int, delivered: Int, prefix: Int, known: Bool, limit: Int) -> ()
+	require actual >= 0 and actual <= limit and delivered >= 0 and delivered <= prefix and prefix <= actual and (not known or prefix == actual)
+	()
+end
+
+fn checked_amount(actual: Int, amount: Int) -> ()
+	require actual == amount
+	()
+end
+
+fn scripted_read(state: State, context: {slot: Int, maximum: ByteCount, positional: Option<ByteOffset>}, fault: Fault) -> {state: State, result: bytes_io::ReadOutcome}
+	match fault
+		Fault::Transfer(operation, actual, delivered, prefix, known) => begin
+			let _ = checked_transfer(actual, delivered, prefix, known, byte_count_to_int(context.maximum))
+			let step = read_step(state, {slot: context.slot, maximum: count(actual), positional: context.positional})
+			match step.result
+				bytes_io::ReadOutcome::Data(bytes) => begin
+					let _ = checked_amount(byte_count_to_int(byte_chunk_count(bytes)), actual)
+					let next = if known
+						step.state
+					else
+						hide_cursor(step.state, context.slot, context.positional)
+					end
+					{state: next, result: bytes_io::ReadOutcome::ReadFailed(take(bytes, delivered), transfer_progress(prefix, known), error(operation, "", bytes_io::ErrorKind::Other))}
+				end
+				_ => step
+			end
+		end
+		_ => read_step(state, context)
+	end
+end
+
+fn scripted_write(state: State, context: {slot: Int, bytes: ByteChunk, positional: Option<ByteOffset>}, fault: Fault) -> {state: State, result: bytes_io::WriteOutcome}
+	match fault
+		Fault::Transfer(operation, actual, delivered, prefix, known) => begin
+			let _ = checked_transfer(actual, delivered, prefix, known, byte_count_to_int(byte_chunk_count(context.bytes)))
+			let _ = checked_amount(0, delivered)
+			let step = write_step(state, {slot: context.slot, bytes: take(context.bytes, actual), positional: context.positional})
+			match step.result
+				bytes_io::WriteOutcome::Written(_) => begin
+					let next = if known
+						step.state
+					else
+						hide_cursor(step.state, context.slot, context.positional)
+					end
+					{state: next, result: bytes_io::WriteOutcome::WriteFailed(transfer_progress(prefix, known), error(operation, "", bytes_io::ErrorKind::Other))}
+				end
+				_ => step
+			end
+		end
+		_ => write_step(state, context)
+	end
+end
+
+fn checked_fact(fact: Bool) -> ()
+	require fact
+	()
+end
+
+fn scripted_mutation(before: State, step: {state: State, result: api::MutationOutcome}, operation: String, name: String, other: String, slot: Option<Int>) -> {state: State, result: api::MutationOutcome}
+	let selected = select_fault(faults(before), operation)
+	match selected.selected
+		Some(Fault::Mutation(_, actual, committed)) => match step.result
+			api::MutationOutcome::Applied => begin
+				let consistent = match committed
+					bytes_io::Commit::No => not actual
+					bytes_io::Commit::Yes => actual
+					bytes_io::Commit::Unknown => true
+				end
+				let _ = checked_fact(consistent)
+				let changed = script(if actual
+					step.state
+				else
+					before
+				end, selected.remaining)
+				let uncertain = match committed
+					bytes_io::Commit::Unknown => match slot
+						Some(value) => hide_cursor(changed, value, None)
+						None => changed
+					end
+					_ => changed
+				end
+				let failure = if operation == "rename"
+					rename_error(name, other, bytes_io::ErrorKind::Other)
+				else
+					error(operation, name, bytes_io::ErrorKind::Other)
+				end
+				{state: uncertain, result: api::MutationOutcome::MutationFailed(committed, failure)}
+			end
+			_ => step
+		end
+		_ => step
+	end
+end
 
 fn open_name(state: State, name: String, seen: Dict<String, Bool>) -> Result<String, bytes_io::Error>
 	let candidate: Result<String, bytes_io::Error> = if name == "."
@@ -375,7 +543,7 @@ end
 
 fn publish_open(state: State, identity: Int, family: provider::ViewFamily, changed: Bool) -> {state: State, result: Result<{slot: Int, changed: Bool}, bytes_io::Error>}
 	let slot = next_slot(state)
-	let next = put_open(state, slot, Open(identity, Some(0), false, family))
+	let next = put_open(state, slot, Open(identity, Some(0), 0, false, family))
 	{state: set_next_slot(next, slot + 1), result: Ok({slot: slot, changed: changed})}
 end
 
@@ -456,7 +624,7 @@ end
 fn advance(state: State, slot: Int, value: Open, cursor: Int, positional: Option<ByteOffset>) -> State
 	match positional
 		Some(_) => state
-		None => put_open(state, slot, Open(open_info(value).file, Some(cursor), false, open_info(value).family))
+		None => put_open(state, slot, Open(open_info(value).file, Some(cursor), cursor, false, open_info(value).family))
 	end
 end
 
@@ -614,13 +782,17 @@ fn truncate_content(state: State, slot: Int, value: Open, bytes: ByteChunk, size
 		None => None
 	end
 	let changed = put_bytes(state, open_info(value).file, take(bytes, size))
-	{state: put_open(changed, slot, Open(open_info(value).file, cursor, false, open_info(value).family)), result: api::MutationOutcome::Applied}
+	{state: put_open(changed, slot, Open(open_info(value).file, cursor, if open_info(value).actual_cursor < size
+		open_info(value).actual_cursor
+	else
+		size
+	end, false, open_info(value).family)), result: api::MutationOutcome::Applied}
 end
 
 fn close_step(state: State, slot: Int) -> {state: State, result: bytes_io::CloseOutcome}
 	match dict_get(opens(state), slot)
 		None => {state: state, result: bytes_io::CloseOutcome::CloseFailed(bytes_io::Commit::No, error("close", "", bytes_io::ErrorKind::InvalidResource))}
-		Some(value) => {state: put_open(state, slot, Open(open_info(value).file, open_info(value).cursor, true, open_info(value).family)), result: bytes_io::CloseOutcome::Closed}
+		Some(value) => {state: put_open(state, slot, Open(open_info(value).file, open_info(value).cursor, open_info(value).actual_cursor, true, open_info(value).family)), result: bytes_io::CloseOutcome::Closed}
 	end
 end
 
@@ -641,18 +813,57 @@ fn mutation_failed(state: State, failure: bytes_io::Error) -> {state: State, res
 	{state: state, result: api::MutationOutcome::MutationFailed(bytes_io::Commit::No, failure)}
 end
 
+fn scripted_open(state: State, context: {name: String, family: provider::ViewFamily, create: api::CreateMode, truncate: Bool}) -> {state: State, result: Result<{slot: Int, changed: Bool}, bytes_io::Error>}
+	let selected = select_fault(faults(state), "open")
+	let step = open_step(state, context)
+	match selected.selected
+		Some(Fault::Mutation(_, actual, committed)) => match step.result
+			Ok(opened) => if opened.changed
+				begin
+					let consistent = match committed
+						bytes_io::Commit::No => not actual
+						bytes_io::Commit::Yes => actual
+						bytes_io::Commit::Unknown => true
+					end
+					let _ = checked_fact(consistent)
+					let released = if actual
+						close(step.state, opened.slot).state
+					else
+						state
+					end
+					let failure = error("open", context.name, bytes_io::ErrorKind::Other)
+					let detailed: bytes_io::Error = {operation: failure.operation, kind: failure.kind, path: failure.path, other_path: None, network: None, commit: Some(committed), message: failure.message}
+					{state: script(released, selected.remaining), result: Err(detailed)}
+				end
+			else
+				step
+			end
+			Err(_) => step
+		end
+		_ => step
+	end
+end
+
 pub fn open(state: State, context: {name: String, family: provider::ViewFamily, create: api::CreateMode, truncate: Bool}) -> {state: State, result: Result<{slot: Int, changed: Bool}, bytes_io::Error>}
-	let next = open_step(state, context)
+	let next = scripted_open(state, context)
 	{state: set_events(next.state, Cons(Event::Opened(context.name, context.family, context.create, context.truncate, next.result), events(next.state))), result: next.result}
 end
 
 pub fn read(state: State, context: {slot: Int, maximum: ByteCount, positional: Option<ByteOffset>}) -> {state: State, result: bytes_io::ReadOutcome}
-	let next = read_step(state, context)
+	let selected = select_fault(faults(state), transfer_operation("read", context.positional))
+	let next = match selected.selected
+		Some(fault) => scripted_read(script(state, selected.remaining), context, fault)
+		None => read_step(state, context)
+	end
 	{state: set_events(next.state, Cons(Event::Read(context.slot, context.maximum, context.positional, next.result), events(next.state))), result: next.result}
 end
 
 pub fn write(state: State, context: {slot: Int, bytes: ByteChunk, positional: Option<ByteOffset>}) -> {state: State, result: bytes_io::WriteOutcome}
-	let next = write_step(state, context)
+	let selected = select_fault(faults(state), transfer_operation("write", context.positional))
+	let next = match selected.selected
+		Some(fault) => scripted_write(script(state, selected.remaining), context, fault)
+		None => write_step(state, context)
+	end
 	{state: set_events(next.state, Cons(Event::Written(context.slot, context.bytes, context.positional, next.result), events(next.state))), result: next.result}
 end
 
@@ -667,7 +878,7 @@ pub fn close(state: State, context: Int) -> {state: State, result: bytes_io::Clo
 end
 
 pub fn truncate(state: State, context: {slot: Int, size: ByteOffset}) -> {state: State, result: api::MutationOutcome}
-	let next = truncate_step(state, context)
+	let next = scripted_mutation(state, truncate_step(state, context), "truncate", "", "", Some(context.slot))
 	{state: set_events(next.state, Cons(Event::Truncated(context.slot, context.size, next.result), events(next.state))), result: next.result}
 end
 
@@ -792,19 +1003,24 @@ fn has_descendant(parent: String, found: Bool, name: String, ignored: Binding) -
 end
 
 fn remove_step(state: State, context: {name: String, directory: Bool}) -> {state: State, result: api::MutationOutcome}
-	match raw_name(state, "remove", context.name)
+	let operation = if context.directory
+		"remove_directory"
+	else
+		"remove_file"
+	end
+	match raw_name(state, operation, context.name)
 		Err(failure) => mutation_failed(state, failure)
 		Ok(name) => match dict_get(bindings(state), name)
-			None => mutation_failed(state, error("remove", context.name, bytes_io::ErrorKind::NotFound))
+			None => mutation_failed(state, error(operation, context.name, bytes_io::ErrorKind::NotFound))
 			Some(Binding::Directory) => if not context.directory
-				mutation_failed(state, error("remove", context.name, bytes_io::ErrorKind::IsDirectory))
+				mutation_failed(state, error(operation, context.name, bytes_io::ErrorKind::IsDirectory))
 			else if dict_fold_with(name, bindings(state), false, has_descendant)
-				mutation_failed(state, error("remove", context.name, bytes_io::ErrorKind::DirectoryNotEmpty))
+				mutation_failed(state, error(operation, context.name, bytes_io::ErrorKind::DirectoryNotEmpty))
 			else
 				{state: set_bindings(state, dict_remove(bindings(state), name)), result: api::MutationOutcome::Applied}
 			end
 			Some(_) => if context.directory
-				mutation_failed(state, error("remove", context.name, bytes_io::ErrorKind::NotDirectory))
+				mutation_failed(state, error(operation, context.name, bytes_io::ErrorKind::NotDirectory))
 			else
 				{state: set_bindings(state, dict_remove(bindings(state), name)), result: api::MutationOutcome::Applied}
 			end
@@ -863,17 +1079,22 @@ fn moved(state: State, source: String, target: String) -> {state: State, result:
 end
 
 pub fn create_directory(state: State, context: String) -> {state: State, result: api::MutationOutcome}
-	let next = create_directory_step(state, context)
+	let next = scripted_mutation(state, create_directory_step(state, context), "create_directory", context, "", None)
 	{state: set_events(next.state, Cons(Event::Changed("create_directory", context, "", next.result), events(next.state))), result: next.result}
 end
 
 pub fn remove(state: State, context: {name: String, directory: Bool}) -> {state: State, result: api::MutationOutcome}
-	let next = remove_step(state, context)
+	let operation = if context.directory
+		"remove_directory"
+	else
+		"remove_file"
+	end
+	let next = scripted_mutation(state, remove_step(state, context), operation, context.name, "", None)
 	{state: set_events(next.state, Cons(Event::Changed("remove", context.name, "", next.result), events(next.state))), result: next.result}
 end
 
 pub fn rename(state: State, context: {source: String, target: String}) -> {state: State, result: api::MutationOutcome}
-	let next = rename_step(state, context)
+	let next = scripted_mutation(state, rename_step(state, context), "rename", context.source, context.target, None)
 	{state: set_events(next.state, Cons(Event::Changed("rename", context.source, context.target, next.result), events(next.state))), result: next.result}
 end
 
