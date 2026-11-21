@@ -163,6 +163,15 @@ deny contains msg if {
 }
 
 deny contains msg if {
+  some job_name
+  job := input.jobs[job_name]
+  some step in object.get(job, "steps", [])
+  object.get(step, "uses", "") == "./.github/actions/nextest"
+  object.get(object.get(step, "with", {}), "shard", "") == ""
+  msg := sprintf("replace nextest setup without a shard in job %q with the narrower setup action so cache seeding does not install unused test tools", [job_name])
+}
+
+deny contains msg if {
   some event_name, event in workflow_trigger
   paths := object.get(event, "paths", null)
   paths != null
