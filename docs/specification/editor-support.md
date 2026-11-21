@@ -800,6 +800,11 @@ invalid-cased, duplicate, or recovered handler declaration. Repeated
 parse-clean imports of the same `std` module are ambiguous and grant no route,
 including when one import uses the relative module spelling and another uses
 the canonical `std::`-qualified spelling.
+A standard-library import alias grants no route when the same qualifier is
+also the implicit leaf alias or written explicit alias of a parse-clean
+workspace import. Selecting an application through that colliding qualifier
+returns the existing empty definition and reference results; the exact
+standard-library module path remains a separate route.
 A recovered import grants no route, but it does not make a separate
 parse-clean import ambiguous. A recovered exact-path import does not block a
 separate parse-clean unique alias. These rejections return the existing empty
@@ -1273,7 +1278,9 @@ definitions, workspace-only reference results, and package-declaration
 exclusion when `includeDeclaration` is true. They also cover a retained
 standard-library definition, its readable virtual source, alias selection,
 workspace-only references for both declaration settings, and private-handler
-rejection. The checked MCP transcript
+rejection. Shared-language-service regressions cover standard-library alias
+collisions with implicit and explicit workspace import aliases. The checked
+MCP transcript
 `examples/specification/mcp/references-direct-dependency-handler/` covers the
 same shared definition and workspace application set in one-based coordinates.
 LSP unit regressions exercise every imported workspace-handler exclusion

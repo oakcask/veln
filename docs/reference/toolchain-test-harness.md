@@ -535,7 +535,9 @@ The `references-standard-library-handler` MCP specification case repeats that
 model for standard-library-relative, canonical `std::`-qualified, and
 unique-alias selection of one retained standard-library handler. It checks
 workspace-only project references, declaration-inclusive cursor pagination,
-and package-declaration exclusion in single-file scope.
+package-declaration exclusion in single-file scope, and empty definition and
+reference results when the standard-library alias collides with a workspace
+import's implicit leaf alias.
 The `references-workspace-schema-composition` MCP specification case uses the
 same decoded assertion model for canonical reference locations, empty boundary
 results, project scope, and isolated single-file scope.

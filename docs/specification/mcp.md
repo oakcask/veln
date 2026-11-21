@@ -1091,8 +1091,13 @@ standard-library guards reject a private, non-exported, invalid-cased,
 duplicate, or recovered handler declaration. Repeated parse-clean imports of
 the same `std` module are ambiguous and grant no route, including when one
 import uses the relative module spelling and another uses the canonical
-`std::`-qualified spelling. A recovered import
-grants no route, but it does not make a separate parse-clean import ambiguous.
+`std::`-qualified spelling. A standard-library import alias grants no route
+when the same qualifier is also the implicit leaf alias or written explicit
+alias of a parse-clean workspace import. Selecting an application through that
+colliding qualifier returns the existing empty definition or reference result;
+the exact standard-library module path remains a separate route. A recovered
+import grants no route, but it does not make a separate parse-clean import
+ambiguous.
 A recovered exact-path import does not block a separate parse-clean unique
 alias. These rejections return the existing empty definition or reference
 result.
@@ -1284,7 +1289,9 @@ The checked
 demonstrates standard-library-relative, canonical `std::`-qualified, and
 unique-alias selection of one canonical retained standard-library definition,
 workspace-only references, declaration-inclusive project pagination, and
-package-declaration exclusion for single-file scope.
+package-declaration exclusion for single-file scope. It also checks empty
+definition and reference results when the standard-library alias collides with
+a workspace import's implicit leaf alias.
 MCP unit regressions exercise every imported workspace-handler exclusion
 specified above. They verify that each empty definition and reference result
 preserves an unrelated valid handler result. Capture-failure coverage also
