@@ -18,15 +18,6 @@ specifications.
 
 ## Remaining Acceptance And Verification
 
-The acceptance rows below describe the remaining standard-library-specific
-matrix coverage. Current specifications and focused tests already own the S1
-and S2 guards for private, non-exported, invalid-cased, duplicate, and
-recovered declarations, repeated and recovered imports, and standard-library
-alias collisions with implicit or explicit workspace import aliases. They also
-own parse-clean exact-route blockers and ambiguous package aliases that prevent
-fallback to an unrelated eligible handler. Those guards are not requirements
-of this proposal. The rejection inputs listed in S5 remain planned work.
-
 | Case | Input | Required observation | Planned evidence |
 | --- | --- | --- | --- |
 | S3: owner and revision isolation | Provide equal module and handler names in a dependency and workspace module, then repeat the selection across sequential snapshots with different retained standard-library revisions. | Each selection retains its exact `std` owner and revision. No location is rewritten to another owner or stale revision. | Shared-language-service collision tests plus adapter snapshot tests. |
