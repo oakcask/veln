@@ -219,10 +219,15 @@ fn standard_library_handler_navigation_keeps_owner_and_revision_at_lsp_boundary(
         let references = server.handle_message(&references_request_with_declaration(
             &main_uri, 5, 34, true,
         ));
-        assert_eq!(references[0].matches(&format!(r#""uri":"{main_uri}""#)).count(), 1);
-        assert!(references[0].contains(
-            r#""range":{"start":{"line":5,"character":34},"end":{"line":5,"character":38}}"#
-        ));
+        assert_eq!(
+            references,
+            [response(
+                "2",
+                &format!(
+                    r#"[{{"uri":"{main_uri}","range":{{"start":{{"line":5,"character":34}},"end":{{"line":5,"character":38}}}}}}]"#
+                ),
+            )]
+        );
         assert!(!references[0].contains("veln-pkg:"), "{}", references[0]);
         assert!(!references[0].contains("vendor/dep"), "{}", references[0]);
     }

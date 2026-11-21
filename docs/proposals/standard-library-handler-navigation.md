@@ -5,16 +5,12 @@ update-when: The planned standard-library handler source, project, rejection, or
 
 # Standard-Library Handler Navigation
 
-Current standard-library handler selection and adapter projection are specified
-by [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
-and [MCP](../specification/mcp.md#saved-workspace-navigation). Checked shared,
-LSP, MCP transcript, and cross-adapter evidence owns the implemented S1 through
-S3 surface. This proposal retains the remaining contract detail and evidence
-work for S4 through S6. Current specifications continue to own the general
-selected-project, package-location, and failure-state rules that apply to
-standard-library handlers. The remaining rows track standard-library-specific
-matrix coverage and any contract detail not yet adopted by those
-specifications.
+This proposal defines the remaining standard-library handler contract and
+evidence work for S4 through S6. The current [Editor
+Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
+and [MCP](../specification/mcp.md#saved-workspace-navigation) specifications own
+the selected-project, package-location, and failure-state rules that constrain
+this work.
 
 ## Remaining Acceptance And Verification
 
@@ -33,18 +29,15 @@ runtime behavior. Identity and rejection matrices belong in
 
 [Veln PR #1981](https://github.com/oakcask/veln/pull/1981) added the shared
 retained-package handler identity and LSP and MCP projection for direct
-dependencies. The current implementation now reuses those handler traversal,
-package declaration, adapter, and failure-state boundaries for the implemented
-standard-library selection. That reuse and the current owner and revision
-evidence support S1 through S3, but they do not establish the S4 project, S5
-rejection, or S6 retained-state observations in the table above.
+dependencies. Its separation between shared selection and adapter projection
+is the design constraint for the remaining work: S4 through S6 must extend the
+shared selection and retained-state boundaries instead of adding independent
+adapter scans.
 
 [Veln PR #1251](https://github.com/oakcask/veln/pull/1251) added retained
 embedded-standard-library definitions and readable immutable virtual sources.
 It establishes that the standard-library package revision and canonical
-`veln-pkg:` locations are navigation identities. The current specifications
-and executable evidence, rather than that earlier change, establish handler
-eligibility and application membership.
+`veln-pkg:` locations are navigation identities.
 
 [Veln PR #1781](https://github.com/oakcask/veln/pull/1781) publishes public
 handlers such as `net::system` in standard-library package documentation while
@@ -52,14 +45,10 @@ excluding private handlers and implementation bodies. That catalog confirms a
 durable public handler surface, but documentation publication neither selects
 source applications nor proves definition and reference behavior.
 
-The current
-[Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
-and [MCP](../specification/mcp.md#saved-workspace-navigation) specifications remain
-authoritative for implemented behavior. Reusing their shared handler selection
-and retained-resource paths avoids an adapter-specific standard-library
-identity. External language-server designs do not determine Veln's retained
-package or handler semantics, so repository implementation history and current
-contracts are the relevant related work for this bounded extension.
+External language-server designs do not determine Veln's retained package or
+handler semantics. The repository's shared handler selection and
+retained-resource paths therefore remain the relevant implementation route for
+this bounded extension.
 
 ## Non-Goals
 

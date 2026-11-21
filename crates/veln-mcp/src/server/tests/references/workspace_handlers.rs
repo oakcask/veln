@@ -449,9 +449,10 @@ fn standard_library_handler_navigation_keeps_owner_and_revision_at_mcp_boundary(
     let mut new_server = initialized_server(&workspace);
     install_handler_standard_library(&mut old_server, old_source);
     install_handler_standard_library(&mut new_server, new_source);
+    let main_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
 
-    let old = standard_handler_mcp_projection(&mut old_server, 1);
-    let new = standard_handler_mcp_projection(&mut new_server, 2);
+    let old = standard_handler_mcp_projection(&mut old_server, &main_uri, 1);
+    let new = standard_handler_mcp_projection(&mut new_server, &main_uri, 2);
     assert_ne!(old, new);
 
     let old_dependency = old_server.definition_tool(&json!({
@@ -540,7 +541,11 @@ fn install_handler_standard_library(server: &mut Server, source: &str) {
     );
 }
 
-fn standard_handler_mcp_projection(server: &mut Server, declaration_line: usize) -> String {
+fn standard_handler_mcp_projection(
+    server: &mut Server,
+    main_uri: &str,
+    declaration_line: usize,
+) -> String {
     let definition = server.definition_tool(&json!({
         "source":"main.veln", "line":6, "column":35
     }));
@@ -560,21 +565,29 @@ fn standard_handler_mcp_projection(server: &mut Server, declaration_line: usize)
         "source":"main.veln", "line":6, "column":35,
         "include_declaration":true
     }));
-    let locations = references["structuredContent"]["references"]
+    let mut locations = references["structuredContent"]["references"]
         .as_array()
-        .unwrap();
-    assert_eq!(locations.len(), 2, "{references:#}");
-    assert!(locations.iter().any(|location| {
-        location["range"] == json!({"start":{"line":6,"column":35},"end":{"line":6,"column":39}})
-    }));
-    assert_eq!(
-        locations
-            .iter()
-            .filter(|location| location["uri"] == uri)
-            .count(),
-        1,
-        "{references:#}"
-    );
+        .unwrap()
+        .clone();
+    let mut expected_locations = vec![
+        json!({
+            "uri": uri,
+            "range": {
+                "start": {"line": declaration_line, "column": 13},
+                "end": {"line": declaration_line, "column": 17}
+            }
+        }),
+        json!({
+            "uri": main_uri,
+            "range": {
+                "start": {"line": 6, "column": 35},
+                "end": {"line": 6, "column": 39}
+            }
+        }),
+    ];
+    locations.sort_by(|left, right| left["uri"].as_str().cmp(&right["uri"].as_str()));
+    expected_locations.sort_by(|left, right| left["uri"].as_str().cmp(&right["uri"].as_str()));
+    assert_eq!(locations, expected_locations, "{references:#}");
     assert!(!references.to_string().contains("vendor/dep"));
     uri
 }
