@@ -695,7 +695,19 @@ fn lsp_recovery_requests(workspace: &SavedWorkspace) -> Vec<String> {
 }
 
 fn run_mcp(workspace: &SavedWorkspace) -> Output {
-    let requests = [
+    let mut requests = mcp_initial_requests();
+    requests.extend(mcp_remaining_requests());
+    workspace.project.veln_with_interactive_mcp(
+        &["mcp".to_string()],
+        None,
+        &[],
+        &requests.join("\n"),
+        None,
+    )
+}
+
+fn mcp_initial_requests() -> Vec<String> {
+    vec![
         r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"conformance","version":"1"}}}"#.to_string(),
         mcp_call(2, "definition", r#"{"source":"main.veln","line":8,"column":3}"#),
         mcp_call(3, "definition", r#"{"source":"main.veln","line":16,"column":17}"#),
@@ -713,31 +725,77 @@ fn run_mcp(workspace: &SavedWorkspace) -> Output {
         mcp_call(15, "references", r#"{"source":"main.veln","line":16,"column":17,"include_declaration":true}"#),
         mcp_call(16, "definition", r#"{"source":"main.veln","line":24,"column":15}"#),
         mcp_call(17, "references", r#"{"source":"main.veln","line":24,"column":15,"include_declaration":false}"#),
-        mcp_call(18, "references", r#"{"source":"main.veln","line":24,"column":15,"include_declaration":true,"page_size":2}"#),
+    ]
+}
+
+fn mcp_remaining_requests() -> Vec<String> {
+    vec![
+        mcp_call(
+            18,
+            "references",
+            r#"{"source":"main.veln","line":24,"column":15,"include_declaration":true,"page_size":2}"#,
+        ),
         mcp_call(19, "references", r#"{"cursor":"$mcp_cursor:18"}"#),
-        mcp_call(20, "references", r#"{"source":"main.veln","line":28,"column":21,"include_declaration":false}"#),
-        mcp_call(21, "references", r#"{"source":"main.veln","line":28,"column":21,"include_declaration":true}"#),
-        mcp_call(22, "definition", r#"{"source":"other.veln","line":9,"column":23}"#),
-        mcp_call(23, "references", r#"{"source":"other.veln","line":9,"column":23,"include_declaration":false}"#),
-        mcp_call(24, "references", r#"{"source":"main.veln","line":30,"column":13,"include_declaration":true,"page_size":2}"#),
+        mcp_call(
+            20,
+            "references",
+            r#"{"source":"main.veln","line":28,"column":21,"include_declaration":false}"#,
+        ),
+        mcp_call(
+            21,
+            "references",
+            r#"{"source":"main.veln","line":28,"column":21,"include_declaration":true}"#,
+        ),
+        mcp_call(
+            22,
+            "definition",
+            r#"{"source":"other.veln","line":9,"column":23}"#,
+        ),
+        mcp_call(
+            23,
+            "references",
+            r#"{"source":"other.veln","line":9,"column":23,"include_declaration":false}"#,
+        ),
+        mcp_call(
+            24,
+            "references",
+            r#"{"source":"main.veln","line":30,"column":13,"include_declaration":true,"page_size":2}"#,
+        ),
         mcp_call(25, "references", r#"{"cursor":"$mcp_cursor:24"}"#),
-        mcp_call(26, "definition", r#"{"source":"main.veln","line":39,"column":24}"#),
-        mcp_call(27, "references", r#"{"source":"main.veln","line":39,"column":24,"include_declaration":false}"#),
-        mcp_call(28, "references", r#"{"source":"main.veln","line":43,"column":24,"include_declaration":true,"page_size":1}"#),
+        mcp_call(
+            26,
+            "definition",
+            r#"{"source":"main.veln","line":39,"column":24}"#,
+        ),
+        mcp_call(
+            27,
+            "references",
+            r#"{"source":"main.veln","line":39,"column":24,"include_declaration":false}"#,
+        ),
+        mcp_call(
+            28,
+            "references",
+            r#"{"source":"main.veln","line":43,"column":24,"include_declaration":true,"page_size":1}"#,
+        ),
         mcp_call(29, "references", r#"{"cursor":"$mcp_cursor:28"}"#),
         mcp_call(30, "references", r#"{"cursor":"$mcp_cursor:29"}"#),
-        mcp_call(31, "definition", r#"{"source":"main.veln","line":55,"column":31}"#),
-        mcp_call(32, "references", r#"{"source":"main.veln","line":55,"column":31,"include_declaration":false}"#),
-        mcp_call(33, "references", r#"{"source":"main.veln","line":51,"column":24,"include_declaration":true,"page_size":4}"#),
+        mcp_call(
+            31,
+            "definition",
+            r#"{"source":"main.veln","line":55,"column":31}"#,
+        ),
+        mcp_call(
+            32,
+            "references",
+            r#"{"source":"main.veln","line":55,"column":31,"include_declaration":false}"#,
+        ),
+        mcp_call(
+            33,
+            "references",
+            r#"{"source":"main.veln","line":51,"column":24,"include_declaration":true,"page_size":4}"#,
+        ),
         mcp_call(34, "references", r#"{"cursor":"$mcp_cursor:33"}"#),
-    ];
-    workspace.project.veln_with_interactive_mcp(
-        &["mcp".to_string()],
-        None,
-        &[],
-        &requests.join("\n"),
-        None,
-    )
+    ]
 }
 
 fn lsp_definition(id: i64, uri: &str, line: usize, character: usize) -> String {

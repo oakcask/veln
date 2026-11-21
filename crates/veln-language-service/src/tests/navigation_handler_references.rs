@@ -664,17 +664,18 @@ mod navigation_handler_references_tests {
         }
     }
 
+    fn eligible_standard_handler_library() -> DirectDependencySnapshot {
+        standard_library_snapshot(
+            &[(
+                "observe.veln",
+                "pub handler noop() for Observe\n  record() => 1\nend\n",
+            )],
+            ["observe.veln"],
+        )
+    }
+
     #[test]
-    fn standard_library_handler_import_guards_keep_recovery_and_ambiguity_separate() {
-        let standard_library = || {
-            standard_library_snapshot(
-                &[(
-                    "observe.veln",
-                    "pub handler noop() for Observe\n  record() => 1\nend\n",
-                )],
-                ["observe.veln"],
-            )
-        };
+    fn standard_library_handler_duplicate_imports_are_ambiguous() {
         let ambiguous = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
             concat!(
@@ -683,9 +684,23 @@ mod navigation_handler_references_tests {
                 "fn selected() -> Int\n  handle 1 with first::noop()\nend\n",
             ),
         )])
-        .with_standard_library(standard_library());
+        .with_standard_library(eligible_standard_handler_library());
         assert!(query_snapshot(&ambiguous, "main.veln", 5, 24).is_none());
 
+        let canonical_duplicate = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use observe as first from \"std\"\n",
+                "use std::observe as second from \"std\"\n\n",
+                "fn selected() -> Int\n  handle 1 with first::noop()\nend\n",
+            ),
+        )])
+        .with_standard_library(eligible_standard_handler_library());
+        assert!(query_snapshot(&canonical_duplicate, "main.veln", 5, 24).is_none());
+    }
+
+    #[test]
+    fn standard_library_handler_recovered_imports_preserve_valid_routes() {
         let recovered = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
             concat!(
@@ -695,7 +710,7 @@ mod navigation_handler_references_tests {
                 "fn valid() -> Int\n  handle 1 with trace::noop()\nend\n",
             ),
         )])
-        .with_standard_library(standard_library());
+        .with_standard_library(eligible_standard_handler_library());
         assert!(query_snapshot(&recovered, "main.veln", 5, 22).is_none());
         let valid = query_snapshot(&recovered, "main.veln", 9, 24).unwrap();
         assert_eq!(locations(&valid.references), [("main.veln", 9, 24)]);
@@ -708,11 +723,14 @@ mod navigation_handler_references_tests {
                 "fn selected() -> Int\n  handle 1 with net::noop()\nend\n",
             ),
         )])
-        .with_standard_library(standard_library());
+        .with_standard_library(eligible_standard_handler_library());
         let selected = query_snapshot(&recovered_exact, "main.veln", 5, 22).unwrap();
         assert_eq!(selected.definition.span.file.as_str(), "observe.veln");
         assert_eq!(locations(&selected.references), [("main.veln", 5, 22)]);
+    }
 
+    #[test]
+    fn standard_library_handler_workspace_alias_collision_is_source_local() {
         let workspace_alias_collision = EffectiveProjectSnapshot::new(vec![
             source(
                 "main.veln",
@@ -736,23 +754,12 @@ mod navigation_handler_references_tests {
                 ),
             ),
         ])
-        .with_standard_library(standard_library());
+        .with_standard_library(eligible_standard_handler_library());
         let collision = query_snapshot(&workspace_alias_collision, "main.veln", 7, 24);
         assert!(collision.is_none());
         let valid = query_snapshot(&workspace_alias_collision, "valid.veln", 6, 24).unwrap();
         assert_eq!(valid.definition.span.file.as_str(), "observe.veln");
         assert_eq!(locations(&valid.references), [("valid.veln", 6, 24)]);
-
-        let canonical_duplicate = EffectiveProjectSnapshot::new(vec![source(
-            "main.veln",
-            concat!(
-                "use observe as first from \"std\"\n",
-                "use std::observe as second from \"std\"\n\n",
-                "fn selected() -> Int\n  handle 1 with first::noop()\nend\n",
-            ),
-        )])
-        .with_standard_library(standard_library());
-        assert!(query_snapshot(&canonical_duplicate, "main.veln", 5, 24).is_none());
     }
 
     #[test]
