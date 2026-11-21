@@ -1,0 +1,113 @@
+use prelude
+use io
+use io_provider
+
+pub type MemoryState
+	pub MemoryState(input: ByteChunk, output: ByteChunk, reads: Int, writes: Int, closes: Int)
+end
+
+pub fn initial(input: ByteChunk) -> MemoryState
+	MemoryState(input, byte_chunk([]), 0, 0, 0)
+end
+
+fn failure(operation: String, kind: io::ErrorKind) -> io::Error
+	{operation: operation, kind: kind, path: None, other_path: None, network: None, commit: None, message: "memory provider rejected resource"}
+end
+
+fn permitted(owner: io_provider::Owner, expected_slot: Int, actual: Result<Int, io::Error>) -> Result<(), io::Error>
+	match actual
+		Ok(slot) => if slot == expected_slot
+			Ok(())
+		else
+			Err(failure("slot", io::ErrorKind::InvalidResource))
+		end
+		Err(error) => Err(error)
+	end
+end
+
+fn read_transition(state: MemoryState, maximum: ByteCount) -> {state: MemoryState, result: io::ReadOutcome}
+	match state
+		MemoryState(input, output, reads, writes, closes) => if byte_count_to_int(byte_chunk_count(input)) == 0
+			{state: MemoryState(input, output, reads + 1, writes, closes), result: io::ReadOutcome::End}
+		else begin
+			let count = if byte_count_to_int(maximum) < byte_count_to_int(byte_chunk_count(input))
+				maximum
+			else
+				byte_chunk_count(input)
+			end
+			match byte_take(input, count)
+				Ok(bytes) => match byte_drop(input, count)
+					Ok(remaining) => {state: MemoryState(remaining, output, reads + 1, writes, closes), result: io::ReadOutcome::Data(bytes)}
+					Err(_) => {state: state, result: io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure("read", io::ErrorKind::InvalidInput))}
+				end
+				Err(_) => {state: state, result: io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure("read", io::ErrorKind::InvalidInput))}
+			end
+		end
+		end
+	end
+end
+
+fn write_transition(state: MemoryState, bytes: ByteChunk) -> {state: MemoryState, result: io::WriteOutcome}
+	match state
+		MemoryState(input, output, reads, writes, closes) => {state: MemoryState(input, byte_append(output, bytes), reads, writes + 1, closes), result: io::WriteOutcome::Written(byte_chunk_count(bytes))}
+	end
+end
+
+fn close_transition(state: MemoryState, ignored: ()) -> {state: MemoryState, result: io::CloseOutcome}
+	match state
+		MemoryState(input, output, reads, writes, closes) => {state: MemoryState(input, output, reads, writes, closes + 1), result: io::CloseOutcome::Closed}
+	end
+end
+
+fn read(owner: io_provider::Owner, slot: Int, cell: io_provider::State<MemoryState>, reader: io::Reader, maximum: ByteCount) -> io::ReadOutcome effects [concurrency]
+	match permitted(owner, slot, io_provider::reader_slot(owner, reader))
+		Ok(()) => io_provider::update(cell, maximum, read_transition)
+		Err(error) => io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(byte_chunk_count(byte_chunk([]))), error)
+	end
+end
+
+fn write(owner: io_provider::Owner, slot: Int, cell: io_provider::State<MemoryState>, writer: io::Writer, bytes: ByteChunk) -> io::WriteOutcome effects [concurrency]
+	match permitted(owner, slot, io_provider::writer_slot(owner, writer))
+		Ok(()) => io_provider::update(cell, bytes, write_transition)
+		Err(error) => io::WriteOutcome::WriteFailed(io::Progress::Known(byte_chunk_count(byte_chunk([]))), error)
+	end
+end
+
+fn close(owner: io_provider::Owner, slot: Int, cell: io_provider::State<MemoryState>, closer: io::Closer) -> io::CloseOutcome effects [concurrency]
+	match permitted(owner, slot, io_provider::closer_slot(owner, closer))
+		Ok(()) => io_provider::update(cell, (), close_transition)
+		Err(error) => io::CloseOutcome::CloseFailed(io::Commit::No, error)
+	end
+end
+
+pub handler memory_read(owner: io_provider::Owner, slot: Int, cell: io_provider::State<MemoryState>) for io::Read effects [concurrency]
+	read(reader, maximum) => read(owner, slot, cell, reader, maximum)
+end
+
+pub handler memory_write(owner: io_provider::Owner, slot: Int, cell: io_provider::State<MemoryState>) for io::Write effects [concurrency]
+	write(writer, bytes) => write(owner, slot, cell, writer, bytes)
+end
+
+pub handler memory_close(owner: io_provider::Owner, slot: Int, cell: io_provider::State<MemoryState>) for io::Close effects [concurrency]
+	close(closer) => close(owner, slot, cell, closer)
+end
+
+fn allocate(owner: io_provider::Owner, slot: Int) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error> effects [concurrency]
+	io_provider::duplex(io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex)?)
+end
+
+pub fn memory(owner: io_provider::Owner, slot: Int, cell: io_provider::State<MemoryState>) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error> effects [concurrency]
+	handle handle handle allocate(owner, slot) with memory_read(owner, slot, cell) with memory_write(owner, slot, cell) with memory_close(owner, slot, cell)
+end
+
+pub fn raw_memory(owner: io_provider::Owner, slot: Int, cell: io_provider::State<MemoryState>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with memory_read(owner, slot, cell) with memory_write(owner, slot, cell) with memory_close(owner, slot, cell)
+end
+
+fn observe(state: MemoryState, ignored: ()) -> {state: MemoryState, result: MemoryState}
+	{state: state, result: state}
+end
+
+pub fn snapshot(cell: io_provider::State<MemoryState>) -> MemoryState effects [concurrency]
+	io_provider::update(cell, (), observe)
+end

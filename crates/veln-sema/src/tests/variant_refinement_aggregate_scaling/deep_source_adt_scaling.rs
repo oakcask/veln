@@ -24,7 +24,7 @@ fn source_adt_identity(environment: &TypeEnvironment, name: &str) -> String {
         .adts
         .descriptors()
         .iter()
-        .find(|descriptor| descriptor.type_name == name)
+        .find(|descriptor| descriptor.type_name == name && descriptor.module_name.is_none())
         .unwrap_or_else(|| panic!("missing {name} descriptor"))
         .identity()
 }

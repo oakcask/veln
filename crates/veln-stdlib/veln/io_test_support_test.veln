@@ -1,0 +1,110 @@
+use prelude
+use io
+use io_provider
+
+pub type ReadStep
+	pub ReadStep(reply: io::ReadOutcome, consumed: Int)
+end
+
+pub type WriteStep
+	pub WriteStep(reply: io::WriteOutcome, committed: ByteCount)
+end
+
+pub type ScriptState
+	pub ScriptState(reads: List<ReadStep>, writes: List<WriteStep>, requests: List<Int>, submissions: List<ByteChunk>, output: ByteChunk, consumed: Int, closes: Int)
+end
+
+pub fn failure(operation: String) -> io::Error
+	{operation: operation, kind: io::ErrorKind::Other, path: None, other_path: None, network: None, commit: None, message: "scripted failure"}
+end
+
+pub fn state(reads: List<ReadStep>, writes: List<WriteStep>) -> io_provider::State<ScriptState> effects [concurrency]
+	let initial = ScriptState(reads, writes, Nil, Nil, byte_chunk([]), 0, 0)
+	io_provider::state(initial)
+end
+
+fn read_transition(state: ScriptState, maximum: ByteCount) -> {state: ScriptState, result: io::ReadOutcome}
+	match state
+		ScriptState(reads, writes, requests, submissions, output, consumed, closes) => match reads
+			Nil => {state: ScriptState(Nil, writes, Cons(byte_count_to_int(maximum), requests), submissions, output, consumed, closes), result: io::ReadOutcome::End}
+			Cons(ReadStep(reply, actual), tail) => {state: ScriptState(tail, writes, Cons(byte_count_to_int(maximum), requests), submissions, output, consumed + actual, closes), result: reply}
+		end
+	end
+end
+
+fn write_transition(state: ScriptState, bytes: ByteChunk) -> {state: ScriptState, result: io::WriteOutcome}
+	match state
+		ScriptState(reads, writes, requests, submissions, output, consumed, closes) => match writes
+			Nil => {state: ScriptState(reads, Nil, requests, Cons(bytes, submissions), byte_append(output, bytes), consumed, closes), result: io::WriteOutcome::Written(byte_chunk_count(bytes))}
+			Cons(WriteStep(reply, actual), tail) => match byte_take(bytes, actual)
+				Ok(prefix) => {state: ScriptState(reads, tail, requests, Cons(bytes, submissions), byte_append(output, prefix), consumed, closes), result: reply}
+				Err(_) => {state: state, result: io::WriteOutcome::WriteFailed(io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure("invalid_script"))}
+			end
+		end
+	end
+end
+
+fn close_transition(state: ScriptState, ignored: ()) -> {state: ScriptState, result: io::CloseOutcome}
+	match state
+		ScriptState(reads, writes, requests, submissions, output, consumed, closes) => {state: ScriptState(reads, writes, requests, submissions, output, consumed, closes + 1), result: io::CloseOutcome::Closed}
+	end
+end
+
+fn read(owner: io_provider::Owner, slot: Int, cell: io_provider::State<ScriptState>, reader: io::Reader, maximum: ByteCount) -> io::ReadOutcome effects [concurrency]
+	match checked_slot(slot, io_provider::reader_slot(owner, reader))
+		Ok(_) => io_provider::update(cell, maximum, read_transition)
+		Err(error) => io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(byte_chunk_count(byte_chunk([]))), error)
+	end
+end
+
+fn write(owner: io_provider::Owner, slot: Int, cell: io_provider::State<ScriptState>, writer: io::Writer, bytes: ByteChunk) -> io::WriteOutcome effects [concurrency]
+	match checked_slot(slot, io_provider::writer_slot(owner, writer))
+		Ok(_) => io_provider::update(cell, bytes, write_transition)
+		Err(error) => io::WriteOutcome::WriteFailed(io::Progress::Known(byte_chunk_count(byte_chunk([]))), error)
+	end
+end
+
+fn close(owner: io_provider::Owner, slot: Int, cell: io_provider::State<ScriptState>, closer: io::Closer) -> io::CloseOutcome effects [concurrency]
+	match checked_slot(slot, io_provider::closer_slot(owner, closer))
+		Ok(_) => io_provider::update(cell, (), close_transition)
+		Err(error) => io::CloseOutcome::CloseFailed(io::Commit::No, error)
+	end
+end
+
+pub handler reader(owner: io_provider::Owner, slot: Int, cell: io_provider::State<ScriptState>) for io::Read effects [concurrency]
+	read(resource, maximum) => read(owner, slot, cell, resource, maximum)
+end
+
+pub handler writer(owner: io_provider::Owner, slot: Int, cell: io_provider::State<ScriptState>) for io::Write effects [concurrency]
+	write(resource, bytes) => write(owner, slot, cell, resource, bytes)
+end
+
+pub handler closer(owner: io_provider::Owner, slot: Int, cell: io_provider::State<ScriptState>) for io::Close effects [concurrency]
+	close(resource) => close(owner, slot, cell, resource)
+end
+
+pub fn resource(owner: io_provider::Owner, slot: Int, cell: io_provider::State<ScriptState>) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error> effects [concurrency]
+	let raw = handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with reader(owner, slot, cell) with writer(owner, slot, cell) with closer(owner, slot, cell)
+	io_provider::duplex(raw?)
+end
+
+fn trace_transition(state: ScriptState, ignored: ()) -> {state: ScriptState, result: {requests: List<Int>, submissions: List<ByteChunk>, output: ByteChunk, consumed: Int, closes: Int}}
+	match state
+		ScriptState(_, _, requests, submissions, output, consumed, closes) => {state: state, result: {requests: list_reverse(requests), submissions: list_reverse(submissions), output: output, consumed: consumed, closes: closes}}
+	end
+end
+
+pub fn trace(cell: io_provider::State<ScriptState>) -> {requests: List<Int>, submissions: List<ByteChunk>, output: ByteChunk, consumed: Int, closes: Int} effects [concurrency]
+	io_provider::update(cell, (), trace_transition)
+end
+
+fn checked_slot(expected: Int, observed: Result<Int, io::Error>) -> Result<Int, io::Error>
+	match observed
+		Ok(value) => if value == expected
+			Ok(value)
+		else
+			Err({operation: "slot", kind: io::ErrorKind::InvalidResource, path: None, other_path: None, network: None, commit: None, message: "foreign scripted resource"})
+		end
+		Err(error) => Err(error)
+	end
+end

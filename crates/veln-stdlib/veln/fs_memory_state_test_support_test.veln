@@ -1,0 +1,882 @@
+use prelude
+use path as portable
+use fs as api
+use io as bytes_io
+use io_provider as provider
+
+pub type Binding
+	pub File(identity: Int)
+	pub Directory
+	pub Link(target: String)
+	pub Other
+end
+
+pub type Open
+	pub Open(file: Int, cursor: Option<Int>, closed: Bool, family: provider::ViewFamily)
+end
+
+pub type Event
+	pub Opened(name: String, family: provider::ViewFamily, create: api::CreateMode, truncate: Bool, result: Result<{slot: Int, changed: Bool}, bytes_io::Error>)
+	pub Read(slot: Int, maximum: ByteCount, positional: Option<ByteOffset>, result: bytes_io::ReadOutcome)
+	pub Written(slot: Int, bytes: ByteChunk, positional: Option<ByteOffset>, result: bytes_io::WriteOutcome)
+	pub Sought(slot: Int, origin: bytes_io::SeekOrigin, result: Result<ByteOffset, bytes_io::Error>)
+	pub Closed(slot: Int, result: bytes_io::CloseOutcome)
+	pub Synced(slot: Int, result: Result<(), bytes_io::Error>)
+	pub Truncated(slot: Int, size: ByteOffset, result: api::MutationOutcome)
+	pub Metadata(name: String, follow: api::FollowLinks, result: Result<api::Metadata, bytes_io::Error>)
+	pub Entries(name: String, result: Result<List<api::Entry>, bytes_io::Error>)
+	pub Changed(operation: String, name: String, other: String, result: api::MutationOutcome)
+end
+
+pub type State
+	pub State(bindings: Dict<String, Binding>, contents: Dict<Int, ByteChunk>, opens: Dict<Int, Open>, next_file: Int, next_slot: Int, events: List<Event>)
+end
+
+pub fn initial(first_slot: Int) -> State
+	let empty_bindings: Dict<String, Binding> = {}
+	let contents: Dict<Int, ByteChunk> = {}
+	let opens: Dict<Int, Open> = {}
+	State(dict_insert(empty_bindings, ".", Binding::Directory), contents, opens, 1, first_slot, Nil)
+end
+
+pub fn error(operation: String, name: String, kind: bytes_io::ErrorKind) -> bytes_io::Error
+	let path = match portable::parse(name)
+		Ok(value) => Some(value)
+		Err(_) => None
+	end
+	{operation: operation, kind: kind, path: path, other_path: None, network: None, commit: None, message: "memory filesystem operation failed"}
+end
+
+pub fn seed_file(state: State, name: String, bytes: ByteChunk) -> State
+	let identity = next_file(state)
+	set_next_file(set_contents(set_bindings(state, dict_insert(bindings(state), name, Binding::File(identity))), dict_insert(contents(state), identity, bytes)), identity + 1)
+end
+
+pub fn seed_directory(state: State, name: String) -> State
+	set_bindings(state, dict_insert(bindings(state), name, Binding::Directory))
+end
+
+pub fn seed_link(state: State, name: String, target: String) -> State
+	set_bindings(state, dict_insert(bindings(state), name, Binding::Link(target)))
+end
+
+fn open_info(value: Open) -> {file: Int, cursor: Option<Int>, closed: Bool, family: provider::ViewFamily}
+	match value
+		Open(file, cursor, closed, family) => {file: file, cursor: cursor, closed: closed, family: family}
+	end
+end
+
+pub fn cursor(state: State, slot: Int) -> Option<Int>
+	match dict_get(opens(state), slot)
+		Some(value) => open_info(value).cursor
+		None => None
+	end
+end
+
+fn live_open(state: State, slot: Int, operation: String) -> Result<Open, bytes_io::Error>
+	match dict_get(opens(state), slot)
+		Some(value) => if open_info(value).closed
+			Err(error(operation, "", bytes_io::ErrorKind::Closed))
+		else
+			Ok(value)
+		end
+		None => Err(error(operation, "", bytes_io::ErrorKind::InvalidResource))
+	end
+end
+
+fn put_open(state: State, slot: Int, value: Open) -> State
+	set_opens(state, dict_insert(opens(state), slot, value))
+end
+
+fn put_bytes(state: State, identity: Int, bytes: ByteChunk) -> State
+	set_contents(state, dict_insert(contents(state), identity, bytes))
+end
+
+fn file_bytes(state: State, identity: Int) -> Result<ByteChunk, bytes_io::Error>
+	match dict_get(contents(state), identity)
+		Some(value) => Ok(value)
+		None => Err(error("contents", "", bytes_io::ErrorKind::InvalidResource))
+	end
+end
+
+fn join_name(parent: String, child: String) -> String
+	if parent == "."
+		child
+	else if child == "."
+		parent
+	else
+		string::concat(string::concat(parent, "/"), child)
+	end
+end
+
+fn suffix_name(prefix: String, components: List<String>) -> String
+	match components
+		Nil => prefix
+		Cons(head, tail) => suffix_name(join_name(prefix, head), tail)
+	end
+end
+
+fn resolved(state: State, operation: String, name: String, follow: Bool) -> Result<{name: String, entry: Binding}, bytes_io::Error>
+	let seen: Dict<String, Bool> = {}
+	resolve_name(state, operation, name, follow, dict_insert(seen, name, true))
+end
+
+fn resolve_name(state: State, operation: String, name: String, follow: Bool, seen: Dict<String, Bool>) -> Result<{name: String, entry: Binding}, bytes_io::Error>
+	match portable::parse(name)
+		Ok(path) => walk(state, operation, ".", portable::components(path), follow, seen)
+		Err(_) => Err(error(operation, name, bytes_io::ErrorKind::UnrepresentablePath))
+	end
+end
+
+fn walk(state: State, operation: String, prefix: String, components: List<String>, follow: Bool, seen: Dict<String, Bool>) -> Result<{name: String, entry: Binding}, bytes_io::Error>
+	match components
+		Nil => match dict_get(bindings(state), prefix)
+			Some(entry) => Ok({name: prefix, entry: entry})
+			None => Err(error(operation, prefix, bytes_io::ErrorKind::NotFound))
+		end
+		Cons(head, tail) => walk_entry(state, operation, join_name(prefix, head), tail, follow, seen)
+	end
+end
+
+fn walk_entry(state: State, operation: String, name: String, remaining: List<String>, follow: Bool, seen: Dict<String, Bool>) -> Result<{name: String, entry: Binding}, bytes_io::Error>
+	match dict_get(bindings(state), name)
+		None => Err(error(operation, name, bytes_io::ErrorKind::NotFound))
+		Some(Binding::Link(target)) => if not follow and list_is_empty(remaining)
+			Ok({name: name, entry: Binding::Link(target)})
+		else
+			follow_link(state, operation, suffix_name(target, remaining), follow, seen)
+		end
+		Some(Binding::Directory) => if list_is_empty(remaining)
+			Ok({name: name, entry: Binding::Directory})
+		else
+			walk(state, operation, name, remaining, follow, seen)
+		end
+		Some(entry) => if list_is_empty(remaining)
+			Ok({name: name, entry: entry})
+		else
+			Err(error(operation, name, bytes_io::ErrorKind::NotDirectory))
+		end
+	end
+end
+
+fn follow_link(state: State, operation: String, name: String, follow: Bool, seen: Dict<String, Bool>) -> Result<{name: String, entry: Binding}, bytes_io::Error>
+	if dict_contains(seen, name)
+		Err(error(operation, name, bytes_io::ErrorKind::LinkLoop))
+	else
+		resolve_name(state, operation, name, follow, dict_insert(seen, name, true))
+	end
+end
+
+fn parent_directory(state: State, operation: String, name: String) -> Result<String, bytes_io::Error>
+	match portable::parse(name)
+		Ok(path) => match portable::parent(path)
+			Some(parent) => match resolved(state, operation, portable::text(parent), true)
+				Ok(value) => match value.entry
+					Binding::Directory => Ok(join_name(value.name, name_leaf(path)))
+					_ => Err(error(operation, name, bytes_io::ErrorKind::NotDirectory))
+				end
+				Err(failure) => Err(failure)
+			end
+			None => Err(error(operation, name, bytes_io::ErrorKind::AlreadyExists))
+		end
+		Err(_) => Err(error(operation, name, bytes_io::ErrorKind::UnrepresentablePath))
+	end
+end
+
+fn name_leaf(path: portable::Path) -> String
+	match portable::name(path)
+		Some(name) => name
+		None => "."
+	end
+end
+
+fn is_existing(mode: api::CreateMode) -> Bool
+	match mode
+		api::CreateMode::Existing => true
+		_ => false
+	end
+end
+
+fn is_exclusive(mode: api::CreateMode) -> Bool
+	match mode
+		api::CreateMode::CreateNew => true
+		_ => false
+	end
+end
+
+fn readable(family: provider::ViewFamily) -> Bool
+	match family
+		provider::ViewFamily::ReadFile => true
+		provider::ViewFamily::UpdateFile => true
+		_ => false
+	end
+end
+
+fn writable(family: provider::ViewFamily) -> Bool
+	match family
+		provider::ViewFamily::WriteFile => true
+		provider::ViewFamily::UpdateFile => true
+		provider::ViewFamily::AppendFile => true
+		_ => false
+	end
+end
+
+fn append_only(family: provider::ViewFamily) -> Bool
+	match family
+		provider::ViewFamily::AppendFile => true
+		_ => false
+	end
+end
+
+pub fn bindings(state: State) -> Dict<String, Binding>
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events) => bindings
+	end
+end
+
+fn set_bindings(state: State, replacement: Dict<String, Binding>) -> State
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events) => State(replacement, contents, opens, next_file, next_slot, events)
+	end
+end
+
+pub fn contents(state: State) -> Dict<Int, ByteChunk>
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events) => contents
+	end
+end
+
+fn set_contents(state: State, replacement: Dict<Int, ByteChunk>) -> State
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events) => State(bindings, replacement, opens, next_file, next_slot, events)
+	end
+end
+
+pub fn opens(state: State) -> Dict<Int, Open>
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events) => opens
+	end
+end
+
+fn set_opens(state: State, replacement: Dict<Int, Open>) -> State
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events) => State(bindings, contents, replacement, next_file, next_slot, events)
+	end
+end
+
+pub fn next_file(state: State) -> Int
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events) => next_file
+	end
+end
+
+fn set_next_file(state: State, replacement: Int) -> State
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events) => State(bindings, contents, opens, replacement, next_slot, events)
+	end
+end
+
+pub fn next_slot(state: State) -> Int
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events) => next_slot
+	end
+end
+
+fn set_next_slot(state: State, replacement: Int) -> State
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events) => State(bindings, contents, opens, next_file, replacement, events)
+	end
+end
+
+pub fn events(state: State) -> List<Event>
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events) => events
+	end
+end
+
+fn set_events(state: State, replacement: List<Event>) -> State
+	match state
+		State(bindings, contents, opens, next_file, next_slot, events) => State(bindings, contents, opens, next_file, next_slot, replacement)
+	end
+end
+
+
+fn open_name(state: State, name: String, seen: Dict<String, Bool>) -> Result<String, bytes_io::Error>
+	let candidate: Result<String, bytes_io::Error> = if name == "."
+		Ok(name)
+	else
+		parent_directory(state, "open", name)
+	end
+	match candidate
+		Err(failure) => Err(failure)
+		Ok(path) => match dict_get(bindings(state), path)
+			Some(Binding::Link(target)) => if dict_contains(seen, path)
+				Err(error("open", name, bytes_io::ErrorKind::LinkLoop))
+			else
+				open_name(state, target, dict_insert(seen, path, true))
+			end
+			_ => Ok(path)
+		end
+	end
+end
+
+fn open_step(state: State, context: {name: String, family: provider::ViewFamily, create: api::CreateMode, truncate: Bool}) -> {state: State, result: Result<{slot: Int, changed: Bool}, bytes_io::Error>}
+	let seen: Dict<String, Bool> = {}
+	if is_exclusive(context.create) and context.truncate
+		{state: state, result: Err(error("open", context.name, bytes_io::ErrorKind::InvalidInput))}
+	else if next_slot(state) == 9223372036854775807
+		{state: state, result: Err(error("open", context.name, bytes_io::ErrorKind::InvalidResource))}
+	else
+		match exclusive_target(state, context.name, context.create)
+			Err(failure) => {state: state, result: Err(failure)}
+			Ok(()) => match open_name(state, context.name, seen)
+				Err(failure) => {state: state, result: Err(error("open", context.name, failure.kind))}
+				Ok(name) => open_binding(state, name, context.family, context.create, context.truncate)
+			end
+		end
+	end
+end
+
+fn exclusive_target(state: State, name: String, create: api::CreateMode) -> Result<(), bytes_io::Error>
+	if is_exclusive(create)
+		match if name == "."
+			Ok(name)
+		else
+			parent_directory(state, "open", name)
+		end
+			Ok(candidate) => if dict_contains(bindings(state), candidate)
+				Err(error("open", name, bytes_io::ErrorKind::AlreadyExists))
+			else
+				Ok(())
+			end
+			Err(failure) => Err(failure)
+		end
+	else
+		Ok(())
+	end
+end
+
+fn open_binding(state: State, name: String, family: provider::ViewFamily, create: api::CreateMode, truncate: Bool) -> {state: State, result: Result<{slot: Int, changed: Bool}, bytes_io::Error>}
+	match dict_get(bindings(state), name)
+		Some(Binding::File(identity)) => publish_open(if truncate
+			put_bytes(state, identity, byte_chunk([]))
+		else
+			state
+		end, identity, family, truncate)
+		Some(Binding::Directory) => {state: state, result: Err(error("open", name, bytes_io::ErrorKind::IsDirectory))}
+		Some(_) => {state: state, result: Err(error("open", name, bytes_io::ErrorKind::Unsupported))}
+		None => if is_existing(create)
+			{state: state, result: Err(error("open", name, bytes_io::ErrorKind::NotFound))}
+		else
+			publish_open(seed_file(state, name, byte_chunk([])), next_file(state), family, true)
+		end
+	end
+end
+
+fn publish_open(state: State, identity: Int, family: provider::ViewFamily, changed: Bool) -> {state: State, result: Result<{slot: Int, changed: Bool}, bytes_io::Error>}
+	let slot = next_slot(state)
+	let next = put_open(state, slot, Open(identity, Some(0), false, family))
+	{state: set_next_slot(next, slot + 1), result: Ok({slot: slot, changed: changed})}
+end
+
+fn read_step(state: State, context: {slot: Int, maximum: ByteCount, positional: Option<ByteOffset>}) -> {state: State, result: bytes_io::ReadOutcome}
+	match live_open(state, context.slot, "read")
+		Err(failure) => read_failed(state, failure)
+		Ok(value) => if readable(open_info(value).family)
+			read_open(state, context.slot, value, context.maximum, context.positional)
+		else
+			read_failed(state, error("read", "", bytes_io::ErrorKind::Unsupported))
+		end
+	end
+end
+
+fn read_failed(state: State, failure: bytes_io::Error) -> {state: State, result: bytes_io::ReadOutcome}
+	{state: state, result: bytes_io::ReadOutcome::ReadFailed(byte_chunk([]), bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure)}
+end
+
+fn selected_offset(value: Open, positional: Option<ByteOffset>, operation: String) -> Result<Int, bytes_io::Error>
+	match positional
+		Some(offset) => Ok(byte_offset_to_int(offset))
+		None => match open_info(value).cursor
+			Some(cursor) => Ok(cursor)
+			None => Err(error(operation, "", bytes_io::ErrorKind::InvalidResource))
+		end
+	end
+end
+
+fn read_open(state: State, slot: Int, value: Open, maximum: ByteCount, positional: Option<ByteOffset>) -> {state: State, result: bytes_io::ReadOutcome}
+	match selected_offset(value, positional, "read")
+		Err(failure) => read_failed(state, failure)
+		Ok(offset) => match file_bytes(state, open_info(value).file)
+			Err(failure) => read_failed(state, failure)
+			Ok(bytes) => if offset >= byte_count_to_int(byte_chunk_count(bytes))
+				{state: state, result: bytes_io::ReadOutcome::End}
+			else
+				read_range(state, slot, value, bytes, offset, maximum, positional)
+			end
+		end
+	end
+end
+
+fn read_range(state: State, slot: Int, value: Open, bytes: ByteChunk, offset: Int, maximum: ByteCount, positional: Option<ByteOffset>) -> {state: State, result: bytes_io::ReadOutcome}
+	let size = byte_count_to_int(byte_chunk_count(bytes))
+	let amount = if byte_count_to_int(maximum) < size - offset
+		maximum
+	else
+		count(size - offset)
+	end
+	match byte_drop(bytes, count(offset))
+		Err(_) => read_failed(state, error("read", "", bytes_io::ErrorKind::InvalidInput))
+		Ok(suffix) => match byte_take(suffix, amount)
+			Err(_) => read_failed(state, error("read", "", bytes_io::ErrorKind::InvalidInput))
+			Ok(data) => {state: advance(state, slot, value, offset + byte_count_to_int(amount), positional), result: bytes_io::ReadOutcome::Data(data)}
+		end
+	end
+end
+
+fn count(value: Int) -> ByteCount
+	require value >= 0
+	match byte_count(value)
+		Ok(result) => result
+		Err(_) => byte_chunk_count(byte_chunk([]))
+	end
+end
+
+fn offset(value: Int) -> ByteOffset
+	require value >= 0
+	match byte_offset(value)
+		Ok(result) => result
+		Err(_) => match byte_offset(0)
+			Ok(zero) => zero
+			Err(_) => offset(0)
+		end
+	end
+end
+
+fn advance(state: State, slot: Int, value: Open, cursor: Int, positional: Option<ByteOffset>) -> State
+	match positional
+		Some(_) => state
+		None => put_open(state, slot, Open(open_info(value).file, Some(cursor), false, open_info(value).family))
+	end
+end
+
+fn write_step(state: State, context: {slot: Int, bytes: ByteChunk, positional: Option<ByteOffset>}) -> {state: State, result: bytes_io::WriteOutcome}
+	match live_open(state, context.slot, "write")
+		Err(failure) => write_failed(state, failure)
+		Ok(value) => if writable(open_info(value).family)
+			write_open(state, context.slot, value, context.bytes, context.positional)
+		else
+			write_failed(state, error("write", "", bytes_io::ErrorKind::Unsupported))
+		end
+	end
+end
+
+fn write_failed(state: State, failure: bytes_io::Error) -> {state: State, result: bytes_io::WriteOutcome}
+	{state: state, result: bytes_io::WriteOutcome::WriteFailed(bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure)}
+end
+
+fn write_open(state: State, slot: Int, value: Open, bytes: ByteChunk, positional: Option<ByteOffset>) -> {state: State, result: bytes_io::WriteOutcome}
+	match selected_offset(value, positional, "write")
+		Err(failure) => write_failed(state, failure)
+		Ok(cursor) => match file_bytes(state, open_info(value).file)
+			Err(failure) => write_failed(state, failure)
+			Ok(original) => write_at_offset(state, slot, value, original, bytes, if append_only(open_info(value).family)
+				byte_count_to_int(byte_chunk_count(original))
+			else
+				cursor
+			end, positional)
+		end
+	end
+end
+
+fn write_at_offset(state: State, slot: Int, value: Open, original: ByteChunk, bytes: ByteChunk, position: Int, positional: Option<ByteOffset>) -> {state: State, result: bytes_io::WriteOutcome}
+	let amount = byte_count_to_int(byte_chunk_count(bytes))
+	if position < 0 or amount > 9223372036854775807 - position
+		write_failed(state, error("write", "", bytes_io::ErrorKind::InvalidInput))
+	else
+		write_content(state, slot, value, original, bytes, position, position + amount, positional)
+	end
+end
+
+fn write_content(state: State, slot: Int, value: Open, original: ByteChunk, bytes: ByteChunk, position: Int, end_offset: Int, positional: Option<ByteOffset>) -> {state: State, result: bytes_io::WriteOutcome}
+	let size = byte_count_to_int(byte_chunk_count(original))
+	let prefix = take(original, if position < size
+		position
+	else
+		size
+	end)
+	let gap = zeros(if position > size
+		position - size
+	else
+		0
+	end, Nil)
+	let suffix = drop(original, if end_offset < size
+		end_offset
+	else
+		size
+	end)
+	let changed = put_bytes(state, open_info(value).file, byte_append(byte_append(byte_append(prefix, gap), bytes), suffix))
+	{state: advance(changed, slot, value, end_offset, positional), result: bytes_io::WriteOutcome::Written(byte_chunk_count(bytes))}
+end
+
+fn zeros(remaining: Int, chunks: List<ByteChunk>) -> ByteChunk
+	require remaining >= 0
+	if remaining == 0
+		prelude_builtin::io_provider_join_chunks(chunks)
+	else
+		match byte_chunk_from_hex("00")
+			Ok(zero) => zeros(remaining - 1, Cons(zero, chunks))
+			Err(_) => byte_chunk([])
+		end
+	end
+end
+
+fn take(bytes: ByteChunk, amount: Int) -> ByteChunk
+	require amount >= 0
+	match byte_take(bytes, count(amount))
+		Ok(result) => result
+		Err(_) => byte_chunk([])
+	end
+end
+
+fn drop(bytes: ByteChunk, amount: Int) -> ByteChunk
+	require amount >= 0
+	match byte_drop(bytes, count(amount))
+		Ok(result) => result
+		Err(_) => byte_chunk([])
+	end
+end
+
+fn seek_step(state: State, context: {slot: Int, origin: bytes_io::SeekOrigin}) -> {state: State, result: Result<ByteOffset, bytes_io::Error>}
+	match live_open(state, context.slot, "seek")
+		Err(failure) => {state: state, result: Err(failure)}
+		Ok(value) => match seek_target(state, value, context.origin)
+			Err(failure) => {state: state, result: Err(failure)}
+			Ok(target) => {state: advance(state, context.slot, value, target, None), result: Ok(offset(target))}
+		end
+	end
+end
+
+fn seek_target(state: State, value: Open, origin: bytes_io::SeekOrigin) -> Result<Int, bytes_io::Error>
+	match origin
+		bytes_io::SeekOrigin::Start(target) => if byte_offset_to_int(target) < 0
+			Err(error("seek", "", bytes_io::ErrorKind::InvalidInput))
+		else
+			Ok(byte_offset_to_int(target))
+		end
+		bytes_io::SeekOrigin::Current(displacement) => match open_info(value).cursor
+			Some(cursor) => shifted(cursor, displacement)
+			None => Err(error("seek", "", bytes_io::ErrorKind::InvalidResource))
+		end
+		bytes_io::SeekOrigin::End(displacement) => match open_info(value).cursor
+			None => Err(error("seek", "", bytes_io::ErrorKind::InvalidResource))
+			Some(_) => match file_bytes(state, open_info(value).file)
+				Ok(bytes) => shifted(byte_count_to_int(byte_chunk_count(bytes)), displacement)
+				Err(failure) => Err(failure)
+			end
+		end
+	end
+end
+
+fn shifted(base: Int, displacement: Int) -> Result<Int, bytes_io::Error>
+	if displacement >= 0 and base > 9223372036854775807 - displacement
+		Err(error("seek", "", bytes_io::ErrorKind::InvalidInput))
+	else if displacement < 0 and displacement < 0 - base
+		Err(error("seek", "", bytes_io::ErrorKind::InvalidInput))
+	else
+		Ok(base + displacement)
+	end
+end
+
+fn truncate_step(state: State, context: {slot: Int, size: ByteOffset}) -> {state: State, result: api::MutationOutcome}
+	match live_open(state, context.slot, "truncate")
+		Err(failure) => mutation_failed(state, failure)
+		Ok(value) => match file_bytes(state, open_info(value).file)
+			Err(failure) => mutation_failed(state, failure)
+			Ok(bytes) => if byte_offset_to_int(context.size) < 0
+				mutation_failed(state, error("truncate", "", bytes_io::ErrorKind::InvalidInput))
+			else if byte_offset_to_int(context.size) >= byte_count_to_int(byte_chunk_count(bytes))
+				{state: state, result: api::MutationOutcome::Applied}
+			else
+				truncate_content(state, context.slot, value, bytes, byte_offset_to_int(context.size))
+			end
+		end
+	end
+end
+
+fn truncate_content(state: State, slot: Int, value: Open, bytes: ByteChunk, size: Int) -> {state: State, result: api::MutationOutcome}
+	let cursor = match open_info(value).cursor
+		Some(previous) => Some(if previous < size
+			previous
+		else
+			size
+		end)
+		None => None
+	end
+	let changed = put_bytes(state, open_info(value).file, take(bytes, size))
+	{state: put_open(changed, slot, Open(open_info(value).file, cursor, false, open_info(value).family)), result: api::MutationOutcome::Applied}
+end
+
+fn close_step(state: State, slot: Int) -> {state: State, result: bytes_io::CloseOutcome}
+	match dict_get(opens(state), slot)
+		None => {state: state, result: bytes_io::CloseOutcome::CloseFailed(bytes_io::Commit::No, error("close", "", bytes_io::ErrorKind::InvalidResource))}
+		Some(value) => {state: put_open(state, slot, Open(open_info(value).file, open_info(value).cursor, true, open_info(value).family)), result: bytes_io::CloseOutcome::Closed}
+	end
+end
+
+pub fn abandon(state: State, slot: Int) -> {state: State, result: ()}
+	let closed = close_step(state, slot)
+	{state: closed.state, result: ()}
+end
+
+pub fn sync(state: State, slot: Int) -> {state: State, result: Result<(), bytes_io::Error>}
+	let result: Result<(), bytes_io::Error> = match live_open(state, slot, "sync")
+		Ok(_) => Ok(())
+		Err(failure) => Err(failure)
+	end
+	{state: set_events(state, Cons(Event::Synced(slot, result), events(state))), result: result}
+end
+
+fn mutation_failed(state: State, failure: bytes_io::Error) -> {state: State, result: api::MutationOutcome}
+	{state: state, result: api::MutationOutcome::MutationFailed(bytes_io::Commit::No, failure)}
+end
+
+pub fn open(state: State, context: {name: String, family: provider::ViewFamily, create: api::CreateMode, truncate: Bool}) -> {state: State, result: Result<{slot: Int, changed: Bool}, bytes_io::Error>}
+	let next = open_step(state, context)
+	{state: set_events(next.state, Cons(Event::Opened(context.name, context.family, context.create, context.truncate, next.result), events(next.state))), result: next.result}
+end
+
+pub fn read(state: State, context: {slot: Int, maximum: ByteCount, positional: Option<ByteOffset>}) -> {state: State, result: bytes_io::ReadOutcome}
+	let next = read_step(state, context)
+	{state: set_events(next.state, Cons(Event::Read(context.slot, context.maximum, context.positional, next.result), events(next.state))), result: next.result}
+end
+
+pub fn write(state: State, context: {slot: Int, bytes: ByteChunk, positional: Option<ByteOffset>}) -> {state: State, result: bytes_io::WriteOutcome}
+	let next = write_step(state, context)
+	{state: set_events(next.state, Cons(Event::Written(context.slot, context.bytes, context.positional, next.result), events(next.state))), result: next.result}
+end
+
+pub fn seek(state: State, context: {slot: Int, origin: bytes_io::SeekOrigin}) -> {state: State, result: Result<ByteOffset, bytes_io::Error>}
+	let next = seek_step(state, context)
+	{state: set_events(next.state, Cons(Event::Sought(context.slot, context.origin, next.result), events(next.state))), result: next.result}
+end
+
+pub fn close(state: State, context: Int) -> {state: State, result: bytes_io::CloseOutcome}
+	let next = close_step(state, context)
+	{state: set_events(next.state, Cons(Event::Closed(context, next.result), events(next.state))), result: next.result}
+end
+
+pub fn truncate(state: State, context: {slot: Int, size: ByteOffset}) -> {state: State, result: api::MutationOutcome}
+	let next = truncate_step(state, context)
+	{state: set_events(next.state, Cons(Event::Truncated(context.slot, context.size, next.result), events(next.state))), result: next.result}
+end
+
+fn kind(entry: Binding) -> api::Kind
+	match entry
+		Binding::File(_) => api::Kind::RegularFile
+		Binding::Directory => api::Kind::Directory
+		Binding::Link(_) => api::Kind::SymbolicLink
+		Binding::Other => api::Kind::Other
+	end
+end
+
+pub fn metadata(state: State, context: {name: String, follow: api::FollowLinks}) -> {state: State, result: Result<api::Metadata, bytes_io::Error>}
+	let follow = match context.follow
+		api::FollowLinks::Follow => true
+		api::FollowLinks::NoFollow => false
+	end
+	let result: Result<api::Metadata, bytes_io::Error> = match resolved(state, "metadata", context.name, follow)
+		Err(failure) => Err(error("metadata", context.name, failure.kind))
+		Ok(value) => match value.entry
+			Binding::File(identity) => match file_bytes(state, identity)
+				Ok(bytes) => Ok({kind: api::Kind::RegularFile, length: Some(byte_chunk_count(bytes))})
+				Err(failure) => Err(failure)
+			end
+			entry => Ok({kind: kind(entry), length: None})
+		end
+	end
+	{state: set_events(state, Cons(Event::Metadata(context.name, context.follow, result), events(state))), result: result}
+end
+
+fn child_of(parent: String, name: String) -> Bool
+	if name == "."
+		false
+	else
+		match prelude_builtin::string_split_last(name, "/")
+			Some(parts) => parts.left == parent
+			None => parent == "."
+		end
+	end
+end
+
+fn entry_before(left: api::Entry, right: api::Entry) -> Bool
+	let compared: Int = prelude_builtin::io_provider_compare_text(portable::text(left.name), portable::text(right.name))
+	compared < 0
+end
+
+fn insert_entry(entries: List<api::Entry>, entry: api::Entry) -> List<api::Entry>
+	match entries
+		Nil => Cons(entry, Nil)
+		Cons(head, tail) => if entry_before(entry, head)
+			Cons(entry, entries)
+		else
+			Cons(head, insert_entry(tail, entry))
+		end
+	end
+end
+
+fn collect_entry(parent: String, current: Result<List<api::Entry>, bytes_io::Error>, name: String, entry: Binding) -> Result<List<api::Entry>, bytes_io::Error>
+	match current
+		Err(failure) => Err(failure)
+		Ok(entries) => if child_of(parent, name)
+			match portable::parse(name)
+				Ok(path) => match portable::name(path)
+					Some(leaf) => match portable::parse(leaf)
+						Ok(relative) => Ok(insert_entry(entries, {name: relative, kind: kind(entry)}))
+						Err(_) => Err(error("entries", name, bytes_io::ErrorKind::UnrepresentablePath))
+					end
+					None => Err(error("entries", name, bytes_io::ErrorKind::UnrepresentablePath))
+				end
+				Err(_) => Err(error("entries", name, bytes_io::ErrorKind::UnrepresentablePath))
+			end
+		else
+			Ok(entries)
+		end
+	end
+end
+
+pub fn entries(state: State, name: String) -> {state: State, result: Result<List<api::Entry>, bytes_io::Error>}
+	let empty: Result<List<api::Entry>, bytes_io::Error> = Ok(Nil)
+	let result: Result<List<api::Entry>, bytes_io::Error> = match resolved(state, "entries", name, true)
+		Err(failure) => Err(error("entries", name, failure.kind))
+		Ok(value) => match value.entry
+			Binding::Directory => dict_fold_with(value.name, bindings(state), empty, collect_entry)
+			_ => Err(error("entries", name, bytes_io::ErrorKind::NotDirectory))
+		end
+	end
+	{state: set_events(state, Cons(Event::Entries(name, result), events(state))), result: result}
+end
+
+fn raw_name(state: State, operation: String, name: String) -> Result<String, bytes_io::Error>
+	if name == "."
+		Ok(name)
+	else
+		parent_directory(state, operation, name)
+	end
+end
+
+fn create_directory_step(state: State, name: String) -> {state: State, result: api::MutationOutcome}
+	match raw_name(state, "create_directory", name)
+		Err(failure) => mutation_failed(state, failure)
+		Ok(candidate) => if dict_contains(bindings(state), candidate)
+			mutation_failed(state, error("create_directory", name, bytes_io::ErrorKind::AlreadyExists))
+		else
+			{state: seed_directory(state, candidate), result: api::MutationOutcome::Applied}
+		end
+	end
+end
+
+fn below(parent: String, name: String) -> Bool
+	if parent == "."
+		name != "."
+	else
+		match string_split_once(name, string::concat(parent, "/"))
+			Some(parts) => parts.left == ""
+			None => false
+		end
+	end
+end
+
+fn has_descendant(parent: String, found: Bool, name: String, ignored: Binding) -> Bool
+	found or below(parent, name)
+end
+
+fn remove_step(state: State, context: {name: String, directory: Bool}) -> {state: State, result: api::MutationOutcome}
+	match raw_name(state, "remove", context.name)
+		Err(failure) => mutation_failed(state, failure)
+		Ok(name) => match dict_get(bindings(state), name)
+			None => mutation_failed(state, error("remove", context.name, bytes_io::ErrorKind::NotFound))
+			Some(Binding::Directory) => if not context.directory
+				mutation_failed(state, error("remove", context.name, bytes_io::ErrorKind::IsDirectory))
+			else if dict_fold_with(name, bindings(state), false, has_descendant)
+				mutation_failed(state, error("remove", context.name, bytes_io::ErrorKind::DirectoryNotEmpty))
+			else
+				{state: set_bindings(state, dict_remove(bindings(state), name)), result: api::MutationOutcome::Applied}
+			end
+			Some(_) => if context.directory
+				mutation_failed(state, error("remove", context.name, bytes_io::ErrorKind::NotDirectory))
+			else
+				{state: set_bindings(state, dict_remove(bindings(state), name)), result: api::MutationOutcome::Applied}
+			end
+		end
+	end
+end
+
+fn rename_error(source: String, target: String, kind: bytes_io::ErrorKind) -> bytes_io::Error
+	let failure = error("rename", source, kind)
+	let other = match portable::parse(target)
+		Ok(path) => Some(path)
+		Err(_) => None
+	end
+	{operation: failure.operation, kind: failure.kind, path: failure.path, other_path: other, network: None, commit: None, message: failure.message}
+end
+
+fn move_binding(context: {source: String, target: String}, current: Dict<String, Binding>, name: String, entry: Binding) -> Dict<String, Binding>
+	if name == context.source
+		dict_insert(current, context.target, entry)
+	else if below(context.source, name)
+		match string_split_once(name, string::concat(context.source, "/"))
+			Some(parts) => dict_insert(current, join_name(context.target, parts.right), entry)
+			None => dict_insert(current, name, entry)
+		end
+	else
+		dict_insert(current, name, entry)
+	end
+end
+
+fn rename_step(state: State, context: {source: String, target: String}) -> {state: State, result: api::MutationOutcome}
+	match raw_name(state, "rename", context.source)
+		Err(failure) => mutation_failed(state, rename_error(context.source, context.target, failure.kind))
+		Ok(source) => match raw_name(state, "rename", context.target)
+			Err(failure) => mutation_failed(state, rename_error(context.source, context.target, failure.kind))
+			Ok(target) => rename_binding(state, source, target)
+		end
+	end
+end
+
+fn rename_binding(state: State, source: String, target: String) -> {state: State, result: api::MutationOutcome}
+	if not dict_contains(bindings(state), source)
+		mutation_failed(state, rename_error(source, target, bytes_io::ErrorKind::NotFound))
+	else if dict_contains(bindings(state), target)
+		mutation_failed(state, rename_error(source, target, bytes_io::ErrorKind::AlreadyExists))
+	else if below(source, target)
+		mutation_failed(state, rename_error(source, target, bytes_io::ErrorKind::InvalidInput))
+	else
+		moved(state, source, target)
+	end
+end
+
+fn moved(state: State, source: String, target: String) -> {state: State, result: api::MutationOutcome}
+	let empty: Dict<String, Binding> = {}
+	let changed = dict_fold_with({source: source, target: target}, bindings(state), empty, move_binding)
+	{state: set_bindings(state, changed), result: api::MutationOutcome::Applied}
+end
+
+pub fn create_directory(state: State, context: String) -> {state: State, result: api::MutationOutcome}
+	let next = create_directory_step(state, context)
+	{state: set_events(next.state, Cons(Event::Changed("create_directory", context, "", next.result), events(next.state))), result: next.result}
+end
+
+pub fn remove(state: State, context: {name: String, directory: Bool}) -> {state: State, result: api::MutationOutcome}
+	let next = remove_step(state, context)
+	{state: set_events(next.state, Cons(Event::Changed("remove", context.name, "", next.result), events(next.state))), result: next.result}
+end
+
+pub fn rename(state: State, context: {source: String, target: String}) -> {state: State, result: api::MutationOutcome}
+	let next = rename_step(state, context)
+	{state: set_events(next.state, Cons(Event::Changed("rename", context.source, context.target, next.result), events(next.state))), result: next.result}
+end
+
+pub fn seed_other(state: State, name: String) -> State
+	set_bindings(state, dict_insert(bindings(state), name, Binding::Other))
+end

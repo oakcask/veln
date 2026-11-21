@@ -1,0 +1,46 @@
+use io from "std"
+use io_provider from "std"
+use io_lifecycle_test_support_test as lifecycle
+
+# Backend contract: owner cleanup failure projects through ordinary result and
+# abrupt unwinding while all source-provider close callbacks still execute.
+fn failure(message: String) -> io::Error
+	{operation: "close", kind: io::ErrorKind::Other, path: None, other_path: None, network: None, commit: None, message: message}
+end
+
+fn allocate_one(owner: io_provider::Owner, slot: Int, cell: io_provider::State<lifecycle::State>) -> Result<(), String> effects [concurrency]
+	match lifecycle::resource(owner, slot, cell)
+		Ok(_) => Ok(())
+		Err(error) => Err(error.message)
+	end
+end
+
+fn body(cell: io_provider::State<lifecycle::State>) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let _ = allocate_one(owner, 1, cell)?
+	let _ = allocate_one(owner, 2, cell)?
+	let _ = allocate_one(owner, 3, cell)?
+	__BODY__
+end
+
+fn slots(events: List<lifecycle::CloseEvent>) -> String
+	match events
+		Nil => ""
+		Cons(lifecycle::CloseEvent(slot, _, _), rest) => string::concat(int_to_string(slot), slots(rest))
+	end
+end
+
+fn observe(cell: io_provider::State<lifecycle::State>) -> () effects [concurrency, stdio]
+	match lifecycle::snapshot(cell)
+		lifecycle::State(remaining, live, closes, reads) => stdio::println(slots(list_reverse(closes)))
+	end
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, stdio]
+	let steps = Cons(lifecycle::CloseStep(3, io::CloseOutcome::CloseFailed(io::Commit::No, failure("third release")), false), Cons(lifecycle::CloseStep(2, io::CloseOutcome::CloseFailed(io::Commit::Unknown, failure("second release")), true), Cons(lifecycle::CloseStep(1, io::CloseOutcome::Closed, true), Nil)))
+	let cell = io_provider::state(lifecycle::initial(steps))
+	defer
+		observe(cell)
+	end
+	handle body(cell) with io_provider::scope()
+end

@@ -61,7 +61,9 @@ fn core_compiler_adapter_signature(
     expected: Option<&CoreType>,
 ) -> Option<(CoreCallTarget, Vec<CoreType>, CoreType)> {
     let expected = ExpectedCorePreludeParts::from_expected(expected);
-    let signature = core_observation_export_signature(descriptor.name, &expected.direct)
+    let signature = crate::standard_symbols::io_provider_adapter_arity(descriptor.name)
+        .map(|arity| (vec![CoreType::Unknown; arity], expected.direct.clone()))
+        .or_else(|| core_observation_export_signature(descriptor.name, &expected.direct))
         .or_else(|| core_production_metric_index_signature(descriptor.name))
         .or_else(|| core_net_system_signature(descriptor.name, &expected.direct))
         .or_else(|| core_prelude_float_signature(descriptor.name))

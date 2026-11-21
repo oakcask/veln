@@ -350,7 +350,35 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         opaque_builtin_descriptor("NetListener"),
         opaque_builtin_descriptor("NetStream"),
+        provider_state_descriptor(),
+        provider_opaque_descriptor("io_provider", "Owner"),
+        provider_opaque_descriptor("io_provider", "Resource"),
+        provider_opaque_descriptor("io", "Reader"),
+        provider_opaque_descriptor("io", "Writer"),
+        provider_opaque_descriptor("io", "Seeker"),
+        provider_opaque_descriptor("io", "ReaderAt"),
+        provider_opaque_descriptor("io", "WriterAt"),
+        provider_opaque_descriptor("io", "Closer"),
+        provider_opaque_descriptor("io", "Syncer"),
+        provider_opaque_descriptor("fs", "Truncater"),
+        provider_opaque_descriptor("fs", "Filesystem"),
+        provider_opaque_descriptor("fs", "MutableFilesystem"),
     ]
+}
+
+fn provider_state_descriptor() -> AdtDescriptor {
+    let mut descriptor = provider_opaque_descriptor("io_provider", "State");
+    descriptor.type_parameters = vec!["T".to_string()];
+    descriptor.parameter_variances = vec![super::variance::Variance::Invariant];
+    descriptor
+}
+
+fn provider_opaque_descriptor(module: &str, name: &str) -> AdtDescriptor {
+    let mut descriptor = opaque_builtin_descriptor(name);
+    descriptor.module_name = Some(format!("std::{module}"));
+    descriptor.package_name = Some("std".to_string());
+    descriptor.nominal_identity = Some(format!("std::{module}::{name}"));
+    descriptor
 }
 
 fn opaque_builtin_descriptor(name: &str) -> AdtDescriptor {

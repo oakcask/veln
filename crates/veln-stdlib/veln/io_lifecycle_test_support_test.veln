@@ -1,0 +1,98 @@
+use prelude
+use io
+use io_provider as provider
+
+pub type CloseStep
+	pub CloseStep(slot: Int, reply: io::CloseOutcome, released: Bool)
+end
+
+pub type CloseEvent
+	pub CloseEvent(slot: Int, reply: io::CloseOutcome, released: Bool)
+end
+
+pub type State
+	pub State(steps: List<CloseStep>, live: Dict<Int, Bool>, closes: List<CloseEvent>, reads: Int)
+end
+
+pub fn initial(steps: List<CloseStep>) -> State
+	let live: Dict<Int, Bool> = {}
+	State(steps, live, Nil, 0)
+end
+
+pub fn failure(operation: String) -> io::Error
+	{operation: operation, kind: io::ErrorKind::Other, path: None, other_path: None, network: None, commit: None, message: "scripted release failure"}
+end
+
+fn register(state: State, slot: Int) -> {state: State, result: ()}
+	match state
+		State(steps, live, closes, reads) => {state: State(steps, dict_insert(live, slot, true), closes, reads), result: ()}
+	end
+end
+
+fn close_transition(state: State, slot: Int) -> {state: State, result: io::CloseOutcome}
+	match state
+		State(steps, live, closes, reads) => match steps
+			Cons(CloseStep(expected, reply, released), tail) => if expected == slot
+				{state: State(tail, dict_insert(live, slot, not released), Cons(CloseEvent(slot, reply, released), closes), reads), result: reply}
+			else
+				{state: state, result: io::CloseOutcome::CloseFailed(io::Commit::No, failure("unexpected close order"))}
+			end
+			Nil => {state: state, result: io::CloseOutcome::CloseFailed(io::Commit::No, failure("unexpected close call"))}
+		end
+	end
+end
+
+fn read_transition(state: State, slot: Int) -> {state: State, result: io::ReadOutcome}
+	match state
+		State(steps, live, closes, reads) => begin
+			let reply = match dict_get(live, slot)
+				Some(true) => match byte_chunk_from_visible_ascii_string("x")
+					Ok(bytes) => io::ReadOutcome::Data(bytes)
+					Err(_) => io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure("invalid fixture bytes"))
+				end
+				_ => io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure("read released resource"))
+			end
+			{state: State(steps, live, closes, reads + 1), result: reply}
+		end
+	end
+end
+
+fn read(owner: provider::Owner, cell: provider::State<State>, reader: io::Reader) -> io::ReadOutcome effects [concurrency]
+	match provider::reader_slot(owner, reader)
+		Ok(slot) => provider::update(cell, slot, read_transition)
+		Err(error) => io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(byte_chunk_count(byte_chunk([]))), error)
+	end
+end
+
+fn close(owner: provider::Owner, cell: provider::State<State>, closer: io::Closer) -> io::CloseOutcome effects [concurrency]
+	match provider::closer_slot(owner, closer)
+		Ok(slot) => provider::update(cell, slot, close_transition)
+		Err(error) => io::CloseOutcome::CloseFailed(io::Commit::No, error)
+	end
+end
+
+pub handler reader(owner: provider::Owner, cell: provider::State<State>) for io::Read effects [concurrency]
+	read(resource, maximum) => read(owner, cell, resource)
+end
+
+pub handler writer() for io::Write
+	write(resource, bytes) => io::WriteOutcome::Written(byte_chunk_count(bytes))
+end
+
+pub handler closer(owner: provider::Owner, cell: provider::State<State>) for io::Close effects [concurrency]
+	close(resource) => close(owner, cell, resource)
+end
+
+pub fn resource(owner: provider::Owner, slot: Int, cell: provider::State<State>) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error> effects [concurrency]
+	let _ = provider::update(cell, slot, register)
+	let raw = handle handle handle provider::resource(owner, slot, provider::ViewFamily::Duplex) with reader(owner, cell) with writer() with closer(owner, cell)
+	provider::duplex(raw?)
+end
+
+fn observe(state: State, ignored: ()) -> {state: State, result: State}
+	{state: state, result: state}
+end
+
+pub fn snapshot(cell: provider::State<State>) -> State effects [concurrency]
+	provider::update(cell, (), observe)
+end

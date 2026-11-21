@@ -22,6 +22,7 @@
     }
 
     private static void throwTaskCancellationIfRequested() {
+        if (IO_PROVIDER_UPDATING.get().booleanValue()) return;
         TaskCancellation cancellation = CURRENT_TASK_CANCELLATION.get();
         if (cancellation != null
             && cancellation.requested

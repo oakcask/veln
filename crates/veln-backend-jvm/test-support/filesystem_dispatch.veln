@@ -1,0 +1,60 @@
+use fs as api from "std"
+use io as bytes_io from "std"
+use io_provider from "std"
+use path as portable from "std"
+use fs_memory_state_test_support_test as model
+use fs_memory_test_support_test as memory
+
+# Backend contract: opaque filesystem/owner identities and captured operation
+# contexts survive task freezing and an unrelated owner scope ending first.
+# Standard-library API permutations remain in the fs companion tests.
+fn read_selected(filesystem: api::Filesystem) -> Result<String, String> effects [api::Read, bytes_io::Read]
+	let path = match portable::parse("data")
+		Ok(value) => Ok(value)
+		Err(_) => Err("invalid fixture path")
+	end?
+	let file: api::ReadFile = match api::open_read(filesystem, path)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	match bytes_io::read_exact(file.reader, byte_count(5)?)
+		bytes_io::ExactOutcome::Complete(bytes) => byte_chunk_to_visible_ascii_string(bytes)
+		_ => Err("captured provider did not supply its own bytes")
+	end
+end
+
+fn read_gated(context: {filesystem: api::Filesystem, gate: Receiver<Int>}) -> Result<String, String> effects [api::Read, bytes_io::Read, concurrency]
+	let _ = channel::recv(context.gate)
+	read_selected(context.filesystem)
+end
+
+fn exercise(first: api::Filesystem) -> Result<(), String> effects [api::Read, bytes_io::Read, io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let initial = model::seed_file(model::initial(1002), "data", byte_chunk_from_visible_ascii_string("other")?)
+	let second_cell = memory::cell(initial)
+	let second: api::Filesystem = match memory::readonly(owner, 1001, second_cell)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	let other = handle handle read_selected(second) with memory::namespace(owner, 1001, second_cell) with memory::reading(owner, second_cell)
+	let gate = channel::bounded<Int>(1)
+	let job = handle handle handle task::spawn_with(read_gated, {filesystem: first, gate: gate.rx}) with memory::namespace(owner, 1001, second_cell) with memory::reading(owner, second_cell) with io_provider::scope()
+	let _ = channel::send(gate.tx, 0)
+	let selected: Result<String, String> = match task::join(job)
+		Ok(value) => Ok(value)
+		Err(_) => Err("filesystem dispatch task failed")
+	end?
+	if selected? == "first" and other? == "other"
+		Ok(())
+	else
+		Err("task freezing or a lexical shadow changed the selected filesystem")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, stdio]
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("first")?)
+	let cell = memory::cell(initial)
+	let _ = (handle memory::run_readonly(cell, exercise) with io_provider::scope())?
+	stdio::println("captured filesystem owner and task token preserved")
+	Ok(())
+end

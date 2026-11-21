@@ -341,6 +341,13 @@ impl<'a> FunctionChecker<'a> {
         if let Some(ty) = self.infer_constructor_call(expr, callee, args, expected) {
             return ty;
         }
+        let canonical = crate::call_resolution::provider_callee_in_owner(
+            callee,
+            self.environment,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        );
+        let callee = canonical.as_deref().unwrap_or(callee);
         if let Some(ty) = self.infer_declared_call(expr, callee, args, expected) {
             return ty;
         }
@@ -533,6 +540,34 @@ impl<'a> FunctionChecker<'a> {
         Some(self.infer_adt_constructor(expr, args, expected, constructor))
     }
 
+    fn provider_operand_type(&self, expr: &Expr) -> Option<Type> {
+        match &expr.kind {
+            ExprKind::StringLiteral(_) => Some(Type::string()),
+            ExprKind::Unit => Some(Type::unit()),
+            ExprKind::NamePath { segments, .. } if segments.len() > 1 => self
+                .environment
+                .function_path_in_owner(
+                    segments,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
+                .map(|function| function.ty()),
+            ExprKind::Record(fields) => Some(Type::Record(
+                fields
+                    .iter()
+                    .map(|field| {
+                        (
+                            field.name.clone(),
+                            self.provider_operand_type(&field.expr)
+                                .unwrap_or(Type::Unknown),
+                        )
+                    })
+                    .collect(),
+            )),
+            _ => self.shallow_expr_type(expr),
+        }
+    }
+
     pub(super) fn infer_declared_call(
         &mut self,
         expr: &Expr,
@@ -560,12 +595,30 @@ impl<'a> FunctionChecker<'a> {
             return None;
         }
 
+        let handle_type = if matches!(callee.callee_name_path(), Some(segments) if matches!(segments, [module, name] if module == "io_provider" && name == "update"))
+        {
+            Some(Type::Record(
+                ["state", "context", "action"]
+                    .into_iter()
+                    .zip(args)
+                    .map(|(name, arg)| {
+                        (
+                            name.to_string(),
+                            self.provider_operand_type(arg).unwrap_or(Type::Unknown),
+                        )
+                    })
+                    .collect(),
+            ))
+        } else if matches!(callee.callee_name_path(), Some(segments) if matches!(segments, [module, name] if module == "io_provider" && name == "state"))
+        {
+            args.first().and_then(|arg| self.provider_operand_type(arg))
+        } else {
+            args.first().and_then(|arg| self.shallow_expr_type(arg))
+        };
         let (params, variadic, return_type, origin) = self.call_signature(
             callee,
             expected.map(|expected| &expected.ty),
-            args.first()
-                .and_then(|arg| self.shallow_expr_type(arg))
-                .as_ref(),
+            handle_type.as_ref(),
         )?;
 
         let call_bound_row =

@@ -56,6 +56,37 @@ struct TypeNamePathCallContext<'a> {
     current_package: Option<&'a str>,
 }
 
+pub(crate) fn provider_callee_in_owner(
+    callee: &Expr,
+    environment: &TypeEnvironment,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+) -> Option<Box<Expr>> {
+    let Some([qualifier, operation]) = callee.callee_name_path() else {
+        return None;
+    };
+    if qualifier == "io_provider" || !matches!(operation.as_str(), "state" | "update") {
+        return None;
+    }
+    let import =
+        environment.selected_import_in_owner(qualifier, current_module, current_package)?;
+    let target = import.resolved_target();
+    if target.package.as_deref() != Some("std") || target.module != "std::io_provider" {
+        return None;
+    }
+    // Preserve spans and type arguments while sharing the compiler-known
+    // operation identity between source checking and core lowering.
+    let mut canonical = callee.clone();
+    let name = match &mut canonical.kind {
+        ExprKind::TypeApply { callee, .. } => callee.as_mut(),
+        _ => &mut canonical,
+    };
+    if let ExprKind::NamePath { segments, .. } = &mut name.kind {
+        segments[0] = "io_provider".to_owned();
+    }
+    Some(Box::new(canonical))
+}
+
 pub(crate) fn type_call_signature(
     callee: &Expr,
     expected: Option<&Type>,
@@ -65,6 +96,8 @@ pub(crate) fn type_call_signature(
     current_module: Option<&str>,
     current_package: Option<&str>,
 ) -> Option<TypeCallSignature> {
+    let canonical = provider_callee_in_owner(callee, environment, current_module, current_package);
+    let callee = canonical.as_deref().unwrap_or(callee);
     match &callee.kind {
         ExprKind::NamePath { segments, .. } => type_name_path_call_signature(
             callee,
@@ -91,6 +124,8 @@ pub(crate) fn core_call_signature(
     current_module: Option<&str>,
     current_package: Option<&str>,
 ) -> Option<CoreCallSignature> {
+    let canonical = provider_callee_in_owner(callee, environment, current_module, current_package);
+    let callee = canonical.as_deref().unwrap_or(callee);
     let ExprKind::NamePath { segments, .. } = &callee.kind else {
         return None;
     };
@@ -155,7 +190,7 @@ fn type_effect_call_signature(
     }
     if let Some(origin) = concurrency_origin(segments, callee) {
         let (params, return_type) =
-            concurrency_signature(segments, expected, handle_type, None, None)?;
+            concurrency_signature(segments, expected, handle_type, None, None, None)?;
         let effects = concurrency_call_effects(segments, handle_type)?;
         return Some(TypeCallSignature {
             params,
@@ -191,7 +226,13 @@ fn type_applied_call_signature(
         .and_then(|type_arg| parse_type_annotation(type_arg).ok());
     let explicit_context = type_args
         .get(1)
-        .filter(|_| is_task_spawn_with(segments))
+        .filter(|_| {
+            is_task_spawn_with(segments)
+                || matches!(segments, [module, name] if module == "io_provider" && name == "update")
+        })
+        .and_then(|type_arg| parse_type_annotation(type_arg).ok());
+    let explicit_result = type_args
+        .get(2)
         .and_then(|type_arg| parse_type_annotation(type_arg).ok());
     let (params, return_type) = concurrency_signature(
         segments,
@@ -199,6 +240,7 @@ fn type_applied_call_signature(
         handle_type,
         explicit_item.as_ref(),
         explicit_context.as_ref(),
+        explicit_result.as_ref(),
     )?;
     let effects = concurrency_call_effects(segments, handle_type)?;
     Some(TypeCallSignature {
@@ -212,6 +254,8 @@ fn type_applied_call_signature(
 fn concurrency_type_arg_limit(segments: &[String]) -> Option<usize> {
     match segments {
         [module, name] if module == "task" && name == "spawn_with" => Some(2),
+        [module, name] if module == "io_provider" && name == "state" => Some(1),
+        [module, name] if module == "io_provider" && name == "update" => Some(3),
         [module, _] if module == "channel" || module == "task" => Some(1),
         _ => None,
     }
@@ -282,7 +326,7 @@ fn core_name_path_call_signature(
     }
     if concurrency_origin(segments, callee).is_some() {
         let (params, return_type) =
-            core_concurrency_signature(segments, expected, None, None, None)?;
+            core_concurrency_signature(segments, expected, None, None, None, None)?;
         return Some(CoreCallSignature {
             target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
             params,

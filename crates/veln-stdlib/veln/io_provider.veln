@@ -1,0 +1,101 @@
+## Provider resource adapters. State and its allocation/update operations are
+## compiler-known so their generic state, context, and result types stay linked.
+use prelude
+use io
+use fs
+
+pub type ViewFamily
+	pub ReadFile
+	pub WriteFile
+	pub UpdateFile
+	pub AppendFile
+	pub Duplex
+end
+
+pub effect Scope
+	owner() -> Owner
+end
+
+pub handler scope() for Scope
+	owner() => prelude_builtin::io_provider_owner()
+end
+
+pub fn owner() -> Owner effects [Scope]
+	perform Scope::owner()
+end
+
+pub fn resource(owner: Owner, slot: Int, family: ViewFamily) -> Result<Resource, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_resource(owner, slot, family)
+end
+
+pub fn filesystem(owner: Owner, slot: Int) -> Result<fs::Filesystem, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_filesystem(owner, slot)
+end
+
+pub fn mutable_filesystem(owner: Owner, slot: Int) -> Result<fs::MutableFilesystem, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_mutable_filesystem(owner, slot)
+end
+
+pub fn read_file(resource: Resource) -> Result<fs::ReadFile, io::Error>
+	prelude_builtin::io_provider_read_file(resource)
+end
+
+pub fn write_file(resource: Resource) -> Result<fs::WriteFile, io::Error>
+	prelude_builtin::io_provider_write_file(resource)
+end
+
+pub fn update_file(resource: Resource) -> Result<fs::UpdateFile, io::Error>
+	prelude_builtin::io_provider_update_file(resource)
+end
+
+pub fn append_file(resource: Resource) -> Result<fs::AppendFile, io::Error>
+	prelude_builtin::io_provider_append_file(resource)
+end
+
+pub fn duplex(resource: Resource) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error>
+	prelude_builtin::io_provider_duplex(resource)
+end
+
+pub fn slot(owner: Owner, resource: Resource) -> Result<Int, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_slot(owner, resource)
+end
+
+pub fn filesystem_slot(owner: Owner, resource: fs::Filesystem) -> Result<Int, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_filesystem_slot(owner, resource)
+end
+
+pub fn mutable_filesystem_slot(owner: Owner, resource: fs::MutableFilesystem) -> Result<Int, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_mutable_filesystem_slot(owner, resource)
+end
+
+pub fn reader_slot(owner: Owner, resource: io::Reader) -> Result<Int, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_reader_slot(owner, resource)
+end
+
+pub fn writer_slot(owner: Owner, resource: io::Writer) -> Result<Int, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_writer_slot(owner, resource)
+end
+
+pub fn seeker_slot(owner: Owner, resource: io::Seeker) -> Result<Int, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_seeker_slot(owner, resource)
+end
+
+pub fn reader_at_slot(owner: Owner, resource: io::ReaderAt) -> Result<Int, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_reader_at_slot(owner, resource)
+end
+
+pub fn writer_at_slot(owner: Owner, resource: io::WriterAt) -> Result<Int, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_writer_at_slot(owner, resource)
+end
+
+pub fn closer_slot(owner: Owner, resource: io::Closer) -> Result<Int, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_closer_slot(owner, resource)
+end
+
+pub fn syncer_slot(owner: Owner, resource: io::Syncer) -> Result<Int, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_syncer_slot(owner, resource)
+end
+
+pub fn truncater_slot(owner: Owner, resource: fs::Truncater) -> Result<Int, io::Error> effects [concurrency]
+	prelude_builtin::io_provider_truncater_slot(owner, resource)
+end

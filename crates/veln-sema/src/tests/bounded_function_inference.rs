@@ -163,7 +163,7 @@ fn function_input_meets_keep_irrelevant_arguments_exact() {
         .adts
         .descriptors()
         .iter()
-        .find(|descriptor| descriptor.type_name == "State")
+        .find(|descriptor| descriptor.type_name == "State" && descriptor.module_name.is_none())
         .expect("State descriptor")
         .identity();
     let refinement = |variant: &str| {
@@ -296,7 +296,7 @@ fn fallback_reconciles_aliases_from_non_candidates_in_every_order() {
         .adts
         .descriptors()
         .iter()
-        .find(|descriptor| descriptor.type_name == "State")
+        .find(|descriptor| descriptor.type_name == "State" && descriptor.module_name.is_none())
         .expect("State descriptor")
         .identity();
     for index in 0..permutations.len() {
@@ -800,7 +800,7 @@ fn distinct_return_environment() -> (TypeEnvironment, String) {
         .adts
         .descriptors()
         .iter()
-        .find(|descriptor| descriptor.type_name == "State")
+        .find(|descriptor| descriptor.type_name == "State" && descriptor.module_name.is_none())
         .expect("State descriptor")
         .identity();
     (environment, state_identity)
@@ -1316,7 +1316,7 @@ fn diagnosed_contribution_does_not_change_retained_alias_state() {
         .adts
         .descriptors()
         .iter()
-        .find(|descriptor| descriptor.type_name == "State")
+        .find(|descriptor| descriptor.type_name == "State" && descriptor.module_name.is_none())
         .expect("State descriptor")
         .identity();
     assert_eq!(identity, &state_identity);

@@ -26,6 +26,7 @@ fn standard_library_builtin_calls(function: &veln_ir::IrFunction) -> Vec<(&'stat
 mod adapter_arguments;
 mod concurrency;
 mod filesystem_and_process;
+mod io_provider;
 mod lowering_and_types;
 mod network;
 mod time;

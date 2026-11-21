@@ -132,6 +132,8 @@ pub(super) fn known_concurrency_type_arg_overflow(
     };
     let limit = match segments {
         [module, name] if module == "task" && name == "spawn_with" => 2,
+        [module, name] if module == "io_provider" && name == "state" => 1,
+        [module, name] if module == "io_provider" && name == "update" => 3,
         [module, _] if module == "channel" || module == "task" => 1,
         _ => return false,
     };

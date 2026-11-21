@@ -96,6 +96,9 @@ impl TypeCanonicalizer<'_> {
         record_type_canonicalization_visit();
         match ty {
             ty @ Type::Named { .. } if ty.is_recovery_slot() => ty,
+            // Imported record leaves retain their declaration identity.
+            // Compiler placeholders still need source representation lookup.
+            ty @ Type::Named { .. } if resolved_source_leaf(&ty) => ty,
             Type::Named { name, args, .. } => self.canonicalize_named(name, args.into_vec()),
             Type::VariantRefinement {
                 name,
@@ -424,6 +427,11 @@ impl TypeCanonicalizer<'_> {
     fn canonicalize_args(&self, args: Vec<Type>) -> Vec<Type> {
         args.into_iter().map(|arg| self.canonicalize(arg)).collect()
     }
+}
+
+fn resolved_source_leaf(ty: &Type) -> bool {
+    matches!(ty, Type::Named { name, identity, args }
+        if args.is_empty() && identity != name && !identity.starts_with("internal:compiler"))
 }
 
 fn uppercase_initial(name: &str) -> Option<String> {

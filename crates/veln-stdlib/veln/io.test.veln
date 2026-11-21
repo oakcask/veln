@@ -1,0 +1,480 @@
+use prelude
+use io
+use io_provider
+use io_test_support_test as script
+
+fn exact_case(cell: io_provider::State<script::ScriptState>, count: ByteCount) -> Result<io::ExactOutcome, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let resource: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = match script::resource(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	Ok(handle io::read_exact(resource.reader, count) with script::reader(owner, 1, cell))
+end
+
+fn write_case(cell: io_provider::State<script::ScriptState>, bytes: ByteChunk) -> Result<io::WriteOutcome, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let resource: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = match script::resource(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	Ok(handle io::write_all(resource.writer, bytes) with script::writer(owner, 1, cell))
+end
+
+fn copy_case(input: io_provider::State<script::ScriptState>, output: io_provider::State<script::ScriptState>, count: ByteCount) -> Result<io::CopyOutcome, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let source: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = match script::resource(owner, 1, input)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	let target: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = match script::resource(owner, 2, output)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	Ok(handle handle io::copy(source.reader, target.writer, count) with script::reader(owner, 1, input) with script::writer(owner, 2, output))
+end
+
+fn ascii(bytes: ByteChunk, expected: String) -> Bool
+	match byte_chunk_to_visible_ascii_string(bytes)
+		Ok(text) => text == expected
+		Err(_) => false
+	end
+end
+
+fn requests_two(requests: List<Int>, first: Int, second: Int) -> Bool
+	match requests
+		Cons(a, Cons(b, Nil)) => a == first and b == second
+		_ => false
+	end
+end
+
+fn submissions_two(submissions: List<ByteChunk>, first: String, second: String) -> Bool
+	match submissions
+		Cons(a, Cons(b, Nil)) => ascii(a, first) and ascii(b, second)
+		_ => false
+	end
+end
+
+test exact_read_continues_short_data_until_complete() -> Result<(), String> effects [concurrency]
+	let a = byte_chunk_from_visible_ascii_string("a")?
+	let bc = byte_chunk_from_visible_ascii_string("bc")?
+	let cell = script::state(Cons(script::ReadStep(io::ReadOutcome::Data(a), 1), Cons(script::ReadStep(io::ReadOutcome::Data(bc), 2), Nil)), Nil)
+	let result: io::ExactOutcome = (handle exact_case(cell, byte_count(3)?) with io_provider::scope())?
+	let complete = match result
+		io::ExactOutcome::Complete(bytes) => ascii(bytes, "abc")
+		_ => false
+	end
+	let trace = script::trace(cell)
+	if complete and requests_two(trace.requests, 3, 2) and trace.consumed == 3 and trace.closes == 1
+		Ok(())
+	else
+		Err("short data was treated as end or exact read requested the wrong suffix")
+	end
+end
+
+test exact_read_retains_bytes_at_clean_end() -> Result<(), String> effects [concurrency]
+	let ab = byte_chunk_from_visible_ascii_string("ab")?
+	let cell = script::state(Cons(script::ReadStep(io::ReadOutcome::Data(ab), 2), Nil), Nil)
+	let result: io::ExactOutcome = (handle exact_case(cell, byte_count(4)?) with io_provider::scope())?
+	let short = match result
+		io::ExactOutcome::Short(bytes) => ascii(bytes, "ab")
+		_ => false
+	end
+	let trace = script::trace(cell)
+	if short and requests_two(trace.requests, 4, 2) and trace.consumed == 2
+		Ok(())
+	else
+		Err("early clean end lost exact-read bytes")
+	end
+end
+
+test exact_read_preserves_unknown_consumption_and_stops() -> Result<(), String> effects [concurrency]
+	let ab = byte_chunk_from_visible_ascii_string("ab")?
+	let c = byte_chunk_from_visible_ascii_string("c")?
+	let failed = io::ReadOutcome::ReadFailed(c, io::Progress::Unknown(byte_count(1)?), script::failure("scripted_read"))
+	let cell = script::state(Cons(script::ReadStep(io::ReadOutcome::Data(ab), 2), Cons(script::ReadStep(failed, 2), Cons(script::ReadStep(io::ReadOutcome::Data(ab), 2), Nil))), Nil)
+	let result: io::ExactOutcome = (handle exact_case(cell, byte_count(5)?) with io_provider::scope())?
+	let retained = match result
+		io::ExactOutcome::ExactFailed(bytes, io::Progress::Unknown(prefix), error) => ascii(bytes, "abc") and byte_count_to_int(prefix) == 3 and error.operation == "scripted_read" and error.message == "scripted failure"
+		_ => false
+	end
+	let trace = script::trace(cell)
+	if retained and requests_two(trace.requests, 5, 3) and trace.consumed == 4
+		Ok(())
+	else
+		Err("exact read lost failure bytes, invented exact consumption, or retried")
+	end
+end
+
+test write_all_retries_only_the_uncommitted_suffix() -> Result<(), String> effects [concurrency]
+	let input = byte_chunk_from_visible_ascii_string("abcd")?
+	let cell = script::state(Nil, Cons(script::WriteStep(io::WriteOutcome::Written(byte_count(1)?), byte_count(1)?), Nil))
+	let result: io::WriteOutcome = (handle write_case(cell, input) with io_provider::scope())?
+	let completed = match result
+		io::WriteOutcome::Written(count) => byte_count_to_int(count) == 4
+		_ => false
+	end
+	let trace = script::trace(cell)
+	if completed and submissions_two(trace.submissions, "abcd", "bcd") and ascii(trace.output, "abcd")
+		Ok(())
+	else
+		Err("write_all duplicated a committed prefix or lost progress")
+	end
+end
+
+fn failed_write_case(unknown: Bool) -> Result<(), String> effects [concurrency]
+	let input = byte_chunk_from_visible_ascii_string("abcd")?
+	let progress = if unknown
+		io::Progress::Unknown(byte_count(1)?)
+	else
+		io::Progress::Known(byte_count(2)?)
+	end
+	let failed = io::WriteOutcome::WriteFailed(progress, script::failure("scripted_write"))
+	let steps: List<script::WriteStep> = Cons(script::WriteStep(io::WriteOutcome::Written(byte_count(1)?), byte_count(1)?), Cons(script::WriteStep(failed, byte_count(2)?), Cons(script::WriteStep(io::WriteOutcome::Written(byte_count(1)?), byte_count(1)?), Nil)))
+	let cell = script::state(Nil, steps)
+	let result: io::WriteOutcome = (handle write_case(cell, input) with io_provider::scope())?
+	let retained = match result
+		io::WriteOutcome::WriteFailed(io::Progress::Known(count), error) => not unknown and byte_count_to_int(count) == 3 and error.operation == "scripted_write"
+		io::WriteOutcome::WriteFailed(io::Progress::Unknown(prefix), error) => unknown and byte_count_to_int(prefix) == 2 and error.operation == "scripted_write"
+		_ => false
+	end
+	let trace = script::trace(cell)
+	if retained and submissions_two(trace.submissions, "abcd", "bcd") and ascii(trace.output, "abc")
+		Ok(())
+	else
+		Err("write failure lost known progress, retried, or fabricated unknown progress")
+	end
+end
+
+test write_all_stops_after_known_failure() -> Result<(), String> effects [concurrency]
+	failed_write_case(false)
+end
+
+test write_all_stops_after_unknown_failure() -> Result<(), String> effects [concurrency]
+	failed_write_case(true)
+end
+
+test copy_retains_input_consumption_beyond_committed_output() -> Result<(), String> effects [concurrency]
+	let bytes = byte_chunk_from_visible_ascii_string("abcd")?
+	let input = script::state(Cons(script::ReadStep(io::ReadOutcome::Data(bytes), 4), Nil), Nil)
+	let failed = io::WriteOutcome::WriteFailed(io::Progress::Known(byte_count(2)?), script::failure("scripted_write"))
+	let output = script::state(Nil, Cons(script::WriteStep(io::WriteOutcome::Written(byte_count(1)?), byte_count(1)?), Cons(script::WriteStep(failed, byte_count(2)?), Nil)))
+	let result: io::CopyOutcome = (handle copy_case(input, output, byte_count(4)?) with io_provider::scope())?
+	let retained = match result
+		io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), error) => byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 3 and error.operation == "scripted_write"
+		_ => false
+	end
+	let read_trace = script::trace(input)
+	let write_trace = script::trace(output)
+	let one_read = match read_trace.requests
+		Cons(4, Nil) => true
+		_ => false
+	end
+	if retained and one_read and submissions_two(write_trace.submissions, "abcd", "bcd") and ascii(write_trace.output, "abc")
+		Ok(())
+	else
+		Err("copy confused consumed input with committed output")
+	end
+end
+
+test copy_does_not_write_a_failing_reads_delivered_bytes() -> Result<(), String> effects [concurrency]
+	let ab = byte_chunk_from_visible_ascii_string("ab")?
+	let c = byte_chunk_from_visible_ascii_string("c")?
+	let failed = io::ReadOutcome::ReadFailed(c, io::Progress::Unknown(byte_count(1)?), script::failure("scripted_read"))
+	let input = script::state(Cons(script::ReadStep(io::ReadOutcome::Data(ab), 2), Cons(script::ReadStep(failed, 2), Nil)), Nil)
+	let output = script::state(Nil, Nil)
+	let result: io::CopyOutcome = (handle copy_case(input, output, byte_count(4)?) with io_provider::scope())?
+	let retained = match result
+		io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), error) => byte_count_to_int(consumed) == 3 and byte_count_to_int(committed) == 2 and error.operation == "scripted_read"
+		_ => false
+	end
+	let read_trace = script::trace(input)
+	let write_trace = script::trace(output)
+	if retained and requests_two(read_trace.requests, 4, 4) and read_trace.consumed == 4 and ascii(write_trace.output, "ab")
+		Ok(())
+	else
+		Err("copy wrote bytes from a failed read or lost unknown consumption")
+	end
+end
+
+test exact_read_retains_known_consumption_separately_from_bytes() -> Result<(), String> effects [concurrency]
+	let ab = byte_chunk_from_visible_ascii_string("ab")?
+	let c = byte_chunk_from_visible_ascii_string("c")?
+	let failed = io::ReadOutcome::ReadFailed(c, io::Progress::Known(byte_count(2)?), script::failure("known_read"))
+	let cell = script::state(Cons(script::ReadStep(io::ReadOutcome::Data(ab), 2), Cons(script::ReadStep(failed, 2), Nil)), Nil)
+	let result: io::ExactOutcome = (handle exact_case(cell, byte_count(5)?) with io_provider::scope())?
+	match result
+		io::ExactOutcome::ExactFailed(bytes, io::Progress::Known(consumed), error) => if ascii(bytes, "abc") and byte_count_to_int(consumed) == 4 and error.operation == "known_read"
+			Ok(())
+		else
+			Err("known consumption was replaced with delivered byte length")
+		end
+		_ => Err("exact read changed known failure progress")
+	end
+end
+
+test copy_runs_until_clean_end() -> Result<(), String> effects [concurrency]
+	let ab = byte_chunk_from_visible_ascii_string("ab")?
+	let cd = byte_chunk_from_visible_ascii_string("cd")?
+	let input = script::state(Cons(script::ReadStep(io::ReadOutcome::Data(ab), 2), Cons(script::ReadStep(io::ReadOutcome::Data(cd), 2), Nil)), Nil)
+	let output = script::state(Nil, Cons(script::WriteStep(io::WriteOutcome::Written(byte_count(1)?), byte_count(1)?), Nil))
+	let result: io::CopyOutcome = (handle copy_case(input, output, byte_count(2)?) with io_provider::scope())?
+	let completed = match result
+		io::CopyOutcome::Copied(count) => byte_count_to_int(count) == 4
+		_ => false
+	end
+	let read_trace = script::trace(input)
+	let write_trace = script::trace(output)
+	let requests = match read_trace.requests
+		Cons(2, Cons(2, Cons(2, Nil))) => true
+		_ => false
+	end
+	let submissions = match write_trace.submissions
+		Cons(first, Cons(second, Cons(third, Nil))) => ascii(first, "ab") and ascii(second, "b") and ascii(third, "cd")
+		_ => false
+	end
+	if completed and requests and submissions and ascii(write_trace.output, "abcd")
+		Ok(())
+	else
+		Err("copy stopped on short data or repeated a committed suffix")
+	end
+end
+
+test zero_size_helpers_validate_without_provider_transfer() -> Result<(), String> effects [concurrency]
+	let read_cell = script::state(Nil, Nil)
+	let write_cell = script::state(Nil, Nil)
+	let exact: io::ExactOutcome = (handle exact_case(read_cell, byte_count(0)?) with io_provider::scope())?
+	let written: io::WriteOutcome = (handle write_case(write_cell, byte_chunk([])) with io_provider::scope())?
+	let exact_empty = match exact
+		io::ExactOutcome::Complete(bytes) => byte_count_to_int(byte_chunk_count(bytes)) == 0
+		_ => false
+	end
+	let written_empty = match written
+		io::WriteOutcome::Written(count) => byte_count_to_int(count) == 0
+		_ => false
+	end
+	let read_trace = script::trace(read_cell)
+	let write_trace = script::trace(write_cell)
+	let no_reads = match read_trace.requests
+		Nil => true
+		_ => false
+	end
+	let no_writes = match write_trace.submissions
+		Nil => true
+		_ => false
+	end
+	if exact_empty and written_empty and no_reads and no_writes
+		Ok(())
+	else
+		Err("zero-size helper transferred bytes or failed to complete")
+	end
+end
+
+test zero_copy_chunk_is_invalid_before_any_transfer() -> Result<(), String> effects [concurrency]
+	let input = script::state(Nil, Nil)
+	let output = script::state(Nil, Nil)
+	let result: io::CopyOutcome = (handle copy_case(input, output, byte_count(0)?) with io_provider::scope())?
+	let rejected = match result
+		io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), error) => match error.kind
+			io::ErrorKind::InvalidInput => byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0
+			_ => false
+		end
+		_ => false
+	end
+	let read_trace = script::trace(input)
+	let write_trace = script::trace(output)
+	let untouched = match read_trace.requests
+		Nil => match write_trace.submissions
+			Nil => true
+			_ => false
+		end
+		_ => false
+	end
+	if rejected and untouched
+		Ok(())
+	else
+		Err("zero chunk size reached a transfer provider")
+	end
+end
+
+test empty_successful_read_stops_exact_read_without_spinning() -> Result<(), String> effects [concurrency]
+	let cell = script::state(Cons(script::ReadStep(io::ReadOutcome::Data(byte_chunk([])), 0), Nil), Nil)
+	let result: io::ExactOutcome = (handle exact_case(cell, byte_count(1)?) with io_provider::scope())?
+	let no_progress = match result
+		io::ExactOutcome::ExactFailed(_, io::Progress::Known(count), error) => match error.kind
+			io::ErrorKind::NoProgress => byte_count_to_int(count) == 0
+			_ => false
+		end
+		_ => false
+	end
+	let trace = script::trace(cell)
+	let once = match trace.requests
+		Cons(1, Nil) => true
+		_ => false
+	end
+	if no_progress and once
+		Ok(())
+	else
+		Err("empty data caused a retry, invented end, or successful completion")
+	end
+end
+
+test zero_successful_write_stops_write_all_without_spinning() -> Result<(), String> effects [concurrency]
+	let zero = byte_count(0)?
+	let bytes = byte_chunk_from_visible_ascii_string("ab")?
+	let cell = script::state(Nil, Cons(script::WriteStep(io::WriteOutcome::Written(zero), zero), Nil))
+	let result: io::WriteOutcome = (handle write_case(cell, bytes) with io_provider::scope())?
+	let no_progress = match result
+		io::WriteOutcome::WriteFailed(io::Progress::Known(count), error) => match error.kind
+			io::ErrorKind::NoProgress => byte_count_to_int(count) == 0
+			_ => false
+		end
+		_ => false
+	end
+	let trace = script::trace(cell)
+	let once = match trace.submissions
+		Cons(submitted, Nil) => ascii(submitted, "ab")
+		_ => false
+	end
+	if no_progress and once and ascii(trace.output, "")
+		Ok(())
+	else
+		Err("zero progress caused a retry or invented completion")
+	end
+end
+
+test invalid_provider_write_count_does_not_fabricate_exact_progress() -> Result<(), String> effects [concurrency]
+	let bytes = byte_chunk_from_visible_ascii_string("ab")?
+	let cell = script::state(Nil, Cons(script::WriteStep(io::WriteOutcome::Written(byte_count(3)?), byte_count(0)?), Nil))
+	let result: io::WriteOutcome = (handle write_case(cell, bytes) with io_provider::scope())?
+	let invalid = match result
+		io::WriteOutcome::WriteFailed(io::Progress::Unknown(prefix), error) => match error.kind
+			io::ErrorKind::InvalidResource => byte_count_to_int(prefix) == 0
+			_ => false
+		end
+		_ => false
+	end
+	let trace = script::trace(cell)
+	let once = match trace.submissions
+		Cons(_, Nil) => true
+		_ => false
+	end
+	if invalid and once
+		Ok(())
+	else
+		Err("invalid write count was trusted or retried")
+	end
+end
+
+test invalid_provider_read_length_does_not_invent_consumption() -> Result<(), String> effects [concurrency]
+	let bytes = byte_chunk_from_visible_ascii_string("abc")?
+	let cell = script::state(Cons(script::ReadStep(io::ReadOutcome::Data(bytes), 3), Nil), Nil)
+	let result: io::ExactOutcome = (handle exact_case(cell, byte_count(2)?) with io_provider::scope())?
+	match result
+		io::ExactOutcome::ExactFailed(_, io::Progress::Unknown(prefix), error) => match error.kind
+			io::ErrorKind::InvalidResource => if byte_count_to_int(prefix) == 0
+				Ok(())
+			else
+				Err("invalid read length invented a proven prefix")
+			end
+			_ => Err("invalid read length returned the wrong failure")
+		end
+		_ => Err("invalid read length was trusted or reported as exact consumption")
+	end
+end
+
+test byte_progress_accumulation_rejects_overflow() -> Result<(), String>
+	let maximum = byte_count(9223372036854775807)?
+	let one = byte_count(1)?
+	match io::add_count("copy", maximum, one)
+		Err(error) => match error.kind
+			io::ErrorKind::InvalidResource => Ok(())
+			_ => Err("overflow returned the wrong failure category")
+		end
+		Ok(_) => Err("byte progress wrapped around")
+	end
+end
+
+fn closed_helpers_case(cell: io_provider::State<script::ScriptState>) -> Result<Bool, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let resource: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = match script::resource(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	let closed = handle io::close(resource.closer) with script::closer(owner, 1, cell)
+	let did_close = match closed
+		io::CloseOutcome::Closed => true
+		_ => false
+	end
+	let exact = handle io::read_exact(resource.reader, byte_count(0)?) with script::reader(owner, 1, cell)
+	let write = handle io::write_all(resource.writer, byte_chunk([])) with script::writer(owner, 1, cell)
+	let exact_closed = match exact
+		io::ExactOutcome::ExactFailed(_, _, error) => match error.kind
+			io::ErrorKind::Closed => true
+			_ => false
+		end
+		_ => false
+	end
+	let write_closed = match write
+		io::WriteOutcome::WriteFailed(_, error) => match error.kind
+			io::ErrorKind::Closed => true
+			_ => false
+		end
+		_ => false
+	end
+	Ok(did_close and exact_closed and write_closed)
+end
+
+test zero_size_helpers_cannot_revive_a_closed_resource() -> Result<(), String> effects [concurrency]
+	let cell = script::state(Nil, Nil)
+	let rejected = (handle closed_helpers_case(cell) with io_provider::scope())?
+	let trace = script::trace(cell)
+	let untouched = match trace.requests
+		Nil => match trace.submissions
+			Nil => true
+			_ => false
+		end
+		_ => false
+	end
+	if rejected and untouched and trace.closes == 1
+		Ok(())
+	else
+		Err("an empty helper bypassed resource validation or repeated close")
+	end
+end
+
+test invalid_provider_failure_consumption_is_not_trusted() -> Result<(), String> effects [concurrency]
+	let bytes = byte_chunk_from_visible_ascii_string("a")?
+	let failed = io::ReadOutcome::ReadFailed(bytes, io::Progress::Known(byte_count(3)?), script::failure("invalid_read_reply"))
+	let cell = script::state(Cons(script::ReadStep(failed, 3), Nil), Nil)
+	let result: io::ExactOutcome = (handle exact_case(cell, byte_count(2)?) with io_provider::scope())?
+	match result
+		io::ExactOutcome::ExactFailed(_, io::Progress::Unknown(prefix), error) => match error.kind
+			io::ErrorKind::InvalidResource => if byte_count_to_int(prefix) == 0
+				Ok(())
+			else
+				Err("invalid failure consumption invented a known prefix")
+			end
+			_ => Err("invalid failure consumption retained the invalid provider error")
+		end
+		_ => Err("out-of-bounds failed-read consumption was trusted")
+	end
+end
+
+test invalid_provider_failure_commit_is_not_trusted() -> Result<(), String> effects [concurrency]
+	let bytes = byte_chunk_from_visible_ascii_string("ab")?
+	let failed = io::WriteOutcome::WriteFailed(io::Progress::Known(byte_count(3)?), script::failure("invalid_write_reply"))
+	let cell = script::state(Nil, Cons(script::WriteStep(failed, byte_count(0)?), Nil))
+	let result: io::WriteOutcome = (handle write_case(cell, bytes) with io_provider::scope())?
+	match result
+		io::WriteOutcome::WriteFailed(io::Progress::Unknown(prefix), error) => match error.kind
+			io::ErrorKind::InvalidResource => if byte_count_to_int(prefix) == 0
+				Ok(())
+			else
+				Err("invalid failure commit invented a known prefix")
+			end
+			_ => Err("invalid failure commit retained the invalid provider error")
+		end
+		_ => Err("out-of-bounds failed-write commitment was trusted")
+	end
+end

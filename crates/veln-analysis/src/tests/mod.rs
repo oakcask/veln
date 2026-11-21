@@ -15,6 +15,7 @@ use veln_syntax::{
 use super::*;
 
 mod diagnostic_conversion;
+mod io_provider;
 mod project_cache;
 mod reachability;
 mod source_location_identity;

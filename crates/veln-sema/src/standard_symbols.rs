@@ -187,6 +187,51 @@ pub(crate) const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor
 pub(crate) const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
 compiler_adapter_symbol_set! {
+    "io_provider_native_path",
+    "io_provider_display_native",
+    "io_provider_compare_text",
+    "io_provider_join_chunks",
+    "io_provider_read_only",
+    "io_provider_dispatch_read",
+    "io_provider_dispatch_write",
+    "io_provider_dispatch_seek",
+    "io_provider_dispatch_read_at",
+    "io_provider_dispatch_write_at",
+    "io_provider_dispatch_close",
+    "io_provider_dispatch_sync",
+    "io_provider_dispatch_open_read",
+    "io_provider_dispatch_metadata",
+    "io_provider_dispatch_entries",
+    "io_provider_dispatch_open_write",
+    "io_provider_dispatch_open_read_write",
+    "io_provider_dispatch_open_append",
+    "io_provider_dispatch_create_directory",
+    "io_provider_dispatch_remove_file",
+    "io_provider_dispatch_remove_directory",
+    "io_provider_dispatch_rename",
+    "io_provider_dispatch_truncate",
+
+    "io_provider_owner",
+    "io_provider_resource",
+    "io_provider_filesystem",
+    "io_provider_mutable_filesystem",
+    "io_provider_read_file",
+    "io_provider_write_file",
+    "io_provider_update_file",
+    "io_provider_append_file",
+    "io_provider_duplex",
+    "io_provider_slot",
+    "io_provider_filesystem_slot",
+    "io_provider_mutable_filesystem_slot",
+    "io_provider_reader_slot",
+    "io_provider_writer_slot",
+    "io_provider_seeker_slot",
+    "io_provider_reader_at_slot",
+    "io_provider_writer_at_slot",
+    "io_provider_closer_slot",
+    "io_provider_syncer_slot",
+    "io_provider_truncater_slot",
+
     "observation_json_line",
     "observation_export_write",
     "observation_export_permit_create",
@@ -424,7 +469,8 @@ const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolD
 }
 
 pub(crate) fn private_compiler_adapter_name(name: &str) -> bool {
-    name.starts_with("observation_")
+    name.starts_with("io_provider_")
+        || name.starts_with("observation_")
         || name.starts_with("production_metric_index_")
         || name.starts_with("net_system_")
         || name == "string_contains_nul"
@@ -693,3 +739,52 @@ pub(crate) fn function_link_name(
 #[cfg(test)]
 #[path = "standard_symbols/tests.rs"]
 mod tests;
+
+pub(crate) fn io_provider_adapter_arity(name: &str) -> Option<usize> {
+    match name {
+        "io_provider_native_path" | "io_provider_display_native" => Some(1),
+        "io_provider_compare_text" => Some(2),
+        "io_provider_join_chunks" => Some(1),
+        "io_provider_read_only" => Some(1),
+        "io_provider_dispatch_read" => Some(2),
+        "io_provider_dispatch_write" => Some(2),
+        "io_provider_dispatch_seek" => Some(2),
+        "io_provider_dispatch_read_at" => Some(3),
+        "io_provider_dispatch_write_at" => Some(3),
+        "io_provider_dispatch_close" => Some(1),
+        "io_provider_dispatch_sync" => Some(1),
+        "io_provider_dispatch_open_read" => Some(2),
+        "io_provider_dispatch_metadata" => Some(3),
+        "io_provider_dispatch_entries" => Some(2),
+        "io_provider_dispatch_open_write" => Some(3),
+        "io_provider_dispatch_open_read_write" => Some(3),
+        "io_provider_dispatch_open_append" => Some(3),
+        "io_provider_dispatch_create_directory" => Some(2),
+        "io_provider_dispatch_remove_file" => Some(2),
+        "io_provider_dispatch_remove_directory" => Some(2),
+        "io_provider_dispatch_rename" => Some(3),
+        "io_provider_dispatch_truncate" => Some(2),
+
+        "io_provider_owner" => Some(0),
+        "io_provider_resource" => Some(3),
+        "io_provider_filesystem" => Some(2),
+        "io_provider_mutable_filesystem" => Some(2),
+        "io_provider_read_file" => Some(1),
+        "io_provider_write_file" => Some(1),
+        "io_provider_update_file" => Some(1),
+        "io_provider_append_file" => Some(1),
+        "io_provider_duplex" => Some(1),
+        "io_provider_slot" => Some(2),
+        "io_provider_filesystem_slot" => Some(2),
+        "io_provider_mutable_filesystem_slot" => Some(2),
+        "io_provider_reader_slot" => Some(2),
+        "io_provider_writer_slot" => Some(2),
+        "io_provider_seeker_slot" => Some(2),
+        "io_provider_reader_at_slot" => Some(2),
+        "io_provider_writer_at_slot" => Some(2),
+        "io_provider_closer_slot" => Some(2),
+        "io_provider_syncer_slot" => Some(2),
+        "io_provider_truncater_slot" => Some(2),
+        _ => None,
+    }
+}

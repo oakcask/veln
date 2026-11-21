@@ -1,6 +1,50 @@
 use super::*;
 
 #[test]
+fn propagation_before_later_handlers_does_not_emit_dead_return_unwinds() {
+    // Backend contract: earlier propagation needs a return exit, but handlers
+    // entered only afterward have exception exits and no return-unwind edge.
+    let ir = lower_to_ir(
+        r#"
+effect Number
+    get() -> Int
+end
+handler fixed(value: Int) for Number
+    get() => value
+end
+fn value(number: Int) -> Result<Int, String>
+    Ok(number)
+end
+fn compute() -> Result<Int, String>
+    let first = value(11)?
+    let second = value(22)?
+    let observed = handle handle perform Number::get() with fixed(first) with fixed(second)
+    Ok(observed)
+end
+fn propagate_after_handlers() -> Result<Int, String>
+    let observed = handle handle value(perform Number::get()) with fixed(33) with fixed(44)
+    Ok(observed?)
+end
+pub fn main() -> Result<(), String> effects [stdio]
+    stdio::println(int_to_string(compute()?))
+    stdio::println(int_to_string(propagate_after_handlers()?))
+    Ok(())
+end
+"#,
+    );
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output =
+        run_jvm_program_when_java_is_available("propagation-before-handlers", &program, &[])
+            .expect("Java is required for the JVM verification contract");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "11\n33\n");
+}
+
+#[test]
 fn normal_completion_runs_registered_cleanup_once_in_reverse_order_with_snapshots() {
     let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
         "pub fn main() -> () effects [stdio]\n",
