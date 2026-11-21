@@ -171,6 +171,50 @@ test_rejects_wildcard_local_action_path if {
   violations["replace wildcard path \".github/actions/**\" in on.pull_request.paths with each exact local action.yaml path; wildcard custom-action trigger paths are not allowed"]
 }
 
+memory_guard_workflow(paths) := workflow if {
+  base := workflow_with(paths, "./.github/actions/example")
+  job := object.union(base.jobs.test, {"steps": [
+    {"uses": "./.github/actions/example"},
+    {"run": "${{ steps.workflow-scripts.outputs.binary }} check-memory-guards .github/workflows .github/actions"},
+  ]})
+  workflow := object.union(base, {"jobs": {"test": job}})
+}
+
+test_accepts_action_manifest_inspection_patterns_for_memory_guard_checker if {
+  violations := deny with input as memory_guard_workflow([
+    ".github/actions/example/action.yaml",
+    ".github/actions/*/action.yaml",
+    ".github/actions/*/action.yml",
+  ])
+  count(violations) == 0
+}
+
+test_memory_guard_inspection_still_requires_consumed_action_manifest if {
+  violations := deny with input as memory_guard_workflow([
+    ".github/actions/*/action.yaml",
+    ".github/actions/*/action.yml",
+  ])
+  violations["add \".github/actions/example/action.yaml\" to on.pull_request.paths because this workflow uses local action \"./.github/actions/example\""]
+}
+
+test_rejects_broad_action_wildcard_for_memory_guard_checker if {
+  violations := deny with input as memory_guard_workflow([
+    ".github/actions/example/action.yaml",
+    ".github/actions/**",
+  ])
+  violations["replace wildcard path \".github/actions/**\" in on.pull_request.paths with each exact local action.yaml path; wildcard custom-action trigger paths are not allowed"]
+}
+
+test_rejects_action_inspection_patterns_without_memory_guard_checker if {
+  every path in [".github/actions/*/action.yaml", ".github/actions/*/action.yml"] {
+    violations := deny with input as workflow_with([
+      ".github/actions/example/action.yaml",
+      path,
+    ], "./.github/actions/example")
+    count(violations) == 1
+  }
+}
+
 test_requires_each_local_action_manifest if {
   workflow := {
     "name": "test / local actions",
