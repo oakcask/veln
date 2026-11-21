@@ -1310,6 +1310,7 @@ impl SchemaAliasModuleImports {
         }
         let (alias, suffix) = split_import_qualifier(qualifier);
         if self.valid_workspace_imports.contains(qualifier)
+            || self.valid_workspace_imports_by_alias.contains_key(alias)
             || self.valid_workspace_explicit_import_aliases.contains(alias)
         {
             return None;

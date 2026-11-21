@@ -109,3 +109,13 @@ equals_response = {"id":2,"path":"/result/structuredContent/definition"}
 id = 9
 path = "/result/structuredContent/references"
 equals_response = {"id":4,"path":"/result/structuredContent/references"}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/references"
+length = 0

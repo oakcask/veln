@@ -1,0 +1,8 @@
+mod ambiguous
+
+use local::trace
+use observe as trace from "std"
+
+fn selected() -> Int
+  handle 1 with trace::noop()
+end
