@@ -1163,31 +1163,34 @@ impl SchemaAliasModuleImports {
         validated_workspace_imports: Vec<WorkspaceImport>,
         external_imports: Vec<ExternalImport>,
     ) -> Self {
+        let mut indexed = Self::from_workspace_imports(
+            workspace_imports,
+            &validated_workspace_imports,
+        );
+        let duplicate_counts = schema_alias_import_duplicate_counts(&external_imports);
+        let handler_duplicate_counts = handler_import_duplicate_counts(&external_imports);
+        for import in external_imports {
+            indexed.index_external_import(import, &duplicate_counts, &handler_duplicate_counts);
+        }
+        indexed
+    }
+
+    fn from_workspace_imports(
+        workspace_imports: BTreeSet<String>,
+        validated_workspace_imports: &[WorkspaceImport],
+    ) -> Self {
         let raw_workspace_imports_by_alias =
-            workspace_imports_by_alias(&validated_workspace_imports);
-        let duplicate_workspace_imports =
-            workspace_import_duplicate_counts(&validated_workspace_imports);
-        let valid_workspace_import_records = validated_workspace_imports
-            .iter()
-            .filter(|import| {
-                import.syntax_valid
-                    && duplicate_workspace_imports
-                        .get(&(import.module.clone(), import.alias.clone()))
-                        == Some(&1)
-            })
-            .cloned()
-            .collect::<Vec<_>>();
+            workspace_imports_by_alias(validated_workspace_imports);
+        let valid_workspace_import_records =
+            valid_workspace_import_records(validated_workspace_imports);
         let valid_workspace_imports = valid_workspace_import_records
             .iter()
             .map(|import| import.module.clone())
             .collect::<BTreeSet<_>>();
         let valid_workspace_imports_by_alias =
             workspace_imports_by_alias(&valid_workspace_import_records);
-        let parse_clean_workspace_import_records = validated_workspace_imports
-            .iter()
-            .filter(|import| import.syntax_valid)
-            .cloned()
-            .collect::<Vec<_>>();
+        let parse_clean_workspace_import_records =
+            parse_clean_workspace_import_records(validated_workspace_imports);
         let parse_clean_workspace_imports = parse_clean_workspace_import_records
             .iter()
             .map(|import| import.module.clone())
@@ -1199,9 +1202,7 @@ impl SchemaAliasModuleImports {
             .filter(|import| !import.bare_exports)
             .map(|import| import.alias.clone())
             .collect();
-        let duplicate_counts = schema_alias_import_duplicate_counts(&external_imports);
-        let handler_duplicate_counts = handler_import_duplicate_counts(&external_imports);
-        let mut indexed = Self {
+        Self {
             workspace_imports,
             workspace_imports_by_alias: raw_workspace_imports_by_alias,
             valid_workspace_imports,
@@ -1210,11 +1211,7 @@ impl SchemaAliasModuleImports {
             parse_clean_workspace_imports_by_alias,
             parse_clean_workspace_explicit_import_aliases,
             ..Self::default()
-        };
-        for import in external_imports {
-            indexed.index_external_import(import, &duplicate_counts, &handler_duplicate_counts);
         }
-        indexed
     }
 
     fn index_external_import(
@@ -1393,6 +1390,26 @@ fn workspace_import_duplicate_counts(
             .or_default() += 1;
         counts
     })
+}
+
+fn valid_workspace_import_records(imports: &[WorkspaceImport]) -> Vec<WorkspaceImport> {
+    let duplicate_counts = workspace_import_duplicate_counts(imports);
+    imports
+        .iter()
+        .filter(|import| {
+            import.syntax_valid
+                && duplicate_counts.get(&(import.module.clone(), import.alias.clone())) == Some(&1)
+        })
+        .cloned()
+        .collect()
+}
+
+fn parse_clean_workspace_import_records(imports: &[WorkspaceImport]) -> Vec<WorkspaceImport> {
+    imports
+        .iter()
+        .filter(|import| import.syntax_valid)
+        .cloned()
+        .collect()
 }
 
 fn workspace_imports_by_alias(
