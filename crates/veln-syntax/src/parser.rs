@@ -1,4 +1,4 @@
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::collections::HashMap;
 
 use veln_literals::parse_integer_literal;
@@ -31,6 +31,8 @@ mod expression_primaries;
 mod functions_and_imports;
 mod generic_type_syntax;
 mod integer_literal_diagnostics;
+mod module_value_suffix;
+mod module_values;
 mod parameters;
 mod schemas;
 mod type_argument_lists;
@@ -40,6 +42,10 @@ mod variant_refinements;
 
 use adr_lite::collect_adr_lite_records;
 use integer_literal_diagnostics::integer_literal_diagnostics;
+use module_value_suffix::{
+    ModuleValueSuffixClassifier, ModuleValueSuffixEvidence, is_module_value_name,
+    module_value_initializer_cursor,
+};
 use type_argument_lists::TypeArgumentListState;
 use type_paths::type_paths_from_tokens;
 const MAX_CLEANUP_NESTING: usize = 128;
@@ -358,16 +364,8 @@ struct Parser<'a> {
     cursor: usize,
     cleanup_depth: usize,
     top_level_boundary_cache: Cell<Option<(usize, bool)>>,
-    module_value_suffix_cache: RefCell<HashMap<usize, ModuleValueSuffixEvidence>>,
+    module_value_suffixes: ModuleValueSuffixClassifier,
     diagnostics: Vec<ParseDiagnostic>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum ModuleValueSuffixEvidence {
-    TopLevelItem,
-    EnclosingDeclarationEnd,
-    EndOfInput,
-    EndOfInputAfterBlock,
 }
 
 struct FunctionHeader {
