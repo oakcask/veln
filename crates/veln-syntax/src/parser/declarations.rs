@@ -15,7 +15,7 @@ impl<'a> Parser<'a> {
             cursor: 0,
             cleanup_depth: 0,
             top_level_boundary_cache: Cell::new(None),
-            module_value_suffix_cache: RefCell::new(HashMap::new()),
+            module_value_suffixes: ModuleValueSuffixClassifier::new(),
             diagnostics,
         }
     }
@@ -133,175 +133,6 @@ impl<'a> Parser<'a> {
         );
         self.synchronize_to_item();
         None
-    }
-
-    pub(super) fn parse_module_value_decl(&mut self) -> ModuleValueDecl {
-        let start = self.current().range;
-        let visibility = if self.eat(TokenKind::Pub).is_some() {
-            Visibility::Public
-        } else {
-            Visibility::Private
-        };
-        self.expect(TokenKind::Let, "module_value_declaration", vec!["let"]);
-
-        let (name, name_span) = self.parse_module_value_name();
-        if self.at(TokenKind::Less) {
-            self.error_current(
-                "parse.module_value_declaration",
-                "module value declarations cannot declare type parameters",
-                "module_value_declaration",
-                vec![":"],
-                RecoveryStrategy::SynchronizeToAnchor,
-                Some(":"),
-            );
-            while !self.at(TokenKind::Colon)
-                && !self.at(TokenKind::Equal)
-                && !self.at(TokenKind::Newline)
-                && !self.at(TokenKind::Eof)
-            {
-                self.bump();
-            }
-        }
-
-        let (annotation, annotation_span, annotation_paths, annotation_refinements) =
-            self.parse_module_value_annotation();
-
-        self.expect(TokenKind::Equal, "module_value_declaration", vec!["="]);
-        if self.at(TokenKind::Newline) || self.at(TokenKind::Eof) {
-            self.error_current(
-                "parse.module_value_declaration",
-                "module value declaration requires an initializer",
-                "module_value_declaration",
-                vec!["expression"],
-                RecoveryStrategy::InsertToken,
-                Some("newline"),
-            );
-        }
-        let (initializer, end) = self.parse_expr_for_body_line("module_value_declaration");
-        ModuleValueDecl {
-            visibility,
-            name,
-            name_span,
-            annotation,
-            annotation_span,
-            annotation_paths,
-            annotation_refinements,
-            initializer,
-            span: self.source.span(start.cover(end)),
-        }
-    }
-
-    fn parse_module_value_annotation(
-        &mut self,
-    ) -> (
-        String,
-        SourceSpan,
-        Vec<TypePathSegments>,
-        Vec<VariantRefinementType>,
-    ) {
-        if self.eat(TokenKind::Colon).is_none() {
-            self.error_current(
-                "parse.module_value_declaration",
-                "module value declaration requires a type annotation",
-                "module_value_declaration",
-                vec![":"],
-                RecoveryStrategy::InsertToken,
-                Some(":"),
-            );
-            return (
-                String::new(),
-                self.source.span(self.current().range),
-                Vec::new(),
-                Vec::new(),
-            );
-        }
-
-        let annotation_start = self.current().range;
-        let (annotation, paths, refinements) = self.collect_type_paths_until(
-            "module_value_declaration",
-            &[TokenKind::Equal, TokenKind::Newline, TokenKind::Eof],
-        );
-        let annotation_end = self
-            .previous()
-            .map_or(annotation_start, |token| token.range);
-        if annotation.is_empty() {
-            self.error_current(
-                "parse.module_value_declaration",
-                "module value declaration requires a type annotation",
-                "module_value_declaration",
-                vec!["type"],
-                RecoveryStrategy::InsertToken,
-                Some("="),
-            );
-        }
-        (
-            annotation,
-            self.source.span(annotation_start.cover(annotation_end)),
-            paths,
-            refinements,
-        )
-    }
-
-    fn parse_module_value_name(&mut self) -> (Option<String>, Option<SourceSpan>) {
-        if self.at(TokenKind::Ident) {
-            let token = self.bump();
-            let span = self.source.span(token.range);
-            if is_module_value_name(&token) {
-                return (Some(token.text), Some(span));
-            }
-            if !token
-                .text
-                .as_bytes()
-                .first()
-                .is_some_and(u8::is_ascii_lowercase)
-            {
-                self.error_at_token(
-                    &token,
-                    DiagnosticRequest {
-                        id: "parse.module_value_declaration",
-                        message: "module value name must start with an ASCII lowercase letter"
-                            .to_string(),
-                        parser_context: "module_value_declaration",
-                        expected: vec!["lowercase value identifier"],
-                        strategy: RecoveryStrategy::SkipToken,
-                        anchor: Some(":"),
-                        repair_candidates: Vec::new(),
-                    },
-                );
-                return (Some(token.text), Some(span));
-            }
-            self.error_at_token(
-                &token,
-                DiagnosticRequest {
-                    id: "parse.module_value_declaration",
-                    message: "module value declaration requires one lowercase value identifier"
-                        .to_string(),
-                    parser_context: "module_value_declaration",
-                    expected: vec!["lowercase value identifier"],
-                    strategy: RecoveryStrategy::SkipToken,
-                    anchor: Some(":"),
-                    repair_candidates: Vec::new(),
-                },
-            );
-            return (None, None);
-        }
-
-        self.error_current(
-            "parse.module_value_declaration",
-            "module value declaration requires one lowercase value identifier",
-            "module_value_declaration",
-            vec!["lowercase value identifier"],
-            RecoveryStrategy::SynchronizeToAnchor,
-            Some(":"),
-        );
-        while !self.at(TokenKind::Colon)
-            && !self.at(TokenKind::Equal)
-            && !self.at(TokenKind::Newline)
-            && !self.at(TokenKind::Eof)
-        {
-            self.bump();
-        }
-        (None, None)
     }
 
     pub(super) fn at_public_alias_header(&self) -> bool {
@@ -478,16 +309,15 @@ impl<'a> Parser<'a> {
                 | TokenKind::Handler
                 | TokenKind::Codec,
             ) => true,
-            Some(TokenKind::Let) => {
-                self.module_value_initializer_cursor(cursor)
-                    .is_some_and(|initializer| {
-                        matches!(
-                            self.classify_module_value_suffix(initializer),
-                            ModuleValueSuffixEvidence::TopLevelItem
-                                | ModuleValueSuffixEvidence::EndOfInput
-                        )
-                    })
-            }
+            Some(TokenKind::Let) => module_value_initializer_cursor(&self.tokens, cursor)
+                .is_some_and(|initializer| {
+                    matches!(
+                        self.module_value_suffixes
+                            .classify(&self.tokens, initializer),
+                        ModuleValueSuffixEvidence::TopLevelItem
+                            | ModuleValueSuffixEvidence::EndOfInput
+                    )
+                }),
             Some(TokenKind::Pub) => {
                 matches!(
                     self.tokens.get(cursor + 1).map(|token| token.kind),
@@ -509,148 +339,6 @@ impl<'a> Parser<'a> {
         self.top_level_boundary_cache
             .set(Some((self.cursor, result)));
         result
-    }
-
-    fn module_value_initializer_cursor(&self, mut cursor: usize) -> Option<usize> {
-        if self.tokens.get(cursor)?.kind == TokenKind::Pub {
-            cursor += 1;
-        }
-        if self.tokens.get(cursor)?.kind != TokenKind::Let {
-            return None;
-        }
-        cursor += 1;
-
-        let name = self.tokens.get(cursor)?;
-        if !is_module_value_name(name) {
-            return None;
-        }
-        cursor += 1;
-        if self.tokens.get(cursor)?.kind != TokenKind::Colon {
-            return None;
-        }
-        cursor += 1;
-
-        let type_start = cursor;
-        while !matches!(
-            self.tokens.get(cursor).map(|token| token.kind),
-            Some(TokenKind::Equal | TokenKind::Newline | TokenKind::Eof) | None
-        ) {
-            cursor += 1;
-        }
-        if cursor == type_start || self.tokens.get(cursor)?.kind != TokenKind::Equal {
-            return None;
-        }
-        cursor += 1;
-        if matches!(
-            self.tokens.get(cursor).map(|token| token.kind),
-            Some(TokenKind::Newline | TokenKind::Eof) | None
-        ) {
-            return None;
-        }
-        Some(cursor)
-    }
-
-    fn classify_module_value_suffix(&self, mut cursor: usize) -> ModuleValueSuffixEvidence {
-        if let Some(result) = self.module_value_suffix_cache.borrow().get(&cursor) {
-            return *result;
-        }
-
-        let mut equivalent_initializers = vec![cursor];
-        let mut block_depth = 0usize;
-        let mut delimiter_depth = 0usize;
-        let mut previous_kind = Some(TokenKind::Equal);
-        let mut at_line_start = false;
-        let mut closed_initializer_block = false;
-
-        while let Some(token) = self.tokens.get(cursor) {
-            super::record_cleanup_boundary_classifier_work();
-            let kind = token.kind;
-            if closed_initializer_block && !matches!(kind, TokenKind::Newline | TokenKind::Eof) {
-                closed_initializer_block = false;
-            }
-            if at_line_start
-                && delimiter_depth == 0
-                && block_depth == 0
-                && kind == TokenKind::Let
-                && let Some(initializer) = self.module_value_initializer_cursor(cursor)
-            {
-                equivalent_initializers.push(initializer);
-            }
-            if at_line_start
-                && delimiter_depth == 0
-                && block_depth == 0
-                && matches!(
-                    kind,
-                    TokenKind::Fn
-                        | TokenKind::Test
-                        | TokenKind::Type
-                        | TokenKind::Schema
-                        | TokenKind::Effect
-                        | TokenKind::Handler
-                        | TokenKind::Codec
-                        | TokenKind::Pub
-                )
-            {
-                let evidence = ModuleValueSuffixEvidence::TopLevelItem;
-                self.cache_module_value_suffix(&equivalent_initializers, evidence);
-                return evidence;
-            }
-
-            match kind {
-                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
-                    delimiter_depth += 1;
-                }
-                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
-                    delimiter_depth = delimiter_depth.saturating_sub(1);
-                }
-                TokenKind::Match | TokenKind::Begin => block_depth += 1,
-                TokenKind::Defer if at_line_start && delimiter_depth == 0 => block_depth += 1,
-                TokenKind::If if previous_kind != Some(TokenKind::Else) => block_depth += 1,
-                TokenKind::End => {
-                    if block_depth == 0 {
-                        let evidence = ModuleValueSuffixEvidence::EnclosingDeclarationEnd;
-                        self.cache_module_value_suffix(&equivalent_initializers, evidence);
-                        return evidence;
-                    }
-                    block_depth -= 1;
-                    closed_initializer_block = block_depth == 0;
-                }
-                TokenKind::Eof => {
-                    // A block-closing `end` immediately before EOF can belong to the
-                    // enclosing declaration after block recovery. Keep that established
-                    // typed-local shape distinct from a plain module value at EOF.
-                    let evidence = if closed_initializer_block {
-                        ModuleValueSuffixEvidence::EndOfInputAfterBlock
-                    } else {
-                        ModuleValueSuffixEvidence::EndOfInput
-                    };
-                    self.cache_module_value_suffix(&equivalent_initializers, evidence);
-                    return evidence;
-                }
-                _ => {}
-            }
-            at_line_start = kind == TokenKind::Newline;
-            previous_kind = Some(kind);
-            cursor += 1;
-        }
-        let evidence = if closed_initializer_block {
-            ModuleValueSuffixEvidence::EndOfInputAfterBlock
-        } else {
-            ModuleValueSuffixEvidence::EndOfInput
-        };
-        self.cache_module_value_suffix(&equivalent_initializers, evidence);
-        evidence
-    }
-
-    fn cache_module_value_suffix(
-        &self,
-        initializers: &[usize],
-        evidence: ModuleValueSuffixEvidence,
-    ) {
-        let mut cache = self.module_value_suffix_cache.borrow_mut();
-        for &initializer in initializers {
-            cache.insert(initializer, evidence);
-        }
     }
 
     pub(super) fn end_closes_enclosing_declaration(&self) -> bool {
@@ -951,15 +639,4 @@ impl<'a> Parser<'a> {
         }
         params
     }
-}
-
-fn is_module_value_name(token: &Token) -> bool {
-    token.kind == TokenKind::Ident
-        && token
-            .text
-            .as_bytes()
-            .first()
-            .is_some_and(u8::is_ascii_lowercase)
-        && token.text != crate::TRUE_LITERAL
-        && token.text != crate::FALSE_LITERAL
 }
