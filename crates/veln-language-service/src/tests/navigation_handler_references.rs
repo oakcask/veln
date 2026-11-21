@@ -704,6 +704,80 @@ mod navigation_handler_references_tests {
         }
     }
 
+    fn assert_rejection_matrix_baseline(
+        result: &NavigationResult,
+        origin: PackageOrigin,
+        uri: &str,
+        file: &str,
+        reference: (&str, usize, usize),
+    ) {
+        assert_eq!(result.selected_symbol.package_origin, Some(origin));
+        assert_eq!(
+            result.definition.source,
+            NavigationSource::Package {
+                uri: uri.to_owned()
+            }
+        );
+        assert_eq!(result.definition.span.file.as_str(), file);
+        assert_eq!(result.definition.span.start.line, 1);
+        assert_eq!(result.definition.span.start.column, 13);
+        assert_eq!(result.definition.span.end.line, 1);
+        assert_eq!(result.definition.span.end.column, 17);
+        assert_eq!(locations(&result.references), [reference]);
+    }
+
+    fn assert_standard_handler_rejection(
+        baseline: &EffectiveProjectSnapshot,
+        case: &str,
+        imports: &str,
+        application: &str,
+        separate_result: Option<&NavigationResult>,
+        expected_stable: &NavigationResult,
+    ) {
+        const APPLICATION_PREFIX: &str = "  handle 1 with ";
+        let case_source =
+            format!("{imports}\nfn invalid() -> Int\n{APPLICATION_PREFIX}{application}\nend\n");
+        let snapshot = baseline.with_workspace_overlays([source("case.veln", &case_source)]);
+        let (_, leaf) = application.rsplit_once("::").unwrap();
+        let position = || SourcePosition {
+            source: SourcePath::new("case.veln"),
+            line: imports.lines().count() + 3,
+            column: APPLICATION_PREFIX.len() + application.len() - leaf.len() + 1,
+        };
+        let rejected = navigate(&snapshot, position());
+        match separate_result {
+            Some(expected_separate) => {
+                assert_eq!(rejected.as_ref(), Some(expected_separate), "{case}");
+                assert_eq!(
+                    definition_at(&snapshot, position()),
+                    Some(expected_separate.definition.clone()),
+                    "{case}"
+                );
+            }
+            None => {
+                assert!(rejected.is_none(), "{case}: {rejected:#?}");
+                assert_eq!(definition_at(&snapshot, position()), None, "{case}");
+            }
+        }
+        assert_eq!(
+            query_snapshot(&snapshot, "stable_use.veln", 4, 25).as_ref(),
+            Some(expected_stable),
+            "{case}"
+        );
+        assert_eq!(
+            definition_at(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("stable_use.veln"),
+                    line: 4,
+                    column: 25,
+                },
+            ),
+            Some(expected_stable.definition.clone()),
+            "{case}"
+        );
+    }
+
     #[test]
     fn standard_library_handler_rejection_matrix_preserves_unrelated_identity() {
         const STABLE_HANDLER: &str =
@@ -749,22 +823,12 @@ mod navigation_handler_references_tests {
             vec![other.clone()],
         );
         let expected_separate = query_snapshot(&separate_baseline, "case.veln", 4, 24).unwrap();
-        assert_eq!(
-            expected_separate.selected_symbol.package_origin,
-            Some(PackageOrigin::DirectDependency)
-        );
-        assert_eq!(
-            expected_separate.definition.source,
-            NavigationSource::Package { uri: other_uri }
-        );
-        assert_eq!(expected_separate.definition.span.file.as_str(), "observe.veln");
-        assert_eq!(expected_separate.definition.span.start.line, 1);
-        assert_eq!(expected_separate.definition.span.start.column, 13);
-        assert_eq!(expected_separate.definition.span.end.line, 1);
-        assert_eq!(expected_separate.definition.span.end.column, 17);
-        assert_eq!(
-            locations(&expected_separate.references),
-            [("case.veln", 4, 24)]
+        assert_rejection_matrix_baseline(
+            &expected_separate,
+            PackageOrigin::DirectDependency,
+            &other_uri,
+            "observe.veln",
+            ("case.veln", 4, 24),
         );
         let bridge = dependency_snapshot(
             "bridge/pkg",
@@ -789,20 +853,12 @@ mod navigation_handler_references_tests {
         )
         .with_standard_library(standard_library);
         let expected = query_snapshot(&baseline, "stable_use.veln", 4, 25).unwrap();
-        assert_eq!(
-            expected.definition.source,
-            NavigationSource::Package {
-                uri: stable_uri.clone()
-            }
-        );
-        assert_eq!(expected.definition.span.file.as_str(), "stable.veln");
-        assert_eq!(expected.definition.span.start.line, 1);
-        assert_eq!(expected.definition.span.start.column, 13);
-        assert_eq!(expected.definition.span.end.line, 1);
-        assert_eq!(expected.definition.span.end.column, 17);
-        assert_eq!(
-            locations(&expected.references),
-            [("stable_use.veln", 4, 25)]
+        assert_rejection_matrix_baseline(
+            &expected,
+            PackageOrigin::StandardLibrary,
+            &stable_uri,
+            "stable.veln",
+            ("stable_use.veln", 4, 25),
         );
 
         for (case, imports, application, separate_result) in [
@@ -849,38 +905,13 @@ mod navigation_handler_references_tests {
                 None,
             ),
         ] {
-            let case_source =
-                format!("{imports}\nfn invalid() -> Int\n{APPLICATION_PREFIX}{application}\nend\n");
-            let snapshot = baseline.with_workspace_overlays([source("case.veln", &case_source)]);
-            let (_, leaf) = application.rsplit_once("::").unwrap();
-            let position = SourcePosition {
-                source: SourcePath::new("case.veln"),
-                line: imports.lines().count() + 3,
-                column: APPLICATION_PREFIX.len() + application.len() - leaf.len() + 1,
-            };
-            let rejected = navigate(&snapshot, position);
-            match separate_result {
-                Some(expected_separate) => {
-                    assert_eq!(rejected.as_ref(), Some(expected_separate), "{case}");
-                }
-                None => assert!(rejected.is_none(), "{case}: {rejected:#?}"),
-            }
-            assert_eq!(
-                query_snapshot(&snapshot, "stable_use.veln", 4, 25).as_ref(),
-                Some(&expected),
-                "{case}"
-            );
-            assert_eq!(
-                definition_at(
-                    &snapshot,
-                    SourcePosition {
-                        source: SourcePath::new("stable_use.veln"),
-                        line: 4,
-                        column: 25,
-                    },
-                ),
-                Some(expected.definition.clone()),
-                "{case}"
+            assert_standard_handler_rejection(
+                &baseline,
+                case,
+                imports,
+                application,
+                separate_result,
+                &expected,
             );
         }
     }

@@ -827,9 +827,11 @@ separate parse-clean unique alias. These rejections return the existing empty
 definition or reference result.
 Transitive-package, mismatched-package, unresolved, incomplete, additionally
 qualified, test-only, and wrong-kind standard-library handler inputs keep
-their existing empty or separately owned definition and reference results.
-Processing any such input leaves an unrelated valid standard-library handler's
-definition, references, canonical `veln-pkg:` URI, and source ranges unchanged.
+their existing definition and reference results. A valid direct-dependency
+handler selected through the mismatched package keeps that package's result;
+the other rejected inputs return the empty result. Processing any such input
+leaves an unrelated valid standard-library handler's definition, references,
+canonical `veln-pkg:` URI, and source ranges unchanged.
 
 For a selected workspace schema declaration, `textDocument/references` returns
 the declaration when requested plus `decode`, `encode`, runtime-validation,

@@ -1121,10 +1121,11 @@ alias. These rejections return the existing empty definition or reference
 result.
 Transitive-package, mismatched-package, unresolved, incomplete, additionally
 qualified, test-only, and wrong-kind standard-library handler inputs keep
-their existing successful empty or separately owned definition and reference
-results. Processing any such input leaves an unrelated valid standard-library
-handler's definition, references, canonical `veln-pkg:` URI, and source ranges
-unchanged.
+their existing successful definition and reference results. A valid
+direct-dependency handler selected through the mismatched package keeps that
+package's result; the other rejected inputs return the successful empty result.
+Processing any such input leaves an unrelated valid standard-library handler's
+definition, references, canonical `veln-pkg:` URI, and source ranges unchanged.
 
 Capture, lookup, position, and pagination failures publish no partial handler
 locations and preserve the saved workspace, retained resources, prior results,

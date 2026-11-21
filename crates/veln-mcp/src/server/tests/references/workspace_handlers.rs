@@ -520,14 +520,33 @@ fn standard_library_handler_rejection_projects_empty_without_changing_valid_resu
     let rejected_definition = server.definition_tool(&json!({
         "source":"main.veln", "line":8, "column":26
     }));
-    assert!(rejected_definition["structuredContent"]["definition"].is_null());
+    assert_eq!(
+        rejected_definition["isError"], false,
+        "{rejected_definition:#}"
+    );
+    assert_eq!(
+        rejected_definition["structuredContent"],
+        json!({"definition":null})
+    );
     let rejected_references = server.references_tool(&json!({
         "source":"main.veln", "line":8, "column":26,
         "include_declaration":true
     }));
     assert_eq!(
-        rejected_references["structuredContent"]["references"],
-        json!([])
+        rejected_references["isError"], false,
+        "{rejected_references:#}"
+    );
+    assert_eq!(
+        rejected_references["structuredContent"],
+        json!({
+            "references":[],
+            "scope":{
+                "generation":0,
+                "mode":"project",
+                "project":".",
+                "project_wide":true
+            }
+        })
     );
     assert_eq!(server.definition_tool(&valid), valid_definition);
     assert_eq!(
