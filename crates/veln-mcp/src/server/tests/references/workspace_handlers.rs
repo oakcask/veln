@@ -1,4 +1,5 @@
 use super::*;
+use std::path::Path;
 
 fn write_handler_workspace(workspace: &TempWorkspace) {
     workspace.write("veln.toml", "");
@@ -611,6 +612,183 @@ fn standard_handler_mcp_projection(
     assert_eq!(locations, expected_locations, "{references:#}");
     assert!(!references.to_string().contains("vendor/dep"));
     uri
+}
+
+#[test]
+fn standard_library_handler_references_keep_selected_projects_and_source_bodies_isolated() {
+    let workspace = TempWorkspace::new("references-standard-handler-project-isolation");
+    for project in ["left", "right"] {
+        workspace.write(&format!("{project}/veln.toml"), "");
+        workspace.write(
+            &format!("{project}/main.veln"),
+            concat!(
+                "use net from \"std\"\n\n",
+                "fn selected() -> Int\n",
+                "  # handle 0 with net::system()\n",
+                "  let label: String = \"handle 0 with net::system()\"\n",
+                "  handle 1 with net::system()\n",
+                "end\n",
+            ),
+        );
+    }
+    let standard_source = veln_stdlib::package_bundle()
+        .files
+        .iter()
+        .find(|file| file.path == "net.veln")
+        .unwrap()
+        .text;
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+    assert_eq!(server.selection_result()["roots"], json!(["left", "right"]));
+    let standard_uri = server.language_resources.list_result()["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|resource| resource["name"] == "net.veln")
+        .unwrap()["uri"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    for project in ["left", "right"] {
+        assert_standard_handler_project_isolation(
+            &workspace,
+            &mut server,
+            project,
+            standard_source,
+            &standard_uri,
+        );
+    }
+
+    let rejected = server
+        .handle_request(json!({
+            "jsonrpc":"2.0", "id":"unsupported-project", "method":"tools/call",
+            "params":{"name":"references","arguments":{
+                "project":"left", "source":"left/main.veln", "line":6, "column":22
+            }}
+        }))
+        .unwrap();
+    assert_eq!(
+        rejected,
+        json!({
+            "jsonrpc":"2.0", "id":"unsupported-project",
+            "error":{"code":-32602,"message":"Tool input does not match its schema"}
+        })
+    );
+}
+
+fn assert_standard_handler_project_isolation(
+    workspace: &TempWorkspace,
+    server: &mut Server,
+    project: &str,
+    standard_source: &str,
+    standard_uri: &str,
+) {
+    let source = format!("{project}/main.veln");
+    let source_uri = crate::definition::path_to_uri(&workspace.path(&source));
+    let definition_response = server
+        .handle_request(json!({
+            "jsonrpc":"2.0", "id":format!("definition-{project}"), "method":"tools/call",
+            "params":{"name":"definition","arguments":{
+                "source":source, "line":6, "column":22
+            }}
+        }))
+        .unwrap();
+    let definition_content = json!({"definition":{
+        "uri":standard_uri,
+        "range":{"start":{"line":101,"column":13},"end":{"line":101,"column":19}},
+        "packageDocumentationUri":concat!(
+            "veln-doc:///package/std/snapshot/",
+            "a850f8d156bd7efefa82a2c67352fd9556403dd53e33aa13ef2c64c2660249a6/",
+            "documentation/3925a5fd6b7a7a5471d023ed39aa623aa491817f426fdcf10a5af22fca7222ba/",
+            "declaration/4f9a4f61d83186052f54b164ba8e847e97638ff837b7fa90134c5ae6220e2dd3"
+        )
+    }});
+    assert_eq!(
+        definition_response,
+        json!({
+            "jsonrpc":"2.0", "id":format!("definition-{project}"),
+            "result":{
+                "content":[{"type":"text","text":definition_content.to_string()}],
+                "isError":false,
+                "structuredContent":definition_content
+            }
+        })
+    );
+
+    let references_response = server
+        .handle_request(json!({
+            "jsonrpc":"2.0", "id":format!("references-{project}"), "method":"tools/call",
+            "params":{"name":"references","arguments":{
+                "source":source, "line":6, "column":22, "include_declaration":false
+            }}
+        }))
+        .unwrap();
+    let references_content = json!({
+        "references":[{
+            "uri":source_uri,
+            "range":{"start":{"line":6,"column":22},"end":{"line":6,"column":28}}
+        }],
+        "scope":{
+            "mode":"project", "generation":0, "project":project, "project_wide":true
+        }
+    });
+    assert_eq!(
+        references_response,
+        json!({
+            "jsonrpc":"2.0", "id":format!("references-{project}"),
+            "result":{
+                "content":[{"type":"text","text":references_content.to_string()}],
+                "isError":false,
+                "structuredContent":references_content
+            }
+        })
+    );
+    let other = if project == "left" { "right" } else { "left" };
+    assert!(
+        !references_response
+            .to_string()
+            .contains(&format!("/{other}/main.veln"))
+    );
+    assert!(
+        !references_response
+            .to_string()
+            .contains("http2/connection.veln")
+    );
+    assert!(!references_response.to_string().contains("veln-pkg:"));
+
+    let resource = read_handler_resource(server, standard_uri);
+    assert_eq!(
+        resource,
+        json!({
+            "jsonrpc":"2.0", "id":"read-standard-handler-source",
+            "result":{"contents":[{
+                "uri":standard_uri,
+                "mimeType":"text/x-veln; charset=utf-8",
+                "text":standard_source
+            }]}
+        })
+    );
+    assert_embedded_standard_library_paths_are_hidden(&definition_response);
+    assert_embedded_standard_library_paths_are_hidden(&references_response);
+    assert_embedded_standard_library_paths_are_hidden(&resource);
+}
+
+fn assert_embedded_standard_library_paths_are_hidden(response: &Value) {
+    let text = response.to_string();
+    let source_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../veln-stdlib/veln/net.veln")
+        .canonicalize()
+        .unwrap();
+    let source_path = source_path.to_string_lossy();
+    for rejected in [
+        source_path.as_ref(),
+        "crates/veln-stdlib/veln/net.veln",
+        "build/veln-stdlib-",
+        "stdlib_bundle.rs",
+        "lowered/net.veln.bin",
+    ] {
+        assert!(!text.contains(rejected), "leaked {rejected}: {response:#}");
+    }
 }
 
 fn read_handler_resource(server: &mut Server, uri: &str) -> Value {

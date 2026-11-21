@@ -2,6 +2,7 @@ include!("tests/support.rs");
 include!("tests/workspace.rs");
 include!("tests/effect_references.rs");
 include!("tests/handler_references.rs");
+include!("tests/standard_handler_project_isolation.rs");
 include!("tests/standard_handler_owner_revision.rs");
 include!("tests/rename.rs");
 include!("tests/module_values.rs");

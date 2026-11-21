@@ -794,6 +794,9 @@ returns the canonical `veln-pkg:` declaration as its definition and the
 deterministic set of matching application locations in that project as its
 references. Each returned range covers only the handler name. LSP omits the
 package declaration from references even when `includeDeclaration` is true.
+Applications in retained standard-library source or another accepted project
+do not enter that reference set. Comments and strings do not enter it either,
+including when their text has the same application spelling.
 Equal module and handler names in a direct dependency or the workspace remain
 separate owners and do not replace the selected `std` declaration or enter its
 reference set. Each accepted project snapshot keeps the exact retained `std`
@@ -1339,3 +1342,10 @@ Focused regressions in
 and
 [`standard_handler_owner_revision.rs`](../../crates/veln-lsp/src/tests/standard_handler_owner_revision.rs)
 verify equal-name owner separation and exact retained `std` revision identity.
+The focused
+[`standard_handler_project_isolation.rs`](../../crates/veln-lsp/src/tests/standard_handler_project_isolation.rs)
+regression drives the default embedded standard-library loader with the public
+`net::system` declaration, its retained standard-library-body application, and
+separate workspace projects. It verifies exact virtual source bodies and
+canonical locations while references contain only applications from the
+selected project and expose no source or build path.

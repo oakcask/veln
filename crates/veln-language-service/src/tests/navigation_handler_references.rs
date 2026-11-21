@@ -486,7 +486,11 @@ mod navigation_handler_references_tests {
                 concat!(
                     "use observe as trace from \"std\"\n\n",
                     "fn first() -> Int\n  handle 1 with observe::noop()\nend\n\n",
-                    "fn second() -> Int\n  handle 2 with trace::noop()\nend\n",
+                    "fn second() -> Int\n  handle 2 with trace::noop()\nend\n\n",
+                    "fn noise() -> String\n",
+                    "  # handle 0 with observe::noop()\n",
+                    "  \"handle 0 with trace::noop()\"\n",
+                    "end\n",
                 ),
             ),
             source(
@@ -500,7 +504,14 @@ mod navigation_handler_references_tests {
         .with_standard_library(standard_library_snapshot(
             &[(
                 "observe.veln",
-                "pub handler noop() for Observe\n  record() => 1\nend\n",
+                concat!(
+                    "pub handler noop() for Observe\n  record() => 1\nend\n\n",
+                    "fn implementation() -> Int\n",
+                    "  # handle 0 with noop()\n",
+                    "  let label: String = \"handle 0 with noop()\"\n",
+                    "  handle 0 with noop()\n",
+                    "end\n",
+                ),
             )],
             ["observe.veln"],
         ));
