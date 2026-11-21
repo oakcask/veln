@@ -708,6 +708,9 @@ mod navigation_handler_references_tests {
     fn standard_library_handler_rejection_matrix_preserves_unrelated_identity() {
         const STABLE_HANDLER: &str =
             "pub handler keep() for Observe\n  record() => 1\nend\n";
+        const APPLICATION_PREFIX: &str = "  handle 1 with ";
+        const MISMATCHED_IMPORT: &str = "use observe as other from \"example/other\"\n";
+        const MISMATCHED_APPLICATION: &str = "other::noop()";
         let standard_library = standard_library_snapshot(
             &[
                 ("stable.veln", STABLE_HANDLER),
@@ -738,6 +741,31 @@ mod navigation_handler_references_tests {
             ["observe.veln"],
         );
         let other_uri = other.virtual_sources().next().unwrap().0.to_owned();
+        let mismatched_source = format!(
+            "{MISMATCHED_IMPORT}\nfn invalid() -> Int\n{APPLICATION_PREFIX}{MISMATCHED_APPLICATION}\nend\n"
+        );
+        let separate_baseline = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source("case.veln", &mismatched_source)],
+            vec![other.clone()],
+        );
+        let expected_separate = query_snapshot(&separate_baseline, "case.veln", 4, 24).unwrap();
+        assert_eq!(
+            expected_separate.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+        assert_eq!(
+            expected_separate.definition.source,
+            NavigationSource::Package { uri: other_uri }
+        );
+        assert_eq!(expected_separate.definition.span.file.as_str(), "observe.veln");
+        assert_eq!(expected_separate.definition.span.start.line, 1);
+        assert_eq!(expected_separate.definition.span.start.column, 13);
+        assert_eq!(expected_separate.definition.span.end.line, 1);
+        assert_eq!(expected_separate.definition.span.end.column, 17);
+        assert_eq!(
+            locations(&expected_separate.references),
+            [("case.veln", 4, 24)]
+        );
         let bridge = dependency_snapshot(
             "bridge/pkg",
             &[(
@@ -777,7 +805,7 @@ mod navigation_handler_references_tests {
             [("stable_use.veln", 4, 25)]
         );
 
-        for (case, imports, application, separate_uri) in [
+        for (case, imports, application, separate_result) in [
             (
                 "transitive",
                 "use dep from \"transitive/pkg\"\n",
@@ -786,9 +814,9 @@ mod navigation_handler_references_tests {
             ),
             (
                 "mismatched package",
-                "use observe as other from \"example/other\"\n",
-                "other::noop()",
-                Some(other_uri.as_str()),
+                MISMATCHED_IMPORT,
+                MISMATCHED_APPLICATION,
+                Some(&expected_separate),
             ),
             (
                 "unresolved",
@@ -821,32 +849,19 @@ mod navigation_handler_references_tests {
                 None,
             ),
         ] {
-            let prefix = "  handle 1 with ";
             let case_source =
-                format!("{imports}\nfn invalid() -> Int\n{prefix}{application}\nend\n");
+                format!("{imports}\nfn invalid() -> Int\n{APPLICATION_PREFIX}{application}\nend\n");
             let snapshot = baseline.with_workspace_overlays([source("case.veln", &case_source)]);
             let (_, leaf) = application.rsplit_once("::").unwrap();
             let position = SourcePosition {
                 source: SourcePath::new("case.veln"),
                 line: imports.lines().count() + 3,
-                column: prefix.len() + application.len() - leaf.len() + 1,
+                column: APPLICATION_PREFIX.len() + application.len() - leaf.len() + 1,
             };
             let rejected = navigate(&snapshot, position);
-            match separate_uri {
-                Some(uri) => {
-                    let rejected = rejected.unwrap_or_else(|| panic!("{case} should stay separate"));
-                    assert_eq!(
-                        rejected.selected_symbol.package_origin,
-                        Some(PackageOrigin::DirectDependency),
-                        "{case}"
-                    );
-                    assert_eq!(
-                        rejected.definition.source,
-                        NavigationSource::Package {
-                            uri: uri.to_owned()
-                        },
-                        "{case}"
-                    );
+            match separate_result {
+                Some(expected_separate) => {
+                    assert_eq!(rejected.as_ref(), Some(expected_separate), "{case}");
                 }
                 None => assert!(rejected.is_none(), "{case}: {rejected:#?}"),
             }
