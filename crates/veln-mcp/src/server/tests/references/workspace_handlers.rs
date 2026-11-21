@@ -455,6 +455,18 @@ fn standard_library_handler_navigation_keeps_owner_and_revision_at_mcp_boundary(
     let new = standard_handler_mcp_projection(&mut new_server, &main_uri, 2);
     assert_ne!(old, new);
 
+    assert_mcp_colliding_handler_owners(&mut old_server, &mut new_server);
+    assert_mcp_standard_handler_source_isolation(
+        &mut old_server,
+        &mut new_server,
+        &old,
+        &new,
+        old_source,
+        new_source,
+    );
+}
+
+fn assert_mcp_colliding_handler_owners(old_server: &mut Server, new_server: &mut Server) {
     let old_dependency = old_server.definition_tool(&json!({
         "source":"main.veln", "line":10, "column":37
     }));
@@ -487,12 +499,21 @@ fn standard_library_handler_navigation_keeps_owner_and_revision_at_mcp_boundary(
             .starts_with("file://"),
         "{old_workspace:#}"
     );
+}
 
-    let old_read = read_handler_resource(&mut old_server, &old);
-    let new_read = read_handler_resource(&mut new_server, &new);
+fn assert_mcp_standard_handler_source_isolation(
+    old_server: &mut Server,
+    new_server: &mut Server,
+    old_uri: &str,
+    new_uri: &str,
+    old_source: &str,
+    new_source: &str,
+) {
+    let old_read = read_handler_resource(old_server, old_uri);
+    let new_read = read_handler_resource(new_server, new_uri);
     assert_eq!(old_read["result"]["contents"][0]["text"], old_source);
     assert_eq!(new_read["result"]["contents"][0]["text"], new_source);
-    for (server, rejected) in [(&mut old_server, &new), (&mut new_server, &old)] {
+    for (server, rejected) in [(old_server, new_uri), (new_server, old_uri)] {
         let response = read_handler_resource(server, rejected);
         assert_eq!(response["error"]["data"]["code"], "resource_not_found");
     }

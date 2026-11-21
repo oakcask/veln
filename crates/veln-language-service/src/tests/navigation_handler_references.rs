@@ -880,18 +880,45 @@ mod navigation_handler_references_tests {
 
     #[test]
     fn standard_library_handlers_keep_owner_and_revision_across_snapshots() {
-        let original = "pub handler noop() for Observe\n  record() => 1\nend\n";
-        let changed = "\npub handler noop() for Observe\n  record() => 2\nend\n";
-        let standard_library =
-            standard_library_snapshot(&[("observe.veln", original)], ["observe.veln"]);
-        let updated_standard_library =
-            standard_library_snapshot(&[("observe.veln", changed)], ["observe.veln"]);
-        let standard_uri = standard_library
-            .virtual_sources()
-            .next()
-            .unwrap()
-            .0
-            .to_owned();
+        let fixture = standard_handler_revision_fixture();
+        let before = query_snapshot(&fixture.accepted, "main.veln", 6, 30).unwrap();
+        let after = query_snapshot(&fixture.refreshed, "main.veln", 6, 30).unwrap();
+
+        assert_standard_handler_result(&before, &fixture.standard_uri, 1);
+        assert_standard_handler_result(&after, &fixture.updated_standard_uri, 2);
+        assert_unchanged_colliding_handler_owners(&fixture);
+        assert_eq!(
+            query_snapshot(&fixture.accepted, "main.veln", 6, 30),
+            Some(before)
+        );
+        assert_standard_handler_virtual_sources(&fixture);
+    }
+
+    const ORIGINAL_STANDARD_HANDLER: &str =
+        "pub handler noop() for Observe\n  record() => 1\nend\n";
+    const UPDATED_STANDARD_HANDLER: &str =
+        "\npub handler noop() for Observe\n  record() => 2\nend\n";
+    const DEPENDENCY_HANDLER: &str =
+        "pub handler noop() for Observe\n  record() => 3\nend\n";
+
+    struct StandardHandlerRevisionFixture {
+        accepted: EffectiveProjectSnapshot,
+        refreshed: EffectiveProjectSnapshot,
+        standard_uri: String,
+        updated_standard_uri: String,
+        dependency_uri: String,
+    }
+
+    fn standard_handler_revision_fixture() -> StandardHandlerRevisionFixture {
+        let standard_library = standard_library_snapshot(
+            &[("observe.veln", ORIGINAL_STANDARD_HANDLER)],
+            ["observe.veln"],
+        );
+        let updated_standard_library = standard_library_snapshot(
+            &[("observe.veln", UPDATED_STANDARD_HANDLER)],
+            ["observe.veln"],
+        );
+        let standard_uri = standard_library.virtual_sources().next().unwrap().0.to_owned();
         let updated_standard_uri = updated_standard_library
             .virtual_sources()
             .next()
@@ -900,19 +927,32 @@ mod navigation_handler_references_tests {
             .to_owned();
         assert_ne!(standard_uri, updated_standard_uri);
 
-        let dependency_source = "pub handler noop() for Observe\n  record() => 3\nend\n";
         let dependency = dependency_snapshot(
             "example/dep",
-            &[("observe.veln", dependency_source)],
+            &[("observe.veln", DEPENDENCY_HANDLER)],
             ["observe.veln"],
         );
-        let dependency_uri = dependency
-            .virtual_sources()
-            .next()
-            .unwrap()
-            .0
-            .to_owned();
-        let sources = vec![
+        let dependency_uri = dependency.virtual_sources().next().unwrap().0.to_owned();
+        let sources = standard_handler_collision_sources();
+        let accepted = EffectiveProjectSnapshot::with_direct_dependencies(
+            sources.clone(),
+            vec![dependency.clone()],
+        )
+        .with_standard_library(standard_library);
+        let refreshed =
+            EffectiveProjectSnapshot::with_direct_dependencies(sources, vec![dependency])
+                .with_standard_library(updated_standard_library);
+        StandardHandlerRevisionFixture {
+            accepted,
+            refreshed,
+            standard_uri,
+            updated_standard_uri,
+            dependency_uri,
+        }
+    }
+
+    fn standard_handler_collision_sources() -> Vec<SourceFile> {
+        vec![
             source(
                 "main.veln",
                 concat!(
@@ -931,39 +971,28 @@ mod navigation_handler_references_tests {
                     "fn local() -> Int\n  handle 4 with noop()\nend\n",
                 ),
             ),
-        ];
-        let accepted = EffectiveProjectSnapshot::with_direct_dependencies(
-            sources.clone(),
-            vec![dependency.clone()],
-        )
-        .with_standard_library(standard_library);
-        let refreshed =
-            EffectiveProjectSnapshot::with_direct_dependencies(sources, vec![dependency])
-                .with_standard_library(updated_standard_library);
+        ]
+    }
 
-        let before = query_snapshot(&accepted, "main.veln", 6, 30).unwrap();
-        let after = query_snapshot(&refreshed, "main.veln", 6, 30).unwrap();
-        let dependency_before = query_snapshot(&accepted, "main.veln", 10, 30).unwrap();
-        let dependency_after = query_snapshot(&refreshed, "main.veln", 10, 30).unwrap();
-        let workspace_before = query_snapshot(&accepted, "observe.veln", 3, 13).unwrap();
-        let workspace_after = query_snapshot(&refreshed, "observe.veln", 3, 13).unwrap();
+    fn assert_standard_handler_result(result: &NavigationResult, uri: &str, line: usize) {
+        assert_eq!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(
+            result.definition.source,
+            NavigationSource::Package {
+                uri: uri.to_owned()
+            }
+        );
+        assert_eq!(result.definition.span.file.as_str(), "observe.veln");
+        assert_eq!(result.definition.span.start.line, line);
+        assert_eq!(locations(&result.references), [("main.veln", 6, 30)]);
+    }
 
-        for (result, uri, line) in [
-            (&before, &standard_uri, 1),
-            (&after, &updated_standard_uri, 2),
-        ] {
-            assert_eq!(
-                result.selected_symbol.package_origin,
-                Some(PackageOrigin::StandardLibrary)
-            );
-            assert_eq!(
-                result.definition.source,
-                NavigationSource::Package { uri: uri.clone() }
-            );
-            assert_eq!(result.definition.span.file.as_str(), "observe.veln");
-            assert_eq!(result.definition.span.start.line, line);
-            assert_eq!(locations(&result.references), [("main.veln", 6, 30)]);
-        }
+    fn assert_unchanged_colliding_handler_owners(fixture: &StandardHandlerRevisionFixture) {
+        let dependency_before = query_snapshot(&fixture.accepted, "main.veln", 10, 30).unwrap();
+        let dependency_after = query_snapshot(&fixture.refreshed, "main.veln", 10, 30).unwrap();
         assert_eq!(
             dependency_before.selected_symbol.package_origin,
             Some(PackageOrigin::DirectDependency)
@@ -971,7 +1000,7 @@ mod navigation_handler_references_tests {
         assert_eq!(
             dependency_before.definition.source,
             NavigationSource::Package {
-                uri: dependency_uri.clone()
+                uri: fixture.dependency_uri.clone()
             }
         );
         assert_eq!(
@@ -979,6 +1008,9 @@ mod navigation_handler_references_tests {
             [("main.veln", 10, 30)]
         );
         assert_eq!(dependency_after, dependency_before);
+
+        let workspace_before = query_snapshot(&fixture.accepted, "observe.veln", 3, 13).unwrap();
+        let workspace_after = query_snapshot(&fixture.refreshed, "observe.veln", 3, 13).unwrap();
         assert_eq!(workspace_before.selected_symbol.package_origin, None);
         assert_location(&workspace_before.definition, "observe.veln", 3, 13);
         assert_eq!(workspace_after, workspace_before);
@@ -986,33 +1018,39 @@ mod navigation_handler_references_tests {
             locations(&workspace_before.references),
             [("observe.veln", 8, 17)]
         );
-        assert_eq!(
-            query_snapshot(&accepted, "main.veln", 6, 30),
-            Some(before.clone())
-        );
+    }
 
+    fn assert_standard_handler_virtual_sources(fixture: &StandardHandlerRevisionFixture) {
         assert_eq!(
-            accepted.resolve_virtual_source(&standard_uri),
-            Some(original.as_bytes())
+            fixture.accepted.resolve_virtual_source(&fixture.standard_uri),
+            Some(ORIGINAL_STANDARD_HANDLER.as_bytes())
         );
         assert_eq!(
-            refreshed.resolve_virtual_source(&updated_standard_uri),
-            Some(changed.as_bytes())
+            fixture
+                .refreshed
+                .resolve_virtual_source(&fixture.updated_standard_uri),
+            Some(UPDATED_STANDARD_HANDLER.as_bytes())
         );
         assert_eq!(
-            accepted.resolve_virtual_source(&dependency_uri),
-            Some(dependency_source.as_bytes())
+            fixture.accepted.resolve_virtual_source(&fixture.dependency_uri),
+            Some(DEPENDENCY_HANDLER.as_bytes())
         );
         assert_eq!(
-            refreshed.resolve_virtual_source(&dependency_uri),
-            Some(dependency_source.as_bytes())
+            fixture.refreshed.resolve_virtual_source(&fixture.dependency_uri),
+            Some(DEPENDENCY_HANDLER.as_bytes())
         );
         assert!(
-            accepted
-                .resolve_virtual_source(&updated_standard_uri)
+            fixture
+                .accepted
+                .resolve_virtual_source(&fixture.updated_standard_uri)
                 .is_none()
         );
-        assert!(refreshed.resolve_virtual_source(&standard_uri).is_none());
+        assert!(
+            fixture
+                .refreshed
+                .resolve_virtual_source(&fixture.standard_uri)
+                .is_none()
+        );
     }
 
     #[test]

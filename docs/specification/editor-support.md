@@ -1337,5 +1337,5 @@ declaration-inclusive pagination behavior.
 Focused regressions in
 [`navigation_handler_references.rs`](../../crates/veln-language-service/src/tests/navigation_handler_references.rs)
 and
-[`handler_references.rs`](../../crates/veln-lsp/src/tests/handler_references.rs)
+[`standard_handler_owner_revision.rs`](../../crates/veln-lsp/src/tests/standard_handler_owner_revision.rs)
 verify equal-name owner separation and exact retained `std` revision identity.

@@ -41,8 +41,8 @@ has the same not-found result as a malformed or noncanonical URI.
 When two project snapshots retain different standard-library source bytes,
 each snapshot resolves only the canonical `std` URI for its own retained
 revision. The other revision's URI has the not-found result. A direct
-dependency whose identity and source bytes are unchanged keeps the same URI
-and remains resolvable in both snapshots.
+dependency whose package identity and captured revision are unchanged keeps
+the same URI and remains resolvable in both snapshots.
 
 The LSP resolver retains one URI-to-bytes entry for each distinct dependency
 virtual source exposed by a replaced layer and not available from the current
