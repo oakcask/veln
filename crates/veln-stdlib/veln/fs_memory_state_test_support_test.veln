@@ -34,6 +34,8 @@ end
 pub type Fault
 	pub Transfer(operation: String, actual: Int, delivered: Int, prefix: Int, known: Bool)
 	pub Mutation(operation: String, actual: Bool, committed: bytes_io::Commit)
+	pub Seek(actual: Bool, known: Bool)
+	pub Query(operation: String, kind: bytes_io::ErrorKind)
 end
 
 pub type State
@@ -342,6 +344,8 @@ fn fault_operation(fault: Fault) -> String
 	match fault
 		Fault::Transfer(operation, _, _, _, _) => operation
 		Fault::Mutation(operation, _, _) => operation
+		Fault::Seek(_, _) => "seek"
+		Fault::Query(operation, _) => operation
 	end
 end
 
@@ -466,6 +470,39 @@ fn scripted_mutation(before: State, step: {state: State, result: api::MutationOu
 			_ => step
 		end
 		_ => step
+	end
+end
+
+fn scripted_seek(state: State, context: {slot: Int, origin: bytes_io::SeekOrigin}) -> {state: State, result: Result<ByteOffset, bytes_io::Error>}
+	let selected = select_fault(faults(state), "seek")
+	let step = seek_step(state, context)
+	match selected.selected
+		Some(Fault::Seek(actual, known)) => match step.result
+			Ok(_) => begin
+				let _ = checked_fact(not known or not actual)
+				let changed = script(if actual
+					step.state
+				else
+					state
+				end, selected.remaining)
+				let next = if known
+					changed
+				else
+					hide_cursor(changed, context.slot, None)
+				end
+				{state: next, result: Err(error("seek", "", bytes_io::ErrorKind::Other))}
+			end
+			Err(_) => step
+		end
+		_ => step
+	end
+end
+
+fn query_failure(state: State, operation: String, name: String) -> {state: State, error: Option<bytes_io::Error>}
+	let selected = select_fault(faults(state), operation)
+	match selected.selected
+		Some(Fault::Query(_, kind)) => {state: script(state, selected.remaining), error: Some(error(operation, name, kind))}
+		_ => {state: state, error: None}
 	end
 end
 
@@ -806,7 +843,15 @@ pub fn sync(state: State, slot: Int) -> {state: State, result: Result<(), bytes_
 		Ok(_) => Ok(())
 		Err(failure) => Err(failure)
 	end
-	{state: set_events(state, Cons(Event::Synced(slot, result), events(state))), result: result}
+	let selected: {state: State, error: Option<bytes_io::Error>} = match result
+		Ok(_) => query_failure(state, "sync", "")
+		Err(_) => {state: state, error: None}
+	end
+	let final_result: Result<(), bytes_io::Error> = match selected.error
+		Some(failure) => Err(failure)
+		None => result
+	end
+	{state: set_events(selected.state, Cons(Event::Synced(slot, final_result), events(selected.state))), result: final_result}
 end
 
 fn mutation_failed(state: State, failure: bytes_io::Error) -> {state: State, result: api::MutationOutcome}
@@ -868,7 +913,7 @@ pub fn write(state: State, context: {slot: Int, bytes: ByteChunk, positional: Op
 end
 
 pub fn seek(state: State, context: {slot: Int, origin: bytes_io::SeekOrigin}) -> {state: State, result: Result<ByteOffset, bytes_io::Error>}
-	let next = seek_step(state, context)
+	let next = scripted_seek(state, context)
 	{state: set_events(next.state, Cons(Event::Sought(context.slot, context.origin, next.result), events(next.state))), result: next.result}
 end
 
@@ -906,7 +951,15 @@ pub fn metadata(state: State, context: {name: String, follow: api::FollowLinks})
 			entry => Ok({kind: kind(entry), length: None})
 		end
 	end
-	{state: set_events(state, Cons(Event::Metadata(context.name, context.follow, result), events(state))), result: result}
+	let selected: {state: State, error: Option<bytes_io::Error>} = match result
+		Ok(_) => query_failure(state, "metadata", context.name)
+		Err(_) => {state: state, error: None}
+	end
+	let final_result: Result<api::Metadata, bytes_io::Error> = match selected.error
+		Some(failure) => Err(failure)
+		None => result
+	end
+	{state: set_events(selected.state, Cons(Event::Metadata(context.name, context.follow, final_result), events(selected.state))), result: final_result}
 end
 
 fn child_of(parent: String, name: String) -> Bool
@@ -965,7 +1018,15 @@ pub fn entries(state: State, name: String) -> {state: State, result: Result<List
 			_ => Err(error("entries", name, bytes_io::ErrorKind::NotDirectory))
 		end
 	end
-	{state: set_events(state, Cons(Event::Entries(name, result), events(state))), result: result}
+	let selected: {state: State, error: Option<bytes_io::Error>} = match result
+		Ok(_) => query_failure(state, "entries", name)
+		Err(_) => {state: state, error: None}
+	end
+	let final_result: Result<List<api::Entry>, bytes_io::Error> = match selected.error
+		Some(failure) => Err(failure)
+		None => result
+	end
+	{state: set_events(selected.state, Cons(Event::Entries(name, final_result), events(selected.state))), result: final_result}
 end
 
 fn raw_name(state: State, operation: String, name: String) -> Result<String, bytes_io::Error>

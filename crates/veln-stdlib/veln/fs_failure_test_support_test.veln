@@ -466,3 +466,202 @@ pub fn failed_open(creating: Bool, actual: Bool, committed: String) -> Result<()
 		Err("failed-open plan or unpublished-resource cleanup was lost or repeated")
 	end
 end
+
+fn arm(state: model::State, faults: List<model::Fault>) -> {state: model::State, result: ()}
+	{state: model::script(state, faults), result: ()}
+end
+
+fn seek_exercise(cell: provider::State<model::State>, filesystem: api::Filesystem, actual: Bool, known: Bool) -> Result<(), String> effects [api::Read, io::Read, io::ReadAt, io::Seek, concurrency]
+	let path: portable::Path = match portable::parse("data")
+		Ok(value) => Ok(value)
+		Err(_) => Err("invalid seek fixture path")
+	end?
+	let file: api::ReadFile = match api::open_read(filesystem, path)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	let initial = text(io::read(file.reader, byte_count(2)?))?
+	let _ = provider::update(cell, Cons(model::Fault::Seek(actual, known), Nil), arm)
+	let failed = match io::seek(file.seeker, io::SeekOrigin::Start(byte_offset(4)?))
+		Err(failure) => failure_matches(failure, "seek")
+		Ok(_) => false
+	end
+	let after = memory::snapshot(cell)
+	let actual_matches = known_position(model::actual_cursor(after, 10), if actual
+		4
+	else
+		2
+	end)
+	let position_matches = if known
+		known_position(model::cursor(after, 10), 2)
+	else
+		unknown_position(model::cursor(after, 10))
+	end
+	let positional = text(io::read_at(file.reader_at, byte_offset(3)?, byte_count(1)?))?
+	let after_positional = memory::snapshot(cell)
+	let retained_position = if known
+		known_position(model::cursor(after_positional, 10), 2)
+	else
+		unknown_position(model::cursor(after_positional, 10))
+	end
+	let restored = if known
+		begin
+			let relative = match io::seek(file.seeker, io::SeekOrigin::Current(0))
+				Ok(position) => byte_offset_to_int(position) == 2
+				Err(_) => false
+			end
+			let next = text(io::read(file.reader, byte_count(1)?))?
+			relative and next == "c"
+		end
+	else
+		begin
+			let current_rejected = cursor_rejected(io::seek(file.seeker, io::SeekOrigin::Current(0)))
+			let end_rejected = cursor_rejected(io::seek(file.seeker, io::SeekOrigin::End(0)))
+			let start = match io::seek(file.seeker, io::SeekOrigin::Start(byte_offset(1)?))
+				Ok(position) => byte_offset_to_int(position) == 1
+				Err(_) => false
+			end
+			let next = text(io::read(file.reader, byte_count(1)?))?
+			current_rejected and end_rejected and start and next == "b"
+		end
+	end
+	let unchanged_bytes = match dict_get(model::contents(after), 1)
+		Some(bytes) => byte_chunk_to_visible_ascii_string(bytes)? == "abcdef"
+		None => false
+	end
+	if initial == "ab" and failed and actual_matches and position_matches and positional == "d" and retained_position and restored and unchanged_bytes
+		Ok(())
+	else
+		Err("failed seek lost actual position, cursor knowledge, unchanged bytes, or absolute-seek recovery")
+	end
+end
+
+fn seek_owned(cell: provider::State<model::State>, actual: Bool, known: Bool) -> Result<(), String> effects [provider::Scope, concurrency]
+	let owner = provider::owner()
+	let filesystem: api::Filesystem = match memory::readonly(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	handle handle handle handle handle seek_exercise(cell, filesystem, actual, known) with memory::namespace(owner, 1, cell) with memory::reading(owner, cell) with memory::reading_at(owner, cell) with memory::seeking(owner, cell) with memory::closing(owner, cell)
+end
+
+pub fn failed_seek(actual: Bool, known: Bool) -> Result<(), String> effects [concurrency]
+	let cell = memory::cell(model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcdef")?))
+	handle seek_owned(cell, actual, known) with provider::scope()
+end
+
+fn query_exercise(cell: provider::State<model::State>, filesystem: api::MutableFilesystem, operation: String, unsupported: Bool) -> Result<(), String> effects [api::Read, api::Mutate, io::Read, io::Sync, concurrency]
+	let data: portable::Path = match portable::parse("data")
+		Ok(value) => Ok(value)
+		Err(_) => Err("invalid query fixture path")
+	end?
+	let link: portable::Path = match portable::parse("link")
+		Ok(value) => Ok(value)
+		Err(_) => Err("invalid link fixture path")
+	end?
+	let file: api::UpdateFile = match api::open_read_write(filesystem, data, {create: api::CreateMode::Existing, truncate: false})
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	let initial = text(io::read(file.reader, byte_count(2)?))?
+	let kind = if unsupported
+		io::ErrorKind::Unsupported
+	else
+		io::ErrorKind::Other
+	end
+	let _ = provider::update(cell, Cons(model::Fault::Query(operation, kind), Nil), arm)
+	let selected = if operation == "entries"
+		portable::root()
+	else if unsupported and operation == "metadata"
+		link
+	else
+		data
+	end
+	let follow = if unsupported
+		api::FollowLinks::NoFollow
+	else
+		api::FollowLinks::Follow
+	end
+	let failure: Option<io::Error> = if operation == "sync"
+		match io::sync(file.syncer)
+			Err(error) => Some(error)
+			Ok(_) => None
+		end
+	else if operation == "entries"
+		match api::entries(api::read_only(filesystem), selected)
+			Err(error) => Some(error)
+			Ok(_) => None
+		end
+	else
+		match api::metadata(api::read_only(filesystem), selected, follow)
+			Err(error) => Some(error)
+			Ok(_) => None
+		end
+	end
+	let failed = match failure
+		Some(error) => error.operation == operation and path_matches(error.path, if operation == "sync"
+			""
+		else
+			portable::text(selected)
+		end) and (match error.kind
+			io::ErrorKind::Unsupported => unsupported
+			io::ErrorKind::Other => not unsupported
+			_ => false
+		end)
+		None => false
+	end
+	let after = memory::snapshot(cell)
+	let preserved = known_position(model::cursor(after, 10), 2) and known_position(model::actual_cursor(after, 10), 2) and dict_contains(model::bindings(after), "data") and dict_contains(model::bindings(after), "link")
+	let contents = match dict_get(model::contents(after), 1)
+		Some(bytes) => byte_chunk_to_visible_ascii_string(bytes)? == "abcdef"
+		None => false
+	end
+	let retry = if operation == "sync"
+		match io::sync(file.syncer)
+			Ok(_) => true
+			Err(_) => false
+		end
+	else if operation == "entries"
+		match api::entries(api::read_only(filesystem), selected)
+			Ok(entries) => match entries
+				Cons(first, Cons(second, Nil)) => portable::text(first.name) == "data" and portable::text(second.name) == "link"
+				_ => false
+			end
+			Err(_) => false
+		end
+	else
+		match api::metadata(api::read_only(filesystem), selected, follow)
+			Ok(value) => match value.kind
+				api::Kind::SymbolicLink => unsupported
+				api::Kind::RegularFile => not unsupported
+				_ => false
+			end
+			Err(_) => false
+		end
+	end
+	let next = text(io::read(file.reader, byte_count(1)?))?
+	if initial == "ab" and failed and preserved and contents and retry and next == "c"
+		Ok(())
+	else
+		Err("query failure fabricated data or changed namespace, bytes, cursor, error context, or subsequent admission")
+	end
+end
+
+fn query_owned(cell: provider::State<model::State>, operation: String, unsupported: Bool) -> Result<(), String> effects [provider::Scope, concurrency]
+	let owner = provider::owner()
+	let filesystem = match memory::filesystem(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	handle handle handle handle handle query_exercise(cell, filesystem, operation, unsupported) with memory::namespace(owner, 1, cell) with memory::mutations(owner, 1, cell) with memory::reading(owner, cell) with memory::syncing(owner, cell) with memory::closing(owner, cell)
+end
+
+pub fn failed_query(operation: String, unsupported: Bool) -> Result<(), String> effects [concurrency]
+	let initial = model::seed_link(model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcdef")?), "link", "data")
+	let cell = memory::cell(initial)
+	let _ = (handle query_owned(cell, operation, unsupported) with provider::scope())?
+	match model::faults(memory::snapshot(cell))
+		Nil => Ok(())
+		_ => Err("query failure plan was not consumed")
+	end
+end

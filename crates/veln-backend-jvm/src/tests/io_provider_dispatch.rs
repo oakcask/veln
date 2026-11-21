@@ -235,6 +235,60 @@ fn io_provider_system_root_is_a_namespace_view_with_real_link_traversal() {
 }
 
 #[test]
+#[cfg(unix)]
+fn io_provider_host_namespace_failures_preserve_native_bytes_and_bindings() {
+    // This is a real-host translation contract. The Veln fixture checks typed
+    // exception categories and context; Rust independently observes native state.
+    let program = filesystem_host_program("exercise_namespace_failures");
+    let root = temp_dir("io-provider-host-namespace-failures");
+    fs::create_dir_all(root.join("directory")).expect("empty native directory");
+    fs::create_dir_all(root.join("full")).expect("nonempty native directory");
+    fs::write(root.join("data"), b"original").expect("native source");
+    fs::write(root.join("occupied"), b"destination").expect("existing destination");
+    fs::write(root.join("full/child"), b"retained").expect("directory child");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "io-provider-host-namespace-failures",
+        &program,
+        &[root.to_str().expect("fixture root text")],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        fs::read(root.join("data")).expect("preserved source"),
+        b"original"
+    );
+    assert_eq!(
+        fs::read(root.join("occupied")).expect("preserved destination"),
+        b"destination"
+    );
+    assert_eq!(
+        fs::read(root.join("full/child")).expect("preserved child"),
+        b"retained"
+    );
+    assert!(root.join("directory").is_dir());
+    assert!(!root.join("missing").exists());
+    assert!(!root.join("destination").exists());
+    let mut names = fs::read_dir(&root)
+        .expect("native namespace after failures")
+        .map(|entry| {
+            entry
+                .expect("native entry")
+                .file_name()
+                .into_string()
+                .expect("fixture name")
+        })
+        .collect::<Vec<_>>();
+    names.sort();
+    assert_eq!(names, ["data", "directory", "full", "occupied"]);
+    fs::remove_dir_all(&root).expect("remove native failure fixture");
+}
+
+#[test]
 fn io_provider_dispatch_preserves_captured_owner_through_task_freezing() {
     // Reuse the scoped Veln fake as application modules. Only import ownership
     // changes here; no fake filesystem decisions move into Rust or Java.

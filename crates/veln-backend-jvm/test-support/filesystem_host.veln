@@ -214,3 +214,82 @@ fn exercise_memory_copy(filesystem: api::MutableFilesystem) -> Result<(), io::Er
 		Err(failure("real file to Veln memory copy lost provider routing or byte progress"))
 	end
 end
+
+fn error_kind(kind: io::ErrorKind) -> String
+	match kind
+		io::ErrorKind::NotFound => "NotFound"
+		io::ErrorKind::AlreadyExists => "AlreadyExists"
+		io::ErrorKind::NotDirectory => "NotDirectory"
+		io::ErrorKind::IsDirectory => "IsDirectory"
+		io::ErrorKind::DirectoryNotEmpty => "DirectoryNotEmpty"
+		_ => "<unexpected>"
+	end
+end
+
+fn error_path(path: Option<portable::Path>) -> String
+	match path
+		Some(value) => portable::text(value)
+		None => ""
+	end
+end
+
+fn expected_error(error: io::Error, operation: String, path: String, other: String, kind: String) -> Bool
+	error.operation == operation and error_path(error.path) == path and error_path(error.other_path) == other and error_kind(error.kind) == kind
+end
+
+fn expected_mutation(outcome: api::MutationOutcome, operation: String, path: String, other: String, kind: String) -> Result<(), io::Error>
+	match outcome
+		api::MutationOutcome::MutationFailed(io::Commit::No, error) => if expected_error(error, operation, path, other, kind)
+			Ok(())
+		else
+			Err(failure(string::concat(operation, " lost its native failure classification or portable path context")))
+		end
+		_ => Err(failure(string::concat(operation, " did not preserve a proven No mutation result")))
+	end
+end
+
+fn exercise_namespace_failures(filesystem: api::MutableFilesystem) -> Result<(), io::Error> effects [api::Read, api::Mutate]
+	let readonly = api::read_only(filesystem)
+	let missing = match api::open_read(readonly, name("missing")?)
+		Err(error) => expected_error(error, "open_read", "missing", "", "NotFound") and (match error.commit
+			Some(io::Commit::No) => true
+			_ => false
+		end)
+		Ok(_) => false
+	end
+	let directory = match api::open_read(readonly, name("directory")?)
+		Err(error) => expected_error(error, "open_read", "directory", "", "IsDirectory") and (match error.commit
+			Some(io::Commit::No) => true
+			_ => false
+		end)
+		Ok(_) => false
+	end
+	let exclusive = match api::open_write(filesystem, name("data")?, {create: api::CreateMode::CreateNew, truncate: false})
+		Err(error) => expected_error(error, "open_write", "data", "", "AlreadyExists") and (match error.commit
+			Some(io::Commit::No) => true
+			_ => false
+		end)
+		Ok(_) => false
+	end
+	let entries = match api::entries(readonly, name("data")?)
+		Err(error) => expected_error(error, "entries", "data", "", "NotDirectory")
+		Ok(_) => false
+	end
+	let metadata = match api::metadata(readonly, name("missing")?, api::FollowLinks::Follow)
+		Err(error) => expected_error(error, "metadata", "missing", "", "NotFound")
+		Ok(_) => false
+	end
+	let _ = expected_mutation(api::create_directory(filesystem, name("data")?), "create_directory", "data", "", "AlreadyExists")?
+	let _ = expected_mutation(api::create_directory(filesystem, name("missing/child")?), "create_directory", "missing/child", "", "NotFound")?
+	let _ = expected_mutation(api::remove_file(filesystem, name("directory")?), "remove_file", "directory", "", "IsDirectory")?
+	let _ = expected_mutation(api::remove_directory(filesystem, name("data")?), "remove_directory", "data", "", "NotDirectory")?
+	let _ = expected_mutation(api::remove_directory(filesystem, name("full")?), "remove_directory", "full", "", "DirectoryNotEmpty")?
+	let _ = expected_mutation(api::remove_file(filesystem, name("missing")?), "remove_file", "missing", "", "NotFound")?
+	let _ = expected_mutation(api::rename(filesystem, name("data")?, name("occupied")?), "rename", "data", "occupied", "AlreadyExists")?
+	let _ = expected_mutation(api::rename(filesystem, name("missing")?, name("destination")?), "rename", "missing", "destination", "NotFound")?
+	if missing and directory and exclusive and entries and metadata
+		Ok(())
+	else
+		Err(failure("native open/query failure lost its typed classification, commit, or portable path context"))
+	end
+end

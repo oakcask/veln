@@ -840,3 +840,35 @@ end
 test failed_open_preserves_creation_unknown_commit_with_changed_actual_state() -> Result<(), String> effects [concurrency]
 	failures::failed_open(true, true, "unknown")
 end
+
+test failed_seek_preserves_known_cursor_knowledge_with_unchanged_actual_position() -> Result<(), String> effects [concurrency]
+	failures::failed_seek(false, true)
+end
+
+test failed_seek_preserves_unknown_cursor_knowledge_with_unchanged_actual_position() -> Result<(), String> effects [concurrency]
+	failures::failed_seek(false, false)
+end
+
+test failed_seek_preserves_unknown_cursor_knowledge_with_changed_actual_position() -> Result<(), String> effects [concurrency]
+	failures::failed_seek(true, false)
+end
+
+test sync_ordinary_failure_preserves_filesystem_state_and_error_context() -> Result<(), String> effects [concurrency]
+	failures::failed_query("sync", false)
+end
+
+test sync_unsupported_failure_preserves_filesystem_state_and_error_context() -> Result<(), String> effects [concurrency]
+	failures::failed_query("sync", true)
+end
+
+test metadata_ordinary_failure_preserves_filesystem_state_and_error_context() -> Result<(), String> effects [concurrency]
+	failures::failed_query("metadata", false)
+end
+
+test metadata_unsupported_failure_preserves_filesystem_state_and_error_context() -> Result<(), String> effects [concurrency]
+	failures::failed_query("metadata", true)
+end
+
+test entries_ordinary_failure_preserves_filesystem_state_and_error_context() -> Result<(), String> effects [concurrency]
+	failures::failed_query("entries", false)
+end
