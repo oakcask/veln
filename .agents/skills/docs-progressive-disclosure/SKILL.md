@@ -44,7 +44,11 @@ require reading the policy or loading this skill.
 - Run the frontmatter checker for added, moved, reclassified, or substantially
   revised Markdown.
 - Run the link checker and search for stale links when routes or links change.
-- Inspect `update-when` selectors when ownership or update routing changes.
+- Scan `update-when` selectors under `docs/` against the change to identify
+  documents that need updating. Also inspect the repository-root `README.md`
+  for stale installation requirements, command examples, feature summaries,
+  and documentation links, even though it has no `update-when` field. Update
+  affected documentation before finishing.
 - Confirm that routing pages contain discovery information and point to the
   smallest current authority.
 - Confirm that the change leaves no updated same-scope short/full pair, that
