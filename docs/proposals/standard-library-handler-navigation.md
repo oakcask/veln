@@ -17,8 +17,10 @@ adopt the resulting contract.
 ## Remaining Acceptance And Verification
 
 The acceptance rows below describe the remaining matrix-level coverage. The
-current specifications and focused tests already own the individual rejection
-guards they describe; those guards are not requirements of this proposal.
+current specifications and focused tests already own the S1 and S2 private,
+non-exported, invalid-cased, duplicate, and recovered declaration guards, plus
+the repeated and recovered import guards. Those guards are not requirements of
+this proposal. The rejection inputs listed in S5 remain planned work.
 
 | Case | Input | Required observation | Planned evidence |
 | --- | --- | --- | --- |
