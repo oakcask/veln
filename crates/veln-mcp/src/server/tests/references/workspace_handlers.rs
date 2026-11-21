@@ -828,7 +828,7 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
             column: 17,
         },
         RejectedImportedHandlerCase {
-            name: "direct-dependency",
+            name: "unretained-direct-dependency",
             manifest: "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
             files: &[
                 (
@@ -849,7 +849,7 @@ fn imported_workspace_handler_navigation_rejects_h4_boundaries_without_losing_st
             column: 22,
         },
         RejectedImportedHandlerCase {
-            name: "standard-library",
+            name: "unavailable-standard-library-handler",
             manifest: "",
             files: &[(
                 "case.veln",
