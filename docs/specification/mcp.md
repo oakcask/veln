@@ -1083,6 +1083,15 @@ Selecting any matching complete application in the saved project returns the
 canonical `veln-pkg:` declaration as its definition and the deterministic set
 of matching application locations in that project as its references. Each
 returned range covers only the handler name.
+Equal module and handler names in a direct dependency or the workspace remain
+separate owners and do not replace the selected `std` declaration or enter its
+reference set. The definition and optional package declaration preserve the
+exact retained standard-library revision's canonical `veln-pkg:` identity.
+Servers retaining different standard-library source revisions therefore
+project distinct standard-library URIs while unchanged dependency and
+workspace owners keep their identities. An exact source-resource read succeeds
+only on the server that retains the selected revision; it does not normalize or
+fall back to another revision or a package build path.
 
 For project scope, `include_declaration: true` adds that package declaration
 exactly once before sorting and pagination; false omits it. Single-file and
@@ -1325,3 +1334,9 @@ across declaration-inclusive continuation pages.
 It repeats that comparison for a retained standard-library handler selected
 through standard-library-relative, canonical `std::`-qualified, and
 unique-alias applications.
+Focused regressions in
+[`navigation_handler_references.rs`](../../crates/veln-language-service/src/tests/navigation_handler_references.rs)
+and
+[`workspace_handlers.rs`](../../crates/veln-mcp/src/server/tests/references/workspace_handlers.rs)
+verify equal-name owner separation, exact retained `std` revision identity,
+and revision-scoped source-resource reads.

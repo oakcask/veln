@@ -879,6 +879,143 @@ mod navigation_handler_references_tests {
     }
 
     #[test]
+    fn standard_library_handlers_keep_owner_and_revision_across_snapshots() {
+        let original = "pub handler noop() for Observe\n  record() => 1\nend\n";
+        let changed = "\npub handler noop() for Observe\n  record() => 2\nend\n";
+        let standard_library =
+            standard_library_snapshot(&[("observe.veln", original)], ["observe.veln"]);
+        let updated_standard_library =
+            standard_library_snapshot(&[("observe.veln", changed)], ["observe.veln"]);
+        let standard_uri = standard_library
+            .virtual_sources()
+            .next()
+            .unwrap()
+            .0
+            .to_owned();
+        let updated_standard_uri = updated_standard_library
+            .virtual_sources()
+            .next()
+            .unwrap()
+            .0
+            .to_owned();
+        assert_ne!(standard_uri, updated_standard_uri);
+
+        let dependency_source = "pub handler noop() for Observe\n  record() => 3\nend\n";
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[("observe.veln", dependency_source)],
+            ["observe.veln"],
+        );
+        let dependency_uri = dependency
+            .virtual_sources()
+            .next()
+            .unwrap()
+            .0
+            .to_owned();
+        let sources = vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use observe as std_observe from \"std\"\n",
+                    "use observe as dep_observe from \"example/dep\"\n",
+                    "# The same-spelled workspace owner is selected in observe.veln.\n\n",
+                    "fn standard() -> Int\n  handle 1 with std_observe::noop()\nend\n\n",
+                    "fn dependency() -> Int\n  handle 2 with dep_observe::noop()\nend\n",
+                ),
+            ),
+            source(
+                "observe.veln",
+                concat!(
+                    "mod observe\n\n",
+                    "pub handler noop() for Observe\n  record() => 4\nend\n\n",
+                    "fn local() -> Int\n  handle 4 with noop()\nend\n",
+                ),
+            ),
+        ];
+        let accepted = EffectiveProjectSnapshot::with_direct_dependencies(
+            sources.clone(),
+            vec![dependency.clone()],
+        )
+        .with_standard_library(standard_library);
+        let refreshed =
+            EffectiveProjectSnapshot::with_direct_dependencies(sources, vec![dependency])
+                .with_standard_library(updated_standard_library);
+
+        let before = query_snapshot(&accepted, "main.veln", 6, 30).unwrap();
+        let after = query_snapshot(&refreshed, "main.veln", 6, 30).unwrap();
+        let dependency_before = query_snapshot(&accepted, "main.veln", 10, 30).unwrap();
+        let dependency_after = query_snapshot(&refreshed, "main.veln", 10, 30).unwrap();
+        let workspace_before = query_snapshot(&accepted, "observe.veln", 3, 13).unwrap();
+        let workspace_after = query_snapshot(&refreshed, "observe.veln", 3, 13).unwrap();
+
+        for (result, uri, line) in [
+            (&before, &standard_uri, 1),
+            (&after, &updated_standard_uri, 2),
+        ] {
+            assert_eq!(
+                result.selected_symbol.package_origin,
+                Some(PackageOrigin::StandardLibrary)
+            );
+            assert_eq!(
+                result.definition.source,
+                NavigationSource::Package { uri: uri.clone() }
+            );
+            assert_eq!(result.definition.span.file.as_str(), "observe.veln");
+            assert_eq!(result.definition.span.start.line, line);
+            assert_eq!(locations(&result.references), [("main.veln", 6, 30)]);
+        }
+        assert_eq!(
+            dependency_before.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+        assert_eq!(
+            dependency_before.definition.source,
+            NavigationSource::Package {
+                uri: dependency_uri.clone()
+            }
+        );
+        assert_eq!(
+            locations(&dependency_before.references),
+            [("main.veln", 10, 30)]
+        );
+        assert_eq!(dependency_after, dependency_before);
+        assert_eq!(workspace_before.selected_symbol.package_origin, None);
+        assert_location(&workspace_before.definition, "observe.veln", 3, 13);
+        assert_eq!(workspace_after, workspace_before);
+        assert_eq!(
+            locations(&workspace_before.references),
+            [("observe.veln", 8, 17)]
+        );
+        assert_eq!(
+            query_snapshot(&accepted, "main.veln", 6, 30),
+            Some(before.clone())
+        );
+
+        assert_eq!(
+            accepted.resolve_virtual_source(&standard_uri),
+            Some(original.as_bytes())
+        );
+        assert_eq!(
+            refreshed.resolve_virtual_source(&updated_standard_uri),
+            Some(changed.as_bytes())
+        );
+        assert_eq!(
+            accepted.resolve_virtual_source(&dependency_uri),
+            Some(dependency_source.as_bytes())
+        );
+        assert_eq!(
+            refreshed.resolve_virtual_source(&dependency_uri),
+            Some(dependency_source.as_bytes())
+        );
+        assert!(
+            accepted
+                .resolve_virtual_source(&updated_standard_uri)
+                .is_none()
+        );
+        assert!(refreshed.resolve_virtual_source(&standard_uri).is_none());
+    }
+
+    #[test]
     fn direct_dependency_handlers_keep_exact_owners_across_captured_revisions() {
         let original = "pub handler run() for Work\n  go() => 1\nend\n";
         let changed = "\npub handler run() for Work\n  go() => 2\nend\n";

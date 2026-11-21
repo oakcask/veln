@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The planned standard-library handler owner, revision, source, project, rejection, or retained-state matrices or their executable evidence change.
+update-when: The planned standard-library handler source, project, rejection, or retained-state matrices or their executable evidence change.
 ---
 
 # Standard-Library Handler Navigation
@@ -8,9 +8,9 @@ update-when: The planned standard-library handler owner, revision, source, proje
 Current standard-library handler selection and adapter projection are specified
 by [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
 and [MCP](../specification/mcp.md#saved-workspace-navigation). Checked shared,
-LSP, MCP transcript, and cross-adapter evidence owns the implemented S1 and S2
-surface. This proposal retains the remaining contract detail and evidence work
-for S3 through S6. Current specifications continue to own the general
+LSP, MCP transcript, and cross-adapter evidence owns the implemented S1 through
+S3 surface. This proposal retains the remaining contract detail and evidence
+work for S4 through S6. Current specifications continue to own the general
 selected-project, package-location, and failure-state rules that apply to
 standard-library handlers. The remaining rows track standard-library-specific
 matrix coverage and any contract detail not yet adopted by those
@@ -20,7 +20,6 @@ specifications.
 
 | Case | Input | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| S3: owner and revision isolation | Provide equal module and handler names in a dependency and workspace module, then repeat the selection across sequential snapshots with different retained standard-library revisions. | Each selection retains its exact `std` owner and revision. No location is rewritten to another owner or stale revision. | Shared-language-service collision tests plus adapter snapshot tests. |
 | S4: source and project boundaries | Place equal applications in standard-library bodies, a different workspace project, comments, and strings, then select each workspace project independently. | Each result contains only applications from its selected saved project and exposes no standard-library build path. | MCP project-isolation tests plus focused LSP virtual-document cases. |
 | S5: remaining rejection table | Use transitive, mismatched, unresolved, incomplete, additionally qualified, test-only, and wrong-kind inputs alongside an unrelated valid handler identity. | Every input keeps its existing empty or separate result without contaminating the unrelated valid identity. | Table-driven shared-selection and adapter negative tests. |
 | S6: retained state | Keep a live MCP cursor, then reject a workspace capture and trigger resource-admission, position, and cursor failures. | Capture and admission failures publish no partial result or resource. Position and cursor failures preserve the prior declaration, workspace result, resources, and existing cursors at their original snapshots. | Focused MCP refresh, capacity, capture-failure, position, and cursor tests. |
@@ -36,9 +35,9 @@ runtime behavior. Identity and rejection matrices belong in
 retained-package handler identity and LSP and MCP projection for direct
 dependencies. The current implementation now reuses those handler traversal,
 package declaration, adapter, and failure-state boundaries for the implemented
-standard-library selection. That reuse supports S1 and S2, but it does not
-establish the remaining standard-library-specific isolation, rejection, or
-retained-state observations planned below.
+standard-library selection. That reuse and the current owner and revision
+evidence support S1 through S3, but they do not establish the S4 project, S5
+rejection, or S6 retained-state observations in the table above.
 
 [Veln PR #1251](https://github.com/oakcask/veln/pull/1251) added retained
 embedded-standard-library definitions and readable immutable virtual sources.
@@ -75,9 +74,9 @@ contracts are the relevant related work for this bounded extension.
 
 ## Implementation And Specification Route
 
-Implement S3 through S6 as separately reviewable contract and evidence
+Implement S4 through S6 as separately reviewable contract and evidence
 additions. Add each executable matrix before promoting its observations into
 the current specifications. Do not infer identity from spelling or introduce
 an adapter-specific handler scan. Remove this page and its Ready catalog entry
-when all four remaining rows are covered and the current specifications and
+when all three remaining rows are covered and the current specifications and
 executable evidence own those boundaries.
