@@ -5,6 +5,7 @@ use path as portable
 use io_provider
 use fs_memory_state_test_support_test as model
 use fs_memory_test_support_test as memory
+use io_admission_test_support_test as admission
 
 fn name(text: String) -> Result<portable::Path, String>
 	match portable::parse(text)
@@ -649,4 +650,32 @@ test filesystem_selection_can_be_injected_without_host_fs_effects() -> Result<()
 	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcd")?)
 	let cell = memory::cell(initial)
 	handle fake_selection_scope(cell) with io_provider::scope()
+end
+
+test read_admission_rejects_every_overlapping_operation_without_changing_state() -> Result<(), String> effects [concurrency]
+	admission::run("read")
+end
+
+test write_admission_rejects_every_overlapping_operation_without_changing_state() -> Result<(), String> effects [concurrency]
+	admission::run("write")
+end
+
+test read_at_admission_rejects_every_overlapping_operation_without_changing_state() -> Result<(), String> effects [concurrency]
+	admission::run("read_at")
+end
+
+test write_at_admission_rejects_every_overlapping_operation_without_changing_state() -> Result<(), String> effects [concurrency]
+	admission::run("write_at")
+end
+
+test seek_admission_rejects_every_overlapping_operation_without_changing_state() -> Result<(), String> effects [concurrency]
+	admission::run("seek")
+end
+
+test truncate_admission_rejects_every_overlapping_operation_without_changing_state() -> Result<(), String> effects [concurrency]
+	admission::run("truncate")
+end
+
+test sync_admission_rejects_every_overlapping_operation_without_changing_state() -> Result<(), String> effects [concurrency]
+	admission::run("sync")
 end

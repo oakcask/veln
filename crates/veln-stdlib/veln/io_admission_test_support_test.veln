@@ -1,0 +1,273 @@
+use prelude
+use fs as api
+use io
+use io_provider as provider
+use fs_memory_test_support_test as memory
+use fs_memory_state_test_support_test as model
+
+fn pause(target: String, operation: String, entered: Sender<String>, gate: Receiver<String>) -> () effects [concurrency]
+	if target == operation
+		begin
+			let _ = channel::send(entered, operation)
+			let _ = channel::recv(gate)
+			()
+		end
+	else
+		()
+	end
+end
+
+handler reading(owner: provider::Owner, cell: provider::State<model::State>, target: String, entered: Sender<String>, gate: Receiver<String>) for io::Read effects [concurrency]
+	read(reader, maximum) => begin
+		pause(target, "read", entered, gate)
+		handle perform io::Read::read(reader, maximum) with memory::reading(owner, cell)
+	end
+end
+
+handler writing(owner: provider::Owner, cell: provider::State<model::State>, target: String, entered: Sender<String>, gate: Receiver<String>) for io::Write effects [concurrency]
+	write(writer, bytes) => begin
+		pause(target, "write", entered, gate)
+		handle perform io::Write::write(writer, bytes) with memory::writing(owner, cell)
+	end
+end
+
+handler reading_at(owner: provider::Owner, cell: provider::State<model::State>, target: String, entered: Sender<String>, gate: Receiver<String>) for io::ReadAt effects [concurrency]
+	read_at(reader, offset, maximum) => begin
+		pause(target, "read_at", entered, gate)
+		handle perform io::ReadAt::read_at(reader, offset, maximum) with memory::reading_at(owner, cell)
+	end
+end
+
+handler writing_at(owner: provider::Owner, cell: provider::State<model::State>, target: String, entered: Sender<String>, gate: Receiver<String>) for io::WriteAt effects [concurrency]
+	write_at(writer, offset, bytes) => begin
+		pause(target, "write_at", entered, gate)
+		handle perform io::WriteAt::write_at(writer, offset, bytes) with memory::writing_at(owner, cell)
+	end
+end
+
+handler seeking(owner: provider::Owner, cell: provider::State<model::State>, target: String, entered: Sender<String>, gate: Receiver<String>) for io::Seek effects [concurrency]
+	seek(seeker, origin) => begin
+		pause(target, "seek", entered, gate)
+		handle perform io::Seek::seek(seeker, origin) with memory::seeking(owner, cell)
+	end
+end
+
+handler syncing(owner: provider::Owner, cell: provider::State<model::State>, target: String, entered: Sender<String>, gate: Receiver<String>) for io::Sync effects [concurrency]
+	sync(syncer) => begin
+		pause(target, "sync", entered, gate)
+		handle perform io::Sync::sync(syncer) with memory::syncing(owner, cell)
+	end
+end
+
+handler mutations(owner: provider::Owner, cell: provider::State<model::State>, target: String, entered: Sender<String>, gate: Receiver<String>) for api::Mutate effects [concurrency]
+	open_write(filesystem, path, mode) => Err(model::error("unused open", "", io::ErrorKind::Unsupported))
+	open_read_write(filesystem, path, mode) => Err(model::error("unused open", "", io::ErrorKind::Unsupported))
+	open_append(filesystem, path, create) => Err(model::error("unused open", "", io::ErrorKind::Unsupported))
+	create_directory(filesystem, path) => api::MutationOutcome::MutationFailed(io::Commit::No, model::error("unused mutation", "", io::ErrorKind::Unsupported))
+	remove_file(filesystem, path) => api::MutationOutcome::MutationFailed(io::Commit::No, model::error("unused mutation", "", io::ErrorKind::Unsupported))
+	remove_directory(filesystem, path) => api::MutationOutcome::MutationFailed(io::Commit::No, model::error("unused mutation", "", io::ErrorKind::Unsupported))
+	rename(filesystem, source, target) => api::MutationOutcome::MutationFailed(io::Commit::No, model::error("unused mutation", "", io::ErrorKind::Unsupported))
+	truncate(file, size) => begin
+		pause(target, "truncate", entered, gate)
+		handle perform api::Mutate::truncate(file, size) with memory::mutations(owner, 90, cell)
+	end
+end
+
+fn file(owner: provider::Owner, cell: provider::State<model::State>, target: String, entered: Sender<String>, gate: Receiver<String>) -> Result<api::UpdateFile, io::Error> effects [concurrency]
+	let opened = provider::update(cell, {name: "data", family: provider::ViewFamily::UpdateFile, create: api::CreateMode::Existing, truncate: false}, model::open)?
+	let raw = handle handle handle handle handle handle handle handle provider::resource(owner, opened.slot, provider::ViewFamily::UpdateFile) with reading(owner, cell, target, entered, gate) with writing(owner, cell, target, entered, gate) with reading_at(owner, cell, target, entered, gate) with writing_at(owner, cell, target, entered, gate) with seeking(owner, cell, target, entered, gate) with syncing(owner, cell, target, entered, gate) with mutations(owner, cell, target, entered, gate) with memory::closing(owner, cell)
+	provider::update_file(raw?)
+end
+
+fn busy(error: io::Error, operation: String) -> Bool
+	error.operation == operation and match error.kind
+		io::ErrorKind::Busy => true
+		_ => false
+	end
+end
+
+fn read_busy(reply: io::ReadOutcome, operation: String) -> Bool
+	match reply
+		io::ReadOutcome::ReadFailed(bytes, io::Progress::Known(prefix), error) => byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(prefix) == 0 and busy(error, operation)
+		_ => false
+	end
+end
+
+fn write_busy(reply: io::WriteOutcome, operation: String) -> Bool
+	match reply
+		io::WriteOutcome::WriteFailed(io::Progress::Known(prefix), error) => byte_count_to_int(prefix) == 0 and busy(error, operation)
+		_ => false
+	end
+end
+
+fn seek_busy(reply: Result<ByteOffset, io::Error>) -> Bool
+	match reply
+		Err(error) => busy(error, "seek")
+		_ => false
+	end
+end
+
+fn sync_busy(reply: Result<(), io::Error>) -> Bool
+	match reply
+		Err(error) => busy(error, "sync")
+		_ => false
+	end
+end
+
+fn truncate_busy(reply: api::MutationOutcome) -> Bool
+	match reply
+		api::MutationOutcome::MutationFailed(io::Commit::No, error) => busy(error, "truncate")
+		_ => false
+	end
+end
+
+fn read_is(reply: io::ReadOutcome, expected: String) -> Bool
+	match reply
+		io::ReadOutcome::Data(bytes) => match byte_chunk_to_visible_ascii_string(bytes)
+			Ok(text) => text == expected
+			_ => false
+		end
+		_ => false
+	end
+end
+
+fn written(reply: io::WriteOutcome) -> Bool
+	match reply
+		io::WriteOutcome::Written(count) => byte_count_to_int(count) == 1
+		_ => false
+	end
+end
+
+fn succeeded(reply: Result<(), io::Error>) -> Bool
+	match reply
+		Ok(()) => true
+		_ => false
+	end
+end
+
+fn applied(reply: api::MutationOutcome) -> Bool
+	match reply
+		api::MutationOutcome::Applied => true
+		_ => false
+	end
+end
+
+fn cursor_is(state: model::State, slot: Int, expected: Int) -> Bool
+	match model::cursor(state, slot)
+		Some(value) => value == expected
+		_ => false
+	end
+end
+
+fn bytes_are(state: model::State, expected: String) -> Bool
+	match dict_get(model::contents(state), 1)
+		Some(bytes) => match byte_chunk_to_visible_ascii_string(bytes)
+			Ok(text) => text == expected
+			_ => false
+		end
+		_ => false
+	end
+end
+
+fn count(total: Int, ignored: model::Event) -> Int
+	total + 1
+end
+
+fn job(context: {file: api::UpdateFile, target: String}) -> Result<(), String> effects [io::Read, io::Write, io::ReadAt, io::WriteAt, io::Seek, io::Sync, api::Mutate]
+	let file = context.file
+	let ok = match context.target
+		"read" => read_is(io::read(file.reader, byte_count(1)?), "a")
+		"write" => written(io::write(file.writer, byte_chunk_from_visible_ascii_string("X")?))
+		"read_at" => read_is(io::read_at(file.reader_at, byte_offset(1)?, byte_count(1)?), "b")
+		"write_at" => written(io::write_at(file.writer_at, byte_offset(1)?, byte_chunk_from_visible_ascii_string("X")?))
+		"seek" => match io::seek(file.seeker, io::SeekOrigin::Start(byte_offset(2)?))
+			Ok(offset) => byte_offset_to_int(offset) == 2
+			_ => false
+		end
+		"sync" => succeeded(io::sync(file.syncer))
+		"truncate" => applied(api::truncate(file.truncater, byte_offset(2)?))
+		_ => false
+	end
+	if ok
+		Ok(())
+	else
+		Err("admitted operation returned unexpected bytes, progress, or position")
+	end
+end
+
+fn exercise(first: api::UpdateFile, second: api::UpdateFile, cell: provider::State<model::State>, target: String, entered: Receiver<String>, gate: Sender<String>) -> Result<(), String> effects [io::Read, io::Write, io::ReadAt, io::WriteAt, io::Seek, io::Sync, api::Mutate, concurrency]
+	let child: Task<Result<(), String>> = task::spawn_with(job, {file: first, target: target})
+	let _ = channel::recv(entered)
+	defer
+		let _ = channel::send(gate, "finish")
+		let _ = task::join(child)
+	end
+	let one = byte_count(1)?
+	let zero = byte_offset(0)?
+	let bytes = byte_chunk_from_visible_ascii_string("X")?
+	let all_busy = read_busy(io::read(first.reader, one), "read") and write_busy(io::write(first.writer, bytes), "write") and read_busy(io::read_at(first.reader_at, zero, one), "read_at") and write_busy(io::write_at(first.writer_at, zero, bytes), "write_at") and seek_busy(io::seek(first.seeker, io::SeekOrigin::Start(zero))) and sync_busy(io::sync(first.syncer)) and truncate_busy(api::truncate(first.truncater, zero))
+	let independent = read_is(io::read_at(second.reader_at, zero, one), "a")
+	let during = memory::snapshot(cell)
+	if not all_busy or not independent or not bytes_are(during, "abcd") or not cursor_is(during, 100, 0) or not cursor_is(during, 101, 0) or list_fold(model::events(during), 0, count) != 3
+		Err("overlap reached a provider, changed state, or blocked an independent open")
+	else
+		begin
+			let _ = channel::send(gate, "finish")
+			let joined: () = match task::join(child)
+				Ok(value) => value
+				Err(_) => Err("admitted operation child failed")
+			end?
+			let admitted_again = if target == "sync"
+				read_is(io::read_at(first.reader_at, zero, one), "a")
+			else
+				succeeded(io::sync(first.syncer))
+			end
+			let expected_bytes = match target
+				"write" => "Xbcd"
+				"write_at" => "aXcd"
+				"truncate" => "ab"
+				_ => "abcd"
+			end
+			let expected_cursor = match target
+				"read" => 1
+				"write" => 1
+				"seek" => 2
+				_ => 0
+			end
+			let after = memory::snapshot(cell)
+			if admitted_again and bytes_are(after, expected_bytes) and cursor_is(after, 100, expected_cursor) and cursor_is(after, 101, 0) and list_fold(model::events(after), 0, count) == 5
+				Ok(())
+			else
+				Err("admission did not recover or the admitted operation changed the wrong state")
+			end
+		end
+	end
+end
+
+fn owned(cell: provider::State<model::State>, target: String) -> Result<(), String> effects [provider::Scope, concurrency]
+	let owner = provider::owner()
+	let entered = channel::bounded<String>(1)
+	let gate = channel::bounded<String>(1)
+	let first: api::UpdateFile = match file(owner, cell, target, entered.tx, gate.rx)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	let second: api::UpdateFile = match file(owner, cell, "unused", entered.tx, gate.rx)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	handle handle handle handle handle handle handle exercise(first, second, cell, target, entered.rx, gate.tx) with memory::reading(owner, cell) with memory::writing(owner, cell) with memory::reading_at(owner, cell) with memory::writing_at(owner, cell) with memory::seeking(owner, cell) with memory::syncing(owner, cell) with memory::mutations(owner, 90, cell)
+end
+
+pub fn run(target: String) -> Result<(), String> effects [concurrency]
+	let cell = memory::cell(model::seed_file(model::initial(100), "data", byte_chunk_from_visible_ascii_string("abcd")?))
+	let _ = (handle owned(cell, target) with provider::scope())?
+	match model::events(memory::snapshot(cell))
+		Cons(model::Event::Closed(100, io::CloseOutcome::Closed), Cons(model::Event::Closed(101, io::CloseOutcome::Closed), rest)) => if list_fold(rest, 0, count) == 5
+			Ok(())
+		else
+			Err("overlap lost an operation or duplicated provider cleanup")
+		end
+		_ => Err("independent opens were not released in reverse publication order")
+	end
+end

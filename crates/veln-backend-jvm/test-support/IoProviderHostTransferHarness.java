@@ -72,10 +72,14 @@ public final class IoProviderHostTransferHarness {
             check(VelnRuntime.adtPayload(VelnRuntime.adtPayload(progress, 0), 0).equals(0L), "unproved host progress became a known prefix");
             Object error = VelnRuntime.adtPayload(outcome, write ? 1 : 2);
             check(VelnRuntime.isAdt(VelnRuntime.recordField(error, "kind"), "ErrorKind::Cancelled"), "typed interruption category lost");
-            check(!channel.isOpen() && Boolean.TRUE.equals(field(resource, "closed")), "interruption did not invalidate the whole open");
+            check(!channel.isOpen() && Boolean.TRUE.equals(field(resource, "unavailable")), "interruption did not invalidate the whole open");
+            check(Boolean.FALSE.equals(field(resource, "closed")), "logical channel closure fabricated proven native release");
             check(cursor.getLong(file) == 1L, "failed positional or sequential operation fabricated a cursor");
             check(field(file, "cursorKnown").equals(operation.equals("read_at")), "positional failure changed cursor knowledge or sequential failure kept it known");
             check(java.util.Arrays.equals(Files.readAllBytes(path), original), "interrupted host call changed the independently observed input");
+            Object close = REQUEST.invoke(null, resource, "close", VelnRuntime.UNIT);
+            check(VelnRuntime.isAdt(close, "CloseOutcome::CloseFailed")
+                && VelnRuntime.isAdt(VelnRuntime.adtPayload(close, 0), "Commit::Unknown"), "close retry discarded unproved interruption release facts");
         } finally { Files.deleteIfExists(path); }
     }
 

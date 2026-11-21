@@ -1,5 +1,32 @@
 use super::*;
 
+#[cfg(unix)]
+#[test]
+fn io_provider_host_close_failure_cannot_infer_release_from_logical_channel_closure() {
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness_with_options(
+        "io-provider-host-close-failure",
+        "IoProviderHostCloseFailureHarness.java",
+        include_str!("../../test-support/IoProviderHostCloseFailureHarness.java"),
+        &program,
+        &[],
+        &[
+            "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+            "--add-opens=java.base/java.io=ALL-UNNAMED",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "native close failure preserves unknown release and blocked aliases\n"
+    );
+}
+
 #[test]
 fn io_provider_late_publication_releases_actual_host_channels_under_cancellation() {
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");

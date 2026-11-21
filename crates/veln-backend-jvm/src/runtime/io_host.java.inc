@@ -9,6 +9,7 @@
         private final boolean append;
         private long cursor;
         private boolean cursorKnown = true;
+        private volatile boolean released;
         private IoHostFile(java.nio.channels.FileChannel channel, Object path, boolean append) {
             this.channel = channel;
             this.path = path;
@@ -302,10 +303,12 @@
         java.nio.ByteBuffer buffer = null;
         boolean attempted = false;
         try {
+            if (operation.equals("close") && file.released) return adt("CloseOutcome::Closed", new Object[] {});
             if (!file.channel.isOpen()) throw new IoHostFailure("Closed", "host file is closed");
             if (operation.equals("close")) {
                 attempted = true;
                 file.channel.close();
+                file.released = true;
                 return adt("CloseOutcome::Closed", new Object[] {});
             }
             if (operation.equals("sync")) {
@@ -359,7 +362,10 @@
             if (!positional && !file.append) file.cursor += written;
             return adt("WriteOutcome::Written", new Object[] {byteCountObject(written)});
         } catch (java.io.IOException | SecurityException | IllegalArgumentException | UnsupportedOperationException | ArithmeticException | IoHostFailure failure) {
-            if (!file.channel.isOpen()) synchronized (resource.owner) { resource.closed = true; }
+            if (!file.channel.isOpen()) synchronized (resource.owner) {
+                if (file.released) resource.closed = true;
+                else resource.unavailable = true;
+            }
             Object error = ioHostError(operation, failure, file.path, null, null);
             Object progress = adt("Progress::" + (attempted ? "Unknown" : "Known"), new Object[] {byteCountObject(buffer == null ? 0L : buffer.position())});
             if (operation.equals("read") || operation.equals("read_at")) {
@@ -371,7 +377,7 @@
                 return adt("WriteOutcome::WriteFailed", new Object[] {progress, error});
             }
             if (operation.equals("close")) {
-                Object released = ioHostCommit(file.channel.isOpen() ? attempted ? "Unknown" : "No" : "Yes");
+                Object released = ioHostCommit(file.released ? "Yes" : attempted || !file.channel.isOpen() ? "Unknown" : "No");
                 return adt("CloseOutcome::CloseFailed", new Object[] {released, error});
             }
             if (operation.equals("truncate")) {
