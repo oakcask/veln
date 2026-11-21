@@ -10,7 +10,8 @@ services. Current specifications describe the implemented workspace and
 direct-dependency navigation behavior plus standard-library handler selection
 and adapter projection: [Editor Support](../specification/editor-support.md) and
 [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md).
-The remaining standard-library handler matrices stay in the focused
+The remaining standard-library handler retained-state matrix stays in the
+focused
 [Standard-Library Handler Navigation](standard-library-handler-navigation.md)
 proposal.
 

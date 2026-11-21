@@ -704,6 +704,172 @@ mod navigation_handler_references_tests {
         }
     }
 
+    #[test]
+    fn standard_library_handler_rejection_matrix_preserves_unrelated_identity() {
+        const STABLE_HANDLER: &str =
+            "pub handler keep() for Observe\n  record() => 1\nend\n";
+        let standard_library = standard_library_snapshot(
+            &[
+                ("stable.veln", STABLE_HANDLER),
+                (
+                    "observe.veln",
+                    concat!(
+                        "pub handler noop() for Observe\n  record() => 2\nend\n\n",
+                        "pub fn work() -> Int\n  2\nend\n",
+                    ),
+                ),
+                (
+                    "observe_test.veln",
+                    "pub handler noop() for Observe\n  record() => 4\nend\n",
+                ),
+            ],
+            ["stable.veln", "observe.veln", "observe_test.veln"],
+        );
+        let stable_uri = standard_library
+            .virtual_sources()
+            .find_map(|(uri, bytes)| (bytes == STABLE_HANDLER.as_bytes()).then(|| uri.to_owned()))
+            .unwrap();
+        let other = dependency_snapshot(
+            "example/other",
+            &[(
+                "observe.veln",
+                "pub handler noop() for Observe\n  record() => 5\nend\n",
+            )],
+            ["observe.veln"],
+        );
+        let other_uri = other.virtual_sources().next().unwrap().0.to_owned();
+        let bridge = dependency_snapshot(
+            "bridge/pkg",
+            &[(
+                "bridge.veln",
+                concat!(
+                    "use dep from \"transitive/pkg\"\n\n",
+                    "pub fn nested() -> Int\n  handle 3 with dep::run()\nend\n",
+                ),
+            )],
+            ["bridge.veln"],
+        );
+        let baseline = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "stable_use.veln",
+                concat!(
+                    "use stable from \"std\"\n\n",
+                    "fn valid() -> Int\n  handle 0 with stable::keep()\nend\n",
+                ),
+            )],
+            vec![other, bridge],
+        )
+        .with_standard_library(standard_library);
+        let expected = query_snapshot(&baseline, "stable_use.veln", 4, 25).unwrap();
+        assert_eq!(
+            expected.definition.source,
+            NavigationSource::Package {
+                uri: stable_uri.clone()
+            }
+        );
+        assert_eq!(expected.definition.span.file.as_str(), "stable.veln");
+        assert_eq!(expected.definition.span.start.line, 1);
+        assert_eq!(expected.definition.span.start.column, 13);
+        assert_eq!(expected.definition.span.end.line, 1);
+        assert_eq!(expected.definition.span.end.column, 17);
+        assert_eq!(
+            locations(&expected.references),
+            [("stable_use.veln", 4, 25)]
+        );
+
+        for (case, imports, application, separate_uri) in [
+            (
+                "transitive",
+                "use dep from \"transitive/pkg\"\n",
+                "dep::run()",
+                None,
+            ),
+            (
+                "mismatched package",
+                "use observe as other from \"example/other\"\n",
+                "other::noop()",
+                Some(other_uri.as_str()),
+            ),
+            (
+                "unresolved",
+                "use observe from \"std\"\n",
+                "observe::missing()",
+                None,
+            ),
+            (
+                "incomplete",
+                "use observe from \"std\"\n",
+                "observe::noop(",
+                None,
+            ),
+            (
+                "additionally qualified",
+                "use observe from \"std\"\n",
+                "std::observe::extra::noop()",
+                None,
+            ),
+            (
+                "test-only",
+                "use observe_test from \"std\"\n",
+                "observe_test::noop()",
+                None,
+            ),
+            (
+                "wrong-kind",
+                "use observe from \"std\"\n",
+                "observe::work()",
+                None,
+            ),
+        ] {
+            let prefix = "  handle 1 with ";
+            let case_source =
+                format!("{imports}\nfn invalid() -> Int\n{prefix}{application}\nend\n");
+            let snapshot = baseline.with_workspace_overlays([source("case.veln", &case_source)]);
+            let (_, leaf) = application.rsplit_once("::").unwrap();
+            let position = SourcePosition {
+                source: SourcePath::new("case.veln"),
+                line: imports.lines().count() + 3,
+                column: prefix.len() + application.len() - leaf.len() + 1,
+            };
+            let rejected = navigate(&snapshot, position);
+            match separate_uri {
+                Some(uri) => {
+                    let rejected = rejected.unwrap_or_else(|| panic!("{case} should stay separate"));
+                    assert_eq!(
+                        rejected.selected_symbol.package_origin,
+                        Some(PackageOrigin::DirectDependency),
+                        "{case}"
+                    );
+                    assert_eq!(
+                        rejected.definition.source,
+                        NavigationSource::Package {
+                            uri: uri.to_owned()
+                        },
+                        "{case}"
+                    );
+                }
+                None => assert!(rejected.is_none(), "{case}: {rejected:#?}"),
+            }
+            assert_eq!(
+                query_snapshot(&snapshot, "stable_use.veln", 4, 25).as_ref(),
+                Some(&expected),
+                "{case}"
+            );
+            assert_eq!(
+                definition_at(
+                    &snapshot,
+                    SourcePosition {
+                        source: SourcePath::new("stable_use.veln"),
+                        line: 4,
+                        column: 25,
+                    },
+                ),
+                Some(expected.definition.clone()),
+                "{case}"
+            );
+        }
+    }
+
     fn eligible_standard_handler_library() -> DirectDependencySnapshot {
         standard_library_snapshot(
             &[(
