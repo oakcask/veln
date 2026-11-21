@@ -794,6 +794,12 @@ returns the canonical `veln-pkg:` declaration as its definition and the
 deterministic set of matching application locations in that project as its
 references. Each returned range covers only the handler name. LSP omits the
 package declaration from references even when `includeDeclaration` is true.
+Equal module and handler names in a direct dependency or the workspace remain
+separate owners and do not replace the selected `std` declaration or enter its
+reference set. Each accepted project snapshot keeps the exact retained `std`
+revision in the definition URI. Two snapshots with different standard-library
+source bytes therefore return distinct canonical `veln-pkg:` identities while
+unchanged dependency and workspace owners keep their identities.
 
 The checked standard-library guards reject a private, non-exported,
 invalid-cased, duplicate, or recovered handler declaration. Repeated
@@ -1071,6 +1077,11 @@ source bytes, including line endings. An unknown or noncanonical URI produces
 a JSON-RPC invalid-params error. The request does not normalize the URI or read
 a filesystem fallback. A later physical dependency edit does not change the
 text returned for an already retained URI.
+For standard-library definitions, a server resolves only the URI owned by its
+retained `std` revision. A server retaining an earlier revision does not resolve
+the URI for a later revision, and a server retaining the later revision does
+not resolve the earlier URI. Neither definition nor virtual-document output
+exposes a standard-library build path.
 
 The VSCode extension registers a definition provider for Veln filesystem
 documents and a `TextDocumentContentProvider` for `veln-pkg`. Following a
@@ -1323,3 +1334,8 @@ For a retained standard-library handler, it repeats that adapter comparison
 across standard-library-relative, canonical `std::`-qualified, and unique-alias
 applications and verifies the same LSP declaration exclusion and MCP
 declaration-inclusive pagination behavior.
+Focused regressions in
+[`navigation_handler_references.rs`](../../crates/veln-language-service/src/tests/navigation_handler_references.rs)
+and
+[`standard_handler_owner_revision.rs`](../../crates/veln-lsp/src/tests/standard_handler_owner_revision.rs)
+verify equal-name owner separation and exact retained `std` revision identity.

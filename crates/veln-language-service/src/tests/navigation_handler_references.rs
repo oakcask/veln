@@ -879,6 +879,181 @@ mod navigation_handler_references_tests {
     }
 
     #[test]
+    fn standard_library_handlers_keep_owner_and_revision_across_snapshots() {
+        let fixture = standard_handler_revision_fixture();
+        let before = query_snapshot(&fixture.accepted, "main.veln", 6, 30).unwrap();
+        let after = query_snapshot(&fixture.refreshed, "main.veln", 6, 30).unwrap();
+
+        assert_standard_handler_result(&before, &fixture.standard_uri, 1);
+        assert_standard_handler_result(&after, &fixture.updated_standard_uri, 2);
+        assert_unchanged_colliding_handler_owners(&fixture);
+        assert_eq!(
+            query_snapshot(&fixture.accepted, "main.veln", 6, 30),
+            Some(before)
+        );
+        assert_standard_handler_virtual_sources(&fixture);
+    }
+
+    const ORIGINAL_STANDARD_HANDLER: &str =
+        "pub handler noop() for Observe\n  record() => 1\nend\n";
+    const UPDATED_STANDARD_HANDLER: &str =
+        "\npub handler noop() for Observe\n  record() => 2\nend\n";
+    const DEPENDENCY_HANDLER: &str =
+        "pub handler noop() for Observe\n  record() => 3\nend\n";
+
+    struct StandardHandlerRevisionFixture {
+        accepted: EffectiveProjectSnapshot,
+        refreshed: EffectiveProjectSnapshot,
+        standard_uri: String,
+        updated_standard_uri: String,
+        dependency_uri: String,
+    }
+
+    fn standard_handler_revision_fixture() -> StandardHandlerRevisionFixture {
+        let standard_library = standard_library_snapshot(
+            &[("observe.veln", ORIGINAL_STANDARD_HANDLER)],
+            ["observe.veln"],
+        );
+        let updated_standard_library = standard_library_snapshot(
+            &[("observe.veln", UPDATED_STANDARD_HANDLER)],
+            ["observe.veln"],
+        );
+        let standard_uri = standard_library.virtual_sources().next().unwrap().0.to_owned();
+        let updated_standard_uri = updated_standard_library
+            .virtual_sources()
+            .next()
+            .unwrap()
+            .0
+            .to_owned();
+        assert_ne!(standard_uri, updated_standard_uri);
+
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[("observe.veln", DEPENDENCY_HANDLER)],
+            ["observe.veln"],
+        );
+        let dependency_uri = dependency.virtual_sources().next().unwrap().0.to_owned();
+        let sources = standard_handler_collision_sources();
+        let accepted = EffectiveProjectSnapshot::with_direct_dependencies(
+            sources.clone(),
+            vec![dependency.clone()],
+        )
+        .with_standard_library(standard_library);
+        let refreshed =
+            EffectiveProjectSnapshot::with_direct_dependencies(sources, vec![dependency])
+                .with_standard_library(updated_standard_library);
+        StandardHandlerRevisionFixture {
+            accepted,
+            refreshed,
+            standard_uri,
+            updated_standard_uri,
+            dependency_uri,
+        }
+    }
+
+    fn standard_handler_collision_sources() -> Vec<SourceFile> {
+        vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use observe as std_observe from \"std\"\n",
+                    "use observe as dep_observe from \"example/dep\"\n",
+                    "# The same-spelled workspace owner is selected in observe.veln.\n\n",
+                    "fn standard() -> Int\n  handle 1 with std_observe::noop()\nend\n\n",
+                    "fn dependency() -> Int\n  handle 2 with dep_observe::noop()\nend\n",
+                ),
+            ),
+            source(
+                "observe.veln",
+                concat!(
+                    "mod observe\n\n",
+                    "pub handler noop() for Observe\n  record() => 4\nend\n\n",
+                    "fn local() -> Int\n  handle 4 with noop()\nend\n",
+                ),
+            ),
+        ]
+    }
+
+    fn assert_standard_handler_result(result: &NavigationResult, uri: &str, line: usize) {
+        assert_eq!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(
+            result.definition.source,
+            NavigationSource::Package {
+                uri: uri.to_owned()
+            }
+        );
+        assert_eq!(result.definition.span.file.as_str(), "observe.veln");
+        assert_eq!(result.definition.span.start.line, line);
+        assert_eq!(locations(&result.references), [("main.veln", 6, 30)]);
+    }
+
+    fn assert_unchanged_colliding_handler_owners(fixture: &StandardHandlerRevisionFixture) {
+        let dependency_before = query_snapshot(&fixture.accepted, "main.veln", 10, 30).unwrap();
+        let dependency_after = query_snapshot(&fixture.refreshed, "main.veln", 10, 30).unwrap();
+        assert_eq!(
+            dependency_before.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+        assert_eq!(
+            dependency_before.definition.source,
+            NavigationSource::Package {
+                uri: fixture.dependency_uri.clone()
+            }
+        );
+        assert_eq!(
+            locations(&dependency_before.references),
+            [("main.veln", 10, 30)]
+        );
+        assert_eq!(dependency_after, dependency_before);
+
+        let workspace_before = query_snapshot(&fixture.accepted, "observe.veln", 3, 13).unwrap();
+        let workspace_after = query_snapshot(&fixture.refreshed, "observe.veln", 3, 13).unwrap();
+        assert_eq!(workspace_before.selected_symbol.package_origin, None);
+        assert_location(&workspace_before.definition, "observe.veln", 3, 13);
+        assert_eq!(workspace_after, workspace_before);
+        assert_eq!(
+            locations(&workspace_before.references),
+            [("observe.veln", 8, 17)]
+        );
+    }
+
+    fn assert_standard_handler_virtual_sources(fixture: &StandardHandlerRevisionFixture) {
+        assert_eq!(
+            fixture.accepted.resolve_virtual_source(&fixture.standard_uri),
+            Some(ORIGINAL_STANDARD_HANDLER.as_bytes())
+        );
+        assert_eq!(
+            fixture
+                .refreshed
+                .resolve_virtual_source(&fixture.updated_standard_uri),
+            Some(UPDATED_STANDARD_HANDLER.as_bytes())
+        );
+        assert_eq!(
+            fixture.accepted.resolve_virtual_source(&fixture.dependency_uri),
+            Some(DEPENDENCY_HANDLER.as_bytes())
+        );
+        assert_eq!(
+            fixture.refreshed.resolve_virtual_source(&fixture.dependency_uri),
+            Some(DEPENDENCY_HANDLER.as_bytes())
+        );
+        assert!(
+            fixture
+                .accepted
+                .resolve_virtual_source(&fixture.updated_standard_uri)
+                .is_none()
+        );
+        assert!(
+            fixture
+                .refreshed
+                .resolve_virtual_source(&fixture.standard_uri)
+                .is_none()
+        );
+    }
+
+    #[test]
     fn direct_dependency_handlers_keep_exact_owners_across_captured_revisions() {
         let original = "pub handler run() for Work\n  go() => 1\nend\n";
         let changed = "\npub handler run() for Work\n  go() => 2\nend\n";

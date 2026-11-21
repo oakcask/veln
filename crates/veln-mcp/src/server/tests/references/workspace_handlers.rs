@@ -440,6 +440,189 @@ fn assert_refreshed_handler_owner(server: &mut Server, first_uri: &str, second_u
 }
 
 #[test]
+fn standard_library_handler_navigation_keeps_owner_and_revision_at_mcp_boundary() {
+    let workspace = TempWorkspace::new("references-standard-handler-owner-revision");
+    write_standard_handler_owner_project(&workspace);
+    let old_source = "pub handler noop() for Observe\n  record() => 1\nend\n";
+    let new_source = "\npub handler noop() for Observe\n  record() => 2\nend\n";
+    let mut old_server = initialized_server(&workspace);
+    let mut new_server = initialized_server(&workspace);
+    install_handler_standard_library(&mut old_server, old_source);
+    install_handler_standard_library(&mut new_server, new_source);
+    let main_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
+
+    let old = standard_handler_mcp_projection(&mut old_server, &main_uri, 1);
+    let new = standard_handler_mcp_projection(&mut new_server, &main_uri, 2);
+    assert_ne!(old, new);
+
+    assert_mcp_colliding_handler_owners(&mut old_server, &mut new_server);
+    assert_mcp_standard_handler_source_isolation(
+        &mut old_server,
+        &mut new_server,
+        &old,
+        &new,
+        old_source,
+        new_source,
+    );
+}
+
+fn assert_mcp_colliding_handler_owners(old_server: &mut Server, new_server: &mut Server) {
+    let old_dependency = old_server.definition_tool(&json!({
+        "source":"main.veln", "line":10, "column":37
+    }));
+    let new_dependency = new_server.definition_tool(&json!({
+        "source":"main.veln", "line":10, "column":37
+    }));
+    let old_dependency_uri = old_dependency["structuredContent"]["definition"]["uri"]
+        .as_str()
+        .unwrap();
+    assert_eq!(
+        new_dependency["structuredContent"]["definition"]["uri"],
+        old_dependency_uri
+    );
+    assert!(
+        old_dependency_uri.starts_with("veln-pkg:///example%2Fdep/snapshot/"),
+        "{old_dependency:#}"
+    );
+    assert!(!old_dependency.to_string().contains("vendor/dep"));
+    let old_workspace = old_server.definition_tool(&json!({
+        "source":"observe.veln", "line":3, "column":13
+    }));
+    let new_workspace = new_server.definition_tool(&json!({
+        "source":"observe.veln", "line":3, "column":13
+    }));
+    assert_eq!(old_workspace, new_workspace);
+    assert!(
+        old_workspace["structuredContent"]["definition"]["uri"]
+            .as_str()
+            .unwrap()
+            .starts_with("file://"),
+        "{old_workspace:#}"
+    );
+}
+
+fn assert_mcp_standard_handler_source_isolation(
+    old_server: &mut Server,
+    new_server: &mut Server,
+    old_uri: &str,
+    new_uri: &str,
+    old_source: &str,
+    new_source: &str,
+) {
+    let old_read = read_handler_resource(old_server, old_uri);
+    let new_read = read_handler_resource(new_server, new_uri);
+    assert_eq!(old_read["result"]["contents"][0]["text"], old_source);
+    assert_eq!(new_read["result"]["contents"][0]["text"], new_source);
+    for (server, rejected) in [(old_server, new_uri), (new_server, old_uri)] {
+        let response = read_handler_resource(server, rejected);
+        assert_eq!(response["error"]["data"]["code"], "resource_not_found");
+    }
+}
+
+fn write_standard_handler_owner_project(workspace: &TempWorkspace) {
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"observe.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/observe.veln",
+        "pub handler noop() for Observe\n  record() => 3\nend\n",
+    );
+    workspace.write(
+        "observe.veln",
+        concat!(
+            "mod observe\n\n",
+            "pub handler noop() for Observe\n  record() => 4\nend\n\n",
+            "fn local() -> Int\n  handle 4 with noop()\nend\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use observe as standard_observe from \"std\"\n",
+            "use observe as dependency_observe from \"example/dep\"\n",
+            "# The same-spelled workspace owner is selected in observe.veln.\n\n",
+            "fn standard() -> Int\n  handle 1 with standard_observe::noop()\nend\n\n",
+            "fn dependency() -> Int\n  handle 2 with dependency_observe::noop()\nend\n",
+        ),
+    );
+}
+
+fn install_handler_standard_library(server: &mut Server, source: &str) {
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"observe.veln\"]\n",
+        [veln_project::PackageSnapshotSource::new(
+            "observe.veln",
+            source.as_bytes(),
+        )],
+    );
+}
+
+fn standard_handler_mcp_projection(
+    server: &mut Server,
+    main_uri: &str,
+    declaration_line: usize,
+) -> String {
+    let definition = server.definition_tool(&json!({
+        "source":"main.veln", "line":6, "column":35
+    }));
+    assert_eq!(definition["isError"], false, "{definition:#}");
+    let location = &definition["structuredContent"]["definition"];
+    let uri = location["uri"].as_str().unwrap().to_owned();
+    assert!(
+        uri.starts_with("veln-pkg:///std/snapshot/"),
+        "{definition:#}"
+    );
+    assert_eq!(
+        location["range"],
+        json!({"start":{"line":declaration_line,"column":13},"end":{"line":declaration_line,"column":17}})
+    );
+    assert!(!definition.to_string().contains("vendor/dep"));
+    let references = server.references_tool(&json!({
+        "source":"main.veln", "line":6, "column":35,
+        "include_declaration":true
+    }));
+    let mut locations = references["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .clone();
+    let mut expected_locations = vec![
+        json!({
+            "uri": uri,
+            "range": {
+                "start": {"line": declaration_line, "column": 13},
+                "end": {"line": declaration_line, "column": 17}
+            }
+        }),
+        json!({
+            "uri": main_uri,
+            "range": {
+                "start": {"line": 6, "column": 35},
+                "end": {"line": 6, "column": 39}
+            }
+        }),
+    ];
+    locations.sort_by(|left, right| left["uri"].as_str().cmp(&right["uri"].as_str()));
+    expected_locations.sort_by(|left, right| left["uri"].as_str().cmp(&right["uri"].as_str()));
+    assert_eq!(locations, expected_locations, "{references:#}");
+    assert!(!references.to_string().contains("vendor/dep"));
+    uri
+}
+
+fn read_handler_resource(server: &mut Server, uri: &str) -> Value {
+    server
+        .handle_request(json!({
+            "jsonrpc":"2.0", "id":"read-standard-handler-source",
+            "method":"resources/read", "params":{"uri":uri}
+        }))
+        .unwrap()
+}
+
+#[test]
 fn transitive_dependency_handler_is_rejected_without_contaminating_direct_handler() {
     let workspace = TempWorkspace::new("references-transitive-dependency-handler");
     workspace.write(

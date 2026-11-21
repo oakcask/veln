@@ -38,6 +38,12 @@ decode, normalize, or rewrite the input. It does not consult a materialization
 path or the filesystem. Therefore an unknown identity, digest, or source path
 has the same not-found result as a malformed or noncanonical URI.
 
+When two project snapshots retain different standard-library source bytes,
+each snapshot resolves only the canonical `std` URI for its own retained
+revision. The other revision's URI has the not-found result. A direct
+dependency whose package identity and captured revision are unchanged keeps
+the same URI and remains resolvable in both snapshots.
+
 The LSP resolver retains one URI-to-bytes entry for each distinct dependency
 virtual source exposed by a replaced layer and not available from the current
 layer. It does not retain the replaced prepared analysis snapshot. Navigation
@@ -68,6 +74,9 @@ digest with any other length or spelling.
 
 The catalog implementation and URI boundary tests are in
 `crates/veln-language-service/src/virtual_source.rs`.
+The project-snapshot standard-library revision and unchanged-owner regression
+is in
+`crates/veln-language-service/src/tests/navigation_handler_references.rs`.
 The dependency-payload revision, coupled diagnostic and navigation capture,
 repeated-revision storage, and earlier-URI retention regression is in
 `crates/veln-lsp/src/tests/dependencies.rs`.
