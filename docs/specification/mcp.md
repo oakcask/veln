@@ -1342,5 +1342,9 @@ Focused regressions in
 and
 [`workspace_handlers.rs`](../../crates/veln-mcp/src/server/tests/references/workspace_handlers.rs)
 verify equal-name owner separation, exact retained `std` revision identity,
-revision-scoped source-resource reads, selected-project isolation, and the
-absence of standard-library build paths from navigation and resource results.
+revision-scoped source-resource reads, and selected-project isolation. The
+project-isolation regression selects checked embedded `net::system`
+applications through schema-valid public `tools/call` requests and compares
+the complete canonical `resources/read` result. It also verifies that
+navigation and resource responses expose no standard-library source or build
+path.

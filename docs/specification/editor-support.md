@@ -1344,7 +1344,8 @@ and
 verify equal-name owner separation and exact retained `std` revision identity.
 The focused
 [`handler_references.rs`](../../crates/veln-lsp/src/tests/handler_references.rs)
-regressions place matching applications in retained
-standard-library source and separate workspace projects. They verify that the
-virtual source remains readable while references contain only applications
-from the selected project and expose no build path.
+regressions drive the default embedded standard-library loader with the public
+`net::system` declaration, its retained standard-library-body application, and
+separate workspace projects. They verify exact virtual source bodies and
+canonical locations while references contain only applications from the
+selected project and expose no source or build path.
