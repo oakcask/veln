@@ -16,8 +16,7 @@ also states it.
 
 ## Ready
 
-- Standard-library handler S6 retained-state contract and evidence work:
-  [standard-library-handler-navigation.md](standard-library-handler-navigation.md).
+No implementation targets are currently ready.
 
 ## Design In Progress
 
@@ -32,9 +31,8 @@ also states it.
 
 - The [agent-language-services umbrella](agent-language-services.md) remains a
   planning inventory only for the unimplemented transitive-dependency,
-  remaining symbol, conformance-gate, and plugin work. The remaining
-  standard-library handler retained-state matrix is listed under Ready; do not
-  select the umbrella directly.
+  remaining symbol, conformance-gate, and plugin work. Do not select the
+  umbrella directly.
 
 ## Scope Decisions
 
