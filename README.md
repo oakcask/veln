@@ -1,93 +1,98 @@
 # Veln
 
-Veln is an experimental programming language and toolchain based on
-<https://oakcask.github.io/docs/202605-programming-language-for-agents/>.
+Veln is an experimental programming language and toolchain for
+AI-agent-assisted programming. It combines explicit public interfaces, typed
+effects, contracts, and typed holes with diagnostics and repair tools that
+people and coding agents can use together.
 
-The current prototype explores a language for AI-agent-assisted programming:
-small syntax, explicit public boundaries, typed holes, contracts, coarse
-effects, and structured diagnostics are treated as one tool surface.
+The compiler and tools are written in Rust. Programs run on the JVM. The
+language and toolchain are evolving; backward compatibility is not guaranteed.
 
-## Commands
+## Try it
 
-Use the prototype CLI as `veln`:
+Install from the repository root with:
+
+- Rust and Cargo, using the stable toolchain in `rust-toolchain.toml`.
+- JDK 25 or newer, with both `javac` and `java` on `PATH`.
 
 ```sh
-veln --version
-veln check samples/demo/hello.veln
-veln fmt samples/demo/hello.veln
-veln run main samples/demo/hello.veln
-veln test samples/demo
+cargo install --locked --path crates/veln-cli
 ```
 
-The CLI shape is:
+Ensure Cargo's installation bin directory is on `PATH`, then verify the
+installation with `veln --version`.
 
-```text
-veln check [--json] [path ...]
-veln fmt [path ...]
-veln run <entry> [path ...]
-veln test [--json] [target ...]
-```
-
-## Example
+Save this as `hello.veln`:
 
 ```veln
-use stdio
-
 pub fn main() -> () effects [stdio]
-  stdio::println("hello from veln")
-  stdio::eprintln("stderr from veln")
-  ()
+	stdio::println("hello from veln")
 end
 ```
 
-```sh
-veln check samples/demo/hello.veln
-```
-
-```text
-ok
-```
+Check and run it:
 
 ```sh
-veln run main samples/demo/hello.veln
+veln check hello.veln
+veln run main hello.veln
 ```
 
+The program prints:
+
 ```text
-stderr from veln
 hello from veln
 ```
 
-## Agent-Oriented Features
+The `main` function declares its public signature and its `stdio` effect.
+More executable examples are in [examples/specification/](examples/specification/).
 
-Public functions carry explicit signatures and effect declarations:
+## Language and tooling
 
-```veln
-pub fn main() -> () effects [stdio]
-  stdio::println("hello from veln")
-  ()
-end
-```
+- **Explicit boundaries:** public function signatures and effect declarations
+  describe interfaces; effect handlers scope how operations are handled.
+- **Contracts and partial programs:** preconditions, postconditions, and typed
+  holes express requirements and give tools context for unfinished code.
+- **Diagnostics and repairs:** JSON output, diagnostic explanations, and repair
+  previews support automated feedback and source changes.
+- **Editor and agent integration:** the CLI includes LSP and MCP servers; a
+  VS Code extension lives in [editors/vscode/](editors/vscode/).
 
-Typed holes keep partial programs checkable and report repair context:
+See the [language specification](docs/specification/README.md) for current
+behavior and limits.
 
-```veln
-pub fn main() -> Result<(), AppError> effects []
-  _todo satisfy candidate => candidate == Ok(())
-end
-```
+## Commands
 
-```sh
-veln check samples/demo/hole_error.veln
-```
-
-```text
-samples/demo/hole_error.veln:2:3: hint[hole.unfilled]: hole requires a `Result<(), AppError>` value
-  note: samples/demo/hole_error.veln:1:1: Return type declared here.
-  note: samples/demo/hole_error.veln:2:9: Satisfy predicate contributes a repair constraint.
-```
-
-The same diagnostics can be emitted as JSON for tools and coding agents:
+After installation, use `veln` from any directory:
 
 ```sh
-veln check --json samples/demo/hole_error.veln
+veln --help
 ```
+
+| Command | Purpose |
+| --- | --- |
+| `veln check --json hello.veln` | Check source and emit structured diagnostics. |
+| `veln fmt hello.veln` | Format source files. |
+| `veln run main hello.veln` | Run the selected entry function. |
+| `veln test path/to/project` | Run tests. |
+| `veln doc path/to/project` | Generate documentation. |
+| `veln repair --dry-run --json hello.veln` | Preview repair candidates. |
+| `veln explain --list` | List known diagnostics. |
+| `veln metrics --json path/to/project` | Report source dependency metrics. |
+| `veln package lock` | Write the package lockfile. |
+| `veln lsp` | Start the language server on stdio. |
+| `veln mcp` | Start the MCP server on stdio. |
+
+Use `veln <command> --help` for arguments and options.
+
+## Documentation
+
+- [Documentation index](docs/README.md): choose a task or subject.
+- [Current specification](docs/specification/README.md): implemented language,
+  command, runtime, and integration behavior.
+- [Proposals](docs/proposals/README.md): planned or incomplete work.
+- [Reference](docs/reference/README.md): rationale, source support, and repository
+  policies.
+
+For repository changes, start with [AGENTS.md](AGENTS.md). Use
+`bash scripts/agent-test` to run the Rust workspace tests with time and memory
+limits, or pass Cargo test arguments to select a smaller suite.
