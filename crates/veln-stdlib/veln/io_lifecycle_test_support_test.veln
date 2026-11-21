@@ -83,6 +83,26 @@ pub handler closer(owner: provider::Owner, cell: provider::State<State>) for io:
 	close(resource) => close(owner, cell, resource)
 end
 
+pub handler gated_closer(owner: provider::Owner, cell: provider::State<State>, entered: Sender<String>, gate: Receiver<String>) for io::Close effects [concurrency]
+	close(resource) => begin
+		let _ = match snapshot(cell)
+			State(_, _, Nil, _) => begin
+				let _ = channel::send(entered, "close entered")
+				let _ = channel::recv(gate)
+				()
+			end
+			_ => ()
+		end
+		close(owner, cell, resource)
+	end
+end
+
+pub fn gated_resource(owner: provider::Owner, slot: Int, cell: provider::State<State>, entered: Sender<String>, gate: Receiver<String>) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error> effects [concurrency]
+	let _ = prepare(cell, slot)
+	let raw = handle handle handle provider::resource(owner, slot, provider::ViewFamily::Duplex) with reader(owner, cell) with writer() with gated_closer(owner, cell, entered, gate)
+	provider::duplex(raw?)
+end
+
 pub fn resource(owner: provider::Owner, slot: Int, cell: provider::State<State>) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error> effects [concurrency]
 	let _ = prepare(cell, slot)
 	let raw = handle handle handle provider::resource(owner, slot, provider::ViewFamily::Duplex) with reader(owner, cell) with writer() with closer(owner, cell)

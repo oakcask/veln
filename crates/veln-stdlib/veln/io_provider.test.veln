@@ -6,6 +6,7 @@ use io_provider_test_support_test as memory
 use io_publication_test_support_test as publication
 use fs
 use path
+use io_close_overlap_test_support_test as overlap
 
 fn add(value: Int, increment: Int) -> {state: Int, result: Int}
 	{state: value + increment, result: value}
@@ -601,5 +602,89 @@ fn publication_released(live: Dict<Int, Bool>) -> Bool
 	match dict_get(live, 1)
 		Some(false) => true
 		_ => false
+	end
+end
+
+fn overlap_reply(reply: overlap::ChildResult, expected: Int) -> Bool
+	match reply
+		overlap::Cancelled => expected == -1
+		overlap::Completed(outcome) => match outcome
+			io::CloseOutcome::Closed => expected == 0
+			io::CloseOutcome::CloseFailed(commit, error) => error.operation == "explicit close" and match commit
+				io::Commit::No => expected == 1
+				io::Commit::Yes => expected == 2
+				io::Commit::Unknown => expected == 3
+			end
+		end
+	end
+end
+
+fn check_close_overlap(first: io::CloseOutcome, actually_released: Bool, expected: Int, calls: Int, mode: overlap::Mode) -> Result<(), String> effects [concurrency]
+	let tail = if calls == 2
+		Cons(lifecycle::CloseStep(1, io::CloseOutcome::Closed, true), Nil)
+	else
+		Nil
+	end
+	let cell = io_provider::state(lifecycle::initial(Cons(lifecycle::CloseStep(1, first, actually_released), tail)))
+	let reply = overlap::run(cell, mode)?
+	match lifecycle::snapshot(cell)
+		lifecycle::State(remaining, live, closes, reads) => if not overlap_reply(reply, expected)
+			Err("explicit close outcome changed during owner cleanup")
+		else if not list_is_empty(remaining) or list_fold(closes, 0, count_close) != calls
+			Err("owner cleanup duplicated or omitted a close attempt")
+		else if not publication_released(live) or reads != 0
+			Err("close overlap leaked a resource or admitted a read")
+		else
+			Ok(())
+		end
+	end
+end
+
+test owner_exit_observes_an_already_admitted_successful_close_once() -> Result<(), String> effects [concurrency]
+	check_close_overlap(io::CloseOutcome::Closed, true, 0, 1, overlap::Normal)
+end
+
+test owner_exit_does_not_repeat_an_admitted_close_released_with_error() -> Result<(), String> effects [concurrency]
+	check_close_overlap(io::CloseOutcome::CloseFailed(io::Commit::Yes, lifecycle::failure("explicit close")), true, 2, 1, overlap::Normal)
+end
+
+test owner_exit_retries_an_admitted_close_that_did_not_release() -> Result<(), String> effects [concurrency]
+	check_close_overlap(io::CloseOutcome::CloseFailed(io::Commit::No, lifecycle::failure("explicit close")), false, 1, 2, overlap::Normal)
+end
+
+test owner_exit_retries_an_admitted_close_with_unknown_release() -> Result<(), String> effects [concurrency]
+	check_close_overlap(io::CloseOutcome::CloseFailed(io::Commit::Unknown, lifecycle::failure("explicit close")), false, 3, 2, overlap::Normal)
+end
+
+test owner_exit_confirms_unknown_release_even_if_the_resource_was_released() -> Result<(), String> effects [concurrency]
+	check_close_overlap(io::CloseOutcome::CloseFailed(io::Commit::Unknown, lifecycle::failure("explicit close")), true, 3, 2, overlap::Normal)
+end
+
+test cancellation_during_close_preserves_release_before_join_reports_cancelled() -> Result<(), String> effects [concurrency]
+	check_close_overlap(io::CloseOutcome::Closed, true, -1, 1, overlap::CancelClose)
+end
+
+fn retained_close_in_new_scope(closer: io::Closer, cell: io_provider::State<memory::MemoryState>) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let outcome = handle io::close(closer) with memory::memory_close(owner, 3, cell)
+	match outcome
+		io::CloseOutcome::Closed => Ok(())
+		_ => Err("confirmed closure lost idempotence after owner exit")
+	end
+end
+
+test owner_exit_keeps_confirmed_close_idempotent_without_redirecting() -> Result<(), String> effects [concurrency]
+	let first = io_provider::state(memory::initial(byte_chunk([])))
+	let second = io_provider::state(memory::initial(byte_chunk([])))
+	let retained: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = (handle retain_scope(first) with io_provider::scope())?
+	let _ = (handle retained_close_in_new_scope(retained.closer, second) with io_provider::scope())?
+	match memory::snapshot(first)
+		memory::MemoryState(_, _, _, _, closes) => match memory::snapshot(second)
+			memory::MemoryState(_, _, _, _, other_closes) => if closes == 1 and other_closes == 0
+				Ok(())
+			else
+				Err("repeated close reached the original or a newer provider")
+			end
+		end
 	end
 end

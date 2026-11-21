@@ -54,6 +54,7 @@
     private static final class IoProviderOwner {
         private boolean closing;
         private int producers;
+        private int activeCloses;
         private long nextHostSlot;
         private final java.util.List<IoProviderResource> resources = new java.util.ArrayList<>();
         private final java.util.List<IoProviderResource> unpublished = new java.util.ArrayList<>();
@@ -298,52 +299,59 @@
     }
 
     private static Object ioProviderCloseResource(IoProviderResource resource) {
+        return ioProviderCloseResource(resource, true);
+    }
+
+    private static Object ioProviderCloseResource(IoProviderResource resource, boolean allowClosingOwner) {
         boolean previouslyUnavailable;
         synchronized (resource.owner) {
             if (resource.closed) return adt("CloseOutcome::Closed", new Object[] {});
+            if (!allowClosingOwner && resource.owner.closing) return ioDispatchFailure("close", "Closed");
             if (resource.closing) {
                 return adt("CloseOutcome::CloseFailed", new Object[] {adt("Commit::No", new Object[] {}), ioError("close", "Busy", "close is already active")});
             }
             previouslyUnavailable = resource.unavailable;
             resource.closing = true;
             resource.unavailable = true;
+            resource.owner.activeCloses++;
         }
         IoProviderResource previous = IO_PROVIDER_RELEASING.get();
         IoProviderOwner previousOwner = IO_PROVIDER_OPERATION_OWNER.get();
         IO_PROVIDER_RELEASING.set(resource);
         IO_PROVIDER_OPERATION_OWNER.set(resource.owner);
-        Object outcome;
         try {
-            outcome = invokeHandler(resource.handlers.get("closer"), "close", new Object[] {new IoProviderView(resource, "closer")});
-        } catch (RuntimeException | Error failure) {
-            synchronized (resource.owner) { resource.closing = false; }
-            throw failure;
+            Object outcome = invokeHandler(resource.handlers.get("closer"), "close", new Object[] {new IoProviderView(resource, "closer")});
+            synchronized (resource.owner) {
+                if (isAdt(outcome, "CloseOutcome::Closed")
+                    || isAdt(outcome, "CloseOutcome::CloseFailed") && isAdt(adtPayload(outcome, 0), "Commit::Yes")) {
+                    resource.closed = true;
+                } else if (isAdt(outcome, "CloseOutcome::CloseFailed") && isAdt(adtPayload(outcome, 0), "Commit::No")) {
+                    resource.unavailable = previouslyUnavailable;
+                }
+            }
+            return outcome;
         } finally {
             if (previous == null) IO_PROVIDER_RELEASING.remove();
             else IO_PROVIDER_RELEASING.set(previous);
             if (previousOwner == null) IO_PROVIDER_OPERATION_OWNER.remove();
             else IO_PROVIDER_OPERATION_OWNER.set(previousOwner);
-        }
-        synchronized (resource.owner) {
-            resource.closing = false;
-            if (isAdt(outcome, "CloseOutcome::Closed")
-                || isAdt(outcome, "CloseOutcome::CloseFailed") && isAdt(adtPayload(outcome, 0), "Commit::Yes")) {
-                resource.closed = true;
-            } else if (isAdt(outcome, "CloseOutcome::CloseFailed") && isAdt(adtPayload(outcome, 0), "Commit::No")) {
-                resource.unavailable = previouslyUnavailable;
+            synchronized (resource.owner) {
+                resource.closing = false;
+                resource.owner.activeCloses--;
+                resource.owner.notifyAll();
             }
         }
-        return outcome;
     }
 
     private static void cleanupIoProvider(IoProviderOwner owner) {
         java.util.List<IoProviderResource> resources;
         int activeProducers;
+        int activeCloses;
         boolean interrupted = false;
         synchronized (owner) {
             owner.closing = true;
             long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(1L);
-            while (owner.producers != 0) {
+            while (owner.producers != 0 || owner.activeCloses != 0) {
                 long remaining = deadline - System.nanoTime();
                 if (remaining <= 0L) break;
                 try {
@@ -370,6 +378,7 @@
         }
         synchronized (owner) {
             activeProducers = owner.producers;
+            activeCloses = owner.activeCloses;
             for (Throwable lateFailure : owner.lateFailures) {
                 if (failure == null) failure = new RuntimeFailure("provider cleanup could not confirm resource closure");
                 attachCleanupFailure(failure, lateFailure);
@@ -378,6 +387,10 @@
         if (activeProducers != 0) {
             if (failure == null) failure = new RuntimeFailure("provider cleanup could not confirm resource closure");
             attachCleanupFailure(failure, new RuntimeFailure(activeProducers + " resource producer(s) still active"));
+        }
+        if (activeCloses != 0) {
+            if (failure == null) failure = new RuntimeFailure("provider cleanup could not confirm resource closure");
+            attachCleanupFailure(failure, new RuntimeFailure(activeCloses + " close operation(s) still active"));
         }
         if (interrupted) Thread.currentThread().interrupt();
         try {
@@ -420,10 +433,7 @@
         boolean namespace = capability.equals("filesystem") || capability.equals("mutable_filesystem");
         boolean producer = namespace && operation.startsWith("open_");
         if (operation.equals("close")) {
-            synchronized (resource.owner) {
-                if (resource.owner.closing) return ioDispatchFailure(operation, "Closed");
-            }
-            Object result = ioProviderCloseResource(resource);
+            Object result = ioProviderCloseResource(resource, false);
             throwTaskCancellationIfRequested();
             return result;
         }

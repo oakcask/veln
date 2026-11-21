@@ -1,0 +1,49 @@
+use io from "std"
+use io_provider from "std"
+use io_lifecycle_test_support_test as lifecycle
+use io_close_overlap_test_support_test as overlap
+
+# Backend contract: a pending explicit close must settle before owner cleanup
+# can confirm closure or retry an unresolved release. Project cleanup failures
+# after the source observer has recorded actual close calls and live state.
+fn count(total: Int, ignored: lifecycle::CloseEvent) -> Int
+	total + 1
+end
+
+fn observe(cell: io_provider::State<lifecycle::State>) -> () effects [concurrency, stdio]
+	match lifecycle::snapshot(cell)
+		lifecycle::State(_, live, closes, reads) => begin
+			stdio::println(int_to_string(list_fold(closes, 0, count)))
+			let _ = match dict_get(live, 1)
+				Some(true) => stdio::println("live")
+				_ => stdio::println("released")
+			end
+			stdio::println(int_to_string(reads))
+		end
+	end
+end
+
+pub fn main() -> Result<(), String> effects [concurrency, stdio]
+	let cell = io_provider::state(lifecycle::initial(__STEPS__))
+	defer
+		observe(cell)
+	end
+	match overlap::run(cell, __MODE__)?
+		overlap::Completed(io::CloseOutcome::Closed) => begin
+			stdio::println("explicit Closed")
+			Ok(())
+		end
+		overlap::Completed(io::CloseOutcome::CloseFailed(commit, _)) => begin
+			let _ = match commit
+				io::Commit::No => stdio::println("explicit No")
+				io::Commit::Yes => stdio::println("explicit Yes")
+				io::Commit::Unknown => stdio::println("explicit Unknown")
+			end
+			Ok(())
+		end
+		overlap::Cancelled => begin
+			stdio::println("cancelled")
+			Ok(())
+		end
+	end
+end

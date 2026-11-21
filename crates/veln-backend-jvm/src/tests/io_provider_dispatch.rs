@@ -641,3 +641,224 @@ fn io_provider_owner_cleanup_observes_inflight_late_publication_release() {
         }
     }
 }
+
+fn overlap_step(commit: Option<&str>, released: bool, operation: &str) -> String {
+    let reply = commit.map_or_else(|| "io::CloseOutcome::Closed".to_owned(), |commit| format!("io::CloseOutcome::CloseFailed(io::Commit::{commit}, lifecycle::failure(\"{operation}\"))"));
+    format!("lifecycle::CloseStep(1, {reply}, {released})")
+}
+
+#[test]
+fn io_provider_explicit_close_settles_before_owner_cleanup_confirms_release() {
+    for (name, first, released, retry, mode, success) in [
+        ("closed", None, true, None, "Normal", true),
+        ("abrupt", None, true, Some(None), "AbruptClose", false),
+        ("contract", None, true, Some(None), "ContractClose", false),
+        ("yes", Some("Yes"), true, None, "Normal", true),
+        ("no-retry", Some("No"), false, Some(None), "Normal", true),
+        (
+            "unknown-open",
+            Some("Unknown"),
+            false,
+            Some(None),
+            "Normal",
+            true,
+        ),
+        (
+            "unknown-released",
+            Some("Unknown"),
+            true,
+            Some(None),
+            "Normal",
+            true,
+        ),
+        (
+            "failed-retry-no",
+            Some("No"),
+            false,
+            Some(Some("No")),
+            "Normal",
+            false,
+        ),
+        (
+            "failed-retry-yes",
+            Some("No"),
+            false,
+            Some(Some("Yes")),
+            "Normal",
+            false,
+        ),
+        (
+            "failed-retry-unknown",
+            Some("No"),
+            false,
+            Some(Some("Unknown")),
+            "Normal",
+            false,
+        ),
+        ("blocked", None, true, None, "Blocked", false),
+        ("cancelled", None, true, None, "CancelClose", true),
+        (
+            "cancelled-no",
+            Some("No"),
+            false,
+            Some(None),
+            "CancelClose",
+            true,
+        ),
+        (
+            "cancelled-yes",
+            Some("Yes"),
+            true,
+            None,
+            "CancelClose",
+            true,
+        ),
+        (
+            "cancelled-unknown",
+            Some("Unknown"),
+            false,
+            Some(None),
+            "CancelClose",
+            true,
+        ),
+    ] {
+        let tail = retry.map_or_else(
+            || "Nil".to_owned(),
+            |commit| {
+                format!(
+                    "Cons({}, Nil)",
+                    overlap_step(
+                        commit,
+                        commit != Some("No") && commit != Some("Unknown"),
+                        "cleanup retry"
+                    )
+                )
+            },
+        );
+        let steps = format!(
+            "Cons({}, {tail})",
+            overlap_step(first, released, "explicit close")
+        );
+        let source = include_str!("../../test-support/filesystem_close_overlap.veln")
+            .replace("__STEPS__", &steps)
+            .replace("__MODE__", &format!("overlap::{mode}"));
+        let analysis = analyze_project(
+            Project {
+                root: std::path::PathBuf::new(),
+                manifest: None,
+                files: vec![
+                    SourceFile::new("main.veln", source),
+                    SourceFile::new(
+                        "io_lifecycle_test_support_test.veln",
+                        app_support(include_str!(
+                            "../../../veln-stdlib/veln/io_lifecycle_test_support_test.veln"
+                        )),
+                    ),
+                    SourceFile::new(
+                        "io_publication_test_support_test.veln",
+                        app_support(include_str!(
+                            "../../../veln-stdlib/veln/io_publication_test_support_test.veln"
+                        )),
+                    ),
+                    SourceFile::new(
+                        "io_close_abrupt_test_support_test.veln",
+                        app_support(include_str!(
+                            "../../../veln-stdlib/veln/io_close_abrupt_test_support_test.veln"
+                        )),
+                    ),
+                    SourceFile::new(
+                        "io_close_overlap_test_support_test.veln",
+                        app_support(include_str!(
+                            "../../../veln-stdlib/veln/io_close_overlap_test_support_test.veln"
+                        )),
+                    ),
+                ],
+            },
+            DoctestMode::Exclude,
+        );
+        assert!(
+            analysis.checked_diagnostics().is_empty(),
+            "{name}: {:#?}",
+            analysis.checked_diagnostics()
+        );
+        let lowered = analysis
+            .lower_reachable_entry("main", FunctionKind::Function)
+            .lowered;
+        assert!(
+            lowered.diagnostics.is_empty(),
+            "{name}: {:#?}",
+            lowered.diagnostics
+        );
+        let program = generate_classfiles_with_entry(
+            &lowered.ir.expect("close overlap fixture should lower"),
+            "main",
+        );
+        let Some(output) = run_jvm_program_when_java_is_available(
+            &format!("filesystem-close-overlap-{name}"),
+            &program,
+            &[],
+        ) else {
+            return;
+        };
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(
+            output.status.success(),
+            success,
+            "{name}: stdout={}; stderr={stderr}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        let calls = if retry.is_some() { 2 } else { 1 };
+        let live = if retry == Some(Some("No")) || retry == Some(Some("Unknown")) {
+            "live"
+        } else {
+            "released"
+        };
+        let mut expected = if success {
+            if mode == "CancelClose" {
+                "cancelled\n".to_owned()
+            } else {
+                format!("explicit {}\n", first.unwrap_or("Closed"))
+            }
+        } else {
+            String::new()
+        };
+        expected.push_str(&format!("{calls}\n{live}\n0\n"));
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            expected,
+            "{name}: {stderr}"
+        );
+        if !success {
+            assert!(
+                stderr.starts_with("provider cleanup could not confirm resource closure"),
+                "{name}: {stderr}"
+            );
+            if mode == "AbruptClose" || mode == "ContractClose" {
+                let context = if mode == "AbruptClose" {
+                    "invalid shift count 66"
+                } else {
+                    "contract failure: require `value` in `reject` blame caller"
+                };
+                assert!(stderr.contains(context), "{name}: {stderr}");
+                assert!(
+                    !stderr.contains("close operation(s) still active"),
+                    "{name}: {stderr}"
+                );
+            } else if mode == "Blocked" {
+                assert!(
+                    stderr.contains("1 close operation(s) still active"),
+                    "{name}: {stderr}"
+                );
+            } else {
+                assert!(stderr.contains("cleanup retry"), "{name}: {stderr}");
+                assert!(
+                    stderr.contains(&format!(
+                        "CloseFailed({},",
+                        retry.flatten().expect("failed retry commit")
+                    )),
+                    "{name}: {stderr}"
+                );
+            }
+        }
+    }
+}

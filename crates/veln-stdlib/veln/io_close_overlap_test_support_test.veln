@@ -1,0 +1,152 @@
+use prelude
+use fs
+use io
+use io_provider as provider
+use io_lifecycle_test_support_test as lifecycle
+use io_publication_test_support_test as publication
+use io_close_abrupt_test_support_test as abrupt
+
+pub type Mode
+	pub Normal
+	pub Blocked
+	pub CancelClose
+	pub AbruptClose
+	pub ContractClose
+end
+
+pub type ChildResult
+	pub Completed(reply: io::CloseOutcome)
+	pub Cancelled
+end
+
+type Controls
+	Controls(cell: provider::State<lifecycle::State>, entered: Sender<String>, gate: Receiver<String>, views: Sender<{filesystem: fs::Filesystem, closer: io::Closer, reader: io::Reader}>, children: Sender<Task<io::CloseOutcome>>, leave: Receiver<String>, mode: Mode)
+end
+
+fn close(closer: io::Closer) -> io::CloseOutcome effects [io::Close]
+	io::close(closer)
+end
+
+fn owned(context: Controls) -> Result<(), String> effects [provider::Scope, concurrency]
+	match context
+		Controls(cell, entered, gate, views, children, leave, mode) => begin
+			let owner = provider::owner()
+			let allocation = match mode
+				AbruptClose => abrupt::resource(owner, cell, entered, gate, false)
+				ContractClose => abrupt::resource(owner, cell, entered, gate, true)
+				_ => lifecycle::gated_resource(owner, 1, cell, entered, gate)
+			end
+			let resource: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = match allocation
+				Ok(value) => Ok(value)
+				Err(error) => Err(error.message)
+			end?
+			let filesystem: fs::Filesystem = match publication::filesystem(owner, cell, entered, gate)
+				Ok(value) => Ok(value)
+				Err(error) => Err(error.message)
+			end?
+			let child = handle task::spawn_with(close, resource.closer) with lifecycle::closer(owner, cell)
+			let _ = channel::send(views, {filesystem: filesystem, closer: resource.closer, reader: resource.reader})
+			let _ = channel::send(children, child)
+			let _ = channel::recv(leave)
+			Ok(())
+		end
+	end
+end
+
+fn owner_worker(context: Controls) -> Result<(), String> effects [concurrency]
+	handle owned(context) with provider::scope()
+end
+
+handler inactive_closer() for io::Close
+	close(resource) => io::CloseOutcome::CloseFailed(io::Commit::No, lifecycle::failure("unexpected lexical close"))
+end
+
+handler inactive_reader() for io::Read
+	read(resource, maximum) => io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(byte_chunk_count(byte_chunk([]))), lifecycle::failure("unexpected lexical read"))
+end
+
+fn close_busy(closer: io::Closer) -> Bool effects [io::Close]
+	match io::close(closer)
+		io::CloseOutcome::CloseFailed(io::Commit::No, error) => match error.kind
+			io::ErrorKind::Busy => true
+			_ => false
+		end
+		_ => false
+	end
+end
+
+fn close_rejected(closer: io::Closer) -> Bool effects [io::Close]
+	match io::close(closer)
+		io::CloseOutcome::Closed => true
+		io::CloseOutcome::CloseFailed(io::Commit::No, error) => match error.kind
+			io::ErrorKind::Closed => true
+			_ => false
+		end
+		_ => false
+	end
+end
+
+fn read_closed(reader: io::Reader) -> Bool effects [io::Read]
+	match io::read(reader, byte_chunk_count(byte_chunk([])))
+		io::ReadOutcome::ReadFailed(_, _, error) => match error.kind
+			io::ErrorKind::Closed => true
+			_ => false
+		end
+		_ => false
+	end
+end
+
+pub fn run(cell: provider::State<lifecycle::State>, mode: Mode) -> Result<ChildResult, String> effects [concurrency]
+	let entered = channel::bounded<String>(1)
+	let gate = channel::bounded<String>(1)
+	let views = channel::bounded<{filesystem: fs::Filesystem, closer: io::Closer, reader: io::Reader}>(1)
+	let children = channel::bounded<Task<io::CloseOutcome>>(1)
+	let leave = channel::bounded<String>(1)
+	let owner = task::spawn_with(owner_worker, Controls(cell, entered.tx, gate.rx, views.tx, children.tx, leave.rx, mode))
+	let view: {filesystem: fs::Filesystem, closer: io::Closer, reader: io::Reader} = match channel::recv(views.rx)
+		Some(value) => Ok(value)
+		None => Err("missing close alias")
+	end?
+	let child: Task<io::CloseOutcome> = match channel::recv(children.rx)
+		Some(value) => Ok(value)
+		None => Err("missing close task")
+	end?
+	let _ = channel::recv(entered.rx)
+	let busy = handle close_busy(view.closer) with inactive_closer()
+	let closed = handle read_closed(view.reader) with inactive_reader()
+	let _ = match mode
+		CancelClose => task::cancel(child)
+		_ => ()
+	end
+	let _ = channel::send(leave.tx, "leave owner")
+	let _ = handle publication::wait_closed(view.filesystem) with publication::inactive()
+	let rejected = handle close_rejected(view.closer) with inactive_closer()
+	defer
+		let _ = channel::send(gate.tx, "complete close")
+		let _ = task::join(child)
+	end
+	let _ = match mode
+		Blocked => ()
+		CancelClose => ()
+		_ => begin
+			let _ = channel::send(gate.tx, "complete close")
+			()
+		end
+	end
+	let owner_ok = match task::join(owner)
+		Ok(Ok(())) => true
+		_ => false
+	end
+	if not busy or not closed or not rejected or not owner_ok
+		Err("close overlap changed admission or owner cleanup")
+	else
+		match task::join(child)
+			Ok(reply) => Ok(Completed(reply))
+			Err(error) => if task::join_error_is_cancelled(error)
+				Ok(Cancelled)
+			else
+				Err("close child failed without cancellation")
+			end
+		end
+	end
+end

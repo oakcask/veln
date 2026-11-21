@@ -1,0 +1,31 @@
+use prelude
+use io
+use io_provider as provider
+use io_lifecycle_test_support_test as lifecycle
+
+fn reject(value: Bool) -> ()
+require value
+	()
+end
+
+handler abrupt_closer(owner: provider::Owner, cell: provider::State<lifecycle::State>, entered: Sender<String>, gate: Receiver<String>, contract_failure: Bool) for io::Close effects [concurrency]
+	close(resource) => begin
+		let reply = handle perform io::Close::close(resource) with lifecycle::gated_closer(owner, cell, entered, gate)
+		let _ = if contract_failure
+			reject(false)
+		else
+			begin
+				let invalid_count = 66
+				let ignored = 1 << invalid_count
+				()
+			end
+		end
+		reply
+	end
+end
+
+pub fn resource(owner: provider::Owner, cell: provider::State<lifecycle::State>, entered: Sender<String>, gate: Receiver<String>, contract_failure: Bool) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error> effects [concurrency]
+	let _ = lifecycle::prepare(cell, 1)
+	let raw = handle handle handle provider::resource(owner, 1, provider::ViewFamily::Duplex) with lifecycle::reader(owner, cell) with lifecycle::writer() with abrupt_closer(owner, cell, entered, gate, contract_failure)
+	provider::duplex(raw?)
+end
