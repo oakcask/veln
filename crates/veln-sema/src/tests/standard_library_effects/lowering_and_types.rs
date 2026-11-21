@@ -462,3 +462,35 @@ fn channel_send_checks_value_against_sender_item_type() {
     assert_eq!(diagnostics[0].id, "type.mismatch");
     assert_eq!(diagnostics[0].message, "expected `String`, but found `Int`");
 }
+
+#[test]
+fn explicit_channel_type_base_failure_does_not_invent_an_inference_error() {
+    for annotation in [
+        "Empty::Missing",
+        "Vec<Empty::Missing>",
+        "{item: Empty::Missing}",
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "type Empty\nend\nfn main() -> () effects [concurrency]\n  let pair = channel::bounded<{annotation}>(1)\n  ()\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        let lowered = lower_checked_surface_module(&module);
+        assert!(lowered.core.is_none());
+        let ids = lowered
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            ids,
+            ["type.variant_refinement_base"],
+            "annotation={annotation}: {:#?}",
+            lowered.diagnostics
+        );
+    }
+}

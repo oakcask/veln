@@ -233,7 +233,19 @@ fn type_applied_call_signature(
     }
     let parse_argument = |annotation: &str| {
         parse_type_annotation(annotation).ok().map(|ty| {
-            environment.canonicalize_type_annotation_in_owner(ty, current_module, current_package)
+            let canonical = environment.canonicalize_type_annotation_in_owner(
+                ty.clone(),
+                current_module,
+                current_package,
+            );
+            if call_type_argument_is_resolved(&canonical) {
+                canonical
+            } else {
+                // The annotation pass diagnoses unavailable explicit types.
+                // Keep their written shape for recovery instead of inventing
+                // unconstrained channel/task/state inference slots.
+                ty
+            }
         })
     };
     let explicit_item = type_args
@@ -264,6 +276,30 @@ fn type_applied_call_signature(
         return_type,
         origin: CallOrigin { effects, ..origin },
     })
+}
+
+fn call_type_argument_is_resolved(ty: &Type) -> bool {
+    match ty {
+        Type::Unknown => false,
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+            args.iter().all(call_type_argument_is_resolved)
+        }
+        Type::Record(fields) => fields
+            .iter()
+            .all(|(_, ty)| call_type_argument_is_resolved(ty)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params.iter().all(call_type_argument_is_resolved)
+                && variadic
+                    .as_deref()
+                    .is_none_or(call_type_argument_is_resolved)
+                && call_type_argument_is_resolved(return_type)
+        }
+    }
 }
 
 fn concurrency_type_arg_limit(segments: &[String]) -> Option<usize> {
