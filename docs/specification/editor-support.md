@@ -787,9 +787,9 @@ of the retained embedded `std` snapshot. A complete qualified application
 reaches that declaration through one parse-clean, unambiguous `std` import by
 using the exact full module path or its unique import alias. The exact path
 wins over a colliding alias. Selecting any matching complete application in
-the saved project returns the canonical `veln-pkg:` declaration as its
-definition and the deterministic set of matching application locations in
-that project as its references. Each returned range covers only the handler
+the accepted project snapshot returns the canonical `veln-pkg:` declaration
+as its definition and the deterministic set of matching application locations
+in that project as its references. Each returned range covers only the handler
 name. LSP omits the package declaration from references even when
 `includeDeclaration` is true.
 

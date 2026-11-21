@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The planned standard-library handler owner, revision, source, project, rejection, or retained-state matrices change.
+update-when: The planned standard-library handler owner, revision, source, project, rejection, or retained-state matrices or their executable evidence change.
 ---
 
 # Standard-Library Handler Navigation
@@ -9,18 +9,21 @@ Current standard-library handler selection and adapter projection are specified
 by [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
 and [MCP](../specification/mcp.md#saved-workspace-navigation). Checked shared,
 LSP, MCP transcript, and cross-adapter evidence owns the implemented S1 and S2
-surface. This proposal retains the unimplemented contract and evidence work
-for S3 through S6. Those rows do not describe current standard-library
-behavior until their planned evidence passes and the current specifications
-adopt the resulting contract.
+surface. This proposal retains the remaining contract detail and evidence work
+for S3 through S6. Current specifications continue to own the general
+selected-project, package-location, and failure-state rules that apply to
+standard-library handlers. The remaining rows track standard-library-specific
+matrix coverage and any contract detail not yet adopted by those
+specifications.
 
 ## Remaining Acceptance And Verification
 
-The acceptance rows below describe the remaining matrix-level coverage. The
-current specifications and focused tests already own the S1 and S2 private,
-non-exported, invalid-cased, duplicate, and recovered declaration guards, plus
-the repeated and recovered import guards. Those guards are not requirements of
-this proposal. The rejection inputs listed in S5 remain planned work.
+The acceptance rows below describe the remaining standard-library-specific
+matrix coverage. Current specifications and focused tests already own the S1
+and S2 guards for private, non-exported, invalid-cased, duplicate, and
+recovered declarations, plus repeated and recovered imports. Those guards are
+not requirements of this proposal. The rejection inputs listed in S5 remain
+planned work.
 
 | Case | Input | Required observation | Planned evidence |
 | --- | --- | --- | --- |
