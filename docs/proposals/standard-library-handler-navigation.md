@@ -22,9 +22,10 @@ The acceptance rows below describe the remaining standard-library-specific
 matrix coverage. Current specifications and focused tests already own the S1
 and S2 guards for private, non-exported, invalid-cased, duplicate, and
 recovered declarations, repeated and recovered imports, and standard-library
-alias collisions with implicit or explicit workspace import aliases. Those
-guards are not requirements of this proposal. The rejection inputs listed in
-S5 remain planned work.
+alias collisions with implicit or explicit workspace import aliases. They also
+own parse-clean exact-route blockers and ambiguous package aliases that prevent
+fallback to an unrelated eligible handler. Those guards are not requirements
+of this proposal. The rejection inputs listed in S5 remain planned work.
 
 | Case | Input | Required observation | Planned evidence |
 | --- | --- | --- | --- |

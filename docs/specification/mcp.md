@@ -1097,7 +1097,13 @@ alias of a parse-clean workspace import. Selecting an application through that
 colliding qualifier returns the existing empty definition or reference result;
 the exact standard-library module path remains a separate route. A recovered
 import grants no route, but it does not make a separate parse-clean import
-ambiguous.
+ambiguous. A parse-clean exact imported module route owns its qualifier before
+handler eligibility is considered. If that exact route is duplicate,
+ambiguous, or does not provide the selected handler, lookup returns the empty
+result instead of falling back to an unrelated workspace, dependency, or
+standard-library alias with the same spelling. Likewise, several parse-clean
+package imports that claim one alias remain ambiguous even when only one route
+could provide an eligible handler.
 A recovered exact-path import does not block a separate parse-clean unique
 alias. These rejections return the existing empty definition or reference
 result.
@@ -1291,7 +1297,9 @@ unique-alias selection of one canonical retained standard-library definition,
 workspace-only references, declaration-inclusive project pagination, and
 package-declaration exclusion for single-file scope. It also checks empty
 definition and reference results when the standard-library alias collides with
-a workspace import's implicit leaf alias.
+a workspace import's implicit leaf alias and when a duplicate exact
+standard-library route blocks fallback to an unrelated standard-library
+alias.
 MCP unit regressions exercise every imported workspace-handler exclusion
 specified above. They verify that each empty definition and reference result
 preserves an unrelated valid handler result. Capture-failure coverage also

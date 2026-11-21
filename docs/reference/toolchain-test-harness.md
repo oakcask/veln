@@ -537,7 +537,7 @@ unique-alias selection of one retained standard-library handler. It checks
 workspace-only project references, declaration-inclusive cursor pagination,
 package-declaration exclusion in single-file scope, and empty definition and
 reference results when the standard-library alias collides with a workspace
-import's implicit leaf alias.
+import's implicit leaf alias or with a duplicate exact standard-library route.
 The `references-workspace-schema-composition` MCP specification case uses the
 same decoded assertion model for canonical reference locations, empty boundary
 results, project scope, and isolated single-file scope.
