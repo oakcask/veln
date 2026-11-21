@@ -111,7 +111,14 @@ pub(crate) fn type_call_signature(
                 current_package,
             },
         ),
-        ExprKind::TypeApply { .. } => type_applied_call_signature(callee, expected, handle_type),
+        ExprKind::TypeApply { .. } => type_applied_call_signature(
+            callee,
+            expected,
+            handle_type,
+            environment,
+            current_module,
+            current_package,
+        ),
         _ => None,
     }
 }
@@ -215,25 +222,33 @@ fn type_applied_call_signature(
     callee: &Expr,
     expected: Option<&Type>,
     handle_type: Option<&Type>,
+    environment: &TypeEnvironment,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<TypeCallSignature> {
     let (segments, type_args) = type_applied_name_path(callee)?;
     let origin = concurrency_origin(segments, callee)?;
     if type_args.len() > concurrency_type_arg_limit(segments)? {
         return None;
     }
+    let parse_argument = |annotation: &str| {
+        parse_type_annotation(annotation).ok().map(|ty| {
+            environment.canonicalize_type_annotation_in_owner(ty, current_module, current_package)
+        })
+    };
     let explicit_item = type_args
         .first()
-        .and_then(|type_arg| parse_type_annotation(type_arg).ok());
+        .and_then(|type_arg| parse_argument(type_arg));
     let explicit_context = type_args
         .get(1)
         .filter(|_| {
             is_task_spawn_with(segments)
                 || matches!(segments, [module, name] if module == "io_provider" && name == "update")
         })
-        .and_then(|type_arg| parse_type_annotation(type_arg).ok());
+        .and_then(|type_arg| parse_argument(type_arg));
     let explicit_result = type_args
         .get(2)
-        .and_then(|type_arg| parse_type_annotation(type_arg).ok());
+        .and_then(|type_arg| parse_argument(type_arg));
     let (params, return_type) = concurrency_signature(
         segments,
         expected,

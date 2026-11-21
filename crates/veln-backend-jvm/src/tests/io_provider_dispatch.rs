@@ -491,3 +491,153 @@ end
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "aliased\n42\n8\n");
 }
+
+#[test]
+fn io_provider_owner_cleanup_observes_inflight_late_publication_release() {
+    for (name, commit, released, exit) in [
+        ("closed", None, true, "success"),
+        ("blocked", None, true, "blocked"),
+        ("failed-no", Some("No"), false, "success"),
+        ("failed-yes", Some("Yes"), true, "success"),
+        ("failed-unknown-open", Some("Unknown"), false, "success"),
+        ("failed-unknown-released", Some("Unknown"), true, "success"),
+        ("runtime", Some("No"), false, "runtime"),
+        ("cancelled", Some("No"), false, "cancelled"),
+    ] {
+        let reply = commit.map_or_else(|| "io::CloseOutcome::Closed".to_owned(), |commit| format!("io::CloseOutcome::CloseFailed(io::Commit::{commit}, lifecycle::failure(\"late release\"))"));
+        let mut source = include_str!("../../test-support/filesystem_publication.veln").to_string();
+        if exit == "cancelled" {
+            let prefix = source
+                .split_once("pub fn main()")
+                .expect("publication main")
+                .0;
+            source = format!(
+                "{prefix}{}",
+                include_str!("../../test-support/filesystem_publication_cancelled_entry.veln")
+            );
+        }
+        source = source
+            .replace("__REPLY__", &reply)
+            .replace("__RELEASED__", if released { "true" } else { "false" })
+            .replace(
+                "__EXIT__",
+                if exit == "runtime" {
+                    "let invalid_count = 66\n\t\t\tlet ignored = 1 << invalid_count\n\t\t\tOk(())"
+                } else {
+                    "Ok(())"
+                },
+            );
+        if exit == "blocked" {
+            source = source.replace(
+                "let _ = channel::send(gate.tx, \"complete open\")\n\tdefer\n\t\tobserve(cell)\n\tend",
+                "defer\n\t\tobserve(cell)\n\tend\n\tdefer\n\t\tlet _ = channel::send(gate.tx, \"complete open\")\n\t\tlet _ = task::join(child)\n\tend",
+            );
+        }
+        let analysis = analyze_project(
+            Project {
+                root: std::path::PathBuf::new(),
+                manifest: None,
+                files: vec![
+                    SourceFile::new("main.veln", source),
+                    SourceFile::new(
+                        "io_lifecycle_test_support_test.veln",
+                        app_support(include_str!(
+                            "../../../veln-stdlib/veln/io_lifecycle_test_support_test.veln"
+                        )),
+                    ),
+                    SourceFile::new(
+                        "io_publication_test_support_test.veln",
+                        app_support(include_str!(
+                            "../../../veln-stdlib/veln/io_publication_test_support_test.veln"
+                        )),
+                    ),
+                ],
+            },
+            DoctestMode::Exclude,
+        );
+        assert!(
+            analysis.checked_diagnostics().is_empty(),
+            "{name}: {:#?}",
+            analysis.checked_diagnostics()
+        );
+        let lowered = analysis
+            .lower_reachable_entry("main", FunctionKind::Function)
+            .lowered;
+        assert!(
+            lowered.diagnostics.is_empty(),
+            "{name}: {:#?}",
+            lowered.diagnostics
+        );
+        let program = generate_classfiles_with_entry(
+            &lowered.ir.expect("publication fixture should lower"),
+            "main",
+        );
+        let trace_root = temp_dir(&format!("filesystem-publication-trace-{name}"));
+        let cleanup_path = trace_root.join("cleanup.tsv");
+        let result_path = trace_root.join("result.tsv");
+        let Some(output) = run_jvm_program_with_env_when_java_is_available(
+            &format!("filesystem-publication-{name}"),
+            &program,
+            &[
+                (
+                    "VELN_CLEANUP_ERRORS",
+                    cleanup_path.to_str().expect("cleanup path"),
+                ),
+                (
+                    "VELN_RESULT_ERRORS",
+                    result_path.to_str().expect("result path"),
+                ),
+            ],
+            &[],
+        ) else {
+            return;
+        };
+        let trace = fs::read_to_string(&cleanup_path).unwrap_or_default();
+        let _ = fs::remove_dir_all(&trace_root);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(
+            output.status.success(),
+            commit.is_none() && exit != "blocked",
+            "{name}: stdout={}; stderr={stderr}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            if released {
+                "1\nreleased\n"
+            } else {
+                "1\nretained release obligation\n"
+            },
+            "{name}: {stderr}"
+        );
+        if exit == "blocked" {
+            assert!(
+                stderr.starts_with("provider cleanup could not confirm resource closure"),
+                "{stderr}"
+            );
+            assert!(
+                stderr.contains("1 resource producer(s) still active"),
+                "{stderr}"
+            );
+        }
+        if let Some(commit) = commit {
+            let context = format!("CloseFailed({commit},");
+            let encoded: String = context.bytes().map(|b| format!("{b:02x}")).collect();
+            assert!(
+                trace.contains(&encoded),
+                "{name}: close facts absent from trace: {trace}; {stderr}"
+            );
+            if exit == "cancelled" {
+                assert_eq!(stderr, "Err(cancelled)\n");
+            } else {
+                assert!(stderr.contains("late release"), "{name}: {stderr}");
+                let primary = if exit == "runtime" {
+                    "invalid shift count 66"
+                } else {
+                    "provider cleanup could not confirm resource closure"
+                };
+                assert!(stderr.starts_with(primary), "{name}: {stderr}");
+            }
+        }
+    }
+}

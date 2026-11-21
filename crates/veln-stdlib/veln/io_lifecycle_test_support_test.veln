@@ -84,9 +84,13 @@ pub handler closer(owner: provider::Owner, cell: provider::State<State>) for io:
 end
 
 pub fn resource(owner: provider::Owner, slot: Int, cell: provider::State<State>) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error> effects [concurrency]
-	let _ = provider::update(cell, slot, register)
+	let _ = prepare(cell, slot)
 	let raw = handle handle handle provider::resource(owner, slot, provider::ViewFamily::Duplex) with reader(owner, cell) with writer() with closer(owner, cell)
 	provider::duplex(raw?)
+end
+
+pub fn prepare(cell: provider::State<State>, slot: Int) -> () effects [concurrency]
+	provider::update(cell, slot, register)
 end
 
 fn observe(state: State, ignored: ()) -> {state: State, result: State}

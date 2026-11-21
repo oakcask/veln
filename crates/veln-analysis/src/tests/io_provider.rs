@@ -167,3 +167,36 @@ end
         }
     }
 }
+
+#[test]
+fn io_provider_explicit_concurrency_types_resolve_source_imports() {
+    let analysis = analyze_project(
+        provider_project(
+            r#"
+use fs from "std"
+use io_provider as providers from "std"
+
+fn worker(context: {cell: providers::State<Int>, filesystem: fs::Filesystem}) -> () effects [concurrency]
+    ()
+end
+
+pub fn bridge(filesystem: fs::Filesystem, file: fs::ReadFile) -> () effects [concurrency]
+    let files = channel::bounded<fs::ReadFile>(1)
+    let _ = channel::send(files.tx, file)
+    let views = channel::bounded<fs::Filesystem>(1)
+    let _ = channel::send(views.tx, filesystem)
+    let cell = providers::state(0)
+    let job = task::spawn_with<(), {cell: providers::State<Int>, filesystem: fs::Filesystem}>(worker, {cell: cell, filesystem: filesystem})
+    let _ = task::join(job)
+    ()
+end
+"#,
+        ),
+        DoctestMode::Exclude,
+    );
+    assert!(
+        analysis.checked_diagnostics().is_empty(),
+        "{:#?}",
+        analysis.checked_diagnostics()
+    );
+}

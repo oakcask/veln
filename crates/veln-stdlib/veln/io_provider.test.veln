@@ -3,6 +3,9 @@ use io_provider
 use io_lifecycle_test_support_test as lifecycle
 use io
 use io_provider_test_support_test as memory
+use io_publication_test_support_test as publication
+use fs
+use path
 
 fn add(value: Int, increment: Int) -> {state: Int, result: Int}
 	{state: value + increment, result: value}
@@ -514,5 +517,89 @@ test close_retry_no_cannot_clear_an_earlier_unknown_release() -> Result<(), Stri
 		else
 			Err("uncertain retry transferred bytes or lost a release obligation")
 		end
+	end
+end
+
+type PublicationControl
+	PublicationControl(cell: io_provider::State<lifecycle::State>, entered: Sender<String>, gate: Receiver<String>, views: Sender<fs::Filesystem>, results: Sender<Result<fs::ReadFile, io::Error>>, leave: Receiver<String>)
+end
+
+fn publication_child(context: {filesystem: fs::Filesystem, results: Sender<Result<fs::ReadFile, io::Error>>}) -> () effects [fs::Read, concurrency]
+	let result = fs::open_read(context.filesystem, path::root())
+	let _ = channel::send(context.results, result)
+	()
+end
+
+fn publication_body(context: PublicationControl) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	match context
+		PublicationControl(cell, entered, gate, views, results, leave) => begin
+			let owner = io_provider::owner()
+			let filesystem: fs::Filesystem = match publication::filesystem(owner, cell, entered, gate)
+				Ok(value) => Ok(value)
+				Err(error) => Err(error.message)
+			end?
+			let child = handle task::spawn_with(publication_child, {filesystem: filesystem, results: results}) with publication::namespace(owner, cell, entered, gate)
+			let _ = channel::send(views, filesystem)
+			let _ = channel::recv(leave)
+			Ok(())
+		end
+	end
+end
+
+fn publication_owner(context: PublicationControl) -> Result<(), String> effects [concurrency]
+	handle publication_body(context) with io_provider::scope()
+end
+
+test owner_exit_releases_an_open_completing_after_publication_closes() -> Result<(), String> effects [concurrency]
+	let cell = io_provider::state(lifecycle::initial(Cons(lifecycle::CloseStep(1, io::CloseOutcome::Closed, true), Nil)))
+	let entered = channel::bounded<String>(1)
+	let gate = channel::bounded<String>(1)
+	let views = channel::bounded<fs::Filesystem>(1)
+	let results = channel::bounded<Result<fs::ReadFile, io::Error>>(1)
+	let leave = channel::bounded<String>(1)
+	let owner = task::spawn_with(publication_owner, PublicationControl(cell, entered.tx, gate.rx, views.tx, results.tx, leave.rx))
+	let filesystem: fs::Filesystem = match channel::recv(views.rx)
+		Some(value) => Ok(value)
+		None => Err("missing filesystem view")
+	end?
+	let _ = channel::recv(entered.rx)
+	let _ = channel::send(leave.tx, "leave")
+	let _ = handle publication::wait_closed(filesystem) with publication::inactive()
+	let _ = channel::send(gate.tx, "complete open")
+	let owner_ok = match task::join(owner)
+		Ok(Ok(())) => true
+		_ => false
+	end
+	let result: Option<Result<fs::ReadFile, io::Error>> = channel::recv(results.rx)
+	let rejected = match result
+		Some(Err(error)) => match error.kind
+			io::ErrorKind::Closed => true
+			_ => false
+		end
+		_ => false
+	end
+	match lifecycle::snapshot(cell)
+		lifecycle::State(remaining, live, events, reads) => if not owner_ok
+			Err("owner did not confirm cleanup of the admitted open")
+		else if not rejected
+			Err("late open did not return Closed")
+		else if not list_is_empty(remaining)
+			Err("late close did not consume its release plan")
+		else if not publication_released(live)
+			Err("late resource remains live")
+		else if list_fold(events, 0, count_close) != 1
+			Err("late release callback count differs from one")
+		else if reads != 0
+			Err("late resource reached a reader")
+		else
+			Ok(())
+		end
+	end
+end
+
+fn publication_released(live: Dict<Int, Bool>) -> Bool
+	match dict_get(live, 1)
+		Some(false) => true
+		_ => false
 	end
 end

@@ -786,8 +786,8 @@ fn assert_standard_handler_project_isolation(
         "range":{"start":{"line":101,"column":13},"end":{"line":101,"column":19}},
         "packageDocumentationUri":concat!(
             "veln-doc:///package/std/snapshot/",
-            "a850f8d156bd7efefa82a2c67352fd9556403dd53e33aa13ef2c64c2660249a6/",
-            "documentation/3925a5fd6b7a7a5471d023ed39aa623aa491817f426fdcf10a5af22fca7222ba/",
+            "6c430cb0590df5254155c0a3df4bc4f9c72eaf5922c76d377cdaff00bede347f/",
+            "documentation/7be35b0dd76ab609eb2047ab114bb5986786dfa6f0ff1bcde3ca39c3a341932f/",
             "declaration/4f9a4f61d83186052f54b164ba8e847e97638ff837b7fa90134c5ae6220e2dd3"
         )
     }});

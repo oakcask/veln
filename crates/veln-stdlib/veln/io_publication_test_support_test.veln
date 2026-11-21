@@ -1,0 +1,51 @@
+use prelude
+use fs
+use io
+use io_provider as provider
+use io_lifecycle_test_support_test as lifecycle
+use path
+
+pub handler inactive() for fs::Read
+	open_read(filesystem, path) => Err(lifecycle::failure("unexpected lexical open"))
+	metadata(filesystem, path, follow) => Err(lifecycle::failure("unexpected lexical metadata"))
+	entries(filesystem, path) => Err(lifecycle::failure("unexpected lexical entries"))
+end
+
+pub fn wait_closed(filesystem: fs::Filesystem) -> () effects [fs::Read]
+	match fs::metadata(filesystem, path::root(), fs::FollowLinks::NoFollow)
+		Err(error) => match error.kind
+			io::ErrorKind::Closed => ()
+			_ => wait_closed(filesystem)
+		end
+		Ok(_) => wait_closed(filesystem)
+	end
+end
+
+handler seeker() for io::Seek
+	seek(resource, origin) => match origin
+		io::SeekOrigin::Start(offset) => Ok(offset)
+		_ => Err(lifecycle::failure("unused seek"))
+	end
+end
+
+handler reader_at() for io::ReadAt
+	read_at(resource, offset, maximum) => io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(byte_chunk_count(byte_chunk([]))), lifecycle::failure("unused positional read"))
+end
+
+fn open(owner: provider::Owner, cell: provider::State<lifecycle::State>, entered: Sender<String>, gate: Receiver<String>) -> Result<fs::ReadFile, io::Error> effects [concurrency]
+	let _ = lifecycle::prepare(cell, 1)
+	let _ = channel::send(entered, "open prepared")
+	let _ = channel::recv(gate)
+	let raw = handle handle handle handle provider::resource(owner, 1, provider::ViewFamily::ReadFile) with lifecycle::reader(owner, cell) with seeker() with reader_at() with lifecycle::closer(owner, cell)
+	provider::read_file(raw?)
+end
+
+pub handler namespace(owner: provider::Owner, cell: provider::State<lifecycle::State>, entered: Sender<String>, gate: Receiver<String>) for fs::Read effects [concurrency]
+	open_read(filesystem, path) => open(owner, cell, entered, gate)
+	metadata(filesystem, path, follow) => Err(lifecycle::failure("metadata before owner exit"))
+	entries(filesystem, path) => Err(lifecycle::failure("unused entries"))
+end
+
+pub fn filesystem(owner: provider::Owner, cell: provider::State<lifecycle::State>, entered: Sender<String>, gate: Receiver<String>) -> Result<fs::Filesystem, io::Error> effects [concurrency]
+	handle provider::filesystem(owner, 90) with namespace(owner, cell, entered, gate)
+end

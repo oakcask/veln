@@ -1,0 +1,33 @@
+fn receive_view(receiver: Receiver<fs::Filesystem>) -> fs::Filesystem effects [concurrency]
+	match channel::recv(receiver)
+		Some(value) => value
+		None => receive_view(receiver)
+	end
+end
+
+pub fn main() -> Result<(), JoinError> effects [concurrency, stdio]
+	let steps = Cons(lifecycle::CloseStep(1, __REPLY__, __RELEASED__), Nil)
+	let cell = io_provider::state(lifecycle::initial(steps))
+	let entered = channel::bounded<String>(1)
+	let gate = channel::bounded<String>(1)
+	let views = channel::bounded<fs::Filesystem>(1)
+	let children = channel::bounded<Task<Result<fs::ReadFile, io::Error>>>(1)
+	let leave = channel::bounded<String>(1)
+	let owner = task::spawn_with(worker, Controls(cell, entered.tx, gate.rx, views.tx, children.tx, leave.rx))
+	let filesystem = receive_view(views.rx)
+	let _ = channel::recv(entered.rx)
+	task::cancel(owner)
+	let _ = handle wait_closed(filesystem) with unused()
+	let _ = channel::send(gate.tx, "complete open")
+	defer
+		observe(cell)
+	end
+	match task::join(owner)
+		Ok(_) => Ok(())
+		Err(error) => if task::join_error_is_cancelled(error)
+			Err(error)
+		else
+			Ok(())
+		end
+	end
+end

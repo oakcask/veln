@@ -1,6 +1,27 @@
 use super::*;
 
 #[test]
+fn io_provider_late_publication_releases_actual_host_channels_under_cancellation() {
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "io-provider-host-publication",
+        "IoProviderHostPublicationHarness.java",
+        include_str!("../../test-support/IoProviderHostPublicationHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "late host publication and cancelled release verified\n"
+    );
+}
+
+#[test]
 fn io_provider_host_interruption_preserves_unknown_progress_and_close_facts() {
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
     let program = generate_classfiles_with_entry(&ir, "main");

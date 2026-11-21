@@ -53,8 +53,11 @@
 
     private static final class IoProviderOwner {
         private boolean closing;
+        private int producers;
         private long nextHostSlot;
         private final java.util.List<IoProviderResource> resources = new java.util.ArrayList<>();
+        private final java.util.List<IoProviderResource> unpublished = new java.util.ArrayList<>();
+        private final java.util.List<Throwable> lateFailures = new java.util.ArrayList<>();
         private final java.util.Set<Long> slots = new java.util.HashSet<>();
     }
 
@@ -221,12 +224,33 @@
         // A producer racing scope exit must release rather than publish its
         // newly opened resource. The close callback can still access its slot.
         if (captured.containsKey("closer")) {
-            Object outcome = ioProviderCloseResource(resource);
+            Object outcome;
+            try {
+                outcome = ioProviderCloseResource(resource);
+            } catch (RuntimeException | Error failure) {
+                ioProviderRetainLateFailure(resource, failure);
+                throw failure;
+            }
             if (isAdt(outcome, "CloseOutcome::CloseFailed")) {
-                synchronized (owner) { owner.resources.add(resource); }
+                RuntimeFailure failure = ioProviderReleaseFailure("late resource release failed", outcome);
+                ioProviderRetainLateFailure(resource, failure);
+                throw failure;
             }
         }
         return ioProviderFailure("register", "Closed");
+    }
+
+    private static void ioProviderRetainLateFailure(IoProviderResource resource, Throwable failure) {
+        synchronized (resource.owner) {
+            if (!resource.closed) resource.owner.unpublished.add(resource);
+            resource.owner.lateFailures.add(failure);
+        }
+    }
+
+    private static RuntimeFailure ioProviderReleaseFailure(String message, Object outcome) {
+        RuntimeFailure failure = new RuntimeFailure(message);
+        attachCleanupFailure(failure, new RuntimeFailure("release outcome: " + format(outcome)));
+        return failure;
     }
 
     public static Object ioProviderResource(Object owner, Object slot, Object family) {
@@ -314,8 +338,20 @@
 
     private static void cleanupIoProvider(IoProviderOwner owner) {
         java.util.List<IoProviderResource> resources;
+        int activeProducers;
+        boolean interrupted = false;
         synchronized (owner) {
             owner.closing = true;
+            long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(1L);
+            while (owner.producers != 0) {
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0L) break;
+                try {
+                    java.util.concurrent.TimeUnit.NANOSECONDS.timedWait(owner, remaining);
+                } catch (InterruptedException cancellation) {
+                    interrupted = true;
+                }
+            }
             resources = new java.util.ArrayList<>(owner.resources);
         }
         RuntimeFailure failure = null;
@@ -325,12 +361,30 @@
             try {
                 Object outcome = ioProviderCloseResource(resource);
                 if (isAdt(outcome, "CloseOutcome::CloseFailed")) {
-                    throw new RuntimeFailure("provider cleanup failed: " + format(adtPayload(outcome, 1)));
+                    throw ioProviderReleaseFailure("resource release failed", outcome);
                 }
             } catch (RuntimeException closeFailure) {
                 if (failure == null) failure = new RuntimeFailure("provider cleanup could not confirm resource closure");
                 attachCleanupFailure(failure, closeFailure);
             }
+        }
+        synchronized (owner) {
+            activeProducers = owner.producers;
+            for (Throwable lateFailure : owner.lateFailures) {
+                if (failure == null) failure = new RuntimeFailure("provider cleanup could not confirm resource closure");
+                attachCleanupFailure(failure, lateFailure);
+            }
+        }
+        if (activeProducers != 0) {
+            if (failure == null) failure = new RuntimeFailure("provider cleanup could not confirm resource closure");
+            attachCleanupFailure(failure, new RuntimeFailure(activeProducers + " resource producer(s) still active"));
+        }
+        if (interrupted) Thread.currentThread().interrupt();
+        try {
+            throwTaskCancellationIfRequested();
+        } catch (RuntimeException cancellation) {
+            if (failure != null) attachCleanupFailure(cancellation, failure);
+            throw cancellation;
         }
         if (failure != null) throw failure;
     }
@@ -364,11 +418,14 @@
         if (!view.capability.equals(capability)) return ioDispatchFailure(operation, "InvalidResource");
         IoProviderResource resource = view.resource;
         boolean namespace = capability.equals("filesystem") || capability.equals("mutable_filesystem");
+        boolean producer = namespace && operation.startsWith("open_");
         if (operation.equals("close")) {
             synchronized (resource.owner) {
                 if (resource.owner.closing) return ioDispatchFailure(operation, "Closed");
             }
-            return ioProviderCloseResource(resource);
+            Object result = ioProviderCloseResource(resource);
+            throwTaskCancellationIfRequested();
+            return result;
         }
         synchronized (resource.owner) {
             if (resource.owner.closing || resource.closed || resource.unavailable) return ioDispatchFailure(operation, "Closed");
@@ -376,6 +433,7 @@
             if (immediate != null) return immediate;
             if (!namespace && resource.busy) return ioDispatchFailure(operation, "Busy");
             if (!namespace) resource.busy = true;
+            if (producer) resource.owner.producers++;
         }
         try {
             Object[] operands = new Object[arguments.length + 1];
@@ -413,7 +471,13 @@
             }
             return result;
         } finally {
-            if (!namespace) synchronized (resource.owner) { resource.busy = false; }
+            synchronized (resource.owner) {
+                if (!namespace) resource.busy = false;
+                if (producer) {
+                    resource.owner.producers--;
+                    resource.owner.notifyAll();
+                }
+            }
         }
     }
 
