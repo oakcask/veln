@@ -93,11 +93,9 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Seed Rust test caches
-        uses: ./.github/actions/nextest
+      - name: Seed Cargo dependency cache
+        uses: ./.github/actions/cargo-dependencies
         with:
-          nextest-version: ${{ env.NEXTEST_VERSION }}
-          llvm-cov-version: ${{ env.LLVM_COV_VERSION }}
           save-cache: true
 
   test:

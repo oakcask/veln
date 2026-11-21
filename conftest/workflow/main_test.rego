@@ -305,3 +305,24 @@ test_rejects_inline_shell_loop if {
 done`)
   violations["move shell control flow from step \"Prepare reports\" in job \"test\" into a tested repository script so branch and loop behavior is covered by tests"]
 }
+
+test_rejects_nextest_setup_without_a_test_shard if {
+  workflow := {
+    "name": "test / rust",
+    "on": {"pull_request": {}},
+    "permissions": {"contents": "read"},
+    "jobs": {
+      "seed-cache": {
+        "runs-on": "ubuntu-latest",
+        "timeout-minutes": 5,
+        "steps": [{
+          "name": "Seed Rust test caches",
+          "uses": "./.github/actions/nextest",
+          "with": {"save-cache": true},
+        }],
+      },
+    },
+  }
+  violations := deny with input as workflow
+  violations["replace nextest setup without a shard in job \"seed-cache\" with the narrower setup action so cache seeding does not install unused test tools"]
+}
