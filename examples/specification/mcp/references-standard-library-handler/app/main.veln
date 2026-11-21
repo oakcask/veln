@@ -1,5 +1,5 @@
 use observe as trace from "std"
-
+use net as std from "std"
 fn first() -> Int
   handle 1 with observe::noop()
 end

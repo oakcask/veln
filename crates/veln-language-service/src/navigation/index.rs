@@ -589,6 +589,12 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<ModuleMemberIdentity> {
+        let imports = self.schema_alias_module_imports.get(&file.module)?;
+        if imports.parse_clean_handler_external_exact_route_exists(qualifier) {
+            return imports
+                .valid_handler_external_exact_route(qualifier)
+                .map(|(module, package)| handler_external_identity(module, package, name));
+        }
         let qualifier_segments = qualifier.split("::").collect::<Vec<_>>();
         match indexed_qualified_import_resolution(file, &qualifier_segments) {
             Some(resolution) => self.handler_identity_for_import_resolution(

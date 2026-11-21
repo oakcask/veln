@@ -9,3 +9,5 @@
 {"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"references","arguments":{"source":"app/main.veln","line":12,"column":31,"include_declaration":false}}}
 {"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"definition","arguments":{"source":"app/ambiguous.veln","line":7,"column":24}}}
 {"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"source":"app/ambiguous.veln","line":7,"column":24,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"definition","arguments":{"source":"app/blocked.veln","line":8,"column":22}}}
+{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"references","arguments":{"source":"app/blocked.veln","line":8,"column":22,"include_declaration":true}}}

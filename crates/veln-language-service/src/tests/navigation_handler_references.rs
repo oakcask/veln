@@ -615,6 +615,35 @@ mod navigation_handler_references_tests {
     }
 
     #[test]
+    fn standard_library_handler_canonical_exact_path_wins_over_shorter_alias_collision() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use observe from \"std\"\n",
+                "use telemetry as std from \"std\"\n\n",
+                "fn selected() -> Int\n  handle 1 with std::observe::noop()\nend\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[
+                (
+                    "observe.veln",
+                    "pub handler noop() for Observe\n  record() => 1\nend\n",
+                ),
+                (
+                    "telemetry.veln",
+                    "pub handler noop() for Observe\n  record() => 2\nend\n",
+                ),
+            ],
+            ["observe.veln", "telemetry.veln"],
+        ));
+
+        let selected = query_snapshot(&snapshot, "main.veln", 5, 31).unwrap();
+        assert_eq!(selected.definition.span.file.as_str(), "observe.veln");
+        assert_eq!(locations(&selected.references), [("main.veln", 5, 31)]);
+    }
+
+    #[test]
     fn standard_library_handler_references_preserve_declaration_eligibility_guards() {
         let cases = [
             (
@@ -697,6 +726,82 @@ mod navigation_handler_references_tests {
         )])
         .with_standard_library(eligible_standard_handler_library());
         assert!(query_snapshot(&canonical_duplicate, "main.veln", 5, 24).is_none());
+    }
+
+    #[test]
+    fn duplicate_standard_library_exact_route_blocks_unrelated_standard_alias() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use observe as first from \"std\"\n",
+                "use observe as second from \"std\"\n",
+                "use telemetry as observe from \"std\"\n\n",
+                "fn selected() -> Int\n  handle 1 with observe::noop()\nend\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[
+                (
+                    "observe.veln",
+                    "pub handler noop() for Observe\n  record() => 1\nend\n",
+                ),
+                (
+                    "telemetry.veln",
+                    "pub handler noop() for Observe\n  record() => 2\nend\n",
+                ),
+            ],
+            ["observe.veln", "telemetry.veln"],
+        ));
+
+        assert!(query_snapshot(&snapshot, "main.veln", 6, 26).is_none());
+    }
+
+    #[test]
+    fn duplicate_standard_library_exact_route_blocks_direct_dependency_alias() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use observe as first from \"std\"\n",
+                    "use observe as second from \"std\"\n",
+                    "use dep as observe from \"example/dep\"\n\n",
+                    "fn selected() -> Int\n  handle 1 with observe::run()\nend\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/dep",
+                &[(
+                    "dep.veln",
+                    "pub handler run() for Work\n  go() => 1\nend\n",
+                )],
+                ["dep.veln"],
+            )],
+        )
+        .with_standard_library(eligible_standard_handler_library());
+
+        assert!(query_snapshot(&snapshot, "main.veln", 6, 26).is_none());
+    }
+
+    #[test]
+    fn duplicate_explicit_workspace_alias_blocks_standard_library_alias() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use local::trace as trace\n",
+                    "use local::trace as trace\n",
+                    "use observe as trace from \"std\"\n\n",
+                    "fn selected() -> Int\n  handle 1 with trace::noop()\nend\n",
+                ),
+            ),
+            source(
+                "local/trace.veln",
+                "mod local::trace\n\npub fn value() -> Int\n  1\nend\n",
+            ),
+        ])
+        .with_standard_library(eligible_standard_handler_library());
+
+        assert!(query_snapshot(&snapshot, "main.veln", 6, 24).is_none());
     }
 
     #[test]

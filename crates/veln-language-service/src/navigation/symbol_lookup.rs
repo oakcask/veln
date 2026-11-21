@@ -1183,7 +1183,18 @@ impl SchemaAliasModuleImports {
             .collect::<BTreeSet<_>>();
         let valid_workspace_imports_by_alias =
             workspace_imports_by_alias(&valid_workspace_import_records);
-        let valid_workspace_explicit_import_aliases = valid_workspace_import_records
+        let parse_clean_workspace_import_records = validated_workspace_imports
+            .iter()
+            .filter(|import| import.syntax_valid)
+            .cloned()
+            .collect::<Vec<_>>();
+        let parse_clean_workspace_imports = parse_clean_workspace_import_records
+            .iter()
+            .map(|import| import.module.clone())
+            .collect();
+        let parse_clean_workspace_imports_by_alias =
+            workspace_imports_by_alias(&parse_clean_workspace_import_records);
+        let parse_clean_workspace_explicit_import_aliases = parse_clean_workspace_import_records
             .iter()
             .filter(|import| !import.bare_exports)
             .map(|import| import.alias.clone())
@@ -1195,7 +1206,9 @@ impl SchemaAliasModuleImports {
             workspace_imports_by_alias: raw_workspace_imports_by_alias,
             valid_workspace_imports,
             valid_workspace_imports_by_alias,
-            valid_workspace_explicit_import_aliases,
+            parse_clean_workspace_imports,
+            parse_clean_workspace_imports_by_alias,
+            parse_clean_workspace_explicit_import_aliases,
             ..Self::default()
         };
         for import in external_imports {
@@ -1222,7 +1235,25 @@ impl SchemaAliasModuleImports {
             .or_default()
             .insert(identity.clone());
         self.index_valid_external_import(&import, &identity, duplicate_counts);
+        self.index_parse_clean_handler_external_import(&import);
         self.index_valid_handler_external_import(import, handler_duplicate_counts);
+    }
+
+    fn index_parse_clean_handler_external_import(&mut self, import: &ExternalImport) {
+        if !import.syntax_valid {
+            return;
+        }
+        let identity = canonical_handler_external_identity(&import.module, &import.package);
+        for exact_path in handler_external_exact_paths(&import.module, &import.package) {
+            self.parse_clean_handler_external_imports_by_module
+                .entry(exact_path)
+                .or_default()
+                .insert(identity.clone());
+        }
+        self.parse_clean_handler_external_imports_by_alias
+            .entry(import.alias.clone())
+            .or_default()
+            .insert(identity);
     }
 
     fn index_valid_external_import(
@@ -1289,33 +1320,49 @@ impl SchemaAliasModuleImports {
             .handler_external_imports_by_module
             .contains_key(qualifier)
         {
-            return unique_external_route(
-                self.handler_external_imports_by_module.get(qualifier)?,
-                None,
-            );
+            return self.valid_handler_external_exact_route(qualifier);
         }
         let (alias, suffix) = split_import_qualifier(qualifier);
         unique_external_route(self.handler_external_imports_by_alias.get(alias)?, suffix)
+    }
+
+    fn valid_handler_external_exact_route(&self, qualifier: &str) -> Option<(String, String)> {
+        unique_external_route(
+            self.handler_external_imports_by_module.get(qualifier)?,
+            None,
+        )
+    }
+
+    fn parse_clean_handler_external_exact_route_exists(&self, qualifier: &str) -> bool {
+        self.parse_clean_handler_external_imports_by_module
+            .contains_key(qualifier)
     }
 
     fn valid_handler_external_alias_route_after_blocked(
         &self,
         qualifier: &str,
     ) -> Option<(String, String)> {
-        if self
-            .handler_external_imports_by_module
-            .contains_key(qualifier)
-        {
+        if self.parse_clean_handler_external_exact_route_exists(qualifier) {
             return None;
         }
         let (alias, suffix) = split_import_qualifier(qualifier);
-        if self.valid_workspace_imports.contains(qualifier)
-            || self.valid_workspace_imports_by_alias.contains_key(alias)
-            || self.valid_workspace_explicit_import_aliases.contains(alias)
+        if self.parse_clean_workspace_imports.contains(qualifier)
+            || self
+                .parse_clean_workspace_imports_by_alias
+                .contains_key(alias)
+            || self
+                .parse_clean_workspace_explicit_import_aliases
+                .contains(alias)
         {
             return None;
         }
-        unique_external_route(self.handler_external_imports_by_alias.get(alias)?, suffix)
+        let eligible_routes = self.handler_external_imports_by_alias.get(alias)?;
+        let route = unique_external_route(eligible_routes, suffix)?;
+        let has_other_parse_clean_alias_route = self
+            .parse_clean_handler_external_imports_by_alias
+            .get(alias)
+            .is_some_and(|routes| routes.iter().any(|candidate| !eligible_routes.contains(candidate)));
+        (!has_other_parse_clean_alias_route).then_some(route)
     }
 
     fn raw_external_route_matches_any(

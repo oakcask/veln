@@ -119,3 +119,13 @@ equals = null
 id = 11
 path = "/result/structuredContent/references"
 length = 0
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/references"
+length = 0
