@@ -33,6 +33,16 @@ runs_observability_schema_checker if {
   contains(object.get(step, "run", ""), "node --test workflow-scripts/*.test.mjs")
 }
 
+# The memory guard checker scans action manifests as inputs, including newly
+# added actions. Consumed local actions still require their exact manifest paths.
+memory_guard_inspection_path(path) if {
+  path in {".github/actions/*/action.yaml", ".github/actions/*/action.yml"}
+  some job_name
+  job := input.jobs[job_name]
+  some step in object.get(job, "steps", [])
+  endswith(object.get(step, "run", ""), " check-memory-guards .github/workflows .github/actions")
+}
+
 workflow_name_parts(name) := parts if {
   regex.match(`^[^/]+ / [^/]+$`, name)
   parts := split(name, " / ")
@@ -207,6 +217,7 @@ deny contains msg if {
   normalized_path := trim_prefix(path, "!")
   startswith(normalized_path, ".github/actions/")
   contains(normalized_path, "*")
+  not memory_guard_inspection_path(path)
   msg := sprintf("replace wildcard path %q in on.%s.paths with each exact local action.yaml path; wildcard custom-action trigger paths are not allowed", [
     path,
     event_name,
