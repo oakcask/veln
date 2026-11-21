@@ -10,7 +10,9 @@ pub(super) fn surface_prelude_signature(
     descriptor: &StandardSymbolDescriptor,
     expected: &ExpectedPreludeParts,
 ) -> Option<(Vec<Type>, Type)> {
-    prelude_observation_export_signature(descriptor.name, expected)
+    crate::standard_symbols::io_provider_adapter_arity(descriptor.name)
+        .map(|arity| (vec![Type::Unknown; arity], expected.direct.clone()))
+        .or_else(|| prelude_observation_export_signature(descriptor.name, expected))
         .or_else(|| prelude_production_metric_index_signature(descriptor.name))
         .or_else(|| prelude_net_system_signature(descriptor.name, expected))
         .or_else(|| prelude_float_signature(descriptor.name))

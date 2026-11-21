@@ -1,5 +1,47 @@
 use super::*;
 
+#[test]
+fn io_provider_native_paths_reject_lossy_jvm_string_conversion() {
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "io-provider-native-path",
+        "IoProviderNativePathHarness.java",
+        include_str!("../../test-support/IoProviderNativePathHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "native path encoding boundary verified\n"
+    );
+}
+
+#[test]
+fn io_provider_state_preserves_atomicity_across_failure_and_cancellation() {
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "io-provider-state",
+        "IoProviderStateHarness.java",
+        include_str!("../../test-support/IoProviderStateHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "provider state atomicity verified\n"
+    );
+}
+
 fn run_java_runtime_harness(
     name: &str,
     source_name: &str,

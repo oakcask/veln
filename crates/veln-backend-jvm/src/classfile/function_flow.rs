@@ -30,6 +30,7 @@ struct UnwindNode {
     exception_action_label: usize,
     parent: Option<usize>,
     action: UnwindAction,
+    return_used: bool,
 }
 
 #[derive(Clone)]
@@ -320,6 +321,15 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.astore(unwind_result);
         self.exception_unwind_used = true;
         self.unwind_return_label(code);
+        let mut cursor = self.active_unwind;
+        while let Some(index) = cursor {
+            let node = &mut self.unwind_nodes[index];
+            if node.return_used {
+                break;
+            }
+            node.return_used = true;
+            cursor = node.parent;
+        }
         let target = match self.active_unwind {
             Some(node) => self.unwind_nodes[node].label,
             None => self.unwind_return_label.expect("unwind return label"),
@@ -334,6 +344,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             exception_action_label: code.new_label(),
             parent: self.active_unwind,
             action,
+            return_used: false,
         };
         self.active_unwind = Some(self.unwind_nodes.len());
         self.unwind_nodes.push(node);
@@ -395,6 +406,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     ) {
         for index in 0..self.unwind_nodes.len() {
             let node = self.unwind_nodes[index].clone();
+            if !node.return_used {
+                continue;
+            }
             code.bind(node.label);
             self.prepare_unwind_node(node.parent, scratch_base);
             let target = self.return_unwind_target(node.parent, return_label);

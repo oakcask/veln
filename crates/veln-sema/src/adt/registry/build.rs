@@ -120,6 +120,9 @@ impl AdtRegistry {
         let annotation_types = descriptors
             .iter()
             .filter_map(|descriptor| {
+                if let Some(ty) = super::super::provider_records::provider_record_type(descriptor) {
+                    return Some((descriptor_identity(descriptor), ty));
+                }
                 if descriptor.module_name.as_deref() != Some("std::prelude") {
                     return None;
                 }
@@ -762,6 +765,10 @@ fn extend_source_annotation_types(
     annotation_types: &mut BTreeMap<(Option<String>, Option<String>, String), Type>,
 ) {
     for descriptor in source_descriptors {
+        if let Some(ty) = super::super::provider_records::provider_record_type(descriptor) {
+            annotation_types.insert(descriptor_identity(descriptor), ty);
+            continue;
+        }
         if descriptor.module_name.as_deref() == Some("std::prelude") {
             let ty = match descriptor.type_name.as_str() {
                 "WallTime" => Type::wall_time(),

@@ -6,6 +6,7 @@ mod builtin_codec_descriptors;
 mod builtin_core_descriptors;
 pub(crate) mod builtin_descriptors;
 mod lookup_validation;
+mod provider_records;
 #[cfg(test)]
 pub(crate) use lookup_validation::{
     import_path_comparisons, qualified_path_work, reset_import_path_comparisons,

@@ -1,0 +1,478 @@
+use prelude
+use io_provider
+use io_lifecycle_test_support_test as lifecycle
+use io
+use io_provider_test_support_test as memory
+
+fn add(value: Int, increment: Int) -> {state: Int, result: Int}
+	{state: value + increment, result: value}
+end
+
+fn dispatch_body(owner: io_provider::Owner, first_cell: io_provider::State<memory::MemoryState>, second_cell: io_provider::State<memory::MemoryState>) -> Result<(), String> effects [io::Read, io::Write, io::Close, concurrency]
+	let first: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = match memory::memory(owner, 1, first_cell)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	let second: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = match memory::memory(owner, 2, second_cell)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	let maximum = byte_count(2)?
+	let direct_rejected = match perform io::Read::read(first.reader, maximum)
+		io::ReadOutcome::ReadFailed(_, _, error) => is_invalid_resource(error.kind)
+		_ => false
+	end
+	let bytes = match io::read(first.reader, maximum)
+		io::ReadOutcome::Data(bytes) => Ok(bytes)
+		_ => Err("captured first provider did not read its own bytes")
+	end?
+	let copied = match io::write(second.writer, bytes)
+		io::WriteOutcome::Written(count) => byte_count_to_int(count) == 2
+		_ => false
+	end
+	let second_read: String = match io::read(second.reader, maximum)
+		io::ReadOutcome::Data(second_bytes) => byte_chunk_to_visible_ascii_string(second_bytes)
+		_ => Err("second provider did not read its own bytes")
+	end?
+	if direct_rejected and copied and byte_chunk_to_visible_ascii_string(bytes)? == "ab" and second_read == "z"
+		Ok(())
+	else
+		Err("resource facade redirected to a lexical shadow or foreign provider")
+	end
+end
+
+fn dispatch_scope(first: io_provider::State<memory::MemoryState>, second: io_provider::State<memory::MemoryState>) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	handle handle handle dispatch_body(owner, first, second) with memory::memory_read(owner, 2, second) with memory::memory_write(owner, 2, second) with memory::memory_close(owner, 2, second)
+end
+
+test captured_providers_and_lexical_perform_remain_distinct() -> Result<(), String> effects [concurrency]
+	let first_initial = memory::initial(byte_chunk_from_visible_ascii_string("abc")?)
+	let second_initial = memory::initial(byte_chunk_from_visible_ascii_string("z")?)
+	let first = io_provider::state(first_initial)
+	let second = io_provider::state(second_initial)
+	let _ = (handle dispatch_scope(first, second) with io_provider::scope())?
+	match memory::snapshot(first)
+		memory::MemoryState(input, _, reads, _, closes) => if byte_chunk_to_visible_ascii_string(input)? == "c" and reads == 1 and closes == 1
+			match memory::snapshot(second)
+				memory::MemoryState(_, output, second_reads, writes, second_closes) => if byte_chunk_to_visible_ascii_string(output)? == "ab" and second_reads == 1 and writes == 1 and second_closes == 1
+					Ok(())
+				else
+					Err("second provider lost its state or scope cleanup")
+				end
+			end
+		else
+			Err("first provider lost its state or scope cleanup")
+		end
+	end
+end
+
+fn snapshot(value: Int, ignored: ()) -> {state: Int, result: Int}
+	{state: value, result: value}
+end
+
+fn child(cell: io_provider::State<Int>) -> Int effects [concurrency]
+	io_provider::update(cell, 1, add)
+end
+
+test independent_cells_and_committed_results() -> Result<(), String> effects [concurrency]
+	let first = io_provider::state(7)
+	let second = io_provider::state(20)
+	let old = io_provider::update(first, 3, add)
+	let observed = io_provider::update(first, (), snapshot)
+	let untouched = io_provider::update(second, (), snapshot)
+	if old == 7 and observed == 10 and untouched == 20
+		Ok(())
+	else
+		Err("state update lost commit, result, or instance isolation")
+	end
+end
+
+test child_tasks_share_one_cell() -> Result<(), String> effects [concurrency]
+	let cell = io_provider::state(0)
+	let first = task::spawn_with(child, cell)
+	let second = task::spawn_with(child, cell)
+	let a = match task::join(first)
+		Ok(value) => Ok(value)
+		Err(_) => Err("first state task failed")
+	end?
+	let b = match task::join(second)
+		Ok(value) => Ok(value)
+		Err(_) => Err("second state task failed")
+	end?
+	let total = io_provider::update(cell, (), snapshot)
+	if total == 2 and a + b == 1
+		Ok(())
+	else
+		Err("child state identity or atomic update was lost")
+	end
+end
+
+test explicit_state_and_update_type_arguments() -> Result<(), String> effects [concurrency]
+	let cell = io_provider::state<Int>(4)
+	let old = io_provider::update<Int, Int, Int>(cell, 2, add)
+	if old == 4 and io_provider::update(cell, (), snapshot) == 6
+		Ok(())
+	else
+		Err("explicit provider adapter type arguments changed the transition")
+	end
+end
+
+fn missing_handlers_scope() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	match io_provider::resource(owner, 1, io_provider::ViewFamily::ReadFile)
+		Err(error) => if is_unsupported(error.kind)
+			Ok(())
+		else
+			Err("missing view handlers returned the wrong failure")
+		end
+		Ok(_) => Err("incomplete provider published a resource")
+	end
+end
+
+test registration_requires_the_complete_view_family() -> Result<(), String> effects [concurrency]
+	handle missing_handlers_scope() with io_provider::scope()
+end
+
+fn projection_scope(cell: io_provider::State<memory::MemoryState>) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let resource = match memory::raw_memory(owner, 1, cell)
+		Ok(resource) => Ok(resource)
+		Err(error) => Err(error.message)
+	end?
+	let duplicate_rejected = match memory::raw_memory(owner, 1, cell)
+		Err(error) => is_invalid_resource(error.kind)
+		Ok(_) => false
+	end
+	let cannot_upgrade = match io_provider::read_file(resource)
+		Err(error) => is_unsupported(error.kind)
+		Ok(_) => false
+	end
+	if duplicate_rejected and cannot_upgrade
+		Ok(())
+	else
+		Err("resource slots aliased or duplex gained seek capability")
+	end
+end
+
+test resource_slots_and_projection_rights_are_checked() -> Result<(), String> effects [concurrency]
+	let initial = memory::initial(byte_chunk([]))
+	let cell = io_provider::state(initial)
+	handle projection_scope(cell) with io_provider::scope()
+end
+
+fn is_invalid_resource(kind: io::ErrorKind) -> Bool
+	match kind
+		io::ErrorKind::InvalidResource => true
+		_ => false
+	end
+end
+
+fn is_unsupported(kind: io::ErrorKind) -> Bool
+	match kind
+		io::ErrorKind::Unsupported => true
+		_ => false
+	end
+end
+
+fn retain_scope(cell: io_provider::State<memory::MemoryState>) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	match memory::memory(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end
+end
+
+fn expired_in_new_scope(reader: io::Reader, cell: io_provider::State<memory::MemoryState>) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let maximum = byte_count(1)?
+	let expired = handle io::read(reader, maximum) with memory::memory_read(owner, 3, cell)
+	match expired
+		io::ReadOutcome::ReadFailed(_, _, error) => match error.kind
+			io::ErrorKind::Closed => Ok(())
+			_ => Err("expired resource returned the wrong error")
+		end
+		_ => Err("expired resource was redirected to a new provider")
+	end
+end
+
+test owner_exit_invalidates_retained_aliases_without_fallback() -> Result<(), String> effects [concurrency]
+	let first_initial = memory::initial(byte_chunk_from_visible_ascii_string("a")?)
+	let second_initial = memory::initial(byte_chunk_from_visible_ascii_string("b")?)
+	let first = io_provider::state(first_initial)
+	let second = io_provider::state(second_initial)
+	let retained: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = (handle retain_scope(first) with io_provider::scope())?
+	let _ = (handle expired_in_new_scope(retained.reader, second) with io_provider::scope())?
+	match memory::snapshot(first)
+		memory::MemoryState(_, _, first_reads, _, closes) => match memory::snapshot(second)
+			memory::MemoryState(_, _, second_reads, _, _) => if first_reads == 0 and second_reads == 0 and closes == 1
+				Ok(())
+			else
+				Err("expired alias reached a provider or escaped scope cleanup")
+			end
+		end
+	end
+end
+
+fn wrong_owner_inner(outer: io_provider::Owner, resource: io_provider::Resource, cell: io_provider::State<memory::MemoryState>) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let inner = io_provider::owner()
+	let wrong_slot = match io_provider::slot(inner, resource)
+		Err(error) => is_invalid_resource(error.kind)
+		Ok(_) => false
+	end
+	let wrong_publication = match memory::raw_memory(outer, 2, cell)
+		Err(error) => is_invalid_resource(error.kind)
+		Ok(_) => false
+	end
+	let own_slot = match io_provider::slot(outer, resource)
+		Ok(slot) => slot == 1
+		Err(_) => false
+	end
+	if wrong_slot and wrong_publication and own_slot
+		Ok(())
+	else
+		Err("provider ownership admitted foreign slot access or publication")
+	end
+end
+
+fn wrong_owner_outer(cell: io_provider::State<memory::MemoryState>) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let outer = io_provider::owner()
+	let resource = match memory::raw_memory(outer, 1, cell)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	handle wrong_owner_inner(outer, resource, cell) with io_provider::scope()
+end
+
+test wrong_owner_access_and_publication_are_rejected() -> Result<(), String> effects [concurrency]
+	let initial = memory::initial(byte_chunk([]))
+	let cell = io_provider::state(initial)
+	handle wrong_owner_outer(cell) with io_provider::scope()
+end
+
+fn close_alias_body(owner: io_provider::Owner, cell: io_provider::State<memory::MemoryState>) -> Result<(), String> effects [io::Read, io::Close, concurrency]
+	let file: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = match memory::memory(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(error) => Err(error.message)
+	end?
+	let first_closed = match io::close(file.closer)
+		io::CloseOutcome::Closed => true
+		_ => false
+	end
+	let repeated_closed = match io::close(file.closer)
+		io::CloseOutcome::Closed => true
+		_ => false
+	end
+	let empty = byte_count(0)?
+	let reader_closed = match io::read(file.reader, empty)
+		io::ReadOutcome::ReadFailed(_, _, error) => match error.kind
+			io::ErrorKind::Closed => true
+			_ => false
+		end
+		_ => false
+	end
+	if first_closed and repeated_closed and reader_closed
+		Ok(())
+	else
+		Err("close did not invalidate aliases before zero-size transfer")
+	end
+end
+
+fn close_alias_scope(cell: io_provider::State<memory::MemoryState>) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	handle handle close_alias_body(owner, cell) with memory::memory_read(owner, 1, cell) with memory::memory_close(owner, 1, cell)
+end
+
+test close_invalidates_every_view_and_is_idempotent() -> Result<(), String> effects [concurrency]
+	let initial = memory::initial(byte_chunk([]))
+	let cell = io_provider::state(initial)
+	let _ = (handle close_alias_scope(cell) with io_provider::scope())?
+	match memory::snapshot(cell)
+		memory::MemoryState(_, _, reads, _, closes) => if reads == 0 and closes == 1
+			Ok(())
+		else
+			Err("closed aliases transferred bytes or repeated provider close")
+		end
+	end
+end
+
+fn release_name(commit: io::Commit) -> String
+	match commit
+		io::Commit::No => "no"
+		io::Commit::Yes => "yes"
+		io::Commit::Unknown => "unknown"
+	end
+end
+
+fn released(outcome: io::CloseOutcome) -> Bool
+	match outcome
+		io::CloseOutcome::Closed => true
+		_ => false
+	end
+end
+
+fn closed_read(outcome: io::ReadOutcome) -> Bool
+	match outcome
+		io::ReadOutcome::ReadFailed(_, io::Progress::Known(count), failure) => match failure.kind
+			io::ErrorKind::Closed => byte_count_to_int(count) == 0
+			_ => false
+		end
+		_ => false
+	end
+end
+
+fn release_body(owner: io_provider::Owner, cell: io_provider::State<lifecycle::State>, expected: String, readable: Bool) -> Result<(), String> effects [io::Read, io::Close, concurrency]
+	let resource: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = match lifecycle::resource(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	let alias = resource.reader
+	let first = match io::close(resource.closer)
+		io::CloseOutcome::CloseFailed(commit, failure) => release_name(commit) == expected and failure.message == "scripted release failure"
+		_ => false
+	end
+	let usable = match io::read(alias, byte_count(1)?)
+		io::ReadOutcome::Data(bytes) => readable and byte_chunk_to_visible_ascii_string(bytes)? == "x"
+		outcome => not readable and closed_read(outcome)
+	end
+	let retried = released(io::close(resource.closer))
+	let repeated = released(io::close(resource.closer))
+	let invalidated = closed_read(io::read(alias, byte_count(0)?))
+	if first and usable and retried and repeated and invalidated
+		Ok(())
+	else
+		Err("close failure lost release facts, usability, retry, or alias invalidation")
+	end
+end
+
+fn release_scope(cell: io_provider::State<lifecycle::State>, expected: String, readable: Bool) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	handle handle release_body(owner, cell, expected, readable) with lifecycle::reader(owner, cell) with lifecycle::closer(owner, cell)
+end
+
+fn check_release(commit: io::Commit, actual_release: Bool, readable: Bool, expected_calls: Int) -> Result<(), String> effects [concurrency]
+	let failed = lifecycle::CloseStep(1, io::CloseOutcome::CloseFailed(commit, lifecycle::failure("close")), actual_release)
+	let steps = if expected_calls == 1
+		Cons(failed, Nil)
+	else
+		Cons(failed, Cons(lifecycle::CloseStep(1, io::CloseOutcome::Closed, true), Nil))
+	end
+	let cell = io_provider::state(lifecycle::initial(steps))
+	let _ = (handle release_scope(cell, release_name(commit), readable) with io_provider::scope())?
+	match lifecycle::snapshot(cell)
+		lifecycle::State(remaining, live, closes, reads) => begin
+			let no_remaining = list_is_empty(remaining)
+			let closed = match dict_get(live, 1)
+				Some(false) => true
+				_ => false
+			end
+			let calls: Int = list_fold(closes, 0, count_close)
+			if no_remaining and closed and calls == expected_calls and reads == if readable
+				1
+			else
+				0
+			end
+				Ok(())
+			else
+				Err("release trace shows an extra close, provider read, or retained live resource")
+			end
+		end
+	end
+end
+
+fn count_close(count: Int, event: lifecycle::CloseEvent) -> Int
+	count + 1
+end
+
+test close_failure_no_preserves_usability_and_allows_retry() -> Result<(), String> effects [concurrency]
+	check_release(io::Commit::No, false, true, 2)
+end
+
+test close_failure_yes_invalidates_aliases_without_releasing_twice() -> Result<(), String> effects [concurrency]
+	check_release(io::Commit::Yes, true, false, 1)
+end
+
+test close_failure_unknown_blocks_transfer_and_allows_retry_when_still_open() -> Result<(), String> effects [concurrency]
+	check_release(io::Commit::Unknown, false, false, 2)
+end
+
+test close_failure_unknown_allows_retry_when_release_actually_completed() -> Result<(), String> effects [concurrency]
+	check_release(io::Commit::Unknown, true, false, 2)
+end
+
+fn allocate_three(cell: io_provider::State<lifecycle::State>) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let first = lifecycle::resource(owner, 1, cell)
+	let second = lifecycle::resource(owner, 2, cell)
+	let third = lifecycle::resource(owner, 3, cell)
+	match first
+		Err(failure) => Err(failure.message)
+		Ok(_) => match second
+			Err(failure) => Err(failure.message)
+			Ok(_) => match third
+				Err(failure) => Err(failure.message)
+				Ok(_) => Ok(())
+			end
+		end
+	end
+end
+
+fn cleanup_order(events: List<lifecycle::CloseEvent>) -> String
+	match events
+		Nil => ""
+		Cons(lifecycle::CloseEvent(slot, _, _), rest) => string::concat(int_to_string(slot), cleanup_order(rest))
+	end
+end
+
+test owner_cleanup_releases_resources_in_reverse_publication_order() -> Result<(), String> effects [concurrency]
+	let steps = Cons(lifecycle::CloseStep(3, io::CloseOutcome::Closed, true), Cons(lifecycle::CloseStep(2, io::CloseOutcome::Closed, true), Cons(lifecycle::CloseStep(1, io::CloseOutcome::Closed, true), Nil)))
+	let cell = io_provider::state(lifecycle::initial(steps))
+	let _ = (handle allocate_three(cell) with io_provider::scope())?
+	match lifecycle::snapshot(cell)
+		lifecycle::State(remaining, live, events, reads) => if list_is_empty(remaining) and cleanup_order(list_reverse(events)) == "321" and reads == 0
+			Ok(())
+		else
+			Err("scope cleanup changed release order or left planned resources unattempted")
+		end
+	end
+end
+
+fn gated_read(context: {reader: io::Reader, gate: Receiver<Int>}) -> io::ReadOutcome effects [io::Read, concurrency]
+	let _ = channel::recv(context.gate)
+	match byte_count(1)
+		Ok(count) => io::read(context.reader, count)
+		Err(_) => io::ReadOutcome::End
+	end
+end
+
+fn spawn_retained_child(owner: io_provider::Owner, cell: io_provider::State<lifecycle::State>, gate: Receiver<Int>) -> Result<Task<io::ReadOutcome>, String> effects [io::Read, concurrency]
+	let resource: {reader: io::Reader, writer: io::Writer, closer: io::Closer} = match lifecycle::resource(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	Ok(task::spawn_with(gated_read, {reader: resource.reader, gate: gate}))
+end
+
+fn retained_child_scope(cell: io_provider::State<lifecycle::State>, gate: Receiver<Int>) -> Result<Task<io::ReadOutcome>, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	handle spawn_retained_child(owner, cell, gate) with lifecycle::reader(owner, cell)
+end
+
+test child_retaining_an_alias_does_not_extend_its_owner_lifetime() -> Result<(), String> effects [concurrency]
+	let steps = Cons(lifecycle::CloseStep(1, io::CloseOutcome::Closed, true), Nil)
+	let cell = io_provider::state(lifecycle::initial(steps))
+	let gate = channel::bounded<Int>(1)
+	let worker: Task<io::ReadOutcome> = (handle retained_child_scope(cell, gate.rx) with io_provider::scope())?
+	let _ = channel::send(gate.tx, 0)
+	let closed = match task::join(worker)
+		Ok(outcome) => closed_read(outcome)
+		Err(_) => false
+	end
+	match lifecycle::snapshot(cell)
+		lifecycle::State(remaining, _, events, reads) => if closed and list_is_empty(remaining) and cleanup_order(events) == "1" and reads == 0
+			Ok(())
+		else
+			Err("retained child alias survived owner exit or reached a provider")
+		end
+	end
+end

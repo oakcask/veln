@@ -64,6 +64,13 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
+        let canonical = crate::call_resolution::provider_callee_in_owner(
+            callee,
+            self.environment,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        );
+        let callee = canonical.as_deref().unwrap_or(callee);
         if let Some(call) = self.lower_constructor_call(expr, callee, args, expected) {
             return call;
         }
@@ -188,6 +195,26 @@ impl<'a> CoreLowerer<'a> {
         None
     }
 
+    fn provider_operand_type(&self, expr: &Expr) -> Option<CoreType> {
+        match &expr.kind {
+            ExprKind::StringLiteral(_) => Some(CoreType::string()),
+            ExprKind::Unit => Some(CoreType::unit()),
+            ExprKind::Record(fields) => Some(CoreType::Record(
+                fields
+                    .iter()
+                    .map(|field| {
+                        (
+                            field.name.clone(),
+                            self.provider_operand_type(&field.expr)
+                                .unwrap_or(CoreType::Unknown),
+                        )
+                    })
+                    .collect(),
+            )),
+            _ => self.shallow_expr_type(expr),
+        }
+    }
+
     pub(super) fn lower_name_concurrency_call(
         &mut self,
         expr: &Expr,
@@ -201,9 +228,28 @@ impl<'a> CoreLowerer<'a> {
         if !is_concurrency_call(segments) {
             return None;
         }
-        let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
+        let handle_type = if matches!(segments.as_slice(), [module, name] if module == "io_provider" && name == "update")
+        {
+            Some(CoreType::Record(
+                ["state", "context", "action"]
+                    .into_iter()
+                    .zip(args)
+                    .map(|(name, arg)| {
+                        (
+                            name.to_string(),
+                            self.provider_operand_type(arg).unwrap_or(CoreType::Unknown),
+                        )
+                    })
+                    .collect(),
+            ))
+        } else if matches!(segments.as_slice(), [module, name] if module == "io_provider" && name == "state")
+        {
+            args.first().and_then(|arg| self.provider_operand_type(arg))
+        } else {
+            args.first().and_then(|arg| self.shallow_expr_type(arg))
+        };
         let signature =
-            core_concurrency_signature(segments, expected, handle_type.as_ref(), None, None);
+            core_concurrency_signature(segments, expected, handle_type.as_ref(), None, None, None);
         Some(self.lower_concurrency_call_with_signature(expr, segments, args, signature))
     }
 
@@ -248,7 +294,11 @@ impl<'a> CoreLowerer<'a> {
                 .map(|ty| self.parsed_core_type(ty));
             let explicit_context = type_args
                 .get(1)
-                .filter(|_| matches!(segments, [module, name] if module == "task" && name == "spawn_with"))
+                .filter(|_| matches!(segments, [module, name] if (module == "task" && name == "spawn_with") || (module == "io_provider" && name == "update")))
+                .and_then(|type_arg| parse_type_annotation(type_arg).ok())
+                .map(|ty| self.parsed_core_type(ty));
+            let explicit_result = type_args
+                .get(2)
                 .and_then(|type_arg| parse_type_annotation(type_arg).ok())
                 .map(|ty| self.parsed_core_type(ty));
             let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
@@ -258,6 +308,7 @@ impl<'a> CoreLowerer<'a> {
                 handle_type.as_ref(),
                 explicit_item.as_ref(),
                 explicit_context.as_ref(),
+                explicit_result.as_ref(),
             );
             return Some(
                 self.lower_concurrency_call_with_signature(expr, segments, args, signature),

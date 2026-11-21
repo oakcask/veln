@@ -1,0 +1,321 @@
+use prelude
+use path as portable
+use fs as api
+use io as bytes_io
+use io_provider
+use fs_memory_state_test_support_test as model
+
+pub fn cell(initial: model::State) -> io_provider::State<model::State> effects [concurrency]
+	io_provider::state(initial)
+end
+
+fn snapshot_transition(state: model::State, ignored: ()) -> {state: model::State, result: model::State}
+	{state: state, result: state}
+end
+
+pub fn snapshot(cell: io_provider::State<model::State>) -> model::State effects [concurrency]
+	io_provider::update(cell, (), snapshot_transition)
+end
+
+fn checked_namespace(expected: Int, observed: Result<Int, bytes_io::Error>) -> Result<(), bytes_io::Error>
+	match observed
+		Ok(slot) => if slot == expected
+			Ok(())
+		else
+			Err(model::error("namespace", "", bytes_io::ErrorKind::InvalidResource))
+		end
+		Err(failure) => Err(failure)
+	end
+end
+
+pub fn readonly(owner: io_provider::Owner, slot: Int, cell: io_provider::State<model::State>) -> Result<api::Filesystem, bytes_io::Error> effects [concurrency]
+	handle io_provider::filesystem(owner, slot) with namespace(owner, slot, cell)
+end
+
+pub fn filesystem(owner: io_provider::Owner, slot: Int, cell: io_provider::State<model::State>) -> Result<api::MutableFilesystem, bytes_io::Error> effects [concurrency]
+	handle handle io_provider::mutable_filesystem(owner, slot) with namespace(owner, slot, cell) with mutations(owner, slot, cell)
+end
+
+fn read_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, reader: bytes_io::Reader, maximum: ByteCount) -> bytes_io::ReadOutcome effects [concurrency]
+	match io_provider::reader_slot(owner, reader)
+		Err(failure) => bytes_io::ReadOutcome::ReadFailed(byte_chunk([]), bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure)
+		Ok(slot) => read_transition(cell, slot, maximum)
+	end
+end
+
+fn read_transition(cell: io_provider::State<model::State>, slot: Int, maximum: ByteCount) -> bytes_io::ReadOutcome effects [concurrency]
+	let request: {slot: Int, maximum: ByteCount, positional: Option<ByteOffset>} = {slot: slot, maximum: maximum, positional: None}
+	io_provider::update(cell, request, model::read)
+end
+
+fn read_at_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, reader: bytes_io::ReaderAt, offset: ByteOffset, maximum: ByteCount) -> bytes_io::ReadOutcome effects [concurrency]
+	match io_provider::reader_at_slot(owner, reader)
+		Err(failure) => bytes_io::ReadOutcome::ReadFailed(byte_chunk([]), bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure)
+		Ok(slot) => read_at_transition(cell, slot, offset, maximum)
+	end
+end
+
+fn read_at_transition(cell: io_provider::State<model::State>, slot: Int, offset: ByteOffset, maximum: ByteCount) -> bytes_io::ReadOutcome effects [concurrency]
+	let request: {slot: Int, maximum: ByteCount, positional: Option<ByteOffset>} = {slot: slot, maximum: maximum, positional: Some(offset)}
+	io_provider::update(cell, request, model::read)
+end
+
+fn write_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, writer: bytes_io::Writer, bytes: ByteChunk) -> bytes_io::WriteOutcome effects [concurrency]
+	match io_provider::writer_slot(owner, writer)
+		Err(failure) => bytes_io::WriteOutcome::WriteFailed(bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure)
+		Ok(slot) => write_transition(cell, slot, bytes)
+	end
+end
+
+fn write_transition(cell: io_provider::State<model::State>, slot: Int, bytes: ByteChunk) -> bytes_io::WriteOutcome effects [concurrency]
+	let request: {slot: Int, bytes: ByteChunk, positional: Option<ByteOffset>} = {slot: slot, bytes: bytes, positional: None}
+	io_provider::update(cell, request, model::write)
+end
+
+fn write_at_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, writer: bytes_io::WriterAt, offset: ByteOffset, bytes: ByteChunk) -> bytes_io::WriteOutcome effects [concurrency]
+	match io_provider::writer_at_slot(owner, writer)
+		Err(failure) => bytes_io::WriteOutcome::WriteFailed(bytes_io::Progress::Known(byte_chunk_count(byte_chunk([]))), failure)
+		Ok(slot) => write_at_transition(cell, slot, offset, bytes)
+	end
+end
+
+fn write_at_transition(cell: io_provider::State<model::State>, slot: Int, offset: ByteOffset, bytes: ByteChunk) -> bytes_io::WriteOutcome effects [concurrency]
+	let request: {slot: Int, bytes: ByteChunk, positional: Option<ByteOffset>} = {slot: slot, bytes: bytes, positional: Some(offset)}
+	io_provider::update(cell, request, model::write)
+end
+
+fn seek_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, seeker: bytes_io::Seeker, origin: bytes_io::SeekOrigin) -> Result<ByteOffset, bytes_io::Error> effects [concurrency]
+	match io_provider::seeker_slot(owner, seeker)
+		Err(failure) => Err(failure)
+		Ok(slot) => seek_transition(cell, slot, origin)
+	end
+end
+
+fn seek_transition(cell: io_provider::State<model::State>, slot: Int, origin: bytes_io::SeekOrigin) -> Result<ByteOffset, bytes_io::Error> effects [concurrency]
+	let request: {slot: Int, origin: bytes_io::SeekOrigin} = {slot: slot, origin: origin}
+	io_provider::update(cell, request, model::seek)
+end
+
+fn truncate_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, file: api::Truncater, size: ByteOffset) -> api::MutationOutcome effects [concurrency]
+	match io_provider::truncater_slot(owner, file)
+		Err(failure) => api::MutationOutcome::MutationFailed(bytes_io::Commit::No, failure)
+		Ok(slot) => truncate_transition(cell, slot, size)
+	end
+end
+
+fn truncate_transition(cell: io_provider::State<model::State>, slot: Int, size: ByteOffset) -> api::MutationOutcome effects [concurrency]
+	let request: {slot: Int, size: ByteOffset} = {slot: slot, size: size}
+	io_provider::update(cell, request, model::truncate)
+end
+
+fn close_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, resource: bytes_io::Closer) -> bytes_io::CloseOutcome effects [concurrency]
+	match io_provider::closer_slot(owner, resource)
+		Err(failure) => bytes_io::CloseOutcome::CloseFailed(bytes_io::Commit::No, failure)
+		Ok(slot) => io_provider::update(cell, slot, model::close)
+	end
+end
+
+fn sync_bridge(owner: io_provider::Owner, cell: io_provider::State<model::State>, resource: bytes_io::Syncer) -> Result<(), bytes_io::Error> effects [concurrency]
+	match io_provider::syncer_slot(owner, resource)
+		Err(failure) => Err(failure)
+		Ok(slot) => io_provider::update(cell, slot, model::sync)
+	end
+end
+
+pub handler reading(owner: io_provider::Owner, cell: io_provider::State<model::State>) for bytes_io::Read effects [concurrency]
+	read(reader, maximum) => read_bridge(owner, cell, reader, maximum)
+end
+
+pub handler reading_at(owner: io_provider::Owner, cell: io_provider::State<model::State>) for bytes_io::ReadAt effects [concurrency]
+	read_at(reader, offset, maximum) => read_at_bridge(owner, cell, reader, offset, maximum)
+end
+
+pub handler writing(owner: io_provider::Owner, cell: io_provider::State<model::State>) for bytes_io::Write effects [concurrency]
+	write(writer, bytes) => write_bridge(owner, cell, writer, bytes)
+end
+
+pub handler writing_at(owner: io_provider::Owner, cell: io_provider::State<model::State>) for bytes_io::WriteAt effects [concurrency]
+	write_at(writer, offset, bytes) => write_at_bridge(owner, cell, writer, offset, bytes)
+end
+
+pub handler seeking(owner: io_provider::Owner, cell: io_provider::State<model::State>) for bytes_io::Seek effects [concurrency]
+	seek(seeker, origin) => seek_bridge(owner, cell, seeker, origin)
+end
+
+pub handler closing(owner: io_provider::Owner, cell: io_provider::State<model::State>) for bytes_io::Close effects [concurrency]
+	close(closer) => close_bridge(owner, cell, closer)
+end
+
+pub handler syncing(owner: io_provider::Owner, cell: io_provider::State<model::State>) for bytes_io::Sync effects [concurrency]
+	sync(syncer) => sync_bridge(owner, cell, syncer)
+end
+
+fn register_read(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, slot: Int) -> Result<io_provider::Resource, bytes_io::Error> effects [concurrency]
+	handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with reading(owner, cell) with seeking(owner, cell) with reading_at(owner, cell) with closing(owner, cell)
+end
+
+fn register_write(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, slot: Int) -> Result<io_provider::Resource, bytes_io::Error> effects [concurrency]
+	handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with writing(owner, cell) with seeking(owner, cell) with writing_at(owner, cell) with closing(owner, cell) with syncing(owner, cell) with mutations(owner, namespace_slot, cell)
+end
+
+fn register_update(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, slot: Int) -> Result<io_provider::Resource, bytes_io::Error> effects [concurrency]
+	handle handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with reading(owner, cell) with writing(owner, cell) with seeking(owner, cell) with reading_at(owner, cell) with writing_at(owner, cell) with closing(owner, cell) with syncing(owner, cell) with mutations(owner, namespace_slot, cell)
+end
+
+fn register_append(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, slot: Int) -> Result<io_provider::Resource, bytes_io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with writing(owner, cell) with closing(owner, cell) with syncing(owner, cell)
+end
+
+fn open_read_bridge(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, filesystem: api::Filesystem, path: portable::Path) -> Result<api::ReadFile, bytes_io::Error> effects [concurrency]
+	let _ = checked_namespace(namespace_slot, io_provider::filesystem_slot(owner, filesystem))?
+	let request: {name: String, family: io_provider::ViewFamily, create: api::CreateMode, truncate: Bool} = {name: portable::text(path), family: io_provider::ViewFamily::ReadFile, create: api::CreateMode::Existing, truncate: false}
+	let opened = io_provider::update(cell, request, model::open)?
+	match register_read(owner, namespace_slot, cell, opened.slot)
+		Ok(resource) => io_provider::read_file(resource)
+		Err(failure) => begin
+			let _ = io_provider::update(cell, opened.slot, model::abandon)
+			Err(open_failure(path, opened.changed, failure))
+		end
+	end
+end
+
+fn open_write_bridge(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, filesystem: api::MutableFilesystem, path: portable::Path, mode: api::WriteMode) -> Result<api::WriteFile, bytes_io::Error> effects [concurrency]
+	let _ = checked_namespace(namespace_slot, io_provider::mutable_filesystem_slot(owner, filesystem))?
+	let request: {name: String, family: io_provider::ViewFamily, create: api::CreateMode, truncate: Bool} = {name: portable::text(path), family: io_provider::ViewFamily::WriteFile, create: mode.create, truncate: mode.truncate}
+	let opened = io_provider::update(cell, request, model::open)?
+	match register_write(owner, namespace_slot, cell, opened.slot)
+		Ok(resource) => io_provider::write_file(resource)
+		Err(failure) => begin
+			let _ = io_provider::update(cell, opened.slot, model::abandon)
+			Err(open_failure(path, opened.changed, failure))
+		end
+	end
+end
+
+fn open_read_write_bridge(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, filesystem: api::MutableFilesystem, path: portable::Path, mode: api::UpdateMode) -> Result<api::UpdateFile, bytes_io::Error> effects [concurrency]
+	let _ = checked_namespace(namespace_slot, io_provider::mutable_filesystem_slot(owner, filesystem))?
+	let request: {name: String, family: io_provider::ViewFamily, create: api::CreateMode, truncate: Bool} = {name: portable::text(path), family: io_provider::ViewFamily::UpdateFile, create: mode.create, truncate: mode.truncate}
+	let opened = io_provider::update(cell, request, model::open)?
+	match register_update(owner, namespace_slot, cell, opened.slot)
+		Ok(resource) => io_provider::update_file(resource)
+		Err(failure) => begin
+			let _ = io_provider::update(cell, opened.slot, model::abandon)
+			Err(open_failure(path, opened.changed, failure))
+		end
+	end
+end
+
+fn open_append_bridge(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, filesystem: api::MutableFilesystem, path: portable::Path, create: api::CreateMode) -> Result<api::AppendFile, bytes_io::Error> effects [concurrency]
+	let _ = checked_namespace(namespace_slot, io_provider::mutable_filesystem_slot(owner, filesystem))?
+	let request: {name: String, family: io_provider::ViewFamily, create: api::CreateMode, truncate: Bool} = {name: portable::text(path), family: io_provider::ViewFamily::AppendFile, create: create, truncate: false}
+	let opened = io_provider::update(cell, request, model::open)?
+	match register_append(owner, namespace_slot, cell, opened.slot)
+		Ok(resource) => io_provider::append_file(resource)
+		Err(failure) => begin
+			let _ = io_provider::update(cell, opened.slot, model::abandon)
+			Err(open_failure(path, opened.changed, failure))
+		end
+	end
+end
+
+fn open_failure(path: portable::Path, changed: Bool, failure: bytes_io::Error) -> bytes_io::Error
+	{operation: "open", kind: failure.kind, path: Some(path), other_path: None, network: failure.network, commit: Some(if changed
+		bytes_io::Commit::Yes
+	else
+		bytes_io::Commit::No
+	end), message: failure.message}
+end
+
+fn metadata_bridge(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, filesystem: api::Filesystem, path: portable::Path, follow: api::FollowLinks) -> Result<api::Metadata, bytes_io::Error> effects [concurrency]
+	let _ = checked_namespace(namespace_slot, io_provider::filesystem_slot(owner, filesystem))?
+	let request: {name: String, follow: api::FollowLinks} = {name: portable::text(path), follow: follow}
+	io_provider::update(cell, request, model::metadata)
+end
+
+fn entries_bridge(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, filesystem: api::Filesystem, path: portable::Path) -> Result<List<api::Entry>, bytes_io::Error> effects [concurrency]
+	let _ = checked_namespace(namespace_slot, io_provider::filesystem_slot(owner, filesystem))?
+	io_provider::update(cell, portable::text(path), model::entries)
+end
+
+pub handler namespace(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>) for api::Read effects [concurrency]
+	open_read(filesystem, path) => open_read_bridge(owner, namespace_slot, cell, filesystem, path)
+	metadata(filesystem, path, follow) => metadata_bridge(owner, namespace_slot, cell, filesystem, path, follow)
+	entries(filesystem, path) => entries_bridge(owner, namespace_slot, cell, filesystem, path)
+end
+
+fn create_directory_bridge(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, filesystem: api::MutableFilesystem, path: portable::Path) -> api::MutationOutcome effects [concurrency]
+	match checked_namespace(namespace_slot, io_provider::mutable_filesystem_slot(owner, filesystem))
+		Err(failure) => api::MutationOutcome::MutationFailed(bytes_io::Commit::No, failure)
+		Ok(()) => create_directory_transition(cell, path)
+	end
+end
+
+fn create_directory_transition(cell: io_provider::State<model::State>, path: portable::Path) -> api::MutationOutcome effects [concurrency]
+	let request: String = portable::text(path)
+	io_provider::update(cell, request, model::create_directory)
+end
+
+fn remove_file_bridge(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, filesystem: api::MutableFilesystem, path: portable::Path) -> api::MutationOutcome effects [concurrency]
+	match checked_namespace(namespace_slot, io_provider::mutable_filesystem_slot(owner, filesystem))
+		Err(failure) => api::MutationOutcome::MutationFailed(bytes_io::Commit::No, failure)
+		Ok(()) => remove_file_transition(cell, path)
+	end
+end
+
+fn remove_file_transition(cell: io_provider::State<model::State>, path: portable::Path) -> api::MutationOutcome effects [concurrency]
+	let request: {name: String, directory: Bool} = {name: portable::text(path), directory: false}
+	io_provider::update(cell, request, model::remove)
+end
+
+fn remove_directory_bridge(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, filesystem: api::MutableFilesystem, path: portable::Path) -> api::MutationOutcome effects [concurrency]
+	match checked_namespace(namespace_slot, io_provider::mutable_filesystem_slot(owner, filesystem))
+		Err(failure) => api::MutationOutcome::MutationFailed(bytes_io::Commit::No, failure)
+		Ok(()) => remove_directory_transition(cell, path)
+	end
+end
+
+fn remove_directory_transition(cell: io_provider::State<model::State>, path: portable::Path) -> api::MutationOutcome effects [concurrency]
+	let request: {name: String, directory: Bool} = {name: portable::text(path), directory: true}
+	io_provider::update(cell, request, model::remove)
+end
+
+fn rename_bridge(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>, filesystem: api::MutableFilesystem, path: portable::Path, target: portable::Path) -> api::MutationOutcome effects [concurrency]
+	match checked_namespace(namespace_slot, io_provider::mutable_filesystem_slot(owner, filesystem))
+		Err(failure) => api::MutationOutcome::MutationFailed(bytes_io::Commit::No, failure)
+		Ok(()) => rename_transition(cell, path, target)
+	end
+end
+
+fn rename_transition(cell: io_provider::State<model::State>, path: portable::Path, target: portable::Path) -> api::MutationOutcome effects [concurrency]
+	let request: {source: String, target: String} = {source: portable::text(path), target: portable::text(target)}
+	io_provider::update(cell, request, model::rename)
+end
+
+pub handler mutations(owner: io_provider::Owner, namespace_slot: Int, cell: io_provider::State<model::State>) for api::Mutate effects [concurrency]
+	open_write(filesystem, path, mode) => open_write_bridge(owner, namespace_slot, cell, filesystem, path, mode)
+	open_read_write(filesystem, path, mode) => open_read_write_bridge(owner, namespace_slot, cell, filesystem, path, mode)
+	open_append(filesystem, path, create) => open_append_bridge(owner, namespace_slot, cell, filesystem, path, create)
+	create_directory(filesystem, path) => create_directory_bridge(owner, namespace_slot, cell, filesystem, path)
+	remove_file(filesystem, path) => remove_file_bridge(owner, namespace_slot, cell, filesystem, path)
+	remove_directory(filesystem, path) => remove_directory_bridge(owner, namespace_slot, cell, filesystem, path)
+	rename(filesystem, source, target) => rename_bridge(owner, namespace_slot, cell, filesystem, source, target)
+	truncate(file, size) => truncate_bridge(owner, cell, file, size)
+end
+
+pub fn run_readonly(cell: io_provider::State<model::State>, body: fn(api::Filesystem) -> Result<(), String> effects [api::Read, bytes_io::Read, bytes_io::Seek, bytes_io::ReadAt, bytes_io::Close, io_provider::Scope, concurrency]) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let selected: api::Filesystem = match readonly(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	handle handle handle handle handle body(selected) with namespace(owner, 1, cell) with reading(owner, cell) with seeking(owner, cell) with reading_at(owner, cell) with closing(owner, cell)
+end
+
+pub fn run(cell: io_provider::State<model::State>, body: fn(api::MutableFilesystem) -> Result<(), String> effects [api::Read, api::Mutate, bytes_io::Read, bytes_io::Write, bytes_io::Seek, bytes_io::ReadAt, bytes_io::WriteAt, bytes_io::Close, bytes_io::Sync, io_provider::Scope, concurrency]) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let selected: api::MutableFilesystem = match filesystem(owner, 1, cell)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	handle handle handle handle handle handle handle handle handle body(selected) with namespace(owner, 1, cell) with mutations(owner, 1, cell) with reading(owner, cell) with writing(owner, cell) with seeking(owner, cell) with reading_at(owner, cell) with writing_at(owner, cell) with closing(owner, cell) with syncing(owner, cell)
+end

@@ -450,6 +450,28 @@ pub(crate) struct VariantRefinementBaseFailure {
 }
 
 impl TypeEnvironment {
+    pub(crate) fn selected_import_in_owner(
+        &self,
+        module_path: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<&UseDecl> {
+        let owner = ResolvedImportOwner {
+            package: current_package.map(str::to_owned),
+            module: current_module.map(str::to_owned),
+        };
+        let key = (owner, module_path.to_owned());
+        if self.blocked_exact_module_value_imports.contains(&key)
+            && !self.exact_module_value_imports.contains(&key)
+        {
+            return None;
+        }
+        match self.qualified_module_value_imports.get(&key)? {
+            QualifiedModuleValueImportSelection::Unique(import) => Some(import),
+            QualifiedModuleValueImportSelection::Ambiguous(_) => None,
+        }
+    }
+
     pub(crate) fn quarantine_module_values(&mut self, invalid: &BTreeSet<ModuleValueIdentity>) {
         crate::analysis::record_module_value_exposure_rebuild(
             self.module_values.len() + self.uses.len(),

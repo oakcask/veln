@@ -16,6 +16,7 @@ use java_version::{JavaTool, REQUIRED_JAVA_MAJOR, parse_java_major, require_java
 const RUNTIME_FRAGMENTS: &[&str] = &[
     "values.java.inc",
     "concurrency.java.inc",
+    "io_provider.java.inc",
     "observability.java.inc",
     "effects.java.inc",
     "accessors.java.inc",

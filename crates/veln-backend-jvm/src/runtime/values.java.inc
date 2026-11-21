@@ -547,6 +547,7 @@
         private final String effect;
         private final java.util.Map<String, Fn> providers;
         private final Object[] context;
+        private final IoProviderOwner ioOwner;
         private volatile boolean networkSystemClosed;
         private int networkSystemProducers;
         private long networkResourceReleaseWork;
@@ -557,6 +558,7 @@
             this.effect = effect;
             this.providers = providers;
             this.context = context;
+            this.ioOwner = effect.equals("std::io_provider::Scope") ? new IoProviderOwner() : null;
         }
     }
 
@@ -572,6 +574,7 @@
     public static Object popHandler() {
         java.util.List<HandlerFrame> stack = HANDLERS.get();
         HandlerFrame frame = stack.remove(stack.size() - 1);
+        if (frame.ioOwner != null) cleanupIoProvider(frame.ioOwner);
         cleanupNetworkSystem(frame);
         return UNIT;
     }

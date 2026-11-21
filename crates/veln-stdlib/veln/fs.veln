@@ -1,0 +1,120 @@
+use prelude
+use path as portable
+use io
+
+pub type ReadFile
+end
+pub type WriteFile
+end
+pub type UpdateFile
+end
+pub type AppendFile
+end
+
+pub type CreateMode
+	pub Existing
+	pub CreateIfMissing
+	pub CreateNew
+end
+
+pub type WriteMode
+end
+pub type UpdateMode
+end
+
+pub type FollowLinks
+	pub Follow
+	pub NoFollow
+end
+
+pub type Kind
+	pub RegularFile
+	pub Directory
+	pub SymbolicLink
+	pub Other
+end
+
+pub type Metadata
+end
+pub type Entry
+end
+
+pub type MutationOutcome
+	pub Applied
+	pub MutationFailed(committed: io::Commit, error: io::Error)
+end
+
+## Validate native path syntax without accessing the filesystem.
+pub fn native_path(text: String) -> Result<Path, io::Error>
+	prelude_builtin::io_provider_native_path(text)
+end
+
+## Display a native path for humans. This is not a lossless serialization.
+pub fn display_native(path: Path) -> String
+	prelude_builtin::io_provider_display_native(path)
+end
+
+pub effect Read
+	open_read(filesystem: Filesystem, path: portable::Path) -> Result<ReadFile, io::Error>
+	metadata(filesystem: Filesystem, path: portable::Path, follow: FollowLinks) -> Result<Metadata, io::Error>
+	entries(filesystem: Filesystem, path: portable::Path) -> Result<List<Entry>, io::Error>
+end
+
+pub effect Mutate
+	open_write(filesystem: MutableFilesystem, path: portable::Path, mode: WriteMode) -> Result<WriteFile, io::Error>
+	open_read_write(filesystem: MutableFilesystem, path: portable::Path, mode: UpdateMode) -> Result<UpdateFile, io::Error>
+	open_append(filesystem: MutableFilesystem, path: portable::Path, create: CreateMode) -> Result<AppendFile, io::Error>
+	create_directory(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome
+	remove_file(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome
+	remove_directory(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome
+	rename(filesystem: MutableFilesystem, source: portable::Path, target: portable::Path) -> MutationOutcome
+	truncate(file: Truncater, size: ByteOffset) -> MutationOutcome
+end
+
+pub fn open_read(filesystem: Filesystem, path: portable::Path) -> Result<ReadFile, io::Error> effects [Read]
+	prelude_builtin::io_provider_dispatch_open_read(filesystem, path)
+end
+
+pub fn metadata(filesystem: Filesystem, path: portable::Path, follow: FollowLinks) -> Result<Metadata, io::Error> effects [Read]
+	prelude_builtin::io_provider_dispatch_metadata(filesystem, path, follow)
+end
+
+pub fn entries(filesystem: Filesystem, path: portable::Path) -> Result<List<Entry>, io::Error> effects [Read]
+	prelude_builtin::io_provider_dispatch_entries(filesystem, path)
+end
+
+pub fn open_write(filesystem: MutableFilesystem, path: portable::Path, mode: WriteMode) -> Result<WriteFile, io::Error> effects [Mutate]
+	prelude_builtin::io_provider_dispatch_open_write(filesystem, path, mode)
+end
+
+pub fn open_read_write(filesystem: MutableFilesystem, path: portable::Path, mode: UpdateMode) -> Result<UpdateFile, io::Error> effects [Mutate]
+	prelude_builtin::io_provider_dispatch_open_read_write(filesystem, path, mode)
+end
+
+pub fn open_append(filesystem: MutableFilesystem, path: portable::Path, create: CreateMode) -> Result<AppendFile, io::Error> effects [Mutate]
+	prelude_builtin::io_provider_dispatch_open_append(filesystem, path, create)
+end
+
+pub fn create_directory(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome effects [Mutate]
+	prelude_builtin::io_provider_dispatch_create_directory(filesystem, path)
+end
+
+pub fn remove_file(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome effects [Mutate]
+	prelude_builtin::io_provider_dispatch_remove_file(filesystem, path)
+end
+
+pub fn remove_directory(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome effects [Mutate]
+	prelude_builtin::io_provider_dispatch_remove_directory(filesystem, path)
+end
+
+pub fn rename(filesystem: MutableFilesystem, source: portable::Path, target: portable::Path) -> MutationOutcome effects [Mutate]
+	prelude_builtin::io_provider_dispatch_rename(filesystem, source, target)
+end
+
+pub fn truncate(file: Truncater, size: ByteOffset) -> MutationOutcome effects [Mutate]
+	prelude_builtin::io_provider_dispatch_truncate(file, size)
+end
+
+pub fn read_only(filesystem: MutableFilesystem) -> Filesystem
+	prelude_builtin::io_provider_read_only(filesystem)
+end

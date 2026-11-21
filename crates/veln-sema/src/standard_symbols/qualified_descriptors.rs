@@ -1,6 +1,18 @@
 use super::*;
 
 pub(crate) const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
+    runtime_symbol(
+        "io_provider",
+        "state",
+        CONCURRENCY_EFFECTS,
+        "runtime.io_provider.state",
+    ),
+    runtime_symbol(
+        "io_provider",
+        "update",
+        CONCURRENCY_EFFECTS,
+        "runtime.io_provider.update",
+    ),
     runtime_symbol_with_signature(
         "string",
         "concat",

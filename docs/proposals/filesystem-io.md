@@ -10,10 +10,11 @@ explicit filesystem selection, and scoped substitution through Veln effect
 handlers. The same byte-processing helpers should work with files, network
 streams, and memory.
 
-The [design decisions](#design-decisions) resolve the initial scope. All
-acceptance evidence is planned. Source signatures below define the proposed
-API; they are not declarations of currently implemented names. Implementation
-selection remains blocked on the provider-bound dispatch feasibility gate.
+The [design decisions](#design-decisions) resolve the initial scope. The
+acceptance model remains the full target. Source signatures below define the
+proposed replacement API; prototype evidence does not establish that the full
+API is implemented. Implementation selection remains blocked on the
+provider-bound dispatch feasibility gate.
 
 ## Current Boundary And Scope
 
@@ -241,7 +242,9 @@ per-open lifecycle, synchronized state, and scripted failures.
 
 ## Acceptance Model
 
-All evidence below is planned. Expected byte sequences and state transitions
+The rows below define the full acceptance target. The partial prototype
+evidence at the feasibility gate does not establish a complete row.
+Expected byte sequences and state transitions
 come from the contracts and decision tables in this proposal, not from
 copying the implementation's output. Fake tests do not establish real host
 behavior.
@@ -544,6 +547,34 @@ If F1–F3 cannot be demonstrated with the stated adapter extension, revise the
 resource design before implementation selection. Do not hide that prerequisite
 inside a platform-only fake, or promote a source API that silently assumes
 unimplemented dispatch or state primitives.
+
+### Gate Progress
+
+F2 passes. F1 and F3–F5 remain open. The checked prototype covers storage,
+provider-bound filesystem and byte-resource adapters, pure native path conversion,
+a Veln memory filesystem, and complete-transfer helpers. The fake still needs scripted operation failures;
+the prototype does not yet provide the system provider or network adapters.
+
+| Gate | Checked prototype evidence | Remaining evidence before passage |
+| --- | --- | --- |
+| F1 | Compiler integration checks in `crates/veln-analysis/src/tests/io_provider.rs` accept the four file-view record shapes and pure native-path API, and reject reader-to-writer, stream-to-seeker, read-only-to-mutable, integer-to-owner, and portable-to-native-path arguments. An application handler checks error records containing portable paths. State/update aliases retain linked inferred and explicit types; backend execution distinguishes the selected standard import from a same-spelled application module. Adapter type checks in `crates/veln-sema/src/tests/standard_library_effects/io_provider.rs` cover state/context/result linking and callback purity. | Check the remaining source surface, including host selection and network adapters. The shared helpers already execute under nominal byte handlers without host effects. |
+| F2 | `crates/veln-stdlib/veln/fs.test.veln` allocates two Veln memory filesystems and copies selected bytes through their namespace/open boundaries under lexical shadowing. The support modules use scoped Veln handlers and state without host filesystem or network calls. `crates/veln-backend-jvm/src/tests/io_provider_dispatch.rs` checks opaque owner/resource identities through task freezing and an unrelated owner scope ending first. The byte-provider companion tests distinguish captured facade routing from ordinary lexical `perform`. | None for F2. Host resource publication remains part of F3. |
+| F3 | The companion tests cover shared child-task state, independent cells, wrong-owner slot access/publication, and aliases retained beyond owner exit. The backend storage harness in `crates/veln-backend-jvm/test-support/IoProviderStateHarness.java` checks callback failure rollback, lock release, reentrancy rejection, and cancellation before entry or after commit. | Check owner/publication races, late host-open release, and publication under failure and cancellation. |
+| F4 | `crates/veln-stdlib/veln/io.test.veln` checks exact reads, complete writes, and copy against scripted bytes, committed prefixes, consumed input, request logs, and failure contexts. Cases include clean end, partial success, known/unknown failure, no progress, zero-size validation, invalid reply counts, and count overflow. The filesystem companion tests observe independent cursors, positional IO, seek failure preservation and overflow, open modes, append, truncate, unlink/rename identity, directory failure preservation, link traversal, scalar-sorted enumeration, and whole-list rejection on injected name conversion failure. Pure native conversion rejects NUL; the JVM host-boundary harness `crates/veln-backend-jvm/test-support/IoProviderNativePathHarness.java` rejects malformed UTF-16 instead of replacing it with another native filename. | Cover scripted filesystem failures, unknown cursor recovery, overlapping operations, network context, and every real-host translation row, including unsupported atomic rename. |
+| F5 | The provider companion tests check close failure with release No/Yes/Unknown against independent live-resource state, retry, transfer admission, and repeated close without another provider call. They also check reverse owner cleanup and a child retaining an alias until after owner exit. The backend provider tests observe every close callback after multiple release failures, preserve their order in human output, and keep an existing runtime failure primary. | Cover ordinary Err context, contract/cancellation failure projections, and publication/close races. |
+
+The backend checks in
+`crates/veln-backend-jvm/src/tests/deferred_cleanup.rs` exercise `?`
+propagation before and after nested handlers. The `deferred_cleanup` filter
+also checks cleanup order, failure precedence, and bytecode growth. These
+checks support compiler integration; they do not replace the provider-specific
+cleanup cases required by F5.
+
+Run `veln test fs.test.veln io.test.veln io_provider.test.veln` from the standard-library package
+after rebuilding the CLI against the current standard-library sources.
+Run the compiler and backend checks through `scripts/agent-test` with the
+`io_provider` filter. These checks cover the observations named above, not
+the complete filesystem contract.
 
 ## Implementation Readiness And Promotion
 

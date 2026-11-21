@@ -1,0 +1,300 @@
+use prelude
+use path as portable_paths
+use net as network_domain
+
+## A stable failure category independent of the explanatory message.
+pub type ErrorKind
+	pub InvalidInput
+	pub NotFound
+	pub AlreadyExists
+	pub PermissionDenied
+	pub NotDirectory
+	pub IsDirectory
+	pub DirectoryNotEmpty
+	pub LinkLoop
+	pub UnrepresentablePath
+	pub CrossFilesystem
+	pub Unsupported
+	pub Closed
+	pub Busy
+	pub InvalidResource
+	pub Cancelled
+	pub NoProgress
+	pub Other
+end
+
+## Exact progress or a proven prefix with potentially more transferred bytes.
+pub type Progress
+	pub Known(count: ByteCount)
+	pub Unknown(known_prefix: ByteCount)
+end
+
+pub type Commit
+	pub No
+	pub Yes
+	pub Unknown
+end
+
+pub type Error
+end
+
+pub type ReadOutcome
+	pub Data(bytes: ByteChunk)
+	pub End
+	pub ReadFailed(bytes: ByteChunk, consumed: Progress, error: Error)
+end
+
+pub type WriteOutcome
+	pub Written(count: ByteCount)
+	pub WriteFailed(committed: Progress, error: Error)
+end
+
+pub type ExactOutcome
+	pub Complete(bytes: ByteChunk)
+	pub Short(bytes: ByteChunk)
+	pub ExactFailed(bytes: ByteChunk, consumed: Progress, error: Error)
+end
+
+pub type CopyOutcome
+	pub Copied(count: ByteCount)
+	pub CopyFailed(consumed: Progress, committed: Progress, error: Error)
+end
+
+pub type CloseOutcome
+	pub Closed
+	pub CloseFailed(released: Commit, error: Error)
+end
+
+pub type SeekOrigin
+	pub Start(offset: ByteOffset)
+	pub Current(displacement: Int)
+	pub End(displacement: Int)
+end
+
+pub effect Read
+	read(reader: Reader, maximum: ByteCount) -> ReadOutcome
+end
+
+pub effect Write
+	write(writer: Writer, bytes: ByteChunk) -> WriteOutcome
+end
+
+pub effect Seek
+	seek(seeker: Seeker, origin: SeekOrigin) -> Result<ByteOffset, Error>
+end
+
+pub effect ReadAt
+	read_at(reader: ReaderAt, offset: ByteOffset, maximum: ByteCount) -> ReadOutcome
+end
+
+pub effect WriteAt
+	write_at(writer: WriterAt, offset: ByteOffset, bytes: ByteChunk) -> WriteOutcome
+end
+
+pub effect Close
+	close(closer: Closer) -> CloseOutcome
+end
+
+pub effect Sync
+	sync(syncer: Syncer) -> Result<(), Error>
+end
+
+
+pub fn read(reader: Reader, maximum: ByteCount) -> ReadOutcome effects [Read]
+	prelude_builtin::io_provider_dispatch_read(reader, maximum)
+end
+
+pub fn write(writer: Writer, bytes: ByteChunk) -> WriteOutcome effects [Write]
+	prelude_builtin::io_provider_dispatch_write(writer, bytes)
+end
+
+pub fn seek(seeker: Seeker, origin: SeekOrigin) -> Result<ByteOffset, Error> effects [Seek]
+	prelude_builtin::io_provider_dispatch_seek(seeker, origin)
+end
+
+pub fn read_at(reader: ReaderAt, offset: ByteOffset, maximum: ByteCount) -> ReadOutcome effects [ReadAt]
+	prelude_builtin::io_provider_dispatch_read_at(reader, offset, maximum)
+end
+
+pub fn write_at(writer: WriterAt, offset: ByteOffset, bytes: ByteChunk) -> WriteOutcome effects [WriteAt]
+	prelude_builtin::io_provider_dispatch_write_at(writer, offset, bytes)
+end
+
+pub fn close(closer: Closer) -> CloseOutcome effects [Close]
+	prelude_builtin::io_provider_dispatch_close(closer)
+end
+
+pub fn sync(syncer: Syncer) -> Result<(), Error> effects [Sync]
+	prelude_builtin::io_provider_dispatch_sync(syncer)
+end
+
+fn helper_error(operation: String, kind: ErrorKind, message: String) -> Error
+	{operation: operation, kind: kind, path: None, other_path: None, network: None, commit: None, message: message}
+end
+
+fn add_count(operation: String, previous: ByteCount, next: ByteCount) -> Result<ByteCount, Error>
+	let left = byte_count_to_int(previous)
+	let right = byte_count_to_int(next)
+	if left < 0 or right < 0 or right > 9223372036854775807 - left
+		Err(helper_error(operation, ErrorKind::InvalidResource, "provider progress exceeds the byte-count range"))
+	else
+		match byte_count(left + right)
+			Ok(total) => Ok(total)
+			Err(message) => Err(helper_error(operation, ErrorKind::InvalidResource, message))
+		end
+	end
+end
+
+fn add_progress(operation: String, previous: ByteCount, next: Progress) -> Result<Progress, Error>
+	match next
+		Progress::Known(count) => match add_count(operation, previous, count)
+			Ok(total) => Ok(Progress::Known(total))
+			Err(error) => Err(error)
+		end
+		Progress::Unknown(prefix) => match add_count(operation, previous, prefix)
+			Ok(total) => Ok(Progress::Unknown(total))
+			Err(error) => Err(error)
+		end
+	end
+end
+
+## Read the requested amount or preserve all delivered bytes at end or failure.
+pub fn read_exact(reader: Reader, count: ByteCount) -> ExactOutcome effects [Read]
+	let chunks: List<ByteChunk> = Nil
+	read_exact_step(reader, count, chunks, byte_chunk_count(byte_chunk([])))
+end
+
+fn join_chunks(reversed: List<ByteChunk>) -> ByteChunk
+	prelude_builtin::io_provider_join_chunks(list_reverse(reversed))
+end
+
+fn read_exact_step(reader: Reader, remaining: ByteCount, obtained: List<ByteChunk>, delivered: ByteCount) -> ExactOutcome effects [Read]
+	match exact_next(remaining, obtained, delivered, read(reader, remaining))
+		Ok(next) => read_exact_step(reader, next.remaining, next.obtained, next.delivered)
+		Err(outcome) => outcome
+	end
+end
+
+fn exact_next(remaining: ByteCount, obtained: List<ByteChunk>, delivered: ByteCount, outcome: ReadOutcome) -> Result<{remaining: ByteCount, obtained: List<ByteChunk>, delivered: ByteCount}, ExactOutcome>
+	match outcome
+		ReadOutcome::Data(bytes) => exact_data(remaining, obtained, delivered, bytes)
+		ReadOutcome::End => Err(ExactOutcome::Short(join_chunks(obtained)))
+		ReadOutcome::ReadFailed(bytes, consumed, error) => Err(exact_failed(obtained, delivered, bytes, consumed, error))
+	end
+end
+
+fn exact_data(remaining: ByteCount, obtained: List<ByteChunk>, delivered: ByteCount, bytes: ByteChunk) -> Result<{remaining: ByteCount, obtained: List<ByteChunk>, delivered: ByteCount}, ExactOutcome>
+	let combined: List<ByteChunk> = Cons(bytes, obtained)
+	let rest = byte_count_to_int(remaining) - byte_count_to_int(byte_chunk_count(bytes))
+	if rest == 0
+		Err(ExactOutcome::Complete(join_chunks(combined)))
+	else
+		match add_count("read_exact", delivered, byte_chunk_count(bytes))
+			Ok(total) => match byte_count(rest)
+				Ok(count) => Ok({remaining: count, obtained: combined, delivered: total})
+				Err(message) => Err(ExactOutcome::ExactFailed(join_chunks(combined), Progress::Known(total), helper_error("read_exact", ErrorKind::InvalidResource, message)))
+			end
+			Err(error) => Err(ExactOutcome::ExactFailed(join_chunks(combined), Progress::Unknown(delivered), error))
+		end
+	end
+end
+
+fn exact_failed(obtained: List<ByteChunk>, delivered: ByteCount, bytes: ByteChunk, consumed: Progress, error: Error) -> ExactOutcome
+	let combined: List<ByteChunk> = Cons(bytes, obtained)
+	match add_progress("read_exact", delivered, consumed)
+		Ok(total) => ExactOutcome::ExactFailed(join_chunks(combined), total, error)
+		Err(overflow) => ExactOutcome::ExactFailed(join_chunks(combined), Progress::Unknown(delivered), overflow)
+	end
+end
+
+## Write only the uncommitted suffix; a failed transfer is never retried.
+pub fn write_all(writer: Writer, bytes: ByteChunk) -> WriteOutcome effects [Write]
+	write_all_step(writer, bytes, byte_chunk_count(byte_chunk([])))
+end
+
+fn write_all_step(writer: Writer, remaining: ByteChunk, committed: ByteCount) -> WriteOutcome effects [Write]
+	match write_next(remaining, committed, write(writer, remaining))
+		Ok(next) => write_all_step(writer, next.remaining, next.committed)
+		Err(outcome) => outcome
+	end
+end
+
+fn write_next(remaining: ByteChunk, committed: ByteCount, outcome: WriteOutcome) -> Result<{remaining: ByteChunk, committed: ByteCount}, WriteOutcome>
+	match outcome
+		WriteOutcome::Written(count) => written_suffix(remaining, committed, count)
+		WriteOutcome::WriteFailed(progress, error) => Err(write_failed(committed, progress, error))
+	end
+end
+
+fn written_suffix(remaining: ByteChunk, committed: ByteCount, count: ByteCount) -> Result<{remaining: ByteChunk, committed: ByteCount}, WriteOutcome>
+	match add_count("write_all", committed, count)
+		Ok(total) => if byte_count_to_int(count) == byte_count_to_int(byte_chunk_count(remaining))
+			Err(WriteOutcome::Written(total))
+		else
+			match byte_drop(remaining, count)
+				Ok(suffix) => Ok({remaining: suffix, committed: total})
+				Err(message) => Err(WriteOutcome::WriteFailed(Progress::Known(total), helper_error("write_all", ErrorKind::InvalidResource, message)))
+			end
+		end
+		Err(error) => Err(WriteOutcome::WriteFailed(Progress::Unknown(committed), error))
+	end
+end
+
+fn write_failed(committed: ByteCount, progress: Progress, error: Error) -> WriteOutcome
+	match add_progress("write_all", committed, progress)
+		Ok(total) => WriteOutcome::WriteFailed(total, error)
+		Err(overflow) => WriteOutcome::WriteFailed(Progress::Unknown(committed), overflow)
+	end
+end
+
+## Copy between independent resources, retaining consumed and committed totals.
+pub fn copy(reader: Reader, writer: Writer, chunk_size: ByteCount) -> CopyOutcome effects [Read, Write]
+	let zero = byte_chunk_count(byte_chunk([]))
+	if byte_count_to_int(chunk_size) <= 0
+		CopyOutcome::CopyFailed(Progress::Known(zero), Progress::Known(zero), helper_error("copy", ErrorKind::InvalidInput, "copy chunk size must be positive"))
+	else
+		copy_step(reader, writer, chunk_size, zero, zero)
+	end
+end
+
+fn copy_step(reader: Reader, writer: Writer, chunk_size: ByteCount, consumed: ByteCount, committed: ByteCount) -> CopyOutcome effects [Read, Write]
+	match copy_next(writer, consumed, committed, read(reader, chunk_size))
+		Ok(next) => copy_step(reader, writer, chunk_size, next.consumed, next.committed)
+		Err(outcome) => outcome
+	end
+end
+
+fn copy_next(writer: Writer, consumed: ByteCount, committed: ByteCount, outcome: ReadOutcome) -> Result<{consumed: ByteCount, committed: ByteCount}, CopyOutcome> effects [Write]
+	match outcome
+		ReadOutcome::Data(bytes) => copy_data(writer, consumed, committed, bytes)
+		ReadOutcome::End => Err(CopyOutcome::Copied(committed))
+		ReadOutcome::ReadFailed(_, progress, error) => Err(copy_read_failed(consumed, committed, progress, error))
+	end
+end
+
+fn copy_data(writer: Writer, consumed: ByteCount, committed: ByteCount, bytes: ByteChunk) -> Result<{consumed: ByteCount, committed: ByteCount}, CopyOutcome> effects [Write]
+	match add_count("copy", consumed, byte_chunk_count(bytes))
+		Ok(total) => copy_written(total, committed, write_all(writer, bytes))
+		Err(error) => Err(CopyOutcome::CopyFailed(Progress::Unknown(consumed), Progress::Known(committed), error))
+	end
+end
+
+fn copy_written(consumed: ByteCount, committed: ByteCount, outcome: WriteOutcome) -> Result<{consumed: ByteCount, committed: ByteCount}, CopyOutcome>
+	match outcome
+		WriteOutcome::Written(count) => match add_count("copy", committed, count)
+			Ok(total) => Ok({consumed: consumed, committed: total})
+			Err(error) => Err(CopyOutcome::CopyFailed(Progress::Known(consumed), Progress::Unknown(committed), error))
+		end
+		WriteOutcome::WriteFailed(progress, error) => match add_progress("copy", committed, progress)
+			Ok(total) => Err(CopyOutcome::CopyFailed(Progress::Known(consumed), total, error))
+			Err(overflow) => Err(CopyOutcome::CopyFailed(Progress::Known(consumed), Progress::Unknown(committed), overflow))
+		end
+	end
+end
+
+fn copy_read_failed(consumed: ByteCount, committed: ByteCount, progress: Progress, error: Error) -> CopyOutcome
+	match add_progress("copy", consumed, progress)
+		Ok(total) => CopyOutcome::CopyFailed(total, Progress::Known(committed), error)
+		Err(overflow) => CopyOutcome::CopyFailed(Progress::Unknown(consumed), Progress::Known(committed), overflow)
+	end
+end

@@ -1,0 +1,625 @@
+use prelude
+use fs as api
+use io as bytes_io
+use path as portable
+use io_provider
+use fs_memory_state_test_support_test as model
+use fs_memory_test_support_test as memory
+
+fn name(text: String) -> Result<portable::Path, String>
+	match portable::parse(text)
+		Ok(path) => Ok(path)
+		Err(_) => Err("invalid fixture path")
+	end
+end
+
+fn read_text(outcome: bytes_io::ReadOutcome) -> Result<String, String>
+	match outcome
+		bytes_io::ReadOutcome::Data(bytes) => byte_chunk_to_visible_ascii_string(bytes)
+		bytes_io::ReadOutcome::End => Ok("<end>")
+		bytes_io::ReadOutcome::ReadFailed(_, _, failure) => Err(failure.message)
+	end
+end
+
+fn read_file(filesystem: api::Filesystem, path: portable::Path) -> Result<api::ReadFile, String> effects [api::Read]
+	match api::open_read(filesystem, path)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end
+end
+
+fn seek(file: bytes_io::Seeker, origin: bytes_io::SeekOrigin) -> Result<Int, String> effects [bytes_io::Seek]
+	match bytes_io::seek(file, origin)
+		Ok(value) => Ok(byte_offset_to_int(value))
+		Err(failure) => Err(failure.message)
+	end
+end
+
+fn readonly_body(filesystem: api::Filesystem) -> Result<(), String> effects [api::Read, bytes_io::Read, bytes_io::Seek, bytes_io::ReadAt]
+	let file: api::ReadFile = read_file(filesystem, name("data")?)?
+	let prefix = read_text(bytes_io::read(file.reader, byte_count(2)?))?
+	let current = seek(file.seeker, bytes_io::SeekOrigin::Current(-1))?
+	let positional = read_text(bytes_io::read_at(file.reader_at, byte_offset(2)?, byte_count(2)?))?
+	let after_positional = read_text(bytes_io::read(file.reader, byte_count(1)?))?
+	let ending = seek(file.seeker, bytes_io::SeekOrigin::End(-1))?
+	let last = read_text(bytes_io::read(file.reader, byte_count(1)?))?
+	let beyond = seek(file.seeker, bytes_io::SeekOrigin::Start(byte_offset(6)?))?
+	let ended = read_text(bytes_io::read(file.reader, byte_count(1)?))?
+	let metadata: api::Metadata = match api::metadata(filesystem, name("data")?, api::FollowLinks::Follow)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	let unchanged = match metadata.length
+		Some(count) => byte_count_to_int(count) == 4
+		None => false
+	end
+	if prefix == "ab" and current == 1 and positional == "cd" and after_positional == "b" and ending == 3 and last == "d" and beyond == 6 and ended == "<end>" and unchanged
+		Ok(())
+	else
+		Err("read-only provider lost cursor independence, seek state, or byte length")
+	end
+end
+
+test readonly_filesystem_needs_no_mutation_handler_or_host_effect() -> Result<(), String> effects [concurrency]
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcd")?)
+	let cell = memory::cell(initial)
+	handle memory::run_readonly(cell, readonly_body) with io_provider::scope()
+end
+
+fn invalid_seek_body(filesystem: api::Filesystem) -> Result<(), String> effects [api::Read, bytes_io::Read, bytes_io::Seek]
+	let file: api::ReadFile = read_file(filesystem, name("data")?)?
+	let _ = seek(file.seeker, bytes_io::SeekOrigin::Start(byte_offset(2)?))?
+	let negative = match bytes_io::seek(file.seeker, bytes_io::SeekOrigin::Current(-3))
+		Err(failure) => invalid_input(failure.kind)
+		Ok(_) => false
+	end
+	let overflow = match bytes_io::seek(file.seeker, bytes_io::SeekOrigin::End(9223372036854775807))
+		Err(failure) => invalid_input(failure.kind)
+		Ok(_) => false
+	end
+	let unchanged = seek(file.seeker, bytes_io::SeekOrigin::Current(0))?
+	let next = read_text(bytes_io::read(file.reader, byte_count(1)?))?
+	let maximum = seek(file.seeker, bytes_io::SeekOrigin::Start(byte_offset(9223372036854775807)?))?
+	let maximum_overflow = match bytes_io::seek(file.seeker, bytes_io::SeekOrigin::Current(1))
+		Err(failure) => invalid_input(failure.kind)
+		Ok(_) => false
+	end
+	let retained_maximum = seek(file.seeker, bytes_io::SeekOrigin::Current(0))?
+	if negative and overflow and unchanged == 2 and next == "c" and maximum == 9223372036854775807 and maximum_overflow and retained_maximum == maximum
+		Ok(())
+	else
+		Err("invalid seek changed the cursor or wrapped its arithmetic")
+	end
+end
+
+fn invalid_input(kind: bytes_io::ErrorKind) -> Bool
+	match kind
+		bytes_io::ErrorKind::InvalidInput => true
+		_ => false
+	end
+end
+
+test invalid_seek_preserves_the_previous_cursor() -> Result<(), String> effects [concurrency]
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcd")?)
+	let cell = memory::cell(initial)
+	handle memory::run_readonly(cell, invalid_seek_body) with io_provider::scope()
+end
+
+fn independent_open_body(filesystem: api::Filesystem) -> Result<(), String> effects [api::Read, bytes_io::Read, bytes_io::Close]
+	let first: api::ReadFile = read_file(filesystem, name("data")?)?
+	let second: api::ReadFile = read_file(filesystem, name("data")?)?
+	let alias: bytes_io::Reader = first.reader
+	let first_prefix = read_text(bytes_io::read(first.reader, byte_count(2)?))?
+	let second_prefix = read_text(bytes_io::read(second.reader, byte_count(1)?))?
+	let alias_next = read_text(bytes_io::read(alias, byte_count(1)?))?
+	let _ = bytes_io::close(first.closer)
+	let alias_closed = match bytes_io::read(alias, byte_count(0)?)
+		bytes_io::ReadOutcome::ReadFailed(_, _, failure) => match failure.kind
+			bytes_io::ErrorKind::Closed => true
+			_ => false
+		end
+		_ => false
+	end
+	let second_next = read_text(bytes_io::read(second.reader, byte_count(1)?))?
+	if first_prefix == "ab" and second_prefix == "a" and alias_next == "c" and alias_closed and second_next == "b"
+		Ok(())
+	else
+		Err("independent opens shared a cursor or aliases lost their shared lifetime")
+	end
+end
+
+test independent_opens_and_aliases_have_distinct_state_rules() -> Result<(), String> effects [concurrency]
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcd")?)
+	let cell = memory::cell(initial)
+	handle memory::run_readonly(cell, independent_open_body) with io_provider::scope()
+end
+
+fn update_file(filesystem: api::MutableFilesystem, path: portable::Path, create: api::CreateMode, truncate: Bool) -> Result<api::UpdateFile, String> effects [api::Mutate]
+	match api::open_read_write(filesystem, path, {create: create, truncate: truncate})
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end
+end
+
+fn wrote(outcome: bytes_io::WriteOutcome, expected: Int) -> Result<(), String>
+	match outcome
+		bytes_io::WriteOutcome::Written(count) => if byte_count_to_int(count) == expected
+			Ok(())
+		else
+			Err("write committed an unexpected byte count")
+		end
+		bytes_io::WriteOutcome::WriteFailed(_, failure) => Err(failure.message)
+	end
+end
+
+fn exact_bytes(outcome: bytes_io::ExactOutcome) -> Result<ByteChunk, String>
+	match outcome
+		bytes_io::ExactOutcome::Complete(bytes) => Ok(bytes)
+		_ => Err("exact read did not complete")
+	end
+end
+
+fn byte_at(bytes: ByteChunk, position: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(bytes, byte_offset(position)?, byte_count(1)?)?)
+end
+
+fn positional_write_body(filesystem: api::MutableFilesystem) -> Result<(), String> effects [api::Read, api::Mutate, bytes_io::Read, bytes_io::WriteAt, bytes_io::Seek]
+	let first: api::UpdateFile = update_file(filesystem, name("data")?, api::CreateMode::Existing, false)?
+	let second: api::ReadFile = read_file(api::read_only(filesystem), name("data")?)?
+	let _ = seek(first.seeker, bytes_io::SeekOrigin::Start(byte_offset(1)?))?
+	let _ = wrote(bytes_io::write_at(first.writer_at, byte_offset(2)?, byte_chunk_from_visible_ascii_string("XY")?), 2)?
+	let preserved = seek(first.seeker, bytes_io::SeekOrigin::Current(0))?
+	let next = read_text(bytes_io::read(first.reader, byte_count(3)?))?
+	let other = read_text(bytes_io::read(second.reader, byte_count(4)?))?
+	if preserved == 1 and next == "bXY" and other == "abXY"
+		Ok(())
+	else
+		Err("positional write changed the cursor or independent opens lost shared contents")
+	end
+end
+
+test positional_writes_preserve_cursor_and_share_file_contents() -> Result<(), String> effects [concurrency]
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcd")?)
+	let cell = memory::cell(initial)
+	handle memory::run(cell, positional_write_body) with io_provider::scope()
+end
+
+fn gap_body(filesystem: api::MutableFilesystem) -> Result<(), String> effects [api::Read, api::Mutate, bytes_io::Read, bytes_io::Write, bytes_io::Seek]
+	let file: api::UpdateFile = update_file(filesystem, name("data")?, api::CreateMode::Existing, false)?
+	let _ = seek(file.seeker, bytes_io::SeekOrigin::Start(byte_offset(6)?))?
+	let before: api::Metadata = match api::metadata(api::read_only(filesystem), name("data")?, api::FollowLinks::Follow)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	let not_extended = match before.length
+		Some(count) => byte_count_to_int(count) == 4
+		None => false
+	end
+	let _ = wrote(bytes_io::write(file.writer, byte_chunk_from_visible_ascii_string("Z")?), 1)?
+	let _ = seek(file.seeker, bytes_io::SeekOrigin::Start(byte_offset(0)?))?
+	let bytes = exact_bytes(bytes_io::read_exact(file.reader, byte_count(7)?))?
+	# Zero gap bytes are this fake's policy; they are not a host conformance rule.
+	if not_extended and byte_at(bytes, 0)? == 97 and byte_at(bytes, 3)? == 100 and byte_at(bytes, 4)? == 0 and byte_at(bytes, 5)? == 0 and byte_at(bytes, 6)? == 90
+		Ok(())
+	else
+		Err("seek extended the file or a later write lost the gap/content policy")
+	end
+end
+
+test seeking_beyond_end_does_not_extend_until_write() -> Result<(), String> effects [concurrency]
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcd")?)
+	let cell = memory::cell(initial)
+	handle memory::run(cell, gap_body) with io_provider::scope()
+end
+
+fn write_file(filesystem: api::MutableFilesystem, path: portable::Path) -> Result<api::WriteFile, String> effects [api::Mutate]
+	match api::open_write(filesystem, path, {create: api::CreateMode::Existing, truncate: false})
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end
+end
+
+fn cross_copy(first: api::MutableFilesystem, second: api::MutableFilesystem) -> Result<(), String> effects [api::Read, api::Mutate, bytes_io::Read, bytes_io::Write]
+	let first_readonly = api::read_only(first)
+	let foreign_rejected = match perform api::Read::metadata(first_readonly, name("data")?, api::FollowLinks::Follow)
+		Err(failure) => match failure.kind
+			bytes_io::ErrorKind::InvalidResource => true
+			_ => false
+		end
+		Ok(_) => false
+	end
+	let source: api::ReadFile = read_file(first_readonly, name("data")?)?
+	let target: api::WriteFile = write_file(second, name("output")?)?
+	let copied = match bytes_io::copy(source.reader, target.writer, byte_count(2)?)
+		bytes_io::CopyOutcome::Copied(count) => byte_count_to_int(count) == 3
+		_ => false
+	end
+	let observed: api::ReadFile = read_file(api::read_only(second), name("output")?)?
+	let bytes = exact_bytes(bytes_io::read_exact(observed.reader, byte_count(3)?))?
+	let text = byte_chunk_to_visible_ascii_string(bytes)?
+	if foreign_rejected and copied and text == "abc"
+		Ok(())
+	else
+		Err("filesystem shadowing redirected namespace/open or cross-provider copy")
+	end
+end
+
+fn cross_copy_body(first: api::MutableFilesystem) -> Result<(), String> effects [api::Read, api::Mutate, bytes_io::Read, bytes_io::Write, io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let seeded = model::seed_file(model::initial(1002), "data", byte_chunk_from_visible_ascii_string("wrong")?)
+	let initial = model::seed_file(seeded, "output", byte_chunk([]))
+	let second_cell = memory::cell(initial)
+	let second: api::MutableFilesystem = match memory::filesystem(owner, 1001, second_cell)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	handle cross_copy(first, second) with memory::namespace(owner, 1001, second_cell)
+end
+
+test cross_filesystem_copy_uses_two_source_only_providers() -> Result<(), String> effects [concurrency]
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abc")?)
+	let cell = memory::cell(initial)
+	handle memory::run(cell, cross_copy_body) with io_provider::scope()
+end
+
+fn nested_scope_body(filesystem: api::Filesystem) -> Result<(), String> effects [api::Read, bytes_io::Read]
+	let file: api::ReadFile = (handle read_file(filesystem, name("data")?) with io_provider::scope())?
+	let observed = read_text(bytes_io::read(file.reader, byte_count(3)?))?
+	if observed == "abc"
+		Ok(())
+	else
+		Err("opening through an older filesystem changed its owner")
+	end
+end
+
+test filesystem_open_retains_its_owner_under_a_nested_scope() -> Result<(), String> effects [concurrency]
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abc")?)
+	let cell = memory::cell(initial)
+	handle memory::run_readonly(cell, nested_scope_body) with io_provider::scope()
+end
+
+fn applied(outcome: api::MutationOutcome) -> Result<(), String>
+	match outcome
+		api::MutationOutcome::Applied => Ok(())
+		api::MutationOutcome::MutationFailed(_, failure) => Err(failure.message)
+	end
+end
+
+fn kind_name(kind: bytes_io::ErrorKind) -> String
+	match kind
+		bytes_io::ErrorKind::NotFound => "missing"
+		bytes_io::ErrorKind::AlreadyExists => "exists"
+		bytes_io::ErrorKind::InvalidInput => "invalid"
+		bytes_io::ErrorKind::IsDirectory => "directory"
+		bytes_io::ErrorKind::NotDirectory => "not-directory"
+		bytes_io::ErrorKind::DirectoryNotEmpty => "nonempty"
+		bytes_io::ErrorKind::LinkLoop => "loop"
+		bytes_io::ErrorKind::UnrepresentablePath => "unrepresentable"
+		_ => "other"
+	end
+end
+
+fn rejected(outcome: api::MutationOutcome, expected: String) -> Bool
+	match outcome
+		api::MutationOutcome::MutationFailed(bytes_io::Commit::No, failure) => kind_name(failure.kind) == expected
+		_ => false
+	end
+end
+
+fn size(filesystem: api::Filesystem, path: portable::Path) -> Result<Int, String> effects [api::Read]
+	match api::metadata(filesystem, path, api::FollowLinks::Follow)
+		Ok(value) => match value.length
+			Some(count) => Ok(byte_count_to_int(count))
+			None => Err("regular file has no length")
+		end
+		Err(failure) => Err(failure.message)
+	end
+end
+
+fn modes_body(filesystem: api::MutableFilesystem) -> Result<(), String> effects [api::Read, api::Mutate, bytes_io::Read, bytes_io::Write, bytes_io::Seek]
+	let readonly = api::read_only(filesystem)
+	let absent = match api::open_read(readonly, name("absent")?)
+		Err(failure) => kind_name(failure.kind) == "missing"
+		Ok(_) => false
+	end
+	let directory = match api::open_read(readonly, name(".")?)
+		Err(failure) => kind_name(failure.kind) == "directory"
+		Ok(_) => false
+	end
+	let exclusive = match api::open_write(filesystem, name("data")?, {create: api::CreateMode::CreateNew, truncate: false})
+		Err(failure) => kind_name(failure.kind) == "exists"
+		Ok(_) => false
+	end
+	let invalid = match api::open_write(filesystem, name("new")?, {create: api::CreateMode::CreateNew, truncate: true})
+		Err(failure) => kind_name(failure.kind) == "invalid"
+		Ok(_) => false
+	end
+	let unchanged = size(readonly, name("data")?)?
+	let not_created = match api::metadata(readonly, name("new")?, api::FollowLinks::Follow)
+		Err(failure) => kind_name(failure.kind) == "missing"
+		Ok(_) => false
+	end
+	let retained: api::UpdateFile = update_file(filesystem, name("data")?, api::CreateMode::CreateIfMissing, false)?
+	let _ = seek(retained.seeker, bytes_io::SeekOrigin::Start(byte_offset(3)?))?
+	let truncated: api::UpdateFile = update_file(filesystem, name("data")?, api::CreateMode::Existing, true)?
+	let empty = size(readonly, name("data")?)?
+	let retained_cursor = seek(retained.seeker, bytes_io::SeekOrigin::Current(0))?
+	let fresh_cursor = seek(truncated.seeker, bytes_io::SeekOrigin::Current(0))?
+	let created: api::UpdateFile = update_file(filesystem, name("new")?, api::CreateMode::CreateNew, false)?
+	let _ = wrote(bytes_io::write(created.writer, byte_chunk_from_visible_ascii_string("N")?), 1)?
+	let contents = size(readonly, name("new")?)?
+	if absent and directory and exclusive and invalid and unchanged == 4 and not_created and empty == 0 and retained_cursor == 3 and fresh_cursor == 0 and contents == 1
+		Ok(())
+	else
+		Err("open mode validation, exclusive preservation, or truncating open state failed")
+	end
+end
+
+test open_modes_validate_before_mutation_and_preserve_independent_cursors() -> Result<(), String> effects [concurrency]
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcd")?)
+	let cell = memory::cell(initial)
+	let _ = (handle memory::run(cell, modes_body) with io_provider::scope())?
+	if list_fold(model::events(memory::snapshot(cell)), false, invalid_mode_reached_provider)
+		Err("invalid mode reached the provider instead of failing before dispatch")
+	else
+		Ok(())
+	end
+end
+
+fn invalid_mode_reached_provider(found: Bool, event: model::Event) -> Bool
+	found or match event
+		model::Event::Opened(_, _, api::CreateMode::CreateNew, true, _) => true
+		_ => false
+	end
+end
+
+fn truncate_body(filesystem: api::MutableFilesystem) -> Result<(), String> effects [api::Read, api::Mutate, bytes_io::Read, bytes_io::Seek]
+	let first: api::UpdateFile = update_file(filesystem, name("data")?, api::CreateMode::Existing, false)?
+	let second: api::ReadFile = read_file(api::read_only(filesystem), name("data")?)?
+	let _ = seek(first.seeker, bytes_io::SeekOrigin::Start(byte_offset(4)?))?
+	let _ = seek(second.seeker, bytes_io::SeekOrigin::Start(byte_offset(3)?))?
+	let _ = applied(api::truncate(first.truncater, byte_offset(2)?))?
+	let first_cursor = seek(first.seeker, bytes_io::SeekOrigin::Current(0))?
+	let second_cursor = seek(second.seeker, bytes_io::SeekOrigin::Current(0))?
+	let second_end = read_text(bytes_io::read(second.reader, byte_count(1)?))?
+	let _ = applied(api::truncate(first.truncater, byte_offset(9)?))?
+	let length = size(api::read_only(filesystem), name("data")?)?
+	let _ = seek(first.seeker, bytes_io::SeekOrigin::Start(byte_offset(0)?))?
+	let bytes = read_text(bytes_io::read(first.reader, byte_count(8)?))?
+	if first_cursor == 2 and second_cursor == 3 and second_end == "<end>" and length == 2 and bytes == "ab"
+		Ok(())
+	else
+		Err("truncate changed another open's cursor, extended the file, or lost retained bytes")
+	end
+end
+
+test truncate_clamps_only_its_open_and_never_extends() -> Result<(), String> effects [concurrency]
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("abcd")?)
+	let cell = memory::cell(initial)
+	handle memory::run(cell, truncate_body) with io_provider::scope()
+end
+
+fn append_body(filesystem: api::MutableFilesystem) -> Result<(), String> effects [api::Read, api::Mutate, bytes_io::Read, bytes_io::Write, bytes_io::Sync]
+	let first: api::AppendFile = match api::open_append(filesystem, name("data")?, api::CreateMode::Existing)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	let second: api::AppendFile = match api::open_append(filesystem, name("data")?, api::CreateMode::Existing)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	let _ = wrote(bytes_io::write(first.writer, byte_chunk_from_visible_ascii_string("A")?), 1)?
+	let _ = wrote(bytes_io::write(second.writer, byte_chunk_from_visible_ascii_string("B")?), 1)?
+	let _ = wrote(bytes_io::write(first.writer, byte_chunk_from_visible_ascii_string("C")?), 1)?
+	let synced = match bytes_io::sync(first.syncer)
+		Ok(()) => true
+		Err(_) => false
+	end
+	let file: api::ReadFile = read_file(api::read_only(filesystem), name("data")?)?
+	let contents = read_text(bytes_io::read(file.reader, byte_count(8)?))?
+	if synced and contents == "xABC"
+		Ok(())
+	else
+		Err("an append write used an earlier cursor instead of the then-current end")
+	end
+end
+
+test append_opens_select_the_current_end_for_each_write() -> Result<(), String> effects [concurrency]
+	let initial = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("x")?)
+	let cell = memory::cell(initial)
+	handle memory::run(cell, append_body) with io_provider::scope()
+end
+
+fn namespace_body(filesystem: api::MutableFilesystem) -> Result<(), String> effects [api::Read, api::Mutate, bytes_io::Read, bytes_io::Write]
+	let readonly = api::read_only(filesystem)
+	let held: api::ReadFile = read_file(readonly, name("data")?)?
+	let existing = rejected(api::rename(filesystem, name("data")?, name("occupied")?), "exists")
+	let _ = applied(api::rename(filesystem, name("data")?, name("moved")?))?
+	let _ = applied(api::remove_file(filesystem, name("moved")?))?
+	let replacement: api::UpdateFile = update_file(filesystem, name("data")?, api::CreateMode::CreateNew, false)?
+	let _ = wrote(bytes_io::write(replacement.writer, byte_chunk_from_visible_ascii_string("new")?), 3)?
+	let old = read_text(bytes_io::read(held.reader, byte_count(8)?))?
+	let fresh: api::ReadFile = read_file(readonly, name("data")?)?
+	let new = read_text(bytes_io::read(fresh.reader, byte_count(8)?))?
+	let occupied: api::ReadFile = read_file(readonly, name("occupied")?)?
+	let kept = read_text(bytes_io::read(occupied.reader, byte_count(8)?))?
+	let missing_parent = rejected(api::create_directory(filesystem, name("missing/child")?), "missing")
+	let _ = applied(api::create_directory(filesystem, name("dir")?))?
+	let directory_exists = rejected(api::create_directory(filesystem, name("dir")?), "exists")
+	let wrong_file = rejected(api::remove_file(filesystem, name("dir")?), "directory")
+	let wrong_directory = rejected(api::remove_directory(filesystem, name("data")?), "not-directory")
+	let _ = applied(api::create_directory(filesystem, name("dir/child")?))?
+	let nonempty = rejected(api::remove_directory(filesystem, name("dir")?), "nonempty")
+	let _ = applied(api::rename(filesystem, name("dir")?, name("tree")?))?
+	let _ = applied(api::remove_directory(filesystem, name("tree/child")?))?
+	let _ = applied(api::remove_directory(filesystem, name("tree")?))?
+	if existing and old == "old" and new == "new" and kept == "kept" and missing_parent and directory_exists and wrong_file and wrong_directory and nonempty
+		Ok(())
+	else
+		Err("namespace mutation replaced an entry, lost open identity, or violated directory rules")
+	end
+end
+
+test namespace_mutations_preserve_open_identity_and_reject_destructive_failures() -> Result<(), String> effects [concurrency]
+	let seeded = model::seed_file(model::initial(10), "data", byte_chunk_from_visible_ascii_string("old")?)
+	let initial = model::seed_file(seeded, "occupied", byte_chunk_from_visible_ascii_string("kept")?)
+	let cell = memory::cell(initial)
+	handle memory::run(cell, namespace_body) with io_provider::scope()
+end
+
+fn entry_names(entries: List<api::Entry>) -> String
+	match entries
+		Nil => ""
+		Cons(entry, rest) => string::concat(string::concat(portable::text(entry.name), ";"), entry_names(rest))
+	end
+end
+
+fn entry_kind(entries: List<api::Entry>, selected: String) -> String
+	match entries
+		Nil => "missing"
+		Cons(entry, rest) => if portable::text(entry.name) == selected
+			match entry.kind
+				api::Kind::RegularFile => "file"
+				api::Kind::Directory => "directory"
+				api::Kind::SymbolicLink => "link"
+				api::Kind::Other => "other"
+			end
+		else
+			entry_kind(rest, selected)
+		end
+	end
+end
+
+fn entries(filesystem: api::Filesystem, path: portable::Path) -> Result<List<api::Entry>, String> effects [api::Read]
+	match api::entries(filesystem, path)
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end
+end
+
+fn enumeration_body(filesystem: api::Filesystem) -> Result<(), String> effects [api::Read]
+	let observed = entries(filesystem, name("dir")?)?
+	let alias = entries(filesystem, name("alias")?)?
+	let not_directory = match api::entries(filesystem, name("dir/a")?)
+		Err(failure) => kind_name(failure.kind) == "not-directory"
+		Ok(_) => false
+	end
+	# The supplementary scalar sorts after the BMP private-use scalar even
+	# though UTF-16 code-unit order would reverse them.
+	if entry_names(observed) == "a;link;other;z;é;;😀;" and entry_names(alias) == entry_names(observed) and entry_kind(observed, "link") == "link" and entry_kind(observed, "other") == "other" and entry_kind(observed, "z") == "directory" and not_directory
+		Ok(())
+	else
+		Err("entries lost scalar ordering, immediate-child names, or no-follow kinds")
+	end
+end
+
+test enumeration_sorts_unicode_scalars_and_reports_final_link_kinds() -> Result<(), String> effects [concurrency]
+	let directory = model::seed_directory(model::initial(10), "dir")
+	let supplementary = model::seed_file(directory, "dir/😀", byte_chunk([]))
+	let private_use = model::seed_file(supplementary, "dir/", byte_chunk([]))
+	let accented = model::seed_file(private_use, "dir/é", byte_chunk([]))
+	let first = model::seed_file(accented, "dir/a", byte_chunk([]))
+	let nested = model::seed_directory(first, "dir/z")
+	let grandchild = model::seed_file(nested, "dir/z/hidden", byte_chunk([]))
+	let other = model::seed_other(grandchild, "dir/other")
+	let link = model::seed_link(other, "dir/link", "dir/a")
+	let initial = model::seed_link(link, "alias", "dir")
+	let cell = memory::cell(initial)
+	handle memory::run_readonly(cell, enumeration_body) with io_provider::scope()
+end
+
+fn invalid_enumeration_body(filesystem: api::Filesystem) -> Result<(), String> effects [api::Read]
+	match api::entries(filesystem, name("dir")?)
+		Err(failure) => if kind_name(failure.kind) == "unrepresentable"
+			Ok(())
+		else
+			Err("native name conversion reported an unrelated failure")
+		end
+		Ok(_) => Err("enumeration returned a partial or lossy list")
+	end
+end
+
+test unrepresentable_entry_rejects_the_entire_enumeration() -> Result<(), String> effects [concurrency]
+	let directory = model::seed_directory(model::initial(10), "dir")
+	let valid = model::seed_file(directory, "dir/a", byte_chunk([]))
+	# Inject a failed conversion at the provider boundary. Host-specific invalid
+	# native encodings require separate real-host coverage.
+	let invalid = string::concat("dir/bad", prelude_builtin::string_nul())
+	let initial = model::seed_file(valid, invalid, byte_chunk([]))
+	let cell = memory::cell(initial)
+	handle memory::run_readonly(cell, invalid_enumeration_body) with io_provider::scope()
+end
+
+fn links_body(filesystem: api::MutableFilesystem) -> Result<(), String> effects [api::Read, api::Mutate, bytes_io::Read]
+	let readonly = api::read_only(filesystem)
+	let nofollow = match api::metadata(readonly, name("link")?, api::FollowLinks::NoFollow)
+		Ok(value) => match value.kind
+			api::Kind::SymbolicLink => match value.length
+				None => true
+				Some(_) => false
+			end
+			_ => false
+		end
+		Err(_) => false
+	end
+	let followed = size(readonly, name("link")?)?
+	let through_parent: api::ReadFile = read_file(readonly, name("alias/data")?)?
+	let observed = read_text(bytes_io::read(through_parent.reader, byte_count(8)?))?
+	let dangling = match api::open_read(readonly, name("dangling")?)
+		Err(failure) => kind_name(failure.kind) == "missing"
+		Ok(_) => false
+	end
+	let cycle = match api::metadata(readonly, name("cycle")?, api::FollowLinks::Follow)
+		Err(failure) => kind_name(failure.kind) == "loop"
+		Ok(_) => false
+	end
+	let exclusive = match api::open_append(filesystem, name("dangling")?, api::CreateMode::CreateNew)
+		Err(failure) => kind_name(failure.kind) == "exists"
+		Ok(_) => false
+	end
+	let _ = applied(api::remove_file(filesystem, name("link")?))?
+	let target_survived = size(readonly, name("dir/data")?)?
+	let removed = match api::metadata(readonly, name("link")?, api::FollowLinks::NoFollow)
+		Err(failure) => kind_name(failure.kind) == "missing"
+		Ok(_) => false
+	end
+	if nofollow and followed == 3 and observed == "abc" and dangling and cycle and exclusive and target_survived == 3 and removed
+		Ok(())
+	else
+		Err("link traversal, exclusive creation, metadata, or unlink semantics failed")
+	end
+end
+
+test links_follow_intermediate_components_but_unlink_the_final_entry() -> Result<(), String> effects [concurrency]
+	let directory = model::seed_directory(model::initial(10), "dir")
+	let data = model::seed_file(directory, "dir/data", byte_chunk_from_visible_ascii_string("abc")?)
+	let link = model::seed_link(data, "link", "dir/data")
+	let alias = model::seed_link(link, "alias", "dir")
+	let dangling = model::seed_link(alias, "dangling", "absent")
+	let initial = model::seed_link(dangling, "cycle", "cycle")
+	let cell = memory::cell(initial)
+	handle memory::run(cell, links_body) with io_provider::scope()
+end
+
+test native_conversion_is_pure_and_accepts_names_that_need_not_exist() -> Result<(), String>
+	let native: Path = match api::native_path("unused-native-name-日本語")
+		Ok(value) => Ok(value)
+		Err(failure) => Err(failure.message)
+	end?
+	if api::display_native(native) == "unused-native-name-日本語"
+		Ok(())
+	else
+		Err("native path conversion changed a single-component name")
+	end
+end
+
+test native_conversion_reports_invalid_syntax_as_an_ordinary_error() -> Result<(), String>
+	match api::native_path(string::concat("bad", prelude_builtin::string_nul()))
+		Err(failure) => if invalid_input(failure.kind) and failure.operation == "native_path"
+			Ok(())
+		else
+			Err("invalid native syntax lost its operation or typed category")
+		end
+		Ok(_) => Err("native path conversion accepted NUL")
+	end
+end
