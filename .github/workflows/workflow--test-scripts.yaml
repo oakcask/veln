@@ -5,17 +5,16 @@ on:
     branches:
       - main
     paths:
-      - .agents/skills/docs-progressive-disclosure/SKILL.md
       - .agents/skills/veln-language/**
       - .github/actions/cargo-dependencies/action.yaml
       - .github/actions/cargo-workflow-scripts/action.yaml
-      - .github/workflows/*.yaml
-      - AGENTS.md
+      - .github/workflows/workflow--test-scripts.yaml
       - crates/veln-mcp/schemas/mcp/v1/*.json
       - crates/veln-project/testdata/case_folding_17_c_f.txt
       - crates/veln-stdlib/schemas/observability/v1/json-lines-exporter-health.schema.json
       - crates/veln-stdlib/schemas/observability/v1/json-lines-record.schema.json
-      - docs/**/*.md
+      - docs/README.md
+      - docs/specification/mcp.md
       - examples/specification/run/observability-json-lines-encoder/case-text/records.jsonl
       - examples/specification/run/observability-json-lines-host-boundary/case-text/health.jsonl
       - scripts/agent-test
@@ -30,17 +29,16 @@ on:
       - workflow-scripts/**/*.mjs
   pull_request:
     paths:
-      - .agents/skills/docs-progressive-disclosure/SKILL.md
       - .agents/skills/veln-language/**
       - .github/actions/cargo-dependencies/action.yaml
       - .github/actions/cargo-workflow-scripts/action.yaml
-      - .github/workflows/*.yaml
-      - AGENTS.md
+      - .github/workflows/workflow--test-scripts.yaml
       - crates/veln-mcp/schemas/mcp/v1/*.json
       - crates/veln-project/testdata/case_folding_17_c_f.txt
       - crates/veln-stdlib/schemas/observability/v1/json-lines-exporter-health.schema.json
       - crates/veln-stdlib/schemas/observability/v1/json-lines-record.schema.json
-      - docs/**/*.md
+      - docs/README.md
+      - docs/specification/mcp.md
       - examples/specification/run/observability-json-lines-encoder/case-text/records.jsonl
       - examples/specification/run/observability-json-lines-host-boundary/case-text/health.jsonl
       - scripts/agent-test
@@ -78,12 +76,3 @@ jobs:
         uses: ./.github/actions/cargo-workflow-scripts
       - name: Test Rust workflow scripts
         run: bash scripts/ci-run cargo test --locked -p veln-repo-workflow-scripts
-      - name: Validate current specification explanations
-        run: node workflow-scripts/check-specification.mjs
-      - name: Reject unbounded Rust test commands
-        run: ${{ steps.workflow-scripts.outputs.binary }} check-memory-guards .github/workflows .github/actions
-      - name: Validate frontmatter in changed documentation
-        env:
-          DOC_FRONTMATTER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          DOC_FRONTMATTER_HEAD_SHA: ${{ github.sha }}
-        run: node workflow-scripts/check-doc-frontmatter.mjs

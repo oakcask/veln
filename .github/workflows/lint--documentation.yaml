@@ -1,0 +1,42 @@
+name: lint / documentation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/lint--documentation.yaml
+      - docs/**/*.md
+      - workflow-scripts/check-doc-frontmatter.mjs
+      - workflow-scripts/check-specification.mjs
+  pull_request:
+    paths:
+      - .github/workflows/lint--documentation.yaml
+      - docs/**/*.md
+      - workflow-scripts/check-doc-frontmatter.mjs
+      - workflow-scripts/check-specification.mjs
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "26"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Validate current specification explanations
+        run: node workflow-scripts/check-specification.mjs
+      - name: Validate frontmatter in changed documentation
+        env:
+          DOC_FRONTMATTER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          DOC_FRONTMATTER_HEAD_SHA: ${{ github.sha }}
+        run: node workflow-scripts/check-doc-frontmatter.mjs

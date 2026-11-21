@@ -1,0 +1,46 @@
+name: workflow / check memory guards
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/actions/clippy/action.yaml
+      - .github/actions/nextest/action.yaml
+      - .github/actions/setup-jdk/action.yaml
+      - .github/actions/cargo-dependencies/action.yaml
+      - .github/actions/cargo-workflow-scripts/action.yaml
+      - .github/workflows/*.yaml
+      - .github/workflows/*.yml
+      - Cargo.lock
+      - Cargo.toml
+      - rust-toolchain.toml
+      - tools/veln-repo-workflow-scripts/**
+  pull_request:
+    paths:
+      - .github/actions/clippy/action.yaml
+      - .github/actions/nextest/action.yaml
+      - .github/actions/setup-jdk/action.yaml
+      - .github/actions/cargo-dependencies/action.yaml
+      - .github/actions/cargo-workflow-scripts/action.yaml
+      - .github/workflows/*.yaml
+      - .github/workflows/*.yml
+      - Cargo.lock
+      - Cargo.toml
+      - rust-toolchain.toml
+      - tools/veln-repo-workflow-scripts/**
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Prepare Rust workflow scripts
+        id: workflow-scripts
+        uses: ./.github/actions/cargo-workflow-scripts
+      - name: Reject unbounded Rust test commands
+        run: ${{ steps.workflow-scripts.outputs.binary }} check-memory-guards .github/workflows .github/actions
