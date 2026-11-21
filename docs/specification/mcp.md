@@ -1119,6 +1119,13 @@ could provide an eligible handler.
 A recovered exact-path import does not block a separate parse-clean unique
 alias. These rejections return the existing empty definition or reference
 result.
+Transitive-package, mismatched-package, unresolved, incomplete, additionally
+qualified, test-only, and wrong-kind standard-library handler inputs keep
+their existing successful definition and reference results. A valid
+direct-dependency handler selected through the mismatched package keeps that
+package's result; the other rejected inputs return the successful empty result.
+Processing any such input leaves an unrelated valid standard-library handler's
+definition, references, canonical `veln-pkg:` URI, and source ranges unchanged.
 
 Capture, lookup, position, and pagination failures publish no partial handler
 locations and preserve the saved workspace, retained resources, prior results,
@@ -1342,7 +1349,9 @@ Focused regressions in
 and
 [`workspace_handlers.rs`](../../crates/veln-mcp/src/server/tests/references/workspace_handlers.rs)
 verify equal-name owner separation, exact retained `std` revision identity,
-revision-scoped source-resource reads, and selected-project isolation. The
+revision-scoped source-resource reads, selected-project isolation, the complete
+standard-library rejection matrix, and empty MCP wrong-kind projection without
+changing an unrelated valid identity. The
 project-isolation regression selects checked embedded `net::system`
 applications through schema-valid public `tools/call` requests and compares
 the complete canonical `resources/read` result. It also verifies that

@@ -467,6 +467,94 @@ fn standard_library_handler_navigation_keeps_owner_and_revision_at_mcp_boundary(
     );
 }
 
+#[test]
+fn standard_library_handler_rejection_projects_empty_without_changing_valid_result() {
+    let workspace = TempWorkspace::new("references-standard-handler-rejection-projection");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use observe from \"std\"\n\n",
+            "fn valid() -> Int\n  handle 1 with observe::noop()\nend\n\n",
+            "fn wrong_kind() -> Int\n  handle 2 with observe::work()\nend\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    install_handler_standard_library(
+        &mut server,
+        concat!(
+            "pub handler noop() for Observe\n  record() => 1\nend\n\n",
+            "pub fn work() -> Int\n  2\nend\n",
+        ),
+    );
+    let main_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
+    let valid = json!({"source":"main.veln", "line":4, "column":26});
+    let valid_with_declaration = json!({
+        "source":"main.veln", "line":4, "column":26,
+        "include_declaration":true
+    });
+    let valid_definition = server.definition_tool(&valid);
+    let valid_references = server.references_tool(&valid_with_declaration);
+    let standard_uri = valid_definition["structuredContent"]["definition"]["uri"]
+        .as_str()
+        .unwrap();
+    assert!(standard_uri.starts_with("veln-pkg:///std/snapshot/"));
+    assert_eq!(
+        valid_definition["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":1,"column":13},"end":{"line":1,"column":17}})
+    );
+    assert_eq!(
+        valid_references["structuredContent"]["references"],
+        json!([
+            {
+                "uri":main_uri,
+                "range":{"start":{"line":4,"column":26},"end":{"line":4,"column":30}}
+            },
+            {
+                "uri":standard_uri,
+                "range":{"start":{"line":1,"column":13},"end":{"line":1,"column":17}}
+            }
+        ])
+    );
+
+    let rejected_definition = server.definition_tool(&json!({
+        "source":"main.veln", "line":8, "column":26
+    }));
+    assert_eq!(
+        rejected_definition["isError"], false,
+        "{rejected_definition:#}"
+    );
+    assert_eq!(
+        rejected_definition["structuredContent"],
+        json!({"definition":null})
+    );
+    let rejected_references = server.references_tool(&json!({
+        "source":"main.veln", "line":8, "column":26,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        rejected_references["isError"], false,
+        "{rejected_references:#}"
+    );
+    assert_eq!(
+        rejected_references["structuredContent"],
+        json!({
+            "references":[],
+            "scope":{
+                "generation":0,
+                "mode":"project",
+                "project":".",
+                "project_wide":true
+            }
+        })
+    );
+    assert_eq!(server.definition_tool(&valid), valid_definition);
+    assert_eq!(
+        server.references_tool(&valid_with_declaration),
+        valid_references
+    );
+}
+
 fn assert_mcp_colliding_handler_owners(old_server: &mut Server, new_server: &mut Server) {
     let old_dependency = old_server.definition_tool(&json!({
         "source":"main.veln", "line":10, "column":37

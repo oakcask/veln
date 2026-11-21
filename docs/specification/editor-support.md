@@ -825,6 +825,13 @@ A recovered import grants no route, but it does not make a separate
 parse-clean import ambiguous. A recovered exact-path import does not block a
 separate parse-clean unique alias. These rejections return the existing empty
 definition or reference result.
+Transitive-package, mismatched-package, unresolved, incomplete, additionally
+qualified, test-only, and wrong-kind standard-library handler inputs keep
+their existing definition and reference results. A valid direct-dependency
+handler selected through the mismatched package keeps that package's result;
+the other rejected inputs return the empty result. Processing any such input
+leaves an unrelated valid standard-library handler's definition, references,
+canonical `veln-pkg:` URI, and source ranges unchanged.
 
 For a selected workspace schema declaration, `textDocument/references` returns
 the declaration when requested plus `decode`, `encode`, runtime-validation,
@@ -1341,7 +1348,9 @@ Focused regressions in
 [`navigation_handler_references.rs`](../../crates/veln-language-service/src/tests/navigation_handler_references.rs)
 and
 [`standard_handler_owner_revision.rs`](../../crates/veln-lsp/src/tests/standard_handler_owner_revision.rs)
-verify equal-name owner separation and exact retained `std` revision identity.
+verify equal-name owner separation, exact retained `std` revision identity, the
+complete standard-library rejection matrix, and empty LSP wrong-kind
+projection without changing an unrelated valid identity.
 The focused
 [`standard_handler_project_isolation.rs`](../../crates/veln-lsp/src/tests/standard_handler_project_isolation.rs)
 regression drives the default embedded standard-library loader with the public

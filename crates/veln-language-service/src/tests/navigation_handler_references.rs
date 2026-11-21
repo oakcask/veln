@@ -704,6 +704,218 @@ mod navigation_handler_references_tests {
         }
     }
 
+    fn assert_rejection_matrix_baseline(
+        result: &NavigationResult,
+        origin: PackageOrigin,
+        uri: &str,
+        file: &str,
+        reference: (&str, usize, usize),
+    ) {
+        assert_eq!(result.selected_symbol.package_origin, Some(origin));
+        assert_eq!(
+            result.definition.source,
+            NavigationSource::Package {
+                uri: uri.to_owned()
+            }
+        );
+        assert_eq!(result.definition.span.file.as_str(), file);
+        assert_eq!(result.definition.span.start.line, 1);
+        assert_eq!(result.definition.span.start.column, 13);
+        assert_eq!(result.definition.span.end.line, 1);
+        assert_eq!(result.definition.span.end.column, 17);
+        assert_eq!(locations(&result.references), [reference]);
+    }
+
+    fn assert_standard_handler_rejection(
+        baseline: &EffectiveProjectSnapshot,
+        case: &str,
+        imports: &str,
+        application: &str,
+        separate_result: Option<&NavigationResult>,
+        expected_stable: &NavigationResult,
+    ) {
+        const APPLICATION_PREFIX: &str = "  handle 1 with ";
+        let case_source =
+            format!("{imports}\nfn invalid() -> Int\n{APPLICATION_PREFIX}{application}\nend\n");
+        let snapshot = baseline.with_workspace_overlays([source("case.veln", &case_source)]);
+        let (_, leaf) = application.rsplit_once("::").unwrap();
+        let position = || SourcePosition {
+            source: SourcePath::new("case.veln"),
+            line: imports.lines().count() + 3,
+            column: APPLICATION_PREFIX.len() + application.len() - leaf.len() + 1,
+        };
+        let rejected = navigate(&snapshot, position());
+        match separate_result {
+            Some(expected_separate) => {
+                assert_eq!(rejected.as_ref(), Some(expected_separate), "{case}");
+                assert_eq!(
+                    definition_at(&snapshot, position()),
+                    Some(expected_separate.definition.clone()),
+                    "{case}"
+                );
+            }
+            None => {
+                assert!(rejected.is_none(), "{case}: {rejected:#?}");
+                assert_eq!(definition_at(&snapshot, position()), None, "{case}");
+            }
+        }
+        assert_eq!(
+            query_snapshot(&snapshot, "stable_use.veln", 4, 25).as_ref(),
+            Some(expected_stable),
+            "{case}"
+        );
+        assert_eq!(
+            definition_at(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("stable_use.veln"),
+                    line: 4,
+                    column: 25,
+                },
+            ),
+            Some(expected_stable.definition.clone()),
+            "{case}"
+        );
+    }
+
+    #[test]
+    fn standard_library_handler_rejection_matrix_preserves_unrelated_identity() {
+        const STABLE_HANDLER: &str =
+            "pub handler keep() for Observe\n  record() => 1\nend\n";
+        const APPLICATION_PREFIX: &str = "  handle 1 with ";
+        const MISMATCHED_IMPORT: &str = "use observe as other from \"example/other\"\n";
+        const MISMATCHED_APPLICATION: &str = "other::noop()";
+        let standard_library = standard_library_snapshot(
+            &[
+                ("stable.veln", STABLE_HANDLER),
+                (
+                    "observe.veln",
+                    concat!(
+                        "pub handler noop() for Observe\n  record() => 2\nend\n\n",
+                        "pub fn work() -> Int\n  2\nend\n",
+                    ),
+                ),
+                (
+                    "observe_test.veln",
+                    "pub handler noop() for Observe\n  record() => 4\nend\n",
+                ),
+            ],
+            ["stable.veln", "observe.veln", "observe_test.veln"],
+        );
+        let stable_uri = standard_library
+            .virtual_sources()
+            .find_map(|(uri, bytes)| (bytes == STABLE_HANDLER.as_bytes()).then(|| uri.to_owned()))
+            .unwrap();
+        let other = dependency_snapshot(
+            "example/other",
+            &[(
+                "observe.veln",
+                "pub handler noop() for Observe\n  record() => 5\nend\n",
+            )],
+            ["observe.veln"],
+        );
+        let other_uri = other.virtual_sources().next().unwrap().0.to_owned();
+        let mismatched_source = format!(
+            "{MISMATCHED_IMPORT}\nfn invalid() -> Int\n{APPLICATION_PREFIX}{MISMATCHED_APPLICATION}\nend\n"
+        );
+        let separate_baseline = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source("case.veln", &mismatched_source)],
+            vec![other.clone()],
+        );
+        let expected_separate = query_snapshot(&separate_baseline, "case.veln", 4, 24).unwrap();
+        assert_rejection_matrix_baseline(
+            &expected_separate,
+            PackageOrigin::DirectDependency,
+            &other_uri,
+            "observe.veln",
+            ("case.veln", 4, 24),
+        );
+        let bridge = dependency_snapshot(
+            "bridge/pkg",
+            &[(
+                "bridge.veln",
+                concat!(
+                    "use dep from \"transitive/pkg\"\n\n",
+                    "pub fn nested() -> Int\n  handle 3 with dep::run()\nend\n",
+                ),
+            )],
+            ["bridge.veln"],
+        );
+        let baseline = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "stable_use.veln",
+                concat!(
+                    "use stable from \"std\"\n\n",
+                    "fn valid() -> Int\n  handle 0 with stable::keep()\nend\n",
+                ),
+            )],
+            vec![other, bridge],
+        )
+        .with_standard_library(standard_library);
+        let expected = query_snapshot(&baseline, "stable_use.veln", 4, 25).unwrap();
+        assert_rejection_matrix_baseline(
+            &expected,
+            PackageOrigin::StandardLibrary,
+            &stable_uri,
+            "stable.veln",
+            ("stable_use.veln", 4, 25),
+        );
+
+        for (case, imports, application, separate_result) in [
+            (
+                "transitive",
+                "use dep from \"transitive/pkg\"\n",
+                "dep::run()",
+                None,
+            ),
+            (
+                "mismatched package",
+                MISMATCHED_IMPORT,
+                MISMATCHED_APPLICATION,
+                Some(&expected_separate),
+            ),
+            (
+                "unresolved",
+                "use observe from \"std\"\n",
+                "observe::missing()",
+                None,
+            ),
+            (
+                "incomplete",
+                "use observe from \"std\"\n",
+                "observe::noop(",
+                None,
+            ),
+            (
+                "additionally qualified",
+                "use observe from \"std\"\n",
+                "std::observe::extra::noop()",
+                None,
+            ),
+            (
+                "test-only",
+                "use observe_test from \"std\"\n",
+                "observe_test::noop()",
+                None,
+            ),
+            (
+                "wrong-kind",
+                "use observe from \"std\"\n",
+                "observe::work()",
+                None,
+            ),
+        ] {
+            assert_standard_handler_rejection(
+                &baseline,
+                case,
+                imports,
+                application,
+                separate_result,
+                &expected,
+            );
+        }
+    }
+
     fn eligible_standard_handler_library() -> DirectDependencySnapshot {
         standard_library_snapshot(
             &[(

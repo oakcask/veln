@@ -2,6 +2,62 @@ const OLD_STANDARD_HANDLER: &str = "pub handler noop() for Observe\n  record() =
 const NEW_STANDARD_HANDLER: &str = "\npub handler noop() for Observe\n  record() => 2\nend\n";
 
 #[test]
+fn standard_library_handler_rejection_projects_empty_without_changing_valid_result() {
+    let project = TempProject::new("standard-library-handler-rejection-projection");
+    project.write("veln.toml", "");
+    project.write(
+        "main.veln",
+        concat!(
+            "use observe from \"std\"\n\n",
+            "fn valid() -> Int\n  handle 1 with observe::noop()\nend\n\n",
+            "fn wrong_kind() -> Int\n  handle 2 with observe::work()\nend\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let standard_library = test_handler_standard_library(concat!(
+        "pub handler noop() for Observe\n  record() => 1\nend\n\n",
+        "pub fn work() -> Int\n  2\nend\n",
+    ));
+    let mut server = Server::default().with_standard_library(standard_library);
+    server.handle_message(&initialize_request(&root_uri));
+
+    let valid_definition_request = definition_request(&main_uri, 3, 25);
+    let valid_references_request =
+        references_request_with_declaration(&main_uri, 3, 25, true);
+    let valid_definition = server.handle_message(&valid_definition_request);
+    let valid_references = server.handle_message(&valid_references_request);
+    assert!(extract_string_field(&valid_definition[0], "uri")
+        .unwrap()
+        .starts_with("veln-pkg:///std/snapshot/"));
+    assert!(valid_definition[0].contains(
+        r#""range":{"start":{"line":0,"character":12},"end":{"line":0,"character":16}}"#
+    ));
+    assert_eq!(
+        valid_references,
+        [response(
+            "2",
+            &format!(
+                r#"[{{"uri":"{main_uri}","range":{{"start":{{"line":3,"character":25}},"end":{{"line":3,"character":29}}}}}}]"#
+            ),
+        )]
+    );
+
+    assert_eq!(
+        server.handle_message(&definition_request(&main_uri, 7, 25)),
+        [response("2", "null")]
+    );
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 7, 25, true,
+        )),
+        [response("2", "[]")]
+    );
+    assert_eq!(server.handle_message(&valid_definition_request), valid_definition);
+    assert_eq!(server.handle_message(&valid_references_request), valid_references);
+}
+
+#[test]
 fn standard_library_handler_navigation_keeps_owner_and_revision_at_lsp_boundary() {
     let (project, main_uri, workspace_uri) = standard_handler_owner_project();
     let (mut old_server, mut new_server) = standard_handler_owner_servers(&project);
