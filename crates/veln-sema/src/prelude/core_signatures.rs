@@ -89,14 +89,14 @@ fn core_filesystem_io_signature(
         "io_provider_scope_owner" => 0,
         "fs_system_open"
         | "fs_read_only"
-        | "io_read_exact"
-        | "io_write_all"
         | "io_provider_read_file"
         | "io_provider_write_file"
         | "io_provider_update_file"
         | "io_provider_append_file"
         | "io_provider_duplex" => 1,
-        "io_provider_filesystem"
+        "io_read_exact"
+        | "io_write_all"
+        | "io_provider_filesystem"
         | "io_provider_mutable_filesystem"
         | "io_provider_slot"
         | "io_provider_filesystem_slot"
