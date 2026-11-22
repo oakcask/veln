@@ -1,7 +1,6 @@
 use super::*;
 
 use crate::adt::registry::AdtRegistry;
-use crate::name_recovery::normal_use_decls;
 use crate::type_syntax::parse_type_or_unknown;
 
 pub(super) type EffectFunctionKey = crate::semantic_model::FunctionKey;
@@ -90,8 +89,9 @@ pub(super) fn infer_function_and_private_handler_effects(
     functions: &mut [FunctionSignature],
     user_effects: &[EffectSignature],
     handlers: &mut [HandlerSignature],
+    prepared_adts: Option<Arc<AdtRegistry>>,
 ) {
-    EffectInference::new(module, functions, user_effects, handlers).run();
+    EffectInference::new(module, functions, user_effects, handlers, prepared_adts).run();
 }
 
 pub(super) type EffectsByFunction = BTreeMap<EffectFunctionKey, Vec<String>>;
@@ -99,8 +99,8 @@ pub(super) type EffectsByModulePath = BTreeMap<EffectFunctionKey, (Vec<String>, 
 
 struct EffectInference<'a> {
     module: &'a SurfaceModule,
-    uses: Vec<UseDecl>,
-    adts: AdtRegistry,
+    uses: Arc<[UseDecl]>,
+    adts: Arc<AdtRegistry>,
     functions: &'a mut [FunctionSignature],
     function_lookup: EffectFunctionIndex,
     argument_types: std::cell::OnceCell<CheckedEffectArgumentTypes>,
@@ -126,8 +126,9 @@ impl<'a> EffectInference<'a> {
         functions: &'a mut [FunctionSignature],
         user_effects: &'a [EffectSignature],
         handlers: &'a mut [HandlerSignature],
+        prepared_adts: Option<Arc<AdtRegistry>>,
     ) -> Self {
-        let adts = AdtRegistry::from_module(module);
+        let adts = prepared_adts.unwrap_or_else(|| Arc::new(AdtRegistry::from_module(module)));
         let function_lookup = EffectFunctionIndex::new(functions);
         let graph = effect_dependency_graph(
             module,
@@ -142,7 +143,7 @@ impl<'a> EffectInference<'a> {
         let queued = graph.nodes.clone();
         Self {
             module,
-            uses: normal_use_decls(module),
+            uses: adts.import_scope(),
             adts,
             companion_access_targets: companion_function_access_targets(module),
             companion_effect_access_targets: companion_access_target_infos(module),
@@ -410,7 +411,7 @@ fn effect_dependency_graph(
     handlers: &[HandlerSignature],
     adts: &AdtRegistry,
 ) -> EffectDependencyGraph {
-    let uses = normal_use_decls(module);
+    let uses = adts.import_scope();
     let companion_access_targets = companion_function_access_targets(module);
     let companion_effect_access_targets = companion_access_target_infos(module);
     let (effects_by_function, effects_by_module_path) = effect_lookup_maps(functions);
