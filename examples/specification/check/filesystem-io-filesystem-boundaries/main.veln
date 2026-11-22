@@ -1,0 +1,18 @@
+use fs from "std"
+use io from "std"
+use io_provider from "std"
+use path as portable from "std"
+
+pub fn read_only_cannot_mutate(filesystem: fs::Filesystem, name: portable::Path) -> Result<fs::WriteFile, io::Error> effects [fs::Mutate]
+	fs::open_write(filesystem, name, fs::WriteMode::WriteMode(fs::CreateMode::Existing, false))
+end
+
+pub fn factories_remain_distinct(owner: io_provider::Owner) -> () effects [concurrency]
+	let _: Result<fs::MutableFilesystem, io::Error> = io_provider::filesystem(owner, 1)
+	let _: Result<fs::Filesystem, io::Error> = io_provider::mutable_filesystem(owner, 2)
+	()
+end
+
+pub fn projections_remain_distinct(resource: io_provider::Resource) -> Result<fs::WriteFile, io::Error>
+	io_provider::read_file(resource)
+end

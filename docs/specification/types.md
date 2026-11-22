@@ -35,8 +35,9 @@ Implemented type annotations:
   `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`,
   `AcceptOutcome`, `StreamReadOutcome`, `DecodeStep<T>`,
   `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
-- opaque network resource names `NetListener` and `NetStream`, including
-  public standard-package aliases that resolve to either resource type
+- opaque network, filesystem-provider, filesystem-token, and byte-capability
+  resource names, including public standard-package aliases that resolve to
+  those resource types
 - the standard structural wall-clock name `WallTime`
 - records: `{name: Type, ...}`
 - function types: `fn(T) -> U`, `fn(T, U) -> V`, or `fn(T, ...U) -> V`
@@ -119,11 +120,15 @@ literals; only the `time::wall_time` boundary provides normalized readings. A
 source-declared ADT named `WallTime`, and an alias that targets that ADT,
 remain nominal and do not acquire the standard record fields.
 
-`NetListener` and `NetStream` are opaque nominal resource types. They have no
-source constructors or variants. A public type alias can target either
-resource directly, and later public aliases can target that alias. The alias
-chain preserves the underlying resource identity; it does not make the host
-handle constructible or expose a representation.
+`NetListener`, `NetStream`, `IoOwner`, `IoResource`, `FsFilesystem`,
+`FsMutableFilesystem`, `IoReader`, `IoWriter`, `IoSeeker`, `IoReaderAt`,
+`IoWriterAt`, `IoCloser`, `IoSyncer`, and `FsTruncater` are opaque nominal
+resource types. They have no source constructors or variants. Public standard
+package aliases expose the filesystem types through `fs`, `io`, and
+`io_provider`; the aliases preserve each distinct underlying identity. An
+alias chain does not make a handle constructible or expose a representation.
+The exported static surface and runtime limit are specified by
+[Standard-library filesystem and byte IO](standard-library-filesystem-io.md).
 
 Public functions must annotate every parameter and the return type. Their
 effect clause must name every inferred effect; a pure declaration omits the

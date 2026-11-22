@@ -9,7 +9,7 @@ use super::descriptors::{
 };
 
 pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
-    vec![
+    let mut descriptors = vec![
         AdtDescriptor {
             type_name: "Option".to_string(),
             name_class: SourceLessNameClass::Type,
@@ -348,9 +348,34 @@ pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
             propagation: None,
             visibility: Visibility::Public,
         },
-        opaque_builtin_descriptor("NetListener"),
-        opaque_builtin_descriptor("NetStream"),
-    ]
+    ];
+    descriptors.extend(
+        OPAQUE_BUILTIN_TYPE_NAMES
+            .iter()
+            .map(|name| opaque_builtin_descriptor(name)),
+    );
+    descriptors
+}
+
+pub(super) const OPAQUE_BUILTIN_TYPE_NAMES: &[&str] = &[
+    "NetListener",
+    "NetStream",
+    "IoOwner",
+    "IoResource",
+    "FsFilesystem",
+    "FsMutableFilesystem",
+    "IoReader",
+    "IoWriter",
+    "IoSeeker",
+    "IoReaderAt",
+    "IoWriterAt",
+    "IoCloser",
+    "IoSyncer",
+    "FsTruncater",
+];
+
+pub(crate) fn is_opaque_builtin_type(name: &str) -> bool {
+    OPAQUE_BUILTIN_TYPE_NAMES.contains(&name)
 }
 
 fn opaque_builtin_descriptor(name: &str) -> AdtDescriptor {

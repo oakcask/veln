@@ -10,10 +10,10 @@ explicit filesystem selection, and scoped substitution through Veln effect
 handlers. The same byte-processing helpers should work with files, network
 streams, and memory.
 
-The [design decisions](#design-decisions) resolve the initial scope. All
-acceptance evidence is planned. Source signatures below define the proposed
-API; they are not declarations of currently implemented names. Implementation
-selection remains blocked on the separate
+The [design decisions](#design-decisions) resolve the initial scope. The static
+source names and capability boundaries below are implemented for feasibility;
+their runtime semantics and the remaining acceptance evidence are planned.
+Implementation selection remains blocked on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
 ## Current Boundary And Scope
@@ -243,10 +243,10 @@ per-open lifecycle, synchronized state, and scripted failures.
 
 ## Acceptance Model
 
-All evidence below is planned. Expected byte sequences and state transitions
-come from the contracts and decision tables in this proposal, not from
-copying the implementation's output. Fake tests do not establish real host
-behavior.
+Except for the checked static source and capability boundary, the evidence
+below is planned. Expected byte sequences and state transitions come from the
+contracts and decision tables in this proposal, not from copying the
+implementation's output. Fake tests do not establish real host behavior.
 
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
@@ -286,10 +286,12 @@ support exists.
 
 ### Source Surface And Static Capabilities
 
-The following are signature contracts, not executable declaration syntax.
-`Result`, records, ADTs, and nominal effects use existing Veln features.
-Opaque provider and capability values require the runtime extension below.
-No capability can be constructed by casting a number or a host object.
+The following table defines the implemented static declarations and the
+planned runtime contract behind them. `Result`, single-variant file-view ADTs,
+other ADTs, and nominal effects use existing Veln features. Opaque provider and
+capability values use compiler-known identities, but allocation and dispatch
+still require the runtime extension below. No capability can be constructed by
+casting a number or a host object.
 
 | Namespace | Source signatures and effects |
 | --- | --- |
@@ -532,9 +534,10 @@ invalidation belong to a separate buffering proposal before such helpers exist.
 
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) owns F1–F5, their
 prototype scope, evidence, and completion conditions. It is independently
-selectable from Ready. The source surface, provider extension, outcomes, and
-transition tables here remain the design contract exercised by that work;
-implementing the complete production filesystem API is not its prerequisite.
+selectable from Ready. The implemented static source surface and the planned
+provider extension, outcomes, and transition tables here remain the design
+contract exercised by that work; implementing the complete production
+filesystem runtime is not its prerequisite.
 
 ## Implementation Readiness And Promotion
 

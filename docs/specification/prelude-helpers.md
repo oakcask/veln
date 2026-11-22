@@ -33,8 +33,9 @@ subset.
 
 The descriptor-backed subset covers stdio effect metadata, concurrency effect
 metadata, minimal `fs`, `time`, and `process` intrinsics, observation-export
-adapters, private network host adapters, private production metric-index
-adapters, and opaque `NetListener` and `NetStream` resource type identities.
+adapters, private network host adapters, private filesystem IO static adapters,
+private production metric-index adapters, and opaque network and filesystem IO
+resource type identities.
 Public network operations are ordinary declarations in the exported
 `std::net` module, not compiler-known descriptors. The resource descriptors
 have no constructors and allow exported standard-package aliases to name host
@@ -43,8 +44,8 @@ descriptors classify their variant-refinement availability.
 Constructor-bearing descriptors such as `Option`, `Result`, and `List` expose
 a finite set. The compiler-owned `Dict` identity has an opaque descriptor for
 public type-alias resolution; an alias retains dictionary identity without
-gaining constructors or variant refinements. The two resource descriptors are
-also opaque. The
+gaining constructors or variant refinements. The network and filesystem IO
+resource descriptors are also opaque. The
 [type](types.md#compatibility-and-limits) and
 [diagnostic](diagnostics-json.md#diagnostic-families) specifications own the
 observable refinement rules and failures. The toolchain

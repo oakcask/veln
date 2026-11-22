@@ -1,0 +1,10 @@
+use fs from "std"
+use io from "std"
+
+pub fn wrong_capabilities(reader: io::Reader, writer: io::Writer, seeker: io::Seeker, closer: io::Closer, bytes: ByteChunk, count: ByteCount) -> () effects [io::Read, io::Write, io::Seek, io::Close]
+	let _ = io::read(writer, count)
+	let _ = io::write(reader, bytes)
+	let _ = io::seek(closer, io::SeekOrigin::Current(0))
+	let _ = io::close(seeker)
+	()
+end

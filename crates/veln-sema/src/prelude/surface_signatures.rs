@@ -13,6 +13,7 @@ pub(super) fn surface_prelude_signature(
     prelude_observation_export_signature(descriptor.name, expected)
         .or_else(|| prelude_production_metric_index_signature(descriptor.name))
         .or_else(|| prelude_net_system_signature(descriptor.name, expected))
+        .or_else(|| prelude_filesystem_io_signature(descriptor.name, expected))
         .or_else(|| prelude_float_signature(descriptor.name))
         .or_else(|| prelude_byte_signature(descriptor.name))
         .or_else(|| prelude_string_signature(descriptor.name))
@@ -22,6 +23,40 @@ pub(super) fn surface_prelude_signature(
         .or_else(|| prelude_option_signature(descriptor.name, expected))
         .or_else(|| prelude_result_signature(descriptor.name, expected))
         .or_else(|| compiler_adapter_callback_signature(descriptor))
+}
+
+fn prelude_filesystem_io_signature(
+    name: &str,
+    expected: &ExpectedPreludeParts,
+) -> Option<(Vec<Type>, Type)> {
+    let arity = match name {
+        "io_provider_scope_owner" => 0,
+        "fs_system_open"
+        | "fs_read_only"
+        | "io_read_exact"
+        | "io_write_all"
+        | "io_provider_read_file"
+        | "io_provider_write_file"
+        | "io_provider_update_file"
+        | "io_provider_append_file"
+        | "io_provider_duplex" => 1,
+        "io_provider_filesystem"
+        | "io_provider_mutable_filesystem"
+        | "io_provider_slot"
+        | "io_provider_filesystem_slot"
+        | "io_provider_mutable_filesystem_slot"
+        | "io_provider_reader_slot"
+        | "io_provider_writer_slot"
+        | "io_provider_seeker_slot"
+        | "io_provider_reader_at_slot"
+        | "io_provider_writer_at_slot"
+        | "io_provider_closer_slot"
+        | "io_provider_syncer_slot"
+        | "io_provider_truncater_slot" => 2,
+        "io_copy" | "io_provider_resource" => 3,
+        _ => return None,
+    };
+    Some((vec![Type::Unknown; arity], expected.direct.clone()))
 }
 
 fn prelude_observation_export_signature(

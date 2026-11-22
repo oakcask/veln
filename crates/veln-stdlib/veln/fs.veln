@@ -1,0 +1,141 @@
+use io
+use io_provider
+use path as portable
+
+## Opaque filesystem selections. MutableFilesystem is not assignable to
+## Filesystem without an explicit read_only projection.
+pub type Filesystem = FsFilesystem
+pub type MutableFilesystem = FsMutableFilesystem
+pub type Truncater = FsTruncater
+
+pub type Kind
+	pub RegularFile
+	pub Directory
+	pub SymbolicLink
+	pub Other
+end
+
+pub type Metadata
+	pub Metadata(kind: Kind, length: Option<ByteCount>)
+end
+
+pub type Entry
+	pub Entry(name: portable::Path, kind: Kind)
+end
+
+pub type FollowLinks
+	pub Follow
+	pub NoFollow
+end
+
+pub type CreateMode
+	pub Existing
+	pub CreateIfMissing
+	pub CreateNew
+end
+
+pub type WriteMode
+	pub WriteMode(create: CreateMode, truncate: Bool)
+end
+
+pub type UpdateMode
+	pub UpdateMode(create: CreateMode, truncate: Bool)
+end
+
+pub type MutationOutcome
+	pub Applied
+	pub MutationFailed(committed: io::Commit, error: io::Error)
+end
+
+pub type ReadFile
+	pub ReadFile(reader: io::Reader, seeker: io::Seeker, reader_at: io::ReaderAt, closer: io::Closer)
+end
+
+pub type WriteFile
+	pub WriteFile(writer: io::Writer, seeker: io::Seeker, writer_at: io::WriterAt, closer: io::Closer, syncer: io::Syncer, truncater: Truncater)
+end
+
+pub type UpdateFile
+	pub UpdateFile(reader: io::Reader, writer: io::Writer, seeker: io::Seeker, reader_at: io::ReaderAt, writer_at: io::WriterAt, closer: io::Closer, syncer: io::Syncer, truncater: Truncater)
+end
+
+pub type AppendFile
+	pub AppendFile(writer: io::Writer, closer: io::Closer, syncer: io::Syncer)
+end
+
+pub effect Host
+	system(root: Path) -> Result<MutableFilesystem, io::Error>
+end
+
+pub effect Read
+	open_read(filesystem: Filesystem, path: portable::Path) -> Result<ReadFile, io::Error>
+	metadata(filesystem: Filesystem, path: portable::Path, follow: FollowLinks) -> Result<Metadata, io::Error>
+	entries(filesystem: Filesystem, path: portable::Path) -> Result<List<Entry>, io::Error>
+end
+
+pub effect Mutate
+	open_write(filesystem: MutableFilesystem, path: portable::Path, mode: WriteMode) -> Result<WriteFile, io::Error>
+	open_read_write(filesystem: MutableFilesystem, path: portable::Path, mode: UpdateMode) -> Result<UpdateFile, io::Error>
+	open_append(filesystem: MutableFilesystem, path: portable::Path, create: CreateMode) -> Result<AppendFile, io::Error>
+	create_directory(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome
+	remove_file(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome
+	remove_directory(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome
+	rename(filesystem: MutableFilesystem, from_path: portable::Path, to_path: portable::Path) -> MutationOutcome
+	truncate(file: Truncater, size: ByteOffset) -> MutationOutcome
+end
+
+pub fn system(root: Path) -> Result<MutableFilesystem, io::Error> effects [Host, io_provider::Scope]
+	perform Host::system(root)
+end
+
+pub handler system_handler() for Host effects [fs, concurrency]
+	system(root) => prelude_builtin::fs_system_open(root)
+end
+
+pub fn read_only(filesystem: MutableFilesystem) -> Filesystem
+	prelude_builtin::fs_read_only(filesystem)
+end
+
+pub fn open_read(filesystem: Filesystem, path: portable::Path) -> Result<ReadFile, io::Error> effects [Read]
+	perform Read::open_read(filesystem, path)
+end
+
+pub fn metadata(filesystem: Filesystem, path: portable::Path, follow: FollowLinks) -> Result<Metadata, io::Error> effects [Read]
+	perform Read::metadata(filesystem, path, follow)
+end
+
+pub fn entries(filesystem: Filesystem, path: portable::Path) -> Result<List<Entry>, io::Error> effects [Read]
+	perform Read::entries(filesystem, path)
+end
+
+pub fn open_write(filesystem: MutableFilesystem, path: portable::Path, mode: WriteMode) -> Result<WriteFile, io::Error> effects [Mutate]
+	perform Mutate::open_write(filesystem, path, mode)
+end
+
+pub fn open_read_write(filesystem: MutableFilesystem, path: portable::Path, mode: UpdateMode) -> Result<UpdateFile, io::Error> effects [Mutate]
+	perform Mutate::open_read_write(filesystem, path, mode)
+end
+
+pub fn open_append(filesystem: MutableFilesystem, path: portable::Path, create: CreateMode) -> Result<AppendFile, io::Error> effects [Mutate]
+	perform Mutate::open_append(filesystem, path, create)
+end
+
+pub fn create_directory(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome effects [Mutate]
+	perform Mutate::create_directory(filesystem, path)
+end
+
+pub fn remove_file(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome effects [Mutate]
+	perform Mutate::remove_file(filesystem, path)
+end
+
+pub fn remove_directory(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome effects [Mutate]
+	perform Mutate::remove_directory(filesystem, path)
+end
+
+pub fn rename(filesystem: MutableFilesystem, from_path: portable::Path, to_path: portable::Path) -> MutationOutcome effects [Mutate]
+	perform Mutate::rename(filesystem, from_path, to_path)
+end
+
+pub fn truncate(file: Truncater, size: ByteOffset) -> MutationOutcome effects [Mutate]
+	perform Mutate::truncate(file, size)
+end

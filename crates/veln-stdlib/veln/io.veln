@@ -1,0 +1,154 @@
+use net
+use path as portable
+
+## Opaque byte-operation capabilities. Values are created only by provider
+## registration; the source surface exposes no constructors or casts.
+pub type Reader = IoReader
+pub type Writer = IoWriter
+pub type Seeker = IoSeeker
+pub type ReaderAt = IoReaderAt
+pub type WriterAt = IoWriterAt
+pub type Closer = IoCloser
+pub type Syncer = IoSyncer
+
+pub type Progress
+	pub Known(count: ByteCount)
+	pub Unknown(known_prefix: ByteCount)
+end
+
+pub type Commit
+	pub No
+	pub Yes
+	pub Unknown
+end
+
+pub type ErrorKind
+	pub InvalidInput
+	pub NotFound
+	pub AlreadyExists
+	pub PermissionDenied
+	pub NotDirectory
+	pub IsDirectory
+	pub DirectoryNotEmpty
+	pub LinkLoop
+	pub UnrepresentablePath
+	pub CrossFilesystem
+	pub Unsupported
+	pub Closed
+	pub Busy
+	pub InvalidResource
+	pub Cancelled
+	pub NoProgress
+	pub Other
+end
+
+pub type Error
+	pub Error(operation: String, kind: ErrorKind, path: Option<portable::Path>, other_path: Option<portable::Path>, network: Option<net::NetError>, commit: Option<Commit>, message: String)
+end
+
+pub type ReadOutcome
+	pub Data(bytes: ByteChunk)
+	pub End
+	pub ReadFailed(bytes: ByteChunk, consumed: Progress, error: Error)
+end
+
+pub type WriteOutcome
+	pub Written(count: ByteCount)
+	pub WriteFailed(committed: Progress, error: Error)
+end
+
+pub type ExactOutcome
+	pub Complete(bytes: ByteChunk)
+	pub Short(bytes: ByteChunk)
+	pub ExactFailed(bytes: ByteChunk, consumed: Progress, error: Error)
+end
+
+pub type CopyOutcome
+	pub Copied(count: ByteCount)
+	pub CopyFailed(consumed: Progress, committed: Progress, error: Error)
+end
+
+pub type CloseOutcome
+	pub Closed
+	pub CloseFailed(released: Commit, error: Error)
+end
+
+pub type SeekOrigin
+	pub Start(offset: ByteOffset)
+	pub Current(displacement: Int)
+	pub End(displacement: Int)
+end
+
+pub effect Read
+	read(reader: Reader, maximum: ByteCount) -> ReadOutcome
+end
+
+pub effect Write
+	write(writer: Writer, bytes: ByteChunk) -> WriteOutcome
+end
+
+pub effect Seek
+	seek(seeker: Seeker, origin: SeekOrigin) -> Result<ByteOffset, Error>
+end
+
+pub effect ReadAt
+	read_at(reader: ReaderAt, offset: ByteOffset, maximum: ByteCount) -> ReadOutcome
+end
+
+pub effect WriteAt
+	write_at(writer: WriterAt, offset: ByteOffset, bytes: ByteChunk) -> WriteOutcome
+end
+
+pub effect Close
+	close(closer: Closer) -> CloseOutcome
+end
+
+pub effect Sync
+	sync(syncer: Syncer) -> Result<(), Error>
+end
+
+pub fn read(reader: Reader, maximum: ByteCount) -> ReadOutcome effects [Read]
+	perform Read::read(reader, maximum)
+end
+
+pub fn write(writer: Writer, bytes: ByteChunk) -> WriteOutcome effects [Write]
+	perform Write::write(writer, bytes)
+end
+
+pub fn seek(seeker: Seeker, origin: SeekOrigin) -> Result<ByteOffset, Error> effects [Seek]
+	perform Seek::seek(seeker, origin)
+end
+
+pub fn read_at(reader: ReaderAt, offset: ByteOffset, maximum: ByteCount) -> ReadOutcome effects [ReadAt]
+	perform ReadAt::read_at(reader, offset, maximum)
+end
+
+pub fn write_at(writer: WriterAt, offset: ByteOffset, bytes: ByteChunk) -> WriteOutcome effects [WriteAt]
+	perform WriteAt::write_at(writer, offset, bytes)
+end
+
+pub fn close(closer: Closer) -> CloseOutcome effects [Close]
+	perform Close::close(closer)
+end
+
+pub fn sync(syncer: Syncer) -> Result<(), Error> effects [Sync]
+	perform Sync::sync(syncer)
+end
+
+## Static prototype signature. Runtime transfer behavior remains gated by the
+## filesystem IO feasibility proposal.
+pub fn read_exact(reader: Reader, count: ByteCount) -> ExactOutcome effects [Read]
+	prelude_builtin::io_read_exact(reader, count)
+end
+
+## Static prototype signature. Runtime transfer behavior remains gated by the
+## filesystem IO feasibility proposal.
+pub fn write_all(writer: Writer, bytes: ByteChunk) -> WriteOutcome effects [Write]
+	prelude_builtin::io_write_all(writer, bytes)
+end
+
+## Static prototype signature. Runtime transfer behavior remains gated by the
+## filesystem IO feasibility proposal.
+pub fn copy(reader: Reader, writer: Writer, chunk_size: ByteCount) -> CopyOutcome effects [Read, Write]
+	prelude_builtin::io_copy(reader, writer, chunk_size)
+end

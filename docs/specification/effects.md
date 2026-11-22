@@ -329,6 +329,14 @@ a source-less `net::` fallback.
 
 ## File System Calls
 
+The explicitly imported standard `fs` module also declares nominal
+`fs::Host`, `fs::Read`, and `fs::Mutate` effects for the static filesystem IO
+prototype. Those names and their capability operands are specified by
+[Standard-library filesystem and byte IO](standard-library-filesystem-io.md).
+They do not replace the compiler-known calls below or make the prototype
+runtime-ready. The bare coarse `fs` effect remains the host effect retained by
+the prototype's `fs::system_handler()` declaration.
+
 The checker recognizes these file-system call targets through the standard
 symbol table:
 

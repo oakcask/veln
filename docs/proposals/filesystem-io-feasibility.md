@@ -8,8 +8,10 @@ update-when: The filesystem IO F1–F5 feasibility scope, provider adapter proto
 Implement a bounded source/adapter prototype that tests whether the proposed
 filesystem and shared byte IO design can preserve capabilities, provider
 identity, state, progress, and cleanup through ordinary Veln handlers.
-This is a Ready implementation target. All acceptance evidence is planned;
-Ready authorizes building the prototype, not adopting the production API.
+This is a Ready implementation target. The F1 static source and capability
+boundary is implemented; its runtime registration observations and F2–F5
+remain planned. Ready authorizes building the prototype, not adopting the
+production API.
 
 ## Scope And Dependency Direction
 
@@ -19,7 +21,8 @@ Design In Progress until this work completes. This work does not depend on
 its production implementation or promotion to Ready.
 
 The following sections of the filesystem proposal define the prototype's
-design inputs. They are proposed contracts, not implemented prerequisites:
+design inputs. The static source boundary is implemented; the remaining rows
+are proposed runtime contracts, not implemented prerequisites:
 
 | Design input | Prototype obligation |
 | --- | --- |
@@ -48,7 +51,7 @@ its positive observations and its failure or preserved-state observations.
 
 | Gate | Required observation | Planned evidence |
 | --- | --- | --- |
-| F1: static source API | All declared file view records, nominal operations, and storage callbacks check using existing syntax plus the named compiler-known types. Wrong capability arguments fail. Provider factories return distinct read-only/mutable types and registrations enforce view families. | Compiler type-boundary cases for accepted declarations and rejected capability arguments; companion tests for missing-handler registration and incompatible family projection. |
+| F1: static source API | The declared file views, nominal operations, factories, projections, and slot accessors check with opaque compiler-known identities. Wrong or missing capability arguments fail, and provider factories retain distinct read-only/mutable types. Runtime registration must still enforce view families. | Implemented static declarations and compiler type-boundary cases are specified by [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md). Companion tests for missing-handler registration and incompatible family projection remain planned. |
 | F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. | Companion tests with distinct provider contents and operation logs; a backend dispatch case checks captured provider identity and absence of host fallback. |
 | F3: state and publication | Concurrent children, injected failure, and cancellation cannot strand the state cell lock or publish half a transition. Closing the owner rejects late publication and releases the late host resource. | Scoped Veln support plus backend atomic-state and owner-lifecycle cases. Force cancellation before entry and after commit; runtime callback failure preserves old state and releases the lock. Gate a host open across owner closure and observe release instead of publication, including retained cleanup failure. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
@@ -66,10 +69,11 @@ does not satisfy a gate. Such a failure does not promote the parent proposal.
 
 ## Implementation Sequence And Evidence Placement
 
-1. Build accepted and rejected source cases for F1 alongside the smallest
-   compiler/runtime adapter needed to check them. Treat the existing signature
-   tables as contracts to translate into valid Veln declarations, not as
-   executable snippets.
+1. The accepted and rejected source cases for the F1 static boundary and its
+   check-only compiler adapters are implemented. Complete the missing-handler
+   registration and incompatible-family runtime evidence. Treat the remaining
+   signature contracts as runtime obligations, not proof supplied by the
+   static declarations.
 2. Demonstrate the atomic state boundary required by F3. Add separate Veln
    provider support and use it to demonstrate F2 and the remaining publication
    observations in F3. Keep fake state and failure plans in Veln.

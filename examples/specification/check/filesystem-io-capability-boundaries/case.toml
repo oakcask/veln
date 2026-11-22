@@ -1,0 +1,8 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+contains = ["type.mismatch"]
+
+[stderr]
+format = "empty"

@@ -1,0 +1,5 @@
+use io from "std"
+
+pub fn missing_reader(reader: io::Reader) -> io::ReadOutcome effects [io::Read]
+	io::read(reader)
+end

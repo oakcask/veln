@@ -1,0 +1,8 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+contains = ["expected `MutableFilesystem`, but found `Filesystem`", "expected `Result<MutableFilesystem, Error>`, but found `Result<Filesystem, Error>`", "expected `Result<Filesystem, Error>`, but found `Result<MutableFilesystem, Error>`", "expected `Result<WriteFile, Error>`, but found `Result<ReadFile, Error>`"]
+
+[stderr]
+format = "empty"

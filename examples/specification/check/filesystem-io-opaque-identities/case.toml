@@ -1,0 +1,32 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.variant_refinement_base"
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "opaque"
+
+[[json_assert]]
+path = "diagnostics.4.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.5.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "summary.by_kind.type"
+equals = 4
+
+[[json_assert]]
+path = "summary.by_kind.name"
+equals = 2
