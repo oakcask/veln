@@ -142,3 +142,62 @@ fn byte_preview_with_counts(data: &str, total_byte_count: i64, truncated: bool) 
         ("truncated", JsonValue::Bool(truncated)),
     ])
 }
+
+#[test]
+fn retained_effect_gate_uses_the_entry_source_when_node_ids_collide() {
+    let analysis = analyze_project(
+        Project {
+            root: PathBuf::new(),
+            manifest: None,
+            files: vec![veln_source::SourceFile::new(
+                "main.veln",
+                "pub fn main() -> Int\n  0\nend\n",
+            )],
+        },
+        DoctestMode::Exclude,
+    );
+    assert!(analysis.checked_diagnostics().is_empty());
+    let mut core = analysis
+        .lower_reachable_entry("main", FunctionKind::Function)
+        .lowered
+        .core
+        .expect("entry should lower");
+    let entry = analysis
+        .module
+        .functions
+        .iter()
+        .find(|function| function.name.as_deref() == Some("main"))
+        .unwrap();
+    let selected = core
+        .functions
+        .iter()
+        .position(|function| function.span == entry.span)
+        .unwrap();
+    let mut other = core.functions[selected].clone();
+    other.name = "other".to_string();
+    other.span.file = veln_source::SourcePath::from("other.veln");
+    other.effects = vec!["Audit".to_string()];
+    core.functions.insert(0, other);
+    assert!(
+        retained_user_effect_diagnostic(
+            &analysis.module,
+            Some(&core),
+            "main",
+            FunctionKind::Function
+        )
+        .is_none(),
+        "an unrelated source with the same node ID must not block the entry"
+    );
+
+    core.functions[0].effects.clear();
+    core.functions[selected + 1].effects = vec!["Audit".to_string()];
+    let diagnostic = retained_user_effect_diagnostic(
+        &analysis.module,
+        Some(&core),
+        "main",
+        FunctionKind::Function,
+    )
+    .expect("the selected entry's unhandled effect must still be blocked");
+    assert_eq!(diagnostic.id, "effect.unhandled_user");
+    assert_eq!(diagnostic.span, Some(entry.span.clone()));
+}

@@ -46,9 +46,9 @@ pub(super) fn retained_user_effect_diagnostic(
         .find(|function| function.kind == config.kind && function.name.as_deref() == Some(entry))?;
     let effects = core
         .and_then(|core| {
-            core.functions
-                .iter()
-                .find(|core_function| core_function.node_id == function.node_id)
+            core.functions.iter().find(|core_function| {
+                core_function.node_id == function.node_id && core_function.span == function.span
+            })
         })
         .map(|core_function| &core_function.effects)?;
     let effect = effects
