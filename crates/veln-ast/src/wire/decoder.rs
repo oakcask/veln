@@ -7,6 +7,7 @@ pub fn decode_surface_module(bytes: &[u8]) -> Result<SurfaceModule, String> {
         bytes,
         position: 0,
         source_paths: std::collections::HashMap::new(),
+        last_source_path: None,
     };
     reader.magic()?;
     let module = reader.surface_module()?;
@@ -18,6 +19,7 @@ struct Reader<'a> {
     bytes: &'a [u8],
     position: usize,
     source_paths: std::collections::HashMap<&'a str, SourcePath>,
+    last_source_path: Option<(&'a str, SourcePath)>,
 }
 
 impl<'a> Reader<'a> {
@@ -87,13 +89,20 @@ impl<'a> Reader<'a> {
 
     fn source_path(&mut self) -> Result<SourcePath, String> {
         let len = self.u32()? as usize;
-        let text =
-            std::str::from_utf8(self.take(len)?).map_err(|_| "invalid UTF-8 string".to_string())?;
-        Ok(self
+        let bytes = self.take(len)?;
+        if let Some((text, path)) = &self.last_source_path
+            && text.as_bytes() == bytes
+        {
+            return Ok(path.clone());
+        }
+        let text = std::str::from_utf8(bytes).map_err(|_| "invalid UTF-8 string".to_string())?;
+        let path = self
             .source_paths
             .entry(text)
             .or_insert_with(|| SourcePath::new(text))
-            .clone())
+            .clone();
+        self.last_source_path = Some((text, path.clone()));
+        Ok(path)
     }
 
     fn option<T>(
