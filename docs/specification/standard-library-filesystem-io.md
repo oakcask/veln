@@ -35,7 +35,7 @@ The byte facades and their nominal effects are:
 | `io::Sync` | `sync(Syncer) -> Result<(), Error>` |
 
 `read_exact`, `write_all`, and `copy` retain `io::Read`, `io::Write`, or both
-in their declared effect rows. Their result types preserve the proposed data,
+in their declared effect rows. Their result types represent partial data,
 progress, and error alternatives through `ReadOutcome`, `WriteOutcome`,
 `ExactOutcome`, and `CopyOutcome`.
 
@@ -111,8 +111,8 @@ The file-view declarations carry these capability fields:
 
 They are single-variant public ADTs because Veln has no named structural-record
 alias syntax. Their constructor payload names preserve the file-view field
-contract. Possessing those records does not create or upgrade any opaque
-capability value.
+contract. Possessing those file-view values does not create or upgrade any
+opaque capability value.
 
 `io_provider` exposes the check-only adapter surface below. The factories and
 both slot groups retain `concurrency`; `owner` requires `Scope`, the `scope`
