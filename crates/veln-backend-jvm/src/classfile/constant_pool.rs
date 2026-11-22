@@ -212,6 +212,11 @@ fn modified_utf8_scalar_len(scalar: char) -> usize {
 }
 
 fn encode_modified_utf8(value: &str) -> Option<Vec<u8>> {
+    if value.is_ascii() && !value.as_bytes().contains(&0) {
+        return u16::try_from(value.len())
+            .ok()
+            .map(|_| value.as_bytes().to_vec());
+    }
     let mut encoded = Vec::with_capacity(value.len());
     for scalar in value.chars() {
         let scalar = u32::from(scalar);
@@ -435,6 +440,17 @@ mod tests {
             encode_modified_utf8("😀"),
             Some(vec![0xed, 0xa0, 0xbd, 0xed, 0xb8, 0x80])
         );
+    }
+
+    #[test]
+    fn modified_utf8_ascii_values_observe_the_encoded_byte_limit() {
+        assert_eq!(encode_modified_utf8(""), Some(Vec::new()));
+        let boundary = "a".repeat(usize::from(u16::MAX));
+        assert_eq!(
+            encode_modified_utf8(&boundary),
+            Some(boundary.as_bytes().to_vec())
+        );
+        assert!(encode_modified_utf8(&(boundary + "a")).is_none());
     }
 
     #[test]
