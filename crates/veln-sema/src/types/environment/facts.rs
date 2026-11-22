@@ -144,7 +144,7 @@ fn from_module_with_base_classified(
         &mut declarations.effects,
         &mut declarations.adts,
     );
-    let callables = callable_facts(module, base, &declarations);
+    let callables = callable_facts(module, base, &declarations, &validation_environment);
     finish_environment(module, base, declarations, callables)
 }
 
@@ -555,20 +555,20 @@ fn callable_facts(
     module: &SurfaceModule,
     base: Option<&TypeEnvironment>,
     declarations: &DeclarationFacts,
+    validation_environment: &TypeEnvironment,
 ) -> CallableFacts {
     let CallableFacts {
         mut functions,
         mut handlers,
     } = declared_callable_facts(module, base, declarations);
-    let validation_environment = TypeEnvironment::for_path_classification_with_base(module, base);
     quarantine_invalid_variant_refinement_function_types(
         module,
-        &validation_environment,
+        validation_environment,
         &mut functions,
     );
     quarantine_invalid_variant_refinement_handler_types(
         module,
-        &validation_environment,
+        validation_environment,
         &mut handlers,
     );
     infer_private_function_body_return_types(module, &mut functions, &declarations.adts);
