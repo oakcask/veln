@@ -74,7 +74,11 @@ pub(crate) fn run_entry(
         &prepared.entry_arg_types,
     )
     .map_err(|error| format!("JVM backend could not generate the program: {error}"))?;
-    let execution = match prepare_run_jvm_execution(json, &mut timings, backend_start)? {
+    if let (Some(timings), Some(start)) = (timings.as_mut(), backend_start) {
+        timings.push("backend_generation", start.elapsed());
+    }
+    let runtime_start = timings.is_some().then(Instant::now);
+    let execution = match prepare_run_jvm_execution(json, &mut timings, runtime_start)? {
         Some(execution) => execution,
         None => return Ok(ExitCode::from(1)),
     };
@@ -91,7 +95,7 @@ pub(crate) fn run_entry(
             build_dir.display()
         );
     }
-    if let (Some(timings), Some(start)) = (timings.as_mut(), backend_start) {
+    if let (Some(timings), Some(start)) = (timings.as_mut(), runtime_start) {
         timings.push("backend_runtime_remainder", start.elapsed());
     }
     write_timings(&timings)?;
@@ -144,18 +148,18 @@ fn prepare_run_program(
 fn prepare_run_jvm_execution(
     json: bool,
     timings: &mut Option<RunAnalysisTimings>,
-    backend_start: Option<Instant>,
+    runtime_start: Option<Instant>,
 ) -> Result<Option<JvmExecution>, String> {
     match prepare_jvm_execution("veln run") {
         Ok(JvmExecutionPreparation::Ready(execution)) => Ok(Some(execution)),
         Ok(JvmExecutionPreparation::ToolError(message)) => {
-            push_backend_runtime_timing(timings, backend_start);
+            push_backend_runtime_timing(timings, runtime_start);
             write_timings(timings)?;
             let _ = report_run_tool_error(json, message)?;
             Ok(None)
         }
         Err(message) => {
-            push_backend_runtime_timing(timings, backend_start);
+            push_backend_runtime_timing(timings, runtime_start);
             write_timings(timings)?;
             Err(message)
         }
@@ -164,9 +168,9 @@ fn prepare_run_jvm_execution(
 
 fn push_backend_runtime_timing(
     timings: &mut Option<RunAnalysisTimings>,
-    backend_start: Option<Instant>,
+    runtime_start: Option<Instant>,
 ) {
-    if let (Some(timings), Some(start)) = (timings.as_mut(), backend_start) {
+    if let (Some(timings), Some(start)) = (timings.as_mut(), runtime_start) {
         timings.push("backend_runtime_remainder", start.elapsed());
     }
 }
