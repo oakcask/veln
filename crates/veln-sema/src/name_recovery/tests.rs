@@ -24,6 +24,11 @@ fn standard_relative_exact_paths_follow_retained_package_origin() {
 
     let local = lowered_use("use std::helper\n", None, "std::helper");
     assert_eq!(use_decl_exact_paths(&local), ["std::helper"]);
+    assert!(!use_decl_matches_exact_import_path(
+        &local,
+        "helper",
+        local.module_name.as_deref()
+    ));
 
     let standard_internal = lowered_use("use helper\n", Some("std"), "std::helper");
     assert_eq!(
@@ -31,11 +36,28 @@ fn standard_relative_exact_paths_follow_retained_package_origin() {
         ["helper", "std::helper"]
     );
 
+    assert!(use_decl_matches_exact_import_path(
+        &standard_internal,
+        "helper",
+        standard_internal.module_name.as_deref()
+    ));
+    assert!(use_decl_matches_exact_import_path(
+        &standard_internal,
+        "std::helper",
+        standard_internal.module_name.as_deref()
+    ));
+
     let explicit_standard = lowered_use("use helper from \"std\"\n", None, "std::helper");
     assert_eq!(
         use_decl_exact_paths(&explicit_standard),
         ["helper", "std::helper"]
     );
+
+    assert!(use_decl_matches_exact_import_path(
+        &explicit_standard,
+        "helper",
+        explicit_standard.module_name.as_deref()
+    ));
 
     let explicit_other_from_standard = lowered_use(
         "use std::helper from \"other\"\n",
@@ -46,6 +68,45 @@ fn standard_relative_exact_paths_follow_retained_package_origin() {
         use_decl_exact_paths(&explicit_other_from_standard),
         ["std::helper"]
     );
+    assert!(!use_decl_matches_exact_import_path(
+        &explicit_other_from_standard,
+        "helper",
+        explicit_other_from_standard.module_name.as_deref()
+    ));
+    assert!(!use_decl_matches_exact_import_path(
+        &explicit_other_from_standard,
+        "other::std::helper",
+        explicit_other_from_standard.module_name.as_deref()
+    ));
+}
+
+#[test]
+fn exact_import_selection_overrides_earlier_alias_ambiguity() {
+    let source = veln_source::SourceFile::new(
+        "app.veln",
+        "mod app\nuse alpha as api\nuse beta as api\nuse api as selected\n",
+    );
+    let parsed = veln_syntax::parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let mut module = veln_ast::lower_surface_ast(&parsed.tree);
+    let selected = select_use_decl_for_path(module.uses.iter(), "api", Some("app"))
+        .expect("the exact path takes precedence over both aliases");
+    assert_eq!(selected.alias, "selected");
+    let duplicate = selected.clone();
+    module.uses.reverse();
+    assert_eq!(
+        select_use_decl_for_path(module.uses.iter(), "api", Some("app"))
+            .unwrap()
+            .alias,
+        "selected"
+    );
+    module.uses.push(duplicate);
+    assert!(select_use_decl_for_path(module.uses.iter(), "api", Some("app")).is_none());
+    assert!(use_decl_path_is_ambiguous(
+        module.uses.iter(),
+        "api",
+        Some("app")
+    ));
 }
 
 #[test]

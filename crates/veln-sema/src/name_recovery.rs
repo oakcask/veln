@@ -850,20 +850,27 @@ pub(crate) fn select_use_decl_for_path<'a>(
     module_path: &str,
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
-    let candidates = uses
-        .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
-        .collect::<Vec<_>>();
-    let mut exact = candidates.iter().copied().filter(|use_decl| {
-        use_decl_matches_exact_import_path(use_decl, module_path, current_module)
-    });
-    if let Some(first) = exact.next() {
-        return exact.next().is_none().then_some(first);
+    let mut exact = None;
+    let mut qualified = None;
+    let mut qualified_ambiguous = false;
+    for use_decl in uses.filter(|use_decl| use_decl.module_name.as_deref() == current_module) {
+        if use_decl_matches_exact_import_path(use_decl, module_path, current_module) {
+            if exact.replace(use_decl).is_some() {
+                return None;
+            }
+        } else if simple_import_alias_matches(use_decl, module_path)
+            && qualified.replace(use_decl).is_some()
+        {
+            qualified_ambiguous = true;
+        }
     }
-    let mut qualified = candidates
-        .into_iter()
-        .filter(|use_decl| simple_import_alias_matches(use_decl, module_path));
-    let first = qualified.next()?;
-    qualified.next().is_none().then_some(first)
+    if exact.is_some() {
+        exact
+    } else if qualified_ambiguous {
+        None
+    } else {
+        qualified
+    }
 }
 
 pub(crate) fn use_decl_path_is_ambiguous<'a>(
@@ -991,9 +998,7 @@ pub(crate) fn use_decl_matches_exact_import_path(
     if use_decl.module_name.as_deref() != current_module {
         return false;
     }
-    use_decl_exact_paths(use_decl)
-        .iter()
-        .any(|path| path == module_path)
+    use_decl.matches_exact_path(module_path)
 }
 
 fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
