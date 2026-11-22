@@ -250,18 +250,32 @@ impl UseDecl {
     }
 
     pub fn exact_paths(&self) -> Vec<String> {
-        let mut paths = vec![self.written_name.clone()];
-        if self.is_standard_package_import() {
-            paths.push(self.name.clone());
-            for path in [self.written_name.as_str(), self.name.as_str()] {
-                if let Some(relative) = path.strip_prefix("std::") {
-                    paths.push(relative.to_string());
-                }
-            }
-        }
+        let mut paths = self
+            .exact_path_candidates()
+            .into_iter()
+            .flatten()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
         paths.sort();
         paths.dedup();
         paths
+    }
+
+    pub fn matches_exact_path(&self, path: &str) -> bool {
+        self.exact_path_candidates().contains(&Some(path))
+    }
+
+    fn exact_path_candidates(&self) -> [Option<&str>; 4] {
+        if self.is_standard_package_import() {
+            [
+                Some(self.written_name.as_str()),
+                Some(self.name.as_str()),
+                self.written_name.strip_prefix("std::"),
+                self.name.strip_prefix("std::"),
+            ]
+        } else {
+            [Some(self.written_name.as_str()), None, None, None]
+        }
     }
 
     pub fn resolved_target(&self) -> ResolvedImportTarget {
