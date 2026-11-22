@@ -70,6 +70,7 @@ pub(crate) mod effect_inference_counters {
     use super::*;
 
     thread_local! {
+        static FUNCTION_LOOKUP_WORK: Cell<usize> = const { Cell::new(0) };
         static ARGUMENT_SIGNATURE_COPIES: Cell<usize> = const { Cell::new(0) };
         static DEPENDENCY_DISCOVERY_SCANS: Cell<usize> = const { Cell::new(0) };
         static FUNCTION_BODY_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
@@ -81,6 +82,7 @@ pub(crate) mod effect_inference_counters {
 
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
     pub(crate) struct Snapshot {
+        pub(crate) function_lookup_work: usize,
         pub(crate) argument_signature_copies: usize,
         pub(crate) dependency_discovery_scans: usize,
         pub(crate) function_body_collections: usize,
@@ -91,6 +93,7 @@ pub(crate) mod effect_inference_counters {
     }
 
     pub(crate) fn reset() {
+        FUNCTION_LOOKUP_WORK.set(0);
         ARGUMENT_SIGNATURE_COPIES.set(0);
         DEPENDENCY_DISCOVERY_SCANS.set(0);
         FUNCTION_BODY_COLLECTIONS.set(0);
@@ -102,6 +105,7 @@ pub(crate) mod effect_inference_counters {
 
     pub(crate) fn snapshot() -> Snapshot {
         Snapshot {
+            function_lookup_work: FUNCTION_LOOKUP_WORK.get(),
             argument_signature_copies: ARGUMENT_SIGNATURE_COPIES.get(),
             dependency_discovery_scans: DEPENDENCY_DISCOVERY_SCANS.get(),
             function_body_collections: FUNCTION_BODY_COLLECTIONS.get(),
@@ -110,6 +114,10 @@ pub(crate) mod effect_inference_counters {
             handled_effect_stack_work: HANDLED_EFFECT_STACK_WORK.get(),
             handled_effect_membership_work: HANDLED_EFFECT_MEMBERSHIP_WORK.get(),
         }
+    }
+
+    pub(super) fn record_function_lookup_work() {
+        FUNCTION_LOOKUP_WORK.set(FUNCTION_LOOKUP_WORK.get() + 1);
     }
 
     pub(crate) fn record_argument_signature_copies(count: usize) {

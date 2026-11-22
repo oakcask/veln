@@ -686,3 +686,59 @@ fn effect_argument_signatures_follow_later_worklist_updates() {
     );
     assert!(crate::types::effect_inference_counters::snapshot().changed_reevaluations > 0);
 }
+
+#[test]
+fn effect_function_lookup_work_is_linear_for_same_leaf_module_calls() {
+    fn measure(count: usize) -> usize {
+        let module = merged_modules(
+            (0..count)
+                .map(|index| {
+                    let effect = if index % 2 == 0 {
+                        "  stdio::println(\"leaf\")\n"
+                    } else {
+                        ""
+                    };
+                    SourceFile::new(
+                        format!("module_{index}.veln"),
+                        format!(
+                            "mod module_{index}\nfn leaf() -> Int\n{effect}  1\nend\n\
+                             fn caller() -> Int\n  leaf()\nend\n"
+                        ),
+                    )
+                })
+                .collect(),
+        );
+        crate::types::effect_inference_counters::reset();
+        let environment = crate::types::TypeEnvironment::from_module(&module);
+        for function in module
+            .functions
+            .iter()
+            .filter(|function| function.name.as_deref() == Some("caller"))
+        {
+            let index = function
+                .module_name
+                .as_ref()
+                .unwrap()
+                .strip_prefix("module_")
+                .unwrap()
+                .parse::<usize>()
+                .unwrap();
+            let expected = if index % 2 == 0 {
+                vec!["stdio"]
+            } else {
+                vec![]
+            };
+            assert_eq!(
+                environment.function_for(function).unwrap().effects,
+                expected
+            );
+        }
+        let work = crate::types::effect_inference_counters::snapshot().function_lookup_work;
+        assert!(work >= count * 2, "index construction must be counted");
+        eprintln!("effect function lookup: modules={count} work={work}");
+        work
+    }
+
+    let work = [16, 32, 64].map(measure);
+    assert_eq!(work[2] - work[1], 2 * (work[1] - work[0]), "{work:?}");
+}

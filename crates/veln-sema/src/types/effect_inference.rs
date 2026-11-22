@@ -16,6 +16,7 @@ struct FunctionEffectContext<'a> {
     uses: &'a [UseDecl],
     adts: &'a AdtRegistry,
     functions: &'a [FunctionSignature],
+    function_lookup: &'a EffectFunctionIndex,
     argument_types: &'a std::cell::OnceCell<CheckedEffectArgumentTypes>,
     user_effects: &'a [EffectSignature],
     handlers: &'a [HandlerSignature],
@@ -39,6 +40,7 @@ impl FunctionEffectContext<'_> {
             bindings,
             adts: self.adts,
             functions: self.functions,
+            function_lookup: self.function_lookup,
             argument_types: self.argument_types,
             effects_by_function: self.effects_by_function,
             effects_by_module_path: self.effects_by_module_path,
@@ -56,6 +58,7 @@ struct HandlerEffectContext<'a> {
     uses: &'a [UseDecl],
     user_effects: &'a [EffectSignature],
     functions: &'a [FunctionSignature],
+    function_lookup: &'a EffectFunctionIndex,
     argument_types: &'a std::cell::OnceCell<CheckedEffectArgumentTypes>,
     effects_by_function: &'a EffectsByFunction,
     effects_by_module_path: &'a EffectsByModulePath,
@@ -70,6 +73,7 @@ impl HandlerEffectContext<'_> {
             uses: self.uses,
             adts: self.adts,
             functions: self.functions,
+            function_lookup: self.function_lookup,
             argument_types: self.argument_types,
             user_effects: self.user_effects,
             handlers: self.handlers,
@@ -98,6 +102,7 @@ struct EffectInference<'a> {
     uses: Vec<UseDecl>,
     adts: AdtRegistry,
     functions: &'a mut [FunctionSignature],
+    function_lookup: EffectFunctionIndex,
     argument_types: std::cell::OnceCell<CheckedEffectArgumentTypes>,
     user_effects: &'a [EffectSignature],
     handlers: &'a mut [HandlerSignature],
@@ -123,7 +128,15 @@ impl<'a> EffectInference<'a> {
         handlers: &'a mut [HandlerSignature],
     ) -> Self {
         let adts = AdtRegistry::from_module(module);
-        let graph = effect_dependency_graph(module, functions, user_effects, handlers, &adts);
+        let function_lookup = EffectFunctionIndex::new(functions);
+        let graph = effect_dependency_graph(
+            module,
+            functions,
+            &function_lookup,
+            user_effects,
+            handlers,
+            &adts,
+        );
         let (effects_by_function, effects_by_module_path) = effect_lookup_maps(functions);
         let queue = graph.ordered_nodes.iter().cloned().collect();
         let queued = graph.nodes.clone();
@@ -144,6 +157,7 @@ impl<'a> EffectInference<'a> {
             evaluated: BTreeSet::new(),
             graph,
             functions,
+            function_lookup,
             argument_types: std::cell::OnceCell::new(),
             user_effects,
             handlers,
@@ -201,6 +215,7 @@ impl<'a> EffectInference<'a> {
                 uses: &self.uses,
                 user_effects: self.user_effects,
                 functions: self.functions,
+                function_lookup: &self.function_lookup,
                 argument_types: &self.argument_types,
                 effects_by_function: &self.effects_by_function,
                 effects_by_module_path: &self.effects_by_module_path,
@@ -221,6 +236,7 @@ impl<'a> EffectInference<'a> {
             uses: &self.uses,
             adts: &self.adts,
             functions: self.functions,
+            function_lookup: &self.function_lookup,
             argument_types: &self.argument_types,
             user_effects: self.user_effects,
             handlers: self.handlers,
@@ -389,6 +405,7 @@ impl EffectDependencyGraph {
 fn effect_dependency_graph(
     module: &SurfaceModule,
     functions: &[FunctionSignature],
+    function_lookup: &EffectFunctionIndex,
     user_effects: &[EffectSignature],
     handlers: &[HandlerSignature],
     adts: &AdtRegistry,
@@ -415,6 +432,7 @@ fn effect_dependency_graph(
         uses: &uses,
         adts,
         functions,
+        function_lookup,
         argument_types: &argument_types,
         user_effects,
         handlers,

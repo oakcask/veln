@@ -135,27 +135,13 @@ pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_
             .find(|binding| binding.name == *name)
             .map(|binding| binding.ty.clone())
             .or_else(|| {
-                effect_function_signature_path(
-                    segments,
-                    context.uses,
-                    context.functions,
-                    context.current_module,
-                    context.current_package,
-                    context.companion_access_targets,
-                )
-                .map(FunctionSignature::ty)
+                effect_function_signature_path(segments, context, context.companion_access_targets)
+                    .map(FunctionSignature::ty)
             }),
         _ => {
             let public_or_same_module_access = BTreeMap::new();
-            effect_function_signature_path(
-                segments,
-                context.uses,
-                context.functions,
-                context.current_module,
-                context.current_package,
-                &public_or_same_module_access,
-            )
-            .map(FunctionSignature::ty)
+            effect_function_signature_path(segments, context, &public_or_same_module_access)
+                .map(FunctionSignature::ty)
         }
     }
 }
@@ -174,14 +160,8 @@ pub(super) fn call_bound_effect_row_for_expr(
     {
         return binding.call_bound_effect_row.clone();
     }
-    let signature = effect_function_signature_path(
-        segments,
-        context.uses,
-        context.functions,
-        context.current_module,
-        context.current_package,
-        context.companion_access_targets,
-    )?;
+    let signature =
+        effect_function_signature_path(segments, context, context.companion_access_targets)?;
     call_bound_effect_row(
         &signature.params,
         signature.variadic.as_ref(),
@@ -459,40 +439,95 @@ pub(super) fn push_unique_effect(effects: &mut Vec<String>, effect: &str) {
     }
 }
 
+// Only effects change during inference. Keep every identity collision in source
+// order so visibility filtering retains the original first-match behavior.
+pub(super) struct EffectFunctionIndex {
+    by_identity: HashMap<super::effect_inference::EffectFunctionKey, Vec<usize>>,
+}
+
+impl EffectFunctionIndex {
+    pub(super) fn new(functions: &[FunctionSignature]) -> Self {
+        let mut by_identity = HashMap::<_, Vec<_>>::new();
+        for (index, function) in functions.iter().enumerate() {
+            #[cfg(test)]
+            effect_inference_counters::record_function_lookup_work();
+            by_identity
+                .entry((
+                    function.package_name.clone(),
+                    function.module_name.clone(),
+                    function.name.clone(),
+                ))
+                .or_default()
+                .push(index);
+        }
+        Self { by_identity }
+    }
+
+    fn candidates<'a>(
+        &'a self,
+        functions: &'a [FunctionSignature],
+        package: Option<&str>,
+        module: Option<&str>,
+        name: &str,
+    ) -> impl Iterator<Item = &'a FunctionSignature> {
+        #[cfg(test)]
+        effect_inference_counters::record_function_lookup_work();
+        self.by_identity
+            .get(&(
+                package.map(str::to_owned),
+                module.map(str::to_owned),
+                name.to_owned(),
+            ))
+            .into_iter()
+            .flatten()
+            .map(|&index| {
+                #[cfg(test)]
+                effect_inference_counters::record_function_lookup_work();
+                &functions[index]
+            })
+    }
+}
+
 /// Resolve inference call targets without dropping the importing owner package.
 pub(super) fn effect_function_signature_path<'a>(
     segments: &[String],
-    uses: &[UseDecl],
-    functions: &'a [FunctionSignature],
-    current_module: Option<&str>,
-    current_package: Option<&str>,
+    context: &ExprEffectContext<'a>,
     companion_access_targets: &BTreeMap<String, String>,
 ) -> Option<&'a FunctionSignature> {
     match segments {
-        [name] => functions.iter().find(|function| {
-            function.name == *name
-                && function.module_name.as_deref() == current_module
-                && function.package_name.as_deref() == current_package
-        }),
+        [name] => context
+            .function_lookup
+            .candidates(
+                context.functions,
+                context.current_package,
+                context.current_module,
+                name,
+            )
+            .next(),
         [_, .., name] => {
             let use_decl = imported_use_for_path_in_owner(
-                uses,
+                context.uses,
                 &segments[..segments.len() - 1],
-                current_module,
-                current_package,
+                context.current_module,
+                context.current_package,
             )?;
-            functions.iter().find(|function| {
-                function.name == *name
-                    && function.module_name.as_deref() == Some(use_decl.name.as_str())
-                    && function.package_name == use_decl.resolved_target().package
-                    && imported_function_is_visible(
+            context
+                .function_lookup
+                .candidates(
+                    context.functions,
+                    use_decl.resolved_target().package.as_deref(),
+                    Some(use_decl.name.as_str()),
+                    name,
+                )
+                .find(|function| {
+                    imported_function_is_visible(
                         function,
                         use_decl,
-                        current_module,
-                        current_package,
+                        context.current_module,
+                        context.current_package,
                         companion_access_targets,
                     )
-            })
+                })
         }
         _ => None,
     }

@@ -217,14 +217,8 @@ fn type_for_effect_schema_call(
     let (schema_name, qualifier) = schema.split_last()?;
     let mut helper_path = qualifier.to_vec();
     helper_path.push(helper_name_for(schema_name));
-    let signature = effect_function_signature_path(
-        &helper_path,
-        context.uses,
-        context.functions,
-        context.current_module,
-        context.current_package,
-        context.companion_access_targets,
-    )?;
+    let signature =
+        effect_function_signature_path(&helper_path, context, context.companion_access_targets)?;
     if args.len() != signature.params.len() {
         return None;
     }
