@@ -84,7 +84,7 @@ fn recursive_begin_return_inference_stops_at_recursive_type_growth() {
 }
 
 #[test]
-fn fully_annotated_private_modules_do_not_scan_private_inference_bodies() {
+fn fully_annotated_private_modules_skip_private_inference_preparation() {
     private_inference_counters::reset();
     let module = merged_modules(
         (0..8)
@@ -104,6 +104,7 @@ fn fully_annotated_private_modules_do_not_scan_private_inference_bodies() {
     let counters = private_inference_counters::snapshot();
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(counters.signature_lookup_steps, 0, "{counters:#?}");
     assert_eq!(counters.body_return_scans, 0, "{counters:#?}");
     assert_eq!(counters.call_site_discovery_scans, 0, "{counters:#?}");
     assert_eq!(counters.call_site_scans, 0, "{counters:#?}");
