@@ -23,8 +23,16 @@ pub(super) fn type_alias_descriptors(
         TypeAliasExposurePathRecord,
     >,
 ) -> ResolvedTypeAliases {
-    let uses = normal_use_decls(module);
     let aliases = eligible_type_aliases(module);
+    if aliases.is_empty() {
+        return ResolvedTypeAliases {
+            descriptors: Vec::new(),
+            declarations: Vec::new(),
+            exposure_segments: inherited_exposure_segments.to_vec(),
+            exposure_paths: inherited_exposure_paths.clone(),
+        };
+    }
+    let uses = normal_use_decls(module);
     let targets = TypeAliasTargetIndex::new(descriptors, &aliases, &uses);
     let steps = aliases
         .iter()
