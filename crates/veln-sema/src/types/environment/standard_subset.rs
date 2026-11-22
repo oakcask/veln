@@ -73,7 +73,7 @@ impl TypeEnvironment {
                 |use_decl| use_decl.module_name.as_deref(),
             ),
             invalid_names: self.invalid_names.clone(),
-            adts,
+            adts: Arc::new(adts),
             companion_function_access_targets: access_targets.functions,
             companion_module_value_access_targets: access_targets.module_values,
             companion_schema_access_targets: access_targets.schemas,

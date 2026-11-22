@@ -177,7 +177,6 @@ impl AdtRegistry {
             quarantined_type_identities: HashSet::new(),
             source_import_indexes_ready: false,
             source_import_count: 0,
-            source_imports: Arc::from([]),
             import_owner_scope: Arc::from([]),
             import_owners: Arc::new(ImportOwners::default()),
             local_descriptor_start,
@@ -276,7 +275,7 @@ impl AdtRegistry {
             .extend(source_variant_declaration_spans(module));
         self.quarantined_type_identities = base.quarantined_type_identities.clone();
         let mut uses = normal_use_decls(module);
-        uses.extend(base.source_imports.iter().cloned());
+        uses.extend(base.import_owner_scope.iter().cloned());
         let uses: Arc<[UseDecl]> = uses.into();
         self.qualified_import_modules = qualified_import_modules(&uses);
         self.qualified_import_recovery_modules =
@@ -286,7 +285,6 @@ impl AdtRegistry {
         self.imported_descriptors_by_type_arity = imported_descriptors.exact_arity;
         self.source_import_indexes_ready = true;
         self.source_import_count = uses.len();
-        self.source_imports = uses.clone();
         self.bind_import_owner_scope(uses.clone());
         self.local_descriptor_start = local_descriptor_start;
         let resolved_constructor_uses =

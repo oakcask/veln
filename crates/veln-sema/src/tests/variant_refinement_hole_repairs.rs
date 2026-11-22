@@ -275,8 +275,7 @@ fn hole_candidate_variance_falls_back_to_invariance_without_checked_metadata() {
         .find(|descriptor| descriptor.type_name == "Producer")
         .expect("producer descriptor")
         .identity();
-    environment
-        .adts
+    std::sync::Arc::make_mut(&mut environment.adts)
         .clear_parameter_variances_for_identity(&producer_identity);
     let fallback =
         crate::pipeline::analyze_surface_module_with_environment_for_test(&module, &environment);

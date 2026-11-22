@@ -50,6 +50,10 @@ impl ImportOwners {
 }
 
 impl AdtRegistry {
+    pub(crate) fn import_scope(&self) -> Arc<[UseDecl]> {
+        self.import_owner_scope.clone()
+    }
+
     pub(crate) fn bind_import_owner_scope(&mut self, uses: Arc<[UseDecl]>) {
         self.import_owners = Arc::new(ImportOwners::new(&uses));
         self.import_owner_scope = uses;

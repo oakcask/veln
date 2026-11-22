@@ -17,6 +17,17 @@ pub(crate) trait ParameterVarianceLookup {
     -> Option<&[Variance]>;
 }
 
+impl<T: ParameterVarianceLookup + ?Sized> ParameterVarianceLookup for std::sync::Arc<T> {
+    fn parameter_variances_for_identity(
+        &self,
+        identity: &str,
+        arity: usize,
+    ) -> Option<&[Variance]> {
+        self.as_ref()
+            .parameter_variances_for_identity(identity, arity)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AdtVariantKind {
     OptionSome,

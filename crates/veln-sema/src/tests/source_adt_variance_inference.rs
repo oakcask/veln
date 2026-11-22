@@ -486,8 +486,7 @@ fn unavailable_variance_metadata_falls_back_to_exact_inference() {
         .find(|descriptor| descriptor.type_name == "Positive")
         .expect("positive descriptor")
         .identity();
-    environment
-        .adts
+    std::sync::Arc::make_mut(&mut environment.adts)
         .clear_parameter_variances_for_identity(&identity);
 
     let diagnostics =

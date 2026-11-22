@@ -80,7 +80,7 @@ impl BaseFacts for SchemaSymbolTable {
 #[derive(Clone)]
 struct DeclarationFacts {
     effects: Vec<EffectSignature>,
-    adts: AdtRegistry,
+    adts: Arc<AdtRegistry>,
     companion_effect_access_targets: BTreeMap<String, CompanionAccessTarget>,
 }
 
@@ -92,7 +92,7 @@ struct CallableFacts {
 struct SymbolFacts {
     schema_symbols: SchemaSymbolTable,
     type_symbols: Vec<NamedSymbol>,
-    uses: Vec<UseDecl>,
+    uses: Arc<[UseDecl]>,
     quarantined_uses: Vec<UseDecl>,
     blocked_exact_import_paths: HashSet<QualifiedModuleValueKey>,
     companion_function_access_targets: BTreeMap<String, String>,
@@ -208,9 +208,8 @@ fn initial_environment(
     callables: CallableFacts,
     symbols: SymbolFacts,
 ) -> TypeEnvironment {
-    let uses: Arc<[UseDecl]> = symbols.uses.into();
-    let mut adts = declarations.adts;
-    adts.bind_import_owner_scope(uses.clone());
+    let uses = symbols.uses;
+    let adts = declarations.adts;
     TypeEnvironment {
         module_values: base
             .map(|base| base.module_values.clone())
@@ -537,7 +536,7 @@ fn declaration_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> 
     );
     DeclarationFacts {
         effects,
-        adts,
+        adts: Arc::new(adts),
         companion_effect_access_targets,
     }
 }
@@ -632,10 +631,7 @@ fn symbol_facts(
     extend_with_base_facts(&mut schema_symbols, base.map(|base| &base.schema_symbols));
     let mut type_symbols = named_type_symbols(module);
     extend_with_base_facts(&mut type_symbols, base.map(|base| &base.type_symbols));
-    let mut uses = crate::name_recovery::normal_use_decls(module);
-    if let Some(base) = base {
-        uses.extend(base.uses.iter().cloned());
-    }
+    let uses = adts.import_scope();
     let mut quarantined_uses = crate::name_recovery::quarantined_use_decls(module);
     extend_with_base_facts(
         &mut quarantined_uses,
