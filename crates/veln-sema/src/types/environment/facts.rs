@@ -138,6 +138,9 @@ fn from_module_with_base_classified(
     base: Option<&TypeEnvironment>,
 ) -> TypeEnvironment {
     let mut declarations = declaration_facts(module, base);
+    // Effect inference historically builds a module-only, pre-quarantine registry.
+    // A base environment changes that input, so retain its existing fallback.
+    let inference_adts = base.is_none().then(|| declarations.adts.clone());
     let validation_environment =
         path_classification_environment(module, base, declarations.clone());
     quarantine_invalid_variant_refinement_declaration_types(
@@ -146,7 +149,13 @@ fn from_module_with_base_classified(
         &mut declarations.effects,
         &mut declarations.adts,
     );
-    let callables = callable_facts(module, base, &declarations, &validation_environment);
+    let callables = callable_facts(
+        module,
+        base,
+        &declarations,
+        &validation_environment,
+        inference_adts,
+    );
     finish_environment(module, base, declarations, callables)
 }
 
@@ -575,6 +584,7 @@ fn callable_facts(
     base: Option<&TypeEnvironment>,
     declarations: &DeclarationFacts,
     validation_environment: &TypeEnvironment,
+    inference_adts: Option<Arc<AdtRegistry>>,
 ) -> CallableFacts {
     let CallableFacts {
         mut functions,
@@ -605,6 +615,7 @@ fn callable_facts(
         &mut functions,
         &declarations.effects,
         &mut handlers,
+        inference_adts,
     );
     CallableFacts {
         functions,
