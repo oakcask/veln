@@ -151,6 +151,11 @@ pub fn prepare_current_reusable_standard_environment(
 }
 
 pub fn standard_semantic_identity() -> StandardSemanticIdentity {
+    static IDENTITY: std::sync::OnceLock<StandardSemanticIdentity> = std::sync::OnceLock::new();
+    *IDENTITY.get_or_init(compute_standard_semantic_identity)
+}
+
+fn compute_standard_semantic_identity() -> StandardSemanticIdentity {
     let bundle = veln_stdlib::package_bundle();
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     STANDARD_SEMANTIC_MODEL.hash(&mut hasher);
