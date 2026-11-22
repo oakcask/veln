@@ -47,7 +47,6 @@ pub(crate) struct AdtRegistry {
     quarantined_type_identities: HashSet<String>,
     source_import_indexes_ready: bool,
     source_import_count: usize,
-    source_imports: Arc<[UseDecl]>,
     import_owner_scope: Arc<[UseDecl]>,
     import_owners: Arc<ImportOwners>,
     local_descriptor_start: usize,

@@ -35,11 +35,20 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
     effects: &mut [EffectSignature],
-    adts: &mut AdtRegistry,
+    adts: &mut Arc<AdtRegistry>,
 ) {
     quarantine_invalid_variant_refinement_effect_types(module, environment, effects);
     quarantine_invalid_variant_refinement_adt_payload_types(module, environment, adts);
     let mut invalid_types = initially_invalid_declaration_types(module, environment);
+    if invalid_types.is_empty()
+        && environment
+            .adts
+            .quarantined_type_identities()
+            .next()
+            .is_none()
+    {
+        return;
+    }
     let (dependent_types, mut invalid_identities) =
         declaration_type_dependencies(module, environment, &invalid_types);
     propagate_invalid_declaration_types(
@@ -47,7 +56,9 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
         &dependent_types,
         &mut invalid_identities,
     );
-    adts.quarantine_public_source_types(&invalid_types);
+    if !invalid_types.is_empty() {
+        Arc::make_mut(adts).quarantine_public_source_types(&invalid_types);
+    }
 }
 
 fn initially_invalid_declaration_types(
@@ -293,7 +304,7 @@ pub(super) fn quarantine_invalid_variant_refinement_handler_types(
 fn quarantine_invalid_variant_refinement_adt_payload_types(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
-    adts: &mut AdtRegistry,
+    adts: &mut Arc<AdtRegistry>,
 ) {
     let mut invalid = HashSet::new();
     for declaration in &module.types {
@@ -324,6 +335,12 @@ fn quarantine_invalid_variant_refinement_adt_payload_types(
             ));
         }
     }
-    let work = adts.quarantine_source_variant_payload_types(&invalid);
+    if invalid.is_empty() {
+        return;
+    }
+    let work = Arc::make_mut(adts).quarantine_source_variant_payload_types(&invalid);
     crate::pipeline::record_variant_refinement_base_work(work);
 }
+
+#[cfg(test)]
+mod tests;

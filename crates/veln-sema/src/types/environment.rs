@@ -433,7 +433,7 @@ pub(crate) struct TypeEnvironment {
     pub(crate) uses: Arc<[UseDecl]>,
     quarantined_uses: Vec<UseDecl>,
     invalid_names: Vec<InvalidName>,
-    pub(crate) adts: AdtRegistry,
+    pub(crate) adts: Arc<AdtRegistry>,
     companion_function_access_targets: BTreeMap<String, String>,
     companion_module_value_access_targets: HashMap<ResolvedImportOwner, ResolvedImportOwner>,
     companion_schema_access_targets: BTreeMap<String, String>,

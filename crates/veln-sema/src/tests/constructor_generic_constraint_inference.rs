@@ -1268,8 +1268,7 @@ fn missing_nested_variance_metadata_falls_back_to_equality() {
         .find(|descriptor| descriptor.type_name == "Carrier")
         .expect("carrier descriptor")
         .identity();
-    environment
-        .adts
+    std::sync::Arc::make_mut(&mut environment.adts)
         .clear_parameter_variances_for_identity(&identity);
     let diagnostics =
         crate::pipeline::analyze_surface_module_with_environment_for_test(&module, &environment);
