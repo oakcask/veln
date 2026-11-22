@@ -1,6 +1,20 @@
 use super::*;
 
 #[test]
+fn standard_library_analysis_produces_reusable_ir() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../veln-stdlib/veln");
+    let project = Project::discover(root, &[]).expect("standard library should be discoverable");
+    let analysis = analyze_project(project, DoctestMode::Exclude);
+
+    assert!(
+        analysis.checked_diagnostics().is_empty(),
+        "{:#?}",
+        analysis.checked_diagnostics()
+    );
+    assert!(analysis.reusable_standard_ir().is_some());
+}
+
+#[test]
 fn shared_analysis_keeps_diagnostic_json_order_stable_across_projects() {
     let alpha = project(
         "src/alpha/shared.veln",

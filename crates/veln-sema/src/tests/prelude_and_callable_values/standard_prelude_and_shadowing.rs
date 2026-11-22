@@ -407,7 +407,11 @@ fn assert_general_prelude_core_lowering(core: &veln_core::CheckedProgram) {
     let main = core
         .functions
         .iter()
-        .find(|function| function.name == "main")
+        .find(|function| {
+            function.name == "main"
+                || function.name.ends_with("::main")
+                || function.name.ends_with("$main")
+        })
         .expect("main should be lowered");
     let CoreStmtKind::Return { expr } = &main.body[0].kind else {
         panic!("tail expression should lower as return");
@@ -456,7 +460,11 @@ fn assert_general_prelude_ir_lowering(ir: &veln_ir::TypedProgram) {
     let main = ir
         .functions
         .iter()
-        .find(|function| function.name == "main")
+        .find(|function| {
+            function.name == "main"
+                || function.name.ends_with("::main")
+                || function.name.ends_with("$main")
+        })
         .expect("main should be in IR");
     let IrStmtKind::Return { value } = &main.body[0].kind else {
         panic!("tail expression should lower as IR return");
@@ -676,8 +684,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
+    let module = lower_standard_package_callables(&source);
 
     let lowered = lower_checked_surface_module(&module);
 

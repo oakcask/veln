@@ -41,7 +41,7 @@ fn network_system_adapters_lower_as_prelude_builtins() {
             "end\n",
         ),
     );
-    let module = lower_surface_ast(&parse(&source).tree);
+    let module = lower_standard_package_callables(&source);
     let lowered = lower_checked_surface_module(&module);
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);

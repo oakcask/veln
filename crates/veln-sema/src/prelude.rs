@@ -2,7 +2,7 @@ use veln_ast::{BinaryOp, PrefixOp};
 
 use crate::semantic_model::Type;
 use crate::source_less_lookup::{
-    compiler_adapter_symbol, prelude_builtin_module, prelude_symbol, standard_module,
+    compiler_adapter_symbol_in_package, prelude_builtin_module, prelude_symbol, standard_module,
 };
 
 mod byte_signatures;
@@ -10,6 +10,7 @@ mod core_network_signatures;
 mod core_observation_signatures;
 mod core_signatures;
 mod expected_types;
+mod filesystem_signatures;
 mod source_signatures;
 mod surface_signatures;
 
@@ -39,13 +40,22 @@ pub(crate) fn qualified_prelude_builtin_signature_with_input(
     expected: Option<&Type>,
     input: Option<&Type>,
 ) -> Option<(String, Vec<Type>, Type)> {
+    qualified_prelude_builtin_signature_with_input_in_package(segments, expected, input, None)
+}
+
+pub(crate) fn qualified_prelude_builtin_signature_with_input_in_package(
+    segments: &[String],
+    expected: Option<&Type>,
+    input: Option<&Type>,
+    current_package: Option<&str>,
+) -> Option<(String, Vec<Type>, Type)> {
     let [module, name] = segments else {
         return None;
     };
     if module != prelude_builtin_module() {
         return None;
     }
-    let descriptor = compiler_adapter_symbol(name)?;
+    let descriptor = compiler_adapter_symbol_in_package(name, current_package)?;
     let expected = ExpectedPreludeParts::from_expected_and_input(expected, input);
     let (params, return_type) = surface_prelude_signature(descriptor, &expected)?;
     Some((name.clone(), params, return_type))

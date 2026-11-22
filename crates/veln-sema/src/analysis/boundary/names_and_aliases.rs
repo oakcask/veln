@@ -485,10 +485,10 @@ fn is_standard_type_alias_target(
     current_package: Option<&str>,
 ) -> bool {
     match segments {
-        [name] => matches!(
-            name.as_str(),
-            "WallTime" | "SourceLocation" | "NetListener" | "NetStream"
-        ),
+        [name] => {
+            matches!(name.as_str(), "WallTime" | "SourceLocation")
+                || crate::adt::is_opaque_builtin_type(name)
+        }
         [_, .., name] if matches!(name.as_str(), "WallTime" | "SourceLocation" | "ByteCount") => {
             crate::name_recovery::normal_imported_use_for_path_in_owner(
                 module,

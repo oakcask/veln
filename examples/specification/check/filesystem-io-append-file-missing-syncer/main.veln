@@ -1,0 +1,6 @@
+use fs from "std"
+use io from "std"
+
+pub fn append_file_without_syncer(writer: io::Writer, closer: io::Closer) -> fs::AppendFile
+	fs::AppendFile(writer, closer)
+end

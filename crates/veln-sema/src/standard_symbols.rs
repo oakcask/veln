@@ -5,8 +5,11 @@ use crate::source_less_names::{
     validate_bare_source_less_lookup_segment, validate_source_less_lookup_segment,
 };
 
+mod compiler_adapter_support;
 mod qualified_descriptors;
 
+pub(crate) use compiler_adapter_support::private_compiler_adapter_name;
+use compiler_adapter_support::source_prelude_symbol_descriptor;
 pub(crate) use qualified_descriptors::QUALIFIED_SYMBOLS;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -213,6 +216,31 @@ compiler_adapter_symbol_set! {
     "net_system_shutdown_read",
     "net_system_shutdown_write",
     "net_system_close_stream",
+    "fs_system_open",
+    "fs_read_only",
+    "io_read_exact",
+    "io_write_all",
+    "io_copy",
+    "io_provider_scope_owner",
+    "io_provider_filesystem",
+    "io_provider_mutable_filesystem",
+    "io_provider_resource",
+    "io_provider_read_file",
+    "io_provider_write_file",
+    "io_provider_update_file",
+    "io_provider_append_file",
+    "io_provider_duplex",
+    "io_provider_slot",
+    "io_provider_filesystem_slot",
+    "io_provider_mutable_filesystem_slot",
+    "io_provider_reader_slot",
+    "io_provider_writer_slot",
+    "io_provider_seeker_slot",
+    "io_provider_reader_at_slot",
+    "io_provider_writer_at_slot",
+    "io_provider_closer_slot",
+    "io_provider_syncer_slot",
+    "io_provider_truncater_slot",
     "byte",
     "byte_to_int",
     "byte_chunk",
@@ -408,33 +436,6 @@ const fn prelude_symbol_descriptor(name: &'static str) -> StandardSymbolDescript
         signature: None,
         stability: StandardSymbolStability::CompatibilityOnly,
     }
-}
-
-const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolDescriptor {
-    StandardSymbolDescriptor {
-        module: None,
-        name,
-        name_class: SourceLessNameClass::Function,
-        kind: StandardSymbolKind::Prelude,
-        effects: PURE_EFFECTS,
-        lowering: None,
-        signature: None,
-        stability: StandardSymbolStability::CompatibilityOnly,
-    }
-}
-
-pub(crate) fn private_compiler_adapter_name(name: &str) -> bool {
-    name.starts_with("observation_")
-        || name.starts_with("production_metric_index_")
-        || name.starts_with("net_system_")
-        || name == "string_contains_nul"
-        || name == "string_nul"
-        || name == "string_split_all"
-        || name == "string_split_last"
-        || name == "byte_decode_http2_frame"
-        || name.starts_with("http2_protocol_")
-        || name.starts_with("http2_peer_limit_")
-        || name.starts_with("hpack_fixture_")
 }
 
 #[cfg(test)]

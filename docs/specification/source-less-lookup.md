@@ -63,7 +63,7 @@ compiler adapter descriptors to publish.
 | Compiler-adapter descriptors reporting `compiler_adapter` | `prelude_builtin::name` |
 | The implicit standard module name reporting `standard_names` | `prelude` |
 | Built-in type-syntax descriptors reporting `type_syntax` | the built-in type constructor spelling |
-| Built-in ADT descriptors reporting `adt` | type and constructor lookup keys, such as `Option` and `Option::Some`; opaque resource types publish `NetListener` and `NetStream` without constructor keys |
+| Built-in ADT descriptors reporting `adt` | type and constructor lookup keys, such as `Option` and `Option::Some`; opaque network and filesystem IO resource types publish only their type names |
 
 ## Lookup Consumers
 
@@ -85,10 +85,12 @@ also provides an opaque descriptor for the compiler-owned `Dict` identity. A
 `Dict` alias therefore retains dictionary identity without acquiring
 constructors or variant refinements.
 
-Opaque descriptors expose only their type identity. The opaque `NetListener`
-and `NetStream` entries therefore let exported standard-package type aliases
-resolve to their compiler-provided resource identities without making either
-resource source-constructible or refinable. A built-in type-syntax identity
+Opaque descriptors expose only their type identity. The opaque `NetListener`,
+`NetStream`, `IoOwner`, `IoResource`, `FsFilesystem`, `FsMutableFilesystem`,
+`IoReader`, `IoWriter`, `IoSeeker`, `IoReaderAt`, `IoWriterAt`, `IoCloser`,
+`IoSyncer`, and `FsTruncater` entries therefore let exported standard-package
+type aliases resolve to their compiler-provided resource identities without
+making a resource source-constructible or refinable. A built-in type-syntax identity
 without an ADT descriptor likewise exposes no finite variant set. A source or
 imported type with the same displayed name retains its source-owned nominal
 identity; source-less fallback does not grant it a compiler-owned identity.
@@ -118,7 +120,11 @@ use the same qualified-only route. Bare prelude lookup does not publish those
 names.
 These routes keep private adapters out of the public prelude surface while
 allowing embedded standard-package source to resolve the reserved qualified
-route.
+route. Publishing a qualified key does not grant every package access to it.
+Private compiler-adapter lookup admits the descriptor only when the calling
+declaration belongs to the embedded standard package. Application source
+cannot resolve the exact qualified spelling, and casing recovery does not use
+an unavailable private descriptor as a corrected target.
 Public `net::...` and `observe::...` declarations remain separate from these
 source-less routes: application source imports their modules from `std`, and
 the public operations retain their declared nominal effects.
@@ -136,3 +142,6 @@ provider details; they never masquerade as source `name.invalid_case` errors.
 - Registry validation and publication: `crates/veln-sema/src/source_less_lookup.rs`.
 - Descriptor providers: `crates/veln-sema/src/standard_symbols/` and
   `crates/veln-syntax/src/`.
+- Application-package rejection for exact and invalid-cased private filesystem
+  adapters:
+  `examples/specification/check/filesystem-io-private-adapters/`.

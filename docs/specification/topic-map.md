@@ -101,6 +101,9 @@ discovery guidance; the linked subject pages own behavior and evidence.
   its resource lifecycle, the complete-write helper, and the typed duplex
   stream adapter:
   [standard-library-networking.md](standard-library-networking.md).
+- Exported static filesystem and shared byte IO declarations, opaque
+  capability boundaries, file-view families, and the explicit runtime limit:
+  [standard-library-filesystem-io.md](standard-library-filesystem-io.md).
 - Exported pure portable path values, ordered lexical validation, exact
   spelling identity, composition, and host-path separation:
   [standard-library-paths.md](standard-library-paths.md).

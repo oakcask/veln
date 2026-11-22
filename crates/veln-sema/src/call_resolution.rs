@@ -301,7 +301,9 @@ fn core_name_path_call_signature(
             callsite: false,
         });
     }
-    if let Some(signature) = qualified_core_prelude_builtin_call_signature(segments, expected) {
+    if let Some(signature) =
+        qualified_core_prelude_builtin_call_signature(segments, expected, current_package)
+    {
         return Some(signature);
     }
     match core_binding_call_signature(segments, bindings) {
@@ -321,8 +323,9 @@ fn core_name_path_call_signature(
 fn qualified_core_prelude_builtin_call_signature(
     segments: &[String],
     expected: Option<&CoreType>,
+    current_package: Option<&str>,
 ) -> Option<CoreCallSignature> {
-    let signature = qualified_core_prelude_builtin_signature(segments, expected)?;
+    let signature = qualified_core_prelude_builtin_signature(segments, expected, current_package)?;
     Some(core_call_signature_from_parts(signature))
 }
 

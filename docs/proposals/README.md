@@ -16,9 +16,10 @@ also states it.
 
 ## Ready
 
-- [Filesystem IO Feasibility](filesystem-io-feasibility.md): implement the
-  bounded source/adapter prototype and F1–F5 evidence for provider-bound
-  dispatch, atomic Veln state, transfer outcomes, and cleanup. This target does
+- [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete F1
+  runtime registration and family-projection evidence, then F2–F5 evidence for
+  provider-bound dispatch, atomic Veln state, transfer outcomes, and cleanup.
+  The F1 static source and capability boundary is implemented; the target does
   not require the production filesystem API to be implemented first.
 
 ## Design In Progress

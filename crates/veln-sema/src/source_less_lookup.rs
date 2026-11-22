@@ -75,6 +75,16 @@ pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSym
         .expect("source-less lookup registries are valid")
 }
 
+pub(crate) fn compiler_adapter_symbol_in_package(
+    name: &str,
+    current_package: Option<&str>,
+) -> Option<&'static StandardSymbolDescriptor> {
+    if private_compiler_adapter_name(name) && current_package != Some(veln_stdlib::PACKAGE_NAME) {
+        return None;
+    }
+    compiler_adapter_symbol(name)
+}
+
 pub(crate) fn prelude_builtin_module() -> &'static str {
     with_source_less_lookup_registries(|registries| registries.prelude_builtin_module)
         .expect("source-less lookup registries are valid")

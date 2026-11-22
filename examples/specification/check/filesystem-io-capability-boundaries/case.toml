@@ -1,0 +1,23 @@
+# Placement: this case owns the compiler's distinct nominal capability and
+# provider-slot operand contract. Regressions are the 18 type diagnostics and
+# the first and last `type.mismatch` assertions at diagnostic indexes 0 and 17.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.by_kind.type"
+equals = 18
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.17.id"
+equals = "type.mismatch"

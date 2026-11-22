@@ -1,0 +1,17 @@
+# Placement: this case owns the required closer in the read-file view.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.by_kind.type"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "core.constructor_arity_mismatch"

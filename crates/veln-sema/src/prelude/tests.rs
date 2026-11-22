@@ -4,6 +4,7 @@ use super::source_signatures::source_prelude_callback_signatures_from_text;
 use super::{
     core_prelude_signature, prelude_signature, prelude_signature_with_input,
     qualified_core_prelude_builtin_signature, qualified_prelude_builtin_signature_with_input,
+    qualified_prelude_builtin_signature_with_input_in_package,
 };
 use crate::adt::type_operations as adt;
 use crate::semantic_model::Type;
@@ -268,11 +269,19 @@ fn http2_diagnostic_signatures_preserve_preview_representation_across_routes() {
     ] {
         let segments = vec!["prelude_builtin".to_string(), name.to_string()];
         let (_, surface_params, surface_return) =
-            qualified_prelude_builtin_signature_with_input(&segments, None, None)
-                .unwrap_or_else(|| panic!("surface signature for {name}"));
-        let (_, core_params, core_return) =
-            qualified_core_prelude_builtin_signature(&segments, None)
-                .unwrap_or_else(|| panic!("core signature for {name}"));
+            qualified_prelude_builtin_signature_with_input_in_package(
+                &segments,
+                None,
+                None,
+                Some(veln_stdlib::PACKAGE_NAME),
+            )
+            .unwrap_or_else(|| panic!("surface signature for {name}"));
+        let (_, core_params, core_return) = qualified_core_prelude_builtin_signature(
+            &segments,
+            None,
+            Some(veln_stdlib::PACKAGE_NAME),
+        )
+        .unwrap_or_else(|| panic!("core signature for {name}"));
 
         assert_eq!(surface_params.last(), Some(&preview_type), "{name}");
         assert_eq!(
@@ -282,4 +291,50 @@ fn http2_diagnostic_signatures_preserve_preview_representation_across_routes() {
         );
         assert_eq!(core_type(&surface_return), core_return, "return for {name}");
     }
+}
+
+#[test]
+fn private_filesystem_adapters_require_standard_package_provenance() {
+    let segments = vec![
+        "prelude_builtin".to_string(),
+        "io_provider_scope_owner".to_string(),
+    ];
+
+    assert!(qualified_prelude_builtin_signature_with_input(&segments, None, None).is_none());
+    assert!(qualified_core_prelude_builtin_signature(&segments, None, None).is_none());
+
+    let (_, params, return_type) = qualified_prelude_builtin_signature_with_input_in_package(
+        &segments,
+        None,
+        None,
+        Some(veln_stdlib::PACKAGE_NAME),
+    )
+    .expect("standard package should reach private filesystem adapter");
+    assert!(params.is_empty());
+    assert_eq!(return_type, Type::named("IoOwner", Vec::new()));
+
+    let (_, core_params, core_return_type) =
+        qualified_core_prelude_builtin_signature(&segments, None, Some(veln_stdlib::PACKAGE_NAME))
+            .expect("standard package core call should reach private filesystem adapter");
+    assert!(core_params.is_empty());
+    assert_eq!(core_return_type, CoreType::named("IoOwner", Vec::new()));
+}
+
+#[test]
+fn filesystem_adapter_contract_does_not_follow_the_callers_expected_type() {
+    let segments = vec![
+        "prelude_builtin".to_string(),
+        "io_provider_scope_owner".to_string(),
+    ];
+    let expected_writer = Type::named("IoWriter", Vec::new());
+    let (_, params, return_type) = qualified_prelude_builtin_signature_with_input_in_package(
+        &segments,
+        Some(&expected_writer),
+        None,
+        Some(veln_stdlib::PACKAGE_NAME),
+    )
+    .expect("standard package should resolve adapter");
+
+    assert!(params.is_empty());
+    assert_eq!(return_type, Type::named("IoOwner", Vec::new()));
 }

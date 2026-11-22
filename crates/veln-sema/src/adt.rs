@@ -4,6 +4,7 @@ pub(crate) mod variance;
 
 mod builtin_codec_descriptors;
 mod builtin_core_descriptors;
+pub(crate) use builtin_core_descriptors::is_opaque_builtin_type;
 pub(crate) mod builtin_descriptors;
 mod lookup_validation;
 #[cfg(test)]

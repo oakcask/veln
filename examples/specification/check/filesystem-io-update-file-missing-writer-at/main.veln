@@ -1,0 +1,6 @@
+use fs from "std"
+use io from "std"
+
+pub fn update_file_without_writer_at(reader: io::Reader, writer: io::Writer, seeker: io::Seeker, reader_at: io::ReaderAt, closer: io::Closer, syncer: io::Syncer, truncater: fs::Truncater) -> fs::UpdateFile
+	fs::UpdateFile(reader, writer, seeker, reader_at, closer, syncer, truncater)
+end

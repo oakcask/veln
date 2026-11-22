@@ -1,0 +1,6 @@
+use fs from "std"
+use io from "std"
+
+pub fn read_file_without_closer(reader: io::Reader, seeker: io::Seeker, reader_at: io::ReaderAt) -> fs::ReadFile
+	fs::ReadFile(reader, seeker, reader_at)
+end

@@ -307,7 +307,9 @@ impl TypeAliasTargetIndex {
                 );
             }
             if descriptor.module_name.is_none()
-                && matches!(descriptor.type_name.as_str(), "NetListener" | "NetStream")
+                && super::super::builtin_core_descriptors::is_opaque_builtin_type(
+                    &descriptor.type_name,
+                )
                 && descriptor.visibility == Visibility::Public
             {
                 self.opaque_public
@@ -504,7 +506,9 @@ pub(super) fn descriptor_for_alias_target<'a>(
                 descriptors.iter().find(|descriptor| {
                     descriptor.type_name == *name
                         && descriptor.module_name.is_none()
-                        && matches!(descriptor.type_name.as_str(), "NetListener" | "NetStream")
+                        && super::super::builtin_core_descriptors::is_opaque_builtin_type(
+                            &descriptor.type_name,
+                        )
                         && descriptor.visibility == Visibility::Public
                 })
             }),

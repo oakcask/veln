@@ -1,0 +1,6 @@
+use fs from "std"
+use io from "std"
+
+pub fn write_file_without_truncater(writer: io::Writer, seeker: io::Seeker, writer_at: io::WriterAt, closer: io::Closer, syncer: io::Syncer) -> fs::WriteFile
+	fs::WriteFile(writer, seeker, writer_at, closer, syncer)
+end

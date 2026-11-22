@@ -298,14 +298,6 @@ fn standard_package_sources_are_embedded_and_checkable() {
         );
 
         let module = lower_surface_ast(&parsed.tree);
-        if module.uses.is_empty() {
-            let diagnostics = analyze_surface_module(&module);
-            assert!(
-                diagnostics.is_empty(),
-                "unexpected source helper diagnostics for {}: {diagnostics:#?}",
-                source.path
-            );
-        }
         assert!(
             !module.types.is_empty()
                 || !module.effects.is_empty()
@@ -315,6 +307,13 @@ fn standard_package_sources_are_embedded_and_checkable() {
             "embedded source should define a checkable declaration"
         );
     }
+
+    let standard = crate::types::embedded_standard_surface_module();
+    let diagnostics = analyze_surface_module(&standard);
+    assert!(
+        diagnostics.is_empty(),
+        "unexpected embedded standard package diagnostics: {diagnostics:#?}"
+    );
 }
 
 #[test]

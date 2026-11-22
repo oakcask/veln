@@ -400,12 +400,16 @@ and [`unavailable typed call`](../../examples/specification/check/module-value-u
 cases cover both outcomes.
 
 A finite chain of public type aliases is a valid type-alias target when it
-terminates in a resolved source ADT or in the compiler-owned `Option`, `Result`,
-`List`, or `Dict` constructor. Every alias in the chain retains the terminal
-type's nominal identity while remaining a selectable type name. Only a
-terminal finite ADT supplies constructors and supports variant-refinement
-qualification; an alias of `Dict` remains an opaque named dictionary type. A
-direct function target reports `name.kind_mismatch`. A target that does not
+terminates in a resolved source ADT, in the compiler-owned `Option`, `Result`,
+`List`, or `Dict` constructor, or in a compiler-owned opaque resource type.
+Every alias in the chain retains the terminal type's nominal identity while
+remaining a selectable type name. Only a terminal finite ADT supplies
+constructors and supports variant-refinement qualification. An alias of
+`Dict` remains an opaque named dictionary type, and an opaque resource alias
+remains distinct from every other resource identity. The standard filesystem
+and byte IO aliases and their identity boundaries are specified in
+[Standard-library filesystem and byte IO](standard-library-filesystem-io.md#capability-boundaries).
+A direct function target reports `name.kind_mismatch`. A target that does not
 resolve to a type reports `name.unresolved`. The
 [type compatibility rules](types.md#compatibility-and-limits) define how a
 resolved chain qualifies variant refinements and preserves display provenance.
@@ -845,6 +849,12 @@ an independently provable missing-case diagnostic for that constructor.
 Compiler-provided symbols that participate in source lookup are specified by
 [source-less-lookup.md](source-less-lookup.md). Embedded Veln prelude sources
 remain source-written and continue to use ordinary source casing diagnostics.
+A reserved `prelude_builtin::name` that selects a private compiler adapter
+resolves only from a declaration in the embedded standard package. In
+application source, both the exact spelling and an initial-only casing repair
+remain unresolved; casing recovery cannot expose the private target. The
+[`filesystem-io-private-adapters`](../../examples/specification/check/filesystem-io-private-adapters/)
+case checks both paths through the public CLI.
 
 ### Duplicate declarations
 

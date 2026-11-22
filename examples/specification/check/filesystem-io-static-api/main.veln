@@ -1,0 +1,111 @@
+use fs from "std"
+use io from "std"
+use io_provider from "std"
+use net from "std"
+use path as portable from "std"
+
+# F1 compiler contract: every byte capability has a distinct nominal operand.
+pub fn byte_operations(reader: io::Reader, writer: io::Writer, seeker: io::Seeker, reader_at: io::ReaderAt, writer_at: io::WriterAt, closer: io::Closer, syncer: io::Syncer, truncater: fs::Truncater, bytes: ByteChunk, count: ByteCount, offset: ByteOffset) -> () effects [io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, fs::Mutate]
+	let _: io::ReadOutcome = io::read(reader, count)
+	let _: io::WriteOutcome = io::write(writer, bytes)
+	let _: Result<ByteOffset, io::Error> = io::seek(seeker, io::SeekOrigin::Start(offset))
+	let _: io::ReadOutcome = io::read_at(reader_at, offset, count)
+	let _: io::WriteOutcome = io::write_at(writer_at, offset, bytes)
+	let _: io::CloseOutcome = io::close(closer)
+	let _: Result<(), io::Error> = io::sync(syncer)
+	let _: fs::MutationOutcome = fs::truncate(truncater, offset)
+	let _: io::ExactOutcome = io::read_exact(reader, count)
+	let _: io::WriteOutcome = io::write_all(writer, bytes)
+	let _: io::CopyOutcome = io::copy(reader, writer, count)
+	()
+end
+
+# F1 compiler contract: namespace read and mutation signatures retain separate
+# filesystem tokens and nominal effects.
+pub fn namespace_operations(filesystem: fs::Filesystem, mutable: fs::MutableFilesystem, name: portable::Path, write_mode: fs::WriteMode, update_mode: fs::UpdateMode, create: fs::CreateMode, follow: fs::FollowLinks) -> () effects [fs::Read, fs::Mutate]
+	let _: Result<fs::ReadFile, io::Error> = fs::open_read(filesystem, name)
+	let _: Result<fs::Metadata, io::Error> = fs::metadata(filesystem, name, follow)
+	let _: Result<List<fs::Entry>, io::Error> = fs::entries(filesystem, name)
+	let _: Result<fs::WriteFile, io::Error> = fs::open_write(mutable, name, write_mode)
+	let _: Result<fs::UpdateFile, io::Error> = fs::open_read_write(mutable, name, update_mode)
+	let _: Result<fs::AppendFile, io::Error> = fs::open_append(mutable, name, create)
+	let _: fs::MutationOutcome = fs::create_directory(mutable, name)
+	let _: fs::MutationOutcome = fs::remove_file(mutable, name)
+	let _: fs::MutationOutcome = fs::remove_directory(mutable, name)
+	let _: fs::MutationOutcome = fs::rename(mutable, name, name)
+	()
+end
+
+# F1 compiler contract: the explicit mutable-to-read-only projection is pure
+# and retains the distinct read-only result type.
+pub fn read_only_projection(mutable: fs::MutableFilesystem) -> ()
+	let _: fs::Filesystem = fs::read_only(mutable)
+	()
+end
+
+# F1 compiler contract: provider factories, projections, and slot accessors
+# expose the complete static adapter surface.
+pub fn provider_operations(owner: io_provider::Owner, resource: io_provider::Resource, filesystem: fs::Filesystem, mutable: fs::MutableFilesystem, reader: io::Reader, writer: io::Writer, seeker: io::Seeker, reader_at: io::ReaderAt, writer_at: io::WriterAt, closer: io::Closer, syncer: io::Syncer, truncater: fs::Truncater) -> () effects [concurrency]
+	let _: Result<fs::Filesystem, io::Error> = io_provider::filesystem(owner, 1)
+	let _: Result<fs::MutableFilesystem, io::Error> = io_provider::mutable_filesystem(owner, 2)
+	let _: Result<io_provider::Resource, io::Error> = io_provider::resource(owner, 3, io_provider::ViewFamily::ReadFile)
+	let _: Result<io_provider::Resource, io::Error> = io_provider::resource(owner, 4, io_provider::ViewFamily::WriteFile)
+	let _: Result<io_provider::Resource, io::Error> = io_provider::resource(owner, 5, io_provider::ViewFamily::UpdateFile)
+	let _: Result<io_provider::Resource, io::Error> = io_provider::resource(owner, 6, io_provider::ViewFamily::AppendFile)
+	let _: Result<io_provider::Resource, io::Error> = io_provider::resource(owner, 7, io_provider::ViewFamily::Duplex)
+	let _: Result<fs::ReadFile, io::Error> = io_provider::read_file(resource)
+	let _: Result<fs::WriteFile, io::Error> = io_provider::write_file(resource)
+	let _: Result<fs::UpdateFile, io::Error> = io_provider::update_file(resource)
+	let _: Result<fs::AppendFile, io::Error> = io_provider::append_file(resource)
+	let _: Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error> = io_provider::duplex(resource)
+	let _: Result<Int, io::Error> = io_provider::slot(owner, resource)
+	let _: Result<Int, io::Error> = io_provider::filesystem_slot(owner, filesystem)
+	let _: Result<Int, io::Error> = io_provider::mutable_filesystem_slot(owner, mutable)
+	let _: Result<Int, io::Error> = io_provider::reader_slot(owner, reader)
+	let _: Result<Int, io::Error> = io_provider::writer_slot(owner, writer)
+	let _: Result<Int, io::Error> = io_provider::seeker_slot(owner, seeker)
+	let _: Result<Int, io::Error> = io_provider::reader_at_slot(owner, reader_at)
+	let _: Result<Int, io::Error> = io_provider::writer_at_slot(owner, writer_at)
+	let _: Result<Int, io::Error> = io_provider::closer_slot(owner, closer)
+	let _: Result<Int, io::Error> = io_provider::syncer_slot(owner, syncer)
+	let _: Result<Int, io::Error> = io_provider::truncater_slot(owner, truncater)
+	()
+end
+
+pub fn file_views(reader: io::Reader, writer: io::Writer, seeker: io::Seeker, reader_at: io::ReaderAt, writer_at: io::WriterAt, closer: io::Closer, syncer: io::Syncer, truncater: fs::Truncater) -> ()
+	let _: fs::ReadFile = fs::ReadFile::ReadFile(reader, seeker, reader_at, closer)
+	let _: fs::WriteFile = fs::WriteFile::WriteFile(writer, seeker, writer_at, closer, syncer, truncater)
+	let _: fs::UpdateFile = fs::UpdateFile::UpdateFile(reader, writer, seeker, reader_at, writer_at, closer, syncer, truncater)
+	let _: fs::AppendFile = fs::AppendFile::AppendFile(writer, closer, syncer)
+	()
+end
+
+pub fn outcome_types(bytes: ByteChunk, count: ByteCount, offset: ByteOffset, error: io::Error, portable_path: portable::Path, net_error: net::NetError) -> ()
+	let known: io::Progress = io::Progress::Known(count)
+	let _: io::Progress = io::Progress::Unknown(count)
+	let _: io::Commit = io::Commit::No
+	let _: io::ReadOutcome = io::ReadOutcome::Data(bytes)
+	let _: io::ReadOutcome = io::ReadOutcome::End
+	let _: io::ReadOutcome = io::ReadOutcome::ReadFailed(bytes, known, error)
+	let _: io::WriteOutcome = io::WriteOutcome::Written(count)
+	let _: io::ExactOutcome = io::ExactOutcome::Short(bytes)
+	let _: io::CopyOutcome = io::CopyOutcome::Copied(count)
+	let _: io::CloseOutcome = io::CloseOutcome::Closed
+	let _: io::SeekOrigin = io::SeekOrigin::Current(0)
+	let _: io::SeekOrigin = io::SeekOrigin::End(0)
+	let _: fs::Kind = fs::Kind::RegularFile
+	let _: fs::Metadata = fs::Metadata::Metadata(fs::Kind::Directory, None)
+	let _: fs::Entry = fs::Entry::Entry(portable_path, fs::Kind::SymbolicLink)
+	let _: fs::WriteMode = fs::WriteMode::WriteMode(fs::CreateMode::Existing, false)
+	let _: fs::UpdateMode = fs::UpdateMode::UpdateMode(fs::CreateMode::CreateIfMissing, true)
+	let _: io::Error = io::Error::Error("read", io::ErrorKind::Other, Some(portable_path), None, Some(net_error), Some(io::Commit::Yes), "failure")
+	()
+end
+
+pub fn provider_scope() -> io_provider::Owner effects [concurrency]
+	handle io_provider::owner() with io_provider::scope()
+end
+
+pub fn host_filesystem(root: Path) -> Result<fs::MutableFilesystem, io::Error> effects [fs, concurrency]
+	handle handle fs::system(root) with fs::system_handler() with io_provider::scope()
+end

@@ -54,10 +54,11 @@ impl<'a> FunctionChecker<'a> {
         } else {
             segments.last().and_then(|name| {
                 let input_type = self.prelude_input_type(args, name);
-                qualified_prelude_builtin_signature_with_input(
+                qualified_prelude_builtin_signature_with_input_in_package(
                     segments,
                     expected.map(|expected| &expected.ty),
                     input_type.as_ref(),
+                    self.function.package_name.as_deref(),
                 )
             })?
         };
@@ -332,7 +333,13 @@ impl<'a> FunctionChecker<'a> {
                 )
                 == 1
             || qualified_prelude_signature(&corrected, None).is_some()
-            || qualified_prelude_builtin_signature_with_input(&corrected, None, None).is_some()
+            || qualified_prelude_builtin_signature_with_input_in_package(
+                &corrected,
+                None,
+                None,
+                self.function.package_name.as_deref(),
+            )
+            .is_some()
             || self.corrected_prelude_constructor_resolves(&corrected)
     }
 

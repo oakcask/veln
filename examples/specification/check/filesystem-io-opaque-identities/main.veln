@@ -1,0 +1,27 @@
+use fs from "std"
+use io from "std"
+use io_provider from "std"
+
+pub fn refine_owner(value: io_provider::Owner::Forged) -> ()
+	()
+end
+
+pub fn refine_resource(value: io_provider::Resource::Forged) -> ()
+	()
+end
+
+pub fn refine_filesystem(value: fs::Filesystem::Forged) -> ()
+	()
+end
+
+pub fn refine_reader(value: io::Reader::Forged) -> ()
+	()
+end
+
+pub fn construct_owner() -> io_provider::Owner
+	IoOwner()
+end
+
+pub fn construct_writer() -> io::Writer
+	IoWriter()
+end
