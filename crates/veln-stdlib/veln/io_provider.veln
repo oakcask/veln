@@ -3,6 +3,7 @@
 use prelude
 use io
 use fs
+use net as network_domain
 
 pub type ViewFamily
 	pub ReadFile
@@ -98,4 +99,74 @@ end
 
 pub fn truncater_slot(owner: Owner, resource: fs::Truncater) -> Result<Int, io::Error> effects [concurrency]
 	prelude_builtin::io_provider_truncater_slot(owner, resource)
+end
+
+fn network_error(operation: String, failure: network_domain::NetError) -> io::Error
+	let category = match failure
+		network_domain::NetError(_, _, _, kind, _) => match kind
+			network_domain::PermissionDenied => io::ErrorKind::PermissionDenied
+			network_domain::Closed => io::ErrorKind::Closed
+			network_domain::Busy => io::ErrorKind::Busy
+			network_domain::InvalidResource => io::ErrorKind::InvalidResource
+			network_domain::Cancelled => io::ErrorKind::Cancelled
+			network_domain::UnsupportedNetwork => io::ErrorKind::Unsupported
+			_ => io::ErrorKind::Other
+		end
+	end
+	{operation: operation, kind: category, path: None, other_path: None, network: Some(failure), commit: None, message: "network byte adapter operation failed"}
+end
+
+handler network_reading(stream: network_domain::Stream) for io::Read effects [network_domain::IO]
+	read(reader, maximum) => begin
+		let reply: {outcome: Result<network_domain::ReadOutcome, network_domain::NetError>, attempted: Bool} = prelude_builtin::io_provider_network_read(stream, maximum)
+		match reply.outcome
+			Ok(network_domain::Chunk(bytes)) => io::ReadOutcome::Data(bytes)
+			Ok(network_domain::End) => io::ReadOutcome::End
+			Err(failure) => io::ReadOutcome::ReadFailed(byte_chunk([]), if reply.attempted
+				io::Progress::Unknown(byte_chunk_count(byte_chunk([])))
+			else
+				io::Progress::Known(byte_chunk_count(byte_chunk([])))
+			end, network_error("read", failure))
+		end
+	end
+end
+
+handler network_writing(stream: network_domain::Stream) for io::Write effects [network_domain::IO]
+	write(writer, bytes) => begin
+		let reply: network_domain::WriteOutcome = prelude_builtin::io_provider_network_write(stream, bytes)
+		match reply
+			network_domain::Written(count) => io::WriteOutcome::Written(count)
+			network_domain::WriteFailed(committed, failure) => io::WriteOutcome::WriteFailed(io::Progress::Known(committed), network_error("write", failure))
+		end
+	end
+end
+
+handler network_closing(stream: network_domain::Stream) for io::Close effects [network_domain::IO]
+	close(closer) => begin
+		let reply: {outcome: Result<(), network_domain::NetError>, released: io::Commit} = prelude_builtin::io_provider_network_close(stream)
+		match reply.outcome
+			Ok(()) => io::CloseOutcome::Closed
+			Err(failure) => io::CloseOutcome::CloseFailed(reply.released, network_error("close", failure))
+		end
+	end
+end
+
+## Bind byte reader, writer, and closer views to a stream's creating IO provider.
+## The current byte owner closes the stream at scope exit. A later lexical IO
+## handler cannot redirect these views, and the creating IO scope must stay live.
+pub fn network(stream: network_domain::Stream) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error> effects [Scope, network_domain::IO, concurrency]
+	let selected_owner = owner()
+	let selected: Resource = (handle handle handle prelude_builtin::io_provider_network_resource(selected_owner, stream) with network_reading(stream) with network_writing(stream) with network_closing(stream))?
+	duplex(selected)
+end
+
+## Run a byte callback with a fresh owner while retaining the stream's IO scope.
+## Cleanup completes before returning the callback result; cleanup failures stay abrupt.
+pub fn with_network<effect E>(stream: network_domain::Stream, body: fn({reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [io::Read, io::Write, io::Close, Scope, concurrency, ...E]) -> Result<(), io::Error> effects [network_domain::IO, concurrency, ...E]
+	handle handle handle handle network_scope(stream, body) with network_reading(stream) with network_writing(stream) with network_closing(stream) with scope()
+end
+
+fn network_scope<effect E>(stream: network_domain::Stream, body: fn({reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [io::Read, io::Write, io::Close, Scope, concurrency, ...E]) -> Result<(), io::Error> effects [io::Read, io::Write, io::Close, Scope, network_domain::IO, concurrency, ...E]
+	let views = network(stream)?
+	body(views)
 end

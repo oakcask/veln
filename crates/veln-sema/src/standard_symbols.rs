@@ -212,6 +212,10 @@ compiler_adapter_symbol_set! {
     "io_provider_dispatch_rename",
     "io_provider_dispatch_truncate",
 
+    "io_provider_network_resource",
+    "io_provider_network_read",
+    "io_provider_network_write",
+    "io_provider_network_close",
     "io_provider_owner",
     "io_provider_resource",
     "io_provider_filesystem",
@@ -768,6 +772,10 @@ pub(crate) fn io_provider_adapter_arity(name: &str) -> Option<usize> {
         "io_provider_dispatch_rename" => Some(3),
         "io_provider_dispatch_truncate" => Some(2),
 
+        "io_provider_network_close" => Some(1),
+        "io_provider_network_resource"
+        | "io_provider_network_read"
+        | "io_provider_network_write" => Some(2),
         "io_provider_owner" => Some(0),
         "io_provider_resource" => Some(3),
         "io_provider_filesystem" => Some(2),

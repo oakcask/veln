@@ -16,16 +16,10 @@ also states it.
 
 ## Ready
 
-No implementation targets are currently ready.
-
-## Design In Progress
-
-- Filesystem selection, host path conversion, shared byte IO, seek, provider
-  ownership, and scoped fake filesystems; initial design decisions are fixed,
-  but provider-bound dispatch and atomic Veln-state adapters require the
-  feasibility evidence defined in
-  [filesystem-io.md](filesystem-io.md#feasibility-and-conformance-gate) before
-  implementation selection.
+- [Filesystem and shared byte IO](filesystem-io.md): the F1–F5 feasibility and
+  conformance gates pass. Adopt the checked provider extension, promote the
+  source and ownership contracts into current specifications, and migrate
+  legacy filesystem callers while preserving the acceptance model.
 
 ## Planning Inventory
 

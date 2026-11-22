@@ -68,6 +68,7 @@
         private final String family;
         private final java.util.Map<String, HandlerFrame> handlers;
         private final Object host;
+        private volatile NetStream network;
         private boolean closed;
         private boolean unavailable;
         private boolean busy;
@@ -439,6 +440,8 @@
         }
         synchronized (resource.owner) {
             if (resource.owner.closing || resource.closed || resource.unavailable) return ioDispatchFailure(operation, "Closed");
+            String networkFailure = ioProviderNetworkUnavailable(resource.network, operation);
+            if (networkFailure != null) return ioDispatchFailure(operation, networkFailure);
             Object immediate = ioProviderImmediate(operation, arguments);
             if (immediate != null) return immediate;
             if (!namespace && resource.busy) return ioDispatchFailure(operation, "Busy");
@@ -623,4 +626,68 @@
             b += Character.charCount(second);
         }
         return Long.valueOf(a < left.length() ? 1L : b < right.length() ? -1L : 0L);
+    }
+
+    private static String ioProviderNetworkUnavailable(NetStream stream, String operation) {
+        if (stream == null) return null;
+        HandlerFrame owner = stream.systemOwner;
+        if (owner == null || owner.networkSystemClosed) return "InvalidResource";
+        // Read volatile facts without taking the stream monitor while holding
+        // the byte owner monitor. A network close can invoke source handlers.
+        if (stream.systemClosed || stream.closeUncertain) return "Closed";
+        if (operation.equals("read") && (stream.readShutdown || stream.readShutdownUncertain || stream.readFailed)) return "Closed";
+        if (operation.equals("write") && (stream.writeShutdown || stream.writeShutdownUncertain || stream.writeFailed)) return "Closed";
+        return null;
+    }
+    private static HandlerFrame ioProviderNetworkOwner(Object value) {
+        if (!(value instanceof NetStream)) return null;
+        NetStream stream = (NetStream) value;
+        HandlerFrame owner = stream.systemOwner;
+        return owner == null || owner.networkSystemClosed ? null : owner;
+    }
+    public static Object ioProviderNetworkResource(Object byteOwner, Object value) {
+        HandlerFrame owner = ioProviderNetworkOwner(value);
+        if (owner == null) return ioProviderFailure("network", "InvalidResource");
+        if (!owner.providers.containsKey("read_bounded") || !owner.providers.containsKey("write") || !owner.providers.containsKey("close_stream"))
+            return ioProviderFailure("network", "Unsupported");
+        if (netSystemStreamUnavailable((NetStream) value)) return ioProviderFailure("network", "Closed");
+        if (!(byteOwner instanceof IoProviderOwner)) return ioProviderFailure("network", "InvalidResource");
+        try {
+            Object result = ioProviderRegister(byteOwner, Long.valueOf(ioHostSlot((IoProviderOwner) byteOwner)), "Duplex");
+            if (result instanceof Result && ((Result) result).isOk())
+                ((IoProviderResource) ((Result) result).value()).network = (NetStream) value;
+            return result;
+        } catch (IoHostFailure failure) {
+            return ioProviderFailure("network", failure.kind);
+        }
+    }
+    public static Object ioProviderNetworkRead(Object value, Object maximum) {
+        HandlerFrame owner = ioProviderNetworkOwner(value);
+        if (owner == null) return record("outcome", err(netSystemInvalidResource("read_bounded")), "attempted", Boolean.FALSE);
+        return record("outcome", invokeHandler(owner, "read_bounded", new Object[] {value, maximum, none(), none()}), "attempted", Boolean.TRUE);
+    }
+    public static Object ioProviderNetworkWrite(Object value, Object bytes) {
+        HandlerFrame owner = ioProviderNetworkOwner(value);
+        if (owner == null) return netSystemWriteFailure(0L, netSystemInvalidResource("write"));
+        return invokeHandler(owner, "write", new Object[] {value, bytes, none(), none()});
+    }
+    public static Object ioProviderNetworkClose(Object value) {
+        NetStream stream = asNetStream(value);
+        HandlerFrame owner = ioProviderNetworkOwner(value);
+        if (owner == null) {
+            if (stream.systemClosed && !stream.closeUncertain)
+                return record("outcome", ok(UNIT), "released", ioHostCommit("Yes"));
+            return record("outcome", err(netSystemInvalidResource("close_stream")), "released", ioHostCommit("No"));
+        }
+        Object outcome = invokeHandler(owner, "close_stream", new Object[] {value});
+        Boolean released = null;
+        if (outcome instanceof Result && ((Result) outcome).isOk()) released = Boolean.TRUE;
+        else if (outcome instanceof Result) {
+            Object failure = ((Result) outcome).value();
+            if (failure instanceof DiagnosticResultValue) {
+                TransportFailure transport = ((DiagnosticResultValue) failure).transportFailure;
+                if (transport != null) released = transport.ownershipCommitted;
+            }
+        }
+        return record("outcome", outcome, "released", ioHostCommit(released == null ? "Unknown" : released.booleanValue() ? "Yes" : "No"));
     }

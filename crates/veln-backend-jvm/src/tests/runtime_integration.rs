@@ -2,6 +2,33 @@ use super::*;
 
 #[cfg(unix)]
 #[test]
+fn network_native_close_failure_preserves_unknown_release_across_retry() {
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness_with_options(
+        "network-native-close-failure",
+        "NetworkNativeCloseFailureHarness.java",
+        include_str!("../../test-support/NetworkNativeCloseFailureHarness.java"),
+        &program,
+        &[],
+        &[
+            "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+            "--add-opens=java.base/java.io=ALL-UNNAMED",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "native socket close uncertainty verified\n"
+    );
+}
+
+#[cfg(unix)]
+#[test]
 fn io_provider_host_close_failure_cannot_infer_release_from_logical_channel_closure() {
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
     let program = generate_classfiles_with_entry(&ir, "main");
@@ -1841,5 +1868,27 @@ fn bytecode_backend_public_list_helpers_traverse_large_lists_iteratively_when_ja
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "20000\n40000\n20000\n40000\nstop\n"
+    );
+}
+
+#[test]
+#[cfg(unix)]
+fn io_provider_host_permission_loop_and_unclassified_traversal_preserve_native_state() {
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "io-provider-host-namespace-failures",
+        "IoProviderHostNamespaceFailureHarness.java",
+        include_str!("../../test-support/IoProviderHostNamespaceFailureHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "native permission loop and traversal failures verified\n"
     );
 }

@@ -916,3 +916,114 @@ fn io_provider_explicit_close_settles_before_owner_cleanup_confirms_release() {
         }
     }
 }
+
+#[test]
+fn io_provider_native_file_network_memory_copy_preserves_independent_host_state() {
+    if Command::new("java").arg("-version").output().is_err() {
+        return;
+    }
+    let analysis = analyze_project(
+        Project {
+            root: std::path::PathBuf::new(),
+            manifest: None,
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    include_str!("../../test-support/filesystem_network_host.veln"),
+                ),
+                SourceFile::new(
+                    "fs_memory_test_support_test.veln",
+                    app_support(include_str!(
+                        "../../../veln-stdlib/veln/fs_memory_test_support_test.veln"
+                    )),
+                ),
+                SourceFile::new(
+                    "fs_memory_state_test_support_test.veln",
+                    app_support(include_str!(
+                        "../../../veln-stdlib/veln/fs_memory_state_test_support_test.veln"
+                    )),
+                ),
+            ],
+        },
+        DoctestMode::Exclude,
+    );
+    assert!(
+        analysis.checked_diagnostics().is_empty(),
+        "{:?}",
+        analysis.checked_diagnostics()
+    );
+    let lowered = analysis
+        .lower_reachable_entry("main", FunctionKind::Function)
+        .lowered;
+    assert!(lowered.diagnostics.is_empty(), "{:?}", lowered.diagnostics);
+    let program =
+        generate_classfiles_with_entry(&lowered.ir.expect("mixed copy should lower"), "main");
+    let Some(listener) = bind_loopback_listener_when_available() else {
+        return;
+    };
+    listener
+        .set_nonblocking(true)
+        .expect("bounded fixture accept");
+    let address = listener
+        .local_addr()
+        .expect("native peer address")
+        .to_string();
+    let root = temp_dir("io-provider-native-file-network-memory-copy");
+    fs::create_dir_all(&root).expect("native filesystem root");
+    fs::write(root.join("input"), b"request").expect("selected native input");
+    let peer = thread::spawn(move || {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error)
+                    if error.kind() == std::io::ErrorKind::WouldBlock
+                        && std::time::Instant::now() < deadline =>
+                {
+                    thread::sleep(std::time::Duration::from_millis(5))
+                }
+                Err(error) => panic!("native fixture did not accept: {error}"),
+            }
+        };
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_secs(10)))
+            .expect("bounded fixture receive");
+        stream
+            .set_write_timeout(Some(std::time::Duration::from_secs(10)))
+            .expect("bounded fixture send");
+        let mut input = Vec::new();
+        stream
+            .read_to_end(&mut input)
+            .expect("native half-close after input copy");
+        assert_eq!(input, b"request");
+        stream
+            .write_all(b"response")
+            .expect("independent native response");
+        stream.shutdown(Shutdown::Write).expect("native clean end");
+    });
+    let output = run_jvm_program_when_java_is_available(
+        "io-provider-native-mixed-copy",
+        &program,
+        &[root.to_str().expect("native root text"), &address],
+    )
+    .expect("java availability was checked");
+    peer.join().expect("native peer completes");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "native file network memory copy verified\n"
+    );
+    assert_eq!(
+        fs::read(root.join("input")).expect("unchanged native input"),
+        b"request"
+    );
+    assert_eq!(
+        fs::read(root.join("output")).expect("native restored output"),
+        b"response"
+    );
+    fs::remove_dir_all(&root).expect("remove native mixed-copy fixture");
+}

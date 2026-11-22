@@ -7,6 +7,10 @@ use io_publication_test_support_test as publication
 use fs
 use path
 use io_close_overlap_test_support_test as overlap
+use io_network_test_support_test as net_support
+use net
+use fs_memory_test_support_test as fs_memory
+use fs_memory_state_test_support_test as fs_model
 
 fn add(value: Int, increment: Int) -> {state: Int, result: Int}
 	{state: value + increment, result: value}
@@ -686,5 +690,419 @@ test owner_exit_keeps_confirmed_close_idempotent_without_redirecting() -> Result
 				Err("repeated close reached the original or a newer provider")
 			end
 		end
+	end
+end
+
+fn network_short_write_body(views: {reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [io::Read, io::Write]
+	let read = match io::read_exact(views.reader, net_support::count(5)?)
+		io::ExactOutcome::Complete(bytes) => net_support::text(bytes)? == "abcde"
+		_ => false
+	end
+	let written = match io::write_all(views.writer, net_support::bytes("12345")?)
+		io::WriteOutcome::Written(amount) => byte_count_to_int(amount) == 5
+		_ => false
+	end
+	if read and written
+		Ok(())
+	else
+		Err(net_support::error("network byte helpers lost requested bytes or short-write progress"))
+	end
+end
+
+test network_byte_adapter_preserves_bounded_reads_and_short_write_suffixes() -> Result<(), String> effects [net, time, concurrency]
+	let initial = net_support::initial(byte_chunk_from_visible_ascii_string("abcdef")?, "short-write", 0, false)
+	let cell = io_provider::state(initial)
+	let _ = net_support::run(cell, network_short_write_body)?
+	let observed = net_support::observe(net_support::snapshot(cell))
+	let trace = match observed.events
+		Cons(net_support::Event::Close, Cons(net_support::Event::Write(last), Cons(net_support::Event::Write(middle), Cons(net_support::Event::Write(first), Cons(net_support::Event::Read(5), Nil))))) => byte_chunk_to_visible_ascii_string(first)? == "12345" and byte_chunk_to_visible_ascii_string(middle)? == "345" and byte_chunk_to_visible_ascii_string(last)? == "5"
+		_ => false
+	end
+	if trace and byte_chunk_to_visible_ascii_string(observed.input)? == "f" and byte_chunk_to_visible_ascii_string(observed.output)? == "12345" and observed.closes == 1 and observed.releases == 1 and not observed.live
+		Ok(())
+	else
+		Err("network adapter disagreed with independently observed input/output and release state")
+	end
+end
+
+fn original_network_error(failure: io::Error, operation: String) -> Bool
+	failure.operation == operation and (match failure.network
+		Some(net::NetError(original, Some(net::Tcp4), Some("192.0.2.1:443"), kind, "selected network provider failure")) => if operation == "read"
+			original == "provider_read" and (match kind
+				net::ConnectionReset => true
+				_ => false
+			end)
+		else
+			original == "provider_write" and (match kind
+				net::TimedOut => true
+				_ => false
+			end)
+		end
+		_ => false
+	end)
+end
+
+fn network_read_failure_body(views: {reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [io::Read, io::Write]
+	match io::copy(views.reader, views.writer, net_support::count(3)?)
+		io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), failure) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and original_network_error(failure, "read")
+			Ok(())
+		else
+			Err(net_support::error("network read failure fabricated known progress or lost its original error"))
+		end
+		_ => Err(net_support::error("network read failure did not stop copy"))
+	end
+end
+
+test network_read_failure_retains_unknown_consumption_and_original_context() -> Result<(), String> effects [net, time, concurrency]
+	let cell = io_provider::state(net_support::initial(byte_chunk_from_visible_ascii_string("abcdef")?, "read-failure", 0, false))
+	let _ = net_support::run(cell, network_read_failure_body)?
+	let observed = net_support::observe(net_support::snapshot(cell))
+	let calls = match observed.events
+		Cons(net_support::Event::Close, Cons(net_support::Event::Read(3), Nil)) => true
+		_ => false
+	end
+	if calls and byte_chunk_to_visible_ascii_string(observed.input)? == "cdef" and byte_count_to_int(byte_chunk_count(observed.output)) == 0 and observed.releases == 1
+		Ok(())
+	else
+		Err("unknown network consumption was retried or failing input was written")
+	end
+end
+
+fn network_write_failure_body(views: {reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [io::Write]
+	match io::write_all(views.writer, net_support::bytes("abcde")?)
+		io::WriteOutcome::WriteFailed(io::Progress::Known(committed), failure) => if byte_count_to_int(committed) == 2 and original_network_error(failure, "write")
+			Ok(())
+		else
+			Err(net_support::error("network write lost exact committed prefix or original error"))
+		end
+		_ => Err(net_support::error("network write failure was converted to success"))
+	end
+end
+
+test network_write_failure_retains_exact_committed_prefix_without_retry() -> Result<(), String> effects [net, time, concurrency]
+	let cell = io_provider::state(net_support::initial(byte_chunk([]), "write-failure", 0, false))
+	let _ = net_support::run(cell, network_write_failure_body)?
+	let observed = net_support::observe(net_support::snapshot(cell))
+	let calls = match observed.events
+		Cons(net_support::Event::Close, Cons(net_support::Event::Write(bytes), Nil)) => byte_chunk_to_visible_ascii_string(bytes)? == "abcde"
+		_ => false
+	end
+	if calls and byte_chunk_to_visible_ascii_string(observed.output)? == "ab" and observed.releases == 1
+		Ok(())
+	else
+		Err("network write failure retried or disagreed with actual committed bytes")
+	end
+end
+
+fn network_read_is(views: {reader: io::Reader, writer: io::Writer, closer: io::Closer}, expected: String) -> Result<Bool, io::Error> effects [io::Read]
+	match io::read(views.reader, net_support::count(1)?)
+		io::ReadOutcome::Data(bytes) => Ok(net_support::text(bytes)? == expected)
+		_ => Ok(false)
+	end
+end
+
+fn network_shadow_body(first: {reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [net::IO, io::Read, io::Write, io_provider::Scope, concurrency]
+	let stream = match net::connect(net::Address(net::Tcp4, "shadow.test", 443))
+		Ok(value) => Ok(value)
+		Err(_) => Err(net_support::error("shadow network did not connect"))
+	end?
+	let second = io_provider::network(stream)?
+	let first_read = network_read_is(first, "a")?
+	let second_read = network_read_is(second, "w")?
+	let first_write = match io::write(first.writer, net_support::bytes("A")?)
+		io::WriteOutcome::Written(count) => byte_count_to_int(count) == 1
+		_ => false
+	end
+	let second_write = match io::write(second.writer, net_support::bytes("B")?)
+		io::WriteOutcome::Written(count) => byte_count_to_int(count) == 1
+		_ => false
+	end
+	if first_read and second_read and first_write and second_write
+		Ok(())
+	else
+		Err(net_support::error("network byte views followed a lexical shadow instead of their creating provider"))
+	end
+end
+
+fn network_shadow(first: {reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [net::IO, io::Read, io::Write, io_provider::Scope, concurrency, net, time]
+	let cell = io_provider::state(net_support::initial(net_support::bytes("wrong")?, "normal", 0, false))
+	let _ = (handle handle network_shadow_body(first) with net_support::operations(cell) with net_support::allocation(cell))?
+	let after_shadow = network_read_is(first, "b")?
+	let observed = net_support::observe(net_support::snapshot(cell))
+	if after_shadow and net_support::text(observed.input)? == "rong" and net_support::text(observed.output)? == "B" and observed.closes == 1 and observed.releases == 1
+		Ok(())
+	else
+		Err(net_support::error("ending the shadow provider changed the older network view or selected the wrong bytes"))
+	end
+end
+
+test network_byte_views_keep_their_creating_provider_under_shadowing_and_scope_exit() -> Result<(), String> effects [net, time, concurrency]
+	let cell = io_provider::state(net_support::initial(byte_chunk_from_visible_ascii_string("abcdef")?, "normal", 0, false))
+	let _ = net_support::run(cell, network_shadow)?
+	let observed = net_support::observe(net_support::snapshot(cell))
+	if byte_chunk_to_visible_ascii_string(observed.input)? == "cdef" and byte_chunk_to_visible_ascii_string(observed.output)? == "A" and observed.closes == 1 and observed.releases == 1
+		Ok(())
+	else
+		Err("network shadow changed the original provider's independent bytes or release state")
+	end
+end
+
+fn network_zero_read_rejected(reader: io::Reader, expected: String) -> Result<Bool, io::Error> effects [io::Read]
+	match io::read(reader, net_support::count(0)?)
+		io::ReadOutcome::ReadFailed(bytes, io::Progress::Known(count), failure) => Ok(byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(count) == 0 and failure.operation == "read" and (match failure.kind
+			io::ErrorKind::Closed => expected == "Closed"
+			io::ErrorKind::InvalidResource => expected == "InvalidResource"
+			_ => false
+		end))
+		_ => Ok(false)
+	end
+end
+
+fn network_close_fact(views: {reader: io::Reader, writer: io::Writer, closer: io::Closer}, expected: String) -> Result<(), io::Error> effects [io::Read, io::Close]
+	let failed = match io::close(views.closer)
+		io::CloseOutcome::CloseFailed(commit, failure) => failure.operation == "close" and (match commit
+			io::Commit::No => expected == "No"
+			io::Commit::Yes => expected == "Yes"
+			io::Commit::Unknown => expected == "Unknown"
+		end) and (match failure.network
+			Some(net::NetError("close_stream", _, Some("192.0.2.1:443"), net::Other, _)) => true
+			_ => false
+		end)
+		_ => false
+	end
+	let admission = if expected == "No"
+		network_read_is(views, "a")?
+	else
+		network_zero_read_rejected(views.reader, "Closed")?
+	end
+	let confirmed = if expected == "No"
+		true
+	else
+		match io::close(views.closer)
+			io::CloseOutcome::Closed => true
+			_ => false
+		end
+	end
+	if failed and admission and confirmed
+		Ok(())
+	else
+		Err(net_support::error("network close lost release facts, alias admission, or retry confirmation"))
+	end
+end
+
+fn network_close_no(views: {reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [io::Read, io::Close]
+	network_close_fact(views, "No")
+end
+
+fn network_close_yes(views: {reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [io::Read, io::Close]
+	network_close_fact(views, "Yes")
+end
+
+fn network_close_unknown(views: {reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [io::Read, io::Close]
+	network_close_fact(views, "Unknown")
+end
+
+fn network_close_case(commit: Int, actual: Bool) -> Result<(), String> effects [net, time, concurrency]
+	let cell = io_provider::state(net_support::initial(byte_chunk_from_visible_ascii_string("abcdef")?, "close-failure", commit, actual))
+	let _ = if commit == 0
+		net_support::run(cell, network_close_no)
+	else if commit == 1
+		net_support::run(cell, network_close_yes)
+	else
+		net_support::run(cell, network_close_unknown)
+	end?
+	let observed = net_support::observe(net_support::snapshot(cell))
+	if observed.closes == (if commit == 1
+		1
+	else
+		2
+	end) and observed.releases == 1 and not observed.live and byte_chunk_to_visible_ascii_string(observed.input)? == (if commit == 0
+		"bcdef"
+	else
+		"abcdef"
+	end)
+		Ok(())
+	else
+		Err("network close commit disagreed with actual release state or duplicated a release")
+	end
+end
+
+test network_close_no_preserves_actual_live_state_until_owner_retry() -> Result<(), String> effects [net, time, concurrency]
+	network_close_case(0, false)
+end
+
+test network_close_yes_confirms_actual_release_without_a_second_callback() -> Result<(), String> effects [net, time, concurrency]
+	network_close_case(1, true)
+end
+
+test network_close_unknown_retries_when_actual_resource_remains_live() -> Result<(), String> effects [net, time, concurrency]
+	network_close_case(-1, false)
+end
+
+test network_close_unknown_retries_without_repeating_an_actual_release() -> Result<(), String> effects [net, time, concurrency]
+	network_close_case(-1, true)
+end
+
+fn network_external_close() -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error> effects [net::IO, io::Read, io::Write, io_provider::Scope, concurrency]
+	let stream = match net::connect(net::Address(net::Tcp4, "external-close.test", 443))
+		Ok(value) => Ok(value)
+		Err(_) => Err(net_support::error("external-close stream did not connect"))
+	end?
+	let views = io_provider::network(stream)?
+	let _ = net::close_stream(stream)
+	let read = network_zero_read_rejected(views.reader, "Closed")?
+	let write = match io::write(views.writer, byte_chunk([]))
+		io::WriteOutcome::WriteFailed(io::Progress::Known(count), failure) => byte_count_to_int(count) == 0 and (match failure.kind
+			io::ErrorKind::Closed => true
+			_ => false
+		end)
+		_ => false
+	end
+	if read and write
+		Ok(views)
+	else
+		Err(net_support::error("zero-size byte operation revived a stream closed through its original API"))
+	end
+end
+
+fn network_external_close_body(ignored: {reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [net::IO, io::Read, io::Write, io_provider::Scope, concurrency, net, time]
+	let cell = io_provider::state(net_support::initial(net_support::bytes("closed")?, "normal", 0, false))
+	let views = (handle handle network_external_close() with net_support::operations(cell) with net_support::allocation(cell))?
+	let expired = network_zero_read_rejected(views.reader, "InvalidResource")?
+	let observed = net_support::observe(net_support::snapshot(cell))
+	if expired and observed.closes == 1 and observed.releases == 1 and net_support::text(observed.input)? == "closed"
+		Ok(())
+	else
+		Err(net_support::error("expired network provider was invoked or an externally closed view consumed bytes"))
+	end
+end
+
+test network_byte_zero_size_operations_validate_external_close_and_provider_lifetime() -> Result<(), String> effects [net, time, concurrency]
+	let cell = io_provider::state(net_support::initial(byte_chunk([]), "normal", 0, false))
+	net_support::run(cell, network_external_close_body)
+end
+
+fn network_memory_copy(filesystem: fs::MutableFilesystem, views: {reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [fs::Read, fs::Mutate, io::Read, io::Write]
+	let output = match path::parse("output")
+		Ok(value) => Ok(value)
+		Err(_) => Err(net_support::error("invalid output fixture path"))
+	end?
+	let input = match path::parse("input")
+		Ok(value) => Ok(value)
+		Err(_) => Err(net_support::error("invalid input fixture path"))
+	end?
+	let target: fs::WriteFile = fs::open_write(filesystem, output, {create: fs::CreateMode::Existing, truncate: false})?
+	let source: fs::ReadFile = fs::open_read(fs::read_only(filesystem), input)?
+	let received = match io::copy(views.reader, target.writer, net_support::count(2)?)
+		io::CopyOutcome::Copied(count) => byte_count_to_int(count) == 3
+		_ => false
+	end
+	let sent = match io::copy(source.reader, views.writer, net_support::count(2)?)
+		io::CopyOutcome::Copied(count) => byte_count_to_int(count) == 3
+		_ => false
+	end
+	if received and sent
+		Ok(())
+	else
+		Err(net_support::error("cross-provider byte copy changed consumed or committed counts"))
+	end
+end
+
+fn network_memory_body(views: {reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [io::Read, io::Write, io_provider::Scope, concurrency]
+	let seeded = fs_model::seed_file(fs_model::initial(101), "input", net_support::bytes("MEM")?)
+	let cell = fs_memory::cell(fs_model::seed_file(seeded, "output", byte_chunk([])))
+	let owner = io_provider::owner()
+	let filesystem: fs::MutableFilesystem = fs_memory::filesystem(owner, 100, cell)?
+	let _ = (handle handle network_memory_copy(filesystem, views) with fs_memory::namespace(owner, 100, cell) with fs_memory::mutations(owner, 100, cell))?
+	let after = fs_memory::snapshot(cell)
+	let stored = match dict_get(fs_model::contents(after), 2)
+		Some(bytes) => net_support::text(bytes)? == "NET"
+		None => false
+	end
+	let input = match dict_get(fs_model::contents(after), 1)
+		Some(bytes) => net_support::text(bytes)? == "MEM"
+		None => false
+	end
+	let cursors = match fs_model::cursor(after, 101)
+		Some(3) => match fs_model::cursor(after, 102)
+			Some(3) => true
+			_ => false
+		end
+		_ => false
+	end
+	if stored and input and cursors
+		Ok(())
+	else
+		Err(net_support::error("network/memory copy selected the wrong bindings, bytes, or cursors"))
+	end
+end
+
+test network_and_memory_filesystem_copy_keep_independent_bytes_and_progress() -> Result<(), String> effects [net, time, concurrency]
+	let cell = io_provider::state(net_support::initial(byte_chunk_from_visible_ascii_string("NET")?, "normal", 0, false))
+	let _ = net_support::run(cell, network_memory_body)?
+	let after = net_support::observe(net_support::snapshot(cell))
+	if byte_count_to_int(byte_chunk_count(after.input)) == 0 and byte_chunk_to_visible_ascii_string(after.output)? == "MEM" and after.closes == 1 and after.releases == 1
+		Ok(())
+	else
+		Err("network/memory copy lost network input, output, or actual release state")
+	end
+end
+
+fn network_task_body(views: {reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [io::Read, io::Write, concurrency]
+	let child: Task<Result<(), io::Error>> = task::spawn_with(network_short_write_body, views)
+	match task::join(child)
+		Ok(result) => result
+		Err(_) => Err(net_support::error("child lost its selected network byte provider"))
+	end
+end
+
+test network_byte_views_retain_provider_and_resource_identity_through_child_freezing() -> Result<(), String> effects [net, time, concurrency]
+	let cell = io_provider::state(net_support::initial(byte_chunk_from_visible_ascii_string("abcdef")?, "short-write", 0, false))
+	let _ = net_support::run(cell, network_task_body)?
+	let after = net_support::observe(net_support::snapshot(cell))
+	if byte_chunk_to_visible_ascii_string(after.input)? == "f" and byte_chunk_to_visible_ascii_string(after.output)? == "12345" and after.closes == 1 and after.releases == 1
+		Ok(())
+	else
+		Err("child froze a network byte view into a different provider, resource, or lifetime")
+	end
+end
+
+fn network_factory_shadow(cell: io_provider::State<net_support::State>) -> Result<(), io::Error> effects [net::IO, concurrency, net, time]
+	let original: net::Stream = match net::connect(net::Address(net::Tcp4, "original.test", 443))
+		Ok(value) => Ok(value)
+		Err(_) => Err(net_support::error("original stream was not created"))
+	end?
+	let shadow = io_provider::state(net_support::initial(net_support::bytes("wrong")?, "normal", 0, false))
+	let _ = (handle handle io_provider::with_network(original, network_short_write_body) with net_support::operations(shadow) with net_support::allocation(shadow))?
+	let unused = net_support::observe(net_support::snapshot(shadow))
+	let original_state = net_support::observe(net_support::snapshot(cell))
+	let no_shadow_call = match unused.events
+		Nil => true
+		_ => false
+	end
+	if no_shadow_call and net_support::text(unused.input)? == "wrong" and byte_count_to_int(byte_chunk_count(unused.output)) == 0 and original_state.closes == 1 and original_state.releases == 1
+		Ok(())
+	else
+		Err(net_support::error("factory captured a newer lexical IO provider instead of the stream's creator"))
+	end
+end
+
+test network_adapter_factory_keeps_stream_creator_when_adapting_under_a_shadow() -> Result<(), String> effects [net, time, concurrency]
+	let cell = io_provider::state(net_support::initial(byte_chunk_from_visible_ascii_string("abcdef")?, "short-write", 0, false))
+	let result = handle handle network_factory_shadow(cell) with net_support::operations(cell) with net_support::allocation(cell)
+	match result
+		Ok(()) => Ok(())
+		Err(error) => Err(error.message)
+	end
+end
+
+test network_plain_close_error_retains_unknown_release_without_inventing_commit_facts() -> Result<(), String> effects [net, time, concurrency]
+	let cell = io_provider::state(net_support::initial(byte_chunk_from_visible_ascii_string("abcdef")?, "plain-close-failure", 0, false))
+	let _ = net_support::run(cell, network_close_unknown)?
+	let observed = net_support::observe(net_support::snapshot(cell))
+	if observed.closes == 2 and observed.releases == 1 and not observed.live and byte_chunk_to_visible_ascii_string(observed.input)? == "abcdef"
+		Ok(())
+	else
+		Err("plain network close error fabricated a release fact or consumed input after unknown release")
 	end
 end

@@ -302,6 +302,12 @@ allowed. A successful retry or a failure that confirms the close or shutdown
 commit moves the affected state to confirmed closed or shut. Later close or
 shutdown calls then succeed idempotently.
 
+A native stream close that throws does not establish release merely because
+its channel now reports closed. Without independent confirmation, the stream
+retains unknown release state across retries and scope cleanup. The Unix native
+socket descriptor integration case checks this against a still-readable owned
+descriptor after logical channel closure.
+
 The system handler instance owns every listener and stream it creates. A
 different handler returns `InvalidResource` without changing either handler's
 state. Leaving the handled scope closes every resource still owned by that

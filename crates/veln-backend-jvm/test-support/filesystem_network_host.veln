@@ -1,0 +1,102 @@
+use fs as api from "std"
+use io from "std"
+use net from "std"
+use path as portable from "std"
+use io_provider as providers from "std"
+use fs_memory_test_support_test as memory
+use fs_memory_state_test_support_test as model
+
+# Real host integration: actual file bytes cross a native TCP stream, then a
+# Veln memory filesystem, and finally another actual file. Rust owns the peer
+# and observes both file bindings independently of the reported copy counts.
+fn failure(message: String) -> io::Error
+	{operation: "native-mixed-copy", kind: io::ErrorKind::Other, path: None, other_path: None, network: None, commit: None, message: message}
+end
+
+fn name(text: String) -> Result<portable::Path, io::Error>
+	match portable::parse(text)
+		Ok(value) => Ok(value)
+		Err(_) => Err(failure("invalid fixture path"))
+	end
+end
+
+fn chunk_size() -> ByteCount
+	match byte_count(2)
+		Ok(value) => value
+		Err(_) => byte_chunk_count(byte_chunk([]))
+	end
+end
+
+fn copied(outcome: io::CopyOutcome, expected: Int) -> Result<(), io::Error>
+	match outcome
+		io::CopyOutcome::Copied(count) => if byte_count_to_int(count) == expected
+			Ok(())
+		else
+			Err(failure("copy count differs from independently selected bytes"))
+		end
+		io::CopyOutcome::CopyFailed(_, _, error) => Err(error)
+	end
+end
+
+fn last(previous: String, current: String) -> String
+	current
+end
+
+fn first(previous: String, current: String) -> String
+	if previous == ""
+		current
+	else
+		previous
+	end
+end
+
+fn exercise(filesystem: api::MutableFilesystem) -> Result<(), io::Error> effects [api::Read, api::Mutate, io::Read, io::Write, net::IO, providers::Scope, concurrency, process]
+	let address = match net::split_host_port(vec_fold(process::args(), "", last))
+		Ok(value) => Ok(net::Address(net::Tcp4, value.host, value.port))
+		Err(_) => Err(failure("invalid native peer address"))
+	end?
+	let stream: net::Stream = match net::connect(address)
+		Ok(value) => Ok(value)
+		Err(_) => Err(failure("native peer connection failed"))
+	end?
+	let views = providers::network(stream)?
+	let input: api::ReadFile = api::open_read(api::read_only(filesystem), name("input")?)?
+	let _ = copied(io::copy(input.reader, views.writer, chunk_size()), 7)?
+	let _ = match net::shutdown_write(stream)
+		Ok(()) => Ok(())
+		Err(_) => Err(failure("native write-half shutdown failed"))
+	end?
+	let write_half_closed = match io::write(views.writer, byte_chunk([]))
+		io::WriteOutcome::WriteFailed(io::Progress::Known(count), error) => byte_count_to_int(count) == 0 and (match error.kind
+			io::ErrorKind::Closed => true
+			_ => false
+		end)
+		_ => false
+	end
+	let cell = memory::cell(model::seed_file(model::initial(101), "buffer", byte_chunk([])))
+	let buffer: api::MutableFilesystem = memory::filesystem(providers::owner(), 100, cell)?
+	let stored: api::WriteFile = api::open_write(buffer, name("buffer")?, {create: api::CreateMode::Existing, truncate: false})?
+	let _ = copied(io::copy(views.reader, stored.writer, chunk_size()), 8)?
+	let observed = match dict_get(model::contents(memory::snapshot(cell)), 1)
+		Some(bytes) => match byte_chunk_to_visible_ascii_string(bytes)
+			Ok(text) => text == "response"
+			Err(_) => false
+		end
+		None => false
+	end
+	let restored: api::ReadFile = api::open_read(api::read_only(buffer), name("buffer")?)?
+	let output: api::WriteFile = api::open_write(filesystem, name("output")?, {create: api::CreateMode::CreateNew, truncate: false})?
+	let _ = copied(io::copy(restored.reader, output.writer, chunk_size()), 8)?
+	if observed and write_half_closed
+		Ok(())
+	else
+		Err(failure("the native stream selected the wrong Veln memory bytes"))
+	end
+end
+
+pub fn main() -> Result<(), io::Error> effects [fs, net, time, concurrency, process, stdio]
+	let root = api::native_path(vec_fold(process::args(), "", first))?
+	let _ = (handle api::with_system(root, exercise) with net::system())?
+	stdio::println("native file network memory copy verified")
+	Ok(())
+end

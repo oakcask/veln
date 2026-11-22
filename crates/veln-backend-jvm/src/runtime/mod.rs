@@ -52,6 +52,10 @@ runtime_method_table!(prelude_method, "vecLen", {
     "io_provider_dispatch_rename" => "ioProviderDispatchRename",
     "io_provider_dispatch_truncate" => "ioProviderDispatchTruncate",
 
+    "io_provider_network_resource" => "ioProviderNetworkResource",
+    "io_provider_network_read" => "ioProviderNetworkRead",
+    "io_provider_network_write" => "ioProviderNetworkWrite",
+    "io_provider_network_close" => "ioProviderNetworkClose",
     "io_provider_owner" => "ioProviderOwner",
     "io_provider_resource" => "ioProviderResource",
     "io_provider_filesystem" => "ioProviderFilesystem",

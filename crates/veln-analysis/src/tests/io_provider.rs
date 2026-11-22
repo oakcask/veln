@@ -200,3 +200,46 @@ end
         analysis.checked_diagnostics()
     );
 }
+
+#[test]
+fn io_provider_network_adapter_exposes_only_byte_views_and_retains_callback_effects() {
+    let source = r#"
+use io from "std"
+use net from "std"
+use io_provider as providers from "std"
+fn body(views: {reader: io::Reader, writer: io::Writer, closer: io::Closer}) -> Result<(), io::Error> effects [io::Read, stdio]
+    let _ = io::read(views.reader, byte_chunk_count(byte_chunk([])))
+    stdio::println("selected byte reader")
+    Ok(())
+end
+pub fn adapt(stream: net::Stream) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error> effects [providers::Scope, net::IO, concurrency]
+    providers::network(stream)
+end
+pub fn use_adapter(stream: net::Stream) -> Result<(), io::Error> effects [net::IO, concurrency, stdio]
+    providers::with_network(stream, body)
+end
+"#;
+    let analysis = analyze_project(provider_project(source), DoctestMode::Exclude);
+    assert!(
+        analysis.checked_diagnostics().is_empty(),
+        "{:?}",
+        analysis.checked_diagnostics()
+    );
+    let missing_effect = source.replace(
+        "effects [net::IO, concurrency, stdio]",
+        "effects [net::IO, concurrency]",
+    );
+    let analysis = analyze_project(provider_project(&missing_effect), DoctestMode::Exclude);
+    let diagnostics = analysis.checked_diagnostics();
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    for bad in [
+        "use io from \"std\"\nuse net from \"std\"\nuse io_provider as providers from \"std\"\npub fn bad() -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error> effects [providers::Scope, net::IO, concurrency]\n  providers::network(1)\nend\n",
+        "use io from \"std\"\npub fn bad(views: {reader: io::Reader, writer: io::Writer, closer: io::Closer}, origin: io::SeekOrigin) -> Result<ByteOffset, io::Error> effects [io::Seek]\n  io::seek(views.reader, origin)\nend\n",
+    ] {
+        let analysis = analyze_project(provider_project(bad), DoctestMode::Exclude);
+        let diagnostics = analysis.checked_diagnostics();
+        assert_eq!(diagnostics.len(), 1, "{bad}\n{diagnostics:?}");
+        assert_eq!(diagnostics[0].id, "type.mismatch", "{bad}\n{diagnostics:?}");
+    }
+}

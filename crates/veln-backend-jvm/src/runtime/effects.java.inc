@@ -63,7 +63,7 @@
         String phase,
         Boolean inputCommitted,
         Boolean outputCommitted,
-        boolean ownershipCommitted,
+        Boolean ownershipCommitted,
         String platformCause,
         Throwable cause
     ) {
@@ -77,7 +77,7 @@
             phase,
             inputCommitted,
             outputCommitted,
-            Boolean.valueOf(ownershipCommitted),
+            ownershipCommitted,
             platformCause,
             cause
         );
@@ -630,6 +630,7 @@
         volatile boolean readShutdown;
         volatile boolean writeShutdown;
         volatile boolean systemClosed;
+        volatile boolean nativeReleased;
         volatile boolean peerEnded;
         volatile boolean readFailed;
         volatile boolean writeFailed;
@@ -1084,11 +1085,19 @@
         if (!stream.socket.isOpen()) throw streamTransportFailure(operation, "closed", stream,
             "closed_handle", false, false, false, "stream closed", null);
     }
+    private static void closeNativeStream(NetStream stream) throws java.io.IOException {
+        synchronized (stream.lifecycleLock) {
+            if (stream.nativeReleased) return;
+            if (!stream.socket.isOpen()) throw new java.io.IOException("native stream release remains unconfirmed after logical closure");
+            stream.socket.close();
+            stream.nativeReleased = true;
+        }
+    }
     private static Object streamLifecycle(Object value, String operation) {
         NetStream stream = asNetStream(value);
         if (stream.adapter != null) { streamRequest(stream, operation, emptyNetworkBytes(), null, null); return UNIT; }
         try {
-            if (operation.equals("close_stream")) stream.socket.close();
+            if (operation.equals("close_stream")) closeNativeStream(stream);
             else if (operation.equals("shutdown_read")) {
                 failIfHostStreamClosed(stream, "shutdown");
                 if (!stream.socket.socket().isInputShutdown()) stream.socket.socket().shutdownInput();
@@ -1103,7 +1112,7 @@
             Boolean outputCommitted = operation.equals("shutdown_write")
                 ? Boolean.valueOf(stream.socket.socket().isOutputShutdown()) : Boolean.FALSE;
             Boolean ownershipCommitted = operation.equals("close_stream")
-                ? Boolean.valueOf(!stream.socket.isOpen()) : Boolean.FALSE;
+                ? (stream.nativeReleased ? Boolean.TRUE : null) : Boolean.FALSE;
             throw streamTransportFailure(operation.equals("close_stream") ? "stream_close" : "shutdown",
                 transportIoCategory(error), stream, operation.equals("close_stream") ? "closed_handle" : operation.equals("shutdown_read") ? "read_shutdown" : "write_shutdown",
                 inputCommitted, outputCommitted, ownershipCommitted,
@@ -1847,14 +1856,14 @@
                 }
                 try {
                     if (stream.adapter != null) streamRequest(stream, "close_stream", emptyNetworkBytes(), null, null);
-                    else stream.socket.close();
+                    else closeNativeStream(stream);
                     stream.systemClosed = true; stream.closeUncertain = false;
                     stream.readShutdown = true; stream.writeShutdown = true;
                     netSystemReleaseResource(owner, stream);
                 } catch (Throwable failure) {
                     Boolean committed = netSystemFailureCommit(failure, false, false);
-                    if (committed == null && stream.adapter == null) {
-                        committed = Boolean.valueOf(!stream.socket.isOpen());
+                    if (committed == null && stream.adapter == null && stream.nativeReleased) {
+                        committed = Boolean.TRUE;
                     }
                     if (Boolean.TRUE.equals(committed)) {
                         stream.systemClosed = true; stream.closeUncertain = false;
