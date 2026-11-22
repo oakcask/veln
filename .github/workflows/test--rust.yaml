@@ -113,6 +113,7 @@ jobs:
         with:
           nextest-version: ${{ env.NEXTEST_VERSION }}
           llvm-cov-version: ${{ env.LLVM_COV_VERSION }}
+          report-coverage: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           shard: ${{ matrix.shard }}
           shard-count: ${{ matrix.shard_count }}
           suite: ${{ matrix.suite }}
@@ -120,6 +121,7 @@ jobs:
 
   coverage:
     name: merge Rust test coverage
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
     # Ubuntu 26 does not currently publish the LCOV package used to merge shard reports.
     runs-on: ubuntu-24.04
