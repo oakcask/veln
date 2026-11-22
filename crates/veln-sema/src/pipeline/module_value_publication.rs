@@ -15,7 +15,8 @@ type PublicationSpanKey = (
     Option<(usize, usize, usize)>,
 );
 impl LoweredSurfaceModule {
-    pub fn module_value_publication_diagnostic_indices_for_identities(
+    #[cfg(test)]
+    pub(crate) fn module_value_publication_diagnostic_indices_for_identities(
         &self,
         identities: &[ModuleValuePublicationIdentity],
     ) -> (usize, Vec<usize>, ModuleValuePublicationWork) {

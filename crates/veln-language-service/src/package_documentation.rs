@@ -292,7 +292,8 @@ impl PackageDocResult {
         }
     }
 
-    pub fn declaration_uri_for(
+    #[cfg(test)]
+    pub(crate) fn declaration_uri_for(
         &self,
         module_name: &str,
         declaration_kind: &str,

@@ -87,7 +87,8 @@ pub struct FreshnessMismatch {
     pub checked_digest: String,
 }
 
-pub fn checked_artifact_bytes() -> &'static str {
+#[cfg(test)]
+pub(crate) fn checked_artifact_bytes() -> &'static str {
     CHECKED_ARTIFACT
 }
 

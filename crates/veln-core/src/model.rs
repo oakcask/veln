@@ -26,10 +26,6 @@ pub struct CoreSchemaRefinementPlan {
 }
 
 impl CoreSchemaRefinementPlan {
-    pub fn root_node(&self) -> &CoreSchemaRefinementPlanNode {
-        &self.nodes[self.root]
-    }
-
     pub fn node(&self, index: usize) -> &CoreSchemaRefinementPlanNode {
         &self.nodes[index]
     }

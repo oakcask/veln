@@ -18,10 +18,6 @@ pub struct IrSchemaRefinementValidationSpec {
 }
 
 impl IrSchemaRefinementPlan {
-    pub fn root_node(&self) -> &IrSchemaRefinementPlanNode {
-        &self.nodes[self.root]
-    }
-
     pub fn node(&self, index: usize) -> &IrSchemaRefinementPlanNode {
         &self.nodes[index]
     }
