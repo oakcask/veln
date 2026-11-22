@@ -24,6 +24,23 @@ enum TypeCloneTask<'a> {
 
 impl Clone for Type {
     fn clone(&self) -> Self {
+        let direct = match self {
+            Self::Unknown => Some(Self::Unknown),
+            Self::Named {
+                name,
+                identity,
+                args,
+            } => Some(Self::Named {
+                name: name.clone(),
+                identity: identity.clone(),
+                args: args.clone(),
+            }),
+            _ => None,
+        };
+        if let Some(cloned) = direct {
+            record_type_clone_node();
+            return cloned;
+        }
         let mut tasks = vec![TypeCloneTask::Visit(self)];
         let mut cloned = Vec::new();
         while let Some(task) = tasks.pop() {
@@ -61,12 +78,7 @@ fn process_type_clone_task<'a>(
 }
 
 fn queue_type_clone<'a>(ty: &'a Type, tasks: &mut Vec<TypeCloneTask<'a>>, cloned: &mut Vec<Type>) {
-    #[cfg(test)]
-    TYPE_CLONE_MEASUREMENT_DEPTH.with(|depth| {
-        if depth.get() > 0 {
-            MEASURED_TYPE_CLONE_NODES.set(MEASURED_TYPE_CLONE_NODES.get() + 1);
-        }
-    });
+    record_type_clone_node();
     match ty {
         Type::Unknown => cloned.push(Type::Unknown),
         Type::Named {
@@ -96,6 +108,15 @@ fn queue_type_clone<'a>(ty: &'a Type, tasks: &mut Vec<TypeCloneTask<'a>>, cloned
             effects,
         } => queue_function_type_clone(params, variadic, return_type, effects, tasks),
     }
+}
+
+fn record_type_clone_node() {
+    #[cfg(test)]
+    TYPE_CLONE_MEASUREMENT_DEPTH.with(|depth| {
+        if depth.get() > 0 {
+            MEASURED_TYPE_CLONE_NODES.set(MEASURED_TYPE_CLONE_NODES.get() + 1);
+        }
+    });
 }
 
 fn queue_named_type_clone<'a>(
