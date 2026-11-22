@@ -75,11 +75,11 @@ does not satisfy a gate. Such a failure does not promote the parent proposal.
 
 1. The accepted and rejected source cases for the F1 static boundary and its
    compiler adapters are implemented. The `ReadFile`, `WriteFile`, and `AppendFile`
-   missing-handler, validation-before-publication, retained-identity, and
-   incompatible projection observations are also implemented. Complete the
-   remaining resource families and their compatibility evidence. Treat the
-   remaining signature contracts as runtime obligations, not proof supplied
-   by the static declarations.
+   missing-handler, validation-before-publication, duplicate-registration
+   preservation, retained-identity, and incompatible projection observations
+   are also implemented. Complete the remaining resource families and their
+   compatibility evidence. Treat the remaining signature contracts as runtime
+   obligations, not proof supplied by the static declarations.
 2. Demonstrate the atomic state boundary required by F3. Add separate Veln
    provider support and use it to demonstrate F2 and the remaining publication
    observations in F3. Keep fake state and failure plans in Veln.

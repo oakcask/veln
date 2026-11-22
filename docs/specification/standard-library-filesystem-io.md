@@ -160,13 +160,14 @@ filesystem and projection separation, and opaque identities.
 Within an active `io_provider::scope`, `io_provider::resource` accepts an
 unused nonnegative private slot for `ViewFamily::ReadFile` only when active
 Veln handlers provide `io::Read`, `io::Seek`, `io::ReadAt`, and `io::Close`.
-It captures those handlers without invoking them. If any handler is absent,
-registration returns `io::ErrorKind::Unsupported` before publishing the
-resource. This failure performs no host filesystem or network fallback and
-does not consume the slot, so a complete registration can subsequently use
-the same owner and slot. A negative slot or a slot already registered to that
-owner returns `io::ErrorKind::InvalidInput`; a duplicate registration does not
-replace the existing resource.
+It validates the slot before resolving those handlers. A negative slot or a
+slot already registered to that owner returns `io::ErrorKind::InvalidInput`;
+a duplicate registration does not replace the existing resource. For an unused
+nonnegative slot, registration captures the required handlers without invoking
+them. If any handler is absent, registration returns
+`io::ErrorKind::Unsupported` before publishing the resource. This failure
+performs no host filesystem or network fallback and does not consume the slot,
+so a complete registration can subsequently use the same owner and slot.
 
 For `ViewFamily::AppendFile`, registration applies the same owner, slot,
 validation-before-publication, and duplicate-preservation rules. It requires
@@ -188,16 +189,17 @@ existing resource.
 positional-reader, and closer capabilities. The resource and every projected
 capability retain the registration owner and private slot, as observed by the
 matching slot accessors. Projecting the resource through
-`io_provider::duplex` returns `io::ErrorKind::Unsupported`. That failed
-projection does not alter the resource, and a later `read_file` projection
-still succeeds.
+`io_provider::write_file`, `io_provider::append_file`, or
+`io_provider::duplex` returns `io::ErrorKind::Unsupported`. These failed
+projections do not alter the resource, and a later `read_file` projection still
+succeeds.
 
 `io_provider::append_file` projects an accepted `AppendFile` resource into
 writer, closer, and syncer capabilities. The resource and all three projected
 capabilities retain the registration owner and private slot. Projecting the
-resource through `io_provider::read_file` or `io_provider::duplex` returns
-`io::ErrorKind::Unsupported`. Neither failure changes the resource, and a
-later `append_file` projection still succeeds.
+resource through `io_provider::read_file`, `io_provider::write_file`, or
+`io_provider::duplex` returns `io::ErrorKind::Unsupported`. These failures do
+not change the resource, and a later `append_file` projection still succeeds.
 
 `io_provider::write_file` projects an accepted `WriteFile` resource into
 writer, seeker, positional-writer, closer, syncer, and truncater capabilities.
@@ -246,4 +248,7 @@ establishes only its static capability and effect boundary.
   dynamic scopes exit:
   [`IoProviderAppendFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderAppendFileHarness.java)
   and
+  [`IoProviderWriteFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderWriteFileHarness.java).
+- `WriteFile` same-family and cross-family duplicate registration preserving
+  the previously published resource:
   [`IoProviderWriteFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderWriteFileHarness.java).
