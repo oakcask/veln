@@ -1,3 +1,5 @@
+# Placement: this case owns the compiler-known declared-arity contract. Its
+# regression signal is the `core.call_arity_mismatch` diagnostic.
 command = ["check", "--json", "main.veln"]
 exit = 1
 

@@ -1,3 +1,7 @@
+# Placement: this case owns the compiler's opacity and non-constructibility
+# contract. Regressions are `type.variant_refinement_base` with reason `opaque`
+# at index 0, `name.unresolved` at indexes 4 and 5, and totals of four type and
+# two name diagnostics.
 command = ["check", "--json", "main.veln"]
 exit = 1
 

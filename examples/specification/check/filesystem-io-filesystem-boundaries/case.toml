@@ -1,3 +1,8 @@
+# Placement: this case owns the compiler type boundaries between read-only and
+# mutable filesystem tokens, factory results, file-view projections, and
+# provider identities. Regressions are the 14 type diagnostics, the
+# `type.mismatch` assertions at indexes 0 and 7, and the six exact
+# provider-token diagnostic assertions below.
 command = ["check", "--json", "main.veln"]
 exit = 1
 

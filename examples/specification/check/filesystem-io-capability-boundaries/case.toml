@@ -1,3 +1,6 @@
+# Placement: this case owns the compiler's distinct nominal capability and
+# provider-slot operand contract. Regressions are the 18 type diagnostics and
+# the first and last `type.mismatch` assertions at diagnostic indexes 0 and 17.
 command = ["check", "--json", "main.veln"]
 exit = 1
 
