@@ -197,6 +197,7 @@ fn analyze_project_with_surface_and_standard_provider(
     ));
     record_timing(&mut timings, "surface_parse_lower", surface_start.elapsed());
 
+    let semantic_start = std::time::Instant::now();
     let standard = match standard_for_module(&loaded.selected_standard_module_names) {
         Ok(standard) => standard,
         Err(diagnostic) => {
@@ -217,7 +218,6 @@ fn analyze_project_with_surface_and_standard_provider(
             };
         }
     };
-    let semantic_start = std::time::Instant::now();
     let (semantic_diagnostics, checked) =
         check_project_surface_module_with_standard_modules_environment(
             &loaded.application,
