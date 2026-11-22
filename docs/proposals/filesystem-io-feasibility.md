@@ -21,13 +21,14 @@ Design In Progress until this work completes. This work does not depend on
 its production implementation or promotion to Ready.
 
 The following sections of the filesystem proposal define the prototype's
-design inputs. The static source boundary is implemented; the remaining rows
-are proposed runtime contracts, not implemented prerequisites:
+design inputs. The static source boundary and the compiler-known adapter names
+and opaque identities are implemented. The remaining obligations are proposed
+runtime contracts, not implemented prerequisites:
 
 | Design input | Prototype obligation |
 | --- | --- |
 | [Source surface and static capabilities](filesystem-io.md#source-surface-and-static-capabilities) | Check the declared records, nominal operations, factories, and restricted views. |
-| [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Supply the named compiler/runtime adapter, opaque identities, captured handlers, owner admission, and atomic `State<T>` operations. |
+| [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Retain the implemented adapter names and opaque identities while adding captured handlers, runtime owner admission, and atomic `State<T>` operations. |
 | [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Preserve bytes, known and unknown progress, error context, and no-progress behavior. |
 | [Namespace, seek, and mutation transitions](filesystem-io.md#namespace-seek-and-mutation-transitions) | Observe successful and failed operations through bytes, cursors, bindings, and commit facts. |
 | [Concurrent operations and cleanup](filesystem-io.md#concurrent-operations-and-cleanup) | Preserve per-open admission, release obligations, aliases, and failure precedence. |

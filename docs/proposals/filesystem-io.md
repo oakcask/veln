@@ -18,11 +18,14 @@ Implementation selection remains blocked on the separate
 
 ## Current Boundary And Scope
 
-The current [filesystem boundary](../specification/effects.md#file-system-calls)
+The production [filesystem boundary](../specification/effects.md#file-system-calls)
 provides host-owned `Path` values and four compiler-known operations for text
-reading, text writing, existence checks, and directory listing. It has no public
-file handle, seek operation, or nominal filesystem handler. This proposal
-replaces that minimal boundary; retaining its source API is not required.
+reading, text writing, existence checks, and directory listing. The current
+[static filesystem and byte IO prototype](../specification/standard-library-filesystem-io.md)
+also declares public opaque file views, seek capabilities, and nominal
+filesystem handlers, but it provides no runtime resource allocation, dispatch,
+or host filesystem execution. This proposal replaces the minimal production
+boundary; retaining its source API is not required.
 
 The current [network API](../specification/standard-library-networking.md)
 provides a source-defined `net::IO` effect, a system handler, byte read outcomes,
