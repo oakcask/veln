@@ -13,7 +13,7 @@ impl AdtRegistry {
             return true;
         }
         if descriptor.module_name.as_deref() == current_module {
-            let owner = import_owner_for_module(uses, current_module);
+            let owner = self.import_owner_for_module(uses, current_module);
             if owner
                 .as_ref()
                 .is_none_or(|owner| descriptor.package_name == owner.package)
@@ -64,7 +64,7 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<Option<(Option<&str>, &str)>> {
-        let owner = import_owner_for_module(uses, current_module)?;
+        let owner = self.import_owner_for_module(uses, current_module)?;
         let modules = self
             .qualified_import_modules
             .get(&(owner, qualifier.to_string()))?;
@@ -110,7 +110,8 @@ impl AdtRegistry {
     ) -> bool {
         if descriptor.module_name.is_none()
             || (descriptor.module_name.as_deref() == current_module
-                && import_owner_for_module(uses, current_module)
+                && self
+                    .import_owner_for_module(uses, current_module)
                     .as_ref()
                     .is_none_or(|owner| descriptor.package_name == owner.package))
         {

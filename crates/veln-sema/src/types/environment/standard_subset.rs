@@ -13,6 +13,9 @@ impl TypeEnvironment {
         let uses = selected_standard_facts(&self.uses, module_names, |use_decl| {
             use_decl.module_name.as_deref()
         });
+        let uses: Arc<[UseDecl]> = uses.into();
+        let mut adts = self.adts.standard_subset(module_names);
+        adts.bind_import_owner_scope(uses.clone());
         let bare_indexes = facts::bare_module_value_indexes(
             &module_values,
             &functions,
@@ -70,7 +73,7 @@ impl TypeEnvironment {
                 |use_decl| use_decl.module_name.as_deref(),
             ),
             invalid_names: self.invalid_names.clone(),
-            adts: self.adts.standard_subset(module_names),
+            adts,
             companion_function_access_targets: access_targets.functions,
             companion_module_value_access_targets: access_targets.module_values,
             companion_schema_access_targets: access_targets.schemas,

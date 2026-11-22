@@ -15,6 +15,8 @@ use super::lookup_validation::{constructor_matches_visible_path, same_descriptor
 mod aliases;
 mod build;
 mod constructors;
+mod import_owners;
+use import_owners::ImportOwners;
 mod lookup_helpers;
 mod visibility;
 
@@ -46,6 +48,8 @@ pub(crate) struct AdtRegistry {
     source_import_indexes_ready: bool,
     source_import_count: usize,
     source_imports: Arc<[UseDecl]>,
+    import_owner_scope: Arc<[UseDecl]>,
+    import_owners: Arc<ImportOwners>,
     local_descriptor_start: usize,
 }
 
@@ -72,28 +76,6 @@ struct QualifiedRecoveryModules {
 struct ImportedDescriptorCandidates {
     any_arity: HashMap<(ResolvedImportOwner, String), Option<usize>>,
     exact_arity: HashMap<(ResolvedImportOwner, String, usize), Option<usize>>,
-}
-
-fn import_owner_for_module(
-    uses: &[UseDecl],
-    current_module: Option<&str>,
-) -> Option<ResolvedImportOwner> {
-    let mut packages = uses
-        .iter()
-        .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
-        .map(|use_decl| use_decl.importing_package.as_deref())
-        .collect::<HashSet<_>>();
-    let package = if packages.remove(&None) {
-        None
-    } else if packages.len() == 1 {
-        packages.into_iter().next().flatten().map(str::to_string)
-    } else {
-        return None;
-    };
-    Some(ResolvedImportOwner {
-        package,
-        module: current_module.map(str::to_string),
-    })
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]

@@ -27,7 +27,7 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
-        if let Some(owner) = import_owner_for_module(uses, current_module) {
+        if let Some(owner) = self.import_owner_for_module(uses, current_module) {
             return self
                 .descriptors_by_source_identity
                 .get(&(
@@ -80,7 +80,7 @@ impl AdtRegistry {
     ) -> Option<&AdtDescriptor> {
         if self.source_import_indexes_ready {
             crate::adt::lookup_validation::record_import_path_comparison();
-            let owner = import_owner_for_module(uses, current_module)?;
+            let owner = self.import_owner_for_module(uses, current_module)?;
             let index = if let Some(args_len) = args_len {
                 self.imported_descriptors_by_type_arity
                     .get(&(owner, name.to_string(), args_len))

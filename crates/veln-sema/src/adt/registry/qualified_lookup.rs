@@ -59,7 +59,7 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<Option<&AdtDescriptor>> {
-        let owner = import_owner_for_module(uses, current_module);
+        let owner = self.import_owner_for_module(uses, current_module);
         let local = self
             .descriptors_by_source_identity
             .iter()
@@ -96,7 +96,7 @@ impl AdtRegistry {
     ) -> Option<Option<&AdtDescriptor>> {
         if self.source_import_indexes_ready {
             crate::adt::lookup_validation::record_import_path_comparison();
-            let owner = import_owner_for_module(uses, current_module)?;
+            let owner = self.import_owner_for_module(uses, current_module)?;
             return Some(
                 self.imported_descriptors_by_type
                     .get(&(owner, name.to_string()))
@@ -160,8 +160,9 @@ impl AdtRegistry {
     ) -> Option<QualifiedSourceIdentity> {
         let module_path = segments[..segments.len().saturating_sub(1)].join("::");
         crate::adt::lookup_validation::record_qualified_path_work(module_path.len());
-        let current_package =
-            import_owner_for_module(uses, current_module).and_then(|owner| owner.package);
+        let current_package = self
+            .import_owner_for_module(uses, current_module)
+            .and_then(|owner| owner.package);
         if current_module == Some(module_path.as_str())
             && self.source_identity_exists(current_package.as_deref(), current_module, type_name)
         {
@@ -181,7 +182,7 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<QualifiedSourceIdentity> {
-        let owner = import_owner_for_module(uses, current_module);
+        let owner = self.import_owner_for_module(uses, current_module);
         let indexed = owner.as_ref().and_then(|owner| {
             self.qualified_import_modules
                 .get(&(owner.clone(), module_path.to_string()))
@@ -229,7 +230,7 @@ impl AdtRegistry {
             uses,
         );
 
-        let Some(owner) = import_owner_for_module(uses, current_module) else {
+        let Some(owner) = self.import_owner_for_module(uses, current_module) else {
             return selected;
         };
         let key = (owner, normalized);
@@ -279,7 +280,9 @@ impl AdtRegistry {
             normalized_qualified_path(module_path) == normalized
                 && is_single_initial_recovery(qualifiers, module_path)
         })?;
-        let package = import_owner_for_module(uses, current_module).and_then(|owner| owner.package);
+        let package = self
+            .import_owner_for_module(uses, current_module)
+            .and_then(|owner| owner.package);
         self.source_identity_exists(package.as_deref(), Some(module_path), type_name)
             .then(|| {
                 QualifiedSourceIdentity::Source((
@@ -319,7 +322,7 @@ impl AdtRegistry {
     ) -> bool {
         current_module == Some(module_path)
             && self.source_identity_exists(
-                import_owner_for_module(uses, current_module)
+                self.import_owner_for_module(uses, current_module)
                     .and_then(|owner| owner.package)
                     .as_deref(),
                 current_module,
@@ -409,7 +412,8 @@ impl AdtRegistry {
         match identity {
             QualifiedSourceIdentity::Source((package_name, module_name, _)) => {
                 if module_name.as_deref() == current_module {
-                    let current_package = import_owner_for_module(uses, current_module)
+                    let current_package = self
+                        .import_owner_for_module(uses, current_module)
                         .and_then(|owner| owner.package);
                     if package_name == &current_package {
                         return true;
