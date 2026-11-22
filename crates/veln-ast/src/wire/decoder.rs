@@ -3,7 +3,11 @@ use super::*;
 mod expressions;
 
 pub fn decode_surface_module(bytes: &[u8]) -> Result<SurfaceModule, String> {
-    let mut reader = Reader { bytes, position: 0 };
+    let mut reader = Reader {
+        bytes,
+        position: 0,
+        source_paths: std::collections::HashMap::new(),
+    };
     reader.magic()?;
     let module = reader.surface_module()?;
     reader.eof()?;
@@ -13,6 +17,7 @@ pub fn decode_surface_module(bytes: &[u8]) -> Result<SurfaceModule, String> {
 struct Reader<'a> {
     bytes: &'a [u8],
     position: usize,
+    source_paths: std::collections::HashMap<&'a str, SourcePath>,
 }
 
 impl<'a> Reader<'a> {
@@ -80,6 +85,17 @@ impl<'a> Reader<'a> {
         String::from_utf8(bytes.to_vec()).map_err(|_| "invalid UTF-8 string".to_string())
     }
 
+    fn source_path(&mut self) -> Result<SourcePath, String> {
+        let len = self.u32()? as usize;
+        let text =
+            std::str::from_utf8(self.take(len)?).map_err(|_| "invalid UTF-8 string".to_string())?;
+        Ok(self
+            .source_paths
+            .entry(text)
+            .or_insert_with(|| SourcePath::new(text))
+            .clone())
+    }
+
     fn option<T>(
         &mut self,
         mut read: impl FnMut(&mut Self) -> Result<T, String>,
@@ -116,12 +132,12 @@ impl<'a> Reader<'a> {
     }
 
     fn span(&mut self) -> Result<SourceSpan, String> {
-        let file = SourcePath::new(self.string()?);
+        let file = self.source_path()?;
         let start = self.line_col()?;
         let end = self.line_col()?;
         let generated_origin = if self.bool()? {
             let original_path = if self.bool()? {
-                Some(SourcePath::new(self.string()?))
+                Some(self.source_path()?)
             } else {
                 None
             };
