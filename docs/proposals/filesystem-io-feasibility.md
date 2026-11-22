@@ -50,7 +50,7 @@ Expected bytes and state come from the linked contracts and independently
 specified inputs, not copied implementation output. Each gate requires both
 its positive observations and its failure or preserved-state observations.
 
-| Gate | Required observation | Planned evidence |
+| Gate | Required observation | Evidence and status |
 | --- | --- | --- |
 | F1: static source API | The declared file views, nominal operations, factories, projections, and slot accessors check with opaque compiler-known identities. Wrong or missing capability arguments fail, and provider factories retain distinct read-only/mutable types. Runtime registration must still enforce view families. | Implemented static declarations and compiler type-boundary cases are specified by [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md). Companion tests for missing-handler registration and incompatible family projection remain planned. |
 | F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. | Companion tests with distinct provider contents and operation logs; a backend dispatch case checks captured provider identity and absence of host fallback. |

@@ -273,8 +273,9 @@ No broad stress or performance claim is part of this proposal.
 
 These decisions replace the former open questions. The adapter and capability
 choices are Veln design inferences, not guarantees supplied by the comparative
-sources. They are proposed contracts, not evidence that the API or runtime
-support exists.
+sources. The static API contract is implemented where the table links to the
+current specification. The remaining runtime decisions are proposed contracts,
+not evidence that their runtime support exists.
 
 | Concern | Selected initial design | Acceptance obligation |
 | --- | --- | --- |
