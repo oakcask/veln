@@ -430,7 +430,7 @@ pub(crate) struct TypeEnvironment {
     handlers: Vec<HandlerSignature>,
     schema_symbols: SchemaSymbolTable,
     type_symbols: Vec<NamedSymbol>,
-    pub(crate) uses: Vec<UseDecl>,
+    pub(crate) uses: Arc<[UseDecl]>,
     quarantined_uses: Vec<UseDecl>,
     invalid_names: Vec<InvalidName>,
     pub(crate) adts: AdtRegistry,

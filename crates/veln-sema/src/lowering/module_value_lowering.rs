@@ -74,7 +74,7 @@ fn prepare_uses_by_owner(
     environment: &TypeEnvironment,
 ) -> HashMap<veln_ast::ResolvedImportOwner, Vec<veln_ast::UseDecl>> {
     let mut uses_by_owner = HashMap::<veln_ast::ResolvedImportOwner, Vec<veln_ast::UseDecl>>::new();
-    for use_decl in &environment.uses {
+    for use_decl in environment.uses.iter() {
         record_prepared_import();
         uses_by_owner
             .entry(use_decl.resolved_owner())

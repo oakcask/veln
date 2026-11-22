@@ -208,6 +208,9 @@ fn initial_environment(
     callables: CallableFacts,
     symbols: SymbolFacts,
 ) -> TypeEnvironment {
+    let uses: Arc<[UseDecl]> = symbols.uses.into();
+    let mut adts = declarations.adts;
+    adts.bind_import_owner_scope(uses.clone());
     TypeEnvironment {
         module_values: base
             .map(|base| base.module_values.clone())
@@ -222,7 +225,7 @@ fn initial_environment(
         representative_bare_module_value_imports: HashMap::new(),
         bare_module_value_cache: Arc::new(std::sync::RwLock::new(HashMap::new())),
         qualified_module_value_imports: HashMap::new(),
-        exact_module_value_imports: exact_module_value_import_paths(&symbols.uses),
+        exact_module_value_imports: exact_module_value_import_paths(&uses),
         blocked_exact_module_value_imports: symbols.blocked_exact_import_paths,
         public_module_value_identities: HashSet::new(),
         functions: callables.functions,
@@ -238,10 +241,10 @@ fn initial_environment(
         handlers: callables.handlers,
         schema_symbols: symbols.schema_symbols,
         type_symbols: symbols.type_symbols,
-        uses: symbols.uses,
+        uses,
         quarantined_uses: symbols.quarantined_uses,
         invalid_names: module.invalid_names.clone(),
-        adts: declarations.adts,
+        adts,
         companion_function_access_targets: symbols.companion_function_access_targets,
         companion_module_value_access_targets: symbols.companion_module_value_access_targets,
         companion_schema_access_targets: symbols.companion_schema_access_targets,
@@ -630,7 +633,9 @@ fn symbol_facts(
     let mut type_symbols = named_type_symbols(module);
     extend_with_base_facts(&mut type_symbols, base.map(|base| &base.type_symbols));
     let mut uses = crate::name_recovery::normal_use_decls(module);
-    extend_with_base_facts(&mut uses, base.map(|base| &base.uses));
+    if let Some(base) = base {
+        uses.extend(base.uses.iter().cloned());
+    }
     let mut quarantined_uses = crate::name_recovery::quarantined_use_decls(module);
     extend_with_base_facts(
         &mut quarantined_uses,

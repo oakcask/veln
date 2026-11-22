@@ -175,7 +175,7 @@ impl AdtRegistry {
         let mut matches =
             self.lookup_constructor_candidates(segments, current_module, uses, include_imports);
         prefer_explicit_source_constructor(&mut matches, segments);
-        prefer_current_module_constructors(&mut matches, segments, current_module, uses);
+        prefer_current_module_constructors(self, &mut matches, segments, current_module, uses);
         match matches.as_slice() {
             [] => ConstructorLookup::Missing,
             [constructor] => ConstructorLookup::Found(*constructor),
@@ -253,6 +253,7 @@ fn deduplicate_nominal_constructors(constructors: &mut Vec<AdtConstructor<'_>>) 
 }
 
 fn prefer_current_module_constructors<'a>(
+    registry: &AdtRegistry,
     matches: &mut Vec<AdtConstructor<'a>>,
     segments: &[String],
     current_module: Option<&str>,
@@ -264,8 +265,9 @@ fn prefer_current_module_constructors<'a>(
     let Some(current_module) = current_module else {
         return;
     };
-    let current_package =
-        import_owner_for_module(uses, Some(current_module)).and_then(|owner| owner.package);
+    let current_package = registry
+        .import_owner_for_module(uses, Some(current_module))
+        .and_then(|owner| owner.package);
     if !matches.iter().any(|constructor| {
         constructor.descriptor.module_name.as_deref() == Some(current_module)
             && constructor.descriptor.package_name == current_package
