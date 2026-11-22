@@ -11,6 +11,7 @@ pub(super) struct ExprEffectContext<'a> {
     pub(super) bindings: &'a [Binding],
     pub(super) adts: &'a AdtRegistry,
     pub(super) functions: &'a [FunctionSignature],
+    pub(super) function_lookup: &'a EffectFunctionIndex,
     pub(super) argument_types: &'a std::cell::OnceCell<CheckedEffectArgumentTypes>,
     pub(super) effects_by_function: &'a EffectsByFunction,
     pub(super) effects_by_module_path: &'a EffectsByModulePath,
@@ -154,10 +155,7 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
         }
         if let Some(signature) = effect_function_signature_path(
             segments,
-            self.context.uses,
-            self.context.functions,
-            self.context.current_module,
-            self.context.current_package,
+            self.context,
             self.context.companion_access_targets,
         ) {
             self.dependencies.insert(EffectDependencyNode::Function((
@@ -218,10 +216,7 @@ impl ExprEffectCollector<'_, '_, '_> {
         if segments.len() > 1
             && let Some(signature) = effect_function_signature_path(
                 segments,
-                self.context.uses,
-                self.context.functions,
-                self.context.current_module,
-                self.context.current_package,
+                self.context,
                 self.context.companion_access_targets,
             )
         {
@@ -257,10 +252,7 @@ impl ExprEffectCollector<'_, '_, '_> {
             }
         } else if let Some(signature) = effect_function_signature_path(
             segments,
-            self.context.uses,
-            self.context.functions,
-            self.context.current_module,
-            self.context.current_package,
+            self.context,
             self.context.companion_access_targets,
         ) {
             if let Some(effects) = instantiate_call_effect_rows(signature, args, self.context) {
