@@ -286,11 +286,18 @@ impl AdtRegistry {
     }
 
     pub(crate) fn descriptor_is_quarantined(&self, descriptor: &AdtDescriptor) -> bool {
+        if !self.has_quarantined_types() {
+            return false;
+        }
         let terminal = self
             .terminal_descriptor_for_alias(descriptor)
             .unwrap_or_else(|| self.canonical_descriptor_for(descriptor));
         self.quarantined_type_identities
             .contains(&terminal.identity())
+    }
+
+    pub(crate) fn has_quarantined_types(&self) -> bool {
+        !self.quarantined_type_identities.is_empty()
     }
 
     pub(crate) fn quarantined_type_identities(&self) -> impl Iterator<Item = &String> {
