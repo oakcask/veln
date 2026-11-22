@@ -8,6 +8,36 @@ use crate::surface::reachable_entry_module_with_cache;
 mod reachable_companion_recovery_tests;
 
 #[test]
+fn semantic_timing_includes_standard_environment_preparation() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![SourceFile::new("main.veln", clean_source())],
+        manifest: None,
+    };
+    let mut timings = Vec::new();
+    let mut preparation_duration = Duration::ZERO;
+    let analysis = analyze_project_with_standard_provider(
+        project,
+        DoctestMode::Exclude,
+        Some(&mut timings),
+        |names| {
+            let start = std::time::Instant::now();
+            // Make a cached provider observably nontrivial without a speed budget.
+            std::thread::sleep(Duration::from_millis(20));
+            let standard = standard_environment_for_modules(names);
+            preparation_duration = start.elapsed();
+            standard
+        },
+    );
+    assert!(analysis.checked_diagnostics().is_empty());
+    let semantic = timings
+        .iter()
+        .find(|timing| timing.stage == "semantic_environment_check")
+        .expect("semantic stage should be recorded");
+    assert!(semantic.duration >= preparation_duration);
+}
+
+#[test]
 fn invalid_standard_registry_failure_surfaces_as_checked_internal_failure() {
     let project = Project {
         root: ".".into(),
