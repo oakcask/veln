@@ -798,3 +798,40 @@ fn reachable_project_lowering_with_reusable_standard_environment_keeps_standard_
         ir.schema_decoders
     );
 }
+
+#[test]
+fn inherited_import_indexes_bound_qualified_constructor_miss_work() {
+    let work = [16, 32, 64].map(|count| {
+        let mut source = String::from("mod library\n");
+        for index in 0..count {
+            source.push_str(&format!("use unrelated_{index}\n"));
+        }
+        source.push_str("pub type State\n  Ready\nend\n");
+        let base_module = lower_surface_ast(&parse(&SourceFile::new("library.veln", source)).tree);
+        let base = TypeEnvironment::from_module(&base_module);
+        let module = lower_surface_ast(
+            &parse(&SourceFile::new(
+                "consumer.veln",
+                "mod consumer\nuse library as provider\n",
+            ))
+            .tree,
+        );
+        let environment = TypeEnvironment::from_module_with_base_for_test(&module, &base);
+        crate::adt::reset_qualified_path_work();
+        for _ in 0..8 {
+            let segments = ["provider", "Missing", "Ready"].map(str::to_owned);
+            assert!(matches!(
+                environment
+                    .adts
+                    .constructor(&segments, Some("consumer"), &environment.uses),
+                crate::adt::registry::ConstructorLookup::Missing
+            ));
+        }
+        let work = crate::adt::qualified_path_work();
+        assert!(work > 0);
+        eprintln!("inherited constructor imports: imports={count} work={work}");
+        work
+    });
+    assert_eq!(work[0], work[1], "{work:?}");
+    assert_eq!(work[1], work[2], "{work:?}");
+}
