@@ -15,7 +15,7 @@ pub(super) fn core_net_system_signature(
         | "net_system_shutdown_write"
         | "net_system_close_stream" => 1,
         "net_system_connect" | "net_system_accept" | "net_system_read" => 3,
-        "net_system_write" => 4,
+        "net_system_write" | "net_system_read_bounded" => 4,
         _ => return None,
     };
     Some((vec![CoreType::Unknown; arity], expected.clone()))

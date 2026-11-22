@@ -253,6 +253,7 @@ compiler_adapter_symbol_set! {
     "net_system_listener_address",
     "net_system_close_listener",
     "net_system_read",
+    "net_system_read_bounded",
     "net_system_write",
     "net_system_local_address",
     "net_system_peer_address",

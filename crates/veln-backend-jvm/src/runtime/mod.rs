@@ -93,6 +93,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "net_system_listener_address" => "netSystemListenerAddress",
     "net_system_close_listener" => "netSystemCloseListener",
     "net_system_read" => "netSystemRead",
+    "net_system_read_bounded" => "netSystemReadBounded",
     "net_system_write" => "netSystemWrite",
     "net_system_local_address" => "netSystemLocalAddress",
     "net_system_peer_address" => "netSystemPeerAddress",

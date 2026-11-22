@@ -74,6 +74,7 @@ pub handler owning_scripted_io(mode: String, expected: { tx : Sender<Option<net:
 	accept(listener, deadline, token) => unexpected_stream(trace, "accept")
 	listener_address(listener) => unexpected_endpoint(trace, "listener-address")
 	close_listener(listener) => unexpected_unit(trace, "close-listener")
+	read_bounded(stream, maximum, deadline, token) => Err(net::NetError("read_bounded", None, None, net::Other, "bounded reads unavailable in this provider"))
 	read(stream, deadline, token) => owning_read(stream, expected, mode, trace)
 	write(stream, bytes, deadline, token) => owning_write(stream, expected, mode, bytes, trace)
 	local_address(stream) => unexpected_endpoint(trace, "local-address")

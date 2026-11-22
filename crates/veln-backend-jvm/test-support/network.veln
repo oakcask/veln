@@ -170,6 +170,7 @@ handler observing_facade(listener_short: net::Listener, listener_with: net::List
 	accept(listener, deadline, token) => Err(facade_error("unexpected-resource", "accept"))
 	listener_address(listener) => Err(facade_error("unexpected-resource", "listener_address"))
 	close_listener(listener) => Err(facade_error("unexpected-resource", "close_listener"))
+	read_bounded(stream, maximum, deadline, token) => Err(net::NetError("read_bounded", None, None, net::Other, "bounded reads unavailable in this provider"))
 	read(stream, deadline, token) => Err(facade_error("unexpected-resource", "read"))
 	write(stream, bytes, deadline, token) => net::WriteFailed(byte_chunk_count(byte_chunk([])), facade_error("unexpected-resource", "write"))
 	local_address(stream) => Err(facade_error("unexpected-resource", "local_address"))
@@ -186,6 +187,7 @@ handler supplied_write_outcome(outcome: net::WriteOutcome) for net::IO
 	accept(listener, deadline, token) => Err(facade_error("write-all-unexpected", "accept"))
 	listener_address(listener) => Err(facade_error("write-all-unexpected", "listener_address"))
 	close_listener(listener) => Err(facade_error("write-all-unexpected", "close_listener"))
+	read_bounded(stream, maximum, deadline, token) => Err(net::NetError("read_bounded", None, None, net::Other, "bounded reads unavailable in this provider"))
 	read(stream, deadline, token) => Err(facade_error("write-all-unexpected", "read"))
 	write(stream, bytes, deadline, token) => outcome
 	local_address(stream) => Err(facade_error("write-all-unexpected", "local_address"))

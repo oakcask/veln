@@ -100,6 +100,7 @@ pub effect IO
 	accept(listener: Listener, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError>
 	listener_address(listener: Listener) -> Result<Endpoint, NetError>
 	close_listener(listener: Listener) -> Result<(), NetError>
+	read_bounded(stream: Stream, maximum: ByteCount, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<ReadOutcome, NetError>
 	read(stream: Stream, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<ReadOutcome, NetError>
 	write(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> WriteOutcome
 	local_address(stream: Stream) -> Result<Endpoint, NetError>
@@ -111,11 +112,11 @@ end
 ```
 
 The module exports one direct forwarding function for each operation. It also
-exports `connect_with`, `accept_with`, `read_with`, and `write_with` for the
-operations that accept deadline and cancellation options. Each function
+exports `connect_with`, `accept_with`, `read_with`, `read_bounded_with`, and
+`write_with` for the operations that accept deadline and cancellation options. Each function
 performs exactly one matching `net::IO` operation and returns its result
-unchanged. The short `connect`, `accept`, `read`, and `write` functions supply
-`None` for both options. Each `*_with` function passes both supplied options
+unchanged. The short `connect`, `accept`, `read`, `read_bounded`, and `write`
+functions supply `None` for both options. Each `*_with` function passes both supplied options
 unchanged.
 
 The complete-write helper has this signature:
@@ -142,6 +143,17 @@ contract.
 `read` and `read_with` functions return the handler's outcome unchanged,
 including `Chunk` with an empty `ByteChunk`. The facade does not enforce
 the system handler's non-empty read-chunk rule.
+
+`read_bounded(stream, maximum)` and
+`read_bounded_with(stream, maximum, deadline, token)` perform one
+`IO::read_bounded` operation. A conforming handler consumes and delivers at
+most `maximum` bytes; it leaves the undisclosed suffix for later reads. A
+live zero-size request returns `Chunk` with no bytes after ownership and
+open-state validation. It does not turn a closed resource into an empty
+success. These facades forward the handler's outcome unchanged; they do not
+clip an oversized provider reply or retry a failure. An `IO` handler must
+implement the bounded operation explicitly and return an ordinary error
+before transfer if it cannot enforce the bound.
 
 A public caller declares `effects [net::IO]`, handles that effect explicitly,
 or receives a static missing-effect diagnostic. A runnable entry that retains
@@ -203,9 +215,19 @@ the command report. This diagnostic provenance does not add fields to the
 `NetError` value available to Veln source. Other raw host failures do not
 acquire the failed `listen` or `connect` commit facts.
 
-System reads return non-empty `Chunk` values. They return `End` after
-the peer write half ends and buffered bytes have been consumed; later reads
-remain `End`. A write reports the bytes committed by that attempt, including
+System reads return non-empty `Chunk` values for positive requests. The
+bounded operation limits the native socket read itself and retains no
+adapter-side remainder. A zero-size bounded request returns an empty chunk
+after ownership, open-state, and same-direction admission checks, without
+inspecting deadline or cancellation options. The legacy `host_effects::Network`
+request protocol has no read-count operand; system bounded reads on those
+injected handles return `Other` before requesting a transfer. Their ordinary
+`read` operation remains available. A scoped `net::IO` provider can implement
+bounded reads directly, as the separate Veln companion support does.
+
+On direct host sockets, ordinary reads and positive bounded reads return
+`End` after the peer write half ends and buffered bytes have been consumed.
+Later requests of those forms remain `End`. A write reports the bytes committed by that attempt, including
 a committed prefix on failure. An empty write returns `Written(ByteCount(0))`
 after resource ownership, open-state, and same-direction concurrency checks
 succeed; it does not inspect the supplied deadline or cancellation token. For

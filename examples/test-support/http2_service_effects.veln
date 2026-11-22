@@ -34,6 +34,7 @@ pub handler scripted(listener_seed: net::Listener, stream_seed: net::Stream, mod
 	accept(listener, deadline, token) => scripted_accept(listener, listener_seed, stream_seed, accept_limit, state)
 	listener_address(listener) => Err(http2_service_failure("listener_address", "unexpected listener address"))
 	close_listener(listener) => scripted_close_listener(listener, listener_seed, mode, state)
+	read_bounded(stream, maximum, deadline, token) => Err(net::NetError("read_bounded", None, None, net::Other, "bounded reads unavailable in this provider"))
 	read(stream, deadline, token) => scripted_read(stream, stream_seed, mode, request, state)
 	write(stream, bytes, deadline, token) => scripted_write(stream, stream_seed, mode, bytes, state)
 	local_address(stream) => Err(http2_service_failure("local_address", "unexpected local address"))

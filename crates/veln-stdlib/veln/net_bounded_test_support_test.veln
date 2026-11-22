@@ -1,0 +1,58 @@
+use prelude
+use net
+use io_provider as provider
+
+fn transition(state: {bytes: ByteChunk, requests: List<Int>}, maximum: ByteCount) -> {state: {bytes: ByteChunk, requests: List<Int>}, result: Result<net::ReadOutcome, net::NetError>}
+	let requested = byte_count_to_int(maximum)
+	let available = byte_count_to_int(byte_chunk_count(state.bytes))
+	let amount = if requested < available
+		maximum
+	else
+		byte_chunk_count(state.bytes)
+	end
+	let logged: {bytes: ByteChunk, requests: List<Int>} = {bytes: state.bytes, requests: Cons(requested, state.requests)}
+	if requested > 0 and available == 0
+		{state: logged, result: Ok(net::End)}
+	else
+		match byte_take(state.bytes, amount)
+			Ok(bytes) => match byte_drop(state.bytes, amount)
+				Ok(remaining) => {state: {bytes: remaining, requests: logged.requests}, result: Ok(net::Chunk(bytes))}
+				Err(message) => {state: state, result: Err(net::NetError("read_bounded", None, None, net::Other, message))}
+			end
+			Err(message) => {state: state, result: Err(net::NetError("read_bounded", None, None, net::Other, message))}
+		end
+	end
+end
+
+fn read(cell: provider::State<{bytes: ByteChunk, requests: List<Int>}>, stream: net::Stream, maximum: ByteCount) -> Result<net::ReadOutcome, net::NetError> effects [net, time, concurrency]
+	# Validate the opaque stream with a zero-size operation; no host transfer runs.
+	match prelude_builtin::net_system_read_bounded(stream, byte_chunk_count(byte_chunk([])), None, None)
+		Err(failure) => Err(failure)
+		Ok(_) => provider::update(cell, maximum, transition)
+	end
+end
+
+pub handler scripted(cell: provider::State<{bytes: ByteChunk, requests: List<Int>}>) for net::IO effects [net, time, concurrency]
+	resolve(address) => prelude_builtin::net_system_resolve(address)
+	listen(address) => prelude_builtin::net_system_listen(address)
+	connect(address, deadline, token) => prelude_builtin::net_system_connect(address, deadline, token)
+	accept(listener, deadline, token) => prelude_builtin::net_system_accept(listener, deadline, token)
+	listener_address(listener) => prelude_builtin::net_system_listener_address(listener)
+	close_listener(listener) => prelude_builtin::net_system_close_listener(listener)
+	read(stream, deadline, token) => prelude_builtin::net_system_read(stream, deadline, token)
+	read_bounded(stream, maximum, deadline, token) => read(cell, stream, maximum)
+	write(stream, bytes, deadline, token) => prelude_builtin::net_system_write(stream, bytes, deadline, token)
+	local_address(stream) => prelude_builtin::net_system_local_address(stream)
+	peer_address(stream) => prelude_builtin::net_system_peer_address(stream)
+	shutdown_read(stream) => prelude_builtin::net_system_shutdown_read(stream)
+	shutdown_write(stream) => prelude_builtin::net_system_shutdown_write(stream)
+	close_stream(stream) => prelude_builtin::net_system_close_stream(stream)
+end
+
+fn unchanged(state: {bytes: ByteChunk, requests: List<Int>}, ignored: ()) -> {state: {bytes: ByteChunk, requests: List<Int>}, result: {bytes: ByteChunk, requests: List<Int>}}
+	{state: state, result: state}
+end
+
+pub fn snapshot(cell: provider::State<{bytes: ByteChunk, requests: List<Int>}>) -> {bytes: ByteChunk, requests: List<Int>} effects [concurrency]
+	provider::update(cell, (), unchanged)
+end

@@ -1,4 +1,6 @@
 use net
+use io_provider as provider
+use net_bounded_test_support_test as bounded
 use host_effects from "std"
 
 fn system_network_reply(status: String, value: String, local: String, peer: String, resolved_endpoints: List<{ network : String, address : String }>, bytes_committed: Int, category: String, output_committed: Int, cause: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
@@ -1216,6 +1218,7 @@ handler observing_io() for net::IO
 	accept(listener, deadline, token) => Err(resource_failure("accept"))
 	listener_address(listener) => Err(resource_failure("listener_address"))
 	close_listener(listener) => Err(resource_failure("close_listener"))
+	read_bounded(stream, maximum, deadline, token) => Err(net::NetError("read_bounded", None, None, net::Other, "bounded reads unavailable in this provider"))
 	read(stream, deadline, token) => Err(resource_failure("read"))
 	write(stream, bytes, deadline, token) => net::WriteFailed(net::ByteCount(0), resource_failure("write"))
 	local_address(stream) => Err(resource_failure("local_address"))
@@ -1792,5 +1795,51 @@ test connect_with_forwards_deadline_and_cancellation_options() -> Result<(), Str
 	match handle net::connect_with(address, Some(deadline), Some(token)) with observing_io()
 		Err(error) => expect_observed_error(error, "connect", "with")
 		Ok(_) => Err("connect_with unexpectedly succeeded")
+	end
+end
+
+fn bounded_text(result: Result<net::ReadOutcome, net::NetError>) -> Result<String, String>
+	match result
+		Ok(net::Chunk(bytes)) => byte_chunk_to_visible_ascii_string(bytes)
+		Ok(net::End) => Ok("<end>")
+		Err(net::NetError(_, _, _, _, message)) => Err(message)
+	end
+end
+
+fn bounded_sequence() -> Result<(), String> effects [net::IO]
+	let stream: net::Stream = match net::connect(net::Address(net::Tcp4, "write.test", 443))
+		Ok(value) => Ok(value)
+		Err(_) => Err("bounded fixture did not connect")
+	end?
+	let empty = bounded_text(net::read_bounded(stream, byte_count(0)?))?
+	let first = bounded_text(net::read_bounded(stream, byte_count(1)?))?
+	let second = bounded_text(net::read_bounded(stream, byte_count(2)?))?
+	let remaining = bounded_text(net::read_bounded(stream, byte_count(9223372036854775807)?))?
+	let ended = bounded_text(net::read_bounded(stream, byte_count(3)?))?
+	let empty_after_end = bounded_text(net::read_bounded(stream, byte_count(0)?))?
+	let _ = net::close_stream(stream)
+	let closed = match net::read_bounded(stream, byte_count(0)?)
+		Err(net::NetError("read_bounded", _, _, net::Closed, _)) => true
+		_ => false
+	end
+	if empty == "" and first == "a" and second == "bc" and remaining == "def" and ended == "<end>" and empty_after_end == "" and closed
+		Ok(())
+	else
+		Err("bounded reads lost bytes, end state, or zero-size closed validation")
+	end
+end
+
+test bounded_network_reads_preserve_every_byte_and_zero_size_validation() -> Result<(), String> effects [net, time, concurrency]
+	let initial: {bytes: ByteChunk, requests: List<Int>} = {bytes: byte_chunk_from_visible_ascii_string("abcdef")?, requests: Nil}
+	let cell = provider::state(initial)
+	let _ = (handle handle bounded_sequence() with bounded::scripted(cell) with scripted_system_network("write-success"))?
+	let observed = bounded::snapshot(cell)
+	match observed.requests
+		Cons(0, Cons(3, Cons(9223372036854775807, Cons(2, Cons(1, Cons(0, Nil)))))) => if byte_count_to_int(byte_chunk_count(observed.bytes)) == 0
+			Ok(())
+		else
+			Err("bounded reads did not consume exactly the selected bytes")
+		end
+		_ => Err("bounded read maximums or closed-state provider admission changed")
 	end
 end

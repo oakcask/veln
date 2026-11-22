@@ -1,0 +1,48 @@
+use net from "std"
+
+# Real host contract: a bounded socket read leaves the undisclosed suffix in
+# the socket and validates closure before a zero-size result.
+fn collect(stream: net::Stream, accumulated: String) -> Result<String, String> effects [net::IO]
+	match net::read_bounded(stream, byte_count(2)?)
+		Ok(net::End) => Ok(accumulated)
+		Ok(net::Chunk(bytes)) => if byte_count_to_int(byte_chunk_count(bytes)) > 0 and byte_count_to_int(byte_chunk_count(bytes)) <= 2
+			collect(stream, string::concat(accumulated, byte_chunk_to_visible_ascii_string(bytes)?))
+		else
+			Err("host read exceeded its bound or invented empty data")
+		end
+		Err(_) => Err("native bounded read failed")
+	end
+end
+
+fn exercise(address: String) -> Result<(), String> effects [net::IO, stdio]
+	let endpoint: net::Address = match net::split_host_port(address)
+		Ok(value) => Ok(net::Address(net::Tcp4, value.host, value.port))
+		Err(_) => Err("invalid host fixture address")
+	end?
+	let stream: net::Stream = match net::connect(endpoint)
+		Ok(value) => Ok(value)
+		Err(_) => Err("native connection failed")
+	end?
+	let zero = match net::read_bounded(stream, byte_count(0)?)
+		Ok(net::Chunk(bytes)) => byte_count_to_int(byte_chunk_count(bytes)) == 0
+		_ => false
+	end
+	let data = collect(stream, "")?
+	let _ = net::close_stream(stream)
+	let closed = match net::read_bounded(stream, byte_count(0)?)
+		Err(net::NetError("read_bounded", _, _, net::Closed, _)) => true
+		_ => false
+	end
+	if zero and closed
+		begin
+			stdio::println(data)
+			Ok(())
+		end
+	else
+		Err("zero-size native read skipped open-state validation")
+	end
+end
+
+pub fn main(address: String) -> Result<(), String> effects [net, time, stdio]
+	handle exercise(address) with net::system()
+end

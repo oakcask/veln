@@ -75,6 +75,7 @@ pub effect IO
 	accept(listener: Listener, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Stream, NetError>
 	listener_address(listener: Listener) -> Result<Endpoint, NetError>
 	close_listener(listener: Listener) -> Result<(), NetError>
+	read_bounded(stream: Stream, maximum: ByteCount, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<ReadOutcome, NetError>
 	read(stream: Stream, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<ReadOutcome, NetError>
 	write(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> WriteOutcome
 	local_address(stream: Stream) -> Result<Endpoint, NetError>
@@ -105,6 +106,7 @@ pub handler system() for IO effects [net, time]
 	accept(listener, deadline, token) => prelude_builtin::net_system_accept(listener, deadline, token)
 	listener_address(listener) => prelude_builtin::net_system_listener_address(listener)
 	close_listener(listener) => prelude_builtin::net_system_close_listener(listener)
+	read_bounded(stream, maximum, deadline, token) => prelude_builtin::net_system_read_bounded(stream, maximum, deadline, token)
 	read(stream, deadline, token) => prelude_builtin::net_system_read(stream, deadline, token)
 	write(stream, bytes, deadline, token) => prelude_builtin::net_system_write(stream, bytes, deadline, token)
 	local_address(stream) => prelude_builtin::net_system_local_address(stream)
@@ -162,6 +164,18 @@ end
 ## Read with caller-supplied deadline and cancellation options.
 pub fn read_with(stream: Stream, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<ReadOutcome, NetError> effects [IO]
 	perform IO::read(stream, deadline, token)
+end
+
+## Read at most maximum bytes without consuming an undisclosed remainder.
+## A live zero-size request returns an empty Chunk after resource validation.
+## A provider that cannot bound consumption returns an error before transfer.
+pub fn read_bounded(stream: Stream, maximum: ByteCount) -> Result<ReadOutcome, NetError> effects [IO]
+	perform IO::read_bounded(stream, maximum, None, None)
+end
+
+## Read with an explicit bound, deadline, and cancellation token.
+pub fn read_bounded_with(stream: Stream, maximum: ByteCount, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<ReadOutcome, NetError> effects [IO]
+	perform IO::read_bounded(stream, maximum, deadline, token)
 end
 
 ## Write without a deadline or cancellation token.

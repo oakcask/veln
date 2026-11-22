@@ -985,6 +985,9 @@
     public static Object netStreamCanWrite(Object stream) { return Boolean.valueOf(asString(streamProperty(stream, "stream_can_write"))); }
     public static Object netStreamIsClosed(Object stream) { return Boolean.valueOf(asString(streamProperty(stream, "stream_is_closed"))); }
     private static Object readHost(NetStream stream, Object deadline, Object token, String operation) {
+        return readHost(stream, deadline, token, operation, 4096);
+    }
+    private static Object readHost(NetStream stream, Object deadline, Object token, String operation, int maximum) {
         if (stream.adapter != null) {
             Object reply = streamRequest(stream, operation, emptyNetworkBytes(), deadline, token);
             String status = replyText(reply, "status");
@@ -1000,7 +1003,7 @@
         try {
             throwTaskCancellationIfRequested();
             NET_READ_BUFFER_ALLOCATIONS.incrementAndGet();
-            java.nio.ByteBuffer bytes = java.nio.ByteBuffer.allocate(4096);
+            java.nio.ByteBuffer bytes = java.nio.ByteBuffer.allocate(maximum);
             while (true) {
                 failIfHostStreamClosed(stream, "read");
                 if (stream.readShutdown) return streamReadOutcome("End");
@@ -1670,22 +1673,31 @@
         }
     }
     public static Object netSystemRead(Object value, Object deadlineOption, Object tokenOption) {
+        return netSystemReadInternal(value, deadlineOption, tokenOption, null);
+    }
+    public static Object netSystemReadBounded(Object value, Object maximum, Object deadlineOption, Object tokenOption) {
+        return netSystemReadInternal(value, deadlineOption, tokenOption, Long.valueOf(byteCountLong(maximum)));
+    }
+    private static Object netSystemReadInternal(Object value, Object deadlineOption, Object tokenOption, Long maximum) {
+        String operation = maximum == null ? "read" : "read_bounded";
         HandlerFrame owner = netSystemOwner(); NetStream stream = asNetStream(value);
-        if (!netSystemOwns(stream, owner)) return err(netSystemInvalidResource("read"));
-        if (!stream.reading.compareAndSet(false, true)) return err(netSystemError("read", null, stream.peerAddress, "Busy", "another read is active"));
+        if (!netSystemOwns(stream, owner)) return err(netSystemInvalidResource(operation));
+        if (!stream.reading.compareAndSet(false, true)) return err(netSystemError(operation, null, stream.peerAddress, "Busy", "another read is active"));
         try {
-            if (netSystemReadUnavailable(stream) || stream.readFailed) return err(netSystemError("read", null, stream.peerAddress, "Closed", "stream read side is closed"));
+            if (netSystemReadUnavailable(stream) || stream.readFailed) return err(netSystemError(operation, null, stream.peerAddress, "Closed", "stream read side is closed"));
+            if (maximum != null && maximum.longValue() == 0L) return ok(adt("ReadOutcome::Chunk", new Object[] {emptyNetworkBytes()}));
+            if (maximum != null && stream.adapter != null) return err(netSystemError(operation, null, stream.peerAddress, "Other", "host adapter does not support bounded reads"));
             if (stream.peerEnded) return ok(adt("ReadOutcome::End", new Object[] {}));
-            Object outcome = readHost(stream, netSystemOptionValue(deadlineOption), netSystemOptionValue(tokenOption), "read");
-            if (netSystemReadUnavailable(stream)) return err(netSystemError("read", null, stream.peerAddress, "Closed", "stream read side is closed"));
-            if (isAdt(outcome, "StreamReadOutcome::DeadlineExpired")) return err(netSystemError("read", null, stream.peerAddress, "TimedOut", "read deadline elapsed"));
-            if (isAdt(outcome, "StreamReadOutcome::Cancelled")) return err(netSystemError("read", null, stream.peerAddress, "Cancelled", "read was cancelled"));
+            Object outcome = readHost(stream, netSystemOptionValue(deadlineOption), netSystemOptionValue(tokenOption), operation, maximum == null ? 4096 : (int) Math.min(4096L, maximum.longValue()));
+            if (netSystemReadUnavailable(stream)) return err(netSystemError(operation, null, stream.peerAddress, "Closed", "stream read side is closed"));
+            if (isAdt(outcome, "StreamReadOutcome::DeadlineExpired")) return err(netSystemError(operation, null, stream.peerAddress, "TimedOut", "read deadline elapsed"));
+            if (isAdt(outcome, "StreamReadOutcome::Cancelled")) return err(netSystemError(operation, null, stream.peerAddress, "Cancelled", "read was cancelled"));
             if (isAdt(outcome, "StreamReadOutcome::End")) { stream.peerEnded = true; return ok(adt("ReadOutcome::End", new Object[] {})); }
             return ok(adt("ReadOutcome::Chunk", new Object[] { ((Adt) outcome).payloads[0] }));
         } catch (Throwable failure) {
             netSystemRejectUnexpectedFailure(failure);
-            if (netSystemReadUnavailable(stream)) return err(netSystemError("read", null, stream.peerAddress, "Closed", "stream read side is closed"));
-            Object error = netSystemFailure("read", null, stream.peerAddress, failure);
+            if (netSystemReadUnavailable(stream)) return err(netSystemError(operation, null, stream.peerAddress, "Closed", "stream read side is closed"));
+            Object error = netSystemFailure(operation, null, stream.peerAddress, failure);
             if (!netSystemFailureKeepsResourceOpen(error)) stream.readFailed = true;
             return err(error);
         } finally { stream.reading.set(false); }

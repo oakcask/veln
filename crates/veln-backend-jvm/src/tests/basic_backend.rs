@@ -2327,3 +2327,36 @@ fn external_socket_listener_accepts_an_unsynthesized_host_client_when_java_is_av
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "cancelled 3\n");
 }
+
+#[test]
+fn bounded_socket_reads_preserve_the_native_unconsumed_suffix() {
+    if Command::new("java").arg("-version").output().is_err() {
+        return;
+    }
+    let ir = lower_with_standard_modules_to_ir(include_str!(
+        "../../test-support/network_bounded_host.veln"
+    ));
+    let program = generate_classfiles_with_entry_arg_types(&ir, "main", &[EntryArgType::String]);
+    let Some(listener) = bind_loopback_listener_when_available() else {
+        return;
+    };
+    let address = listener
+        .local_addr()
+        .expect("native listener address")
+        .to_string();
+    let host = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("native client connection");
+        stream.write_all(b"abcdef").expect("native input bytes");
+        stream.shutdown(Shutdown::Write).expect("native clean end");
+    });
+    let output =
+        run_jvm_program_when_java_is_available("bounded-network-read", &program, &[&address])
+            .expect("java availability was checked");
+    host.join().expect("native writer finishes");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "abcdef\n");
+}

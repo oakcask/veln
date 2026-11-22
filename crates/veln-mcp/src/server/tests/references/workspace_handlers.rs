@@ -783,11 +783,11 @@ fn assert_standard_handler_project_isolation(
         .unwrap();
     let definition_content = json!({"definition":{
         "uri":standard_uri,
-        "range":{"start":{"line":101,"column":13},"end":{"line":101,"column":19}},
+        "range":{"start":{"line":102,"column":13},"end":{"line":102,"column":19}},
         "packageDocumentationUri":concat!(
             "veln-doc:///package/std/snapshot/",
-            "6c430cb0590df5254155c0a3df4bc4f9c72eaf5922c76d377cdaff00bede347f/",
-            "documentation/7be35b0dd76ab609eb2047ab114bb5986786dfa6f0ff1bcde3ca39c3a341932f/",
+            "50f57eafd8f3c970e06a41cc1ff005f66baeb4eacd46bf31ee9e868a3e4673e2/",
+            "documentation/2f987bb8e9ab3c3caf0816122db42154ce109d8dab4bb37744d54ce00bb000de/",
             "declaration/4f9a4f61d83186052f54b164ba8e847e97638ff837b7fa90134c5ae6220e2dd3"
         )
     }});
