@@ -1,16 +1,17 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#imports-and-static-surface; behavior=#capability-boundaries; limits=#runtime-limit
+specification-coverage: usage=#imports-and-static-surface; behavior=#readfile-runtime-prototype; limits=#runtime-limits
 update-when: The exported io, fs, or io_provider static source API, opaque capability identities, file-view declarations, or filesystem IO runtime readiness changes.
 ---
 
 # Standard-library filesystem and byte IO
 
 The standard package exports `io`, `fs`, and `io_provider`. Their current
-contract is a compiler-checked static prototype. It lets provider and generic
-IO source declare capability-correct signatures before resource allocation,
-captured dispatch, or host filesystem execution exists.
+contract combines a compiler-checked static surface with a bounded `ReadFile`
+registration and projection prototype. It lets provider and generic IO source
+check capability-correct signatures and exercise one runtime resource family.
+It is not a production filesystem API.
 
 ## Imports and static surface
 
@@ -114,9 +115,9 @@ alias syntax. Their constructor payload names preserve the file-view field
 contract. Possessing those file-view values does not create or upgrade any
 opaque capability value.
 
-`io_provider` exposes the check-only adapter surface below. The factories and
-both slot groups retain `concurrency`; `owner` requires `Scope`, the `scope`
-handler retains `concurrency`, and the resource projections are pure.
+`io_provider` exposes the adapter surface below. The factories and both slot
+groups retain `concurrency`; `owner` requires `Scope`, the `scope` handler
+retains `concurrency`, and the resource projections are pure.
 
 | Group | Signatures |
 | --- | --- |
@@ -126,8 +127,8 @@ handler retains `concurrency`, and the resource projections are pure.
 | Capability slots | `reader_slot(Owner, io::Reader)`, `writer_slot(Owner, io::Writer)`, `seeker_slot(Owner, io::Seeker)`, `reader_at_slot(Owner, io::ReaderAt)`, `writer_at_slot(Owner, io::WriterAt)`, `closer_slot(Owner, io::Closer)`, `syncer_slot(Owner, io::Syncer)`, and `truncater_slot(Owner, fs::Truncater)` each return `Result<Int, io::Error>` |
 
 `ViewFamily` is `ReadFile`, `WriteFile`, `UpdateFile`, `AppendFile`, or
-`Duplex`. The registration selector does not add capabilities by itself; the
-runtime behavior needed to bind a resource to handlers is not implemented.
+`Duplex`. The registration selector does not add capabilities by itself.
+Only the bounded `ReadFile` runtime behavior described below is implemented.
 
 The compiler adapters behind these declarations are available only to source
 embedded in the standard package. Application source cannot call their
@@ -152,15 +153,34 @@ one projection cannot be assigned as another file-view family. The focused
 cases under [References](#references) check wrong and missing operands,
 filesystem and projection separation, and opaque identities.
 
-## Runtime limit
+## ReadFile runtime prototype
 
-This surface is not a production filesystem implementation. The compiler
-adapters currently make the declarations checkable; they do not provide JVM
-runtime methods. Resource allocation, captured provider dispatch, owner
-lifecycle, handler-family registration, incompatible-family failure, atomic
-provider state, transfer behavior, host filesystem access, mutation, and
-cleanup remain unimplemented. A source file that type-checks against these
-declarations has established only its static capability and effect boundary.
+Within an active `io_provider::scope`, `io_provider::resource` accepts a
+nonnegative private slot for `ViewFamily::ReadFile` only when active Veln
+handlers provide `io::Read`, `io::Seek`, `io::ReadAt`, and `io::Close`. It
+captures those handlers without invoking them. If any handler is absent,
+registration returns `io::ErrorKind::Unsupported` before publishing the
+resource. This failure performs no host filesystem or network fallback and
+does not consume the slot, so a complete registration can subsequently use
+the same owner and slot.
+
+`io_provider::read_file` projects an accepted resource into reader, seeker,
+positional-reader, and closer capabilities. The resource and every projected
+capability retain the registration owner and private slot, as observed by the
+matching slot accessors. Projecting the resource through
+`io_provider::duplex` returns `io::ErrorKind::Unsupported`. That failed
+projection does not alter the resource, and a later `read_file` projection
+still succeeds.
+
+## Runtime limits
+
+This surface is not a production filesystem implementation. Runtime
+registration and projection are limited to the observations above. Other view
+families and compatibility combinations, operation dispatch through a
+resource, multiple-provider allocation, atomic provider state, publication
+and owner-close races, transfer and namespace behavior, cleanup, and host
+filesystem access remain unimplemented. Type-checking any other declaration
+establishes only its static capability and effect boundary.
 
 ## References
 
@@ -179,3 +199,10 @@ declarations has established only its static capability and effect boundary.
   `examples/specification/check/filesystem-io-opaque-identities/`.
 - Private compiler-adapter boundary:
   `examples/specification/check/filesystem-io-private-adapters/`.
+- `ReadFile` registration, missing-handler rejection, slot preservation, and
+  projection behavior:
+  [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
+  with scoped fakes in
+  [`io_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_test_support_test.veln).
+- JVM validation-before-publication and retained owner/slot adapter invariant:
+  [`io_provider.rs`](../../crates/veln-backend-jvm/src/tests/io_provider.rs).

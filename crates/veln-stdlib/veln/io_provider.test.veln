@@ -1,0 +1,107 @@
+use fs
+use io
+use io_provider
+use io_provider_test_support_test
+
+fn complete_registration(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read() with io_provider_test_support_test::seek() with io_provider_test_support_test::read_at() with io_provider_test_support_test::close()
+end
+
+fn without_read(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::seek() with io_provider_test_support_test::read_at() with io_provider_test_support_test::close()
+end
+
+fn without_seek(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read() with io_provider_test_support_test::read_at() with io_provider_test_support_test::close()
+end
+
+fn without_read_at(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read() with io_provider_test_support_test::seek() with io_provider_test_support_test::close()
+end
+
+fn without_close(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read() with io_provider_test_support_test::seek() with io_provider_test_support_test::read_at()
+end
+
+fn is_unsupported(result: Result<io_provider::Resource, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn registration_succeeded(result: Result<io_provider::Resource, io::Error>) -> Bool
+	match result
+		Ok(_) => true
+		Err(_) => false
+	end
+end
+
+fn slot_matches(result: Result<Int, io::Error>, expected: Int) -> Bool
+	match result
+		Ok(actual) => actual == expected
+		Err(_) => false
+	end
+end
+
+fn projected_slots_match(owner: io_provider::Owner, resource: io_provider::Resource, slot: Int) -> Bool effects [concurrency]
+	match io_provider::read_file(resource)
+		Ok(fs::ReadFile::ReadFile(reader, seeker, reader_at, closer)) => slot_matches(io_provider::slot(owner, resource), slot) and slot_matches(io_provider::reader_slot(owner, reader), slot) and slot_matches(io_provider::seeker_slot(owner, seeker), slot) and slot_matches(io_provider::reader_at_slot(owner, reader_at), slot) and slot_matches(io_provider::closer_slot(owner, closer), slot)
+		_ => false
+	end
+end
+
+fn registration_and_projection_observations() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 41
+	match complete_registration(owner, slot)
+		Ok(resource) => if not projected_slots_match(owner, resource, slot)
+			Err("ReadFile projection did not retain the resource owner and slot")
+		else
+			match io_provider::duplex(resource)
+				Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => if projected_slots_match(owner, resource, slot)
+					Ok(())
+				else
+					Err("failed Duplex projection changed the ReadFile resource")
+				end
+				_ => Err("ReadFile resource accepted an incompatible Duplex projection")
+			end
+		end
+		Err(_) => Err("complete ReadFile registration failed")
+	end
+end
+
+fn missing_handlers_preserve_slots() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	if not is_unsupported(without_read(owner, 51)) or not registration_succeeded(complete_registration(owner, 51))
+		Err("missing io::Read did not reject before publication")
+	else if not is_unsupported(without_seek(owner, 52)) or not registration_succeeded(complete_registration(owner, 52))
+		Err("missing io::Seek did not reject before publication")
+	else if not is_unsupported(without_read_at(owner, 53)) or not registration_succeeded(complete_registration(owner, 53))
+		Err("missing io::ReadAt did not reject before publication")
+	else if not is_unsupported(without_close(owner, 54)) or not registration_succeeded(complete_registration(owner, 54))
+		Err("missing io::Close did not reject before publication")
+	else
+		Ok(())
+	end
+end
+
+fn negative_slot_is_rejected() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	match complete_registration(owner, -1)
+		Err(io::Error::Error(_, io::ErrorKind::InvalidInput, _, _, _, _, _)) => Ok(())
+		_ => Err("ReadFile registration accepted a negative private slot")
+	end
+end
+
+test read_file_registration_and_projection_retain_identity() -> Result<(), String> effects [concurrency]
+	handle registration_and_projection_observations() with io_provider::scope()
+end
+
+test missing_handlers_reject_before_publication_without_poisoning_slots() -> Result<(), String> effects [concurrency]
+	handle missing_handlers_preserve_slots() with io_provider::scope()
+end
+
+test read_file_registration_rejects_negative_private_slots() -> Result<(), String> effects [concurrency]
+	handle negative_slot_is_rejected() with io_provider::scope()
+end

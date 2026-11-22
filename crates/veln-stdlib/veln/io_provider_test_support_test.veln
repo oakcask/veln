@@ -1,0 +1,20 @@
+use io
+
+pub handler read() for io::Read
+	read(reader, maximum) => io::ReadOutcome::End
+end
+
+pub handler seek() for io::Seek
+	seek(seeker, origin) => match origin
+		io::SeekOrigin::Start(offset) => Ok(offset)
+		_ => Err(io::Error::Error("seek", io::ErrorKind::Unsupported, None, None, None, None, "fake seek supports only absolute offsets"))
+	end
+end
+
+pub handler read_at() for io::ReadAt
+	read_at(reader, offset, maximum) => io::ReadOutcome::End
+end
+
+pub handler close() for io::Close
+	close(closer) => io::CloseOutcome::Closed
+end

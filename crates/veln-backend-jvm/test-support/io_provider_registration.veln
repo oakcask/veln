@@ -1,0 +1,67 @@
+use fs from "std"
+use io from "std"
+use io_provider from "std"
+
+handler read_handler() for io::Read
+	read(reader, maximum) => io::ReadOutcome::End
+end
+
+handler seek_handler() for io::Seek
+	seek(seeker, origin) => match origin
+		io::SeekOrigin::Start(offset) => Ok(offset)
+		_ => Err(io::Error::Error("seek", io::ErrorKind::Unsupported, None, None, None, None, "unused fake seek"))
+	end
+end
+
+handler read_at_handler() for io::ReadAt
+	read_at(reader, offset, maximum) => io::ReadOutcome::End
+end
+
+handler close_handler() for io::Close
+	close(closer) => io::CloseOutcome::Closed
+end
+
+fn complete(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with read_handler() with seek_handler() with read_at_handler() with close_handler()
+end
+
+fn missing_close(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with read_handler() with seek_handler() with read_at_handler()
+end
+
+fn slot_is(result: Result<Int, io::Error>, expected: Int) -> Bool
+	match result
+		Ok(actual) => actual == expected
+		Err(_) => false
+	end
+end
+
+fn projection_retains_identity(owner: io_provider::Owner, resource: io_provider::Resource, slot: Int) -> Bool effects [concurrency]
+	match io_provider::read_file(resource)
+		Ok(fs::ReadFile::ReadFile(reader, seeker, reader_at, closer)) => slot_is(io_provider::slot(owner, resource), slot) and slot_is(io_provider::reader_slot(owner, reader), slot) and slot_is(io_provider::seeker_slot(owner, seeker), slot) and slot_is(io_provider::reader_at_slot(owner, reader_at), slot) and slot_is(io_provider::closer_slot(owner, closer), slot)
+		Err(_) => false
+	end
+end
+
+fn observations() -> () effects [io_provider::Scope, concurrency, stdio]
+	let owner = io_provider::owner()
+	let slot = 73
+	match missing_close(owner, slot)
+		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => match complete(owner, slot)
+			Ok(resource) => match io_provider::duplex(resource)
+				Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => if projection_retains_identity(owner, resource, slot)
+					stdio::println("validation-before-publication and retained owner/slot identity held")
+				else
+					stdio::println("identity invariant failed")
+				end
+				_ => stdio::println("incompatible projection was accepted")
+			end
+			Err(_) => stdio::println("rejected registration poisoned the slot")
+		end
+		_ => stdio::println("missing Close was not rejected")
+	end
+end
+
+pub fn main() -> () effects [concurrency, stdio]
+	handle observations() with io_provider::scope()
+end

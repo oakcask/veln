@@ -37,6 +37,7 @@ mod deferred_cleanup;
 mod effect_boundary_policy;
 mod effect_injection;
 mod harness_constants;
+mod io_provider;
 mod java_helpers_and_mapping;
 mod result_diagnostic_harness;
 mod runtime_integration;
