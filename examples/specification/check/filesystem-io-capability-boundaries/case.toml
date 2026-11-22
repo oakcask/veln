@@ -1,8 +1,20 @@
-command = ["check", "main.veln"]
+command = ["check", "--json", "main.veln"]
 exit = 1
 
 [stdout]
-contains = ["type.mismatch"]
+format = "json"
 
 [stderr]
 format = "empty"
+
+[[json_assert]]
+path = "summary.by_kind.type"
+equals = 18
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.17.id"
+equals = "type.mismatch"

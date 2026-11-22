@@ -16,3 +16,19 @@ end
 pub fn projections_remain_distinct(resource: io_provider::Resource) -> Result<fs::WriteFile, io::Error>
 	io_provider::read_file(resource)
 end
+
+pub fn write_projection_is_not_read(resource: io_provider::Resource) -> Result<fs::ReadFile, io::Error>
+	io_provider::write_file(resource)
+end
+
+pub fn update_projection_is_not_append(resource: io_provider::Resource) -> Result<fs::AppendFile, io::Error>
+	io_provider::update_file(resource)
+end
+
+pub fn append_projection_is_not_update(resource: io_provider::Resource) -> Result<fs::UpdateFile, io::Error>
+	io_provider::append_file(resource)
+end
+
+pub fn duplex_projection_is_not_read_file(resource: io_provider::Resource) -> Result<fs::ReadFile, io::Error>
+	io_provider::duplex(resource)
+end

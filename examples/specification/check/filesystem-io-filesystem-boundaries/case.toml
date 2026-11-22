@@ -1,8 +1,20 @@
-command = ["check", "main.veln"]
+command = ["check", "--json", "main.veln"]
 exit = 1
 
 [stdout]
-contains = ["expected `MutableFilesystem`, but found `Filesystem`", "expected `Result<MutableFilesystem, Error>`, but found `Result<Filesystem, Error>`", "expected `Result<Filesystem, Error>`, but found `Result<MutableFilesystem, Error>`", "expected `Result<WriteFile, Error>`, but found `Result<ReadFile, Error>`"]
+format = "json"
 
 [stderr]
 format = "empty"
+
+[[json_assert]]
+path = "summary.by_kind.type"
+equals = 8
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.7.id"
+equals = "type.mismatch"

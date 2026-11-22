@@ -286,44 +286,22 @@ support exists.
 
 ### Source Surface And Static Capabilities
 
-The following table defines the implemented static declarations and the
-planned runtime contract behind them. `Result`, single-variant file-view ADTs,
-other ADTs, and nominal effects use existing Veln features. Opaque provider and
-capability values use compiler-known identities, but allocation and dispatch
-still require the runtime extension below. No capability can be constructed by
-casting a number or a host object.
+The compiler-checked declarations, opaque identities, file views, effects,
+factories, projections, and slot accessors are implemented and specified by
+[Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
+This proposal no longer owns that static contract.
 
-| Namespace | Source signatures and effects |
-| --- | --- |
-| Filesystem selection | `fs::system(root: Path) -> Result<fs::MutableFilesystem, io::Error> effects [fs::Host, io_provider::Scope]`; `fs::read_only(fs: fs::MutableFilesystem) -> fs::Filesystem` is pure. `fs::system_handler()` handles `fs::Host` and exposes coarse `fs` plus `concurrency` for owner registration; creating a fake filesystem does not require `fs::Host`. |
-| Namespace read effect `fs::Read` | `open_read(fs: fs::Filesystem, path: path::Path) -> Result<fs::ReadFile, io::Error>`; `metadata(fs: fs::Filesystem, path: path::Path, follow: fs::FollowLinks) -> Result<fs::Metadata, io::Error>`; `entries(fs: fs::Filesystem, path: path::Path) -> Result<List<fs::Entry>, io::Error>`. Public facade functions have the same operands/results and effect `[fs::Read]`. |
-| Namespace mutation effect `fs::Mutate` | `open_write(fs: fs::MutableFilesystem, path: path::Path, mode: fs::WriteMode) -> Result<fs::WriteFile, io::Error>`; `open_read_write(fs: fs::MutableFilesystem, path: path::Path, mode: fs::UpdateMode) -> Result<fs::UpdateFile, io::Error>`; `open_append(fs: fs::MutableFilesystem, path: path::Path, create: fs::CreateMode) -> Result<fs::AppendFile, io::Error>`; `create_directory(fs: fs::MutableFilesystem, path: path::Path)`, `remove_file(fs: fs::MutableFilesystem, path: path::Path)`, `remove_directory(fs: fs::MutableFilesystem, path: path::Path)`, and `rename(fs: fs::MutableFilesystem, from: path::Path, to: path::Path)` return `fs::MutationOutcome`. Facades expose `[fs::Mutate]`. |
-| Byte read/write | `io::read(reader: io::Reader, maximum: ByteCount) -> io::ReadOutcome effects [io::Read]`; `io::write(writer: io::Writer, bytes: ByteChunk) -> io::WriteOutcome effects [io::Write]`. Each nominal effect declares the matching operation with the same operand/result types. |
-| Cursor and positional IO | `io::seek(seeker: io::Seeker, origin: io::SeekOrigin) -> Result<ByteOffset, io::Error> effects [io::Seek]`; `io::read_at(reader: io::ReaderAt, offset: ByteOffset, maximum: ByteCount) -> io::ReadOutcome effects [io::ReadAt]`; `io::write_at(writer: io::WriterAt, offset: ByteOffset, bytes: ByteChunk) -> io::WriteOutcome effects [io::WriteAt]`. Each effect declares the matching operation. |
-| Lifetime and storage | `io::close(closer: io::Closer) -> io::CloseOutcome effects [io::Close]`; `io::sync(syncer: io::Syncer) -> Result<(), io::Error> effects [io::Sync]`; `fs::truncate(file: fs::Truncater, size: ByteOffset) -> fs::MutationOutcome effects [fs::Mutate]`. Close and sync effects declare the matching operation. |
-| Complete transfers | `io::read_exact(reader: io::Reader, count: ByteCount) -> io::ExactOutcome effects [io::Read]`; `io::write_all(writer: io::Writer, bytes: ByteChunk) -> io::WriteOutcome effects [io::Write]`; `io::copy(reader: io::Reader, writer: io::Writer, chunk_size: ByteCount) -> io::CopyOutcome effects [io::Read, io::Write]`. |
+Runtime implementation must make every field returned by one open refer to the
+same resource. It must not grant a capability absent from the requested file
+view or upgrade a read-only filesystem. If a provider cannot supply an entire
+requested view, it must return `Unsupported`, release any partial host open,
+and avoid publishing a partial view. Network adapters must publish only their
+declared reader, writer, and closer views.
 
-`ReadFile` is a record containing `reader: io::Reader`, `seeker: io::Seeker`,
-`reader_at: io::ReaderAt`, and `closer: io::Closer`. `WriteFile` contains
-`writer: io::Writer`, `seeker: io::Seeker`, `writer_at: io::WriterAt`,
-`closer: io::Closer`, `syncer: io::Syncer`, and `truncater: fs::Truncater`.
-`UpdateFile` contains all six byte views plus `syncer` and `truncater`.
-`AppendFile` contains only `writer`, `closer`, and `syncer`. All fields of
-one open refer to the same resource. No view grants a capability absent from
-its creation rights. A read-only filesystem cannot be upgraded to mutable.
-
-The type boundary rejects a missing capability. When a provider cannot supply
-an entire requested open record, open returns `Unsupported` and releases any
-partial host open. It must not publish a partially usable record. Network
-adapters publish only reader, writer, and closer views. Optional future
-capability discovery does not belong to the first API.
-
-`CreateMode` is `Existing`, `CreateIfMissing`, or `CreateNew`. `WriteMode` and
-`UpdateMode` each carry a `CreateMode` and a `truncate: Bool`; `CreateNew` with
-truncate is rejected as redundant before host access. Append has a separate
-entry point and cannot request read, truncate, seek, or positional-write views.
-`SeekOrigin` is `Start(ByteOffset)`, `Current(Int)`, or `End(Int)`.
-`FollowLinks` is `Follow` or `NoFollow`.
+Runtime mode validation must reject create-new with truncation before host
+access. Append must remain a separate entry point and must not grant read,
+truncate, seek, or positional-write views. Optional capability discovery is
+outside the initial API.
 
 ### Provider-Bound Dispatch Prerequisite
 
@@ -333,32 +311,26 @@ ordinary nominal dispatch already provides resource-bound routing. Existing
 general Veln-only provider allocation API. Do not reuse their network bridge
 or invent an unimplemented trait or closure representation.
 
-The extension supplies these proposed source entry points in `io_provider`:
+The implemented `io_provider` entry points still require these runtime
+observations:
 
 | Entry point | Required observation |
 | --- | --- |
-| `Owner`, `Resource` | Opaque identity-bearing types, preserved across task freezing. Only the allocation functions can produce them. |
-| `owner() -> Owner effects [io_provider::Scope]` | Returns the owner of the nearest installed `io_provider::scope()` handler. That handler implements nominal effect `Scope`, creates a fresh owner per application, and releases it at handler exit. Ordinary helper returns do not close the owner. No implicit process-global scope. |
-| `filesystem(owner: Owner, slot: Int) -> Result<fs::Filesystem, io::Error>` and `mutable_filesystem(owner: Owner, slot: Int) -> Result<fs::MutableFilesystem, io::Error>`, both `effects [concurrency]` | Publish a filesystem bound to the provider's active namespace handlers. Only the mutable factory grants mutation rights; the read-only factory needs no mutation handler. |
-| `resource(owner: Owner, slot: Int, family: ViewFamily) -> Result<Resource, io::Error> effects [concurrency]` | Registers one resource with exactly the operations of its declared view family and captures those active handlers, including close. No host file or socket is opened. The provider uses a nonnegative private slot to address its own Veln state. |
-| `read_file(resource: Resource)`, `write_file(resource: Resource)`, `update_file(resource: Resource)`, `append_file(resource: Resource)`, `duplex(resource: Resource)` | Return `Result<file-record, io::Error>` of the corresponding file record, or `Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error>` for duplex; these projections are pure; incompatible families fail with `Unsupported`. Missing handlers yield `Unsupported`; no host fallback. |
-| `slot(owner: Owner, resource: Resource) -> Result<Int, io::Error> effects [concurrency]` | Returns the private slot only for the matching owner while usable or while its registered close handler is releasing it; wrong-owner access yields `InvalidResource`. Integer equality is never a public resource identity test. |
+| `Owner` and `Resource` | Preserve identity across task freezing. Only the allocation functions can produce them. |
+| `owner` and `scope` | Return the owner of the nearest installed scope handler. Each handler application creates a fresh owner and releases it at handler exit. Ordinary helper returns do not close the owner. No implicit process-global scope exists. |
+| `filesystem` and `mutable_filesystem` | Publish a filesystem bound to the provider's active namespace handlers. Only the mutable factory grants mutation rights; the read-only factory needs no mutation handler. |
+| `resource` | Register one resource with exactly the operations of its declared view family and capture those active handlers, including close. Do not open a host file or socket. Use the nonnegative private slot to address provider-owned Veln state. |
+| File-view and duplex projections | Return the corresponding declared view for a compatible family. Reject incompatible families and missing handlers with `Unsupported`; do not fall back to the host. |
+| `slot` | Return the private slot only for the matching owner while usable or while its registered close handler is releasing it. Reject wrong-owner access with `InvalidResource`. Integer equality is never a public resource identity test. |
 
-`ViewFamily` is `ReadFile`, `WriteFile`, `UpdateFile`, `AppendFile`, or
-`Duplex`. Registration requires every handler in that family, grants no other
-operations, and rejects missing operations before publication. Filesystem
-slots have corresponding accessors `filesystem_slot(owner: Owner, filesystem: fs::Filesystem) ->
-Result<Int, io::Error> effects [concurrency]` and
-`mutable_filesystem_slot(owner: Owner, filesystem: fs::MutableFilesystem) ->
-Result<Int, io::Error> effects [concurrency]`, with the same owner checks as
-`slot`. Namespace tokens cannot be used as byte resource tokens.
-Operation handlers receive capability views, not the underlying `Resource`.
-Provider-only slot access therefore also uses `reader_slot(owner: Owner,
-reader: io::Reader) -> Result<Int, io::Error> effects [concurrency]` and
-corresponding `writer_slot`, `seeker_slot`, `reader_at_slot`, `writer_at_slot`,
-`closer_slot`, `syncer_slot`, and `truncater_slot` functions, each taking its
-matching nominal view. All enforce the same owner check. There is no public
-view-to-Resource conversion that could upgrade a restricted capability.
+Registration must require every handler in the selected `ViewFamily`, grant no
+other operations, and reject missing operations before publication. The
+filesystem and mutable-filesystem slot accessors must apply the same owner
+checks as the resource slot accessor. Namespace tokens cannot be used as byte
+resource tokens. The capability slot accessors must accept only their matching
+nominal view and apply the same owner check. Operation handlers receive these
+views, not the underlying `Resource`; no public view-to-resource conversion may
+upgrade a restricted capability.
 
 The same runtime extension supplies `State<T>` and two operations:
 

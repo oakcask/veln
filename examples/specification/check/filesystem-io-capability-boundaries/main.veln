@@ -1,10 +1,29 @@
 use fs from "std"
 use io from "std"
+use io_provider from "std"
 
-pub fn wrong_capabilities(reader: io::Reader, writer: io::Writer, seeker: io::Seeker, closer: io::Closer, bytes: ByteChunk, count: ByteCount) -> () effects [io::Read, io::Write, io::Seek, io::Close]
+pub fn wrong_capabilities(reader: io::Reader, writer: io::Writer, seeker: io::Seeker, reader_at: io::ReaderAt, writer_at: io::WriterAt, closer: io::Closer, syncer: io::Syncer, truncater: fs::Truncater, bytes: ByteChunk, count: ByteCount, offset: ByteOffset) -> () effects [io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, fs::Mutate]
 	let _ = io::read(writer, count)
 	let _ = io::write(reader, bytes)
 	let _ = io::seek(closer, io::SeekOrigin::Current(0))
+	let _ = io::read_at(writer_at, offset, count)
+	let _ = io::write_at(reader_at, offset, bytes)
 	let _ = io::close(seeker)
+	let _ = io::sync(truncater)
+	let _ = fs::truncate(syncer, offset)
+	()
+end
+
+pub fn wrong_provider_capabilities(owner: io_provider::Owner, filesystem: fs::Filesystem, mutable: fs::MutableFilesystem, reader: io::Reader, writer: io::Writer, seeker: io::Seeker, reader_at: io::ReaderAt, writer_at: io::WriterAt, closer: io::Closer, syncer: io::Syncer, truncater: fs::Truncater) -> () effects [concurrency]
+	let _ = io_provider::filesystem_slot(owner, mutable)
+	let _ = io_provider::mutable_filesystem_slot(owner, filesystem)
+	let _ = io_provider::reader_slot(owner, writer)
+	let _ = io_provider::writer_slot(owner, reader)
+	let _ = io_provider::seeker_slot(owner, closer)
+	let _ = io_provider::reader_at_slot(owner, writer_at)
+	let _ = io_provider::writer_at_slot(owner, reader_at)
+	let _ = io_provider::closer_slot(owner, seeker)
+	let _ = io_provider::syncer_slot(owner, truncater)
+	let _ = io_provider::truncater_slot(owner, syncer)
 	()
 end

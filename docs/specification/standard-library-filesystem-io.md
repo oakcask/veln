@@ -22,8 +22,6 @@ use io from "std"
 use io_provider from "std"
 ```
 
-The complete checked surface is exercised by the specification cases listed
-under [References](#references).
 The byte facades and their nominal effects are:
 
 | Effect | Facade signature |
@@ -41,12 +39,66 @@ in their declared effect rows. Their result types preserve the proposed data,
 progress, and error alternatives through `ReadOutcome`, `WriteOutcome`,
 `ExactOutcome`, and `CopyOutcome`.
 
-`fs::Read` declares `open_read`, `metadata`, and `entries` over
-`fs::Filesystem`. `fs::Mutate` declares writable opens, directory creation,
-removal, rename, and truncation over `fs::MutableFilesystem` or
-`fs::Truncater`. Portable names use `path::Path`. Host selection uses
-`fs::system(Path)` with `fs::Host`; `fs::system_handler()` discharges that
-nominal effect and retains coarse `fs` plus `concurrency`.
+The complete-transfer facade signatures are:
+
+| Function | Signature |
+| --- | --- |
+| `io::read_exact` | `(Reader, ByteCount) -> ExactOutcome effects [io::Read]` |
+| `io::write_all` | `(Writer, ByteChunk) -> WriteOutcome effects [io::Write]` |
+| `io::copy` | `(Reader, Writer, ByteCount) -> CopyOutcome effects [io::Read, io::Write]` |
+
+The static outcome types preserve partial data and progress explicitly:
+
+| Type | Variants |
+| --- | --- |
+| `Progress` | `Known(ByteCount)`, `Unknown(ByteCount)` |
+| `Commit` | `No`, `Yes`, `Unknown` |
+| `ReadOutcome` | `Data(ByteChunk)`, `End`, `ReadFailed(ByteChunk, Progress, Error)` |
+| `WriteOutcome` | `Written(ByteCount)`, `WriteFailed(Progress, Error)` |
+| `ExactOutcome` | `Complete(ByteChunk)`, `Short(ByteChunk)`, `ExactFailed(ByteChunk, Progress, Error)` |
+| `CopyOutcome` | `Copied(ByteCount)`, `CopyFailed(Progress, Progress, Error)` |
+| `CloseOutcome` | `Closed`, `CloseFailed(Commit, Error)` |
+| `SeekOrigin` | `Start(ByteOffset)`, `Current(Int)`, `End(Int)` |
+
+`Error` retains an operation, `ErrorKind`, optional primary and secondary
+portable paths, optional network error, optional commit fact, and a message.
+`ErrorKind` can be `InvalidInput`, `NotFound`, `AlreadyExists`,
+`PermissionDenied`, `NotDirectory`, `IsDirectory`, `DirectoryNotEmpty`,
+`LinkLoop`, `UnrepresentablePath`, `CrossFilesystem`, `Unsupported`, `Closed`,
+`Busy`, `InvalidResource`, `Cancelled`, `NoProgress`, or `Other`. These are
+declarations only; the [runtime limit](#runtime-limit) means no filesystem or
+byte operation currently produces these outcomes at runtime.
+
+`fs::Read` and `fs::Mutate` separate namespace reads from mutation. Portable
+names use `path::Path`. Their facade signatures are:
+
+| Effect | Facade signature |
+| --- | --- |
+| `fs::Read` | `open_read(Filesystem, path::Path) -> Result<ReadFile, io::Error>` |
+| `fs::Read` | `metadata(Filesystem, path::Path, FollowLinks) -> Result<Metadata, io::Error>` |
+| `fs::Read` | `entries(Filesystem, path::Path) -> Result<List<Entry>, io::Error>` |
+| `fs::Mutate` | `open_write(MutableFilesystem, path::Path, WriteMode) -> Result<WriteFile, io::Error>` |
+| `fs::Mutate` | `open_read_write(MutableFilesystem, path::Path, UpdateMode) -> Result<UpdateFile, io::Error>` |
+| `fs::Mutate` | `open_append(MutableFilesystem, path::Path, CreateMode) -> Result<AppendFile, io::Error>` |
+| `fs::Mutate` | `create_directory(MutableFilesystem, path::Path) -> MutationOutcome` |
+| `fs::Mutate` | `remove_file(MutableFilesystem, path::Path) -> MutationOutcome` |
+| `fs::Mutate` | `remove_directory(MutableFilesystem, path::Path) -> MutationOutcome` |
+| `fs::Mutate` | `rename(MutableFilesystem, path::Path, path::Path) -> MutationOutcome` |
+| `fs::Mutate` | `truncate(Truncater, ByteOffset) -> MutationOutcome` |
+
+`CreateMode` is `Existing`, `CreateIfMissing`, or `CreateNew`. `WriteMode` and
+`UpdateMode` each contain a `CreateMode` and a `Bool` truncate flag.
+`FollowLinks` is `Follow` or `NoFollow`. `MutationOutcome` is `Applied` or
+`MutationFailed(io::Commit, io::Error)`. `Metadata` contains a `Kind` and an
+optional byte length. `Entry` contains a portable name and a `Kind`; `Kind` is
+`RegularFile`, `Directory`, `SymbolicLink`, or `Other`.
+
+Host selection uses
+`fs::system(Path) -> Result<MutableFilesystem, io::Error> effects [fs::Host,
+io_provider::Scope]`. `fs::system_handler()` discharges `fs::Host` and retains
+coarse `fs` plus `concurrency`. `fs::read_only(MutableFilesystem) ->
+Filesystem` is the only static projection from a mutable filesystem token to a
+read-only token.
 
 The file-view declarations carry these capability fields:
 
@@ -62,11 +114,20 @@ alias syntax. Their constructor payload names preserve the file-view field
 contract. Possessing those records does not create or upgrade any opaque
 capability value.
 
-`io_provider` exposes opaque `Owner` and `Resource` identities, a nominal
-`Scope` effect and `scope()` handler, distinct read-only and mutable filesystem
-factories, a `ViewFamily` registration selector, file-view and duplex
-projections, and owner-checked slot accessor signatures for every token and
-capability family.
+`io_provider` exposes the check-only adapter surface below. The factories and
+both slot groups retain `concurrency`; `owner` requires `Scope`, the `scope`
+handler retains `concurrency`, and the resource projections are pure.
+
+| Group | Signatures |
+| --- | --- |
+| Scope and factories | `owner() -> Owner effects [Scope]`; `scope()` handles `Scope` with `concurrency`; `filesystem(Owner, Int) -> Result<fs::Filesystem, io::Error>`; `mutable_filesystem(Owner, Int) -> Result<fs::MutableFilesystem, io::Error>`; `resource(Owner, Int, ViewFamily) -> Result<Resource, io::Error>` |
+| Resource projections | `read_file(Resource) -> Result<fs::ReadFile, io::Error>`; `write_file(Resource) -> Result<fs::WriteFile, io::Error>`; `update_file(Resource) -> Result<fs::UpdateFile, io::Error>`; `append_file(Resource) -> Result<fs::AppendFile, io::Error>`; `duplex(Resource) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error>` |
+| Identity slots | `slot(Owner, Resource) -> Result<Int, io::Error>`; `filesystem_slot(Owner, fs::Filesystem) -> Result<Int, io::Error>`; `mutable_filesystem_slot(Owner, fs::MutableFilesystem) -> Result<Int, io::Error>` |
+| Capability slots | `reader_slot(Owner, io::Reader)`, `writer_slot(Owner, io::Writer)`, `seeker_slot(Owner, io::Seeker)`, `reader_at_slot(Owner, io::ReaderAt)`, `writer_at_slot(Owner, io::WriterAt)`, `closer_slot(Owner, io::Closer)`, `syncer_slot(Owner, io::Syncer)`, and `truncater_slot(Owner, fs::Truncater)` each return `Result<Int, io::Error>` |
+
+`ViewFamily` is `ReadFile`, `WriteFile`, `UpdateFile`, `AppendFile`, or
+`Duplex`. The registration selector does not add capabilities by itself; the
+runtime behavior needed to bind a resource to handlers is not implemented.
 
 ## Capability boundaries
 
