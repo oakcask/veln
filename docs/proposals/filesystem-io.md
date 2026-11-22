@@ -253,7 +253,8 @@ per-open lifecycle, synchronized state, and scripted failures.
 ## Acceptance Model
 
 Except for the checked static source and capability boundary and the bounded
-`ReadFile` registration and projection slice, the evidence below is planned.
+`ReadFile` and `AppendFile` registration and projection slices, the evidence
+below is planned.
 Expected byte sequences and state transitions come from the contracts and
 decision tables in this proposal, not from copying the implementation's
 output. Fake tests do not establish real host behavior.

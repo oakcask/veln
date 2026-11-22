@@ -33,9 +33,12 @@ subset.
 
 The descriptor-backed subset covers stdio effect metadata, concurrency effect
 metadata, minimal `fs`, `time`, and `process` intrinsics, observation-export
-adapters, private network host adapters, private filesystem IO static adapters,
+adapters, private network host adapters, private filesystem IO adapters,
 private production metric-index adapters, and opaque network and filesystem IO
 resource type identities.
+The private filesystem IO adapter surface and its runtime-readiness boundary
+are specified by
+[Standard-library filesystem and byte IO](standard-library-filesystem-io.md).
 Public network operations are ordinary declarations in the exported
 `std::net` module, not compiler-known descriptors. The resource descriptors
 have no constructors and allow exported standard-package aliases to name host
