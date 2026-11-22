@@ -550,6 +550,7 @@
         private volatile boolean networkSystemClosed;
         private int networkSystemProducers;
         private long networkResourceReleaseWork;
+        private IoOwner ioOwner;
         private final java.util.Map<NetworkResourceIdentity, Object> networkResources =
             new java.util.LinkedHashMap<NetworkResourceIdentity, Object>();
 

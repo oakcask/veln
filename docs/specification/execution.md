@@ -121,6 +121,16 @@ cancellation stops the waiting system-handler call before join reports
 cancellation. A platform resolver that ignores interruption can remain active
 within the handler's finite resolver capacity.
 
+The JVM runtime also provides the private adapters for the bounded
+`io_provider` prototype. Within an active provider scope, the adapters can
+register a `ReadFile` resource against the active read, seek, positional-read,
+and close handler frames. They retain the provider owner and private slot in
+the resource and its projected capabilities. They do not dispatch operations,
+open host resources, or implement owner cleanup. The
+[standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#readfile-runtime-prototype)
+owns the source-visible registration, projection, failure, and runtime-limit
+contract.
+
 The JVM runtime also provides the bounded metric-series index reached by the
 embedded standard package through private `production_metric_index_*`
 compiler adapters. Application source cannot resolve those adapters as bare

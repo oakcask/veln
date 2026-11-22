@@ -18,6 +18,7 @@ const RUNTIME_FRAGMENTS: &[&str] = &[
     "concurrency.java.inc",
     "observability.java.inc",
     "effects.java.inc",
+    "filesystem_io.java.inc",
     "accessors.java.inc",
     "collections.java.inc",
     "option_result.java.inc",

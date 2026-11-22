@@ -1,0 +1,33 @@
+use prelude
+use io
+
+pub handler read(calls: Sender<String>) for io::Read effects [concurrency]
+	read(reader, maximum) => begin
+		let _ = channel::send(calls, "read")
+		io::ReadOutcome::End
+	end
+end
+
+pub handler seek(calls: Sender<String>) for io::Seek effects [concurrency]
+	seek(seeker, origin) => begin
+		let _ = channel::send(calls, "seek")
+		match origin
+			io::SeekOrigin::Start(offset) => Ok(offset)
+			_ => Err(io::Error::Error("seek", io::ErrorKind::Unsupported, None, None, None, None, "fake seek supports only absolute offsets"))
+		end
+	end
+end
+
+pub handler read_at(calls: Sender<String>) for io::ReadAt effects [concurrency]
+	read_at(reader, offset, maximum) => begin
+		let _ = channel::send(calls, "read_at")
+		io::ReadOutcome::End
+	end
+end
+
+pub handler close(calls: Sender<String>) for io::Close effects [concurrency]
+	close(closer) => begin
+		let _ = channel::send(calls, "close")
+		io::CloseOutcome::Closed
+	end
+end

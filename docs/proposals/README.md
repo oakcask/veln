@@ -16,11 +16,12 @@ also states it.
 
 ## Ready
 
-- [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete F1
-  runtime registration and family-projection evidence, then F2–F5 evidence for
-  provider-bound dispatch, atomic Veln state, transfer outcomes, and cleanup.
-  The F1 static source and capability boundary is implemented; the target does
-  not require the production filesystem API to be implemented first.
+- [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete the
+  remaining F1 resource families and compatibility evidence, then F2–F5
+  evidence for provider-bound dispatch, atomic Veln state, transfer outcomes,
+  and cleanup. The F1 static boundary and bounded `ReadFile` registration and
+  projection slice are implemented; the target does not require the
+  production filesystem API to be implemented first.
 
 ## Design In Progress
 
