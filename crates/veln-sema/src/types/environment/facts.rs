@@ -1,6 +1,6 @@
 use super::super::signature_collection::{
-    canonicalize_effect_signature_types, effect_signatures, handler_signatures,
-    ordinary_function_signatures,
+    FunctionSignaturePurpose, canonicalize_effect_signature_types, effect_signatures,
+    handler_signatures, ordinary_function_signatures,
 };
 use super::*;
 
@@ -166,7 +166,12 @@ fn from_module_for_path_classification_with_base_classified(
     base: Option<&TypeEnvironment>,
 ) -> TypeEnvironment {
     let declarations = declaration_facts(module, base);
-    let mut callables = declared_callable_facts(module, base, &declarations);
+    let mut callables = declared_callable_facts(
+        module,
+        base,
+        &declarations,
+        FunctionSignaturePurpose::PathClassification,
+    );
     append_schema_helpers(module, &mut callables.functions, &declarations.adts);
     finish_environment(module, base, declarations, callables)
 }
@@ -528,6 +533,7 @@ fn declared_callable_facts(
     module: &SurfaceModule,
     base: Option<&TypeEnvironment>,
     declarations: &DeclarationFacts,
+    purpose: FunctionSignaturePurpose,
 ) -> CallableFacts {
     let mut handlers = handler_signatures(
         module,
@@ -538,6 +544,7 @@ fn declared_callable_facts(
     extend_with_base_facts(&mut handlers, base.map(|base| &base.handlers));
     let mut functions = ordinary_function_signatures(
         module,
+        purpose,
         &declarations.effects,
         &declarations.adts,
         &declarations.companion_effect_access_targets,
@@ -560,7 +567,12 @@ fn callable_facts(
     let CallableFacts {
         mut functions,
         mut handlers,
-    } = declared_callable_facts(module, base, declarations);
+    } = declared_callable_facts(
+        module,
+        base,
+        declarations,
+        FunctionSignaturePurpose::TypeChecking,
+    );
     quarantine_invalid_variant_refinement_function_types(
         module,
         validation_environment,

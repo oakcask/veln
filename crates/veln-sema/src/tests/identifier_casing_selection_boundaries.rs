@@ -557,3 +557,28 @@ fn recovery_facts_cover_functions_aliases_and_constructors_together() {
         "{diagnostics:#?}"
     );
 }
+
+#[test]
+fn path_classification_does_not_recanonicalize_nested_function_annotations() {
+    let work = [16, 32, 64].map(|depth| {
+        let mut annotation = "Int".to_string();
+        for _ in 0..depth {
+            annotation = format!("Vec<{annotation}>");
+        }
+        let source = SourceFile::new(
+            "main.veln",
+            format!("fn keep(value: {annotation}) -> {annotation}\n  value\nend\n"),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty());
+        let module = lower_surface_ast(&parsed.tree);
+        crate::types::reset_type_canonicalization_visits();
+        let environment = TypeEnvironment::for_path_classification(&module);
+        let work = crate::types::take_type_canonicalization_visits();
+        assert_eq!(environment.function("keep").unwrap().params.len(), 1);
+        eprintln!("path classification: annotation depth={depth} canonicalizations={work}");
+        work
+    });
+    assert_eq!(work[0], work[1], "{work:?}");
+    assert_eq!(work[1], work[2], "{work:?}");
+}
