@@ -67,7 +67,7 @@ portable paths, optional network error, optional commit fact, and a message.
 `PermissionDenied`, `NotDirectory`, `IsDirectory`, `DirectoryNotEmpty`,
 `LinkLoop`, `UnrepresentablePath`, `CrossFilesystem`, `Unsupported`, `Closed`,
 `Busy`, `InvalidResource`, `Cancelled`, `NoProgress`, or `Other`. These are
-declarations only; the [runtime limit](#runtime-limit) means no filesystem or
+declarations only; the [runtime limits](#runtime-limits) mean no filesystem or
 byte operation currently produces these outcomes at runtime.
 
 `fs::Read` and `fs::Mutate` separate namespace reads from mutation. Portable
@@ -155,14 +155,16 @@ filesystem and projection separation, and opaque identities.
 
 ## ReadFile runtime prototype
 
-Within an active `io_provider::scope`, `io_provider::resource` accepts a
-nonnegative private slot for `ViewFamily::ReadFile` only when active Veln
-handlers provide `io::Read`, `io::Seek`, `io::ReadAt`, and `io::Close`. It
-captures those handlers without invoking them. If any handler is absent,
+Within an active `io_provider::scope`, `io_provider::resource` accepts an
+unused nonnegative private slot for `ViewFamily::ReadFile` only when active
+Veln handlers provide `io::Read`, `io::Seek`, `io::ReadAt`, and `io::Close`.
+It captures those handlers without invoking them. If any handler is absent,
 registration returns `io::ErrorKind::Unsupported` before publishing the
 resource. This failure performs no host filesystem or network fallback and
 does not consume the slot, so a complete registration can subsequently use
-the same owner and slot.
+the same owner and slot. A negative slot or a slot already registered to that
+owner returns `io::ErrorKind::InvalidInput`; a duplicate registration does not
+replace the existing resource.
 
 `io_provider::read_file` projects an accepted resource into reader, seeker,
 positional-reader, and closer capabilities. The resource and every projected
