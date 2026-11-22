@@ -157,7 +157,7 @@ declarations has established only its static capability and effect boundary.
 
 ## References
 
-- Complete accepted surface:
+- Complete accepted static surface:
   `examples/specification/check/filesystem-io-static-api/`.
 - Wrong and missing capability operands:
   `examples/specification/check/filesystem-io-capability-boundaries/` and
