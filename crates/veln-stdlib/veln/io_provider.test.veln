@@ -94,6 +94,25 @@ fn negative_slot_is_rejected() -> Result<(), String> effects [io_provider::Scope
 	end
 end
 
+fn duplicate_slot_preserves_original_resource() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 61
+	match complete_registration(owner, slot)
+		Ok(original) => match complete_registration(owner, slot)
+			Err(io::Error::Error(_, io::ErrorKind::InvalidInput, _, _, _, _, _)) => if not projected_slots_match(owner, original, slot)
+				Err("duplicate registration changed the original ReadFile resource")
+			else
+				match complete_registration(owner, slot)
+					Err(io::Error::Error(_, io::ErrorKind::InvalidInput, _, _, _, _, _)) => Ok(())
+					_ => Err("duplicate registration released the occupied provider slot")
+				end
+			end
+			_ => Err("ReadFile registration accepted a duplicate private slot")
+		end
+		Err(_) => Err("initial ReadFile registration failed")
+	end
+end
+
 test read_file_registration_and_projection_retain_identity() -> Result<(), String> effects [concurrency]
 	handle registration_and_projection_observations() with io_provider::scope()
 end
@@ -104,4 +123,8 @@ end
 
 test read_file_registration_rejects_negative_private_slots() -> Result<(), String> effects [concurrency]
 	handle negative_slot_is_rejected() with io_provider::scope()
+end
+
+test read_file_duplicate_registration_preserves_original_resource() -> Result<(), String> effects [concurrency]
+	handle duplicate_slot_preserves_original_resource() with io_provider::scope()
 end

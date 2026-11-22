@@ -21,14 +21,16 @@ Design In Progress until this work completes. This work does not depend on
 its production implementation or promotion to Ready.
 
 The following sections of the filesystem proposal define the prototype's
-design inputs. The static source boundary and the compiler-known adapter names
-and opaque identities are implemented. The remaining obligations are proposed
-runtime contracts, not implemented prerequisites:
+design inputs. The static source boundary, compiler-known adapter names and
+opaque identities, and bounded `ReadFile` registration and projection slice
+are implemented and specified by
+[Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
+The table lists only the remaining proposed obligations:
 
 | Design input | Prototype obligation |
 | --- | --- |
-| [Source surface and static capabilities](filesystem-io.md#source-surface-and-static-capabilities) | Check the declared records, nominal operations, factories, and restricted views. |
-| [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Retain the implemented adapter names and opaque identities while adding captured handlers, runtime owner admission, and atomic `State<T>` operations. |
+| [Source surface and static capabilities](filesystem-io.md#source-surface-and-static-capabilities) | Extend runtime registration and compatibility evidence to the remaining resource families. |
+| [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Invoke captured handlers through their registered resource, and add atomic `State<T>` operations. |
 | [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Preserve bytes, known and unknown progress, error context, and no-progress behavior. |
 | [Namespace, seek, and mutation transitions](filesystem-io.md#namespace-seek-and-mutation-transitions) | Observe successful and failed operations through bytes, cursors, bindings, and commit facts. |
 | [Concurrent operations and cleanup](filesystem-io.md#concurrent-operations-and-cleanup) | Preserve per-open admission, release obligations, aliases, and failure precedence. |
@@ -52,7 +54,7 @@ its positive observations and its failure or preserved-state observations.
 
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
-| F1: source and resource-family boundary | The declared file views, nominal operations, factories, projections, and slot accessors check with opaque compiler-known identities. Wrong or missing capability arguments fail, and provider factories retain distinct read-only/mutable types. Runtime registration enforces each implemented view family. | Static declarations and compiler type-boundary cases plus the implemented `ReadFile` registration/projection slice are specified by [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md). The remaining resource families and their compatibility observations remain planned. |
+| F1: remaining resource-family boundary | Registration enforces the handler set for every resource family other than the implemented `ReadFile` slice. Each supported and incompatible projection preserves the resource and its provider identity. | Companion registration and projection cases for `WriteFile`, `UpdateFile`, `AppendFile`, and `Duplex`, with focused backend checks for validation-before-publication and retained identity. |
 | F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. | Companion tests with distinct provider contents and operation logs; a backend dispatch case checks captured provider identity and absence of host fallback. |
 | F3: state and publication | Concurrent children, injected failure, and cancellation cannot strand the state cell lock or publish half a transition. Closing the owner rejects late publication and releases the late host resource. | Scoped Veln support plus backend atomic-state and owner-lifecycle cases. Force cancellation before entry and after commit; runtime callback failure preserves old state and releases the lock. Gate a host open across owner closure and observe release instead of publication, including retained cleanup failure. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
