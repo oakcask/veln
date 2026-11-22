@@ -123,11 +123,11 @@ within the handler's finite resolver capacity.
 
 The JVM runtime also provides the private adapters for the bounded
 `io_provider` prototype. Within an active provider scope, the adapters can
-register a `ReadFile` resource against the active read, seek, positional-read,
-and close handler frames. They retain the provider owner and private slot in
-the resource and its projected capabilities. They do not dispatch operations,
-open host resources, or implement owner cleanup. The
-[standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#readfile-runtime-prototype)
+register `ReadFile` and `AppendFile` resources against their required active
+IO handler frames. They retain the provider owner and private slot in each
+resource and its projected capabilities. They do not dispatch operations, open
+host resources, or implement owner cleanup. The
+[standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#readfile-and-appendfile-runtime-prototype)
 owns the source-visible registration, projection, failure, and runtime-limit
 contract.
 
