@@ -22,6 +22,10 @@ impl ConstantPool {
     }
 
     pub(super) fn utf8(&mut self, value: &str) -> u16 {
+        let key = CpKey::Utf8(value.to_string());
+        if let Some(index) = self.indexes.get(&key) {
+            return *index;
+        }
         let Some(encoded) = encode_modified_utf8(value) else {
             if self.error.is_none() {
                 self.error = Some(JvmBackendError::new(
@@ -30,7 +34,7 @@ impl ConstantPool {
             }
             return 1;
         };
-        self.intern(CpKey::Utf8(value.to_string()), |key| match key {
+        self.intern(key, |key| match key {
             CpKey::Utf8(_) => CpEntry::Utf8(encoded),
             _ => unreachable!(),
         })
