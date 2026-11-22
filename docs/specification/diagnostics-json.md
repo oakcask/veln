@@ -756,6 +756,11 @@ cases cover source-backed, source-less, and opaque bases in declaration
 annotations and explicit call arguments, related provenance, recovered-casing
 overlap including a correct-arity generic base, occurrence-scoped downstream
 suppression, declaration quarantine, and arity precedence.
+The focused
+[`filesystem opaque-identity`](../../examples/specification/check/filesystem-io-opaque-identities/)
+case independently checks that a compiler-known opaque resource alias reports
+`type.variant_refinement_base` with reason `opaque`, while attempted source
+construction remains unresolved.
 The reusable-base and union-overlap
 [`human`](../../examples/specification/check/adt-variant-refinement-base-overlap-human/)
 and
