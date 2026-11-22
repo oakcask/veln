@@ -130,18 +130,8 @@ impl<'a> EffectInference<'a> {
     ) -> Self {
         let adts = prepared_adts.unwrap_or_else(|| Arc::new(AdtRegistry::from_module(module)));
         let function_lookup = EffectFunctionIndex::new(functions);
-        let graph = effect_dependency_graph(
-            module,
-            functions,
-            &function_lookup,
-            user_effects,
-            handlers,
-            &adts,
-        );
         let (effects_by_function, effects_by_module_path) = effect_lookup_maps(functions);
-        let queue = graph.ordered_nodes.iter().cloned().collect();
-        let queued = graph.nodes.clone();
-        Self {
+        let mut inference = Self {
             module,
             uses: adts.import_scope(),
             adts,
@@ -153,16 +143,21 @@ impl<'a> EffectInference<'a> {
             handler_index: handler_signature_index(handlers),
             function_index: function_signature_index(functions),
             function_ast_by_key: function_ast_index(module),
-            queue,
-            queued,
+            queue: VecDeque::new(),
+            queued: BTreeSet::new(),
             evaluated: BTreeSet::new(),
-            graph,
+            graph: EffectDependencyGraph::new(),
             functions,
             function_lookup,
             argument_types: std::cell::OnceCell::new(),
             user_effects,
             handlers,
-        }
+        };
+        let graph = effect_dependency_graph(module, &inference.function_context());
+        inference.queue = graph.ordered_nodes.iter().cloned().collect();
+        inference.queued = graph.nodes.clone();
+        inference.graph = graph;
+        inference
     }
 
     fn run(mut self) {
@@ -405,16 +400,8 @@ impl EffectDependencyGraph {
 
 fn effect_dependency_graph(
     module: &SurfaceModule,
-    functions: &[FunctionSignature],
-    function_lookup: &EffectFunctionIndex,
-    user_effects: &[EffectSignature],
-    handlers: &[HandlerSignature],
-    adts: &AdtRegistry,
+    context: &FunctionEffectContext<'_>,
 ) -> EffectDependencyGraph {
-    let uses = adts.import_scope();
-    let companion_access_targets = companion_function_access_targets(module);
-    let companion_effect_access_targets = companion_access_target_infos(module);
-    let (effects_by_function, effects_by_module_path) = effect_lookup_maps(functions);
     let module_private_handlers = module
         .handlers
         .iter()
@@ -428,29 +415,16 @@ fn effect_dependency_graph(
             ))
         })
         .collect::<BTreeSet<_>>();
-    let argument_types = std::cell::OnceCell::new();
-    let context = FunctionEffectContext {
-        uses: &uses,
-        adts,
-        functions,
-        function_lookup,
-        argument_types: &argument_types,
-        user_effects,
-        handlers,
-        effects_by_function: &effects_by_function,
-        effects_by_module_path: &effects_by_module_path,
-        companion_access_targets: &companion_access_targets,
-        companion_effect_access_targets: &companion_effect_access_targets,
-    };
     let mut graph = EffectDependencyGraph::new();
     for function in module
         .functions
         .iter()
         .filter(|function| function.kind == FunctionKind::Function)
     {
-        insert_function_effect_dependencies(&mut graph, function, &context);
+        insert_function_effect_dependencies(&mut graph, function, context);
     }
-    for handler in handlers
+    for handler in context
+        .handlers
         .iter()
         .filter(|handler| handler.visibility != Visibility::Public)
         .filter(|handler| {
@@ -461,7 +435,7 @@ fn effect_dependency_graph(
             ))
         })
     {
-        insert_handler_effect_dependencies(&mut graph, handler, module, &context);
+        insert_handler_effect_dependencies(&mut graph, handler, module, context);
     }
     graph
 }
