@@ -77,6 +77,7 @@ impl BaseFacts for SchemaSymbolTable {
     }
 }
 
+#[derive(Clone)]
 struct DeclarationFacts {
     effects: Vec<EffectSignature>,
     adts: AdtRegistry,
@@ -137,7 +138,8 @@ fn from_module_with_base_classified(
     base: Option<&TypeEnvironment>,
 ) -> TypeEnvironment {
     let mut declarations = declaration_facts(module, base);
-    let validation_environment = TypeEnvironment::for_path_classification_with_base(module, base);
+    let validation_environment =
+        path_classification_environment(module, base, declarations.clone());
     quarantine_invalid_variant_refinement_declaration_types(
         module,
         &validation_environment,
@@ -166,6 +168,14 @@ fn from_module_for_path_classification_with_base_classified(
     base: Option<&TypeEnvironment>,
 ) -> TypeEnvironment {
     let declarations = declaration_facts(module, base);
+    path_classification_environment(module, base, declarations)
+}
+
+fn path_classification_environment(
+    module: &SurfaceModule,
+    base: Option<&TypeEnvironment>,
+    declarations: DeclarationFacts,
+) -> TypeEnvironment {
     let mut callables = declared_callable_facts(
         module,
         base,
