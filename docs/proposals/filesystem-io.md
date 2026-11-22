@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The proposed filesystem integration, native path conversion, shared byte IO capabilities, provider ownership, seek behavior, fake filesystem contracts, or acceptance gates change.
+update-when: The proposed filesystem integration, native path conversion, shared byte IO capabilities, provider ownership, seek behavior, fake filesystem contracts, or filesystem IO feasibility dependency changes.
 ---
 
 # Filesystem And Shared Byte IO
@@ -13,7 +13,8 @@ streams, and memory.
 The [design decisions](#design-decisions) resolve the initial scope. All
 acceptance evidence is planned. Source signatures below define the proposed
 API; they are not declarations of currently implemented names. Implementation
-selection remains blocked on the provider-bound dispatch feasibility gate.
+selection remains blocked on the separate
+[Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
 ## Current Boundary And Scope
 
@@ -102,7 +103,8 @@ Operations carry explicit resource operands. The active handler supplies an
 implementation, while a resource retains its creating provider and owner.
 Nesting another handler must not reinterpret an existing resource as a resource
 of the newly active provider. Distinct nominal view types enforce static
-capabilities; the provider-bound dispatch prerequisite is specified below.
+capabilities; the provider-bound dispatch contract is specified below and its
+feasibility work is selected through the separate proposal.
 
 The public substitutable boundaries are nominal effects implemented by ordinary
 Veln handlers. A system handler translates those operations into real host IO;
@@ -526,30 +528,19 @@ The existing `transport::DuplexStream` remains a network-specific facade rather
 than forcing files to implement it. Buffer ownership, flush ordering, and seek
 invalidation belong to a separate buffering proposal before such helpers exist.
 
-### Feasibility And Conformance Gate
+### Feasibility Dependency
 
-The provider extension is a named prerequisite, not an unresolved choice of
-representation. Before this entire proposal moves to Ready, check a small
-source/adapter prototype with these independently specified observations:
-
-| Gate | Required observation and planned evidence |
-| --- | --- |
-| F1: static source API | All declared file view records, nominal operations, and storage callbacks check using existing syntax plus the named compiler-known types. Wrong capability arguments fail. Provider factories return distinct read-only/mutable types and registrations enforce view families. Compiler type-boundary evidence. |
-| F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. Companion tests and a backend dispatch test. |
-| F3: state and publication | Concurrent children, injected failure, and cancellation cannot strand the state cell lock or publish half a transition. Closing the owner rejects late publication and releases the late host resource. Scoped Veln support and backend lifecycle evidence. |
-| F4: transfer and mutation | Every outcome and transition row above has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. Shared companion conformance tests plus focused real-host cases. |
-| F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the cleanup table. Companion tests and backend cleanup projections. |
-
-If F1–F3 cannot be demonstrated with the stated adapter extension, revise the
-resource design before implementation selection. Do not hide that prerequisite
-inside a platform-only fake, or promote a source API that silently assumes
-unimplemented dispatch or state primitives.
+[Filesystem IO Feasibility](filesystem-io-feasibility.md) owns F1–F5, their
+prototype scope, evidence, and completion conditions. It is independently
+selectable from Ready. The source surface, provider extension, outcomes, and
+transition tables here remain the design contract exercised by that work;
+implementing the complete production filesystem API is not its prerequisite.
 
 ## Implementation Readiness And Promotion
 
 The initial design decisions and acceptance tables are fixed above. Complete
-the provider-bound dispatch feasibility gate before moving this proposal to
-Ready. The adapter extension must be reviewed together with its source API,
+the separate feasibility proposal before moving this proposal to Ready.
+The adapter extension must be reviewed together with its source API,
 not inferred from the existing network handles. A smaller independently complete
 proposal may be split out only when it retains explicit ownership and outcome
 contracts.
