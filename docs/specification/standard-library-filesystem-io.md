@@ -225,6 +225,6 @@ establishes only its static capability and effect boundary.
   [`io_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_test_support_test.veln).
 - Private JVM adapter linkage:
   [`java_helpers_and_mapping.rs`](../../crates/veln-backend-jvm/src/tests/java_helpers_and_mapping.rs).
-- JVM validation-before-publication and retained handler, owner, and slot
-  identity:
+- JVM retention of the captured operation-handler identities after their
+  dynamic scopes exit:
   [`IoProviderAppendFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderAppendFileHarness.java).
