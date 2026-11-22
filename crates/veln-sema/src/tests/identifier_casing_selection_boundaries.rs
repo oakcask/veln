@@ -175,6 +175,7 @@ fn application_recovery_does_not_cross_into_implicit_prelude_environment() {
 
 #[test]
 fn implicit_prelude_recovery_does_not_cross_into_application_environment() {
+    let _guard = crate::tests::standard_reuse::standard_reuse_test_lock_for_sibling();
     let prelude = module_with_identity(
         "prelude.veln",
         concat!(
@@ -253,6 +254,7 @@ fn implicit_prelude_recovery_does_not_cross_into_application_environment() {
 
 #[test]
 fn valid_implicit_prelude_function_precedes_application_recovery_record() {
+    let _guard = crate::tests::standard_reuse::standard_reuse_test_lock_for_sibling();
     let mut standard = module_with_identity(
         "prelude.veln",
         concat!(
@@ -324,6 +326,7 @@ fn valid_implicit_prelude_function_precedes_application_recovery_record() {
 
 #[test]
 fn valid_implicit_prelude_constructor_precedes_application_recovery_record() {
+    let _guard = crate::tests::standard_reuse::standard_reuse_test_lock_for_sibling();
     let mut standard = module_with_identity(
         "prelude.veln",
         concat!(

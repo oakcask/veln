@@ -308,6 +308,7 @@ fn standard_package_sources_are_embedded_and_checkable() {
         );
     }
 
+    let _guard = crate::tests::standard_reuse::standard_reuse_test_lock_for_sibling();
     let standard = crate::types::embedded_standard_surface_module();
     let diagnostics = analyze_surface_module(&standard);
     assert!(
