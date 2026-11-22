@@ -9,7 +9,7 @@ format = "empty"
 
 [[json_assert]]
 path = "summary.by_kind.type"
-equals = 8
+equals = 14
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -18,3 +18,69 @@ equals = "type.mismatch"
 [[json_assert]]
 path = "diagnostics.7.id"
 equals = "type.mismatch"
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Resource`, but found `Owner`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 40
+column = 35
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Owner`, but found `Resource`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 41
+column = 28
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Filesystem`, but found `Owner`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 42
+column = 46
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `MutableFilesystem`, but found `Owner`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 43
+column = 54
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Resource`, but found `Filesystem`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 44
+column = 33
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Resource`, but found `MutableFilesystem`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 45
+column = 33

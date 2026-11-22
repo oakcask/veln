@@ -32,3 +32,16 @@ end
 pub fn duplex_projection_is_not_read_file(resource: io_provider::Resource) -> Result<fs::ReadFile, io::Error>
 	io_provider::duplex(resource)
 end
+
+
+# F1 compiler contract: provider identities and both namespace-token families
+# remain pairwise distinct at public adapter operands.
+pub fn provider_identity_families_do_not_cross(owner: io_provider::Owner, resource: io_provider::Resource, filesystem: fs::Filesystem, mutable: fs::MutableFilesystem) -> () effects [concurrency]
+	let _ = io_provider::slot(owner, owner)
+	let _ = io_provider::slot(resource, resource)
+	let _ = io_provider::filesystem_slot(owner, owner)
+	let _ = io_provider::mutable_filesystem_slot(owner, owner)
+	let _ = io_provider::read_file(filesystem)
+	let _ = io_provider::read_file(mutable)
+	()
+end

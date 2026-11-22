@@ -36,6 +36,13 @@ pub fn namespace_operations(filesystem: fs::Filesystem, mutable: fs::MutableFile
 	()
 end
 
+# F1 compiler contract: the explicit mutable-to-read-only projection is pure
+# and retains the distinct read-only result type.
+pub fn read_only_projection(mutable: fs::MutableFilesystem) -> ()
+	let _: fs::Filesystem = fs::read_only(mutable)
+	()
+end
+
 # F1 compiler contract: provider factories, projections, and slot accessors
 # expose the complete static adapter surface.
 pub fn provider_operations(owner: io_provider::Owner, resource: io_provider::Resource, filesystem: fs::Filesystem, mutable: fs::MutableFilesystem, reader: io::Reader, writer: io::Writer, seeker: io::Seeker, reader_at: io::ReaderAt, writer_at: io::WriterAt, closer: io::Closer, syncer: io::Syncer, truncater: fs::Truncater) -> () effects [concurrency]
