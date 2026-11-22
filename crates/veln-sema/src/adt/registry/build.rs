@@ -213,8 +213,8 @@ impl AdtRegistry {
         let mut annotation_types = base.annotation_types.clone();
         extend_source_annotation_types(&source_descriptors, &mut annotation_types);
 
-        let mut alias_targets = descriptors.clone();
-        alias_targets.extend(source_descriptors.clone());
+        let local_descriptor_start = descriptors.len();
+        descriptors.extend(source_descriptors);
         let ResolvedTypeAliases {
             descriptors: aliases,
             declarations: resolved_alias_declarations,
@@ -222,7 +222,7 @@ impl AdtRegistry {
             exposure_paths: type_alias_exposure_paths,
         } = type_alias_descriptors(
             module,
-            &alias_targets,
+            &descriptors,
             &base.type_alias_exposure_segments,
             &base.type_alias_exposure_paths,
         );
@@ -230,9 +230,9 @@ impl AdtRegistry {
         type_alias_identities.extend(aliases.iter().map(DescriptorKey::new));
         let mut resolved_type_alias_declarations = base.resolved_type_alias_declarations.clone();
         resolved_type_alias_declarations.extend(resolved_alias_declarations);
-        extend_alias_annotation_types(module, &alias_targets, &mut annotation_types);
+        extend_alias_annotation_types(module, &descriptors, &mut annotation_types);
 
-        let local_descriptor_start = descriptors.len();
+        let source_descriptors = descriptors.split_off(local_descriptor_start);
         descriptors.extend(aliases);
         let source_descriptor_start = descriptors.len();
         descriptors.extend(source_descriptors);
@@ -783,6 +783,9 @@ fn extend_alias_annotation_types(
     alias_targets: &[AdtDescriptor],
     annotation_types: &mut BTreeMap<(Option<String>, Option<String>, String), Type>,
 ) {
+    if module.aliases.is_empty() {
+        return;
+    }
     let uses = normal_use_decls(module);
     for alias in &module.aliases {
         let Some(alias_name) = alias.name.as_ref() else {
