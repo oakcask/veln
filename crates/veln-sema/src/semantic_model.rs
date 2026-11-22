@@ -241,6 +241,10 @@ impl TypeArgs {
 
 impl From<Vec<Type>> for TypeArgs {
     fn from(args: Vec<Type>) -> Self {
+        if args.is_empty() {
+            static EMPTY: std::sync::OnceLock<Arc<Vec<Type>>> = std::sync::OnceLock::new();
+            return Self(EMPTY.get_or_init(|| Arc::new(Vec::new())).clone());
+        }
         Self(Arc::new(args))
     }
 }

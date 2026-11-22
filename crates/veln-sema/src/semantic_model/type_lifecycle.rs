@@ -267,7 +267,19 @@ pub(crate) fn drop_type_iteratively(root: Type) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Type, measure_type_clone_nodes};
+    use super::{Type, TypeArgs, measure_type_clone_nodes};
+
+    #[test]
+    fn extending_empty_type_arguments_keeps_other_types_empty() {
+        let mut first = TypeArgs::from(Vec::new());
+        let second = std::iter::empty::<Type>().collect::<TypeArgs>();
+        first.push(Type::int());
+
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0], Type::int());
+        assert!(second.into_vec().is_empty());
+        assert!(TypeArgs::from(Vec::new()).is_empty());
+    }
 
     #[test]
     fn type_clone_measurement_counts_owned_nodes_and_skips_shared_type_arguments() {
