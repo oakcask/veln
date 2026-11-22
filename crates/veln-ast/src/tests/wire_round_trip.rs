@@ -1,6 +1,39 @@
 use super::*;
 
 #[test]
+fn surface_wire_preserves_interleaved_source_and_generated_origin_paths() {
+    let mut module = lower_source("fn first() -> Int\n  1\nend\n");
+    let other = SourceFile::new("other.veln", "fn second() -> Int\n  2\nend\n");
+    module
+        .functions
+        .extend(lower_surface_ast(&parse(&other).tree).functions);
+    let origin = std::sync::Arc::new(veln_source::GeneratedSpanOrigin::new(
+        Some(veln_source::SourcePath::new("origin.veln")),
+        Some(module.functions[0].span.start),
+        Some(module.functions[0].span.end),
+    ));
+    for function in &mut module.functions {
+        function.span.generated_origin = Some(origin.clone());
+    }
+
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("mixed paths should decode");
+    assert_eq!(encode_surface_module(&decoded), encoded);
+    for (expected, actual) in module.functions.iter().zip(&decoded.functions) {
+        assert_eq!(actual.span, expected.span);
+        assert_eq!(actual.body[0].span, expected.body[0].span);
+    }
+    assert_ne!(
+        decoded.functions[0].span.file,
+        decoded.functions[1].span.file
+    );
+    assert_eq!(
+        decoded.functions[0].span.original_path(),
+        decoded.functions[1].span.original_path()
+    );
+}
+
+#[test]
 fn surface_wire_rejects_the_previous_layout_header() {
     let mut encoded = encode_surface_module(&lower_source("fn main() -> ()\n  ()\nend\n"));
     assert_eq!(&encoded[..9], b"VLNAST25\n");
