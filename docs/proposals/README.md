@@ -16,16 +16,17 @@ also states it.
 
 ## Ready
 
-No implementation targets are currently ready.
+- [Filesystem IO Feasibility](filesystem-io-feasibility.md): implement the
+  bounded source/adapter prototype and F1–F5 evidence for provider-bound
+  dispatch, atomic Veln state, transfer outcomes, and cleanup. This target does
+  not require the production filesystem API to be implemented first.
 
 ## Design In Progress
 
 - Filesystem selection, host path conversion, shared byte IO, seek, provider
   ownership, and scoped fake filesystems; initial design decisions are fixed,
-  but provider-bound dispatch and atomic Veln-state adapters require the
-  feasibility evidence defined in
-  [filesystem-io.md](filesystem-io.md#feasibility-and-conformance-gate) before
-  implementation selection.
+  but implementation selection depends on completing
+  [Filesystem IO Feasibility](filesystem-io-feasibility.md).
 
 ## Planning Inventory
 
