@@ -226,6 +226,7 @@ pub(crate) fn function_depends_on_quarantined_adt(
     environment: &TypeEnvironment,
 ) -> bool {
     function.visibility == Visibility::Public
+        && environment.adts.has_quarantined_types()
         && function
             .params
             .iter()
