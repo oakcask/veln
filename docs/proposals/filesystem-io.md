@@ -122,7 +122,9 @@ an implicit system provider to every helper.
 The byte layer uses `ByteChunk`, `ByteCount`, and `ByteOffset`, with a common
 typed IO error vocabulary that is independent of `net::NetError`. Filesystem
 and network adapters retain domain context when translating failures. The
-source surface and outcome types below fix these boundaries.
+[implemented static source surface](../specification/standard-library-filesystem-io.md)
+fixes the type boundaries. The outcome contracts below define the planned
+runtime semantics.
 
 | Operation family | Observable contract |
 | --- | --- |
@@ -276,7 +278,7 @@ support exists.
 
 | Concern | Selected initial design | Acceptance obligation |
 | --- | --- | --- |
-| Public API | Nominal capability views and separate namespace and byte effects; no traits, implicit capability coercions, or new effect syntax. | Type-check the source surface below; reject a reader passed to write or a stream passed to seek. |
+| Public API | Nominal capability views and separate namespace and byte effects; no traits, implicit capability coercions, or new effect syntax. | Keep the [implemented static source surface](../specification/standard-library-filesystem-io.md) type-checking; reject a reader passed to write or a stream passed to seek. |
 | Provider dispatch | Opaque runtime tokens retain their owner and creating operation handlers. Extend the runtime resource boundary explicitly; do not encode public handles as integers or host objects. | Two Veln providers, nested shadowing, wrong-owner publication, closed-owner use, and cross-provider copy at the feasibility gate. |
 | Fake state | A synchronized `io_provider::State<T>` cell carries each fake filesystem's immutable state. Resource slots, file identities, cursors, close facts, and failure plans are ordinary Veln data. The runtime extension provides atomic storage, not fake behavior. | Concurrent children share updates; failure and cancellation cannot strand the state lock; independent fake instances remain independent. |
 | Native paths | Keep the current host-owned `Path` as the explicit native boundary; `path::Path` remains portable. Support only exactly representable names initially. | Nonrepresentable names fail with `UnrepresentablePath`; display is never used as a conversion. |
