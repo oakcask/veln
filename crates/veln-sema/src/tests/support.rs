@@ -79,6 +79,17 @@ pub(super) fn empty_surface_module() -> SurfaceModule {
     }
 }
 
+pub(super) fn lower_standard_package_callables(source: &SourceFile) -> SurfaceModule {
+    let mut module = lower_surface_ast(&parse(source).tree);
+    for function in &mut module.functions {
+        function.package_name = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    }
+    for handler in &mut module.handlers {
+        handler.package_name = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    }
+    module
+}
+
 pub(super) fn merged_modules(sources: Vec<SourceFile>) -> SurfaceModule {
     let mut merged = empty_surface_module();
     for source in sources {
