@@ -1,0 +1,22 @@
+# Placement: this case owns the required positional writer in the update-file
+# view. The first shifted operand must be rejected as a missing WriterAt.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.by_kind.type"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type"
+equals = "WriterAt"

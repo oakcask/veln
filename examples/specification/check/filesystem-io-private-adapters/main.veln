@@ -1,0 +1,19 @@
+use fs from "std"
+use io from "std"
+use io_provider from "std"
+
+pub fn construct_owner_through_reserved_route() -> io_provider::Owner
+	prelude_builtin::io_provider_scope_owner()
+end
+
+pub fn construct_writer_through_owner_adapter() -> io::Writer
+	prelude_builtin::io_provider_scope_owner()
+end
+
+pub fn construct_filesystem_without_owner() -> Result<fs::Filesystem, io::Error>
+	prelude_builtin::io_provider_filesystem(0, 1)
+end
+
+pub fn casing_recovery_cannot_reveal_private_adapter() -> io_provider::Owner
+	prelude_builtin::Io_provider_scope_owner()
+end

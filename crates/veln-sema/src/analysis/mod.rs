@@ -34,7 +34,7 @@ use crate::effects::KNOWN_EFFECT_LABELS;
 use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
     prelude_signature, prelude_signature_with_input,
-    qualified_prelude_builtin_signature_with_input, qualified_prelude_signature,
+    qualified_prelude_builtin_signature_with_input_in_package, qualified_prelude_signature,
     qualified_prelude_signature_with_input,
 };
 use crate::repair_candidates::{

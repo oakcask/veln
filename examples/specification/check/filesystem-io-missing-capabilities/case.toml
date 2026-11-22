@@ -1,5 +1,4 @@
-# Placement: this case owns the compiler-known declared-arity contract. Its
-# regression signal is the `core.call_arity_mismatch` diagnostic.
+# Placement: this case owns the required closer in the read-file view.
 command = ["check", "--json", "main.veln"]
 exit = 1
 
@@ -9,7 +8,10 @@ format = "json"
 [stderr]
 format = "empty"
 
-[[diagnostics]]
-id = "core.call_arity_mismatch"
-severity = "error"
-kind = "type"
+[[json_assert]]
+path = "summary.by_kind.type"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "core.constructor_arity_mismatch"

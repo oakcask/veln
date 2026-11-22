@@ -6,7 +6,10 @@ use veln_ast::{
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
-use crate::prelude::{qualified_prelude_builtin_signature_with_input, qualified_prelude_signature};
+use crate::prelude::{
+    qualified_prelude_builtin_signature_with_input,
+    qualified_prelude_builtin_signature_with_input_in_package, qualified_prelude_signature,
+};
 use crate::types::TypeEnvironment;
 
 type RecoveredQualifiedSegmentPush = fn(

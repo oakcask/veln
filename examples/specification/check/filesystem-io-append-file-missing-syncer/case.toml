@@ -1,0 +1,14 @@
+# Placement: this case owns the required syncer in the append-file view.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "core.constructor_arity_mismatch"
+severity = "error"
+kind = "type"

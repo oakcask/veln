@@ -129,6 +129,13 @@ handler retains `concurrency`, and the resource projections are pure.
 `Duplex`. The registration selector does not add capabilities by itself; the
 runtime behavior needed to bind a resource to handlers is not implemented.
 
+The compiler adapters behind these declarations are available only to source
+embedded in the standard package. Application source cannot call their
+reserved `prelude_builtin` names, including by changing the name casing. Each
+admitted adapter has the same fixed operand and result types as its standard
+wrapper; an expected type at a call site cannot reinterpret an owner as a byte
+capability or replace a required owner operand with an integer.
+
 ## Capability boundaries
 
 `Owner`, `Resource`, `Filesystem`, `MutableFilesystem`, `Reader`, `Writer`,
@@ -159,9 +166,16 @@ declarations has established only its static capability and effect boundary.
 
 - Complete accepted static surface:
   `examples/specification/check/filesystem-io-static-api/`.
-- Wrong and missing capability operands:
-  `examples/specification/check/filesystem-io-capability-boundaries/` and
-  `examples/specification/check/filesystem-io-missing-capabilities/`.
+- Wrong capability operands:
+  `examples/specification/check/filesystem-io-capability-boundaries/`.
+- Missing read-file closer, write-file truncater, update-file positional
+  writer, and append-file syncer:
+  `examples/specification/check/filesystem-io-missing-capabilities/`,
+  `examples/specification/check/filesystem-io-write-file-missing-truncater/`,
+  `examples/specification/check/filesystem-io-update-file-missing-writer-at/`,
+  and `examples/specification/check/filesystem-io-append-file-missing-syncer/`.
 - Filesystem, file-view projection, and opaque identity boundaries:
   `examples/specification/check/filesystem-io-filesystem-boundaries/` and
   `examples/specification/check/filesystem-io-opaque-identities/`.
+- Private compiler-adapter boundary:
+  `examples/specification/check/filesystem-io-private-adapters/`.

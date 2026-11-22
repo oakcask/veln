@@ -142,7 +142,13 @@ pub(super) fn module_segment_role_is_fixed(
             None,
         ) == 1
         || qualified_prelude_signature(segments, None).is_some()
-        || qualified_prelude_builtin_signature_with_input(segments, None, None).is_some()
+        || qualified_prelude_builtin_signature_with_input_in_package(
+            segments,
+            None,
+            None,
+            current_package,
+        )
+        .is_some()
     {
         return true;
     }
@@ -170,7 +176,13 @@ pub(super) fn module_segment_role_is_fixed(
             None,
         ) == 1
         || qualified_prelude_signature(&corrected, None).is_some()
-        || qualified_prelude_builtin_signature_with_input(&corrected, None, None).is_some()
+        || qualified_prelude_builtin_signature_with_input_in_package(
+            &corrected,
+            None,
+            None,
+            current_package,
+        )
+        .is_some()
 }
 
 pub(super) fn type_qualified_constructor_path(

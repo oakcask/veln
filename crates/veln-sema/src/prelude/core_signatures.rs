@@ -8,7 +8,7 @@ use super::core_observation_signatures::{
 use super::source_signatures::compiler_adapter_callback_signature;
 use crate::adt::type_operations as adt;
 use crate::source_less_lookup::{
-    compiler_adapter_symbol, prelude_builtin_module, prelude_symbol, standard_module,
+    compiler_adapter_symbol_in_package, prelude_builtin_module, prelude_symbol, standard_module,
 };
 use crate::standard_symbols::StandardSymbolDescriptor;
 use crate::type_lowering::core_type;
@@ -64,7 +64,7 @@ fn core_compiler_adapter_signature(
     let signature = core_observation_export_signature(descriptor.name, &expected.direct)
         .or_else(|| core_production_metric_index_signature(descriptor.name))
         .or_else(|| core_net_system_signature(descriptor.name, &expected.direct))
-        .or_else(|| core_filesystem_io_signature(descriptor.name, &expected.direct))
+        .or_else(|| core_filesystem_io_signature(descriptor.name))
         .or_else(|| core_prelude_float_signature(descriptor.name))
         .or_else(|| core_prelude_byte_signature(descriptor.name))
         .or_else(|| core_prelude_string_signature(descriptor.name))
@@ -81,12 +81,8 @@ fn core_compiler_adapter_signature(
     ))
 }
 
-fn core_filesystem_io_signature(
-    name: &str,
-    expected: &CoreType,
-) -> Option<(Vec<CoreType>, CoreType)> {
-    let arity = super::filesystem_signatures::filesystem_io_arity(name)?;
-    Some((vec![CoreType::Unknown; arity], expected.clone()))
+fn core_filesystem_io_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> {
+    super::filesystem_signatures::core_filesystem_io_signature(name)
 }
 
 fn compiler_adapter_core_callback_signature(
@@ -102,6 +98,7 @@ fn compiler_adapter_core_callback_signature(
 pub(crate) fn qualified_core_prelude_builtin_signature(
     segments: &[String],
     expected: Option<&CoreType>,
+    current_package: Option<&str>,
 ) -> Option<(CoreCallTarget, Vec<CoreType>, CoreType)> {
     let [module, name] = segments else {
         return None;
@@ -109,7 +106,10 @@ pub(crate) fn qualified_core_prelude_builtin_signature(
     if module != prelude_builtin_module() {
         return None;
     }
-    core_compiler_adapter_signature(compiler_adapter_symbol(name)?, expected)
+    core_compiler_adapter_signature(
+        compiler_adapter_symbol_in_package(name, current_package)?,
+        expected,
+    )
 }
 
 pub(crate) fn qualified_core_prelude_signature(

@@ -1,0 +1,23 @@
+# Placement: this case owns the application-package boundary around private
+# compiler adapters. The public io_provider wrappers remain the only source
+# route to the static filesystem surface.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.by_kind.name"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "name.unresolved"
