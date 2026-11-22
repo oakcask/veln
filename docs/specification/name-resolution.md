@@ -849,6 +849,12 @@ an independently provable missing-case diagnostic for that constructor.
 Compiler-provided symbols that participate in source lookup are specified by
 [source-less-lookup.md](source-less-lookup.md). Embedded Veln prelude sources
 remain source-written and continue to use ordinary source casing diagnostics.
+A reserved `prelude_builtin::name` that selects a private compiler adapter
+resolves only from a declaration in the embedded standard package. In
+application source, both the exact spelling and an initial-only casing repair
+remain unresolved; casing recovery cannot expose the private target. The
+[`filesystem-io-private-adapters`](../../examples/specification/check/filesystem-io-private-adapters/)
+case checks both paths through the public CLI.
 
 ### Duplicate declarations
 

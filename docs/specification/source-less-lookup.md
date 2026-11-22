@@ -120,7 +120,11 @@ use the same qualified-only route. Bare prelude lookup does not publish those
 names.
 These routes keep private adapters out of the public prelude surface while
 allowing embedded standard-package source to resolve the reserved qualified
-route.
+route. Publishing a qualified key does not grant every package access to it.
+Private compiler-adapter lookup admits the descriptor only when the calling
+declaration belongs to the embedded standard package. Application source
+cannot resolve the exact qualified spelling, and casing recovery does not use
+an unavailable private descriptor as a corrected target.
 Public `net::...` and `observe::...` declarations remain separate from these
 source-less routes: application source imports their modules from `std`, and
 the public operations retain their declared nominal effects.
@@ -138,3 +142,6 @@ provider details; they never masquerade as source `name.invalid_case` errors.
 - Registry validation and publication: `crates/veln-sema/src/source_less_lookup.rs`.
 - Descriptor providers: `crates/veln-sema/src/standard_symbols/` and
   `crates/veln-syntax/src/`.
+- Application-package rejection for exact and invalid-cased private filesystem
+  adapters:
+  `examples/specification/check/filesystem-io-private-adapters/`.
