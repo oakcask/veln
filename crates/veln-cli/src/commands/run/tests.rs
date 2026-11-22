@@ -107,11 +107,20 @@ fn run_analysis_timings_write_deterministic_json_lines() {
     };
 
     timings.push("source_loading", Duration::from_nanos(250_000_000));
+    timings.push("backend_generation", Duration::from_nanos(125_000_000));
+    timings.push(
+        "backend_runtime_remainder",
+        Duration::from_nanos(500_000_000),
+    );
     timings.write().expect("timing records should be written");
 
     assert_eq!(
         fs::read_to_string(&timing_file).expect("timing file should be readable"),
-        "{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"source_loading\",\"boundary\":\"source_loading\",\"duration_seconds\":0.250000000}\n"
+        concat!(
+            "{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"source_loading\",\"boundary\":\"source_loading\",\"duration_seconds\":0.250000000}\n",
+            "{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"backend_generation\",\"boundary\":\"backend_generation\",\"duration_seconds\":0.125000000}\n",
+            "{\"workload\":\"http2_core\",\"run\":\"new-1\",\"stage\":\"backend_runtime_remainder\",\"boundary\":\"backend_runtime_remainder\",\"duration_seconds\":0.500000000}\n"
+        )
     );
 
     fs::remove_dir_all(root).expect("test project should be removed");

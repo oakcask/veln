@@ -328,17 +328,20 @@ test("aggregates stage medians and selects the dominant measured stage", () => {
       timing("http2_connection", "new-1", "surface_parse_lower", 0.2),
       timing("http2_connection", "new-1", "semantic_environment_check", 4),
       timing("http2_connection", "new-1", "reachable_entry_lowering", 0.4),
+      timing("http2_connection", "new-1", "backend_generation", 0.05),
       timing("http2_connection", "new-1", "backend_runtime_remainder", 0.5),
       timing("http2_connection", "new-2", "source_loading", 0.3),
       timing("http2_connection", "new-2", "surface_parse_lower", 0.6),
       timing("http2_connection", "new-2", "semantic_environment_check", 2),
       timing("http2_connection", "new-2", "reachable_entry_lowering", 0.6),
+      timing("http2_connection", "new-2", "backend_generation", 0.15),
       timing("http2_connection", "new-2", "backend_runtime_remainder", 0.7),
     ],
     ["new-1", "new-2"],
   );
 
   assert.deepEqual(summary.stage_medians_seconds, {
+    backend_generation: 0.1,
     backend_runtime_remainder: 0.6,
     reachable_entry_lowering: 0.5,
     semantic_environment_check: 3,
@@ -365,6 +368,23 @@ test("keeps baseline stage timing unavailable and rejects partial instrumented r
   );
 });
 
+test("summarizes complete per-run compilation totals without runtime or median mixing", () => {
+  const stages = ["source_loading", "surface_parse_lower", "semantic_environment_check",
+    "reachable_entry_lowering", "backend_generation", "backend_runtime_remainder"];
+  const runs = ["new-1", "new-2", "new-3"];
+  const records = runs.flatMap((run, activeStage) => stages.map((stage, index) =>
+    timing("http2_core", run, stage,
+      index < 3 ? Number(index === activeStage) : stage === "backend_generation" ? 0.25 :
+        stage === "backend_runtime_remainder" ? 100 : 0),
+  ));
+  const summary = summarizeStageRecords(records, runs);
+  assert.equal(summary.compilation_median_seconds, 1.25);
+  assert.equal(summary.stage_medians_seconds.source_loading, 0);
+  assert.throws(() => summarizeStageRecords(
+    records.filter((record) => record.stage !== "backend_generation"), runs,
+  ), /missing timing stage.*backend_generation/);
+});
+
 test("rejects stage totals that exceed the measured wall time", () => {
   const stageTiming = summarizeStageRecords(
     [
@@ -372,6 +392,7 @@ test("rejects stage totals that exceed the measured wall time", () => {
       timing("http2_connection", "new-1", "surface_parse_lower", 0.2),
       timing("http2_connection", "new-1", "semantic_environment_check", 0.3),
       timing("http2_connection", "new-1", "reachable_entry_lowering", 4),
+      timing("http2_connection", "new-1", "backend_generation", 0.4),
       timing("http2_connection", "new-1", "backend_runtime_remainder", 0.4),
     ],
     ["new-1"],
@@ -390,6 +411,7 @@ test("validates checked benchmark result structure", () => {
       timing("http2_core", "new-1", "surface_parse_lower", 0.2),
       timing("http2_core", "new-1", "semantic_environment_check", 0.3),
       timing("http2_core", "new-1", "reachable_entry_lowering", 0.4),
+      timing("http2_core", "new-1", "backend_generation", 0.05),
       timing("http2_core", "new-1", "backend_runtime_remainder", 0.5),
     ],
     ["new-1"],

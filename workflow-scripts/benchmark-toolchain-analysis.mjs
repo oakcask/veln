@@ -39,6 +39,7 @@ const REQUIRED_STAGE_TIMINGS = [
   "surface_parse_lower",
   "semantic_environment_check",
   "reachable_entry_lowering",
+  "backend_generation",
   "backend_runtime_remainder",
 ];
 const REQUIRED_STAGE_TIMING_SET = new Set(REQUIRED_STAGE_TIMINGS);
@@ -239,6 +240,11 @@ export function summarizeStageRecords(records, expectedRuns, options = {}) {
   );
   return {
     status: "available",
+    compilation_median_seconds: median(expectedRuns.map((run) =>
+      recordsByRun.get(run)
+        .filter((record) => record.stage !== "backend_runtime_remainder")
+        .reduce((total, record) => total + record.duration_seconds, 0),
+    )),
     stage_medians_seconds: stageMedians,
     dominant_stage: dominantMeasuredStage(stageMedians),
     runs: expectedRuns.map((run) => ({
