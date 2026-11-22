@@ -1,4 +1,5 @@
 use prelude
+use fs
 use io
 
 pub handler read(calls: Sender<String>) for io::Read effects [concurrency]
@@ -32,6 +33,13 @@ pub handler read_at(calls: Sender<String>) for io::ReadAt effects [concurrency]
 	end
 end
 
+pub handler write_at(calls: Sender<String>) for io::WriteAt effects [concurrency]
+	write_at(writer, offset, chunk) => begin
+		let _ = channel::send(calls, "write_at")
+		io::WriteOutcome::Written(byte_chunk_count(chunk))
+	end
+end
+
 pub handler close(calls: Sender<String>) for io::Close effects [concurrency]
 	close(closer) => begin
 		let _ = channel::send(calls, "close")
@@ -44,5 +52,44 @@ pub handler sync(calls: Sender<String>) for io::Sync effects [concurrency]
 	sync(syncer) => begin
 		let _ = channel::send(calls, "sync")
 		Ok(())
+	end
+end
+
+fn unsupported(operation: String) -> io::Error
+	io::Error::Error(operation, io::ErrorKind::Unsupported, None, None, None, None, "fake mutation handler does not open resources")
+end
+
+pub handler mutate(calls: Sender<String>) for fs::Mutate effects [concurrency]
+	open_write(filesystem, path, mode) => begin
+		let _ = channel::send(calls, "open_write")
+		Err(unsupported("open_write"))
+	end
+	open_read_write(filesystem, path, mode) => begin
+		let _ = channel::send(calls, "open_read_write")
+		Err(unsupported("open_read_write"))
+	end
+	open_append(filesystem, path, create) => begin
+		let _ = channel::send(calls, "open_append")
+		Err(unsupported("open_append"))
+	end
+	create_directory(filesystem, path) => begin
+		let _ = channel::send(calls, "create_directory")
+		fs::MutationOutcome::Applied
+	end
+	remove_file(filesystem, path) => begin
+		let _ = channel::send(calls, "remove_file")
+		fs::MutationOutcome::Applied
+	end
+	remove_directory(filesystem, path) => begin
+		let _ = channel::send(calls, "remove_directory")
+		fs::MutationOutcome::Applied
+	end
+	rename(filesystem, from_path, to_path) => begin
+		let _ = channel::send(calls, "rename")
+		fs::MutationOutcome::Applied
+	end
+	truncate(file, size) => begin
+		let _ = channel::send(calls, "truncate")
+		fs::MutationOutcome::Applied
 	end
 end

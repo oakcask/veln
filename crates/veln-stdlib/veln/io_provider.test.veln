@@ -40,6 +40,34 @@ fn append_without_sync(owner: io_provider::Owner, slot: Int, calls: Sender<Strin
 	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::close(calls)
 end
 
+fn complete_write_registration(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn write_without_write(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn write_without_seek(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn write_without_write_at(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn write_without_close(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn write_without_sync(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn write_without_mutate(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls)
+end
+
 fn is_unsupported(result: Result<io_provider::Resource, io::Error>) -> Bool
 	match result
 		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => true
@@ -85,6 +113,13 @@ end
 fn projected_append_slots_match(owner: io_provider::Owner, resource: io_provider::Resource, slot: Int) -> Bool effects [concurrency]
 	match io_provider::append_file(resource)
 		Ok(fs::AppendFile::AppendFile(writer, closer, syncer)) => slot_matches(io_provider::slot(owner, resource), slot) and slot_matches(io_provider::writer_slot(owner, writer), slot) and slot_matches(io_provider::closer_slot(owner, closer), slot) and slot_matches(io_provider::syncer_slot(owner, syncer), slot)
+		_ => false
+	end
+end
+
+fn projected_write_slots_match(owner: io_provider::Owner, resource: io_provider::Resource, slot: Int) -> Bool effects [concurrency]
+	match io_provider::write_file(resource)
+		Ok(fs::WriteFile::WriteFile(writer, seeker, writer_at, closer, syncer, truncater)) => slot_matches(io_provider::slot(owner, resource), slot) and slot_matches(io_provider::writer_slot(owner, writer), slot) and slot_matches(io_provider::seeker_slot(owner, seeker), slot) and slot_matches(io_provider::writer_at_slot(owner, writer_at), slot) and slot_matches(io_provider::closer_slot(owner, closer), slot) and slot_matches(io_provider::syncer_slot(owner, syncer), slot) and slot_matches(io_provider::truncater_slot(owner, truncater), slot)
 		_ => false
 	end
 end
@@ -229,6 +264,89 @@ fn append_negative_and_duplicate_slots_preserve_state() -> Result<(), String> ef
 	end
 end
 
+fn write_registration_and_projection_observations() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 81
+	let calls = channel::bounded<String>(32)
+	match complete_write_registration(owner, slot, calls.tx)
+		Ok(resource) => if not no_handler_calls(calls.rx)
+			Err("WriteFile registration invoked a captured handler")
+		else if not projected_write_slots_match(owner, resource, slot) or not no_handler_calls(calls.rx)
+			Err("WriteFile projection did not retain the resource owner and slot")
+		else
+			match io_provider::read_file(resource)
+				Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => match io_provider::append_file(resource)
+					Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => match io_provider::duplex(resource)
+						Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => if projected_write_slots_match(owner, resource, slot) and no_handler_calls(calls.rx)
+							Ok(())
+						else
+							Err("failed projections changed the WriteFile resource or invoked a handler")
+						end
+						_ => Err("WriteFile resource accepted an incompatible Duplex projection")
+					end
+					_ => Err("WriteFile resource accepted an incompatible AppendFile projection")
+				end
+				_ => Err("WriteFile resource accepted an incompatible ReadFile projection")
+			end
+		end
+		Err(_) => Err("complete WriteFile registration failed")
+	end
+end
+
+fn write_missing_handlers_preserve_slots() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let calls = channel::bounded<String>(32)
+	if not is_unsupported(write_without_write(owner, 82, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_write_registration(owner, 82, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Write did not reject WriteFile before publication")
+	else if not is_unsupported(write_without_seek(owner, 83, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_write_registration(owner, 83, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Seek did not reject WriteFile before publication")
+	else if not is_unsupported(write_without_write_at(owner, 84, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_write_registration(owner, 84, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::WriteAt did not reject WriteFile before publication")
+	else if not is_unsupported(write_without_close(owner, 85, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_write_registration(owner, 85, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Close did not reject WriteFile before publication")
+	else if not is_unsupported(write_without_sync(owner, 86, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_write_registration(owner, 86, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Sync did not reject WriteFile before publication")
+	else if not is_unsupported(write_without_mutate(owner, 87, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_write_registration(owner, 87, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing fs::Mutate did not reject WriteFile before publication")
+	else
+		Ok(())
+	end
+end
+
+fn write_invalid_and_duplicate_slots_preserve_state() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 88
+	let calls = channel::bounded<String>(32)
+	if not is_invalid_input(complete_write_registration(owner, -1, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("WriteFile registration accepted a negative private slot")
+	else
+		match complete_write_registration(owner, slot, calls.tx)
+			Ok(original) => if not no_handler_calls(calls.rx)
+				Err("initial WriteFile registration invoked a captured handler")
+			else if not is_invalid_input(write_without_write(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_write_slots_match(owner, original, slot)
+				Err("duplicate registration without io::Write changed the WriteFile resource")
+			else if not is_invalid_input(write_without_seek(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_write_slots_match(owner, original, slot)
+				Err("duplicate registration without io::Seek changed the WriteFile resource")
+			else if not is_invalid_input(write_without_write_at(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_write_slots_match(owner, original, slot)
+				Err("duplicate registration without io::WriteAt changed the WriteFile resource")
+			else if not is_invalid_input(write_without_close(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_write_slots_match(owner, original, slot)
+				Err("duplicate registration without io::Close changed the WriteFile resource")
+			else if not is_invalid_input(write_without_sync(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_write_slots_match(owner, original, slot)
+				Err("duplicate registration without io::Sync changed the WriteFile resource")
+			else if not is_invalid_input(write_without_mutate(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_write_slots_match(owner, original, slot)
+				Err("duplicate registration without fs::Mutate changed the WriteFile resource")
+			else if not is_invalid_input(complete_registration(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_write_slots_match(owner, original, slot)
+				Err("cross-family duplicate registration changed the WriteFile resource")
+			else if not is_invalid_input(complete_write_registration(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_write_slots_match(owner, original, slot)
+				Err("complete duplicate registration changed the WriteFile resource")
+			else
+				Ok(())
+			end
+			Err(_) => Err("initial WriteFile registration failed")
+		end
+	end
+end
+
 test read_file_registration_and_projection_retain_identity() -> Result<(), String> effects [concurrency]
 	handle registration_and_projection_observations() with io_provider::scope()
 end
@@ -256,4 +374,16 @@ end
 
 test append_file_invalid_and_duplicate_registrations_preserve_original_resource() -> Result<(), String> effects [concurrency]
 	handle append_negative_and_duplicate_slots_preserve_state() with io_provider::scope()
+end
+
+test write_file_registration_and_projection_retain_identity() -> Result<(), String> effects [concurrency]
+	handle write_registration_and_projection_observations() with io_provider::scope()
+end
+
+test write_file_missing_handlers_reject_before_publication_without_poisoning_slots() -> Result<(), String> effects [concurrency]
+	handle write_missing_handlers_preserve_slots() with io_provider::scope()
+end
+
+test write_file_invalid_and_duplicate_registrations_preserve_original_resource() -> Result<(), String> effects [concurrency]
+	handle write_invalid_and_duplicate_slots_preserve_state() with io_provider::scope()
 end
