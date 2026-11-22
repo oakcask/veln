@@ -2,31 +2,57 @@ use fs from "std"
 use io from "std"
 use io_provider from "std"
 
-handler read_handler() for io::Read
-	read(reader, maximum) => io::ReadOutcome::End
-end
-
-handler seek_handler() for io::Seek
-	seek(seeker, origin) => match origin
-		io::SeekOrigin::Start(offset) => Ok(offset)
-		_ => Err(io::Error::Error("seek", io::ErrorKind::Unsupported, None, None, None, None, "unused fake seek"))
+handler read_handler(calls: Sender<String>) for io::Read effects [concurrency]
+	read(reader, maximum) => begin
+		let _ = channel::send(calls, "read")
+		io::ReadOutcome::End
 	end
 end
 
-handler read_at_handler() for io::ReadAt
-	read_at(reader, offset, maximum) => io::ReadOutcome::End
+handler seek_handler(calls: Sender<String>) for io::Seek effects [concurrency]
+	seek(seeker, origin) => begin
+		let _ = channel::send(calls, "seek")
+		match origin
+			io::SeekOrigin::Start(offset) => Ok(offset)
+			_ => Err(io::Error::Error("seek", io::ErrorKind::Unsupported, None, None, None, None, "unused fake seek"))
+		end
+	end
 end
 
-handler close_handler() for io::Close
-	close(closer) => io::CloseOutcome::Closed
+handler read_at_handler(calls: Sender<String>) for io::ReadAt effects [concurrency]
+	read_at(reader, offset, maximum) => begin
+		let _ = channel::send(calls, "read_at")
+		io::ReadOutcome::End
+	end
 end
 
-fn complete(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with read_handler() with seek_handler() with read_at_handler() with close_handler()
+handler close_handler(calls: Sender<String>) for io::Close effects [concurrency]
+	close(closer) => begin
+		let _ = channel::send(calls, "close")
+		io::CloseOutcome::Closed
+	end
 end
 
-fn missing_close(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with read_handler() with seek_handler() with read_at_handler()
+fn complete(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with read_handler(calls) with seek_handler(calls) with read_at_handler(calls) with close_handler(calls)
+end
+
+fn missing_close(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with read_handler(calls) with seek_handler(calls) with read_at_handler(calls)
+end
+
+fn no_handler_calls(calls: Receiver<String>) -> Bool effects [concurrency]
+	match channel::select_many_timeout(list_cons(calls, list_nil()), 0)
+		None => true
+		Some(_) => false
+	end
+end
+
+fn is_invalid_input(result: Result<io_provider::Resource, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error(_, io::ErrorKind::InvalidInput, _, _, _, _, _)) => true
+		_ => false
+	end
 end
 
 fn slot_is(result: Result<Int, io::Error>, expected: Int) -> Bool
@@ -46,17 +72,30 @@ end
 fn observations() -> () effects [io_provider::Scope, concurrency, stdio]
 	let owner = io_provider::owner()
 	let slot = 73
-	match missing_close(owner, slot)
-		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => match complete(owner, slot)
-			Ok(resource) => match io_provider::duplex(resource)
-				Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => if projection_retains_identity(owner, resource, slot)
-					stdio::println("validation-before-publication and retained owner/slot identity held")
+	let calls = channel::bounded<String>(32)
+	match missing_close(owner, slot, calls.tx)
+		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => if not no_handler_calls(calls.rx)
+			stdio::println("missing-handler validation dispatched a handler")
+		else
+			match complete(owner, slot, calls.tx)
+				Ok(resource) => if not no_handler_calls(calls.rx)
+					stdio::println("successful registration dispatched a handler")
+				else if not is_invalid_input(complete(owner, slot, calls.tx)) or not no_handler_calls(calls.rx)
+					stdio::println("complete duplicate invariant failed")
+				else if not is_invalid_input(missing_close(owner, slot, calls.tx)) or not no_handler_calls(calls.rx)
+					stdio::println("incomplete duplicate invariant failed")
 				else
-					stdio::println("identity invariant failed")
+					match io_provider::duplex(resource)
+						Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => if projection_retains_identity(owner, resource, slot)
+							stdio::println("capture, publication, duplicate, and retained identity invariants held")
+						else
+							stdio::println("identity invariant failed")
+						end
+						_ => stdio::println("incompatible projection was accepted")
+					end
 				end
-				_ => stdio::println("incompatible projection was accepted")
+				Err(_) => stdio::println("rejected registration poisoned the slot")
 			end
-			Err(_) => stdio::println("rejected registration poisoned the slot")
 		end
 		_ => stdio::println("missing Close was not rejected")
 	end

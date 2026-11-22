@@ -104,27 +104,28 @@
             return ioProviderUnsupported("resource", "view family is outside the implemented prototype slice");
         }
 
-        HandlerFrame read = findHandler(IO_READ_EFFECT);
-        HandlerFrame seek = findHandler(IO_SEEK_EFFECT);
-        HandlerFrame readAt = findHandler(IO_READ_AT_EFFECT);
-        HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
-        if (read == null || seek == null || readAt == null || close == null) {
-            return ioProviderUnsupported(
-                "resource",
-                "ReadFile registration requires io::Read, io::Seek, io::ReadAt, and io::Close handlers"
-            );
-        }
-
-        IoResource resource = new IoResource(
-            owner, slot, "ReadFile", read, seek, readAt, close
-        );
         synchronized (owner.resources) {
             if (owner.resources.containsKey(Long.valueOf(slot))) {
                 return ioProviderInvalidInput("resource", "provider slot is already registered");
             }
+
+            HandlerFrame read = findHandler(IO_READ_EFFECT);
+            HandlerFrame seek = findHandler(IO_SEEK_EFFECT);
+            HandlerFrame readAt = findHandler(IO_READ_AT_EFFECT);
+            HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
+            if (read == null || seek == null || readAt == null || close == null) {
+                return ioProviderUnsupported(
+                    "resource",
+                    "ReadFile registration requires io::Read, io::Seek, io::ReadAt, and io::Close handlers"
+                );
+            }
+
+            IoResource resource = new IoResource(
+                owner, slot, "ReadFile", read, seek, readAt, close
+            );
             owner.resources.put(Long.valueOf(slot), resource);
+            return ok(resource);
         }
-        return ok(resource);
     }
 
     public static Object ioProviderReadFile(Object resourceValue) {

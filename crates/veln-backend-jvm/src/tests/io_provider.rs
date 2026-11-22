@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn read_file_adapter_validates_before_publication_and_retains_owner_slot_identity() {
+fn read_file_adapter_captures_without_dispatch_rejects_duplicates_and_retains_identity() {
     let ir = lower_project_entry_to_ir(
         include_str!("../../test-support/io_provider_registration.veln"),
         "main",
@@ -20,6 +20,6 @@ fn read_file_adapter_validates_before_publication_and_retains_owner_slot_identit
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "validation-before-publication and retained owner/slot identity held\n"
+        "capture, publication, duplicate, and retained identity invariants held\n"
     );
 }

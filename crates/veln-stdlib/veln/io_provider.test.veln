@@ -1,32 +1,47 @@
+use prelude
 use fs
 use io
 use io_provider
 use io_provider_test_support_test
 
-fn complete_registration(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read() with io_provider_test_support_test::seek() with io_provider_test_support_test::read_at() with io_provider_test_support_test::close()
+fn complete_registration(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::close(calls)
 end
 
-fn without_read(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::seek() with io_provider_test_support_test::read_at() with io_provider_test_support_test::close()
+fn without_read(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::close(calls)
 end
 
-fn without_seek(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read() with io_provider_test_support_test::read_at() with io_provider_test_support_test::close()
+fn without_seek(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::close(calls)
 end
 
-fn without_read_at(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read() with io_provider_test_support_test::seek() with io_provider_test_support_test::close()
+fn without_read_at(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::close(calls)
 end
 
-fn without_close(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read() with io_provider_test_support_test::seek() with io_provider_test_support_test::read_at()
+fn without_close(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls)
 end
 
 fn is_unsupported(result: Result<io_provider::Resource, io::Error>) -> Bool
 	match result
 		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => true
 		_ => false
+	end
+end
+
+fn is_invalid_input(result: Result<io_provider::Resource, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error(_, io::ErrorKind::InvalidInput, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn no_handler_calls(calls: Receiver<String>) -> Bool effects [concurrency]
+	match channel::select_many_timeout(list_cons(calls, list_nil()), 0)
+		None => true
+		Some(_) => false
 	end
 end
 
@@ -54,8 +69,11 @@ end
 fn registration_and_projection_observations() -> Result<(), String> effects [io_provider::Scope, concurrency]
 	let owner = io_provider::owner()
 	let slot = 41
-	match complete_registration(owner, slot)
-		Ok(resource) => if not projected_slots_match(owner, resource, slot)
+	let calls = channel::bounded<String>(32)
+	match complete_registration(owner, slot, calls.tx)
+		Ok(resource) => if not no_handler_calls(calls.rx)
+			Err("ReadFile registration invoked a captured handler")
+		else if not projected_slots_match(owner, resource, slot)
 			Err("ReadFile projection did not retain the resource owner and slot")
 		else
 			match io_provider::duplex(resource)
@@ -73,13 +91,14 @@ end
 
 fn missing_handlers_preserve_slots() -> Result<(), String> effects [io_provider::Scope, concurrency]
 	let owner = io_provider::owner()
-	if not is_unsupported(without_read(owner, 51)) or not registration_succeeded(complete_registration(owner, 51))
+	let calls = channel::bounded<String>(32)
+	if not is_unsupported(without_read(owner, 51, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_registration(owner, 51, calls.tx)) or not no_handler_calls(calls.rx)
 		Err("missing io::Read did not reject before publication")
-	else if not is_unsupported(without_seek(owner, 52)) or not registration_succeeded(complete_registration(owner, 52))
+	else if not is_unsupported(without_seek(owner, 52, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_registration(owner, 52, calls.tx)) or not no_handler_calls(calls.rx)
 		Err("missing io::Seek did not reject before publication")
-	else if not is_unsupported(without_read_at(owner, 53)) or not registration_succeeded(complete_registration(owner, 53))
+	else if not is_unsupported(without_read_at(owner, 53, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_registration(owner, 53, calls.tx)) or not no_handler_calls(calls.rx)
 		Err("missing io::ReadAt did not reject before publication")
-	else if not is_unsupported(without_close(owner, 54)) or not registration_succeeded(complete_registration(owner, 54))
+	else if not is_unsupported(without_close(owner, 54, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_registration(owner, 54, calls.tx)) or not no_handler_calls(calls.rx)
 		Err("missing io::Close did not reject before publication")
 	else
 		Ok(())
@@ -88,7 +107,8 @@ end
 
 fn negative_slot_is_rejected() -> Result<(), String> effects [io_provider::Scope, concurrency]
 	let owner = io_provider::owner()
-	match complete_registration(owner, -1)
+	let calls = channel::bounded<String>(32)
+	match complete_registration(owner, -1, calls.tx)
 		Err(io::Error::Error(_, io::ErrorKind::InvalidInput, _, _, _, _, _)) => Ok(())
 		_ => Err("ReadFile registration accepted a negative private slot")
 	end
@@ -97,17 +117,22 @@ end
 fn duplicate_slot_preserves_original_resource() -> Result<(), String> effects [io_provider::Scope, concurrency]
 	let owner = io_provider::owner()
 	let slot = 61
-	match complete_registration(owner, slot)
-		Ok(original) => match complete_registration(owner, slot)
-			Err(io::Error::Error(_, io::ErrorKind::InvalidInput, _, _, _, _, _)) => if not projected_slots_match(owner, original, slot)
-				Err("duplicate registration changed the original ReadFile resource")
-			else
-				match complete_registration(owner, slot)
-					Err(io::Error::Error(_, io::ErrorKind::InvalidInput, _, _, _, _, _)) => Ok(())
-					_ => Err("duplicate registration released the occupied provider slot")
-				end
-			end
-			_ => Err("ReadFile registration accepted a duplicate private slot")
+	let calls = channel::bounded<String>(32)
+	match complete_registration(owner, slot, calls.tx)
+		Ok(original) => if not no_handler_calls(calls.rx)
+			Err("initial ReadFile registration invoked a captured handler")
+		else if not is_invalid_input(without_read(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_slots_match(owner, original, slot)
+			Err("duplicate registration without io::Read did not preserve the original resource")
+		else if not is_invalid_input(without_seek(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_slots_match(owner, original, slot)
+			Err("duplicate registration without io::Seek did not preserve the original resource")
+		else if not is_invalid_input(without_read_at(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_slots_match(owner, original, slot)
+			Err("duplicate registration without io::ReadAt did not preserve the original resource")
+		else if not is_invalid_input(without_close(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_slots_match(owner, original, slot)
+			Err("duplicate registration without io::Close did not preserve the original resource")
+		else if not is_invalid_input(complete_registration(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_slots_match(owner, original, slot)
+			Err("complete duplicate registration did not preserve the original resource")
+		else
+			Ok(())
 		end
 		Err(_) => Err("initial ReadFile registration failed")
 	end
