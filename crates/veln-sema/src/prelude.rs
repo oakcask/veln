@@ -10,6 +10,7 @@ mod core_network_signatures;
 mod core_observation_signatures;
 mod core_signatures;
 mod expected_types;
+mod filesystem_signatures;
 mod source_signatures;
 mod surface_signatures;
 

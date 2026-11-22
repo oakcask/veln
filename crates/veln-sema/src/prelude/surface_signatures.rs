@@ -29,33 +29,7 @@ fn prelude_filesystem_io_signature(
     name: &str,
     expected: &ExpectedPreludeParts,
 ) -> Option<(Vec<Type>, Type)> {
-    let arity = match name {
-        "io_provider_scope_owner" => 0,
-        "fs_system_open"
-        | "fs_read_only"
-        | "io_provider_read_file"
-        | "io_provider_write_file"
-        | "io_provider_update_file"
-        | "io_provider_append_file"
-        | "io_provider_duplex" => 1,
-        "io_read_exact"
-        | "io_write_all"
-        | "io_provider_filesystem"
-        | "io_provider_mutable_filesystem"
-        | "io_provider_slot"
-        | "io_provider_filesystem_slot"
-        | "io_provider_mutable_filesystem_slot"
-        | "io_provider_reader_slot"
-        | "io_provider_writer_slot"
-        | "io_provider_seeker_slot"
-        | "io_provider_reader_at_slot"
-        | "io_provider_writer_at_slot"
-        | "io_provider_closer_slot"
-        | "io_provider_syncer_slot"
-        | "io_provider_truncater_slot" => 2,
-        "io_copy" | "io_provider_resource" => 3,
-        _ => return None,
-    };
+    let arity = super::filesystem_signatures::filesystem_io_arity(name)?;
     Some((vec![Type::Unknown; arity], expected.direct.clone()))
 }
 
