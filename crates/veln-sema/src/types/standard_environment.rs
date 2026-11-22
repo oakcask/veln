@@ -1,4 +1,5 @@
 use super::*;
+use std::borrow::Cow;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StandardSemanticIdentity {
@@ -214,10 +215,10 @@ pub(super) fn selected_standard_access_targets(
         .collect()
 }
 
-pub(super) fn module_without_reusable_standard_declarations(
-    module: &SurfaceModule,
+pub(super) fn module_without_reusable_standard_declarations<'a>(
+    module: &'a SurfaceModule,
     standard: &ReusableStandardEnvironment,
-) -> SurfaceModule {
+) -> Cow<'a, SurfaceModule> {
     let mut remaining_standard_declarations = standard.declaration_counts.clone();
     filter_module_declarations(module, |decl| {
         if !decl
@@ -239,23 +240,30 @@ pub(super) fn module_without_reusable_standard_declarations(
 }
 
 pub(super) fn reusable_standard_module_names_for(module: &SurfaceModule) -> BTreeSet<String> {
-    module_standard_names(&module_without_application_declarations(module))
+    module_standard_names_with_provenance(module, true)
 }
 
-fn module_without_application_declarations(module: &SurfaceModule) -> SurfaceModule {
+fn module_without_application_declarations(module: &SurfaceModule) -> Cow<'_, SurfaceModule> {
     filter_module_declarations(module, is_embedded_standard_declaration)
 }
 
 pub(super) fn module_standard_names(module: &SurfaceModule) -> BTreeSet<String> {
+    module_standard_names_with_provenance(module, false)
+}
+
+fn module_standard_names_with_provenance(
+    module: &SurfaceModule,
+    embedded_only: bool,
+) -> BTreeSet<String> {
     let mut names = BTreeSet::new();
-    collect_standard_names(&module.uses, &mut names);
-    collect_standard_names(&module.aliases, &mut names);
-    collect_standard_names(&module.effects, &mut names);
-    collect_standard_names(&module.handlers, &mut names);
-    collect_standard_names(&module.types, &mut names);
-    collect_standard_names(&module.schemas, &mut names);
-    collect_standard_names(&module.module_values, &mut names);
-    collect_standard_names(&module.functions, &mut names);
+    collect_standard_names(&module.uses, &mut names, embedded_only);
+    collect_standard_names(&module.aliases, &mut names, embedded_only);
+    collect_standard_names(&module.effects, &mut names, embedded_only);
+    collect_standard_names(&module.handlers, &mut names, embedded_only);
+    collect_standard_names(&module.types, &mut names, embedded_only);
+    collect_standard_names(&module.schemas, &mut names, embedded_only);
+    collect_standard_names(&module.module_values, &mut names, embedded_only);
+    collect_standard_names(&module.functions, &mut names, embedded_only);
     names
 }
 
@@ -356,10 +364,15 @@ fn merge_standard_surface_module(merged: &mut SurfaceModule, module: SurfaceModu
     merged.invalid_names.extend(module.invalid_names);
 }
 
-fn collect_standard_names<T: StandardDeclaration>(decls: &[T], names: &mut BTreeSet<String>) {
+fn collect_standard_names<T: StandardDeclaration>(
+    decls: &[T],
+    names: &mut BTreeSet<String>,
+    embedded_only: bool,
+) {
     names.extend(
         decls
             .iter()
+            .filter(|decl| !embedded_only || is_embedded_standard_declaration(*decl))
             .filter_map(StandardDeclaration::module_name)
             .filter(|name| is_standard_module_name(Some(name)))
             .map(str::to_string),
@@ -522,30 +535,58 @@ fn standard_declaration_key(decl: &dyn StandardDeclaration) -> StandardDeclarati
 fn filter_module_declarations(
     module: &SurfaceModule,
     mut keep: impl FnMut(&dyn StandardDeclaration) -> bool,
-) -> SurfaceModule {
-    SurfaceModule {
-        module: module.module.clone(),
-        uses: filter_standard_declarations(&module.uses, &mut keep),
-        aliases: filter_standard_declarations(&module.aliases, &mut keep),
-        effects: filter_standard_declarations(&module.effects, &mut keep),
-        handlers: filter_standard_declarations(&module.handlers, &mut keep),
-        types: filter_standard_declarations(&module.types, &mut keep),
-        schemas: filter_standard_declarations(&module.schemas, &mut keep),
-        module_values: filter_standard_declarations(&module.module_values, &mut keep),
-        functions: filter_standard_declarations(&module.functions, &mut keep),
-        invalid_names: module.invalid_names.clone(),
+) -> Cow<'_, SurfaceModule> {
+    let uses = filter_standard_declarations(&module.uses, &mut keep);
+    let aliases = filter_standard_declarations(&module.aliases, &mut keep);
+    let effects = filter_standard_declarations(&module.effects, &mut keep);
+    let handlers = filter_standard_declarations(&module.handlers, &mut keep);
+    let types = filter_standard_declarations(&module.types, &mut keep);
+    let schemas = filter_standard_declarations(&module.schemas, &mut keep);
+    let module_values = filter_standard_declarations(&module.module_values, &mut keep);
+    let functions = filter_standard_declarations(&module.functions, &mut keep);
+    if matches!(uses, Cow::Borrowed(_))
+        && matches!(aliases, Cow::Borrowed(_))
+        && matches!(effects, Cow::Borrowed(_))
+        && matches!(handlers, Cow::Borrowed(_))
+        && matches!(types, Cow::Borrowed(_))
+        && matches!(schemas, Cow::Borrowed(_))
+        && matches!(module_values, Cow::Borrowed(_))
+        && matches!(functions, Cow::Borrowed(_))
+    {
+        return Cow::Borrowed(module);
     }
+    Cow::Owned(SurfaceModule {
+        module: module.module.clone(),
+        uses: uses.into_owned(),
+        aliases: aliases.into_owned(),
+        effects: effects.into_owned(),
+        handlers: handlers.into_owned(),
+        types: types.into_owned(),
+        schemas: schemas.into_owned(),
+        module_values: module_values.into_owned(),
+        functions: functions.into_owned(),
+        invalid_names: module.invalid_names.clone(),
+    })
 }
 
-fn filter_standard_declarations<T: Clone + StandardDeclaration>(
-    declarations: &[T],
+fn filter_standard_declarations<'a, T: Clone + StandardDeclaration>(
+    declarations: &'a [T],
     keep: &mut impl FnMut(&dyn StandardDeclaration) -> bool,
-) -> Vec<T> {
-    declarations
+) -> Cow<'a, [T]> {
+    let Some(first_removed) = declarations
         .iter()
-        .filter(|declaration| keep(*declaration))
-        .cloned()
-        .collect()
+        .position(|declaration| !keep(declaration))
+    else {
+        return Cow::Borrowed(declarations);
+    };
+    let mut retained = declarations[..first_removed].to_vec();
+    retained.extend(
+        declarations[first_removed + 1..]
+            .iter()
+            .filter(|declaration| keep(*declaration))
+            .cloned(),
+    );
+    Cow::Owned(retained)
 }
 
 fn is_embedded_standard_declaration(decl: &dyn StandardDeclaration) -> bool {
