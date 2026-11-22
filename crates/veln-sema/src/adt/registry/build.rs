@@ -203,6 +203,14 @@ impl AdtRegistry {
     }
 
     pub(crate) fn from_module_with_base(module: &SurfaceModule, base: &Self) -> Self {
+        Self::from_module_with_base_and_imports(module, base, &[])
+    }
+
+    pub(crate) fn from_module_with_base_and_imports(
+        module: &SurfaceModule,
+        base: &Self,
+        base_uses: &[UseDecl],
+    ) -> Self {
         let mut descriptors = base.descriptors.clone();
         let source_descriptors = module
             .types
@@ -249,10 +257,10 @@ impl AdtRegistry {
         registry.finish_source_registry(
             base,
             module,
-            local_descriptor_start,
-            source_descriptor_start,
+            (local_descriptor_start, source_descriptor_start),
             type_alias_identities,
             resolved_type_alias_declarations,
+            base_uses,
         );
         registry
     }
@@ -261,11 +269,12 @@ impl AdtRegistry {
         &mut self,
         base: &Self,
         module: &SurfaceModule,
-        local_descriptor_start: usize,
-        source_descriptor_start: usize,
+        descriptor_starts: (usize, usize),
         type_alias_identities: BTreeSet<DescriptorKey>,
         resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
+        base_uses: &[UseDecl],
     ) {
+        let (local_descriptor_start, source_descriptor_start) = descriptor_starts;
         self.type_alias_identities = type_alias_identities;
         self.resolved_type_alias_declarations = resolved_type_alias_declarations;
         self.declaration_spans = base.declaration_spans.clone();
@@ -275,7 +284,10 @@ impl AdtRegistry {
         self.variant_declaration_spans
             .extend(source_variant_declaration_spans(module));
         self.quarantined_type_identities = base.quarantined_type_identities.clone();
-        let uses = normal_use_decls(module);
+        let mut uses = normal_use_decls(module);
+        // Reused source bodies still interpret local annotations in their
+        // original module. Index those imports together with application imports.
+        uses.extend_from_slice(base_uses);
         self.qualified_import_modules = qualified_import_modules(&uses);
         self.qualified_import_recovery_modules =
             qualified_import_recovery_modules(&self.qualified_import_modules);

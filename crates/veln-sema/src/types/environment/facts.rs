@@ -502,7 +502,7 @@ fn declaration_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> 
     let mut effects = effect_signatures(module);
     extend_with_base_facts(&mut effects, base.map(|base| &base.effects));
     let adts = if let Some(base) = base {
-        AdtRegistry::from_module_with_base(module, &base.adts)
+        AdtRegistry::from_module_with_base_and_imports(module, &base.adts, &base.uses)
     } else {
         AdtRegistry::from_module(module)
     };

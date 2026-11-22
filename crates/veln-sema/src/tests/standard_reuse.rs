@@ -798,3 +798,43 @@ fn reachable_project_lowering_with_reusable_standard_environment_keeps_standard_
         ir.schema_decoders
     );
 }
+
+#[test]
+fn standard_body_local_record_annotations_resolve_their_import_aliases() {
+    let _guard = standard_reuse_test_lock();
+    let standard = merge_modules(vec![
+        module_with_identity(
+            "choice.veln",
+            "pub type Choice\n  pub Item(value: Int)\nend\n",
+            "std::choice",
+        ),
+        module_with_identity(
+            "adapter.veln",
+            "use choice as domain\npub fn take() -> Int\n  7\nend\n",
+            "std::adapter",
+        ),
+    ]);
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
+        .with_current_identity_for_test();
+    let application = app_case(
+        "standard body local annotation aliases",
+        "main.veln",
+        "pub fn main() -> Int\n  0\nend\n",
+    );
+    let environment = TypeEnvironment::from_application_module_with_standard(
+        &application.module,
+        &standard,
+        &reusable,
+    );
+    let annotation = crate::type_syntax::parse_type_or_unknown(Some("{outcome: domain::Choice}"));
+    let canonical = environment.canonicalize_type_annotation_in_owner(
+        annotation,
+        Some("std::adapter"),
+        Some("std"),
+    );
+    let expected = crate::semantic_model::Type::Record(vec![(
+        "outcome".to_string(),
+        crate::semantic_model::Type::resolved_named("Choice", "std::choice::Choice", Vec::new()),
+    )]);
+    assert_eq!(canonical, expected);
+}
