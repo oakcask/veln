@@ -5,7 +5,15 @@ pub(crate) fn infer_private_prelude_callback_return_types(
     functions: &mut [FunctionSignature],
     adts: &AdtRegistry,
 ) {
+    if omitted_private_return_functions(module).next().is_none() {
+        return;
+    }
     let uses = normal_use_decls(module);
+    let initial_omitted_private_returns =
+        omitted_private_returns_requiring_prelude_pass(module, functions, &uses, adts);
+    if initial_omitted_private_returns.is_empty() {
+        return;
+    }
     let function_by_path = function_ast_map(module);
     let mut returns_by_path = functions
         .iter()
@@ -21,11 +29,6 @@ pub(crate) fn infer_private_prelude_callback_return_types(
         })
         .collect::<BTreeMap<_, _>>();
 
-    let initial_omitted_private_returns =
-        omitted_private_returns_requiring_prelude_pass(module, functions, &uses, adts);
-    if initial_omitted_private_returns.is_empty() {
-        return;
-    }
     let private_references = private_reference_map(
         module,
         &function_by_path,

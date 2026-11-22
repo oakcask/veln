@@ -5,15 +5,18 @@ pub(crate) fn infer_private_function_body_return_types(
     functions: &mut [FunctionSignature],
     adts: &AdtRegistry,
 ) {
+    if omitted_private_return_functions(module).next().is_none() {
+        return;
+    }
     let uses = normal_use_decls(module);
     let mut changed = true;
     while changed {
         changed = false;
-        let signatures_by_path = signatures_by_path(functions);
         let omitted_private_returns = omitted_private_returns_that_can_change(module, functions);
         if omitted_private_returns.is_empty() {
             return;
         }
+        let signatures_by_path = signatures_by_path(functions);
         let returns_by_path = returns_by_path(functions);
         for function in module.functions.iter().filter(|function| {
             function.kind == FunctionKind::Function
@@ -91,12 +94,12 @@ pub(crate) fn infer_private_function_call_site_signature_types(
     functions: &mut [FunctionSignature],
     adts: &AdtRegistry,
 ) {
-    let uses = normal_use_decls(module);
-    let function_by_path = function_ast_map(module);
     let initial_omitted_private_slots = omitted_private_slots_that_can_change(module, functions);
     if initial_omitted_private_slots.is_empty() {
         return;
     }
+    let uses = normal_use_decls(module);
+    let function_by_path = function_ast_map(module);
     let private_references = private_reference_map(
         module,
         &function_by_path,
@@ -161,6 +164,8 @@ pub(crate) fn signature_for_key<'a>(
     key: &FunctionKey,
 ) -> Option<&'a FunctionSignature> {
     functions.iter().find(|signature| {
+        #[cfg(test)]
+        private_inference_counters::record_signature_lookup_step();
         signature.package_name == key.0 && signature.module_name == key.1 && signature.name == key.2
     })
 }
@@ -190,6 +195,8 @@ pub(crate) fn omitted_private_slots_that_can_change(
             function.kind == FunctionKind::Function
                 && function.visibility == Visibility::Private
                 && function.name.is_some()
+                && (function.return_type.is_none()
+                    || function.params.iter().any(parameter_annotation_is_omitted))
         })
         .filter_map(|function| {
             let key = private_function_key(function)?;
@@ -255,7 +262,9 @@ pub(crate) fn omitted_private_returns_requiring_prelude_pass(
         .collect()
 }
 
-fn omitted_private_return_functions(module: &SurfaceModule) -> impl Iterator<Item = &Function> {
+pub(crate) fn omitted_private_return_functions(
+    module: &SurfaceModule,
+) -> impl Iterator<Item = &Function> {
     module.functions.iter().filter(|function| {
         function.kind == FunctionKind::Function
             && function.visibility == Visibility::Private

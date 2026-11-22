@@ -300,6 +300,7 @@ pub(crate) mod private_inference_counters {
     use super::Cell;
 
     thread_local! {
+        static SIGNATURE_LOOKUP_STEPS: Cell<usize> = const { Cell::new(0) };
         static BODY_RETURN_SCANS: Cell<usize> = const { Cell::new(0) };
         static CALL_SITE_DISCOVERY_SCANS: Cell<usize> = const { Cell::new(0) };
         static CALL_SITE_SCANS: Cell<usize> = const { Cell::new(0) };
@@ -312,6 +313,7 @@ pub(crate) mod private_inference_counters {
 
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
     pub(crate) struct Snapshot {
+        pub(crate) signature_lookup_steps: usize,
         pub(crate) body_return_scans: usize,
         pub(crate) call_site_discovery_scans: usize,
         pub(crate) call_site_scans: usize,
@@ -323,6 +325,7 @@ pub(crate) mod private_inference_counters {
     }
 
     pub(crate) fn reset() {
+        SIGNATURE_LOOKUP_STEPS.set(0);
         BODY_RETURN_SCANS.set(0);
         CALL_SITE_DISCOVERY_SCANS.set(0);
         CALL_SITE_SCANS.set(0);
@@ -335,6 +338,7 @@ pub(crate) mod private_inference_counters {
 
     pub(crate) fn snapshot() -> Snapshot {
         Snapshot {
+            signature_lookup_steps: SIGNATURE_LOOKUP_STEPS.get(),
             body_return_scans: BODY_RETURN_SCANS.get(),
             call_site_discovery_scans: CALL_SITE_DISCOVERY_SCANS.get(),
             call_site_scans: CALL_SITE_SCANS.get(),
@@ -344,6 +348,10 @@ pub(crate) mod private_inference_counters {
             prelude_callback_discovery_scans: PRELUDE_CALLBACK_DISCOVERY_SCANS.get(),
             prelude_callback_scans: PRELUDE_CALLBACK_SCANS.get(),
         }
+    }
+
+    pub(crate) fn record_signature_lookup_step() {
+        SIGNATURE_LOOKUP_STEPS.set(SIGNATURE_LOOKUP_STEPS.get() + 1);
     }
 
     pub(crate) fn record_body_return_scan() {
