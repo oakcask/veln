@@ -64,7 +64,7 @@ fn run_java_runtime_harness_with_options(
 }
 
 #[test]
-fn io_provider_append_file_validates_before_publication_and_retains_identities() {
+fn io_provider_append_file_capabilities_retain_captured_handlers() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()
     {
