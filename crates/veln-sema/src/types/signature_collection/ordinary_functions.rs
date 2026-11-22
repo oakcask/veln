@@ -11,8 +11,15 @@ use veln_ast::{Function, UseDecl};
 
 use super::{canonical_declared_effects, canonicalize_type_effects_in_owner};
 
+#[derive(Clone, Copy)]
+pub(in crate::types) enum FunctionSignaturePurpose {
+    TypeChecking,
+    PathClassification,
+}
+
 pub(in crate::types) fn ordinary_function_signatures(
     module: &SurfaceModule,
+    purpose: FunctionSignaturePurpose,
     effects: &[EffectSignature],
     adts: &AdtRegistry,
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
@@ -29,6 +36,7 @@ pub(in crate::types) fn ordinary_function_signatures(
     let uses = normal_use_decls(module);
     let quarantined_uses = crate::name_recovery::quarantined_use_decls(module);
     let context = OrdinarySignatureContext {
+        purpose,
         uses: &uses,
         quarantined_uses: &quarantined_uses,
         effects,
@@ -45,6 +53,7 @@ pub(in crate::types) fn ordinary_function_signatures(
 }
 
 struct OrdinarySignatureContext<'a> {
+    purpose: FunctionSignaturePurpose,
     uses: &'a [UseDecl],
     quarantined_uses: &'a [UseDecl],
     effects: &'a [EffectSignature],
@@ -82,7 +91,56 @@ fn ordinary_function_signature(
         return None;
     }
     let current_module = function.module_name.as_deref();
-    let (params, variadic) = function_signature_params(function);
+    let (params, variadic, return_type, effects) = if matches!(
+        context.purpose,
+        FunctionSignaturePurpose::PathClassification
+    ) {
+        // Path roles need callable identity and arity, not annotation types.
+        let params = function
+            .params
+            .iter()
+            .filter(|param| !param.is_variadic)
+            .map(|_| crate::semantic_model::Type::Unknown)
+            .collect();
+        let variadic = function
+            .params
+            .iter()
+            .any(|param| param.is_variadic)
+            .then_some(crate::semantic_model::Type::Unknown);
+        (
+            params,
+            variadic,
+            crate::semantic_model::Type::Unknown,
+            Vec::new(),
+        )
+    } else {
+        let (params, variadic) = function_signature_params(function);
+        (
+            params
+                .into_iter()
+                .map(|ty| {
+                    context.canonicalize(ty, current_module, function.package_name.as_deref())
+                })
+                .collect(),
+            variadic.map(|ty| {
+                context.canonicalize(ty, current_module, function.package_name.as_deref())
+            }),
+            context.canonicalize(
+                parse_type_or_unknown(function.return_type.as_deref()),
+                current_module,
+                function.package_name.as_deref(),
+            ),
+            canonical_declared_effects(
+                function.effects.clone().unwrap_or_default(),
+                context.uses,
+                context.quarantined_uses,
+                current_module,
+                function.package_name.as_deref(),
+                context.effects,
+                context.companion_effect_access_targets,
+            ),
+        )
+    };
     Some(FunctionSignature {
         target_name: crate::standard_symbols::function_link_name(
             current_module,
@@ -94,26 +152,10 @@ fn ordinary_function_signature(
         module_name: function.module_name.clone(),
         package_name: function.package_name.clone(),
         visibility: function.visibility,
-        params: params
-            .into_iter()
-            .map(|ty| context.canonicalize(ty, current_module, function.package_name.as_deref()))
-            .collect(),
-        variadic: variadic
-            .map(|ty| context.canonicalize(ty, current_module, function.package_name.as_deref())),
-        return_type: context.canonicalize(
-            parse_type_or_unknown(function.return_type.as_deref()),
-            current_module,
-            function.package_name.as_deref(),
-        ),
-        effects: canonical_declared_effects(
-            function.effects.clone().unwrap_or_default(),
-            context.uses,
-            context.quarantined_uses,
-            current_module,
-            function.package_name.as_deref(),
-            context.effects,
-            context.companion_effect_access_targets,
-        ),
+        params,
+        variadic,
+        return_type,
+        effects,
         callsite: function.callsite.is_some(),
         node_id: function.node_id,
         span: function.span.clone(),

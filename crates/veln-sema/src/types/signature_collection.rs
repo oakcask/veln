@@ -29,7 +29,7 @@ use refinement_resolution::RefinementResolution;
 mod instrumentation;
 mod ordinary_functions;
 mod refinement_resolution;
-pub(super) use ordinary_functions::ordinary_function_signatures;
+pub(super) use ordinary_functions::{FunctionSignaturePurpose, ordinary_function_signatures};
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn canonicalize_type_effects_in_owner(
