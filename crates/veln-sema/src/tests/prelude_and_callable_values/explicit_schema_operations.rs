@@ -361,7 +361,7 @@ fn explicit_schema_validate_expression_accepts_predicates_without_refinements() 
         .find(|spec| spec.schema_name == "PredicatesOnly")
         .expect("predicate-only runtime validator");
     assert!(matches!(
-        spec.plan.root_node(),
+        spec.plan.node(spec.plan.root),
         CoreSchemaRefinementPlanNode::Record(fields) if fields.is_empty()
     ));
 }
@@ -456,7 +456,9 @@ fn explicit_schema_validate_expression_carries_recursive_container_plan_through_
         .iter()
         .find(|spec| spec.schema_name == "RecursiveContainers")
         .expect("core validation plan");
-    let CoreSchemaRefinementPlanNode::Record(core_fields) = core_spec.plan.root_node() else {
+    let CoreSchemaRefinementPlanNode::Record(core_fields) =
+        core_spec.plan.node(core_spec.plan.root)
+    else {
         panic!("root validation plan should be a record");
     };
     assert_eq!(
@@ -504,7 +506,7 @@ fn explicit_schema_validate_expression_carries_recursive_container_plan_through_
         .iter()
         .find(|spec| spec.schema_name == "RecursiveContainers")
         .expect("IR validation plan");
-    let IrSchemaRefinementPlanNode::Record(ir_fields) = ir_spec.plan.root_node() else {
+    let IrSchemaRefinementPlanNode::Record(ir_fields) = ir_spec.plan.node(ir_spec.plan.root) else {
         panic!("root IR validation plan should be a record");
     };
     let IrSchemaRefinementPlanNode::Result {
@@ -556,7 +558,7 @@ fn explicit_schema_validate_expression_erases_source_adt_payloads_and_carries_pa
         .iter()
         .find(|spec| spec.schema_name == "Packet")
         .expect("source ADT validation plan");
-    let CoreSchemaRefinementPlanNode::Record(fields) = spec.plan.root_node() else {
+    let CoreSchemaRefinementPlanNode::Record(fields) = spec.plan.node(spec.plan.root) else {
         panic!("root plan should be a record");
     };
     let CoreSchemaRefinementPlanNode::Adt {
@@ -590,7 +592,7 @@ fn explicit_schema_validate_expression_erases_source_adt_payloads_and_carries_pa
         .iter()
         .find(|spec| spec.schema_name == "Packet")
         .expect("IR source ADT validation plan");
-    let IrSchemaRefinementPlanNode::Record(fields) = spec.plan.root_node() else {
+    let IrSchemaRefinementPlanNode::Record(fields) = spec.plan.node(spec.plan.root) else {
         panic!("IR root plan should be a record");
     };
     assert!(matches!(
@@ -631,7 +633,7 @@ fn explicit_schema_validate_expression_plans_nested_source_adt_container_payload
         .iter()
         .find(|spec| spec.schema_name == "Packet")
         .expect("nested source ADT validation plan");
-    let CoreSchemaRefinementPlanNode::Record(fields) = spec.plan.root_node() else {
+    let CoreSchemaRefinementPlanNode::Record(fields) = spec.plan.node(spec.plan.root) else {
         panic!("root plan should be a record");
     };
     let CoreSchemaRefinementPlanNode::Adt { variants, .. } = spec.plan.node(fields[0].plan) else {
@@ -805,7 +807,7 @@ fn explicit_schema_validate_expression_traverses_visible_imported_source_adts() 
         .iter()
         .find(|spec| spec.declaration_name == "Packet")
         .expect("imported source ADT plan");
-    let CoreSchemaRefinementPlanNode::Record(fields) = spec.plan.root_node() else {
+    let CoreSchemaRefinementPlanNode::Record(fields) = spec.plan.node(spec.plan.root) else {
         panic!("root plan should be a record");
     };
     let field_plan = fields[0].plan;
@@ -881,7 +883,7 @@ fn explicit_schema_validate_expression_shares_acyclic_diamond_plan_nodes() {
         .schema_refinement_validators[0]
         .plan;
     assert_eq!(core_plan.nodes.len(), DEPTH + 3);
-    let CoreSchemaRefinementPlanNode::Record(fields) = core_plan.root_node() else {
+    let CoreSchemaRefinementPlanNode::Record(fields) = core_plan.node(core_plan.root) else {
         panic!("root plan should be a record");
     };
     let mut node = fields[0].plan;
@@ -902,7 +904,7 @@ fn explicit_schema_validate_expression_shares_acyclic_diamond_plan_nodes() {
         .plan;
     assert_eq!(ir_plan.root, core_plan.root);
     assert_eq!(ir_plan.nodes.len(), core_plan.nodes.len());
-    let IrSchemaRefinementPlanNode::Record(fields) = ir_plan.root_node() else {
+    let IrSchemaRefinementPlanNode::Record(fields) = ir_plan.node(ir_plan.root) else {
         panic!("IR root plan should be a record");
     };
     let mut node = fields[0].plan;
@@ -937,7 +939,7 @@ fn explicit_schema_validate_expression_plans_finite_nested_generic_instantiation
         .expect("checked core")
         .schema_refinement_validators[0]
         .plan;
-    let CoreSchemaRefinementPlanNode::Record(fields) = plan.root_node() else {
+    let CoreSchemaRefinementPlanNode::Record(fields) = plan.node(plan.root) else {
         panic!("root plan should be a record");
     };
     let CoreSchemaRefinementPlanNode::Adt { variants, .. } = plan.node(fields[0].plan) else {
@@ -981,7 +983,7 @@ fn explicit_schema_validate_expression_builds_finite_regular_recursive_source_ad
             .expect("checked core")
             .schema_refinement_validators[0]
             .plan;
-        let CoreSchemaRefinementPlanNode::Record(fields) = plan.root_node() else {
+        let CoreSchemaRefinementPlanNode::Record(fields) = plan.node(plan.root) else {
             panic!("root plan should be a record");
         };
         let first = fields[0].plan;
@@ -1038,7 +1040,7 @@ fn explicit_schema_validate_expression_completes_explicitly_refined_recursive_ed
         .expect("checked core")
         .schema_refinement_validators[0]
         .plan;
-    let CoreSchemaRefinementPlanNode::Record(fields) = plan.root_node() else {
+    let CoreSchemaRefinementPlanNode::Record(fields) = plan.node(plan.root) else {
         panic!("root plan should be a record");
     };
     let CoreSchemaRefinementPlanNode::Adt {
@@ -1114,7 +1116,7 @@ fn assert_outer_recursive_payloads_are_unrefined(field_type: &str) {
         .expect("checked core")
         .schema_refinement_validators[0]
         .plan;
-    let CoreSchemaRefinementPlanNode::Record(fields) = plan.root_node() else {
+    let CoreSchemaRefinementPlanNode::Record(fields) = plan.node(plan.root) else {
         panic!("root plan should be a record");
     };
     let CoreSchemaRefinementPlanNode::Adt {
@@ -1151,7 +1153,7 @@ fn assert_nested_refinement_uses_distinct_recursive_plan() {
         .expect("checked core")
         .schema_refinement_validators[0]
         .plan;
-    let CoreSchemaRefinementPlanNode::Record(fields) = plan.root_node() else {
+    let CoreSchemaRefinementPlanNode::Record(fields) = plan.node(plan.root) else {
         panic!("root plan should be a record");
     };
     let outer = fields[0].plan;

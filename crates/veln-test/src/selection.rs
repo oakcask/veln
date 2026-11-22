@@ -531,7 +531,8 @@ impl TestSelection {
         }
     }
 
-    pub fn source_to_test_convention(self, added_count: usize) -> Self {
+    #[cfg(test)]
+    pub(crate) fn source_to_test_convention(self, added_count: usize) -> Self {
         self.apply_metadata(source_to_test_metadata(added_count))
     }
 
