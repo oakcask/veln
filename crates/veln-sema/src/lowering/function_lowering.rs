@@ -333,8 +333,8 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn lower_body(&mut self, return_type: &CoreType) -> Vec<CoreStmt> {
-        let source_body = self.function.body.clone();
-        self.lower_body_lines(&source_body, Some(return_type), false)
+        let function = self.function;
+        self.lower_body_lines(&function.body, Some(return_type), false)
             .0
     }
 
