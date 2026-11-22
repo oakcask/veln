@@ -8,6 +8,13 @@ pub handler read(calls: Sender<String>) for io::Read effects [concurrency]
 	end
 end
 
+pub handler write(calls: Sender<String>) for io::Write effects [concurrency]
+	write(writer, chunk) => begin
+		let _ = channel::send(calls, "write")
+		io::WriteOutcome::Written(byte_chunk_count(chunk))
+	end
+end
+
 pub handler seek(calls: Sender<String>) for io::Seek effects [concurrency]
 	seek(seeker, origin) => begin
 		let _ = channel::send(calls, "seek")
@@ -29,5 +36,13 @@ pub handler close(calls: Sender<String>) for io::Close effects [concurrency]
 	close(closer) => begin
 		let _ = channel::send(calls, "close")
 		io::CloseOutcome::Closed
+	end
+end
+
+
+pub handler sync(calls: Sender<String>) for io::Sync effects [concurrency]
+	sync(syncer) => begin
+		let _ = channel::send(calls, "sync")
+		Ok(())
 	end
 end

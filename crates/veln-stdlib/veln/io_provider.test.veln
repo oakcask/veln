@@ -24,6 +24,22 @@ fn without_close(owner: io_provider::Owner, slot: Int, calls: Sender<String>) ->
 	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls)
 end
 
+fn complete_append_registration(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls)
+end
+
+fn append_without_write(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls)
+end
+
+fn append_without_close(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::sync(calls)
+end
+
+fn append_without_sync(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::close(calls)
+end
+
 fn is_unsupported(result: Result<io_provider::Resource, io::Error>) -> Bool
 	match result
 		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => true
@@ -62,6 +78,13 @@ end
 fn projected_slots_match(owner: io_provider::Owner, resource: io_provider::Resource, slot: Int) -> Bool effects [concurrency]
 	match io_provider::read_file(resource)
 		Ok(fs::ReadFile::ReadFile(reader, seeker, reader_at, closer)) => slot_matches(io_provider::slot(owner, resource), slot) and slot_matches(io_provider::reader_slot(owner, reader), slot) and slot_matches(io_provider::seeker_slot(owner, seeker), slot) and slot_matches(io_provider::reader_at_slot(owner, reader_at), slot) and slot_matches(io_provider::closer_slot(owner, closer), slot)
+		_ => false
+	end
+end
+
+fn projected_append_slots_match(owner: io_provider::Owner, resource: io_provider::Resource, slot: Int) -> Bool effects [concurrency]
+	match io_provider::append_file(resource)
+		Ok(fs::AppendFile::AppendFile(writer, closer, syncer)) => slot_matches(io_provider::slot(owner, resource), slot) and slot_matches(io_provider::writer_slot(owner, writer), slot) and slot_matches(io_provider::closer_slot(owner, closer), slot) and slot_matches(io_provider::syncer_slot(owner, syncer), slot)
 		_ => false
 	end
 end
@@ -138,6 +161,74 @@ fn duplicate_slot_preserves_original_resource() -> Result<(), String> effects [i
 	end
 end
 
+fn append_registration_and_projection_observations() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 71
+	let calls = channel::bounded<String>(32)
+	match complete_append_registration(owner, slot, calls.tx)
+		Ok(resource) => if not no_handler_calls(calls.rx)
+			Err("AppendFile registration invoked a captured handler")
+		else if not projected_append_slots_match(owner, resource, slot)
+			Err("AppendFile projection did not retain the resource owner and slot")
+		else
+			match io_provider::read_file(resource)
+				Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => match io_provider::duplex(resource)
+					Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => if projected_append_slots_match(owner, resource, slot)
+						Ok(())
+					else
+						Err("failed projection changed the AppendFile resource")
+					end
+					_ => Err("AppendFile resource accepted an incompatible Duplex projection")
+				end
+				_ => Err("AppendFile resource accepted an incompatible ReadFile projection")
+			end
+		end
+		Err(_) => Err("complete AppendFile registration failed")
+	end
+end
+
+fn append_missing_handlers_preserve_slots() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let calls = channel::bounded<String>(32)
+	if not is_unsupported(append_without_write(owner, 72, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_append_registration(owner, 72, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Write did not reject AppendFile before publication")
+	else if not is_unsupported(append_without_close(owner, 73, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_append_registration(owner, 73, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Close did not reject AppendFile before publication")
+	else if not is_unsupported(append_without_sync(owner, 74, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_append_registration(owner, 74, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Sync did not reject AppendFile before publication")
+	else
+		Ok(())
+	end
+end
+
+fn append_negative_and_duplicate_slots_preserve_state() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 75
+	let calls = channel::bounded<String>(32)
+	if not is_invalid_input(complete_append_registration(owner, -1, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("AppendFile registration accepted a negative private slot")
+	else
+		match complete_append_registration(owner, slot, calls.tx)
+			Ok(original) => if not no_handler_calls(calls.rx)
+				Err("initial AppendFile registration invoked a captured handler")
+			else if not is_invalid_input(append_without_write(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_append_slots_match(owner, original, slot)
+				Err("duplicate registration without io::Write changed the AppendFile resource")
+			else if not is_invalid_input(append_without_close(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_append_slots_match(owner, original, slot)
+				Err("duplicate registration without io::Close changed the AppendFile resource")
+			else if not is_invalid_input(append_without_sync(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_append_slots_match(owner, original, slot)
+				Err("duplicate registration without io::Sync changed the AppendFile resource")
+			else if not is_invalid_input(complete_registration(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_append_slots_match(owner, original, slot)
+				Err("cross-family duplicate registration changed the AppendFile resource")
+			else if not is_invalid_input(complete_append_registration(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_append_slots_match(owner, original, slot)
+				Err("complete duplicate registration changed the AppendFile resource")
+			else
+				Ok(())
+			end
+			Err(_) => Err("initial AppendFile registration failed")
+		end
+	end
+end
+
 test read_file_registration_and_projection_retain_identity() -> Result<(), String> effects [concurrency]
 	handle registration_and_projection_observations() with io_provider::scope()
 end
@@ -152,4 +243,17 @@ end
 
 test read_file_duplicate_registration_preserves_original_resource() -> Result<(), String> effects [concurrency]
 	handle duplicate_slot_preserves_original_resource() with io_provider::scope()
+end
+
+
+test append_file_registration_and_projection_retain_identity() -> Result<(), String> effects [concurrency]
+	handle append_registration_and_projection_observations() with io_provider::scope()
+end
+
+test append_file_missing_handlers_reject_before_publication_without_poisoning_slots() -> Result<(), String> effects [concurrency]
+	handle append_missing_handlers_preserve_slots() with io_provider::scope()
+end
+
+test append_file_invalid_and_duplicate_registrations_preserve_original_resource() -> Result<(), String> effects [concurrency]
+	handle append_negative_and_duplicate_slots_preserve_state() with io_provider::scope()
 end

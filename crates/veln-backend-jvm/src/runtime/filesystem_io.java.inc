@@ -1,8 +1,10 @@
     private static final String IO_PROVIDER_SCOPE_EFFECT = "std::io_provider::Scope";
     private static final String IO_READ_EFFECT = "std::io::Read";
+    private static final String IO_WRITE_EFFECT = "std::io::Write";
     private static final String IO_SEEK_EFFECT = "std::io::Seek";
     private static final String IO_READ_AT_EFFECT = "std::io::ReadAt";
     private static final String IO_CLOSE_EFFECT = "std::io::Close";
+    private static final String IO_SYNC_EFFECT = "std::io::Sync";
 
     private static final class IoOwner {
         final HandlerFrame scope;
@@ -19,26 +21,32 @@
         final long slot;
         final String family;
         final HandlerFrame read;
+        final HandlerFrame write;
         final HandlerFrame seek;
         final HandlerFrame readAt;
         final HandlerFrame close;
+        final HandlerFrame sync;
 
         IoResource(
             IoOwner owner,
             long slot,
             String family,
             HandlerFrame read,
+            HandlerFrame write,
             HandlerFrame seek,
             HandlerFrame readAt,
-            HandlerFrame close
+            HandlerFrame close,
+            HandlerFrame sync
         ) {
             this.owner = owner;
             this.slot = slot;
             this.family = family;
             this.read = read;
+            this.write = write;
             this.seek = seek;
             this.readAt = readAt;
             this.close = close;
+            this.sync = sync;
         }
     }
 
@@ -100,7 +108,9 @@
         if (findHandler(IO_PROVIDER_SCOPE_EFFECT) != owner.scope) {
             return ioProviderInvalidInput("resource", "provider owner is not active in this scope");
         }
-        if (!isAdt(familyValue, "ViewFamily::ReadFile")) {
+        boolean readFile = isAdt(familyValue, "ViewFamily::ReadFile");
+        boolean appendFile = isAdt(familyValue, "ViewFamily::AppendFile");
+        if (!readFile && !appendFile) {
             return ioProviderUnsupported("resource", "view family is outside the implemented prototype slice");
         }
 
@@ -109,20 +119,35 @@
                 return ioProviderInvalidInput("resource", "provider slot is already registered");
             }
 
-            HandlerFrame read = findHandler(IO_READ_EFFECT);
-            HandlerFrame seek = findHandler(IO_SEEK_EFFECT);
-            HandlerFrame readAt = findHandler(IO_READ_AT_EFFECT);
-            HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
-            if (read == null || seek == null || readAt == null || close == null) {
-                return ioProviderUnsupported(
-                    "resource",
-                    "ReadFile registration requires io::Read, io::Seek, io::ReadAt, and io::Close handlers"
+            IoResource resource;
+            if (readFile) {
+                HandlerFrame read = findHandler(IO_READ_EFFECT);
+                HandlerFrame seek = findHandler(IO_SEEK_EFFECT);
+                HandlerFrame readAt = findHandler(IO_READ_AT_EFFECT);
+                HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
+                if (read == null || seek == null || readAt == null || close == null) {
+                    return ioProviderUnsupported(
+                        "resource",
+                        "ReadFile registration requires io::Read, io::Seek, io::ReadAt, and io::Close handlers"
+                    );
+                }
+                resource = new IoResource(
+                    owner, slot, "ReadFile", read, null, seek, readAt, close, null
+                );
+            } else {
+                HandlerFrame write = findHandler(IO_WRITE_EFFECT);
+                HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
+                HandlerFrame sync = findHandler(IO_SYNC_EFFECT);
+                if (write == null || close == null || sync == null) {
+                    return ioProviderUnsupported(
+                        "resource",
+                        "AppendFile registration requires io::Write, io::Close, and io::Sync handlers"
+                    );
+                }
+                resource = new IoResource(
+                    owner, slot, "AppendFile", null, write, null, null, close, sync
                 );
             }
-
-            IoResource resource = new IoResource(
-                owner, slot, "ReadFile", read, seek, readAt, close
-            );
             owner.resources.put(Long.valueOf(slot), resource);
             return ok(resource);
         }
@@ -143,6 +168,24 @@
                 new IoCapability(resource.owner, resource.slot, resource.seek),
                 new IoCapability(resource.owner, resource.slot, resource.readAt),
                 new IoCapability(resource.owner, resource.slot, resource.close)
+            }
+        ));
+    }
+
+    public static Object ioProviderAppendFile(Object resourceValue) {
+        if (!(resourceValue instanceof IoResource)) {
+            return ioProviderInvalidInput("append_file", "invalid provider resource");
+        }
+        IoResource resource = (IoResource) resourceValue;
+        if (!resource.family.equals("AppendFile")) {
+            return ioProviderUnsupported("append_file", "resource does not provide an AppendFile view");
+        }
+        return ok(adt(
+            "fs::AppendFile::AppendFile",
+            new Object[] {
+                new IoCapability(resource.owner, resource.slot, resource.write),
+                new IoCapability(resource.owner, resource.slot, resource.close),
+                new IoCapability(resource.owner, resource.slot, resource.sync)
             }
         ));
     }
@@ -174,6 +217,9 @@
     public static Object ioProviderReaderSlot(Object owner, Object capability) {
         return ioProviderCapabilitySlot("reader_slot", owner, capability);
     }
+    public static Object ioProviderWriterSlot(Object owner, Object capability) {
+        return ioProviderCapabilitySlot("writer_slot", owner, capability);
+    }
     public static Object ioProviderSeekerSlot(Object owner, Object capability) {
         return ioProviderCapabilitySlot("seeker_slot", owner, capability);
     }
@@ -182,4 +228,7 @@
     }
     public static Object ioProviderCloserSlot(Object owner, Object capability) {
         return ioProviderCapabilitySlot("closer_slot", owner, capability);
+    }
+    public static Object ioProviderSyncerSlot(Object owner, Object capability) {
+        return ioProviderCapabilitySlot("syncer_slot", owner, capability);
     }

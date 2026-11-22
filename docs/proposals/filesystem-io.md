@@ -11,10 +11,10 @@ handlers. The same byte-processing helpers should work with files, network
 streams, and memory.
 
 The [design decisions](#design-decisions) resolve the initial scope. The static
-source names and capability boundaries plus a bounded `ReadFile` registration
-and projection slice are implemented for feasibility. Resource operation
-dispatch, the other view families, and the remaining acceptance evidence are
-planned. Implementation selection remains blocked on the separate
+source names and capability boundaries plus bounded `ReadFile` and `AppendFile`
+registration and projection slices are implemented for feasibility. Resource
+operation dispatch, the other view families, and the remaining acceptance
+evidence are planned. Implementation selection remains blocked on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
 ## Current Boundary And Scope
@@ -24,9 +24,10 @@ provides host-owned `Path` values and four compiler-known operations for text
 reading, text writing, existence checks, and directory listing. The current
 [static filesystem and byte IO prototype](../specification/standard-library-filesystem-io.md)
 also declares public opaque file views, seek capabilities, and nominal
-filesystem handlers. Its bounded runtime can register and project a
-`ReadFile` resource while retaining its owner and slot, but it provides no
-resource operation dispatch or host filesystem execution. This proposal
+filesystem handlers. Its bounded runtime can register and project `ReadFile`
+and `AppendFile` resources while retaining their owners and slots, but it
+provides no resource operation dispatch or host filesystem execution. This
+proposal
 replaces the minimal production boundary; retaining its source API is not
 required.
 
@@ -277,10 +278,10 @@ No broad stress or performance claim is part of this proposal.
 
 These decisions replace the former open questions. The adapter and capability
 choices are Veln design inferences, not guarantees supplied by the comparative
-sources. The static API contract and bounded `ReadFile` runtime slice are
-implemented where the table links to the current specification. The remaining
-runtime decisions are proposed contracts, not evidence that their runtime
-support exists.
+sources. The static API contract and bounded `ReadFile` and `AppendFile`
+runtime slices are implemented where the table links to the current
+specification. The remaining runtime decisions are proposed contracts, not
+evidence that their runtime support exists.
 
 | Concern | Selected initial design | Acceptance obligation |
 | --- | --- | --- |
@@ -318,15 +319,15 @@ outside the initial API.
 
 This is an explicit runtime/compiler adapter extension, not a claim that
 ordinary nominal dispatch already provides resource-bound routing. The
-bounded current slice registers `ReadFile` resources and projects their
-capabilities, but does not invoke the captured handlers. Existing `NetListener`
-and `NetStream` demonstrate opaque handles, but do not provide a general
-Veln-only provider allocation API. Do not reuse their network bridge or invent
-an unimplemented trait or closure representation.
+bounded current slices register `ReadFile` and `AppendFile` resources and
+project their capabilities, but do not invoke the captured handlers. Existing
+`NetListener` and `NetStream` demonstrate opaque handles, but do not provide a
+general Veln-only provider allocation API. Do not reuse their network bridge or
+invent an unimplemented trait or closure representation.
 
 The remaining `io_provider` work requires these runtime observations. The
-current `ReadFile` slice covers only the registration and projection parts
-identified in the table:
+current `ReadFile` and `AppendFile` slices cover only the registration and
+projection parts identified in the table:
 
 | Entry point | Required observation |
 | --- | --- |
