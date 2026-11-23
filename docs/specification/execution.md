@@ -327,8 +327,10 @@ join reports cancellation. The effect boundary during unwinding is specified by
 
 An admitted `io_provider::update` is also an atomic cancellation boundary. A
 pending cancellation is delivered before callback entry or after the
-replacement and result have committed and the cell lock has been released. It
-is not delivered at callback checkpoints inside that interval. The
+replacement has committed and the cell lock has been released. A cancellation
+delivered after commit prevents the task from receiving the callback result but
+does not roll back the replacement. It is not delivered at callback checkpoints
+inside that interval. The
 [atomic provider state specification](standard-library-filesystem-io.md#atomic-provider-state)
 defines rollback, reentrancy, identity, and publication behavior for this
 boundary.

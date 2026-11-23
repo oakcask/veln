@@ -319,6 +319,16 @@ checking whether the enclosing call result is a valid Boolean predicate. These
 failures do not add a generic contract or `satisfy` type-mismatch or
 unsupported-construct diagnostic.
 
+For `io_provider::update`, incompatible inferred signature parts use the
+ordinary `type.mismatch` diagnostic at the boundary that supplies the failed
+fact. A context disagreement is reported at the context argument. An inferred
+callback result that disagrees with an enclosing expected result is reported at
+the call, while an incompatible replacement state is reported as a callback
+function mismatch. A callback selected through a record field retains its
+known function type for these diagnostics. The checked
+[`provider-state signature`](../../examples/specification/check/filesystem-io-state-signature-consistency/)
+case fixes these three boundaries.
+
 An unresolved public type-alias target reports `name.unresolved` at that alias
 declaration. Its details contain `phase: "name"`, the alias `node_id`,
 `expected_kind: "type"`, and the written `target`. A function target reports

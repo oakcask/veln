@@ -131,15 +131,18 @@ retains `concurrency`, and the resource projections are pure.
 
 `ViewFamily` is `ReadFile`, `WriteFile`, `UpdateFile`, `AppendFile`, or
 `Duplex`. The registration selector does not add capabilities by itself.
-Only the bounded registration and projection behavior described below is
-implemented.
+Only the bounded registration, projection, and atomic-state behavior described
+below is implemented.
 
 `State<T>` is an opaque invariant cell. Source cannot construct, inspect, or
 refine a cell except through `state` and `update`. The update callback is pure;
 an action that retains an effect is rejected before runtime. Inferred and
 explicit `T`, `C`, and `R` arguments constrain the cell, context, callback
-parameters, replacement state, and result as one signature. An incompatible
-context, replacement, or result is rejected before runtime.
+parameters, replacement state, and result as one signature. A callback selected
+through a record field retains its known function type for those constraints.
+When `R` is inferred, the callback's `result` field fixes it before an enclosing
+expected result type is considered. An incompatible context, replacement, or
+result is rejected before runtime.
 
 The compiler adapters behind these declarations are available only to source
 embedded in the standard package. Application source cannot call their
@@ -284,8 +287,10 @@ cell for later use instead of waiting for itself.
 Task cancellation is observed before callback entry or after the replacement
 has committed and the cell has been released. Once an update is admitted,
 cancellation checkpoints inside its compiled Veln callback defer delivery
-until after commit. Cancellation cannot publish only the replacement or only
-the result, and it cannot strand the cell lock.
+until after commit. Cancellation requested after admission leaves the committed
+replacement current but prevents the task from receiving the callback result;
+joining the task observes cancellation. Cancellation cannot strand the cell
+lock.
 
 ## Runtime limits
 

@@ -12,8 +12,9 @@ streams, and memory.
 
 The [design decisions](#design-decisions) resolve the initial scope. The static
 source names and capability boundaries plus bounded five-family registration,
-projection, and compatibility are implemented for feasibility. Resource
-operation dispatch and the remaining acceptance evidence are planned.
+projection, compatibility, and atomic provider state are implemented for
+feasibility. Resource operation dispatch and the remaining acceptance evidence
+are planned.
 Implementation selection remains blocked on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
