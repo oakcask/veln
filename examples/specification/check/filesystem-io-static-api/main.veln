@@ -93,13 +93,15 @@ pub fn provider_operations(owner: io_provider::Owner, resource: io_provider::Res
 end
 
 # F3 compiler contract: generic state allocation and pure callback lowering
-# retain the independently inferred String, record, List, and constructor
-# state arguments while update returns its callback result type.
+# retain String, record, List, and constructor state arguments, accept a
+# nullary generic constructor from an expected State type, and preserve each
+# concrete state argument while update returns its callback result type.
 pub fn provider_atomic_state_operations() -> () effects [concurrency]
 	let string_state = io_provider::state("a")
 	let record_state = io_provider::state({name: "record", count: 1})
 	let list_state = io_provider::state(list_cons(1, list_nil()))
 	let constructor_state = io_provider::state(StateSample(1))
+	let option_state: io_provider::State<Option<Int>> = io_provider::state(None)
 	let string_result = io_provider::update(string_state, "b", update_string)
 	let record_result = io_provider::update(record_state, 2, update_record)
 	let list_result = io_provider::update(list_state, 2, update_list)

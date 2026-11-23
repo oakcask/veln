@@ -571,7 +571,7 @@ impl<'a> FunctionChecker<'a> {
         let operation = self
             .declared_io_provider_state_operation(callee)?
             .to_string();
-        let mut actuals = self.infer_io_provider_state_actuals(&operation, args);
+        let mut actuals = self.infer_io_provider_state_actuals(&operation, args, expected);
         let (params, variadic, return_type, origin) = self.call_signature(
             callee,
             expected.map(|expected| &expected.ty),

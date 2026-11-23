@@ -31,13 +31,13 @@ fn evidence_ir(program: &TypedProgram) -> &IrFunction {
 }
 
 fn assert_concrete_core_state_types(evidence: &CoreFunction, expected: &[CoreType]) {
-    for (statement, expected) in evidence.body.iter().take(4).zip(expected) {
+    for (statement, expected) in evidence.body.iter().take(expected.len()).zip(expected) {
         let CoreStmtKind::Let { expr, .. } = &statement.kind else {
             panic!("expected state allocation binding");
         };
         assert_eq!(&expr.ty, expected);
     }
-    for statement in evidence.body.iter().skip(4).take(4) {
+    for statement in evidence.body.iter().skip(expected.len()).take(4) {
         let expr = match &statement.kind {
             CoreStmtKind::Let { expr, .. } | CoreStmtKind::Expr { expr } => expr,
             _ => panic!("expected state update statement: {statement:#?}"),
@@ -54,7 +54,7 @@ fn assert_concrete_core_state_types(evidence: &CoreFunction, expected: &[CoreTyp
 }
 
 fn assert_concrete_ir_state_types(evidence: &IrFunction, expected: &[CoreType]) {
-    for (statement, expected) in evidence.body.iter().take(4).zip(expected) {
+    for (statement, expected) in evidence.body.iter().take(expected.len()).zip(expected) {
         let IrStmtKind::Let { value, .. } = &statement.kind else {
             panic!("expected IR state allocation binding");
         };
@@ -97,6 +97,7 @@ fn io_provider_atomic_state_keeps_concrete_types_through_core_and_ir() {
             "  let records = state({name: \"value\"})\n",
             "  let lists = state(list_cons(1, list_nil()))\n",
             "  let samples = state(Sample(1))\n",
+            "  let options: State<Option<Int>> = state(None)\n",
             "  let string_result = update(strings, (), string_step)\n",
             "  let record_result = update(records, (), record_step)\n",
             "  let list_result = update(lists, (), list_step)\n",
@@ -120,6 +121,7 @@ fn io_provider_atomic_state_keeps_concrete_types_through_core_and_ir() {
         ),
         CoreType::named("List", vec![CoreType::int()]),
         CoreType::named("Sample", Vec::new()),
+        CoreType::named("Option", vec![CoreType::int()]),
     ]
     .map(|item| CoreType::named("State", vec![item]));
     let core = lowered

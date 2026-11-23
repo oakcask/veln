@@ -5,6 +5,7 @@ impl FunctionChecker<'_> {
         &mut self,
         operation: &str,
         args: &[Expr],
+        expected: Option<&ExpectedType>,
     ) -> Vec<(Type, bool)> {
         let mut actuals = Vec::with_capacity(args.len());
         for (index, arg) in args.iter().enumerate() {
@@ -16,8 +17,11 @@ impl FunctionChecker<'_> {
                 actuals.push((actual, true));
                 continue;
             }
+            let initial_expected = (operation == "state" && index == 0)
+                .then(|| expected.and_then(io_provider_state_initial_expected))
+                .flatten();
             let diagnostics_before = self.diagnostics.len();
-            let actual = self.infer_expr(arg, None);
+            let actual = self.infer_expr(arg, initial_expected.as_ref());
             actuals.push((actual, self.diagnostics.len() == diagnostics_before));
         }
         actuals
@@ -47,6 +51,27 @@ impl FunctionChecker<'_> {
         actual.0 = self.infer_expr(arg, Some(&expected));
         actual.1 = self.diagnostics.len() == diagnostics_before;
     }
+}
+
+fn io_provider_state_initial_expected(expected: &ExpectedType) -> Option<ExpectedType> {
+    let Type::Named {
+        name,
+        identity,
+        args,
+    } = &expected.ty
+    else {
+        return None;
+    };
+    let [item] = args.as_slice() else {
+        return None;
+    };
+    if name != "State" || identity != "std::io_provider::State" || type_contains_unknown(item) {
+        return None;
+    }
+    Some(ExpectedType {
+        ty: item.clone(),
+        ..expected.clone()
+    })
 }
 
 pub(super) fn call_arity_is_valid(
