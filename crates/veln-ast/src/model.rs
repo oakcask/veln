@@ -4,8 +4,10 @@ pub use veln_syntax::{
     VariantRefinementTypeArgument,
 };
 
+mod function_body;
 mod predicates;
 
+pub use function_body::FunctionBody;
 pub use predicates::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -462,7 +464,7 @@ pub struct Function {
     pub effect_spans: Option<Vec<SourceSpan>>,
     pub callsite: Option<SourceSpan>,
     pub contracts: Vec<Contract>,
-    pub body: Vec<BodyLine>,
+    pub body: FunctionBody,
     pub span: SourceSpan,
 }
 

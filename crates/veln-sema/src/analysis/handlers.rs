@@ -580,7 +580,7 @@ fn synthetic_clause_function(
         effect_spans: None,
         callsite: None,
         contracts: Vec::new(),
-        body: Vec::new(),
+        body: Vec::new().into(),
         span: clause.span.clone(),
     }
 }

@@ -573,7 +573,7 @@ impl<'a> Reader<'a> {
             effect_spans: self.option(|reader| reader.vec(Self::span))?,
             callsite: self.option(Self::span)?,
             contracts: self.vec(Self::contract)?,
-            body: self.vec(Self::body_line)?,
+            body: self.vec(Self::body_line)?.into(),
             span: self.span()?,
         })
     }

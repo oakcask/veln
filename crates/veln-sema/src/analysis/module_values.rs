@@ -566,7 +566,8 @@ fn synthetic_module_value_function(value: &veln_ast::ModuleValueDecl, index: usi
                 expr: value.initializer.clone(),
             },
             span: value.initializer.span.clone(),
-        }],
+        }]
+        .into(),
         span: value.span.clone(),
     }
 }

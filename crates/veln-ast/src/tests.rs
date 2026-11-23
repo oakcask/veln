@@ -2,6 +2,7 @@ use super::*;
 use veln_source::SourceFile;
 use veln_syntax::parse;
 
+mod function_body;
 mod legacy_wire;
 mod node_id_inventory;
 mod predicate_remainders;
