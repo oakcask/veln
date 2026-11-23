@@ -390,8 +390,10 @@ expressions and branch-selected state values or callbacks therefore supply
 their concrete types. When a `state` initializer is a list, `if`, or `match`,
 lowering retains the joined concrete type of compatible contributions through
 checked core and typed IR. This includes nested named arguments and records
-with the same named fields in different source orders, regardless of which
-compatible contribution appears first. The `T` argument of `State<T>` is
+with the same named fields in different source orders. It also includes
+record-width joins that select the unique contributed record accepted by every
+contribution. These results do not depend on which compatible contribution
+appears first. The `T` argument of `State<T>` is
 invariant: a cell cannot
 be assigned to a state type with a wider or narrower value shape. This preserves
 the value type expected by every callback that shares the cell. The rules

@@ -174,7 +174,9 @@ type or an independently concrete initial value, allocation remains ambiguous.
 List, `if`, and `match` initializers retain the joined concrete type of
 compatible contributions through checked core and typed IR. Nested compatible
 named arguments and same-field records remain concrete when record field order
-or contribution order differs. The cell's nominal standard-library identity
+differs. Record-width joins retain the unique contributed record accepted by
+every contribution. Neither join result depends on contribution order. The
+cell's nominal standard-library identity
 and invariant `T` prevent a same-spelled source type or a state type whose
 record argument omits retained fields from satisfying the state API's cell
 boundary. The
@@ -334,8 +336,8 @@ other declaration establishes only its static capability and effect boundary.
   `examples/specification/check/filesystem-io-atomic-state-nominal-boundary/`.
 - Atomic state value and expected-type inference, including a nullary generic
   initializer, list and control-flow joins in either contribution order,
-  pure-callback enforcement, concrete type retention, and foreign-package
-  namesake isolation through checked core and typed IR:
+  record-width joins, pure-callback enforcement, concrete type retention, and
+  foreign-package namesake isolation through checked core and typed IR:
   [`io_provider.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types/io_provider.rs).
 - Atomic allocation identity, shared child identity, serialized completed
   updates, publication, and five-family registration and projection behavior:
