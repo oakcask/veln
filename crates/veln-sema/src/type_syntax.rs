@@ -114,6 +114,44 @@ mod tests {
     }
 
     #[test]
+    fn wide_record_types_preserve_written_field_order() {
+        for count in [32, 64, 65, 128] {
+            let names = (0..count).map(|i| format!("field_{i}")).collect::<Vec<_>>();
+            let annotation = format!(
+                "{{{}}}",
+                names
+                    .iter()
+                    .map(|name| format!("{name}: Int"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            let Type::Record(fields) = parse_type_annotation(&annotation).unwrap() else {
+                panic!("record annotation must retain its fields");
+            };
+            assert_eq!(
+                fields.into_iter().map(|(name, _)| name).collect::<Vec<_>>(),
+                names
+            );
+        }
+    }
+
+    #[test]
+    fn record_types_report_the_first_repeated_field_at_small_and_large_widths() {
+        for count in [2, 16, 32, 33, 64, 65, 128] {
+            let fields = (0..count)
+                .map(|i| format!("field_{i}: Int"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let annotation = format!("{{{fields}, field_0: String, field_1: Bool}}");
+            assert_eq!(
+                parse_type_annotation(&annotation).unwrap_err(),
+                "duplicate record field `field_0`",
+                "{count}"
+            );
+        }
+    }
+
+    #[test]
     fn type_annotation_reference_names_ignore_record_fields() {
         let names =
             type_annotation_reference_names("{item: Int, payload: module::Packet}").unwrap();

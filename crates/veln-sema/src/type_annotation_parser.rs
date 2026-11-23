@@ -130,15 +130,21 @@ impl<'a> TypeParser<'a> {
     }
 
     fn parse_record_type(&mut self) -> Result<Type, String> {
-        let mut fields = Vec::new();
+        const LINEAR_FIELD_LIMIT: usize = 64;
+        let mut fields: Vec<(String, Type)> = Vec::new();
+        let mut field_names: Option<HashSet<String>> = None;
         while !self.at_end() && !self.at('}') {
             let Some(name) = self.parse_ident() else {
                 return Err("expected record field name".to_string());
             };
-            if fields
-                .iter()
-                .any(|(field_name, _): &(String, Type)| field_name == &name)
-            {
+            let duplicate = if fields.len() < LINEAR_FIELD_LIMIT {
+                fields.iter().any(|(field_name, _)| field_name == &name)
+            } else {
+                let names = field_names
+                    .get_or_insert_with(|| fields.iter().map(|(name, _)| name.clone()).collect());
+                !names.insert(name.clone())
+            };
+            if duplicate {
                 return Err(format!("duplicate record field `{name}`"));
             }
             self.expect(':')?;
