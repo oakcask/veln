@@ -19,7 +19,7 @@ runs:
           ~/.cargo/git
         key: cargo-dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
     - name: Fetch locked Cargo dependencies
-      if: inputs.save-cache == 'true'
+      if: inputs.save-cache == 'true' && steps.cargo-dependency-cache.outputs.cache-hit != 'true'
       shell: bash
       run: cargo fetch --locked
     - name: Save Cargo dependency cache
