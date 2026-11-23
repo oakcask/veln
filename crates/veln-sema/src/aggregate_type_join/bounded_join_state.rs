@@ -357,7 +357,7 @@ impl FunctionCandidateStates {
             return None;
         };
         Some(Type::Function {
-            params,
+            params: params.into(),
             variadic,
             return_type: Box::new(return_type),
             effects,

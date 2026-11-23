@@ -39,13 +39,13 @@ fn renders_record_and_function_types() {
         ("scores".to_string(), Type::vec(Type::int())),
     ]);
     let pure_function = Type::Function {
-        params: vec![Type::int(), Type::float()],
+        params: vec![Type::int(), Type::float()].into(),
         variadic: None,
         return_type: Box::new(Type::bool()),
         effects: Vec::new(),
     };
     let effectful_function = Type::Function {
-        params: vec![record.clone()],
+        params: vec![record.clone()].into(),
         variadic: None,
         return_type: Box::new(Type::result(
             Type::unit(),
@@ -65,7 +65,7 @@ fn renders_record_and_function_types() {
 #[test]
 fn exposes_type_parts_and_core_type_shape() {
     let function = Type::Function {
-        params: vec![Type::vec(Type::int())],
+        params: vec![Type::vec(Type::int())].into(),
         variadic: None,
         return_type: Box::new(Type::Record(vec![("ok".to_string(), Type::bool())])),
         effects: vec!["stdio".to_string()],
@@ -120,31 +120,31 @@ fn assignability_allows_unknowns_and_record_width() {
 #[test]
 fn assignability_checks_function_shapes_and_effects() {
     let expected_pure_function = Type::Function {
-        params: vec![Type::int()],
+        params: vec![Type::int()].into(),
         variadic: None,
         return_type: Box::new(Type::bool()),
         effects: Vec::new(),
     };
     let actual_effectful_function = Type::Function {
-        params: vec![Type::int()],
+        params: vec![Type::int()].into(),
         variadic: None,
         return_type: Box::new(Type::bool()),
         effects: vec!["stdio".to_string()],
     };
     let expected_effectful_function = Type::Function {
-        params: vec![Type::int()],
+        params: vec![Type::int()].into(),
         variadic: None,
         return_type: Box::new(Type::bool()),
         effects: vec!["stdio".to_string()],
     };
     let actual_pure_function = Type::Function {
-        params: vec![Type::int()],
+        params: vec![Type::int()].into(),
         variadic: None,
         return_type: Box::new(Type::bool()),
         effects: Vec::new(),
     };
     let wrong_function = Type::Function {
-        params: vec![Type::int(), Type::int()],
+        params: vec![Type::int(), Type::int()].into(),
         variadic: None,
         return_type: Box::new(Type::bool()),
         effects: Vec::new(),
@@ -347,7 +347,7 @@ fn complete_record_and_function_assignability_matches_the_variance_table() {
     let function =
         |params: Vec<Type>, variadic: Option<Type>, result: Type, effects: Vec<String>| {
             Type::Function {
-                params,
+                params: params.into(),
                 variadic: variadic.map(Box::new),
                 return_type: Box::new(result),
                 effects,
@@ -677,7 +677,8 @@ fn parses_nested_type_annotations_with_whitespace() {
             params: vec![
                 Type::vec(Type::int()),
                 Type::named("platform::Request", Vec::new()),
-            ],
+            ]
+            .into(),
             variadic: None,
             return_type: Box::new(Type::result(
                 Type::dict(Type::string(), Type::int()),
@@ -718,7 +719,8 @@ fn parses_angle_bracket_type_annotations() {
                         Type::result(Type::unit(), Type::named("AppError", Vec::new())),
                     ],
                 ),
-            ],
+            ]
+            .into(),
             variadic: None,
             return_type: Box::new(Type::dict(Type::string(), Type::int())),
             effects: Vec::new(),
@@ -731,7 +733,7 @@ fn parses_variadic_function_type_annotations() {
     assert_eq!(
         parse_type_annotation("fn(String, ...String) -> ()"),
         Ok(Type::Function {
-            params: vec![Type::string()],
+            params: vec![Type::string()].into(),
             variadic: Some(Box::new(Type::string())),
             return_type: Box::new(Type::unit()),
             effects: Vec::new(),
@@ -740,7 +742,7 @@ fn parses_variadic_function_type_annotations() {
     assert_eq!(
         parse_type_annotation("fn(String, ...) -> List<String>"),
         Ok(Type::Function {
-            params: vec![Type::string()],
+            params: vec![Type::string()].into(),
             variadic: Some(Box::new(Type::Unknown)),
             return_type: Box::new(Type::list(Type::string())),
             effects: Vec::new(),
@@ -749,7 +751,7 @@ fn parses_variadic_function_type_annotations() {
     assert_eq!(
         parse_type_annotation("fn(String, ...unknown) -> List<String>"),
         Ok(Type::Function {
-            params: vec![Type::string()],
+            params: vec![Type::string()].into(),
             variadic: Some(Box::new(Type::Unknown)),
             return_type: Box::new(Type::list(Type::string())),
             effects: Vec::new(),
@@ -768,13 +770,13 @@ fn parses_variadic_function_type_annotations() {
 #[test]
 fn variadic_and_fixed_function_types_are_not_assignable() {
     let variadic = Type::Function {
-        params: vec![Type::string()],
+        params: vec![Type::string()].into(),
         variadic: Some(Box::new(Type::string())),
         return_type: Box::new(Type::unit()),
         effects: Vec::new(),
     };
     let fixed = Type::Function {
-        params: vec![Type::string(), Type::string()],
+        params: vec![Type::string(), Type::string()].into(),
         variadic: None,
         return_type: Box::new(Type::unit()),
         effects: Vec::new(),

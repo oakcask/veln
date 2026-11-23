@@ -20,7 +20,7 @@ enum TypeCloneTask<'a> {
         Vec<(String, Vec<Type>, String)>,
     ),
     Record(Vec<String>),
-    Function(usize, bool, Vec<String>),
+    Function(TypeArgs, bool, Vec<String>),
 }
 
 impl Clone for Type {
@@ -72,8 +72,8 @@ fn process_type_clone_task<'a>(
                 unresolved_alternatives,
             }),
         TypeCloneTask::Record(names) => finish_record_type_clone(names, cloned),
-        TypeCloneTask::Function(param_count, has_variadic, effects) => {
-            finish_function_type_clone(param_count, has_variadic, effects, cloned)
+        TypeCloneTask::Function(params, has_variadic, effects) => {
+            finish_function_type_clone(params, has_variadic, effects, cloned)
         }
     }
 }
@@ -154,14 +154,14 @@ fn queue_record_type_clone<'a>(fields: &'a [(String, Type)], tasks: &mut Vec<Typ
 }
 
 fn queue_function_type_clone<'a>(
-    params: &'a [Type],
+    params: &TypeArgs,
     variadic: &'a Option<Box<Type>>,
     return_type: &'a Type,
     effects: &[String],
     tasks: &mut Vec<TypeCloneTask<'a>>,
 ) {
     tasks.push(TypeCloneTask::Function(
-        params.len(),
+        params.clone(),
         variadic.is_some(),
         effects.to_vec(),
     ));
@@ -169,7 +169,6 @@ fn queue_function_type_clone<'a>(
     if let Some(variadic) = variadic {
         tasks.push(TypeCloneTask::Visit(variadic));
     }
-    tasks.extend(params.iter().rev().map(TypeCloneTask::Visit));
 }
 
 fn finish_record_type_clone(names: Vec<String>, cloned: &mut Vec<Type>) {
@@ -183,13 +182,12 @@ fn finish_record_type_clone(names: Vec<String>, cloned: &mut Vec<Type>) {
 }
 
 fn finish_function_type_clone(
-    param_count: usize,
+    params: TypeArgs,
     has_variadic: bool,
     effects: Vec<String>,
     cloned: &mut Vec<Type>,
 ) {
-    let mut parts = cloned.split_off(cloned.len() - param_count - usize::from(has_variadic) - 1);
-    let params = parts.drain(..param_count).collect();
+    let mut parts = cloned.split_off(cloned.len() - usize::from(has_variadic) - 1);
     let variadic = has_variadic.then(|| Box::new(parts.remove(0)));
     let return_type = Box::new(parts.remove(0));
     cloned.push(Type::Function {
@@ -249,12 +247,12 @@ pub(crate) fn drop_type_iteratively(root: Type) {
                 pending.extend(fields.into_iter().map(|(_, ty)| ty));
             }
             Type::Function {
-                mut params,
+                params,
                 variadic,
                 return_type,
                 ..
             } => {
-                pending.append(&mut params);
+                pending.extend(params);
                 pending.extend(variadic.map(|ty| *ty));
                 pending.push(*return_type);
             }
@@ -279,12 +277,41 @@ mod tests {
     }
 
     #[test]
+    fn function_type_clones_detach_parameters_before_mutation() {
+        let original = Type::function(vec![Type::option(Type::int())], Type::unit(), Vec::new());
+        let mut cloned = original.clone();
+        let Type::Function {
+            params: original_params,
+            ..
+        } = &original
+        else {
+            unreachable!();
+        };
+        let Type::Function {
+            params: cloned_params,
+            ..
+        } = &mut cloned
+        else {
+            unreachable!();
+        };
+        assert!(original_params.ptr_eq(cloned_params));
+        let Type::Named { args, .. } = &mut cloned_params[0] else {
+            unreachable!();
+        };
+        args[0] = Type::string();
+        assert!(!original_params.ptr_eq(cloned_params));
+        assert_eq!(original_params[0], Type::option(Type::int()));
+        assert_eq!(cloned_params[0], Type::option(Type::string()));
+    }
+
+    #[test]
     fn type_clone_measurement_counts_owned_nodes_and_skips_shared_type_arguments() {
         let ty = Type::Function {
             params: vec![Type::Record(vec![(
                 "field".to_string(),
                 Type::named("Vec", vec![Type::Unknown]),
-            )])],
+            )])]
+            .into(),
             variadic: Some(Box::new(Type::VariantRefinement {
                 name: "State".into(),
                 identity: "State".into(),
@@ -306,14 +333,14 @@ mod tests {
         let (cloned, measured_nodes) = measure_type_clone_nodes(|| ty.clone());
 
         assert_eq!(cloned, ty);
-        assert_eq!(measured_nodes, 6);
+        assert_eq!(measured_nodes, 4);
 
         let (_, container_nodes) = measure_type_clone_nodes(|| vec![ty.clone()]);
-        assert_eq!(container_nodes, 6);
+        assert_eq!(container_nodes, 4);
 
         let (_, temporary_nodes) = measure_type_clone_nodes(|| {
             let _temporary = ty.clone();
         });
-        assert_eq!(temporary_nodes, 6);
+        assert_eq!(temporary_nodes, 4);
     }
 }

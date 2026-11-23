@@ -172,7 +172,7 @@ fn prelude_vec_callback_signature(
             vec![
                 Type::vec(input_vec_item.to_owned()),
                 Type::Function {
-                    params: vec![input_vec_item.to_owned()],
+                    params: vec![input_vec_item.to_owned()].into(),
                     variadic: None,
                     return_type: Box::new(vec_item.clone()),
                     effects: Vec::new(),
@@ -184,7 +184,7 @@ fn prelude_vec_callback_signature(
             vec![
                 Type::vec(same_vec_item.clone()),
                 Type::Function {
-                    params: vec![same_vec_item.clone()],
+                    params: vec![same_vec_item.clone()].into(),
                     variadic: None,
                     return_type: Box::new(Type::bool()),
                     effects: Vec::new(),
@@ -197,7 +197,7 @@ fn prelude_vec_callback_signature(
                 Type::vec(input_vec_item.to_owned()),
                 expected.direct.clone(),
                 Type::Function {
-                    params: vec![expected.direct.clone(), input_vec_item.to_owned()],
+                    params: vec![expected.direct.clone(), input_vec_item.to_owned()].into(),
                     variadic: None,
                     return_type: Box::new(expected.direct.clone()),
                     effects: Vec::new(),
@@ -257,7 +257,7 @@ fn prelude_list_callback_signature(
             vec![
                 adt::list_type(input_list_item.to_owned()),
                 Type::Function {
-                    params: vec![input_list_item.to_owned()],
+                    params: vec![input_list_item.to_owned()].into(),
                     variadic: None,
                     return_type: Box::new(list_item.clone()),
                     effects: Vec::new(),
@@ -269,7 +269,7 @@ fn prelude_list_callback_signature(
             vec![
                 adt::list_type(same_list_item.clone()),
                 Type::Function {
-                    params: vec![same_list_item.clone()],
+                    params: vec![same_list_item.clone()].into(),
                     variadic: None,
                     return_type: Box::new(Type::bool()),
                     effects: Vec::new(),
@@ -282,7 +282,7 @@ fn prelude_list_callback_signature(
                 adt::list_type(input_list_item.to_owned()),
                 expected.direct.clone(),
                 Type::Function {
-                    params: vec![expected.direct.clone(), input_list_item.to_owned()],
+                    params: vec![expected.direct.clone(), input_list_item.to_owned()].into(),
                     variadic: None,
                     return_type: Box::new(expected.direct.clone()),
                     effects: Vec::new(),
@@ -369,7 +369,8 @@ fn prelude_dict_map_signature(
         params: prelude_callback_args_with_context(
             with_context,
             vec![result_key.clone(), expected.input_dict_value.clone()],
-        ),
+        )
+        .into(),
         variadic: None,
         return_type: Box::new(result_value.clone()),
         effects: Vec::new(),
@@ -391,7 +392,8 @@ fn prelude_dict_filter_signature(
     let key = prefer_known(&expected.input_dict_key, &expected.dict_key);
     let value = prefer_known(&expected.input_dict_value, &expected.dict_value);
     let callback = Type::Function {
-        params: prelude_callback_args_with_context(with_context, vec![key.clone(), value.clone()]),
+        params: prelude_callback_args_with_context(with_context, vec![key.clone(), value.clone()])
+            .into(),
         variadic: None,
         return_type: Box::new(Type::bool()),
         effects: Vec::new(),
@@ -418,7 +420,8 @@ fn prelude_dict_fold_signature(
                 expected.input_dict_key.clone(),
                 expected.input_dict_value.clone(),
             ],
-        ),
+        )
+        .into(),
         variadic: None,
         return_type: Box::new(expected.direct.clone()),
         effects: Vec::new(),
@@ -452,7 +455,8 @@ fn prelude_dict_try_map_signature(
         params: prelude_callback_args_with_context(
             with_context,
             vec![output_key.clone(), expected.input_dict_value.clone()],
-        ),
+        )
+        .into(),
         variadic: None,
         return_type: Box::new(adt::result_type(
             result_value.clone(),
@@ -522,7 +526,7 @@ fn prelude_option_signature(
             vec![
                 adt::option_type(input_option_item.clone()),
                 Type::Function {
-                    params: vec![input_option_item.clone()],
+                    params: vec![input_option_item.clone()].into(),
                     variadic: None,
                     return_type: Box::new(option_item.clone()),
                     effects: Vec::new(),
@@ -534,7 +538,7 @@ fn prelude_option_signature(
             vec![
                 adt::option_type(input_option_item.clone()),
                 Type::Function {
-                    params: vec![input_option_item.clone()],
+                    params: vec![input_option_item.clone()].into(),
                     variadic: None,
                     return_type: Box::new(adt::option_type(option_item.clone())),
                     effects: Vec::new(),
@@ -568,7 +572,7 @@ fn prelude_result_signature(
             vec![
                 adt::result_type(input_result_value.clone(), carried_result_error.clone()),
                 Type::Function {
-                    params: vec![input_result_value.clone()],
+                    params: vec![input_result_value.clone()].into(),
                     variadic: None,
                     return_type: Box::new(result_value.clone()),
                     effects: Vec::new(),
@@ -580,7 +584,7 @@ fn prelude_result_signature(
             vec![
                 adt::result_type(carried_result_value.clone(), input_result_error.clone()),
                 Type::Function {
-                    params: vec![input_result_error.clone()],
+                    params: vec![input_result_error.clone()].into(),
                     variadic: None,
                     return_type: Box::new(result_error.clone()),
                     effects: Vec::new(),
@@ -592,7 +596,7 @@ fn prelude_result_signature(
             vec![
                 adt::result_type(input_result_value.clone(), carried_result_error.clone()),
                 Type::Function {
-                    params: vec![input_result_value.clone()],
+                    params: vec![input_result_value.clone()].into(),
                     variadic: None,
                     return_type: Box::new(adt::result_type(
                         result_value.clone(),
@@ -626,7 +630,7 @@ fn vec_try_map_signature(
     params.push(Type::vec(input_item.clone()));
     callback_params.push(input_item);
     params.push(Type::Function {
-        params: callback_params,
+        params: callback_params.into(),
         variadic: None,
         return_type: Box::new(adt::result_type(mapped_item.clone(), result_error.clone())),
         effects: Vec::new(),
@@ -651,7 +655,7 @@ fn list_try_map_signature(
         vec![
             adt::list_type(input_item.clone()),
             Type::Function {
-                params: vec![input_item],
+                params: vec![input_item].into(),
                 variadic: None,
                 return_type: Box::new(adt::result_type(mapped_item.clone(), result_error.clone())),
                 effects: Vec::new(),
