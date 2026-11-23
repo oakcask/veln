@@ -341,6 +341,8 @@ fn callee_symbol(callee: &Expr) -> Option<String> {
 
 fn expected_concurrency_type_arg_count(segments: &[String]) -> Option<usize> {
     match segments {
+        [module, name] if module == "io_provider" && name == "update" => Some(3),
+        [module, name] if module == "io_provider" && name == "state" => Some(1),
         [module, name] if module == "task" && name == "spawn_with" => Some(2),
         [module, _] if module == "channel" || module == "task" => Some(1),
         _ => None,

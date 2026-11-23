@@ -560,12 +560,19 @@ impl<'a> FunctionChecker<'a> {
             return None;
         }
 
+        if is_io_provider_state_call(callee) && args.len() == 1 {
+            return self.infer_io_provider_state_call(expr, callee, &args[0], expected);
+        }
+
+        let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
+        let context_type = args.get(1).and_then(|arg| self.shallow_expr_type(arg));
+        let action_type = args.get(2).and_then(|arg| self.shallow_expr_type(arg));
         let (params, variadic, return_type, origin) = self.call_signature(
             callee,
             expected.map(|expected| &expected.ty),
-            args.first()
-                .and_then(|arg| self.shallow_expr_type(arg))
-                .as_ref(),
+            handle_type.as_ref(),
+            context_type.as_ref(),
+            action_type.as_ref(),
         )?;
 
         let call_bound_row =
@@ -589,6 +596,50 @@ impl<'a> FunctionChecker<'a> {
         } else {
             return_type
         })
+    }
+
+    fn infer_io_provider_state_call(
+        &mut self,
+        expr: &Expr,
+        callee: &Expr,
+        initial: &Expr,
+        expected: Option<&ExpectedType>,
+    ) -> Option<Type> {
+        let (preliminary_params, _, _, preliminary_origin) = self.call_signature(
+            callee,
+            expected.map(|expected| &expected.ty),
+            None,
+            None,
+            None,
+        )?;
+        let preliminary_param = preliminary_params.first()?;
+        let preliminary_expected =
+            call_argument_expected(preliminary_param, &preliminary_origin, None);
+        let diagnostics_before = self.diagnostics.len();
+        let actual = self.infer_expr(initial, Some(&preliminary_expected));
+        let argument_valid = self.diagnostics.len() == diagnostics_before;
+
+        let (params, _, return_type, origin) = self.call_signature(
+            callee,
+            expected.map(|expected| &expected.ty),
+            Some(&actual),
+            None,
+            None,
+        )?;
+        let expected_argument = call_argument_expected(params.first()?, &origin, None);
+        let assignable =
+            is_assignable_with_registry(&expected_argument.ty, &actual, &self.environment.adts);
+        self.check_assignable(
+            initial,
+            &expected_argument.ty,
+            &actual,
+            &expected_argument,
+            "call_argument",
+        );
+        if argument_valid && assignable {
+            self.record_call_effects(expr, &origin, &EffectRowSubstitutions::new());
+        }
+        Some(return_type)
     }
 
     fn record_call_effects(
@@ -722,6 +773,12 @@ impl<'a> FunctionChecker<'a> {
         }
         valid
     }
+}
+
+fn is_io_provider_state_call(callee: &Expr) -> bool {
+    callee.callee_name_path().is_some_and(
+        |segments| matches!(segments, [module, name] if module == "io_provider" && name == "state"),
+    )
 }
 
 fn call_argument_expected(

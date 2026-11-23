@@ -136,7 +136,10 @@ implemented.
 
 `State<T>` is an opaque invariant cell. Source cannot construct, inspect, or
 refine a cell except through `state` and `update`. The update callback is pure;
-an action that retains an effect is rejected before runtime.
+an action that retains an effect is rejected before runtime. Inferred and
+explicit `T`, `C`, and `R` arguments constrain the cell, context, callback
+parameters, replacement state, and result as one signature. An incompatible
+context, replacement, or result is rejected before runtime.
 
 The compiler adapters behind these declarations are available only to source
 embedded in the standard package. Application source cannot call their
@@ -300,6 +303,10 @@ establishes only its static capability and effect boundary.
   `examples/specification/check/filesystem-io-static-api/`.
 - Pure transition callback compiler boundary:
   `examples/specification/check/filesystem-io-state-effectful-callback/`.
+- Generic state inference, explicit type arguments, and rejected inconsistent
+  context, replacement, and result types:
+  `examples/specification/check/filesystem-io-static-api/` and
+  `examples/specification/check/filesystem-io-state-signature-consistency/`.
 - Atomic state API behavior, independent identity, and shared child-task
   updates: `crates/veln-stdlib/veln/io_provider.test.veln`.
 - JVM exclusivity, rollback and unlock, reentrancy rejection, task-boundary

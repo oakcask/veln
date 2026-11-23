@@ -50,6 +50,8 @@ pub(crate) struct CoreCallSignature {
 struct TypeNamePathCallContext<'a> {
     expected: Option<&'a Type>,
     handle_type: Option<&'a Type>,
+    context_type: Option<&'a Type>,
+    action_type: Option<&'a Type>,
     bindings: &'a [TypeBinding<'a>],
     environment: &'a TypeEnvironment,
     current_module: Option<&'a str>,
@@ -60,6 +62,8 @@ pub(crate) fn type_call_signature(
     callee: &Expr,
     expected: Option<&Type>,
     handle_type: Option<&Type>,
+    context_type: Option<&Type>,
+    action_type: Option<&Type>,
     bindings: &[TypeBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
@@ -72,13 +76,17 @@ pub(crate) fn type_call_signature(
             TypeNamePathCallContext {
                 expected,
                 handle_type,
+                context_type,
+                action_type,
                 bindings,
                 environment,
                 current_module,
                 current_package,
             },
         ),
-        ExprKind::TypeApply { .. } => type_applied_call_signature(callee, expected, handle_type),
+        ExprKind::TypeApply { .. } => {
+            type_applied_call_signature(callee, expected, handle_type, context_type, action_type)
+        }
         _ => None,
     }
 }
@@ -121,9 +129,14 @@ fn type_name_path_call_signature(
     {
         return Some(signature);
     }
-    if let Some(signature) =
-        type_effect_call_signature(callee, segments, context.expected, context.handle_type)
-    {
+    if let Some(signature) = type_effect_call_signature(
+        callee,
+        segments,
+        context.expected,
+        context.handle_type,
+        context.context_type,
+        context.action_type,
+    ) {
         return Some(signature);
     }
     match type_binding_call_signature(callee, segments, context.bindings) {
@@ -144,6 +157,8 @@ fn type_effect_call_signature(
     segments: &[String],
     expected: Option<&Type>,
     handle_type: Option<&Type>,
+    context_type: Option<&Type>,
+    action_type: Option<&Type>,
 ) -> Option<TypeCallSignature> {
     if let Some(origin) = stdio_signature(segments, callee) {
         return Some(TypeCallSignature {
@@ -154,8 +169,16 @@ fn type_effect_call_signature(
         });
     }
     if let Some(origin) = concurrency_origin(segments, callee) {
-        let (params, return_type) =
-            concurrency_signature(segments, expected, handle_type, None, None)?;
+        let (params, return_type) = concurrency_signature(
+            segments,
+            expected,
+            handle_type,
+            context_type,
+            action_type,
+            None,
+            None,
+            None,
+        )?;
         let effects = concurrency_call_effects(segments, handle_type)?;
         return Some(TypeCallSignature {
             params,
@@ -180,6 +203,8 @@ fn type_applied_call_signature(
     callee: &Expr,
     expected: Option<&Type>,
     handle_type: Option<&Type>,
+    context_type: Option<&Type>,
+    action_type: Option<&Type>,
 ) -> Option<TypeCallSignature> {
     let (segments, type_args) = type_applied_name_path(callee)?;
     let origin = concurrency_origin(segments, callee)?;
@@ -191,14 +216,21 @@ fn type_applied_call_signature(
         .and_then(|type_arg| parse_type_annotation(type_arg).ok());
     let explicit_context = type_args
         .get(1)
-        .filter(|_| is_task_spawn_with(segments))
+        .filter(|_| is_task_spawn_with(segments) || is_io_provider_update(segments))
+        .and_then(|type_arg| parse_type_annotation(type_arg).ok());
+    let explicit_result = type_args
+        .get(2)
+        .filter(|_| is_io_provider_update(segments))
         .and_then(|type_arg| parse_type_annotation(type_arg).ok());
     let (params, return_type) = concurrency_signature(
         segments,
         expected,
         handle_type,
+        context_type,
+        action_type,
         explicit_item.as_ref(),
         explicit_context.as_ref(),
+        explicit_result.as_ref(),
     )?;
     let effects = concurrency_call_effects(segments, handle_type)?;
     Some(TypeCallSignature {
@@ -211,10 +243,16 @@ fn type_applied_call_signature(
 
 fn concurrency_type_arg_limit(segments: &[String]) -> Option<usize> {
     match segments {
+        [module, name] if module == "io_provider" && name == "update" => Some(3),
+        [module, name] if module == "io_provider" && name == "state" => Some(1),
         [module, name] if module == "task" && name == "spawn_with" => Some(2),
         [module, _] if module == "channel" || module == "task" => Some(1),
         _ => None,
     }
+}
+
+fn is_io_provider_update(segments: &[String]) -> bool {
+    matches!(segments, [module, name] if module == "io_provider" && name == "update")
 }
 
 fn is_task_spawn_with(segments: &[String]) -> bool {
@@ -282,7 +320,7 @@ fn core_name_path_call_signature(
     }
     if concurrency_origin(segments, callee).is_some() {
         let (params, return_type) =
-            core_concurrency_signature(segments, expected, None, None, None)?;
+            core_concurrency_signature(segments, expected, None, None, None, None, None, None)?;
         return Some(CoreCallSignature {
             target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
             params,

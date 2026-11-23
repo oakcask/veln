@@ -1,0 +1,30 @@
+use io_provider from "std"
+
+fn int_transition(value: Int, context: Int) -> { state : Int, result : Int }
+	{ state: value + context, result: value }
+end
+
+fn wrong_replacement(value: Int, context: Int) -> { state : String, result : Int }
+	{ state: "wrong", result: value + context }
+end
+
+# Compiler integration contract: one inferred C must constrain both the
+# context argument and the pure transition callback.
+pub fn rejected_context() -> Int effects [concurrency]
+	let cell = io_provider::state(1)
+	io_provider::update(cell, "wrong", int_transition)
+end
+
+# Compiler integration contract: inferred R comes from the transition record
+# and cannot be reinterpreted by an incompatible result context.
+pub fn rejected_result() -> String effects [concurrency]
+	let cell = io_provider::state(1)
+	let result = io_provider::update(cell, 2, int_transition)
+	result
+end
+
+# Compiler integration contract: an inline state allocation and its update
+# share one T, so the callback cannot replace Int state with String state.
+pub fn rejected_inline_replacement() -> Int effects [concurrency]
+	io_provider::update(io_provider::state(1), 2, wrong_replacement)
+end

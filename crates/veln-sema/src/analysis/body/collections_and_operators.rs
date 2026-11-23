@@ -725,10 +725,17 @@ impl<'a> FunctionChecker<'a> {
                             .found()
                             .map(|function| function.ty())
                     }),
-                _ => None,
+                _ => self
+                    .environment
+                    .function_path_in_owner(
+                        segments,
+                        self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
+                    )
+                    .map(|function| function.ty()),
             },
             ExprKind::Call { callee, .. } => self
-                .call_signature(callee, None, None)
+                .call_signature(callee, None, None, None, None)
                 .map(|(_, _, return_type, _)| return_type),
             ExprKind::List(items) => items
                 .first()

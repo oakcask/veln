@@ -8,6 +8,30 @@ public final class IoProviderStateHarness {
         return ((Number) VelnRuntime.ioProviderUpdateState(cell, VelnRuntime.UNIT, READ)).longValue();
     }
 
+    private static long readFromOtherThread(Object cell) {
+        java.util.concurrent.atomic.AtomicLong observed = new java.util.concurrent.atomic.AtomicLong();
+        java.util.concurrent.atomic.AtomicReference<Throwable> failure =
+            new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        Thread reader = new Thread(() -> {
+            try {
+                observed.set(read(cell));
+            } catch (Throwable error) {
+                failure.set(error);
+            }
+        }, "provider-state-unlock-reader");
+        reader.start();
+        try {
+            reader.join();
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("provider state unlock reader was interrupted", error);
+        }
+        if (failure.get() != null) {
+            throw new AssertionError("provider state remained unusable after failure", failure.get());
+        }
+        return observed.get();
+    }
+
     private static void require(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
     }
@@ -88,7 +112,10 @@ public final class IoProviderStateHarness {
         } catch (VelnRuntime.RuntimeFailure expected) {
             require("transition failed".equals(expected.getMessage()), "callback failure identity changed");
         }
-        require(read(cell) == 9L, "runtime callback failure changed state or stranded the lock");
+        require(
+            readFromOtherThread(cell) == 9L,
+            "runtime callback failure changed state or stranded the lock"
+        );
 
         try {
             VelnRuntime.ioProviderUpdateState(cell, VelnRuntime.UNIT, (VelnRuntime.Fn) args -> {
@@ -102,7 +129,10 @@ public final class IoProviderStateHarness {
                 "reentrant update reported the wrong failure"
             );
         }
-        require(read(cell) == 9L, "reentrant update changed state or stranded the lock");
+        require(
+            readFromOtherThread(cell) == 9L,
+            "reentrant update changed state or stranded the lock"
+        );
     }
 
     private static void cancellationBeforeAdmissionDoesNotEnterCallback() {
@@ -151,14 +181,24 @@ public final class IoProviderStateHarness {
                 committed.countDown();
             }
         });
-        Object task = VelnRuntime.taskSpawn((VelnRuntime.Fn) args ->
-            VelnRuntime.ioProviderUpdateState(cell, Long.valueOf(5L), COMPILED_TRANSITION));
+        java.util.concurrent.atomic.AtomicBoolean returned =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+        Object task = VelnRuntime.taskSpawn((VelnRuntime.Fn) args -> {
+            Object result = VelnRuntime.ioProviderUpdateState(
+                cell,
+                Long.valueOf(5L),
+                COMPILED_TRANSITION
+            );
+            returned.set(true);
+            return result;
+        });
         awaitUninterruptibly(admitted);
         VelnRuntime.taskCancel(task);
         release.countDown();
         awaitUninterruptibly(committed);
         VelnRuntime.Result joined = (VelnRuntime.Result) VelnRuntime.taskJoin(task);
         require(!joined.isOk(), "post-admission cancellation was not delivered after commit");
+        require(!returned.get(), "post-admission cancellation returned from provider state update");
         VelnRuntime.ioProviderStateInstallBoundaryGate(cell, null);
         require(read(cell) == 35L, "post-admission cancellation prevented or split the commit");
     }

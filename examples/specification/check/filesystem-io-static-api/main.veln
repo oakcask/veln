@@ -117,6 +117,28 @@ pub fn provider_state_operations() -> String effects [concurrency]
 	io_provider::update(cell, 2, provider_state_transition)
 end
 
+# Compiler integration contract: all three update parameters can be explicit,
+# and an unconstrained local result is inferred from the transition callback.
+pub fn provider_state_explicit_and_inferred_operations() -> Int effects [concurrency]
+	let cell = io_provider::state<Int>(1)
+	let _: String = io_provider::update<Int, Int, String>(cell, 2, provider_state_transition)
+	let result = io_provider::update(cell, 3, state_add)
+	result
+end
+
+fn state_add(value: Int, amount: Int) -> { state : Int, result : Int }
+	{ state: value + amount, result: value }
+end
+
+fn state_string(value: String, suffix: String) -> { state : String, result : String }
+	{ state: suffix, result: value }
+end
+
+pub fn provider_state_infers_non_numeric_items() -> String effects [concurrency]
+	let cell = io_provider::state("initial")
+	io_provider::update(cell, "-next", state_string)
+end
+
 pub fn host_filesystem(root: Path) -> Result<fs::MutableFilesystem, io::Error> effects [fs, concurrency]
 	handle handle fs::system(root) with fs::system_handler() with io_provider::scope()
 end

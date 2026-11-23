@@ -1,0 +1,8 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+contains = ["error[type.mismatch]", "expected `Int`, but found `String`", "expected `String`, but found `Int`", "expected `fn(Int, Int) -> {state: Int, result: Int}`"]
+
+[stderr]
+format = "empty"

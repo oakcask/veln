@@ -160,15 +160,21 @@ pub(crate) fn concurrency_signature(
     segments: &[String],
     expected: Option<&Type>,
     handle_type: Option<&Type>,
+    context_type: Option<&Type>,
+    action_type: Option<&Type>,
     explicit_item: Option<&Type>,
     explicit_context: Option<&Type>,
+    explicit_result: Option<&Type>,
 ) -> Option<(Vec<Type>, Type)> {
     signature(
         segments,
         expected,
         handle_type,
+        context_type,
+        action_type,
         explicit_item,
         explicit_context,
+        explicit_result,
     )
 }
 
@@ -176,15 +182,21 @@ pub(crate) fn core_concurrency_signature(
     segments: &[String],
     expected: Option<&CoreType>,
     handle_type: Option<&CoreType>,
+    context_type: Option<&CoreType>,
+    action_type: Option<&CoreType>,
     explicit_item: Option<&CoreType>,
     explicit_context: Option<&CoreType>,
+    explicit_result: Option<&CoreType>,
 ) -> Option<(Vec<CoreType>, CoreType)> {
     signature(
         segments,
         expected,
         handle_type,
+        context_type,
+        action_type,
         explicit_item,
         explicit_context,
+        explicit_result,
     )
 }
 
@@ -192,8 +204,11 @@ fn signature<T: SignatureType>(
     segments: &[String],
     expected: Option<&T>,
     handle_type: Option<&T>,
+    context_type: Option<&T>,
+    action_type: Option<&T>,
     explicit_item: Option<&T>,
     explicit_context: Option<&T>,
+    explicit_result: Option<&T>,
 ) -> Option<(Vec<T>, T)> {
     let [module, name] = segments else {
         return None;
@@ -201,7 +216,16 @@ fn signature<T: SignatureType>(
     match module.as_str() {
         "channel" => channel_signature(name, expected, handle_type, explicit_item),
         "task" => task_signature(name, expected, handle_type, explicit_item, explicit_context),
-        "io_provider" => io_provider_signature(name, expected, handle_type),
+        "io_provider" => io_provider_signature(
+            name,
+            expected,
+            handle_type,
+            context_type,
+            action_type,
+            explicit_item,
+            explicit_context,
+            explicit_result,
+        ),
         _ => None,
     }
 }
@@ -210,22 +234,51 @@ fn io_provider_signature<T: SignatureType>(
     name: &str,
     expected: Option<&T>,
     handle_type: Option<&T>,
+    context_type: Option<&T>,
+    action_type: Option<&T>,
+    explicit_item: Option<&T>,
+    explicit_context: Option<&T>,
+    explicit_result: Option<&T>,
 ) -> Option<(Vec<T>, T)> {
     match name {
         "state" => {
-            let item = handle_type
+            let item = explicit_item
                 .cloned()
+                .or_else(|| handle_type.cloned())
                 .or_else(|| expected.and_then(|ty| provider_state_item(ty).cloned()))
                 .unwrap_or_else(T::unknown);
             Some((vec![item.clone()], T::named("IoProviderState", vec![item])))
         }
         "update" => {
-            let item = handle_type
-                .and_then(provider_state_item)
+            let action_parts = action_type.and_then(SignatureType::function_parts);
+            let action_params = action_parts.map(|(params, _)| params);
+            let action_return = action_parts.map(|(_, return_type)| return_type);
+            let item = explicit_item
                 .cloned()
+                .or_else(|| {
+                    handle_type
+                        .and_then(provider_state_item)
+                        .filter(|ty| **ty != T::unknown())
+                        .cloned()
+                })
+                .or_else(|| action_params.and_then(|params| params.first()).cloned())
+                .or_else(|| handle_type.and_then(provider_state_item).cloned())
                 .unwrap_or_else(T::unknown);
-            let result = expected.cloned().unwrap_or_else(T::unknown);
-            let context = T::unknown();
+            let context = explicit_context
+                .cloned()
+                .or_else(|| action_params.and_then(|params| params.get(1)).cloned())
+                .or_else(|| context_type.cloned())
+                .unwrap_or_else(T::unknown);
+            let result = explicit_result
+                .cloned()
+                .or_else(|| expected.filter(|ty| **ty != T::unknown()).cloned())
+                .or_else(|| {
+                    action_return
+                        .and_then(|ty| ty.record_field("result"))
+                        .cloned()
+                })
+                .or_else(|| expected.cloned())
+                .unwrap_or_else(T::unknown);
             let transition = T::record(vec![
                 ("state".to_string(), item.clone()),
                 ("result".to_string(), result.clone()),
@@ -534,11 +587,21 @@ mod tests {
     fn surface_and_core_sender_send_signatures_share_inferred_item_type() {
         let path = ["channel".to_string(), "send".to_string()];
         let handle = Type::named("Sender", vec![Type::int()]);
-        let surface = concurrency_signature(&path, None, Some(&handle), None, None)
-            .expect("surface signature should resolve");
+        let surface =
+            concurrency_signature(&path, None, Some(&handle), None, None, None, None, None)
+                .expect("surface signature should resolve");
         let core_handle = core_type(&handle);
-        let core = core_concurrency_signature(&path, None, Some(&core_handle), None, None)
-            .expect("core signature should resolve");
+        let core = core_concurrency_signature(
+            &path,
+            None,
+            Some(&core_handle),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("core signature should resolve");
         let expected_core = (
             surface.0.iter().map(core_type).collect::<Vec<_>>(),
             core_type(&surface.1),
@@ -556,8 +619,25 @@ mod tests {
         let path = ["io_provider".to_string(), "update".to_string()];
         let state = Type::named("IoProviderState", vec![Type::int()]);
         let expected = Type::string();
-        let surface = concurrency_signature(&path, Some(&expected), Some(&state), None, None)
-            .expect("provider state update signature should resolve");
+        let action = Type::function(
+            vec![Type::int(), Type::unit()],
+            Type::Record(vec![
+                ("state".to_string(), Type::int()),
+                ("result".to_string(), Type::string()),
+            ]),
+            Vec::new(),
+        );
+        let surface = concurrency_signature(
+            &path,
+            Some(&expected),
+            Some(&state),
+            Some(&Type::unit()),
+            Some(&action),
+            None,
+            None,
+            None,
+        )
+        .expect("provider state update signature should resolve");
         let Type::Function {
             params,
             return_type,
@@ -567,7 +647,7 @@ mod tests {
         else {
             panic!("provider update action should remain a callback")
         };
-        assert_eq!(params, &[Type::int(), Type::Unknown]);
+        assert_eq!(params, &vec![Type::int(), Type::unit()]);
         assert_eq!(effects, &Vec::<String>::new());
         assert_eq!(
             return_type.as_ref(),
@@ -579,9 +659,18 @@ mod tests {
 
         let core_state = core_type(&state);
         let core_expected = core_type(&expected);
-        let core =
-            core_concurrency_signature(&path, Some(&core_expected), Some(&core_state), None, None)
-                .expect("core provider state update signature should resolve");
+        let core_action = core_type(&action);
+        let core = core_concurrency_signature(
+            &path,
+            Some(&core_expected),
+            Some(&core_state),
+            Some(&CoreType::unit()),
+            Some(&core_action),
+            None,
+            None,
+            None,
+        )
+        .expect("core provider state update signature should resolve");
         assert_eq!(
             core,
             (

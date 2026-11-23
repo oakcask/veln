@@ -202,8 +202,18 @@ impl<'a> CoreLowerer<'a> {
             return None;
         }
         let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
-        let signature =
-            core_concurrency_signature(segments, expected, handle_type.as_ref(), None, None);
+        let context_type = args.get(1).and_then(|arg| self.shallow_expr_type(arg));
+        let action_type = args.get(2).and_then(|arg| self.shallow_expr_type(arg));
+        let signature = core_concurrency_signature(
+            segments,
+            expected,
+            handle_type.as_ref(),
+            context_type.as_ref(),
+            action_type.as_ref(),
+            None,
+            None,
+            None,
+        );
         Some(self.lower_concurrency_call_with_signature(expr, segments, args, signature))
     }
 
@@ -248,16 +258,26 @@ impl<'a> CoreLowerer<'a> {
                 .map(|ty| self.parsed_core_type(ty));
             let explicit_context = type_args
                 .get(1)
-                .filter(|_| matches!(segments, [module, name] if module == "task" && name == "spawn_with"))
+                .filter(|_| matches!(segments, [module, name] if (module == "task" && name == "spawn_with") || (module == "io_provider" && name == "update")))
+                .and_then(|type_arg| parse_type_annotation(type_arg).ok())
+                .map(|ty| self.parsed_core_type(ty));
+            let explicit_result = type_args
+                .get(2)
+                .filter(|_| matches!(segments, [module, name] if module == "io_provider" && name == "update"))
                 .and_then(|type_arg| parse_type_annotation(type_arg).ok())
                 .map(|ty| self.parsed_core_type(ty));
             let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
+            let context_type = args.get(1).and_then(|arg| self.shallow_expr_type(arg));
+            let action_type = args.get(2).and_then(|arg| self.shallow_expr_type(arg));
             let signature = core_concurrency_signature(
                 segments,
                 expected,
                 handle_type.as_ref(),
+                context_type.as_ref(),
+                action_type.as_ref(),
                 explicit_item.as_ref(),
                 explicit_context.as_ref(),
+                explicit_result.as_ref(),
             );
             return Some(
                 self.lower_concurrency_call_with_signature(expr, segments, args, signature),
