@@ -32,6 +32,7 @@ pub(crate) fn check_function_body(
     let mut checker =
         FunctionChecker::for_source_declaration(function, environment, variant_diagnostics);
     checker.check_body();
+    checker.check_unavailable_constructor_patterns();
     std::mem::take(&mut checker.diagnostics)
 }
 

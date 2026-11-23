@@ -25,6 +25,32 @@ fn variances(registry: &AdtRegistry, name: &str) -> Vec<Variance> {
         .clone()
 }
 
+#[test]
+fn standard_io_provider_state_is_invariant_without_source_variants() {
+    let parsed = veln_syntax::parse(&veln_source::SourceFile::new(
+        "io_provider.veln",
+        "pub type State<T>\nend\n\
+         pub type Wrapper<T>\n  Wrapper(State<T>)\nend\n",
+    ));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut module = veln_ast::lower_surface_ast(&parsed.tree);
+    for declaration in &mut module.types {
+        declaration.module_name = Some("std::io_provider".to_string());
+        declaration.package_name = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    }
+    let registry = AdtRegistry::from_module_with_base(&module, &registry());
+    let descriptor = registry
+        .descriptors()
+        .iter()
+        .find(|descriptor| descriptor.type_name == "State")
+        .expect("standard io provider state descriptor");
+
+    assert_eq!(descriptor.identity(), "std::io_provider::State");
+    assert!(descriptor.variants.is_empty());
+    assert_eq!(descriptor.parameter_variances, vec![Variance::Invariant]);
+    assert_eq!(variances(&registry, "Wrapper"), vec![Variance::Invariant]);
+}
+
 struct VarianceAssignmentFixture {
     registry: AdtRegistry,
     narrow: crate::semantic_model::Type,

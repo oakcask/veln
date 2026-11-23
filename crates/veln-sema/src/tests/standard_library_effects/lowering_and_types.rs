@@ -280,7 +280,6 @@ fn io_provider_atomic_state_rejects_mismatched_generic_evidence() {
         concat!(
             "mod std.io_provider\n",
             "pub type State<T>\n",
-            "  State(transition: fn(T) -> T)\n",
             "end\n",
             "pub fn state(initial: T) -> State<T> effects [concurrency]\n",
             "  prelude_builtin::io_provider_state(initial)\n",

@@ -1,0 +1,6 @@
+pub type State<T>
+end
+
+pub fn impossible() -> State<Int>
+	impossible()
+end

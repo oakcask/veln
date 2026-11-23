@@ -63,13 +63,71 @@ fn assert_concrete_ir_state_types(evidence: &IrFunction, expected: &[CoreType]) 
 }
 
 #[test]
+fn exact_io_provider_companion_cannot_match_constructor_free_state() {
+    let target_source = SourceFile::new(
+        "io_provider.veln",
+        concat!("mod io_provider\n", "pub type State<T>\n", "end\n",),
+    );
+    let companion_source = SourceFile::new(
+        "io_provider.test.veln",
+        concat!(
+            "mod io_provider__test_companion\n",
+            "use io_provider\n",
+            "fn inspect(cell: io_provider::State<Int>) -> ()\n",
+            "  match cell\n",
+            "    io_provider::State::State(_) => ()\n",
+            "  end\n",
+            "end\n",
+            "test cannot_match_state() -> ()\n",
+            "  let callback: fn(io_provider::State<Int>) -> () = inspect\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let target_parsed = parse(&target_source);
+    let companion_parsed = parse(&companion_source);
+    assert!(
+        target_parsed.diagnostics.is_empty(),
+        "{:#?}",
+        target_parsed.diagnostics
+    );
+    assert!(
+        companion_parsed.diagnostics.is_empty(),
+        "{:#?}",
+        companion_parsed.diagnostics
+    );
+    let mut target = lower_surface_ast(&target_parsed.tree);
+    let mut companion = lower_surface_ast(&companion_parsed.tree);
+    for use_decl in &mut companion.uses {
+        use_decl.importing_package = Some(veln_stdlib::PACKAGE_NAME.to_string());
+        use_decl.package = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    }
+    for function in &mut companion.functions {
+        function.package_name = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    }
+    target.module = companion.module;
+    target.uses = companion.uses;
+    target.functions.extend(companion.functions);
+
+    let diagnostics = analyze_surface_module(&target);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message.contains("io_provider::State::State")
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn io_provider_atomic_state_keeps_concrete_types_through_core_and_ir() {
     let source = SourceFile::new(
         "io_provider.veln",
         concat!(
             "mod std.io_provider\n",
             "pub type State<T>\n",
-            "  State(transition: fn(T) -> T)\n",
             "end\n",
             "pub fn state(initial: T) -> State<T> effects [concurrency]\n",
             "  prelude_builtin::io_provider_state(initial)\n",
@@ -306,7 +364,6 @@ fn io_provider_atomic_state_uses_lowered_field_and_control_flow_types() {
         concat!(
             "mod std.io_provider\n",
             "pub type State<T>\n",
-            "  State(transition: fn(T) -> T)\n",
             "end\n",
             "pub fn state(initial: T) -> State<T> effects [concurrency]\n",
             "  prelude_builtin::io_provider_state(initial)\n",
@@ -361,7 +418,6 @@ fn io_provider_atomic_state_preserves_joined_initializer_types_through_core_and_
         concat!(
             "mod std.io_provider\n",
             "pub type State<T>\n",
-            "  State(transition: fn(T) -> T)\n",
             "end\n",
             "pub fn state(initial: T) -> State<T> effects [concurrency]\n",
             "  prelude_builtin::io_provider_state(initial)\n",
@@ -484,7 +540,6 @@ fn io_provider_atomic_state_preserves_width_joined_initializer_types_in_both_ord
         concat!(
             "mod std.io_provider\n",
             "pub type State<T>\n",
-            "  State(transition: fn(T) -> T)\n",
             "end\n",
             "pub fn state(initial: T) -> State<T> effects [concurrency]\n",
             "  prelude_builtin::io_provider_state(initial)\n",

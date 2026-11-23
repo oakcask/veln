@@ -167,7 +167,10 @@ filesystem and projection separation, and opaque identities.
 
 `io_provider::state` creates an independent opaque `State<T>` cell. Passing a
 cell to a child task preserves cell identity, so parent and child updates share
-one transition sequence. A concrete expected `State<T>` supplies `T` to the
+one transition sequence. `State<T>` has no source constructor or pattern, so
+application source and an exact `io_provider.test.veln` companion cannot forge
+or inspect a cell; `io_provider::state` is the only allocation path. A concrete
+expected `State<T>` supplies `T` to the
 initial value expression, so an annotation can resolve an otherwise ambiguous
 nullary generic constructor such as `None`. Without a concrete expected state
 type or an independently concrete initial value, allocation remains ambiguous.
@@ -333,7 +336,10 @@ other declaration establishes only its static capability and effect boundary.
 - Private compiler-adapter boundary:
   `examples/specification/check/filesystem-io-private-adapters/`.
 - Atomic state nominal boundary:
-  `examples/specification/check/filesystem-io-atomic-state-nominal-boundary/`.
+  `examples/specification/check/filesystem-io-atomic-state-nominal-boundary/`,
+  including exact-companion constructor and pattern rejection in
+  `examples/specification/check/filesystem-io-opaque-state-companion-boundary/`
+  and `examples/specification/check/filesystem-io-opaque-state-pattern-boundary/`.
 - Atomic state value and expected-type inference, including a nullary generic
   initializer, list and control-flow joins in either contribution order,
   record-width joins, pure-callback enforcement, concrete type retention, and

@@ -41,11 +41,14 @@ enum MetadataEntry {
 }
 
 const COVARIANT_2: [Variance; 2] = [Variance::Covariant; 2];
+const INVARIANT_1: [Variance; 1] = [Variance::Invariant];
+const IO_PROVIDER_STATE_IDENTITY: &str = "std::io_provider::State";
 
 fn compiler_owned_variances(identity: &str, arity: usize) -> Option<&'static [Variance]> {
     let expected: &'static [Variance] = match identity {
         Type::COMPILER_VEC_IDENTITY => &[Variance::Covariant],
         Type::COMPILER_DICT_IDENTITY => &COVARIANT_2,
+        IO_PROVIDER_STATE_IDENTITY => &INVARIANT_1,
         _ => return None,
     };
     (expected.len() == arity).then_some(expected)
@@ -200,6 +203,14 @@ pub(super) fn infer_source_parameter_variances(
                 &mut queued,
                 &mut worklist,
             );
+        }
+    }
+
+    for descriptor in &mut descriptors[source_start..] {
+        if descriptor.identity() == IO_PROVIDER_STATE_IDENTITY
+            && descriptor.type_parameters.len() == 1
+        {
+            descriptor.parameter_variances = vec![Variance::Invariant];
         }
     }
 

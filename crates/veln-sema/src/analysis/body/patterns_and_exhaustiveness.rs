@@ -8,6 +8,92 @@ struct MatchCoverageProgress {
 }
 
 impl<'a> FunctionChecker<'a> {
+    pub(super) fn check_unavailable_constructor_patterns(&mut self) {
+        let mut patterns = Vec::new();
+        collect_constructor_patterns_from_body(&self.function.body, &mut patterns);
+        for pattern in patterns {
+            let PatternKind::Constructor {
+                name, name_spans, ..
+            } = &pattern.kind
+            else {
+                continue;
+            };
+            let Some((_, base_segments)) = name.split_last() else {
+                continue;
+            };
+            if let [alias, type_name] = base_segments
+                && type_name == "State"
+                && ((alias == "io_provider"
+                    && self.function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME))
+                    || self.environment.uses.iter().any(|use_decl| {
+                        use_decl.module_name.as_deref() == self.function.module_name.as_deref()
+                            && use_decl.importing_package.as_deref()
+                                == self.function.package_name.as_deref()
+                            && use_decl.alias == *alias
+                            && use_decl.is_standard_package_import()
+                            && use_decl.written_name.ends_with("io_provider")
+                    }))
+            {
+                if let Some(span) = name_spans.last() {
+                    self.push_unresolved_name(
+                        pattern.node_id,
+                        span.clone(),
+                        &name.join("::"),
+                        "constructor",
+                    );
+                }
+                continue;
+            }
+            let base = base_segments.join("::");
+            let descriptor = self
+                .environment
+                .adts
+                .descriptor_for_type_path_any_arity(
+                    &base,
+                    self.function.module_name.as_deref(),
+                    &self.resolution_uses,
+                )
+                .or_else(|| {
+                    let [alias, type_name] = base_segments else {
+                        return None;
+                    };
+                    let import = self
+                        .resolution_uses
+                        .iter()
+                        .find(|use_decl| use_decl.alias == *alias)?;
+                    let package = import
+                        .package
+                        .as_deref()
+                        .or(import.importing_package.as_deref());
+                    let identity = package.map_or_else(
+                        || format!("{}::{type_name}", import.name),
+                        |package| format!("{package}::{}::{type_name}", import.name),
+                    );
+                    self.environment
+                        .adts
+                        .descriptors()
+                        .iter()
+                        .find(|descriptor| descriptor.identity() == identity)
+                });
+            let Some(descriptor) = descriptor else {
+                continue;
+            };
+            if descriptor.refinement_availability
+                != crate::adt::descriptors::VariantRefinementAvailability::Unavailable
+            {
+                continue;
+            }
+            if let Some(span) = name_spans.last() {
+                self.push_unresolved_name(
+                    pattern.node_id,
+                    span.clone(),
+                    &name.join("::"),
+                    "constructor",
+                );
+            }
+        }
+    }
+
     pub(super) fn check_match_exhaustiveness(
         &mut self,
         expr: &Expr,
@@ -587,5 +673,50 @@ impl<'a> FunctionChecker<'a> {
                 ],
             ),
         ));
+    }
+}
+
+fn collect_constructor_patterns_from_body(body: &[BodyLine], output: &mut Vec<Pattern>) {
+    for line in body {
+        match &line.kind {
+            veln_ast::BodyLineKind::Let { pattern, expr, .. } => {
+                collect_constructor_patterns(pattern, output);
+                collect_constructor_patterns_from_expr(expr, output);
+            }
+            veln_ast::BodyLineKind::Expr { expr } => {
+                collect_constructor_patterns_from_expr(expr, output);
+            }
+            veln_ast::BodyLineKind::Defer { body, .. } => {
+                collect_constructor_patterns_from_body(body, output);
+            }
+        }
+    }
+}
+
+fn collect_constructor_patterns_from_expr(expr: &Expr, output: &mut Vec<Pattern>) {
+    if let ExprKind::Match { arms, .. } = &expr.kind {
+        for arm in arms {
+            collect_constructor_patterns(&arm.pattern, output);
+        }
+    }
+    expr.for_each_child(&mut |child| {
+        collect_constructor_patterns_from_expr(child, output);
+    });
+}
+
+fn collect_constructor_patterns(pattern: &Pattern, output: &mut Vec<Pattern>) {
+    match &pattern.kind {
+        PatternKind::Constructor { args, .. } => {
+            output.push(pattern.clone());
+            for arg in args {
+                collect_constructor_patterns(arg, output);
+            }
+        }
+        PatternKind::Record(fields) => {
+            for field in fields {
+                collect_constructor_patterns(&field.pattern, output);
+            }
+        }
+        _ => {}
     }
 }
