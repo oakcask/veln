@@ -355,16 +355,22 @@ The same runtime extension supplies `State<T>` and two operations:
 - `update<T, C, R>(state: State<T>, context: C, action: fn(T, C) -> {state: T,
   result: R}) -> R effects [concurrency]` runs a pure callback under exclusive
   access and commits its returned replacement with its result. Runtime failure
-  leaves the old state and releases the lock. Cancellation is delivered before
-  entry or after commit, never between acquiring and releasing the state.
-  Reentrant updates are rejected as runtime failures rather than deadlock.
+  leaves the old state and releases the cell. Cancellation observed before
+  entry does not invoke the callback. Cancellation observed at a generated
+  checkpoint in an admitted callback aborts that callback, preserves the old
+  state, and releases the cell. If the callback returns before cancellation is
+  observed, publication commits before cancellation is reported. Reentrant
+  updates are rejected as runtime failures rather than deadlock.
 
 This is an explicit compiler-known atomic storage adapter, not an assumed
 existing source API. A raw channel receive/compute/send sequence is rejected because
 cancellation can strand the state token. Pure callback transitions keep all
 fake filesystem decisions in Veln and cannot perform nested provider IO while
 holding the cell. Cell allocation and updates expose only `concurrency`, not
-host `fs` or `net` effects.
+host `fs` or `net` effects. Cancellation remains cooperative: a callback that
+does not return, fail, or reach a generated checkpoint has no bounded
+cancellation latency. The adapter must not suppress checkpoints that the
+compiler generated.
 
 Public filesystem and byte facades invoke the resource's captured operation
 handler with its original provider context. They retain the declared nominal

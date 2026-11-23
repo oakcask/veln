@@ -43,6 +43,27 @@ old compiler-known calls, and the complete network-to-byte adapter rollout
 remain in the filesystem proposal. This target does not introduce buffering,
 confinement, new effect syntax, or performance guarantees.
 
+## Atomic State Cancellation Boundary
+
+The atomic state prerequisite follows the current cooperative task-cancellation
+model. Cancellation must not publish a partial transition. It also must not be
+deferred across every generated cancellation checkpoint in an admitted
+callback. The callback and publication boundary has these planned outcomes:
+
+| State and event | Required outcome |
+| --- | --- |
+| Waiting for admission; cancellation is observed | Do not enter the callback. Preserve the old state, release any admission bookkeeping, and report task cancellation. |
+| Callback admitted; cancellation is observed at a generated callback checkpoint before the callback returns | Abort the callback. Preserve the old state, release the cell, and report task cancellation. A compiled tail-recursive callback must reach this outcome instead of retaining the cell indefinitely. |
+| Callback returns before cancellation is observed | Publish the replacement and result as one transition. Release the cell before reporting task cancellation. Do not return the callback result to the cancelled task. |
+| Callback or runtime fails before publication | Preserve the old state, release the cell, and propagate the failure. |
+
+Cancellation is cooperative. A callback that neither returns, fails, nor
+reaches a generated cancellation checkpoint has no bounded cancellation
+latency and may retain the cell. This is a limit of the task cancellation
+model, not permission to suppress checkpoints that the compiler generated.
+The prototype does not add a wall-clock timeout, execution fuel, or termination
+analysis to make arbitrary pure callbacks preemptible.
+
 ## Acceptance Gates
 
 Expected bytes and state come from the linked contracts and independently
@@ -52,14 +73,17 @@ its positive observations and its failure or preserved-state observations.
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
 | F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. | Companion tests with distinct provider contents and operation logs; a backend dispatch case checks captured provider identity and absence of host fallback. |
-| F3: state and publication | Concurrent children, injected failure, and cancellation cannot strand the state cell lock or publish half a transition. Closing the owner rejects late publication and releases the late host resource. | Scoped Veln support plus backend atomic-state and owner-lifecycle cases. Force cancellation before entry and after commit; runtime callback failure preserves old state and releases the lock. Gate a host open across owner closure and observe release instead of publication, including retained cleanup failure. |
+| F3: state and publication | Concurrent children cannot lose completed writes. Failure and cancellation preserve the transition boundary above. Closing the owner rejects late publication and releases the late host resource. | Scoped Veln support plus backend atomic-state and owner-lifecycle cases. Force cancellation before entry, at a generated checkpoint after admission, and after a callback has returned but before its result is observed. Runtime callback failure preserves old state and releases the cell. Gate a host open across owner closure and observe release instead of publication, including retained cleanup failure. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
 | F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
 
 F3 must demonstrate cancellation atomicity of `update` before the fake relies
-on that operation. Tests must control entry, commit, publication, and cleanup
-boundaries explicitly rather than relying on timing or an external filesystem
-to produce a rare failure.
+on that operation. The admitted-checkpoint case must run a compiled Veln
+callback, including a tail-recursive path that continues to cross generated
+checkpoints until cancellation is delivered. Tests must control entry,
+checkpoint observation, commit, publication, and cleanup boundaries explicitly
+rather than relying on timing or an external filesystem to produce a rare
+failure.
 
 If F2–F3 cannot be demonstrated with the named adapter extension, revise the
 resource design and affected acceptance contracts before continuing to F4–F5.
@@ -77,7 +101,7 @@ does not satisfy a gate. Such a failure does not promote the parent proposal.
 | Evidence | Placement and local verification route |
 | --- | --- |
 | Standard-library API results, progress, state, operation ordering, and scripted failure behavior | Companion `.test.veln` files under `crates/veln-stdlib/veln/`, using separate Veln test support; run `bash scripts/agent-stdlib-test`. |
-| Compiler capability and effect rejection | Focused compiler tests or checked cases under `examples/specification/check/`; run the selected cases through `bash scripts/agent-test`. |
+| Compiler capability, effect rejection, and generic state lowering | Focused compiler tests or checked cases under `examples/specification/check/`; successful lowering must retain the inferred state type for string, record, and list or constructor initial values in checked core and typed IR; run the selected cases through `bash scripts/agent-test`. |
 | Captured dispatch, task freezing, atomic state, publication, and release | Focused `veln-backend-jvm` tests through `bash scripts/agent-test -p veln-backend-jvm`; identify the backend invariant each case checks. |
 | Real-host semantics and human/JSON cleanup projections | Focused host integration or CLI cases under the [test placement policy](../reference/toolchain-test-harness.md#test-placement-policy); run the selected integration tests through `bash scripts/agent-test`. |
 
@@ -94,6 +118,15 @@ proposed general resource allocation or captured-dispatch API. F2 therefore
 checks the explicit adapter extension rather than treating nominal
 dispatch alone as proof of feasibility. Extending ordinary `perform` to route
 all operations by resource identity remains outside the selected design.
+
+The current [task boundary](../specification/effects.md#concurrency-calls)
+defines cancellation as cooperative. The atomic state transition uses that
+existing boundary: a generated checkpoint may cancel an admitted callback
+before publication, while a completed publication remains committed. Deferring
+all callback checkpoints was rejected because a compiled tail-recursive
+callback could retain the cell after cancellation. Unconditional preemption
+was rejected because the runtime does not provide termination analysis or a
+safe arbitrary-thread stop.
 
 The current [JVM execution boundary](../specification/execution.md#runtime-readiness-and-host-boundaries)
 ties system network resources to handler owners, shares those owners with
