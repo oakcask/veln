@@ -14,6 +14,7 @@ pub struct SourceFile {
     text: Arc<str>,
     line_starts: Vec<usize>,
     utf8_continuation_prefix: Vec<usize>,
+    ascii: bool,
     generated_origin: Option<Arc<GeneratedSpanOrigin>>,
 }
 
@@ -261,6 +262,7 @@ impl SourceFile {
             text,
             line_starts,
             utf8_continuation_prefix,
+            ascii: continuation_count == 0,
             generated_origin: generated_origin
                 .map(|origin| Arc::new(GeneratedSpanOrigin::mapped(origin))),
         }
@@ -321,6 +323,9 @@ impl SourceFile {
     }
 
     fn utf8_continuations_before(&self, offset: usize) -> usize {
+        if self.ascii {
+            return 0;
+        }
         let block = offset / UTF8_COLUMN_INDEX_BLOCK_BYTES;
         let block_start = block * UTF8_COLUMN_INDEX_BLOCK_BYTES;
         self.utf8_continuation_prefix[block]
