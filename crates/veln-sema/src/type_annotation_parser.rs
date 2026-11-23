@@ -266,7 +266,7 @@ impl<'a> TypeParser<'a> {
         Ok(args)
     }
 
-    fn validate_named_type(&self, name: String, args: Vec<Type>) -> Result<Type, String> {
+    fn validate_named_type(&self, name: String, mut args: Vec<Type>) -> Result<Type, String> {
         if args.is_empty()
             && let Some((base, _)) = name.rsplit_once("::")
             && let Some(expected) = (self.builtin_type_arity)(base)?
@@ -285,12 +285,12 @@ impl<'a> TypeParser<'a> {
                 args.len()
             ));
         }
-        match (name.as_str(), args.as_slice()) {
-            ("Option", [value]) => Ok(Type::option(value.clone())),
-            ("Result", [value, error]) => Ok(Type::result(value.clone(), error.clone())),
-            ("List", [item]) => Ok(Type::list(item.clone())),
-            ("Vec", [item]) => Ok(Type::vec(item.clone())),
-            ("Dict", [key, value]) => Ok(Type::dict(key.clone(), value.clone())),
+        match (name.as_str(), args.len()) {
+            ("Option", 1) => Ok(Type::option(args.remove(0))),
+            ("Result", 2) => Ok(Type::result(args.remove(0), args.remove(0))),
+            ("List", 1) => Ok(Type::list(args.remove(0))),
+            ("Vec", 1) => Ok(Type::vec(args.remove(0))),
+            ("Dict", 2) => Ok(Type::dict(args.remove(0), args.remove(0))),
             _ => Ok(Type::named(name, args)),
         }
     }
