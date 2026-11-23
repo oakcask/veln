@@ -473,6 +473,10 @@ fn shutdown_buffered_task_observed(context: { exporter : BufferedJsonLinesExport
 	handle observe::shutdown_buffered(context.exporter) with observe_test_support_test::observe_join_wait(context.waiting)
 end
 
+fn shutdown_buffered_task_observed_at_interruption(context: { exporter : BufferedJsonLinesExporter, waiting : Sender<()>, interrupted : Sender<()>, release : Receiver<()> }) -> BufferedShutdownReport effects [concurrency]
+	handle observe::shutdown_buffered_with_interruption_hook_for_test(context.exporter, observe_test_support_test::decision_barrier, context.interrupted, context.release) with observe_test_support_test::observe_join_wait(context.waiting)
+end
+
 fn shutdown_buffered_task_at_wait_boundary(context: { exporter : BufferedJsonLinesExporter, entered : Sender<()>, release : Receiver<()> }) -> BufferedShutdownReport effects [concurrency]
 	observe::shutdown_buffered_with_wait_hook_for_test(context.exporter, observe_test_support_test::decision_barrier, context.entered, context.release)
 end
@@ -2330,6 +2334,8 @@ test shutdown_cancellation_before_worker_cleanup_registration_freezes_shared_int
 	let startup_release = channel::bounded<()>(1)
 	let cancelled_wait = channel::bounded<()>(1)
 	let survivor_wait = channel::bounded<()>(1)
+	let interrupted = channel::bounded<()>(1)
+	let interruption_release = channel::bounded<()>(1)
 	let reports = channel::bounded<BufferedShutdownReport>(1)
 	let lines = observe_test_support_test::export_lines(2)
 	let constructed = handle new_buffered_for_test_with_startup_hook(startup.tx, startup_release.rx) with observe_test_support_test::exporter(lines.tx, true)
@@ -2337,14 +2343,16 @@ test shutdown_cancellation_before_worker_cleanup_registration_freezes_shared_int
 		observe::BufferedJsonLines(exporter) => begin
 			let startup_blocked: Option<()> = channel::recv(startup.rx)
 			let admitted = handle observe::buffered_export_observation(exporter, buffered_log("startup-queued")) with observe_test_support_test::clock(0)
-			let cancelled = task::spawn_with(shutdown_buffered_task_observed, { exporter: exporter, waiting: cancelled_wait.tx })
+			let cancelled = task::spawn_with(shutdown_buffered_task_observed_at_interruption, { exporter: exporter, waiting: cancelled_wait.tx, interrupted: interrupted.tx, release: interruption_release.rx })
 			let survivor = task::spawn_with(shutdown_buffered_and_send_observed, { exporter: exporter, reports: reports.tx, waiting: survivor_wait.tx })
 			let cancelled_waiting: Option<()> = channel::recv(cancelled_wait.rx)
 			let survivor_waiting: Option<()> = channel::recv(survivor_wait.rx)
 			task::cancel(cancelled)
-			let cancelled_join = task::join(cancelled)
+			let cancellation_blocked: Option<()> = channel::recv(interrupted.rx)
 			let survivor_join = task::join(survivor)
 			let prompt: Option<BufferedShutdownReport> = channel::recv(reports.rx)
+			let _ = channel::send(interruption_release.tx, ())
+			let cancelled_join = task::join(cancelled)
 			let frozen_before = observe::buffered_exporter_health(exporter)
 			let outstanding_before_release = observe::buffered_outstanding_for_test(exporter)
 			let queue_empty_before_release = observe::buffered_queue_is_empty_for_test(exporter)
@@ -2354,7 +2362,7 @@ test shutdown_cancellation_before_worker_cleanup_registration_freezes_shared_int
 			let frozen_after = observe::buffered_exporter_health(exporter)
 			let closed = handle observe::buffered_export_observation(exporter, buffered_log("after-startup-interruption")) with observe_test_support_test::clock(0)
 			match cancelled_join
-				Err(error) => if task::join_error_is_cancelled(error) and buffered_unit_received(startup_blocked) and buffered_unit_received(cancelled_waiting) and buffered_unit_received(survivor_waiting) and buffered_admission_is_accepted(admitted)
+				Err(error) => if task::join_error_is_cancelled(error) and buffered_unit_received(startup_blocked) and buffered_unit_received(cancelled_waiting) and buffered_unit_received(survivor_waiting) and buffered_unit_received(cancellation_blocked) and buffered_admission_is_accepted(admitted)
 					match prompt
 						Some(observe::BufferedShutdownReport(observe::Interrupted, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::BufferedSummaryOutcome::NotAttempted)) => match survivor_join
 							Ok(()) => match repeated

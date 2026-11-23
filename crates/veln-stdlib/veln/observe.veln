@@ -1009,10 +1009,24 @@ pub fn shutdown_buffered(exporter: BufferedJsonLinesExporter) -> BufferedShutdow
 			end
 			let report = match begin_buffered_shutdown(state, ready)
 				Some(frozen) => frozen
-				None => begin
-					let _ = task::join(worker)
-					read_buffered_shutdown_report(state, production)
-				end
+				None => join_buffered_worker_and_read_shutdown_report(worker, state, calls, production)
+			end
+			let _ = channel::send(completed.tx, ())
+			report
+		end
+	end
+end
+
+fn shutdown_buffered_with_interruption_hook_for_test(exporter: BufferedJsonLinesExporter, callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>) -> BufferedShutdownReport effects [concurrency]
+	match exporter
+		BufferedJsonLinesExporter(_, _, _, _, production, _, state, calls, ready, worker) => begin
+			let completed = channel::bounded<()>(1)
+			defer
+				interrupt_buffered_shutdown_waiter_with_boundary_hook(worker, state, calls, production, completed.rx, TestBufferedWorkerBoundaryHook(callback, entered, release))
+			end
+			let report = match begin_buffered_shutdown(state, ready)
+				Some(frozen) => frozen
+				None => join_buffered_worker_and_read_shutdown_report(worker, state, calls, production)
 			end
 			let _ = channel::send(completed.tx, ())
 			report
@@ -1030,10 +1044,7 @@ fn shutdown_buffered_with_wait_hook_for_test(exporter: BufferedJsonLinesExporter
 			callback(entered, release)
 			let report = match begin_buffered_shutdown(state, ready)
 				Some(frozen) => frozen
-				None => begin
-					let _ = task::join(worker)
-					read_buffered_shutdown_report(state, production)
-				end
+				None => join_buffered_worker_and_read_shutdown_report(worker, state, calls, production)
 			end
 			let _ = channel::send(completed.tx, ())
 			report
@@ -1050,10 +1061,7 @@ fn shutdown_buffered_with_return_hook_for_test(exporter: BufferedJsonLinesExport
 			end
 			let report = match begin_buffered_shutdown(state, ready)
 				Some(frozen) => frozen
-				None => begin
-					let _ = task::join(worker)
-					read_buffered_shutdown_report(state, production)
-				end
+				None => join_buffered_worker_and_read_shutdown_report(worker, state, calls, production)
 			end
 			callback(entered, release)
 			let _ = channel::send(completed.tx, ())
@@ -1062,11 +1070,26 @@ fn shutdown_buffered_with_return_hook_for_test(exporter: BufferedJsonLinesExport
 	end
 end
 
+fn join_buffered_worker_and_read_shutdown_report(worker: Task<()>, state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls: { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, production: Production) -> BufferedShutdownReport effects [concurrency]
+	match task::join(worker)
+		Ok(()) => read_buffered_shutdown_report(state, production)
+		Err(_) => begin
+			interrupt_buffered_transition(state, calls, production)
+			read_buffered_shutdown_report(state, production)
+		end
+	end
+end
+
 fn interrupt_buffered_shutdown_waiter(worker: Task<()>, state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls: { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, production: Production, completed: Receiver<()>) -> () effects [concurrency]
+	interrupt_buffered_shutdown_waiter_with_boundary_hook(worker, state, calls, production, completed, NoBufferedWorkerBoundaryHook)
+end
+
+fn interrupt_buffered_shutdown_waiter_with_boundary_hook(worker: Task<()>, state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, calls: { tx : Sender<BufferedCallState>, rx : Receiver<BufferedCallState> }, production: Production, completed: Receiver<()>, boundary_hook: BufferedWorkerBoundaryHook) -> () effects [concurrency]
 	match channel::select_many_timeout(list_cons(completed, list_nil()), 0)
 		Some(_) => ()
 		None => begin
 			task::cancel(worker)
+			notify_buffered_worker_boundary(boundary_hook)
 			interrupt_buffered_transition(state, calls, production)
 		end
 	end
