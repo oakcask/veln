@@ -309,12 +309,13 @@ fn io_provider_update_result<T: SignatureType>(
     inputs
         .explicit_result
         .cloned()
-        .or_else(|| inputs.expected.filter(|ty| **ty != T::unknown()).cloned())
         .or_else(|| {
             action_return
                 .and_then(|ty| ty.record_field("result"))
+                .filter(|ty| **ty != T::unknown())
                 .cloned()
         })
+        .or_else(|| inputs.expected.filter(|ty| **ty != T::unknown()).cloned())
         .or_else(|| inputs.expected.cloned())
         .unwrap_or_else(T::unknown)
 }
@@ -657,7 +658,7 @@ mod tests {
     fn provider_state_update_signature_keeps_a_pure_callback_boundary() {
         let path = ["io_provider".to_string(), "update".to_string()];
         let state = Type::named("IoProviderState", vec![Type::int()]);
-        let expected = Type::string();
+        let expected = Type::int();
         let action = Type::function(
             vec![Type::int(), Type::unit()],
             Type::Record(vec![
@@ -692,6 +693,7 @@ mod tests {
         };
         assert_eq!(params, &vec![Type::int(), Type::unit()]);
         assert_eq!(effects, &Vec::<String>::new());
+        assert_eq!(surface.1, Type::string());
         assert_eq!(
             return_type.as_ref(),
             &Type::Record(vec![

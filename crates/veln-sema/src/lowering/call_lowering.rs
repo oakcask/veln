@@ -5,6 +5,10 @@ pub(super) enum ConstructorTypeContext<'a> {
     Inferred(Vec<CoreType>),
 }
 
+fn is_io_provider_update_path(segments: &[String]) -> bool {
+    matches!(segments, [module, name] if module == "io_provider" && name == "update")
+}
+
 struct ExplicitConcurrencyTypes {
     item: Option<CoreType>,
     context: Option<CoreType>,
@@ -209,7 +213,13 @@ impl<'a> CoreLowerer<'a> {
         }
         let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
         let context_type = args.get(1).and_then(|arg| self.shallow_expr_type(arg));
-        let action_type = args.get(2).and_then(|arg| self.shallow_expr_type(arg));
+        let action_type = args.get(2).and_then(|arg| {
+            if is_io_provider_update_path(segments) {
+                self.known_expr_type(arg)
+            } else {
+                self.shallow_expr_type(arg)
+            }
+        });
         let signature = core_concurrency_signature(
             segments,
             ConcurrencySignatureInputs {
@@ -243,7 +253,13 @@ impl<'a> CoreLowerer<'a> {
         let explicit = self.explicit_concurrency_types(segments, type_args);
         let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
         let context_type = args.get(1).and_then(|arg| self.shallow_expr_type(arg));
-        let action_type = args.get(2).and_then(|arg| self.shallow_expr_type(arg));
+        let action_type = args.get(2).and_then(|arg| {
+            if is_io_provider_update_path(segments) {
+                self.known_expr_type(arg)
+            } else {
+                self.shallow_expr_type(arg)
+            }
+        });
         let signature = core_concurrency_signature(
             segments,
             ConcurrencySignatureInputs {

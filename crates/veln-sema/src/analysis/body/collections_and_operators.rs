@@ -744,6 +744,15 @@ impl<'a> FunctionChecker<'a> {
             _ => None,
         }
     }
+
+    pub(super) fn known_expr_type(&self, expr: &Expr) -> Option<Type> {
+        match &expr.kind {
+            ExprKind::FieldAccess { base, field, .. } => self
+                .known_expr_type(base)
+                .and_then(|ty| ty.record_field(field).cloned()),
+            _ => self.shallow_expr_type(expr),
+        }
+    }
 }
 
 fn dict_member_aggregate_type(

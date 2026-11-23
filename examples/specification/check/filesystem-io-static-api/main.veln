@@ -114,7 +114,9 @@ end
 # identity, pure transition signature, result type, and concurrency-only effect.
 pub fn provider_state_operations() -> String effects [concurrency]
 	let cell: io_provider::State<Int> = io_provider::state(1)
-	io_provider::update(cell, 2, provider_state_transition)
+	let actions = { step: provider_state_transition }
+	let result = io_provider::update(cell, 2, actions.step)
+	result
 end
 
 # Compiler integration contract: all three update parameters can be explicit,

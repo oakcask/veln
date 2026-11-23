@@ -566,7 +566,13 @@ impl<'a> FunctionChecker<'a> {
 
         let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
         let context_type = args.get(1).and_then(|arg| self.shallow_expr_type(arg));
-        let action_type = args.get(2).and_then(|arg| self.shallow_expr_type(arg));
+        let action_type = args.get(2).and_then(|arg| {
+            if is_io_provider_update_call(callee) {
+                self.known_expr_type(arg)
+            } else {
+                self.shallow_expr_type(arg)
+            }
+        });
         let (params, variadic, return_type, origin) = self.call_signature(
             callee,
             expected.map(|expected| &expected.ty),
@@ -778,6 +784,12 @@ impl<'a> FunctionChecker<'a> {
 fn is_io_provider_state_call(callee: &Expr) -> bool {
     callee.callee_name_path().is_some_and(
         |segments| matches!(segments, [module, name] if module == "io_provider" && name == "state"),
+    )
+}
+
+fn is_io_provider_update_call(callee: &Expr) -> bool {
+    callee.callee_name_path().is_some_and(
+        |segments| matches!(segments, [module, name] if module == "io_provider" && name == "update"),
     )
 }
 

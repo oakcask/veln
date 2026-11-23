@@ -345,6 +345,15 @@ impl<'a> CoreLowerer<'a> {
         }
     }
 
+    pub(super) fn known_expr_type(&self, expr: &Expr) -> Option<CoreType> {
+        match &expr.kind {
+            ExprKind::FieldAccess { base, field, .. } => self
+                .known_expr_type(base)
+                .and_then(|ty| ty.record_field(field).cloned()),
+            _ => self.shallow_expr_type(expr),
+        }
+    }
+
     pub(super) fn lower_name_path(
         &mut self,
         expr: &Expr,
