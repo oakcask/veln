@@ -176,6 +176,12 @@ and supplied context, and publishes the returned replacement and result as one
 transition. Its callback is pure. Attempting to update the same cell reentrantly
 fails at runtime instead of waiting on itself.
 
+When several updates wait for one cell, each completed, failed, or cancelled
+admitted update releases at most one queued successor. A cancelled queued
+update is removed before its callback runs and does not prevent a later
+eligible update from entering. A queued callback that fails also releases the
+next eligible update, while preserving the old value.
+
 Cancellation before admission does not invoke the callback. Cancellation at a
 generated checkpoint after admission aborts the callback and preserves the old
 value, including for a compiled tail-recursive callback. Callback or runtime
@@ -327,10 +333,11 @@ other declaration establishes only its static capability and effect boundary.
   [`io_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_test_support_test.veln).
 - Private JVM adapter linkage:
   [`java_helpers_and_mapping.rs`](../../crates/veln-backend-jvm/src/tests/java_helpers_and_mapping.rs).
-- JVM-controlled atomic admission, cancellation checkpoints, publication,
-  failure identity, reentrancy, task freezing, release, and reusable
-  100,000-element list state, context, replacement, and result values without
-  nesting-proportional JVM stack use:
+- JVM-controlled single-successor admission handoff, cancelled-waiter removal,
+  cancellation checkpoints, publication, queued failure release, failure
+  identity, reentrancy, task freezing, and reusable 100,000-element list state,
+  context, replacement, and result values without nesting-proportional JVM
+  stack use:
   [`AtomicStateHarness.java`](../../crates/veln-backend-jvm/test-support/AtomicStateHarness.java).
 - JVM retention of the captured operation-handler identities after their
   dynamic scopes exit:

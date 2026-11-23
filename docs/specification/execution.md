@@ -134,11 +134,14 @@ contract.
 
 The same private adapter boundary implements opaque `io_provider::State<T>`
 cells. Task-boundary freezing preserves a cell's identity. Updates serialize
-admission and reject same-thread reentrancy on the same cell. A callback result
-publishes its replacement before a pending cancellation is reported. A
-cancellation observed before admission or at a generated callback checkpoint,
-and a callback or runtime failure before publication, preserve the old value.
-Every completed, failed, or cancellation-observing update releases the cell.
+admission and reject same-thread reentrancy on the same cell. Releasing an
+admitted update signals at most one queued successor. Cancelling a queued
+successor removes it before its callback runs and leaves later eligible
+successors able to enter. A callback result publishes its replacement before a
+pending cancellation is reported. A cancellation observed before admission or
+at a generated callback checkpoint, and a callback or runtime failure before
+publication, preserve the old value. Every completed, failed, or
+cancellation-observing update releases the cell and any eligible successor.
 Generated checkpoints remain active inside an admitted callback, including a
 compiled tail-recursive callback; a pure callback that reaches no checkpoint
 and does not return or fail retains the cell without a bounded cancellation
@@ -964,6 +967,10 @@ than degrading it to a generic rendered result value.
   order, option and byte forwarding, translated failures, retry state, and
   cleanup-failure unwinding without substituting fake behavior in production
   handlers.
+- JVM atomic-state evidence checks bounded successor handoff, cancelled-waiter
+  removal, queued callback failure, checkpoint cancellation, publication, and
+  cell reuse in
+  [`AtomicStateHarness.java`](../../crates/veln-backend-jvm/test-support/AtomicStateHarness.java).
 - Normal completion, nested unwinding, registration-time snapshots, and the
   public test boundary are checked by
   [`deferred-cleanup-runtime-boundary`](../../examples/specification/run/deferred-cleanup-runtime-boundary/),
