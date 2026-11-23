@@ -3,8 +3,10 @@
     private static final String IO_WRITE_EFFECT = "std::io::Write";
     private static final String IO_SEEK_EFFECT = "std::io::Seek";
     private static final String IO_READ_AT_EFFECT = "std::io::ReadAt";
+    private static final String IO_WRITE_AT_EFFECT = "std::io::WriteAt";
     private static final String IO_CLOSE_EFFECT = "std::io::Close";
     private static final String IO_SYNC_EFFECT = "std::io::Sync";
+    private static final String FS_MUTATE_EFFECT = "std::fs::Mutate";
 
     private static final class IoOwner {
         final HandlerFrame scope;
@@ -24,8 +26,10 @@
         final HandlerFrame write;
         final HandlerFrame seek;
         final HandlerFrame readAt;
+        final HandlerFrame writeAt;
         final HandlerFrame close;
         final HandlerFrame sync;
+        final HandlerFrame mutate;
 
         IoResource(
             IoOwner owner,
@@ -35,8 +39,10 @@
             HandlerFrame write,
             HandlerFrame seek,
             HandlerFrame readAt,
+            HandlerFrame writeAt,
             HandlerFrame close,
-            HandlerFrame sync
+            HandlerFrame sync,
+            HandlerFrame mutate
         ) {
             this.owner = owner;
             this.slot = slot;
@@ -45,8 +51,10 @@
             this.write = write;
             this.seek = seek;
             this.readAt = readAt;
+            this.writeAt = writeAt;
             this.close = close;
             this.sync = sync;
+            this.mutate = mutate;
         }
     }
 
@@ -109,8 +117,9 @@
             return ioProviderInvalidInput("resource", "provider owner is not active in this scope");
         }
         boolean readFile = isAdt(familyValue, "ViewFamily::ReadFile");
+        boolean writeFile = isAdt(familyValue, "ViewFamily::WriteFile");
         boolean appendFile = isAdt(familyValue, "ViewFamily::AppendFile");
-        if (!readFile && !appendFile) {
+        if (!readFile && !writeFile && !appendFile) {
             return ioProviderUnsupported("resource", "view family is outside the implemented prototype slice");
         }
 
@@ -132,7 +141,23 @@
                     );
                 }
                 resource = new IoResource(
-                    owner, slot, "ReadFile", read, null, seek, readAt, close, null
+                    owner, slot, "ReadFile", read, null, seek, readAt, null, close, null, null
+                );
+            } else if (writeFile) {
+                HandlerFrame write = findHandler(IO_WRITE_EFFECT);
+                HandlerFrame seek = findHandler(IO_SEEK_EFFECT);
+                HandlerFrame writeAt = findHandler(IO_WRITE_AT_EFFECT);
+                HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
+                HandlerFrame sync = findHandler(IO_SYNC_EFFECT);
+                HandlerFrame mutate = findHandler(FS_MUTATE_EFFECT);
+                if (write == null || seek == null || writeAt == null || close == null || sync == null || mutate == null) {
+                    return ioProviderUnsupported(
+                        "resource",
+                        "WriteFile registration requires io::Write, io::Seek, io::WriteAt, io::Close, io::Sync, and fs::Mutate handlers"
+                    );
+                }
+                resource = new IoResource(
+                    owner, slot, "WriteFile", null, write, seek, null, writeAt, close, sync, mutate
                 );
             } else {
                 HandlerFrame write = findHandler(IO_WRITE_EFFECT);
@@ -145,7 +170,7 @@
                     );
                 }
                 resource = new IoResource(
-                    owner, slot, "AppendFile", null, write, null, null, close, sync
+                    owner, slot, "AppendFile", null, write, null, null, null, close, sync, null
                 );
             }
             owner.resources.put(Long.valueOf(slot), resource);
@@ -190,6 +215,27 @@
         ));
     }
 
+    public static Object ioProviderWriteFile(Object resourceValue) {
+        if (!(resourceValue instanceof IoResource)) {
+            return ioProviderInvalidInput("write_file", "invalid provider resource");
+        }
+        IoResource resource = (IoResource) resourceValue;
+        if (!resource.family.equals("WriteFile")) {
+            return ioProviderUnsupported("write_file", "resource does not provide a WriteFile view");
+        }
+        return ok(adt(
+            "fs::WriteFile::WriteFile",
+            new Object[] {
+                new IoCapability(resource.owner, resource.slot, resource.write),
+                new IoCapability(resource.owner, resource.slot, resource.seek),
+                new IoCapability(resource.owner, resource.slot, resource.writeAt),
+                new IoCapability(resource.owner, resource.slot, resource.close),
+                new IoCapability(resource.owner, resource.slot, resource.sync),
+                new IoCapability(resource.owner, resource.slot, resource.mutate)
+            }
+        ));
+    }
+
     public static Object ioProviderDuplex(Object resource) {
         return ioProviderUnsupported("duplex", "resource does not provide a Duplex view");
     }
@@ -226,9 +272,15 @@
     public static Object ioProviderReaderAtSlot(Object owner, Object capability) {
         return ioProviderCapabilitySlot("reader_at_slot", owner, capability);
     }
+    public static Object ioProviderWriterAtSlot(Object owner, Object capability) {
+        return ioProviderCapabilitySlot("writer_at_slot", owner, capability);
+    }
     public static Object ioProviderCloserSlot(Object owner, Object capability) {
         return ioProviderCapabilitySlot("closer_slot", owner, capability);
     }
     public static Object ioProviderSyncerSlot(Object owner, Object capability) {
         return ioProviderCapabilitySlot("syncer_slot", owner, capability);
+    }
+    public static Object ioProviderTruncaterSlot(Object owner, Object capability) {
+        return ioProviderCapabilitySlot("truncater_slot", owner, capability);
     }
