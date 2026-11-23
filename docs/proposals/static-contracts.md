@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Static contract syntax, evaluation and reachability rules, record fact transfer, callable contract subtyping, boundary validation, generated API documentation, prerequisite decisions, extension requirements, or acceptance gates change.
+update-when: Static contract syntax, predicate-fact or callable-type prerequisite state, body and summary verification, boundary validation, generated API documentation, extension requirements, or acceptance gates change.
 ---
 
 # Static Contracts for Composable Calls
@@ -21,7 +21,8 @@ work. The acceptance tables below are planned evidence, not passing tests.
 The investigation uses the `origin/main` base revision `9ea04547d`. Current
 behavior is owned by [Contracts](../specification/contracts.md) and
 [Types](../specification/types.md), not by this proposal or older decision
-records. No existing active proposal in the catalog owns this change.
+records. The separate prerequisite proposals below own the shared predicate
+and callable-type changes; this page owns static enforcement and proof trust.
 
 | Inspected boundary | Current evidence | Consequence for this proposal |
 | --- | --- | --- |
@@ -35,15 +36,31 @@ records. No existing active proposal in the catalog owns this change.
 
 ### Prerequisite decisions
 
-These changes are necessary parts of the proposal. They do not require a new
-language backend, general dependent types, a new ownership system, or an SMT
-dependency before the initial slice can be attempted.
+Two prerequisite language changes have separate proposal authorities:
+
+| Prerequisite | Owned change | Dependency |
+| --- | --- | --- |
+| [Typed Predicate Logic and Flow Facts](typed-predicate-facts.md) | Typed scalar logic, value identity, flow transfer, and bounded entailment outcomes. | No dependency on static-clause syntax, callable contracts, or a new numeric/effect model. |
+| [Contract-bearing Callable Types](contract-bearing-callable-types.md) | Bound pre/post interfaces in function types, assignment, joins, and public retention. | Uses Typed Predicate Logic and Flow Facts for predicates, substitution, and implication. |
+
+The dependency order is predicate facts, then callable interfaces, then the
+complete static-contract feature. The first two proposals own P1–P3 language
+semantics. P4–P5 remain here because body verification, summary trust, static
+failure, and publication define this feature itself. Internal AST/core changes
+and tool projections are implementation obligations, not additional language
+proposals.
+
+All three proposals remain Design In Progress. A prerequisite prototype may
+supply feasibility evidence, but must not expose unchecked callable promises
+or claim the complete feature. No new backend, general dependent types,
+ownership system, arithmetic model, or SMT dependency is required for this
+comparison-based slice.
 
 | Gate | Required design change | Evidence before implementation selection |
 | --- | --- | --- |
-| P1: typed logic | Resolve each logical name to a declaration/binder and retain operand types, source spans, and signed integer meaning. Distinguish facts about values from repeated source spellings. | A small independent truth/ordering model and tests for shadowing, argument substitution, minimum/maximum integers, and rejection of unsupported numeric terms. |
-| P2: flow facts | Define facts for immutable locals, parameters, record construction and projection, branch polarity, continuing paths, unreachable paths, and return values. Preserve eager Boolean evaluation and separate loop iterations. | Branch/alias/record/early-exit acceptance cases, including eager operands, vacuous obligations, and failures for leaked and unrelated facts. |
-| P3: callable contracts | Add bound parameters/results to callable contracts, define alpha-equivalence and implication-based assignment, and retain contracts across public interfaces. | Grammar/formatter prototype and direct, imported, aliased, nested, and indirect callable cases. |
+| P1: typed logic | Integrate the typed logic from [Typed Predicate Logic and Flow Facts](typed-predicate-facts.md). | Reviewed independent model and consumer obligations with resolved identities and runtime integer meaning. |
+| P2: flow facts | Integrate the transfer and reachability rules from the predicate-fact prerequisite. | Consumer call/return cases using branch, record, alias, eager-operand, and unreachable-path facts. |
+| P3: callable contracts | Integrate [Contract-bearing Callable Types](contract-bearing-callable-types.md). | Reviewed callable syntax/type evidence and direct, imported, nested, and indirect static-call cases. |
 | P4: proof trust | Verify source implementations, define recursive summary use, and quarantine invalid declarations. Define which generated or host-backed declarations can supply facts. | Positive/negative body and recursive-component cases; no external summary accepted solely because its signature declares it. |
 | P5: executable boundary | Define static failure outcomes, JSON/human projections, and checked-to-core handoff. Preserve the meaning of existing runtime clauses, check executable entry adapters, and retain contract modes in generated API documentation. | Call-site, return, entry-boundary, human/JSON, lowering, and generated-documentation cases. |
 
@@ -57,14 +74,17 @@ selected. A prototype alone does not settle its observable behavior:
 
 | Gate | Required deliverable and acceptance boundary |
 | --- | --- |
-| P1 | A typed predicate grammar, signed 64-bit truth/order model, and mandatory entailment cases, including contradictions and integer endpoints. Fix the scope and accounting unit of each deterministic work limit, its versioned default, and its exhausted outcome. Measured feasibility evidence must justify the chosen values; this proposal does not invent numeric limits. |
-| P2 | Transfer and join rules for the events below, including result identities at expression joins, lexical-scope exit, eager operands, record patterns, and loop backedges. Demonstrate both required successful proofs and the absence of facts on unrelated paths. |
-| P3 | Accepted and rejected grammar fixtures and formatter round trips for declaration and callable clauses, nested binders, effect placement, and clause order. Specify capture rejection, alpha-equivalence, contextual checking, and unique contributed-candidate joins. An ambiguous join requires an annotation; it must not depend on branch order. |
+| P1 | The prerequisite's typed grammar, mandatory truth/order cases, and measured deterministic work policy, exercised through static call/return obligations. |
+| P2 | The prerequisite's transfer/join model, exercised through result binding, scope exit, records, unreachable calls/returns, and loop boundaries in consumer programs. |
+| P3 | The callable prerequisite's grammar, binder, assignment, contextual, and join evidence, plus static-clause declaration grammar and consumer calls that cannot bypass the retained interface. |
 | P4 | A dependency-validation and recursive-component publication model. State which source snapshot and checked contracts a summary depends on. Exercise failure and recovery after a body-only change, not only a signature change; no caller may reuse an invalidated proof. |
 | P5 | Diagnostic identifiers, closed JSON detail schemas and related-note kinds, adapter projections, generated-documentation mode fields and version changes, and a checked-to-core readiness invariant. Exercise atomic rejection, once-only evaluation, and preservation of existing runtime clauses. |
 
-The gate deliverables are still required evidence, not completed implementation
-or permission to select a partial feature that erases contracts. Extensions
+The P1–P3 rows are integration gates referencing the two prerequisite
+proposals; they are not second authorities for their language rules. P4–P5
+remain owned here. The gate deliverables are still required evidence, not
+completed implementation or permission to select a partial feature that
+erases contracts. Extensions
 outside these gates follow the [extension requirements](#extension-requirements).
 
 ## Proposed source surface and guarantee
@@ -123,169 +143,22 @@ or absence of abrupt failure. A `?` propagation is a return of the enclosing
 function's error result and must satisfy that function's static ensures; it
 is not a success result to which success-only facts can be attached.
 
-### Contract-bearing callable types
+### Callable interface dependency
 
-A candidate type spelling is:
+[Contract-bearing Callable Types](contract-bearing-callable-types.md) owns
+callable contract syntax, binder scope, alpha-equivalence, assignment, and
+joins. A complete static-contract feature must retain those interfaces through
+aliases, aggregates, imports, and indirect calls. A direct-call-only prototype
+does not satisfy this proposal's compositional guarantee.
 
-```text
-(fn(value: Int) -> result: Int
-    require static (value > 0)
-    ensure static (result > 0))
-```
+## Predicate and flow dependency
 
-Names in this form bind within the callable type. Parameter renaming does not
-change type identity. Outer parentheses delimit the complete callable type in
-records, generic arguments, and nested functions. Declaration clauses and type
-clauses denote the same pre/post pair. Effect rows retain their existing role.
-The spelling is subject to the P3 grammar/formatter gate; it is not an accepted
-source grammar. The grammar prototype must settle clause ordering, nesting,
-line breaks, and the interaction with effect rows before Ready selection.
-
-For compatible ordinary input/result types and effects, let a source callable
-have `(Ps, Qs)` and a target callable have `(Pt, Qt)`. Assignment requires:
-
-- `Pt` implies `Ps`: the source cannot demand more than the target allows.
-- Under `Pt`, `Qs` implies `Qt`: the source must deliver the target's promise.
-
-The existing input contravariance, result covariance, and effect compatibility
-rules also apply. Logical implication failure or unknown implication rejects
-assignment. A source requiring `x > 0` cannot become plain `fn(Int) -> Int`,
-whose static requirement is `true`. A source requiring `x >= 0` can serve a
-target requiring `x > 0`. A stronger postcondition can be forgotten; a stronger
-requirement cannot be erased. Function joins retain only a contributed
-callable type justified by these rules; they do not drop requirements to make
-a join succeed. Otherwise an explicit compatible annotation is required.
-
-The first slice supports monomorphic, fixed-arity callable contracts over the
-admitted scalar paths. Generic proof abstraction, variadic contract binders,
-and effect-row polymorphic contract entailment remain outside the slice.
-Unsupported boundaries receive an explicit unsupported-static-contract error,
-not a contract-free approximation.
-
-## Initial proof language and ordinary coding
-
-Static predicates admit:
-
-- Boolean literals, stable Boolean paths, `not`, `and`, and `or`;
-- equality/disequality of matching `Bool` or `Int` operands;
-- signed `Int` ordering between literals and stable scalar paths;
-- parentheses and signed integer literals within the `Int` range;
-- parameter and named-result references, including immutable record fields.
-
-A stable path denotes one immutable value, using resolved identity rather
-than its displayed name. An argument expression is evaluated once according
-to ordinary language evaluation; substitution refers to that value. Returned
-values have fresh identities. Two calls with identical spelling do not acquire
-an equality fact. Boolean aliases retain a relation to their originating
-admitted condition until scope ends.
-
-The mandatory proof fragment includes literal comparison, Boolean identities,
-copy equality, equality substitution, order transitivity, weakening strict
-bounds to inclusive bounds, and complementary branch conditions. The checker
-need not decide every Boolean formula. More complex supported formulas can
-produce an unknown proof result; bounded search must never accept them by
-default. P1 must fix deterministic work limits and mandatory-fragment cases
-before implementation selection.
-
-| Program event | Facts available afterward |
-| --- | --- |
-| Enter a function | Static requirements over parameter values; no assumptions from its own ensures. |
-| `let y = x` for an immutable scalar | Equality of these values; shadowed bindings remain distinct. |
-| Construct, alias, or destructure an immutable record | Admitted scalar projections denote their evaluated initializer or source-field values, including nested fields. No whole-record logical equality is required. |
-| Enter the true/false branch of an admitted condition | The condition / its negation, scoped to that branch. |
-| Join continuing branches | Only facts justified on every continuing path; an exited branch does not constrain the continuation. |
-| Return a branch expression | That path's facts and its actual returned value for checking ensures. |
-| Complete a call with a valid static summary | The instantiated ensures over evaluated arguments and the returned value. |
-| Match an ADT | Existing variant refinement rules remain available; no arbitrary payload predicate is inferred. |
-
-### Evaluation and fact availability
-
-Ordinary expressions and executable predicates keep their existing evaluation
-order. Both operands of `and` and `or` evaluate, left before right. Check a
-call using facts established before that call executes. A preceding operand's
-verified postcondition is available, but its Boolean result is not assumed
-true or false while checking the other operand. A later operand supplies no
-facts to an earlier call. Boolean simplification of a static predicate does
-not permit skipping calls or other evaluation in ordinary code.
-
-For example, suppose `positive_check(x)` returns `Bool` and requires static
-`x > 0`. Neither `x > 0 and positive_check(x)` nor
-`x <= 0 or positive_check(x)` establishes that call's requirement for an
-unconstrained `x`. Reject both, including when they occur in an executable
-contract. An enclosing `if x > 0` provides the missing fact. A future
-short-circuit language change would need separate evaluation and proof rules.
-
-An ordinary computation outside the proof language produces an opaque value
-of its checked type. The ordinary computation remains permitted; writing that
-computation directly in a static predicate remains unsupported. For example,
-a saved arithmetic result can be compared with zero in an ordinary branch;
-that branch proves a fact about the saved result, without proving an
-arithmetic relation to its operands.
-
-### Records and expression results
-
-Record construction relates each admitted scalar field path to the value of
-its evaluated initializer. For `let r = {value: normalize(x)}`, the verified
-positive-result fact therefore applies to `r.value`. A transparent record
-alias preserves the same field values. A record pattern binding denotes its
-selected source field. These rules apply recursively to nested immutable
-records and to parameters and returned records. An annotation may forget
-fields but cannot change the identity of retained field values. Missing fields
-remain ordinary type errors, and distinct roots or field sequences share no
-facts without a demonstrated value relation.
-
-When an `if`, `match`, or `begin` expression supplies a value to a binding or
-return, relate that expression's result to the value produced on each
-continuing path. Keep a result fact only when every continuing path justifies
-it. Thus assigning the positive branches of `normalize` to a local before
-returning it must not lose positivity. Facts about an escaping result and
-still-visible values can survive lexical-scope exit; references to hidden
-locals cannot escape. These are required scalar/record transfer rules, not
-general refinement carriers for arbitrary ADT payloads.
-
-### Reachability and contradictory assumptions
-
-A path is proved unreachable when supported facts entail `false`, or when
-ordinary checked control flow has no continuation. Failure to decide
-reachability is not evidence that a path is unreachable. On a proved
-unreachable path, call and return proof obligations are vacuously proven.
-They take precedence over a refuted-predicate classification because no
-execution reaches that obligation. No assumption from that path enters a
-reachable sibling or continuation. If all incoming paths are unreachable,
-the join has no reachable continuation.
-
-Syntax, name resolution, ordinary type compatibility, static-predicate
-admissibility, and declaration validation still apply in unreachable code.
-Vacuity does not validate a hole, an unsupported predicate, or an invalid
-dependency. The checker may accept contradictory static requirements and a
-vacuous ensure under them. Their callable remains unusable on a reachable
-path unless the caller establishes every requirement; assignment cannot erase
-those requirements. Publication must not present a vacuous postcondition as
-a termination or inhabitation guarantee.
-
-For example, `consume(0)` inside both `if x > 0` and `if x <= 0` is vacuous,
-but the same call after those branches is refuted on a reachable path. A
-checked callee's `ensure static (false)` can make its normal continuation
-unreachable. Merely detecting a recursive call cannot do so. Partial
-correctness permits a verified non-returning function; it does not manufacture
-a returned value or justify evaluating that function during proof search.
-
-### Limits of the initial logic
-
-Arithmetic can still occur in ordinary bodies. In the first slice an arithmetic
-result supplies no arithmetic relationship to its operands unless represented
-by a separately verified admitted summary. For example, `return x + 1` cannot
-justify `ensure static (result > x)`. Returning a known positive literal can
-justify `result > 0`. Neither mathematical-integer identities nor Float total
-ordering may be assumed. Arithmetic inside a static predicate, Float facts,
-collection measures such as length, quantifiers, arbitrary predicate calls,
-logical lemmas, and mutable/host state observations are unsupported.
-
-An effect-free function is not automatically total or safe to execute in a
-proof. No arbitrary user function is unfolded or executed by the proof engine.
-A verified Boolean-returning function may convey a relation through an admitted
-postcondition, such as `result == (value > 0)`. This supports named validation
-without introducing predicate calls into the logic.
+[Typed Predicate Logic and Flow Facts](typed-predicate-facts.md) owns the
+admitted proof language, value identities, record and expression-result fact
+transfer, eager operand timing, reachability, and entailment outcomes. This
+proposal supplies validated static requirements as entry assumptions and
+verified static ensures as call-result facts to that model. Neither existing
+runtime clauses nor unchecked summaries supply those facts.
 
 ### External inputs
 
@@ -326,13 +199,10 @@ correctness hypotheses. Each member must pass its own call and return
 obligations. No member's ensures are assumed at its own entry. A failed member
 invalidates publication of the dependent component. Non-returning recursion
 cannot establish a reachable returned value or justify unfolding a logical
-predicate. Loop checking may retain established facts about unchanged outer
-immutable values and the current iteration's supported guard. A binding or
-call result evaluated anew in an iteration has a new value identity. A
-previous iteration's branch facts cannot establish the next iteration's
-requirements or a post-loop fact without a justified invariant. An obligation
-needing such a fact reports unknown in the first slice; explicit loop
-invariants and termination checking follow the extension requirements.
+predicate. Loop fact availability follows the
+[iteration rules](typed-predicate-facts.md#iteration-boundaries). An obligation
+needing an unavailable invariant reports unknown in the first slice; explicit
+loop invariants and termination checking follow the extension requirements.
 
 Public summaries reference only bound parameters/results and accessible type
 identities. Internal helpers and local bindings cannot leak into public
@@ -367,14 +237,10 @@ original obligation.
 | Unknown or proof budget exhausted | Reject. | Distinguish inability to prove from a demonstrated violation. Never label a timeout a counterexample. |
 | Unsupported logic or invalid predicate | Reject. | Identify the unsupported construct or ordinary syntax/name/type failure; add no assumptions. |
 
-For reachable path facts `F` and obligation `P`, proven means establishing
-`F` implies `P`. Refuted means establishing `F` implies `not P`; a single
-violating assignment is not enough to make that universal claim. When neither
-implication is established, report unknown. A counterexample on an unknown
-obligation may illustrate why the guarantee does not hold for all inputs,
-but must not claim that every permitted input violates it. Check proved
-unreachability first. If proof work ends before an outcome is established,
-report unknown with the budget reason.
+Entailment and vacuity have the meanings defined by the
+[predicate-fact outcome model](typed-predicate-facts.md#entailment-outcomes).
+This proposal maps unresolved obligations to static compilation errors;
+the shared model alone does not change the existing runtime fallback.
 
 Human output places the failed fact in the primary message at the call,
 assignment, or return. Related notes identify the declared requirement/ensure,
@@ -482,6 +348,8 @@ or moves to another proposal; do not leave it as an implied initial guarantee.
 
 These cases specify outcomes independently of the chosen proof algorithm.
 The names below identify planned cases, not existing fixture directories.
+They exercise the two prerequisite models through static-contract consumers;
+the owning prerequisite pages define the shared logic and type rules.
 
 | Case | Input or change | Expected outcome |
 | --- | --- | --- |
@@ -543,23 +411,24 @@ Planned verification ownership:
   static contract or its implementation body and compare saved diagnostics with
   a fresh check, including invalidation and recovery of documentation views.
 
-Before Ready selection, P1 must define operation-count budgets for long Boolean
-conditions, deep aliases, and repeated call summaries. Compare doubled input
-sizes against a contract-free control, record retained facts and proof steps,
-and require a declared non-exponential work bound or deterministic unknown
-cutoff. Wall-clock samples are supporting evidence on a controlled runner,
-not a portable acceptance threshold. Run generated/analysis workloads through
+Before Ready selection, apply the predicate prerequisite's
+[bounded-work acceptance model](typed-predicate-facts.md#planned-acceptance-and-verification)
+to repeated call summaries and consumer programs as well as isolated queries.
+Wall-clock samples are supporting evidence on a controlled runner, not a
+portable acceptance threshold. Run generated/analysis workloads through
 `bash scripts/agent-run` and the repository performance-audit workflow.
 
 ## Readiness and lifecycle
 
-This proposal stays under Design In Progress until P1–P5 have precise grammar,
+This proposal stays under Design In Progress until its two prerequisite
+language proposals are resolved and P1–P5 have precise grammar,
 mandatory proof rules, trust boundaries, diagnostic schemas, work limits, and
 reviewed feasibility evidence. In particular, callback contract joins, `?`
 return facts, eager operands, record fact transfer, unreachable-path obligations,
 and invalid recursive-component publication must be exercised before promising
-compositional guarantees. No independent ownership/effect or
-numeric-language redesign is a prerequisite for the restricted slice.
+compositional guarantees. The separate predicate-fact and callable-interface
+proposals are prerequisites; ownership/effect and numeric-language redesigns
+are not prerequisites for the restricted slice.
 
 A later Ready target must select a complete externally observable slice and
 its acceptance cases. During implementation, promote checked examples and
@@ -568,5 +437,9 @@ diagnostic, editor, package-interface, and generated-documentation
 specifications. Update their `update-when` dependents when the corresponding
 behavior changes. The current
 specification and examples need no behavior edits for this documentation-only
-proposal. Remove completed proposal sections and retire this page when all
-remaining planned work is either implemented or explicitly closed.
+proposal. Promote completed prerequisite behavior from its owning proposal
+and remove that proposal's catalog entry when its remaining scope is closed.
+Replace implemented prerequisite links here with the current specification;
+do not retain a completed proposal merely as a dependency route. Remove
+completed proposal sections and retire this page when all remaining planned
+work is either implemented or explicitly closed.
