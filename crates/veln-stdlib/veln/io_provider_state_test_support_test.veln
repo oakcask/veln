@@ -1,5 +1,3 @@
-use io_provider
-
 pub fn replace_string(previous: String, replacement: String) -> {state: String, result: String}
 	{state: replacement, result: previous}
 end

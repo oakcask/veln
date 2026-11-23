@@ -453,8 +453,7 @@ impl<'a> FunctionChecker<'a> {
         &self,
         callee: &Expr,
         expected: Option<&Type>,
-        handle_type: Option<&Type>,
-        context_type: Option<&Type>,
+        evidence: crate::call_resolution::CallArgumentEvidence<'_, Type>,
     ) -> Option<(TypeArgs, Option<Type>, Type, CallOrigin)> {
         let effective_bindings = self.effective_visible_bindings();
         let bindings = effective_bindings
@@ -468,12 +467,13 @@ impl<'a> FunctionChecker<'a> {
         let signature = crate::call_resolution::type_call_signature(
             callee,
             expected,
-            handle_type,
-            context_type,
+            evidence,
             &bindings,
-            self.environment,
-            self.function.module_name.as_deref(),
-            self.function.package_name.as_deref(),
+            crate::call_resolution::CallResolutionContext {
+                environment: self.environment,
+                current_module: self.function.module_name.as_deref(),
+                current_package: self.function.package_name.as_deref(),
+            },
         )?;
         Some((
             signature.params,

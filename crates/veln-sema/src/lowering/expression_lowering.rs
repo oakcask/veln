@@ -309,9 +309,23 @@ impl<'a> CoreLowerer<'a> {
 
     pub(super) fn shallow_expr_type(&self, expr: &Expr) -> Option<CoreType> {
         match &expr.kind {
+            ExprKind::StringLiteral(_) => Some(CoreType::string()),
             ExprKind::IntLiteral(_) => Some(CoreType::int()),
             ExprKind::FloatLiteral(_) => Some(CoreType::float()),
             ExprKind::BoolLiteral(_) => Some(CoreType::bool()),
+            ExprKind::Unit => Some(CoreType::unit()),
+            ExprKind::Record(fields) => fields
+                .iter()
+                .map(|field| {
+                    self.shallow_expr_type(&field.expr)
+                        .map(|ty| (field.name.clone(), ty))
+                })
+                .collect::<Option<Vec<_>>>()
+                .map(CoreType::Record),
+            ExprKind::List(items) => items
+                .first()
+                .and_then(|item| self.shallow_expr_type(item))
+                .map(CoreType::vec),
             ExprKind::NamePath { segments, .. } => match segments.as_slice() {
                 [name] => self
                     .bindings
@@ -338,9 +352,41 @@ impl<'a> CoreLowerer<'a> {
                     )
                     .map(|function| core_type(&function.ty())),
             },
-            ExprKind::Call { callee, .. } => self
-                .core_call_signature(callee, None, None, None)
-                .map(|signature| signature.return_type),
+            ExprKind::Call { callee, args } => {
+                if let ExprKind::NamePath { segments, .. } = &callee.kind
+                    && matches!(segments.as_slice(), [name] if name == "list_cons")
+                    && let Some(item) = args.first().and_then(|arg| self.shallow_expr_type(arg))
+                {
+                    return Some(CoreType::named("List", vec![item]));
+                }
+                if let ExprKind::NamePath { segments, .. } = &callee.kind
+                    && let ConstructorLookup::Found(constructor) =
+                        self.environment.adts.constructor(
+                            segments,
+                            self.function.module_name.as_deref(),
+                            &self.environment.uses,
+                        )
+                {
+                    let payloads = args
+                        .iter()
+                        .map(|arg| self.shallow_expr_type(arg).unwrap_or(CoreType::Unknown))
+                        .collect::<Vec<_>>();
+                    return Some(adt::core_constructed_type(constructor, &payloads));
+                }
+                let first = args.first().and_then(|arg| self.shallow_expr_type(arg));
+                let second = args.get(1).and_then(|arg| self.shallow_expr_type(arg));
+                let third = args.get(2).and_then(|arg| self.shallow_expr_type(arg));
+                self.core_call_signature(
+                    callee,
+                    None,
+                    crate::call_resolution::CallArgumentEvidence {
+                        first: first.as_ref(),
+                        second: second.as_ref(),
+                        third: third.as_ref(),
+                    },
+                )
+                .map(|signature| signature.return_type)
+            }
             _ => None,
         }
     }

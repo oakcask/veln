@@ -791,11 +791,11 @@ test atomic_state_identity_is_shared_with_children_and_completed_updates_are_ser
 	let second_joined = task::join(second)
 	let after: Int = io_provider::update(cell, (), io_provider_state_test_support_test::observe_int)
 	match first_joined
-		Ok(_) => match second_joined
-			Ok(_) => if after == 2
+		Ok(first_before) => match second_joined
+			Ok(second_before) => if after == 2 and ((first_before == 0 and second_before == 1) or (first_before == 1 and second_before == 0))
 				Ok(())
 			else
-				Err("completed child updates lost a serialized transition")
+				Err("completed child updates did not observe one serialized transition sequence")
 			end
 			Err(_) => Err("second atomic-state child did not complete")
 		end

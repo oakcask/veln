@@ -1,0 +1,17 @@
+use io_provider as standard from "std"
+
+pub type State<T>
+	pub State(value: T)
+end
+
+fn replace(value: Int, context: ()) -> {state: Int, result: Int}
+	{state: value, result: value}
+end
+
+pub fn forged_allocation() -> State<Int> effects [concurrency]
+	standard::state(1)
+end
+
+pub fn forged_update(cell: State<Int>) -> Int effects [concurrency]
+	standard::update(cell, (), replace)
+end

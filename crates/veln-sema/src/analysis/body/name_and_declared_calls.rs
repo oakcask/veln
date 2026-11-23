@@ -559,16 +559,20 @@ impl<'a> FunctionChecker<'a> {
         if self.declared_call_is_standard_prelude(callee) {
             return None;
         }
+        if self.declared_io_provider_state_operation(callee).is_some() {
+            return self.infer_io_provider_state_call(expr, callee, args, expected);
+        }
 
+        let first_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
+        let second_type = args.get(1).and_then(|arg| self.shallow_expr_type(arg));
         let (params, variadic, return_type, origin) = self.call_signature(
             callee,
             expected.map(|expected| &expected.ty),
-            args.first()
-                .and_then(|arg| self.shallow_expr_type(arg))
-                .as_ref(),
-            args.get(1)
-                .and_then(|arg| self.shallow_expr_type(arg))
-                .as_ref(),
+            crate::call_resolution::CallArgumentEvidence {
+                first: first_type.as_ref(),
+                second: second_type.as_ref(),
+                third: None,
+            },
         )?;
 
         let call_bound_row =
@@ -592,6 +596,115 @@ impl<'a> FunctionChecker<'a> {
         } else {
             return_type
         })
+    }
+
+    fn infer_io_provider_state_call(
+        &mut self,
+        expr: &Expr,
+        callee: &Expr,
+        args: &[Expr],
+        expected: Option<&ExpectedType>,
+    ) -> Option<Type> {
+        let operation = self
+            .declared_io_provider_state_operation(callee)?
+            .to_string();
+        let mut actuals = Vec::with_capacity(args.len());
+        for (index, arg) in args.iter().enumerate() {
+            if operation == "update"
+                && index == 0
+                && matches!(arg.kind, ExprKind::NamePath { .. })
+                && let Some(actual) = self.shallow_expr_type(arg)
+            {
+                actuals.push((actual, true));
+                continue;
+            }
+            let diagnostics_before = self.diagnostics.len();
+            let actual = self.infer_expr(arg, None);
+            actuals.push((actual, self.diagnostics.len() == diagnostics_before));
+        }
+        let (params, variadic, return_type, origin) = self.call_signature(
+            callee,
+            expected.map(|expected| &expected.ty),
+            crate::call_resolution::CallArgumentEvidence {
+                first: actuals.first().map(|(ty, _)| ty),
+                second: actuals.get(1).map(|(ty, _)| ty),
+                third: actuals.get(2).map(|(ty, _)| ty),
+            },
+        )?;
+        if operation == "update"
+            && let (Some(arg), Some(param_type), Some(actual)) =
+                (args.first(), params.first(), actuals.first_mut())
+            && matches!(arg.kind, ExprKind::NamePath { .. })
+        {
+            let expected = call_argument_expected(param_type, &origin, None);
+            let diagnostics_before = self.diagnostics.len();
+            actual.0 = self.infer_expr(arg, Some(&expected));
+            actual.1 = self.diagnostics.len() == diagnostics_before;
+        }
+        let valid_arity = variadic
+            .as_ref()
+            .is_some_and(|_| args.len() >= params.len())
+            || (variadic.is_none() && args.len() == params.len());
+        let call_bound_row =
+            call_bound_effect_row(&params, variadic.as_ref(), &return_type, &origin.effects);
+        let inferred = args
+            .iter()
+            .zip(actuals.iter())
+            .enumerate()
+            .filter_map(|(index, (arg, (actual, valid)))| {
+                let param_type = params.get(index).or(variadic.as_ref())?;
+                Some((
+                    arg,
+                    call_argument_expected(param_type, &origin, None),
+                    actual.clone(),
+                    *valid,
+                ))
+            })
+            .collect::<Vec<_>>();
+        let row_substitutions = solve_call_bound_effect_row(
+            call_bound_row.as_deref(),
+            inferred
+                .iter()
+                .map(|(_, expected, actual, _)| (&expected.ty, actual)),
+        );
+        let valid_arguments =
+            self.check_inferred_call_arguments(inferred, &origin, &row_substitutions);
+        if valid_arity && valid_arguments {
+            self.record_call_effects(expr, &origin, &row_substitutions);
+            return Some(instantiate_effect_rows_in_type(
+                &return_type,
+                &row_substitutions,
+            ));
+        }
+        Some(if call_bound_row.is_some() {
+            Type::Unknown
+        } else {
+            return_type
+        })
+    }
+
+    fn declared_io_provider_state_operation(&self, callee: &Expr) -> Option<&str> {
+        let ExprKind::NamePath { segments, .. } = &callee.kind else {
+            return None;
+        };
+        let function = match segments.as_slice() {
+            [name] => self
+                .environment
+                .unqualified_function_in_owner(
+                    name,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
+                .found(),
+            _ => self.environment.function_path_in_owner(
+                segments,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            ),
+        }?;
+        (function.module_name.as_deref() == Some("std::io_provider")
+            && matches!(function.name.as_str(), "state" | "update"))
+        .then_some(function.name.as_str())
     }
 
     fn record_call_effects(

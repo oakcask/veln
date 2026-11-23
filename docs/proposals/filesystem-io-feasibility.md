@@ -43,7 +43,7 @@ old compiler-known calls, and the complete network-to-byte adapter rollout
 remain in the filesystem proposal. This target does not introduce buffering,
 confinement, new effect syntax, or performance guarantees.
 
-## Implemented Atomic State Prerequisite
+## Atomic State Cancellation Boundary
 
 The atomic state prerequisite is current behavior specified by
 [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md#file-view-runtime-prototype)
@@ -63,7 +63,7 @@ its positive observations and its failure or preserved-state observations.
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
 | F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. | Companion tests with distinct provider contents and operation logs; a backend dispatch case checks captured provider identity and absence of host fallback. |
-| F3: state and publication | Concurrent children cannot lose completed writes. Failure and cancellation preserve the transition boundary above. Closing the owner rejects late publication and releases the late host resource. | The atomic state prerequisite has scoped companion, compiler, and backend evidence. The remaining gate needs provider-fake write observations and owner-lifecycle cases, including a host open gated across owner closure and retained cleanup failure. |
+| F3: state and publication | Concurrent children cannot lose completed writes. Failure and cancellation preserve the transition boundary above. Closing the owner rejects late publication and releases the late host resource. | The atomic state prerequisite has separate companion, compiler, and backend evidence. The remaining gate needs provider-fake write observations and owner-lifecycle cases, including a host open gated across owner closure and retained cleanup failure. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
 | F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
 

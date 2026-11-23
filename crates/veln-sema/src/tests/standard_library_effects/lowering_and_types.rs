@@ -229,14 +229,14 @@ fn io_provider_atomic_state_keeps_concrete_types_through_core_and_ir() {
             "  {state: value, result: 4}\n",
             "end\n",
             "pub fn evidence() -> () effects [concurrency]\n",
-            "  let strings: State<String> = state(\"value\")\n",
-            "  let records: State<{name: String}> = state({name: \"value\"})\n",
-            "  let lists: State<List<Int>> = state(list_cons(1, list_nil()))\n",
-            "  let samples: State<Sample> = state(Sample(1))\n",
-            "  let _: Int = update(strings, (), string_step)\n",
-            "  let _: Int = update(records, (), record_step)\n",
-            "  let _: Int = update(lists, (), list_step)\n",
-            "  let _: Int = update(samples, (), sample_step)\n",
+            "  let strings = state(\"value\")\n",
+            "  let records = state({name: \"value\"})\n",
+            "  let lists = state(list_cons(1, list_nil()))\n",
+            "  let samples = state(Sample(1))\n",
+            "  let string_result = update(strings, (), string_step)\n",
+            "  let record_result = update(records, (), record_step)\n",
+            "  let list_result = update(lists, (), list_step)\n",
+            "  let sample_result = update(samples, (), sample_step)\n",
             "  ()\n",
             "end\n",
         ),
@@ -306,6 +306,49 @@ fn io_provider_atomic_state_keeps_concrete_types_through_core_and_ir() {
         };
         assert_eq!(&value.ty, expected);
     }
+}
+
+#[test]
+fn io_provider_atomic_state_rejects_mismatched_generic_evidence() {
+    let source = SourceFile::new(
+        "io_provider.veln",
+        concat!(
+            "mod std.io_provider\n",
+            "pub type State<T>\n",
+            "  State(value: T)\n",
+            "end\n",
+            "pub fn state(initial: T) -> State<T> effects [concurrency]\n",
+            "  prelude_builtin::io_provider_state(initial)\n",
+            "end\n",
+            "pub fn update(cell: State<T>, context: C, action: fn(T, C) -> {state: T, result: R}) -> R effects [concurrency]\n",
+            "  prelude_builtin::io_provider_state_update(cell, context, action)\n",
+            "end\n",
+            "fn wrong_step(value: Bool, context: Int) -> {state: Bool, result: Bool}\n",
+            "  {state: value, result: true}\n",
+            "end\n",
+            "pub fn evidence() -> () effects [concurrency]\n",
+            "  let cell = state(\"value\")\n",
+            "  let _ = update(cell, \"context\", wrong_step)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let mut module = lower_standard_package_callables(&source);
+    for function in &mut module.functions {
+        function.module_name = Some("std::io_provider".to_string());
+    }
+    for declaration in &mut module.types {
+        declaration.module_name = Some("std::io_provider".to_string());
+        declaration.package_name = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    }
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"
+                && diagnostic.message.contains("fn(String, String)")),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

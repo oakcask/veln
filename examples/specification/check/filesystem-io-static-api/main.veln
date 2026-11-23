@@ -96,14 +96,14 @@ end
 # retain the independently inferred String, record, List, and constructor
 # state arguments while update returns its callback result type.
 pub fn provider_atomic_state_operations() -> () effects [concurrency]
-	let string_state: io_provider::State<String> = io_provider::state("a")
-	let record_state: io_provider::State<{name: String, count: Int}> = io_provider::state({name: "record", count: 1})
-	let list_state: io_provider::State<List<Int>> = io_provider::state(list_cons(1, list_nil()))
-	let constructor_state: io_provider::State<StateSample> = io_provider::state(StateSample(1))
-	let _: Int = io_provider::update(string_state, "b", update_string)
-	let _: String = io_provider::update(record_state, 2, update_record)
-	let _: Int = io_provider::update(list_state, 2, update_list)
-	let _: StateSample = io_provider::update(constructor_state, 2, update_constructor)
+	let string_state = io_provider::state("a")
+	let record_state = io_provider::state({name: "record", count: 1})
+	let list_state = io_provider::state(list_cons(1, list_nil()))
+	let constructor_state = io_provider::state(StateSample(1))
+	let string_result = io_provider::update(string_state, "b", update_string)
+	let record_result = io_provider::update(record_state, 2, update_record)
+	let list_result = io_provider::update(list_state, 2, update_list)
+	let constructor_result = io_provider::update(constructor_state, 2, update_constructor)
 	()
 end
 

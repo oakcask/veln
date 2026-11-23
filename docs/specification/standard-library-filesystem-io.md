@@ -301,6 +301,8 @@ other declaration establishes only its static capability and effect boundary.
   `examples/specification/check/filesystem-io-opaque-identities/`.
 - Private compiler-adapter boundary:
   `examples/specification/check/filesystem-io-private-adapters/`.
+- Atomic state nominal boundary:
+  `examples/specification/check/filesystem-io-atomic-state-nominal-boundary/`.
 - Atomic allocation identity, shared child identity, serialized completed
   updates, publication, and five-family registration and projection behavior:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
