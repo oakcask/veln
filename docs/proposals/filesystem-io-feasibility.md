@@ -52,7 +52,7 @@ its positive observations and its failure or preserved-state observations.
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
 | F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. | Companion tests with distinct provider contents and operation logs; a backend dispatch case checks captured provider identity and absence of host fallback. |
-| F3: publication | Closing the owner rejects late publication and releases the late host resource. | Atomic state identity, exclusivity, rollback, reentrancy, and cancellation boundaries are implemented and checked by the current specification. The remaining scoped Veln and owner-lifecycle cases must gate a host open across owner closure and observe release instead of publication, including retained cleanup failure. |
+| F3: publication | Closing the owner rejects late publication and releases the late host resource. | Atomic state identity, exclusivity, rollback, reentrancy, and cancellation boundaries are implemented. Companion and JVM tests check those contracts, and the current specification defines them. The remaining scoped Veln and owner-lifecycle cases must gate a host open across owner closure and observe release instead of publication, including retained cleanup failure. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
 | F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
 
@@ -63,7 +63,7 @@ external filesystem to produce a rare failure.
 
 If F2–F3 cannot be demonstrated with the named adapter extension, revise the
 resource design and affected acceptance contracts before continuing to F4–F5.
-A platform-only fake or an assumed unimplemented state/dispatch primitive
+A platform-only fake or an assumed provider-dispatch primitive
 does not satisfy a gate. Such a failure does not promote the parent proposal.
 
 ## Implementation Sequence And Evidence Placement
@@ -78,7 +78,7 @@ does not satisfy a gate. Such a failure does not promote the parent proposal.
 | --- | --- |
 | Standard-library API results, progress, state, operation ordering, and scripted failure behavior | Companion `.test.veln` files under `crates/veln-stdlib/veln/`, using separate Veln test support; run `bash scripts/agent-stdlib-test`. |
 | Compiler capability and effect rejection | Focused compiler tests or checked cases under `examples/specification/check/`; run the selected cases through `bash scripts/agent-test`. |
-| Captured dispatch, task freezing, atomic state, publication, and release | Focused `veln-backend-jvm` tests through `bash scripts/agent-test -p veln-backend-jvm`; identify the backend invariant each case checks. |
+| Captured dispatch, publication, release, and task freezing across those provider lifecycle boundaries | Focused `veln-backend-jvm` tests through `bash scripts/agent-test -p veln-backend-jvm`; identify the backend invariant each case checks. |
 | Real-host semantics and human/JSON cleanup projections | Focused host integration or CLI cases under the [test placement policy](../reference/toolchain-test-harness.md#test-placement-policy); run the selected integration tests through `bash scripts/agent-test`. |
 
 When implementing handler dispatch and lifetime support, follow the

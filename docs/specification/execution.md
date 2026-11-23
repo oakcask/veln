@@ -325,15 +325,10 @@ join reports cancellation. The effect boundary during unwinding is specified by
 [effects.md](effects.md#effect-labels). The backend transfers a successful
 `begin` value only after that region's cleanup completes.
 
-An admitted `io_provider::update` is also an atomic cancellation boundary. A
-pending cancellation is delivered before callback entry or after the
-replacement has committed and the cell lock has been released. A cancellation
-delivered after commit prevents the task from receiving the callback result but
-does not roll back the replacement. It is not delivered at callback checkpoints
-inside that interval. The
+An admitted `io_provider::update` is also an atomic cancellation boundary. The
 [atomic provider state specification](standard-library-filesystem-io.md#atomic-provider-state)
-defines rollback, reentrancy, identity, and publication behavior for this
-boundary.
+defines its delivery points, publication, rollback, reentrancy, and identity
+behavior.
 
 Integer remainder evaluates the left operand once and then the right operand
 once. A failure in the left operand prevents evaluation of the right operand.

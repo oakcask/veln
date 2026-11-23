@@ -160,7 +160,11 @@ public final class IoProviderStateHarness {
         VelnRuntime.taskCancel(task);
         release.countDown();
         VelnRuntime.Result joined = (VelnRuntime.Result) VelnRuntime.taskJoin(task);
-        require(!joined.isOk(), "pre-admission cancellation succeeded");
+        require(
+            !joined.isOk()
+                && ((Boolean) VelnRuntime.taskJoinErrorIsCancelled(joined.value())),
+            "pre-admission task did not report cancellation"
+        );
         require(calls.get() == 0, "pre-admission cancellation entered the callback");
         VelnRuntime.ioProviderStateInstallBoundaryGate(cell, null);
         require(read(cell) == 20L, "pre-admission cancellation changed state or stranded the lock");
@@ -197,7 +201,11 @@ public final class IoProviderStateHarness {
         release.countDown();
         awaitUninterruptibly(committed);
         VelnRuntime.Result joined = (VelnRuntime.Result) VelnRuntime.taskJoin(task);
-        require(!joined.isOk(), "post-admission cancellation was not delivered after commit");
+        require(
+            !joined.isOk()
+                && ((Boolean) VelnRuntime.taskJoinErrorIsCancelled(joined.value())),
+            "post-admission task did not report cancellation after commit"
+        );
         require(!returned.get(), "post-admission cancellation returned from provider state update");
         VelnRuntime.ioProviderStateInstallBoundaryGate(cell, null);
         require(read(cell) == 35L, "post-admission cancellation prevented or split the commit");

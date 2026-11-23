@@ -287,10 +287,11 @@ cell for later use instead of waiting for itself.
 Task cancellation is observed before callback entry or after the replacement
 has committed and the cell has been released. Once an update is admitted,
 cancellation checkpoints inside its compiled Veln callback defer delivery
-until after commit. Cancellation requested after admission leaves the committed
-replacement current but prevents the task from receiving the callback result;
-joining the task observes cancellation. Cancellation cannot strand the cell
-lock.
+until after commit. If the admitted callback completes successfully,
+cancellation requested after admission leaves the committed replacement current
+but prevents the task from receiving the callback result; joining the task
+observes cancellation. A callback failure still preserves the old value under
+the rollback rule above. Cancellation cannot strand the cell lock.
 
 ## Runtime limits
 

@@ -20,6 +20,7 @@ message = "expected `Int`, but found `String`"
 [diagnostics.span]
 file = "main.veln"
 line = 16
+column = 28
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -30,6 +31,7 @@ message = "expected `String`, but found `Int`"
 [diagnostics.span]
 file = "main.veln"
 line = 24
+column = 2
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -40,3 +42,4 @@ message = "expected `fn(Int, Int) -> {state: Int, result: Int}`, but found `fn(I
 [diagnostics.span]
 file = "main.veln"
 line = 30
+column = 48

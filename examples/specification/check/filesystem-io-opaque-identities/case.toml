@@ -1,6 +1,6 @@
 # Placement: this case owns the compiler's opacity and non-constructibility
 # contract. Regressions are `type.variant_refinement_base` with reason `opaque`
-# at index 0, `name.unresolved` at indexes 4 and 5, and totals of four type and
+# at index 0, `name.unresolved` at indexes 5 and 6, and totals of five type and
 # two name diagnostics.
 command = ["check", "--json", "main.veln"]
 exit = 1
@@ -20,16 +20,16 @@ path = "diagnostics.0.details.reason"
 equals = "opaque"
 
 [[json_assert]]
-path = "diagnostics.4.id"
-equals = "name.unresolved"
-
-[[json_assert]]
 path = "diagnostics.5.id"
 equals = "name.unresolved"
 
 [[json_assert]]
+path = "diagnostics.6.id"
+equals = "name.unresolved"
+
+[[json_assert]]
 path = "summary.by_kind.type"
-equals = 4
+equals = 5
 
 [[json_assert]]
 path = "summary.by_kind.name"

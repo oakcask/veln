@@ -18,6 +18,10 @@ pub fn refine_reader(value: io::Reader::Forged) -> ()
 	()
 end
 
+pub fn refine_provider_state(value: io_provider::State<Int>::Forged) -> ()
+	()
+end
+
 pub fn construct_owner() -> io_provider::Owner
 	IoOwner()
 end
