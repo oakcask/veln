@@ -13,9 +13,14 @@ pub struct SourceFile {
     path: SourcePath,
     text: Arc<str>,
     line_starts: Vec<usize>,
-    utf8_continuation_prefix: Vec<usize>,
-    ascii: bool,
+    utf8_column_index: Utf8ColumnIndex,
     generated_origin: Option<Arc<GeneratedSpanOrigin>>,
+}
+
+#[derive(Clone, Debug)]
+enum Utf8ColumnIndex {
+    Ascii,
+    NonAscii(Vec<usize>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -257,12 +262,16 @@ impl SourceFile {
         if !text.is_empty() && text.len().is_multiple_of(UTF8_COLUMN_INDEX_BLOCK_BYTES) {
             utf8_continuation_prefix.push(continuation_count);
         }
+        let utf8_column_index = if continuation_count == 0 {
+            Utf8ColumnIndex::Ascii
+        } else {
+            Utf8ColumnIndex::NonAscii(utf8_continuation_prefix)
+        };
         Self {
             path: path.into(),
             text,
             line_starts,
-            utf8_continuation_prefix,
-            ascii: continuation_count == 0,
+            utf8_column_index,
             generated_origin: generated_origin
                 .map(|origin| Arc::new(GeneratedSpanOrigin::mapped(origin))),
         }
@@ -323,12 +332,12 @@ impl SourceFile {
     }
 
     fn utf8_continuations_before(&self, offset: usize) -> usize {
-        if self.ascii {
+        let Utf8ColumnIndex::NonAscii(continuation_prefix) = &self.utf8_column_index else {
             return 0;
-        }
+        };
         let block = offset / UTF8_COLUMN_INDEX_BLOCK_BYTES;
         let block_start = block * UTF8_COLUMN_INDEX_BLOCK_BYTES;
-        self.utf8_continuation_prefix[block]
+        continuation_prefix[block]
             + self.text.as_bytes()[block_start..offset]
                 .iter()
                 .filter(|byte| **byte & 0b1100_0000 == 0b1000_0000)
@@ -352,4 +361,16 @@ fn relative_path(root: &Path, path: &Path) -> String {
         .strip_prefix(root)
         .map_or_else(|_| PathBuf::from(path), PathBuf::from);
     path.to_string_lossy().replace('\\', "/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ascii_sources_do_not_retain_utf8_continuation_blocks() {
+        let source = SourceFile::new("main.veln", "a".repeat(UTF8_COLUMN_INDEX_BLOCK_BYTES * 3));
+
+        assert!(matches!(source.utf8_column_index, Utf8ColumnIndex::Ascii));
+    }
 }
