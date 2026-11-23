@@ -1105,6 +1105,37 @@ fn local_alias_preserves_declared_call_bound_row_provenance() {
 }
 
 #[test]
+fn same_named_local_alias_preserves_call_bound_row_provenance() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn through_alias() -> ()\n",
+        "\tlet invoke = invoke\n",
+        "\tinvoke(db_callback)\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tthrough_alias()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
 fn rejected_nested_payload_does_not_publish_a_partial_row_solution() {
     let module = module(concat!(
         "fn db_callback() -> () effects [db]\n",

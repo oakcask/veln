@@ -1,7 +1,6 @@
 use super::*;
 use crate::effect_rows::{
-    call_bound_effect_row, effect_row_in_type, instantiate_effect_rows_in_type,
-    solve_call_bound_effect_row,
+    effect_row_in_type, instantiate_effect_rows_in_type, solve_call_bound_effect_row,
 };
 use crate::types::effect_inference::user_effect_signature_for_path;
 
@@ -188,7 +187,7 @@ fn type_for_effect_call(
         params,
         variadic,
         return_type,
-        effects,
+        call_bound_effect_row,
     } = effect_value_type_for_expr(callee, context)?.callable()?;
     let arity_matches =
         args.len() >= params.len() && (variadic.is_some() || args.len() == params.len());
@@ -196,10 +195,8 @@ fn type_for_effect_call(
         return None;
     }
     let comparisons = effect_call_argument_comparisons(args, params, variadic, context)?;
-    let row = call_bound_effect_row_for_expr(callee, context)
-        .or_else(|| call_bound_effect_row(params, variadic, return_type, effects));
     let substitutions = solve_call_bound_effect_row(
-        row.as_deref(),
+        call_bound_effect_row.as_deref(),
         comparisons
             .iter()
             .map(|(expected, actual)| (*expected, actual)),

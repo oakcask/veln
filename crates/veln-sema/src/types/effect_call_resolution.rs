@@ -126,7 +126,7 @@ fn instantiate_callable_effect_rows_with_row(
 }
 
 enum EffectValueType<'a> {
-    Binding(&'a Type),
+    Binding(&'a Binding),
     Function(&'a FunctionSignature),
 }
 
@@ -134,29 +134,42 @@ struct EffectCallableType<'a> {
     params: &'a [Type],
     variadic: Option<&'a Type>,
     return_type: &'a Type,
-    effects: &'a [String],
+    call_bound_effect_row: Option<String>,
 }
 
 impl<'a> EffectValueType<'a> {
     fn callable(self) -> Option<EffectCallableType<'a>> {
         match self {
-            Self::Binding(Type::Function {
-                params,
-                variadic,
-                return_type,
-                effects,
-            }) => Some(EffectCallableType {
-                params,
-                variadic: variadic.as_deref(),
-                return_type,
-                effects,
-            }),
-            Self::Binding(_) => None,
+            Self::Binding(binding) => {
+                let Type::Function {
+                    params,
+                    variadic,
+                    return_type,
+                    effects,
+                } = &binding.ty
+                else {
+                    return None;
+                };
+                let call_bound_effect_row = binding.call_bound_effect_row.clone().or_else(|| {
+                    call_bound_effect_row(params, variadic.as_deref(), return_type, effects)
+                });
+                Some(EffectCallableType {
+                    params,
+                    variadic: variadic.as_deref(),
+                    return_type,
+                    call_bound_effect_row,
+                })
+            }
             Self::Function(signature) => Some(EffectCallableType {
                 params: &signature.params,
                 variadic: signature.variadic.as_ref(),
                 return_type: &signature.return_type,
-                effects: &signature.effects,
+                call_bound_effect_row: call_bound_effect_row(
+                    &signature.params,
+                    signature.variadic.as_ref(),
+                    &signature.return_type,
+                    &signature.effects,
+                ),
             }),
         }
     }
@@ -173,7 +186,7 @@ fn effect_value_type_for_expr<'a>(
             .iter()
             .rev()
             .find(|binding| binding.name == *name)
-            .map(|binding| EffectValueType::Binding(&binding.ty))
+            .map(EffectValueType::Binding)
             .or_else(|| {
                 effect_function_signature_path(segments, context, context.companion_access_targets)
                     .map(EffectValueType::Function)
@@ -188,7 +201,7 @@ fn effect_value_type_for_expr<'a>(
 
 pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_>) -> Option<Type> {
     effect_value_type_for_expr(expr, context).map(|value| match value {
-        EffectValueType::Binding(ty) => ty.clone(),
+        EffectValueType::Binding(binding) => binding.ty.clone(),
         EffectValueType::Function(signature) => signature.ty(),
     })
 }
