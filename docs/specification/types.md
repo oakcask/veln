@@ -375,8 +375,8 @@ context. The supported families are:
 | `Option<T>` | `option_map`, `option_and_then` | item `T` |
 | `Result<T,E>` | `result_map`, `result_and_then`, `result_map_err` | success `T` or error `E` |
 
-The standard `io_provider::state` and `io_provider::update` declarations also
-receive API-specific generic call signatures. `state` infers `T` from its
+The `std` package's `io_provider::state` and `io_provider::update` declarations
+also receive API-specific generic call signatures. `state` infers `T` from its
 initial value or an expected `io_provider::State<T>`. `update` infers `T` from
 the cell and `C` from the context value. It infers `R` from the callback's
 returned record when available, or from the expected result otherwise. It then
@@ -389,6 +389,10 @@ type expected by every callback that shares the cell. The rules preserve the
 generic arguments through core lowering instead of replacing them with
 `unknown`. The opaque state API and its runtime behavior are specified by
 [Standard-library filesystem and byte IO](standard-library-filesystem-io.md#file-view-runtime-prototype).
+The package identity is part of this compiler-known boundary. A declaration in
+another package keeps its declared parameter and result types during checking,
+checked-core lowering, and typed-IR lowering even if its module and function
+names are also `std::io_provider::state` or `std::io_provider::update`.
 
 The same expected-function rule applies to ordinary same-module helpers, visible
 imported public helpers, public aliases, concrete function-typed local bindings,

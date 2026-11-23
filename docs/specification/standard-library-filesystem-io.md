@@ -124,7 +124,7 @@ projections are pure.
 
 | Group | Signatures |
 | --- | --- |
-| Atomic state | `state(initial: T) -> State<T> effects [concurrency]`; `update(state: State<T>, context: C, action: fn(T, C) -> {state: T, result: R}) -> R effects [concurrency]` |
+| Atomic state | `state(initial: T) -> State<T> effects [concurrency]`; `update(cell: State<T>, context: C, action: fn(T, C) -> {state: T, result: R}) -> R effects [concurrency]` |
 | Scope and factories | `owner() -> Owner effects [Scope]`; `scope()` handles `Scope` with `concurrency`; `filesystem(Owner, Int) -> Result<fs::Filesystem, io::Error>`; `mutable_filesystem(Owner, Int) -> Result<fs::MutableFilesystem, io::Error>`; `resource(Owner, Int, ViewFamily) -> Result<Resource, io::Error>` |
 | Resource projections | `read_file(Resource) -> Result<fs::ReadFile, io::Error>`; `write_file(Resource) -> Result<fs::WriteFile, io::Error>`; `update_file(Resource) -> Result<fs::UpdateFile, io::Error>`; `append_file(Resource) -> Result<fs::AppendFile, io::Error>`; `duplex(Resource) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error>` |
 | Identity slots | `slot(Owner, Resource) -> Result<Int, io::Error>`; `filesystem_slot(Owner, fs::Filesystem) -> Result<Int, io::Error>`; `mutable_filesystem_slot(Owner, fs::MutableFilesystem) -> Result<Int, io::Error>` |
@@ -141,8 +141,11 @@ reserved `prelude_builtin` names, including by changing the name casing. Each
 reserved adapter is an implementation boundary, not a separately callable
 source API. The public declarations above own the fixed operand and result
 types. Generic state wrapper calls retain their inferred `T`, `C`, and `R` at
-that boundary. An expected type at a call site cannot reinterpret an owner as a
-byte capability or replace a required owner operand with an integer.
+that boundary. This specialization requires the standard package identity;
+same-spelled declarations from another package retain their own declared call
+types through checked core and typed IR. An expected type at a call site cannot
+reinterpret an owner as a byte capability or replace a required owner operand
+with an integer.
 
 ## Capability boundaries
 
@@ -307,8 +310,9 @@ other declaration establishes only its static capability and effect boundary.
   `examples/specification/check/filesystem-io-private-adapters/`.
 - Atomic state nominal boundary:
   `examples/specification/check/filesystem-io-atomic-state-nominal-boundary/`.
-- Atomic state generic inference, pure-callback enforcement, and concrete type
-  retention through checked core and typed IR:
+- Atomic state generic inference, pure-callback enforcement, concrete type
+  retention, and foreign-package namesake isolation through checked core and
+  typed IR:
   [`lowering_and_types.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types.rs).
 - Atomic allocation identity, shared child identity, serialized completed
   updates, publication, and five-family registration and projection behavior:
