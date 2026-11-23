@@ -9,9 +9,9 @@ update-when: The exported io, fs, or io_provider static source API, opaque capab
 
 The standard package exports `io`, `fs`, and `io_provider`. Their current
 contract combines a compiler-checked static surface with bounded `ReadFile`,
-`WriteFile`, `UpdateFile`, and `AppendFile` registration and projection
-prototypes. It lets provider and generic IO source check capability-correct
-signatures and exercise four runtime resource families.
+`WriteFile`, `UpdateFile`, `AppendFile`, and `Duplex` registration and
+projection prototypes. It lets provider and generic IO source check
+capability-correct signatures and exercise five runtime resource families.
 It is not a production filesystem API.
 
 ## Imports and static surface
@@ -129,8 +129,8 @@ retains `concurrency`, and the resource projections are pure.
 
 `ViewFamily` is `ReadFile`, `WriteFile`, `UpdateFile`, `AppendFile`, or
 `Duplex`. The registration selector does not add capabilities by itself.
-Only the bounded `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile` runtime behavior described below
-is implemented.
+Only the bounded registration and projection behavior described below is
+implemented.
 
 The compiler adapters behind these declarations are available only to source
 embedded in the standard package. Application source cannot call their
@@ -197,6 +197,15 @@ for a later complete registration. Negative and duplicate slots return
 duplicates with `ReadFile`, `WriteFile`, and `AppendFile` preserve the original
 resource regardless of registration order.
 
+For `ViewFamily::Duplex`, registration requires active `io::Read`, `io::Write`,
+and `io::Close` handlers. It validates the active owner and the nonnegative,
+unused slot before resolving handlers. Registration captures all three
+handlers without invoking them and publishes the resource only after the
+complete set is available. A missing handler returns
+`io::ErrorKind::Unsupported` without consuming the slot. A negative or reused
+slot returns `io::ErrorKind::InvalidInput` without resolving operation
+handlers.
+
 `io_provider::read_file` projects an accepted resource into reader, seeker,
 positional-reader, and closer capabilities. The resource and every projected
 capability retain the registration owner and private slot, as observed by the
@@ -231,20 +240,28 @@ through `read_file`, `write_file`, `append_file`, or `duplex` returns
 `io::ErrorKind::Unsupported`. These failures do not change the resource, and a
 later `update_file` projection still succeeds.
 
-The incompatible projections involving `UpdateFile` do not invoke any
-operation handler captured by the resource.
+`io_provider::duplex` projects an accepted `Duplex` resource into a record with
+reader, writer, and closer capabilities. The resource and all three
+capabilities retain their registration owner, private slot, and corresponding
+captured handler after the supplying handler scopes exit.
+
+Across all five families, only the matching projection succeeds. Every
+nonmatching projection returns `io::ErrorKind::Unsupported` without invoking a
+captured operation handler or changing the resource. The matching projection
+still succeeds after each rejected projection. A same-family or cross-family
+registration at a used owner slot returns `io::ErrorKind::InvalidInput` and
+preserves the first resource and provider identity regardless of registration
+order.
 
 ## Runtime limits
 
 This surface is not a production filesystem implementation. Runtime
 registration and projection are limited to the observations above. `Duplex`
-registration and projection remain static declarations only.
-Compatibility combinations not described above remain outside the bounded
-runtime contract and require planned evidence. Operation dispatch through a
-resource, multiple-provider allocation, atomic provider state, publication
-and owner-close races, transfer and namespace behavior, cleanup, and host
-filesystem access remain unimplemented. Type-checking any other declaration
-establishes only its static capability and effect boundary.
+does not add operation dispatch through the projected capabilities. Operation
+dispatch through a resource, multiple-provider allocation, atomic provider
+state, publication and owner-close races, transfer and namespace behavior,
+cleanup, and host filesystem access remain unimplemented. Type-checking any
+other declaration establishes only its static capability and effect boundary.
 
 ## References
 
@@ -263,9 +280,9 @@ establishes only its static capability and effect boundary.
   `examples/specification/check/filesystem-io-opaque-identities/`.
 - Private compiler-adapter boundary:
   `examples/specification/check/filesystem-io-private-adapters/`.
-- `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile` registration,
-  missing-handler rejection, slot preservation, and projection behavior on the
-  JVM-backed companion runner:
+- Five-family registration, missing-handler rejection, duplicate and slot
+  preservation, complete projection compatibility, and absence of operation
+  invocation on the JVM-backed companion runner:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with scoped fakes in
   [`io_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_test_support_test.veln).
@@ -279,6 +296,9 @@ establishes only its static capability and effect boundary.
 - JVM validation before `UpdateFile` publication and retention of all eight
   captured handlers:
   [`IoProviderUpdateFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderUpdateFileHarness.java).
+- JVM validation before `Duplex` publication and retention of its three
+  captured handlers:
+  [`IoProviderDuplexHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderDuplexHarness.java).
 - JVM registry identity preservation after same-family and cross-family
   duplicate registration:
   [`IoProviderWriteFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderWriteFileHarness.java)

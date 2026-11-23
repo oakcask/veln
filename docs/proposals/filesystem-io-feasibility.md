@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The filesystem IO F1–F5 feasibility scope, provider adapter prototype, acceptance evidence, or completion and promotion conditions change.
+update-when: The filesystem IO F2–F5 feasibility scope, provider adapter prototype, acceptance evidence, or completion and promotion conditions change.
 ---
 
 # Filesystem IO Feasibility
@@ -8,29 +8,25 @@ update-when: The filesystem IO F1–F5 feasibility scope, provider adapter proto
 Implement a bounded source/adapter prototype that tests whether the proposed
 filesystem and shared byte IO design can preserve capabilities, provider
 identity, state, progress, and cleanup through ordinary Veln handlers.
-This is a Ready implementation target. The F1 static source and capability
-boundary plus the bounded `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile`
-registration and projection slices are implemented. The `Duplex` F1 resource
-family and F2–F5 remain planned. Ready
-authorizes building the prototype, not adopting the production API.
+This Ready target owns F2–F5. Ready authorizes building the prototype, not
+adopting the production API.
 
 ## Scope And Dependency Direction
 
-This proposal owns feasibility gates F1–F5 extracted from
+This proposal owns the remaining feasibility gates F2–F5 extracted from
 [Filesystem And Shared Byte IO](filesystem-io.md). That proposal remains in
 Design In Progress until this work completes. This work does not depend on
 its production implementation or promotion to Ready.
 
 The following sections of the filesystem proposal define the prototype's
 design inputs. The static source boundary, compiler-known adapter names and
-opaque identities, and bounded `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile` registration and
-projection slices are implemented and specified by
+opaque identities, and bounded five-family registration and projection are
+implemented and specified by
 [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
 The table lists only the remaining proposed obligations:
 
 | Design input | Prototype obligation |
 | --- | --- |
-| [Source surface and static capabilities](filesystem-io.md#source-surface-and-static-capabilities) | Extend runtime registration and compatibility evidence to `Duplex` and the remaining combinations. |
 | [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Invoke captured handlers through their registered resource, and add atomic `State<T>` operations. |
 | [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Preserve bytes, known and unknown progress, error context, and no-progress behavior. |
 | [Namespace, seek, and mutation transitions](filesystem-io.md#namespace-seek-and-mutation-transitions) | Observe successful and failed operations through bytes, cursors, bindings, and commit facts. |
@@ -55,7 +51,6 @@ its positive observations and its failure or preserved-state observations.
 
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
-| F1: remaining resource-family boundary | Registration enforces the handler set for `Duplex`. Compatibility combinations outside the bounded implemented `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile` observations preserve the resource and its provider identity. | Companion registration and projection cases for `Duplex` and the remaining compatibility combinations, with focused backend checks for validation-before-publication and retained identity. |
 | F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. | Companion tests with distinct provider contents and operation logs; a backend dispatch case checks captured provider identity and absence of host fallback. |
 | F3: state and publication | Concurrent children, injected failure, and cancellation cannot strand the state cell lock or publish half a transition. Closing the owner rejects late publication and releases the late host resource. | Scoped Veln support plus backend atomic-state and owner-lifecycle cases. Force cancellation before entry and after commit; runtime callback failure preserves old state and releases the lock. Gate a host open across owner closure and observe release instead of publication, including retained cleanup failure. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
@@ -66,25 +61,17 @@ on that operation. Tests must control entry, commit, publication, and cleanup
 boundaries explicitly rather than relying on timing or an external filesystem
 to produce a rare failure.
 
-If F1–F3 cannot be demonstrated with the named adapter extension, revise the
+If F2–F3 cannot be demonstrated with the named adapter extension, revise the
 resource design and affected acceptance contracts before continuing to F4–F5.
 A platform-only fake or an assumed unimplemented state/dispatch primitive
 does not satisfy a gate. Such a failure does not promote the parent proposal.
 
 ## Implementation Sequence And Evidence Placement
 
-1. The accepted and rejected source cases for the F1 static boundary and its
-   compiler adapters are implemented. The `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile`
-   missing-handler, validation-before-publication, duplicate-registration
-   preservation, retained-identity, and incompatible projection observations
-   described by the current specification are also implemented. Complete the
-   `Duplex` family and remaining compatibility combinations. Treat the
-   remaining signature contracts as runtime obligations, not proof supplied by
-   the static declarations.
-2. Demonstrate the atomic state boundary required by F3. Add separate Veln
+1. Demonstrate the atomic state boundary required by F3. Add separate Veln
    provider support and use it to demonstrate F2 and the remaining publication
    observations in F3. Keep fake state and failure plans in Veln.
-3. Apply the outcome and transition tables to F4 and F5. Add host-boundary
+2. Apply the outcome and transition tables to F4 and F5. Add host-boundary
    cases only for observations that require a real host or backend integration.
 
 | Evidence | Placement and local verification route |
@@ -103,8 +90,8 @@ No compiler or CLI wrapper substitutes for companion coverage of API behavior.
 
 The current [nominal effect boundary](../specification/effects.md#effect-labels)
 provides source-defined operations and handlers. It does not establish the
-proposed general resource allocation or captured-dispatch API. F1 and F2
-therefore check the explicit adapter extension rather than treating nominal
+proposed general resource allocation or captured-dispatch API. F2 therefore
+checks the explicit adapter extension rather than treating nominal
 dispatch alone as proof of feasibility. Extending ordinary `perform` to route
 all operations by resource identity remains outside the selected design.
 
@@ -125,9 +112,9 @@ remain rationale for its IO contracts; they do not prove Veln adapter support.
 
 ## Completion And Parent Promotion
 
-This proposal completes only when F1–F5 have checked evidence at the stated
+This proposal completes only when F2–F5 have checked evidence at the stated
 boundaries, with every linked outcome and transition row accounted for.
-Passing F1–F3 alone is insufficient. A failed gate keeps the target incomplete
+Passing F2–F3 alone is insufficient. A failed gate keeps the target incomplete
 until the design and its independent expectations are reconciled.
 
 For any adapter or API behavior retained as implemented, update the smallest

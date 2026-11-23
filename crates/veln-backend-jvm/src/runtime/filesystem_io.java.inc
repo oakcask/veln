@@ -120,7 +120,8 @@
         boolean writeFile = isAdt(familyValue, "ViewFamily::WriteFile");
         boolean updateFile = isAdt(familyValue, "ViewFamily::UpdateFile");
         boolean appendFile = isAdt(familyValue, "ViewFamily::AppendFile");
-        if (!readFile && !writeFile && !updateFile && !appendFile) {
+        boolean duplex = isAdt(familyValue, "ViewFamily::Duplex");
+        if (!readFile && !writeFile && !updateFile && !appendFile && !duplex) {
             return ioProviderUnsupported("resource", "view family is outside the implemented prototype slice");
         }
 
@@ -179,7 +180,7 @@
                 resource = new IoResource(
                     owner, slot, "UpdateFile", read, write, seek, readAt, writeAt, close, sync, mutate
                 );
-            } else {
+            } else if (appendFile) {
                 HandlerFrame write = findHandler(IO_WRITE_EFFECT);
                 HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
                 HandlerFrame sync = findHandler(IO_SYNC_EFFECT);
@@ -191,6 +192,19 @@
                 }
                 resource = new IoResource(
                     owner, slot, "AppendFile", null, write, null, null, null, close, sync, null
+                );
+            } else {
+                HandlerFrame read = findHandler(IO_READ_EFFECT);
+                HandlerFrame write = findHandler(IO_WRITE_EFFECT);
+                HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
+                if (read == null || write == null || close == null) {
+                    return ioProviderUnsupported(
+                        "resource",
+                        "Duplex registration requires io::Read, io::Write, and io::Close handlers"
+                    );
+                }
+                resource = new IoResource(
+                    owner, slot, "Duplex", read, write, null, null, null, close, null, null
                 );
             }
             owner.resources.put(Long.valueOf(slot), resource);
@@ -279,8 +293,19 @@
         ));
     }
 
-    public static Object ioProviderDuplex(Object resource) {
-        return ioProviderUnsupported("duplex", "resource does not provide a Duplex view");
+    public static Object ioProviderDuplex(Object resourceValue) {
+        if (!(resourceValue instanceof IoResource)) {
+            return ioProviderInvalidInput("duplex", "invalid provider resource");
+        }
+        IoResource resource = (IoResource) resourceValue;
+        if (!resource.family.equals("Duplex")) {
+            return ioProviderUnsupported("duplex", "resource does not provide a Duplex view");
+        }
+        return ok(record(
+            "reader", new IoCapability(resource.owner, resource.slot, resource.read),
+            "writer", new IoCapability(resource.owner, resource.slot, resource.write),
+            "closer", new IoCapability(resource.owner, resource.slot, resource.close)
+        ));
     }
 
     public static Object ioProviderSlot(Object owner, Object resource) {

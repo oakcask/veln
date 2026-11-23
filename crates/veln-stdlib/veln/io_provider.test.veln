@@ -104,6 +104,26 @@ fn update_without_mutate(owner: io_provider::Owner, slot: Int, calls: Sender<Str
 	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls)
 end
 
+fn complete_duplex_registration(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::close(calls)
+end
+
+fn duplex_without_read(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::close(calls)
+end
+
+fn duplex_without_write(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::close(calls)
+end
+
+fn duplex_without_close(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls)
+end
+
+fn complete_family_registration(owner: io_provider::Owner, slot: Int, family: io_provider::ViewFamily, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle handle handle handle io_provider::resource(owner, slot, family) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+end
+
 fn is_unsupported(result: Result<io_provider::Resource, io::Error>) -> Bool
 	match result
 		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => true
@@ -164,6 +184,58 @@ fn projected_update_slots_match(owner: io_provider::Owner, resource: io_provider
 	match io_provider::update_file(resource)
 		Ok(fs::UpdateFile::UpdateFile(reader, writer, seeker, reader_at, writer_at, closer, syncer, truncater)) => slot_matches(io_provider::slot(owner, resource), slot) and slot_matches(io_provider::reader_slot(owner, reader), slot) and slot_matches(io_provider::writer_slot(owner, writer), slot) and slot_matches(io_provider::seeker_slot(owner, seeker), slot) and slot_matches(io_provider::reader_at_slot(owner, reader_at), slot) and slot_matches(io_provider::writer_at_slot(owner, writer_at), slot) and slot_matches(io_provider::closer_slot(owner, closer), slot) and slot_matches(io_provider::syncer_slot(owner, syncer), slot) and slot_matches(io_provider::truncater_slot(owner, truncater), slot)
 		_ => false
+	end
+end
+
+fn projected_duplex_slots_match(owner: io_provider::Owner, resource: io_provider::Resource, slot: Int) -> Bool effects [concurrency]
+	match io_provider::duplex(resource)
+		Ok(view) => slot_matches(io_provider::slot(owner, resource), slot) and slot_matches(io_provider::reader_slot(owner, view.reader), slot) and slot_matches(io_provider::writer_slot(owner, view.writer), slot) and slot_matches(io_provider::closer_slot(owner, view.closer), slot)
+		_ => false
+	end
+end
+
+fn read_file_unsupported(resource: io_provider::Resource) -> Bool
+	match io_provider::read_file(resource)
+		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn write_file_unsupported(resource: io_provider::Resource) -> Bool
+	match io_provider::write_file(resource)
+		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn update_file_unsupported(resource: io_provider::Resource) -> Bool
+	match io_provider::update_file(resource)
+		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn append_file_unsupported(resource: io_provider::Resource) -> Bool
+	match io_provider::append_file(resource)
+		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn duplex_unsupported(resource: io_provider::Resource) -> Bool
+	match io_provider::duplex(resource)
+		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn family_projection_boundary(owner: io_provider::Owner, resource: io_provider::Resource, family: io_provider::ViewFamily, slot: Int, calls: Receiver<String>) -> Bool effects [concurrency]
+	match family
+		io_provider::ViewFamily::ReadFile => projected_slots_match(owner, resource, slot) and write_file_unsupported(resource) and projected_slots_match(owner, resource, slot) and update_file_unsupported(resource) and projected_slots_match(owner, resource, slot) and append_file_unsupported(resource) and projected_slots_match(owner, resource, slot) and duplex_unsupported(resource) and projected_slots_match(owner, resource, slot) and no_handler_calls(calls)
+		io_provider::ViewFamily::WriteFile => projected_write_slots_match(owner, resource, slot) and read_file_unsupported(resource) and projected_write_slots_match(owner, resource, slot) and update_file_unsupported(resource) and projected_write_slots_match(owner, resource, slot) and append_file_unsupported(resource) and projected_write_slots_match(owner, resource, slot) and duplex_unsupported(resource) and projected_write_slots_match(owner, resource, slot) and no_handler_calls(calls)
+		io_provider::ViewFamily::UpdateFile => projected_update_slots_match(owner, resource, slot) and read_file_unsupported(resource) and projected_update_slots_match(owner, resource, slot) and write_file_unsupported(resource) and projected_update_slots_match(owner, resource, slot) and append_file_unsupported(resource) and projected_update_slots_match(owner, resource, slot) and duplex_unsupported(resource) and projected_update_slots_match(owner, resource, slot) and no_handler_calls(calls)
+		io_provider::ViewFamily::AppendFile => projected_append_slots_match(owner, resource, slot) and read_file_unsupported(resource) and projected_append_slots_match(owner, resource, slot) and write_file_unsupported(resource) and projected_append_slots_match(owner, resource, slot) and update_file_unsupported(resource) and projected_append_slots_match(owner, resource, slot) and duplex_unsupported(resource) and projected_append_slots_match(owner, resource, slot) and no_handler_calls(calls)
+		io_provider::ViewFamily::Duplex => projected_duplex_slots_match(owner, resource, slot) and read_file_unsupported(resource) and projected_duplex_slots_match(owner, resource, slot) and write_file_unsupported(resource) and projected_duplex_slots_match(owner, resource, slot) and update_file_unsupported(resource) and projected_duplex_slots_match(owner, resource, slot) and append_file_unsupported(resource) and projected_duplex_slots_match(owner, resource, slot) and no_handler_calls(calls)
 	end
 end
 
@@ -520,6 +592,102 @@ fn existing_families_reject_update_projection() -> Result<(), String> effects [i
 	end
 end
 
+fn duplex_registration_and_projection_observations() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 131
+	let calls = channel::bounded<String>(32)
+	match complete_duplex_registration(owner, slot, calls.tx)
+		Ok(resource) => if projected_duplex_slots_match(owner, resource, slot) and no_handler_calls(calls.rx)
+			Ok(())
+		else
+			Err("Duplex registration or projection did not retain all identities")
+		end
+		Err(_) => Err("complete Duplex registration failed")
+	end
+end
+
+fn duplex_missing_handlers_preserve_slots() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let calls = channel::bounded<String>(32)
+	if not is_unsupported(duplex_without_read(owner, 132, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_duplex_registration(owner, 132, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Read did not reject Duplex before publication")
+	else if not is_unsupported(duplex_without_write(owner, 133, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_duplex_registration(owner, 133, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Write did not reject Duplex before publication")
+	else if not is_unsupported(duplex_without_close(owner, 134, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_duplex_registration(owner, 134, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Close did not reject Duplex before publication")
+	else
+		Ok(())
+	end
+end
+
+fn all_family_projection_combinations_preserve_resources() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let calls = channel::bounded<String>(32)
+	match complete_family_registration(owner, 141, io_provider::ViewFamily::ReadFile, calls.tx)
+		Ok(read_resource) => if not family_projection_boundary(owner, read_resource, io_provider::ViewFamily::ReadFile, 141, calls.rx)
+			Err("ReadFile projection compatibility boundary failed")
+		else
+			match complete_family_registration(owner, 142, io_provider::ViewFamily::WriteFile, calls.tx)
+				Ok(write_resource) => if not family_projection_boundary(owner, write_resource, io_provider::ViewFamily::WriteFile, 142, calls.rx)
+					Err("WriteFile projection compatibility boundary failed")
+				else
+					match complete_family_registration(owner, 143, io_provider::ViewFamily::UpdateFile, calls.tx)
+						Ok(update_resource) => if not family_projection_boundary(owner, update_resource, io_provider::ViewFamily::UpdateFile, 143, calls.rx)
+							Err("UpdateFile projection compatibility boundary failed")
+						else
+							match complete_family_registration(owner, 144, io_provider::ViewFamily::AppendFile, calls.tx)
+								Ok(append_resource) => if not family_projection_boundary(owner, append_resource, io_provider::ViewFamily::AppendFile, 144, calls.rx)
+									Err("AppendFile projection compatibility boundary failed")
+								else
+									match complete_family_registration(owner, 145, io_provider::ViewFamily::Duplex, calls.tx)
+										Ok(duplex_resource) => if family_projection_boundary(owner, duplex_resource, io_provider::ViewFamily::Duplex, 145, calls.rx)
+											Ok(())
+										else
+											Err("Duplex projection compatibility boundary failed")
+										end
+										Err(_) => Err("Duplex setup failed for projection compatibility boundary")
+									end
+								end
+								Err(_) => Err("AppendFile setup failed for projection compatibility boundary")
+							end
+						end
+						Err(_) => Err("UpdateFile setup failed for projection compatibility boundary")
+					end
+				end
+				Err(_) => Err("WriteFile setup failed for projection compatibility boundary")
+			end
+		end
+		Err(_) => Err("ReadFile setup failed for projection compatibility boundary")
+	end
+end
+
+fn duplicate_row_preserves_first(owner: io_provider::Owner, slot: Int, family: io_provider::ViewFamily, calls: {tx: Sender<String>, rx: Receiver<String>}) -> Bool effects [concurrency]
+	match complete_family_registration(owner, slot, family, calls.tx)
+		Ok(original) => is_invalid_input(complete_family_registration(owner, slot, io_provider::ViewFamily::ReadFile, calls.tx)) and is_invalid_input(complete_family_registration(owner, slot, io_provider::ViewFamily::WriteFile, calls.tx)) and is_invalid_input(complete_family_registration(owner, slot, io_provider::ViewFamily::UpdateFile, calls.tx)) and is_invalid_input(complete_family_registration(owner, slot, io_provider::ViewFamily::AppendFile, calls.tx)) and is_invalid_input(complete_family_registration(owner, slot, io_provider::ViewFamily::Duplex, calls.tx)) and family_projection_boundary(owner, original, family, slot, calls.rx)
+		Err(_) => false
+	end
+end
+
+fn all_family_duplicate_orders_preserve_first() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let calls = channel::bounded<String>(64)
+	if not is_invalid_input(duplex_without_read(owner, -1, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("negative Duplex slot resolved handlers before validation")
+	else if not duplicate_row_preserves_first(owner, 151, io_provider::ViewFamily::ReadFile, calls)
+		Err("duplicate registrations changed the first ReadFile resource")
+	else if not duplicate_row_preserves_first(owner, 152, io_provider::ViewFamily::WriteFile, calls)
+		Err("duplicate registrations changed the first WriteFile resource")
+	else if not duplicate_row_preserves_first(owner, 153, io_provider::ViewFamily::UpdateFile, calls)
+		Err("duplicate registrations changed the first UpdateFile resource")
+	else if not duplicate_row_preserves_first(owner, 154, io_provider::ViewFamily::AppendFile, calls)
+		Err("duplicate registrations changed the first AppendFile resource")
+	else if not duplicate_row_preserves_first(owner, 155, io_provider::ViewFamily::Duplex, calls)
+		Err("duplicate registrations changed the first Duplex resource")
+	else
+		Ok(())
+	end
+end
+
 test read_file_registration_and_projection_retain_identity() -> Result<(), String> effects [concurrency]
 	handle registration_and_projection_observations() with io_provider::scope()
 end
@@ -575,4 +743,20 @@ end
 
 test existing_file_families_reject_update_file_projection_without_change() -> Result<(), String> effects [concurrency]
 	handle existing_families_reject_update_projection() with io_provider::scope()
+end
+
+test duplex_registration_and_projection_retain_all_identities() -> Result<(), String> effects [concurrency]
+	handle duplex_registration_and_projection_observations() with io_provider::scope()
+end
+
+test duplex_missing_handlers_reject_before_publication_without_poisoning_slots() -> Result<(), String> effects [concurrency]
+	handle duplex_missing_handlers_preserve_slots() with io_provider::scope()
+end
+
+test all_five_families_enforce_projection_compatibility_without_invocation() -> Result<(), String> effects [concurrency]
+	handle all_family_projection_combinations_preserve_resources() with io_provider::scope()
+end
+
+test all_five_families_preserve_first_registration_for_every_duplicate_order() -> Result<(), String> effects [concurrency]
+	handle all_family_duplicate_orders_preserve_first() with io_provider::scope()
 end
