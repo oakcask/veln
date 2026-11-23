@@ -178,8 +178,13 @@ List, `if`, and `match` initializers retain the joined concrete type of
 compatible contributions through checked core and typed IR. Nested compatible
 named arguments and same-field records remain concrete when record field order
 differs. Record-width joins retain the unique contributed record accepted by
-every contribution. Neither join result depends on contribution order. The
-cell's nominal standard-library identity
+every contribution. Source-ADT arguments apply their checked variance: a
+contravariant parameter can select a bounded meet, while incompatible
+invariant arguments fail before checked core or typed IR is produced. Neither
+join result depends on contribution order. State allocation in an ordinary
+function or a handler operation clause retains the resulting concrete
+`State<T>` type through checked core and typed IR. The cell's nominal
+standard-library identity
 and invariant `T` prevent a same-spelled source type or a state type whose
 record argument omits retained fields from satisfying the state API's cell
 boundary. The
@@ -342,8 +347,10 @@ other declaration establishes only its static capability and effect boundary.
   and `examples/specification/check/filesystem-io-opaque-state-pattern-boundary/`.
 - Atomic state value and expected-type inference, including a nullary generic
   initializer, list and control-flow joins in either contribution order,
-  record-width joins, pure-callback enforcement, concrete type retention, and
-  foreign-package namesake isolation through checked core and typed IR:
+  record-width and source-ADT variance joins, invariant-join rejection,
+  handler-clause handoff, bounded lowering work, pure-callback enforcement,
+  concrete type retention, and foreign-package namesake isolation through
+  checked core and typed IR:
   [`io_provider.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types/io_provider.rs).
 - Atomic allocation identity, shared child identity, serialized completed
   updates, publication, and five-family registration and projection behavior:

@@ -393,12 +393,17 @@ checked core and typed IR. This includes nested named arguments and records
 with the same named fields in different source orders. It also includes
 record-width joins that select the unique contributed record accepted by every
 contribution. These results do not depend on which compatible contribution
-appears first. The `T` argument of `State<T>` is
-invariant: a cell cannot
-be assigned to a state type with a wider or narrower value shape. This preserves
-the value type expected by every callback that shares the cell. The rules
-preserve the generic arguments through core lowering instead of replacing them
-with `unknown`. The opaque state API and its runtime behavior are specified by
+appears first. Source-ADT arguments use their checked parameter variance in
+these joins. Covariant positions use a bounded join, contravariant positions
+use a bounded meet, and an incompatible invariant position reports
+`type.mismatch` before checked core or typed IR is produced. Ordinary function
+bodies and handler operation clauses preserve the resulting `State<T>` type
+through checked core and typed IR. The `T` argument of `State<T>` is invariant:
+a cell cannot be assigned to a state type with a wider or narrower value shape.
+This preserves the value type expected by every callback that shares the cell.
+The rules preserve the generic arguments through core lowering instead of
+replacing them with `unknown`. The opaque state API and its runtime behavior
+are specified by
 [Standard-library filesystem and byte IO](standard-library-filesystem-io.md#file-view-runtime-prototype).
 The package identity is part of this compiler-known boundary. A declaration in
 another package keeps its declared parameter and result types during checking,

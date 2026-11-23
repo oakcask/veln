@@ -49,11 +49,12 @@ The atomic state prerequisite is current behavior specified by
 [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md#file-view-runtime-prototype)
 and [Execution](../specification/execution.md#runtime-readiness-and-host-boundaries).
 It already has checked compiler, companion, and backend evidence for generic
-state, shared identity, serialization, failure preservation, cooperative
-cancellation, publication, reentrancy rejection, bounded successor handoff,
-cancelled-waiter removal, and release after queued callback failure. This
-proposal does not redefine that contract. F3 retains only the provider-fake
-and owner publication observations that use it.
+state, source-ADT variance joins, invariant-join rejection, handler-clause type
+handoff, bounded lowering work, shared identity, serialization, failure
+preservation, cooperative cancellation, publication, reentrancy rejection,
+bounded successor handoff, cancelled-waiter removal, and release after queued
+callback failure. This proposal does not redefine that contract. F3 retains
+only the provider-fake and owner publication observations that use it.
 
 ## Acceptance Gates
 
