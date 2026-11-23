@@ -132,8 +132,8 @@ projections are pure.
 
 `ViewFamily` is `ReadFile`, `WriteFile`, `UpdateFile`, `AppendFile`, or
 `Duplex`. The registration selector does not add capabilities by itself.
-Only the bounded registration and projection behavior described below is
-implemented.
+The atomic state behavior and the bounded registration and projection behavior
+described below are implemented.
 
 The compiler adapters behind these declarations are available only to source
 embedded in the standard package. Application source cannot call their
@@ -277,9 +277,9 @@ order.
 ## Runtime limits
 
 This surface is not a production filesystem implementation. Runtime
-registration and projection are limited to the observations above. `Duplex`
-does not add operation dispatch through the projected capabilities. Operation
-dispatch through a resource, multiple-provider allocation, atomic provider
+state, registration, and projection are limited to the observations above.
+`Duplex` does not add operation dispatch through the projected capabilities.
+Operation dispatch through a resource, multiple-provider allocation, resource
 publication and owner-close races, transfer and namespace behavior, cleanup,
 and host filesystem access remain unimplemented. Type-checking any
 other declaration establishes only its static capability and effect boundary.

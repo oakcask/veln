@@ -17,9 +17,10 @@ also states it.
 ## Ready
 
 - [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete the
-  F2–F5 evidence for provider-bound dispatch, cooperatively cancellable atomic
-  Veln state, transfer outcomes, and cleanup. The target does not require the
-  production filesystem API to be implemented first.
+  remaining F2–F5 evidence for provider-bound dispatch, fake-provider state,
+  transfer outcomes, owner publication, and cleanup. The atomic Veln state
+  prerequisite is implemented; the target does not require the production
+  filesystem API to be implemented first.
 
 ## Design In Progress
 

@@ -27,7 +27,7 @@ The table lists only the remaining proposed obligations:
 
 | Design input | Prototype obligation |
 | --- | --- |
-| [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Invoke captured handlers through their registered resource, and add atomic `State<T>` operations. |
+| [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Invoke captured handlers through their registered resource, and use the implemented atomic `State<T>` operations for fake provider state. |
 | [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Preserve bytes, known and unknown progress, error context, and no-progress behavior. |
 | [Namespace, seek, and mutation transitions](filesystem-io.md#namespace-seek-and-mutation-transitions) | Observe successful and failed operations through bytes, cursors, bindings, and commit facts. |
 | [Concurrent operations and cleanup](filesystem-io.md#concurrent-operations-and-cleanup) | Preserve per-open admission, release obligations, aliases, and failure precedence. |
@@ -43,26 +43,16 @@ old compiler-known calls, and the complete network-to-byte adapter rollout
 remain in the filesystem proposal. This target does not introduce buffering,
 confinement, new effect syntax, or performance guarantees.
 
-## Atomic State Cancellation Boundary
+## Implemented Atomic State Prerequisite
 
-The atomic state prerequisite is implemented and specified by
+The atomic state prerequisite is current behavior specified by
 [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md#file-view-runtime-prototype)
 and [Execution](../specification/execution.md#runtime-readiness-and-host-boundaries).
-The checked boundary implements these outcomes:
-
-| State and event | Required outcome |
-| --- | --- |
-| Waiting for admission; cancellation is observed | Do not enter the callback. Preserve the old state, release any admission bookkeeping, and report task cancellation. |
-| Callback admitted; cancellation is observed at a generated callback checkpoint before the callback returns | Abort the callback. Preserve the old state, release the cell, and report task cancellation. A compiled tail-recursive callback must reach this outcome instead of retaining the cell indefinitely. |
-| Callback returns before cancellation is observed | Publish the replacement and result as one transition. Release the cell before reporting task cancellation. Do not return the callback result to the cancelled task. |
-| Callback or runtime fails before publication | Preserve the old state, release the cell, and propagate the failure. |
-
-Cancellation is cooperative. A callback that neither returns, fails, nor
-reaches a generated cancellation checkpoint has no bounded cancellation
-latency and may retain the cell. This is a limit of the task cancellation
-model, not permission to suppress checkpoints that the compiler generated.
-The prototype does not add a wall-clock timeout, execution fuel, or termination
-analysis to make arbitrary pure callbacks preemptible.
+It already has checked compiler, companion, and backend evidence for generic
+state, shared identity, serialization, failure preservation, cooperative
+cancellation, publication, reentrancy rejection, and release. This proposal
+does not redefine that contract. F3 retains only the provider-fake and owner
+publication observations that use it.
 
 ## Acceptance Gates
 
@@ -86,8 +76,8 @@ on timing or an external filesystem to produce a rare failure.
 
 If F2–F3 cannot be demonstrated with the named adapter extension, revise the
 resource design and affected acceptance contracts before continuing to F4–F5.
-A platform-only fake or an assumed unimplemented state/dispatch primitive
-does not satisfy a gate. Such a failure does not promote the parent proposal.
+A platform-only fake or an assumed unimplemented dispatch primitive does not
+satisfy a gate. Such a failure does not promote the parent proposal.
 
 ## Implementation Sequence And Evidence Placement
 
@@ -100,8 +90,8 @@ does not satisfy a gate. Such a failure does not promote the parent proposal.
 | Evidence | Placement and local verification route |
 | --- | --- |
 | Standard-library API results, progress, state, operation ordering, and scripted failure behavior | Companion `.test.veln` files under `crates/veln-stdlib/veln/`, using separate Veln test support; run `bash scripts/agent-stdlib-test`. |
-| Compiler capability, effect rejection, and generic state lowering | Focused compiler tests or checked cases under `examples/specification/check/`; successful lowering must retain the inferred state type for string, record, and list or constructor initial values in checked core and typed IR; run the selected cases through `bash scripts/agent-test`. |
-| Captured dispatch, task freezing, atomic state, publication, and release | Focused `veln-backend-jvm` tests through `bash scripts/agent-test -p veln-backend-jvm`; identify the backend invariant each case checks. |
+| Compiler capability and effect rejection for remaining provider calls | Focused compiler tests or checked cases under `examples/specification/check/`; run the selected cases through `bash scripts/agent-test`. |
+| Captured dispatch, owner publication, and resource release | Focused `veln-backend-jvm` tests through `bash scripts/agent-test -p veln-backend-jvm`; identify the backend invariant each case checks. |
 | Real-host semantics and human/JSON cleanup projections | Focused host integration or CLI cases under the [test placement policy](../reference/toolchain-test-harness.md#test-placement-policy); run the selected integration tests through `bash scripts/agent-test`. |
 
 When implementing handler dispatch and lifetime support, follow the
@@ -130,9 +120,10 @@ safe arbitrary-thread stop.
 The current [JVM execution boundary](../specification/execution.md#runtime-readiness-and-host-boundaries)
 ties system network resources to handler owners, shares those owners with
 child tasks, and rejects publication after owner closure. This is relevant
-local precedent for F3 and F5. It does not provide Veln-only allocation or
-atomic Veln state. The prototype must demonstrate those separately; reusing
-a host network handle as the fake filesystem would not establish them.
+local precedent for F3 and F5. It does not provide Veln-only allocation or the
+filesystem-provider owner lifecycle. The prototype must demonstrate those
+separately; reusing a host network handle as the fake filesystem would not
+establish them.
 
 The current [cleanup rules and limits](../specification/execution.md#cleanup-limits)
 exclude implicit close and process-termination guarantees. The execution

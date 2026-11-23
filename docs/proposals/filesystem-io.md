@@ -12,8 +12,9 @@ streams, and memory.
 
 The [design decisions](#design-decisions) resolve the initial scope. The static
 source names and capability boundaries plus bounded five-family registration,
-projection, and compatibility are implemented for feasibility. Resource
-operation dispatch and the remaining acceptance evidence are planned.
+projection, compatibility, and atomic provider state are implemented for
+feasibility. Resource operation dispatch and the remaining acceptance evidence
+are planned.
 Implementation selection remains blocked on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
@@ -25,7 +26,8 @@ reading, text writing, existence checks, and directory listing. The current
 [static filesystem and byte IO prototype](../specification/standard-library-filesystem-io.md)
 also declares public opaque file views, seek capabilities, and nominal
 filesystem handlers. Its bounded runtime can register and project all five
-resource families while retaining their owners and slots, but it provides no
+resource families while retaining their owners and slots. It also provides
+opaque atomic provider state with cooperative cancellation. It provides no
 resource operation dispatch or host filesystem execution. This
 proposal
 replaces the minimal production boundary; retaining its source API is not
@@ -252,9 +254,9 @@ per-open lifecycle, synchronized state, and scripted failures.
 
 ## Acceptance Model
 
-Except for the checked static source and capability boundary and the bounded
-five-family registration, projection, and compatibility slice, the evidence
-below is planned.
+Except for the checked static source and capability boundary, the bounded
+five-family registration, projection, and compatibility slice, and atomic
+provider state, the evidence below is planned.
 Expected byte sequences and state transitions come from the contracts and
 decision tables in this proposal, not from copying the implementation's
 output. Fake tests do not establish real host behavior.
@@ -280,7 +282,7 @@ No broad stress or performance claim is part of this proposal.
 These decisions replace the former open questions. The adapter and capability
 choices are Veln design inferences, not guarantees supplied by the comparative
 sources. The static API contract and bounded five-family runtime slice are
-implemented where the table links to the current
+implemented, as is the atomic state prerequisite, where the table links to the current
 specification. The remaining runtime decisions are proposed contracts, not
 evidence that their runtime support exists.
 
@@ -321,7 +323,8 @@ outside the initial API.
 This is an explicit runtime/compiler adapter extension, not a claim that
 ordinary nominal dispatch already provides resource-bound routing. The
 bounded current slice registers all five resource families and projects their
-capabilities, but does not invoke the captured handlers. Existing
+capabilities, but does not invoke the captured handlers. The atomic state
+portion of the adapter extension is implemented separately. Existing
 `NetListener` and `NetStream` demonstrate opaque handles, but do not provide a
 general Veln-only provider allocation API. Do not reuse their network bridge or
 invent an unimplemented trait or closure representation.
@@ -348,29 +351,15 @@ nominal view and apply the same owner check. Operation handlers receive these
 views, not the underlying `Resource`; no public view-to-resource conversion may
 upgrade a restricted capability.
 
-The same runtime extension supplies `State<T>` and two operations:
-
-- `state<T>(initial: T) -> State<T> effects [concurrency]` creates independent
-  synchronized storage; task freezing preserves cell identity.
-- `update<T, C, R>(state: State<T>, context: C, action: fn(T, C) -> {state: T,
-  result: R}) -> R effects [concurrency]` runs a pure callback under exclusive
-  access and commits its returned replacement with its result. Runtime failure
-  leaves the old state and releases the cell. Cancellation observed before
-  entry does not invoke the callback. Cancellation observed at a generated
-  checkpoint in an admitted callback aborts that callback, preserves the old
-  state, and releases the cell. If the callback returns before cancellation is
-  observed, publication commits before cancellation is reported. Reentrant
-  updates are rejected as runtime failures rather than deadlock.
-
-This is an explicit compiler-known atomic storage adapter, not an assumed
-existing source API. A raw channel receive/compute/send sequence is rejected because
-cancellation can strand the state token. Pure callback transitions keep all
-fake filesystem decisions in Veln and cannot perform nested provider IO while
-holding the cell. Cell allocation and updates expose only `concurrency`, not
-host `fs` or `net` effects. Cancellation remains cooperative: a callback that
-does not return, fail, or reach a generated checkpoint has no bounded
-cancellation latency. The adapter must not suppress checkpoints that the
-compiler generated.
+The same runtime extension now supplies the opaque `State<T>` API. Its generic
+signatures, serialized updates, task identity, failure preservation,
+reentrancy rejection, publication boundary, and cooperative-cancellation limit
+are current behavior owned by
+[Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md#file-view-runtime-prototype).
+The remaining provider work must use that API for fake state instead of adding
+a second state boundary. Pure callbacks keep fake filesystem decisions in Veln
+and cannot perform nested provider IO while holding the cell. Allocation and
+updates expose only `concurrency`, not host `fs` or `net` effects.
 
 Public filesystem and byte facades invoke the resource's captured operation
 handler with its original provider context. They retain the declared nominal
@@ -394,8 +383,8 @@ Every operation applies a pure state transition through `update`. File
 identity is separate from directory binding and per-open slot identity, so
 rename cannot redirect an existing handle. Scripted failures, bytes, and logs
 are ordinary Veln data. Independent executions allocate separate cells and
-owners. Runtime tests must demonstrate cancellation atomicity of `update`
-before the source fake relies on it.
+owners. Checked compiler, companion, and backend evidence already establishes
+the atomic update boundary before the source fake relies on it.
 
 ### Outcomes And Error Translation
 
