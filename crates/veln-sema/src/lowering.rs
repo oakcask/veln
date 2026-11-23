@@ -301,7 +301,8 @@ fn lower_handler_clause_function(
                 expr: clause.body.clone(),
             },
             span: clause.body.span.clone(),
-        }],
+        }]
+        .into(),
         span: clause.span.clone(),
     }
 }

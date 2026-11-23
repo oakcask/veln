@@ -471,7 +471,8 @@ fn quarantined_import_proof_function(function: &Function) -> Function {
             },
         },
         span: function.span.clone(),
-    }];
+    }]
+    .into();
     proof
 }
 
