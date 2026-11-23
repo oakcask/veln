@@ -181,7 +181,8 @@ fn checked_constant_pool_count(entry_slots: usize) -> Option<u16> {
 }
 
 pub(super) fn modified_utf8_chunks(value: &str) -> Vec<&str> {
-    if value.is_empty() {
+    // Modified UTF-8 uses at most two output bytes per UTF-8 input byte.
+    if value.len() <= usize::from(u16::MAX) / 2 {
         return vec![value];
     }
 
@@ -493,6 +494,25 @@ mod tests {
                 .all(|chunk| encode_modified_utf8(chunk).is_some())
         );
         assert_eq!(chunks[1], "😀\0tail");
+    }
+
+    #[test]
+    fn modified_utf8_chunks_respect_the_worst_case_byte_expansion() {
+        for (text, expected_chunks) in [
+            ("a".repeat(65_535), 1),
+            ("\0".repeat(32_767), 1),
+            ("😀".repeat(8_191), 1),
+            ("\0".repeat(32_768), 2),
+        ] {
+            let chunks = modified_utf8_chunks(&text);
+            assert_eq!(chunks.len(), expected_chunks);
+            assert_eq!(chunks.concat(), text);
+            assert!(
+                chunks
+                    .iter()
+                    .all(|chunk| encode_modified_utf8(chunk).is_some())
+            );
+        }
     }
 
     #[test]
