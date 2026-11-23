@@ -681,12 +681,78 @@ impl<'a> CoreLowerer<'a> {
 }
 
 fn joined_core_types(types: impl IntoIterator<Item = Option<CoreType>>) -> Option<CoreType> {
-    let mut types = types.into_iter();
-    let mut joined = types.next()??;
-    for ty in types {
-        joined = join_core_types(&joined, &ty?)?;
+    let types = types.into_iter().collect::<Option<Vec<_>>>()?;
+    let mut joined = types.first()?.clone();
+    let mut structural_join_succeeded = true;
+    for ty in types.iter().skip(1) {
+        let Some(next) = join_core_types(&joined, ty) else {
+            structural_join_succeeded = false;
+            break;
+        };
+        joined = next;
     }
-    Some(joined)
+    if structural_join_succeeded {
+        return Some(joined);
+    }
+
+    contributed_core_type_candidate(&types)
+}
+
+fn contributed_core_type_candidate(contributions: &[CoreType]) -> Option<CoreType> {
+    let valid = contributions
+        .iter()
+        .filter(|candidate| {
+            contributions
+                .iter()
+                .all(|contribution| core_type_accepts(candidate, contribution))
+        })
+        .collect::<Vec<_>>();
+    let selected = valid
+        .iter()
+        .copied()
+        .filter(|candidate| {
+            valid
+                .iter()
+                .all(|other| core_type_accepts(other, candidate))
+        })
+        .collect::<Vec<_>>();
+    let first = *selected.first()?;
+    selected
+        .iter()
+        .all(|candidate| core_type_accepts(first, candidate) && core_type_accepts(candidate, first))
+        .then(|| first.clone())
+}
+
+fn core_type_accepts(expected: &CoreType, actual: &CoreType) -> bool {
+    match (expected, actual) {
+        (CoreType::Unknown, _) | (_, CoreType::Unknown) => true,
+        (
+            CoreType::Named {
+                name: expected_name,
+                args: expected_args,
+            },
+            CoreType::Named {
+                name: actual_name,
+                args: actual_args,
+            },
+        ) => {
+            expected_name == actual_name
+                && expected_args.len() == actual_args.len()
+                && expected_args
+                    .iter()
+                    .zip(actual_args)
+                    .all(|(expected, actual)| core_type_accepts(expected, actual))
+        }
+        (CoreType::Record(expected_fields), CoreType::Record(actual_fields)) => {
+            expected_fields.iter().all(|(name, expected)| {
+                actual_fields
+                    .iter()
+                    .find_map(|(actual_name, actual)| (actual_name == name).then_some(actual))
+                    .is_some_and(|actual| core_type_accepts(expected, actual))
+            })
+        }
+        _ => expected == actual,
+    }
 }
 
 fn join_core_types(left: &CoreType, right: &CoreType) -> Option<CoreType> {

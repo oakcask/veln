@@ -477,6 +477,129 @@ fn io_provider_atomic_state_preserves_joined_initializer_types_through_core_and_
     }
 }
 
+#[test]
+fn io_provider_atomic_state_preserves_width_joined_initializer_types_in_both_orders() {
+    let source = SourceFile::new(
+        "io_provider.veln",
+        concat!(
+            "mod std.io_provider\n",
+            "pub type State<T>\n",
+            "  State(transition: fn(T) -> T)\n",
+            "end\n",
+            "pub fn state(initial: T) -> State<T> effects [concurrency]\n",
+            "  prelude_builtin::io_provider_state(initial)\n",
+            "end\n",
+            "pub fn evidence(choose: Bool, wider: {label: String, extra: Int}, narrower: {label: String}) -> () effects [concurrency]\n",
+            "  let list_forward = state([wider, narrower])\n",
+            "  let list_reverse = state([narrower, wider])\n",
+            "  let if_forward = state(if choose wider else narrower end)\n",
+            "  let if_reverse = state(if choose narrower else wider end)\n",
+            "  let match_forward = state(match choose\n",
+            "    true => wider\n",
+            "    false => narrower\n",
+            "  end)\n",
+            "  let match_reverse = state(match choose\n",
+            "    true => narrower\n",
+            "    false => wider\n",
+            "  end)\n",
+            "  let list_forward_semantic: State<Vec<{label: String}>> = list_forward\n",
+            "  let list_reverse_semantic: State<Vec<{label: String}>> = list_reverse\n",
+            "  let if_forward_semantic: State<{label: String}> = if_forward\n",
+            "  let if_reverse_semantic: State<{label: String}> = if_reverse\n",
+            "  let match_forward_semantic: State<{label: String}> = match_forward\n",
+            "  let match_reverse_semantic: State<{label: String}> = match_reverse\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let module = standard_io_provider_module(&source);
+    let semantic_diagnostics = analyze_surface_module(&module);
+    assert!(semantic_diagnostics.is_empty(), "{semantic_diagnostics:#?}");
+
+    let record_type = CoreType::Record(vec![("label".to_string(), CoreType::string())]);
+    let cases = [
+        ("list_forward", CoreType::vec(record_type.clone())),
+        ("list_reverse", CoreType::vec(record_type.clone())),
+        ("if_forward", record_type.clone()),
+        ("if_reverse", record_type.clone()),
+        ("match_forward", record_type.clone()),
+        ("match_reverse", record_type),
+    ];
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered
+        .core
+        .expect("width-joined state initializers should build checked core");
+    assert_joined_core_state_initializers(evidence_core(&core), &cases);
+    let ir = lowered
+        .ir
+        .expect("width-joined state initializers should lower to typed IR");
+    assert_joined_ir_state_initializers(evidence_ir(&ir), &cases);
+}
+
+fn assert_joined_core_state_initializers(evidence: &CoreFunction, cases: &[(&str, CoreType)]) {
+    for (index, (name, item_type)) in cases.iter().enumerate() {
+        let CoreStmtKind::Let { expr, .. } = &evidence.body[index].kind else {
+            panic!("expected state allocation binding for {name}");
+        };
+        assert_eq!(
+            expr.ty,
+            CoreType::named("State", vec![item_type.clone()]),
+            "checked Core result for {name}",
+        );
+        let CoreExprKind::Call { args, .. } = &expr.kind else {
+            panic!("expected checked Core state call for {name}");
+        };
+        assert_eq!(
+            args[0].ty, *item_type,
+            "checked Core initializer for {name}"
+        );
+        match &args[0].kind {
+            CoreExprKind::List(items) => assert!(
+                items
+                    .iter()
+                    .all(|item| item.ty == record_type_for_case(item_type)),
+                "checked Core list contributions for {name}: {items:#?}",
+            ),
+            CoreExprKind::Match { arms, .. } => assert!(
+                arms.iter().all(|arm| arm.expr.ty == *item_type),
+                "checked Core control-flow contributions for {name}: {arms:#?}",
+            ),
+            kind => panic!("unexpected checked Core initializer for {name}: {kind:#?}"),
+        }
+    }
+}
+
+fn assert_joined_ir_state_initializers(evidence: &IrFunction, cases: &[(&str, CoreType)]) {
+    for (index, (name, item_type)) in cases.iter().enumerate() {
+        let IrStmtKind::Let { value, .. } = &evidence.body[index].kind else {
+            panic!("expected IR state allocation binding for {name}");
+        };
+        assert_eq!(
+            value.ty,
+            CoreType::named("State", vec![item_type.clone()]),
+            "typed IR result for {name}",
+        );
+        let IrExprKind::Call { args, .. } = &value.kind else {
+            panic!("expected typed IR state call for {name}");
+        };
+        assert_eq!(args[0].ty, *item_type, "typed IR initializer for {name}");
+        match &args[0].kind {
+            IrExprKind::List(items) => assert!(
+                items
+                    .iter()
+                    .all(|item| item.ty == record_type_for_case(item_type)),
+                "typed IR list contributions for {name}: {items:#?}",
+            ),
+            IrExprKind::Match { arms, .. } => assert!(
+                arms.iter().all(|arm| arm.value.ty == *item_type),
+                "typed IR control-flow contributions for {name}: {arms:#?}",
+            ),
+            kind => panic!("unexpected typed IR initializer for {name}: {kind:#?}"),
+        }
+    }
+}
+
 fn record_type_for_case(item_type: &CoreType) -> CoreType {
     item_type.vec_part().unwrap_or(item_type).clone()
 }
