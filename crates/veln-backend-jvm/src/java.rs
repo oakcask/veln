@@ -150,6 +150,9 @@ pub(crate) fn veln_string_literal_value(raw: &str) -> String {
     else {
         return raw.to_string();
     };
+    if !inner.contains('\\') {
+        return inner.to_string();
+    }
     let mut output = String::new();
     let mut chars = inner.chars();
     while let Some(character) = chars.next() {
