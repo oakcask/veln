@@ -21,7 +21,10 @@ mod lookup_helpers;
 mod visibility;
 
 #[derive(Clone, Debug)]
-pub(crate) struct AdtRegistry {
+pub(crate) struct AdtDeclarationFacts {
+    // Inherited scope rebuilding also normalizes alias and variance metadata.
+    // Mutations clear this until the full declaration pipeline finishes again.
+    extension_ready: bool,
     descriptors: Vec<AdtDescriptor>,
     variant_declaration_orders: Vec<Arc<VariantDeclarationOrder>>,
     descriptors_by_type_name: HashMap<String, Vec<usize>>,
@@ -30,7 +33,6 @@ pub(crate) struct AdtRegistry {
     parameter_variances_by_identity: HashMap<String, HashMap<usize, Option<Vec<Variance>>>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
     variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, Option<usize>>>,
-    companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, Option<String>, String), Type>,
     type_alias_identities: BTreeSet<DescriptorKey>,
     type_alias_exposure_segments: Vec<Arc<[TypeAliasExposureNode]>>,
@@ -38,18 +40,44 @@ pub(crate) struct AdtRegistry {
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<DescriptorKey, SourceSpan>,
     variant_declaration_spans: HashMap<VariantDescriptorKey, SourceSpan>,
+    quarantined_type_identities: HashSet<String>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct AdtRegistry {
+    declarations: Arc<AdtDeclarationFacts>,
+    companion_access_targets: BTreeMap<String, String>,
     qualified_import_modules: HashMap<(ResolvedImportOwner, String), QualifiedImportModules>,
     qualified_import_recovery_modules:
         HashMap<(ResolvedImportOwner, String), Vec<QualifiedRecoveryModules>>,
     imported_descriptors_by_type: HashMap<(ResolvedImportOwner, String), Option<usize>>,
     imported_descriptors_by_type_arity:
         HashMap<(ResolvedImportOwner, String, usize), Option<usize>>,
-    quarantined_type_identities: HashSet<String>,
     source_import_indexes_ready: bool,
     source_import_count: usize,
     import_owner_scope: Arc<[UseDecl]>,
     import_owners: Arc<ImportOwners>,
     local_descriptor_start: usize,
+}
+
+impl std::ops::Deref for AdtRegistry {
+    type Target = AdtDeclarationFacts;
+
+    fn deref(&self) -> &Self::Target {
+        &self.declarations
+    }
+}
+
+impl AdtRegistry {
+    fn declarations_mut(&mut self) -> &mut AdtDeclarationFacts {
+        let declarations = Arc::make_mut(&mut self.declarations);
+        declarations.extension_ready = false;
+        declarations
+    }
+
+    fn mark_declarations_reusable(&mut self) {
+        Arc::make_mut(&mut self.declarations).extension_ready = true;
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -275,14 +303,16 @@ impl AdtRegistry {
             .filter(|(_, path)| invalid_identities.contains(&path.terminal.identity()))
             .map(|(key, _)| key.clone())
             .collect::<HashSet<_>>();
-        for descriptor in &mut self.descriptors {
+        for descriptor in &mut self.declarations_mut().descriptors {
             if invalid_identities.contains(&descriptor.identity())
                 || invalid_aliases.contains(&DescriptorKey::new(descriptor))
             {
                 descriptor.visibility = Visibility::Private;
             }
         }
-        self.quarantined_type_identities.extend(invalid_identities);
+        self.declarations_mut()
+            .quarantined_type_identities
+            .extend(invalid_identities);
     }
 
     pub(crate) fn descriptor_is_quarantined(&self, descriptor: &AdtDescriptor) -> bool {
@@ -327,7 +357,7 @@ impl AdtRegistry {
                 }
             }
         }
-        for descriptor in &mut self.descriptors {
+        for descriptor in &mut self.declarations_mut().descriptors {
             work += 1;
             let identity = descriptor.identity();
             for variant in &mut descriptor.variants {
@@ -411,7 +441,7 @@ impl AdtRegistry {
 
     #[cfg(test)]
     pub(crate) fn clear_parameter_variances_for_identity(&mut self, identity: &str) {
-        for descriptor in &mut self.descriptors {
+        for descriptor in &mut self.declarations_mut().descriptors {
             if descriptor.identity() == identity && descriptor.nominal_identity.is_none() {
                 descriptor.parameter_variances.clear();
             }

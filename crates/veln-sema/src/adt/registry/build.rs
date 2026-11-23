@@ -10,9 +10,9 @@ use crate::source_less_names::InvalidStandardSymbolCase;
 
 use super::aliases::{ResolvedTypeAliases, descriptor_for_alias_target, type_alias_descriptors};
 use super::{
-    AdtRegistry, DescriptorKey, ImportOwners, ImportedDescriptorCandidates, QualifiedImportModules,
-    QualifiedRecoveryModules, TypeAliasDeclarationIdentity, VariantDeclarationOrder,
-    VariantDescriptorKey, descriptor_identity,
+    AdtDeclarationFacts, AdtRegistry, DescriptorKey, ImportOwners, ImportedDescriptorCandidates,
+    QualifiedImportModules, QualifiedRecoveryModules, TypeAliasDeclarationIdentity,
+    VariantDeclarationOrder, VariantDescriptorKey, descriptor_identity,
 };
 use crate::adt::descriptors::AdtDescriptor;
 use crate::adt::lookup_validation::{
@@ -152,8 +152,8 @@ impl AdtRegistry {
             variants_by_name,
             variants_by_descriptor,
         } = RegistryIndexes::from_descriptors(&descriptors);
-        let local_descriptor_start = descriptors.len();
-        let mut registry = Self {
+        let declarations = Arc::new(AdtDeclarationFacts {
+            extension_ready: false,
             descriptors,
             variant_declaration_orders,
             descriptors_by_type_name,
@@ -162,7 +162,6 @@ impl AdtRegistry {
             parameter_variances_by_identity: HashMap::new(),
             variants_by_name,
             variants_by_descriptor,
-            companion_access_targets,
             annotation_types,
             type_alias_identities: BTreeSet::new(),
             type_alias_exposure_segments: Vec::new(),
@@ -170,19 +169,32 @@ impl AdtRegistry {
             resolved_type_alias_declarations: BTreeSet::new(),
             declaration_spans: HashMap::new(),
             variant_declaration_spans: HashMap::new(),
+            quarantined_type_identities: HashSet::new(),
+        });
+        let mut registry = Self::with_declarations(declarations, companion_access_targets);
+        registry.rebuild_parameter_variance_index();
+        registry.mark_declarations_reusable();
+        registry
+    }
+
+    fn with_declarations(
+        declarations: Arc<AdtDeclarationFacts>,
+        companion_access_targets: BTreeMap<String, String>,
+    ) -> Self {
+        let local_descriptor_start = declarations.descriptors.len();
+        Self {
+            declarations,
+            companion_access_targets,
             qualified_import_modules: HashMap::new(),
             qualified_import_recovery_modules: HashMap::new(),
             imported_descriptors_by_type: HashMap::new(),
             imported_descriptors_by_type_arity: HashMap::new(),
-            quarantined_type_identities: HashSet::new(),
             source_import_indexes_ready: false,
             source_import_count: 0,
             import_owner_scope: Arc::from([]),
             import_owners: Arc::new(ImportOwners::default()),
             local_descriptor_start,
-        };
-        registry.rebuild_parameter_variance_index();
-        registry
+        }
     }
 
     #[cfg(test)]
@@ -202,6 +214,15 @@ impl AdtRegistry {
     }
 
     pub(crate) fn from_module_with_base(module: &SurfaceModule, base: &Self) -> Self {
+        if module.types.is_empty() && module.aliases.is_empty() && base.declarations.extension_ready
+        {
+            let mut companion_targets = base.companion_access_targets.clone();
+            companion_targets.extend(companion_access_targets(module));
+            let mut registry =
+                Self::with_declarations(base.declarations.clone(), companion_targets);
+            registry.finish_import_scope(base, module, base.descriptors.len());
+            return registry;
+        }
         let mut descriptors = base.descriptors.clone();
         let source_descriptors = module
             .types
@@ -243,8 +264,8 @@ impl AdtRegistry {
             companion_targets,
             annotation_types,
         );
-        registry.type_alias_exposure_segments = type_alias_exposure_segments;
-        registry.type_alias_exposure_paths = type_alias_exposure_paths;
+        registry.declarations_mut().type_alias_exposure_segments = type_alias_exposure_segments;
+        registry.declarations_mut().type_alias_exposure_paths = type_alias_exposure_paths;
         registry.finish_source_registry(
             base,
             module,
@@ -265,15 +286,45 @@ impl AdtRegistry {
         type_alias_identities: BTreeSet<DescriptorKey>,
         resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     ) {
-        self.type_alias_identities = type_alias_identities;
-        self.resolved_type_alias_declarations = resolved_type_alias_declarations;
-        self.declaration_spans = base.declaration_spans.clone();
-        self.declaration_spans
+        self.declarations_mut().type_alias_identities = type_alias_identities;
+        self.declarations_mut().resolved_type_alias_declarations = resolved_type_alias_declarations;
+        self.declarations_mut().declaration_spans = base.declaration_spans.clone();
+        self.declarations_mut()
+            .declaration_spans
             .extend(source_declaration_spans(module));
-        self.variant_declaration_spans = base.variant_declaration_spans.clone();
-        self.variant_declaration_spans
+        self.declarations_mut().variant_declaration_spans = base.variant_declaration_spans.clone();
+        self.declarations_mut()
+            .variant_declaration_spans
             .extend(source_variant_declaration_spans(module));
-        self.quarantined_type_identities = base.quarantined_type_identities.clone();
+        self.declarations_mut().quarantined_type_identities =
+            base.quarantined_type_identities.clone();
+        self.finish_import_scope(base, module, local_descriptor_start);
+        let uses = self.import_scope();
+        let resolved_constructor_uses =
+            self.resolved_source_constructor_uses(&uses, source_descriptor_start);
+        self.canonicalize_source_payload_types(&uses, source_descriptor_start);
+        let alias_variance_targets = self
+            .type_alias_exposure_paths
+            .iter()
+            .filter(|(identity, _)| self.type_alias_identities.contains(*identity))
+            .map(|(identity, path)| (identity.clone(), path.terminal.identity()))
+            .collect();
+        crate::adt::variance::infer_source_parameter_variances(
+            &mut self.declarations_mut().descriptors,
+            source_descriptor_start,
+            &alias_variance_targets,
+            &resolved_constructor_uses,
+        );
+        self.rebuild_parameter_variance_index();
+        self.mark_declarations_reusable();
+    }
+
+    fn finish_import_scope(
+        &mut self,
+        base: &Self,
+        module: &SurfaceModule,
+        local_descriptor_start: usize,
+    ) {
         let mut uses = normal_use_decls(module);
         uses.extend(base.import_owner_scope.iter().cloned());
         let uses: Arc<[UseDecl]> = uses.into();
@@ -287,22 +338,6 @@ impl AdtRegistry {
         self.source_import_count = uses.len();
         self.bind_import_owner_scope(uses.clone());
         self.local_descriptor_start = local_descriptor_start;
-        let resolved_constructor_uses =
-            self.resolved_source_constructor_uses(&uses, source_descriptor_start);
-        self.canonicalize_source_payload_types(&uses, source_descriptor_start);
-        let alias_variance_targets = self
-            .type_alias_exposure_paths
-            .iter()
-            .filter(|(identity, _)| self.type_alias_identities.contains(*identity))
-            .map(|(identity, path)| (identity.clone(), path.terminal.identity()))
-            .collect();
-        crate::adt::variance::infer_source_parameter_variances(
-            &mut self.descriptors,
-            source_descriptor_start,
-            &alias_variance_targets,
-            &resolved_constructor_uses,
-        );
-        self.rebuild_parameter_variance_index();
     }
 
     fn resolved_source_constructor_uses(
@@ -372,11 +407,14 @@ impl AdtRegistry {
         uses: &[UseDecl],
         source_descriptor_start: usize,
     ) {
+        if source_descriptor_start == self.descriptors.len() {
+            return;
+        }
         let lookup = self.clone();
         let no_quarantined_uses = Vec::new();
         let no_effects = Vec::new();
         let no_effect_access_targets = BTreeMap::new();
-        for descriptor in &mut self.descriptors[source_descriptor_start..] {
+        for descriptor in &mut self.declarations_mut().descriptors[source_descriptor_start..] {
             for variant in &mut descriptor.variants {
                 for field in &mut variant.payload_fields {
                     let crate::adt::descriptors::AdtPayloadType::Concrete(ty) = &mut field.ty
@@ -435,23 +473,27 @@ impl AdtRegistry {
     }
 
     fn finish_standard_subset(&mut self, source: &Self, module_names: &BTreeSet<String>) {
-        self.type_alias_identities = retained_type_alias_identities(source, module_names);
-        self.type_alias_exposure_segments = source.type_alias_exposure_segments.clone();
-        self.type_alias_exposure_paths = source
+        self.declarations_mut().type_alias_identities =
+            retained_type_alias_identities(source, module_names);
+        self.declarations_mut().type_alias_exposure_segments =
+            source.type_alias_exposure_segments.clone();
+        self.declarations_mut().type_alias_exposure_paths = source
             .type_alias_exposure_paths
             .iter()
             .filter(|(identity, _)| selected_module(identity.module_name.as_deref(), module_names))
             .map(|(identity, path)| (identity.clone(), path.clone()))
             .collect();
-        self.resolved_type_alias_declarations = source
+        self.declarations_mut().resolved_type_alias_declarations = source
             .resolved_type_alias_declarations
             .iter()
             .filter(|identity| selected_module(identity.module_name.as_deref(), module_names))
             .cloned()
             .collect();
-        self.declaration_spans = retained_declaration_spans(source, self);
-        self.variant_declaration_spans = retained_variant_declaration_spans(source, self);
-        self.quarantined_type_identities = source.quarantined_type_identities.clone();
+        self.declarations_mut().declaration_spans = retained_declaration_spans(source, self);
+        self.declarations_mut().variant_declaration_spans =
+            retained_variant_declaration_spans(source, self);
+        self.declarations_mut().quarantined_type_identities =
+            source.quarantined_type_identities.clone();
         self.rebuild_parameter_variance_index();
     }
 
@@ -461,7 +503,8 @@ impl AdtRegistry {
         let named_aliases = target_variance_index(named_aliases);
         let exposed_aliases = target_variance_index(self.exposed_alias_variance_candidates());
         extend_missing_alias_variances(&mut index, &named_aliases, &exposed_aliases);
-        self.parameter_variances_by_identity = group_parameter_variances_by_identity(index);
+        self.declarations_mut().parameter_variances_by_identity =
+            group_parameter_variances_by_identity(index);
     }
 
     fn parameter_variance_candidates(
@@ -956,3 +999,6 @@ fn record_imported_candidate<K: std::hash::Hash + Eq>(
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
