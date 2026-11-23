@@ -182,13 +182,15 @@ update is removed before its callback runs and does not prevent a later
 eligible update from entering. A queued callback that fails also releases the
 next eligible update, while preserving the old value.
 
-Cancellation before admission does not invoke the callback. Cancellation at a
-generated checkpoint after admission aborts the callback and preserves the old
-value, including for a compiled tail-recursive callback. Callback or runtime
-failure before publication also preserves the old value. If the callback
-returns before cancellation is observed, the replacement is published and the
-cell is released before cancellation is reported; the cancelled task does not
-receive the callback result. Every outcome releases admission bookkeeping.
+Cancellation before admission does not invoke the callback and is reported as
+task cancellation. Cancellation at a generated checkpoint after admission
+aborts the callback, preserves the old value, and is reported as task
+cancellation, including for a compiled tail-recursive callback. Callback or
+runtime failure before publication preserves the old value and propagates the
+failure to the caller. If the callback returns before cancellation is observed,
+the replacement is published and the cell is released before cancellation is
+reported; the cancelled task does not receive the callback result. Every
+outcome releases admission bookkeeping.
 Cancellation remains cooperative when a callback neither returns, fails, nor
 reaches a generated checkpoint. State values, callback context, replacements,
 and results can contain deeply nested Veln lists without consuming JVM

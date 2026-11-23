@@ -374,6 +374,34 @@ impl<'a> CoreLowerer<'a> {
         ty
     }
 
+    pub(super) fn joined_shallow_expr_type(&self, expr: &Expr) -> Option<CoreType> {
+        match &expr.kind {
+            ExprKind::List(items) => {
+                joined_core_types(items.iter().map(|item| self.joined_shallow_expr_type(item)))
+                    .map(CoreType::vec)
+            }
+            ExprKind::If {
+                then_branch,
+                else_if_branches,
+                else_branch,
+                ..
+            } => joined_core_types(
+                std::iter::once(self.joined_shallow_expr_type(then_branch))
+                    .chain(
+                        else_if_branches
+                            .iter()
+                            .map(|branch| self.joined_shallow_expr_type(&branch.expr)),
+                    )
+                    .chain(std::iter::once(self.joined_shallow_expr_type(else_branch))),
+            ),
+            ExprKind::Match { arms, .. } => joined_core_types(
+                arms.iter()
+                    .map(|arm| self.joined_shallow_expr_type(&arm.expr)),
+            ),
+            _ => self.shallow_expr_type(expr),
+        }
+    }
+
     fn uncached_shallow_expr_type(&self, expr: &Expr) -> Option<CoreType> {
         match &expr.kind {
             ExprKind::StringLiteral(_)
@@ -649,5 +677,56 @@ impl<'a> CoreLowerer<'a> {
                 CoreExprKind::Local(segments.join("::")),
             )
         }
+    }
+}
+
+fn joined_core_types(types: impl IntoIterator<Item = Option<CoreType>>) -> Option<CoreType> {
+    let mut types = types.into_iter();
+    let mut joined = types.next()??;
+    for ty in types {
+        joined = join_core_types(&joined, &ty?)?;
+    }
+    Some(joined)
+}
+
+fn join_core_types(left: &CoreType, right: &CoreType) -> Option<CoreType> {
+    match (left, right) {
+        (CoreType::Unknown, ty) | (ty, CoreType::Unknown) => Some(ty.clone()),
+        (
+            CoreType::Named {
+                name: left_name,
+                args: left_args,
+            },
+            CoreType::Named {
+                name: right_name,
+                args: right_args,
+            },
+        ) if left_name == right_name && left_args.len() == right_args.len() => {
+            Some(CoreType::named(
+                left_name,
+                left_args
+                    .iter()
+                    .zip(right_args)
+                    .map(|(left, right)| join_core_types(left, right))
+                    .collect::<Option<Vec<_>>>()?,
+            ))
+        }
+        (CoreType::Record(left_fields), CoreType::Record(right_fields))
+            if left_fields.len() == right_fields.len() =>
+        {
+            let mut joined = left_fields
+                .iter()
+                .map(|(name, left)| {
+                    let right = right_fields
+                        .iter()
+                        .find_map(|(right_name, right)| (right_name == name).then_some(right))?;
+                    Some((name.clone(), join_core_types(left, right)?))
+                })
+                .collect::<Option<Vec<_>>>()?;
+            joined.sort_by(|(left, _), (right, _)| left.cmp(right));
+            Some(CoreType::Record(joined))
+        }
+        _ if left == right => Some(left.clone()),
+        _ => None,
     }
 }

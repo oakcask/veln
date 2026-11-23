@@ -315,10 +315,22 @@ impl<'a> CoreLowerer<'a> {
         {
             self.record_defer_capture(index);
         }
+        let joined_state_initializer = self
+            .declared_io_provider_state_operation(callee)
+            .is_some_and(|operation| operation == "state")
+            .then(|| {
+                args.first()
+                    .and_then(|initial| self.joined_shallow_expr_type(initial))
+            })
+            .flatten();
         let preliminary_signature = self.core_call_signature(
             callee,
             expected,
-            crate::call_resolution::CallArgumentEvidence::default(),
+            crate::call_resolution::CallArgumentEvidence {
+                first: joined_state_initializer.as_ref(),
+                second: None,
+                third: None,
+            },
         );
         let mut lowered_args = match &preliminary_signature {
             Some(signature) => self.lower_args_with_preliminary_signature(args, signature),
@@ -340,6 +352,12 @@ impl<'a> CoreLowerer<'a> {
                 signature.params.len(),
                 signature.variadic.is_some(),
             );
+            if joined_state_initializer.is_some()
+                && let (Some(initial), Some(expected)) =
+                    (lowered_args.first_mut(), signature.params.first())
+            {
+                retag_state_initializer(initial, expected);
+            }
         }
         if signature
             .as_ref()
@@ -364,6 +382,31 @@ impl<'a> CoreLowerer<'a> {
                 args: lowered_args,
             },
         )
+    }
+
+    fn declared_io_provider_state_operation(&self, callee: &Expr) -> Option<&str> {
+        let ExprKind::NamePath { segments, .. } = &callee.kind else {
+            return None;
+        };
+        let function = match segments.as_slice() {
+            [name] => self
+                .environment
+                .unqualified_function_in_owner(
+                    name,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
+                .found(),
+            _ => self.environment.function_path_in_owner(
+                segments,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            ),
+        }?;
+        (function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+            && function.module_name.as_deref() == Some("std::io_provider")
+            && matches!(function.name.as_str(), "state" | "update"))
+        .then_some(function.name.as_str())
     }
 
     fn call_target_with_context(
@@ -836,6 +879,44 @@ impl<'a> CoreLowerer<'a> {
             lowered_args.push(lowered);
         }
         lowered_args
+    }
+}
+
+fn retag_state_initializer(expr: &mut CoreExpr, expected: &CoreType) {
+    expr.ty = expected.clone();
+    match (&mut expr.kind, expected) {
+        (CoreExprKind::Record(fields), CoreType::Record(expected_fields)) => {
+            for field in fields {
+                if let Some((_, expected)) =
+                    expected_fields.iter().find(|(name, _)| name == &field.name)
+                {
+                    retag_state_initializer(&mut field.expr, expected);
+                }
+            }
+        }
+        (CoreExprKind::List(items), CoreType::Named { name, args })
+            if name == "Vec" && args.len() == 1 =>
+        {
+            for item in items {
+                retag_state_initializer(item, &args[0]);
+            }
+        }
+        (CoreExprKind::Match { arms, .. }, _) => {
+            for arm in arms {
+                retag_state_initializer(&mut arm.expr, expected);
+            }
+        }
+        (CoreExprKind::CleanupRegion { region }, _) => {
+            if let Some(statement) = region.statements.last_mut() {
+                match &mut statement.kind {
+                    CoreStmtKind::Expr { expr } | CoreStmtKind::Return { expr } => {
+                        retag_state_initializer(expr, expected);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        _ => {}
     }
 }
 
