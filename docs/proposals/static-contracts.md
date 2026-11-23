@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Static contract syntax, proof rules, callable contract subtyping, boundary validation, generated API documentation, prerequisite decisions, or acceptance gates change.
+update-when: Static contract syntax, evaluation and reachability rules, record fact transfer, callable contract subtyping, boundary validation, generated API documentation, prerequisite decisions, extension requirements, or acceptance gates change.
 ---
 
 # Static Contracts for Composable Calls
@@ -28,6 +28,7 @@ records. No existing active proposal in the catalog owns this change.
 | Contract validation and discharge | `contracts.md` classifies valid obligations as `statically_proven` or `runtime_required`; even a false valid predicate can remain runtime-required. `crates/veln-sema/src/contracts.rs` reasons over predicate text. | Existing static classification is an optimization for executable contracts, not proof of a call's admissibility. Add an explicit static obligation mode. |
 | Callable identity | `Type::Function` in `crates/veln-sema/src/semantic_model.rs` and `FunctionSignature` in `crates/veln-sema/src/types/signatures.rs` contain parameter/result types and effects but no contract. `FunctionSignature::ty` constructs a contract-free callable type. | Contracts need binder-aware callable metadata that survives aliases, imports, aggregates, and indirect calls. Remembering only the original declaration cannot satisfy higher-order use. |
 | Control flow | `crates/veln-sema/src/analysis/body/control_flow_results.rs` checks Boolean conditions and joins branch result types. Existing ADT refinement supports stable places and scoped aliases. | Reuse stable-place identity where suitable, but add predicate facts and exit-sensitive flow. ADT variant membership alone does not establish integer inequalities. |
+| Boolean evaluation | `emit_binary` in `crates/veln-backend-jvm/src/classfile/pattern_and_value_emission.rs` and `emit_contract_binary` in `crates/veln-backend-jvm/src/classfile/contract_emission.rs` evaluate both operands, left before right. | Preserve eager evaluation in ordinary expressions and executable predicates. A Boolean operand is not a conditional execution guard for its sibling. |
 | Implementation verification | `check_body` in `crates/veln-sema/src/analysis/body.rs` validates clauses before checking body lines. | Predicate validity does not show that every return meets an `ensure`. Add return obligations and call-summary reasoning. |
 | Lowering | `lower_contracts` in `crates/veln-sema/src/lowering/function_lowering.rs` independently classifies text. `CoreContract` in `crates/veln-core/src/model.rs` stores a string and the two existing statuses. | Checked static proof results must reach lowering. Lowering must not independently promote an unproved static claim. |
 | Numeric meaning | `contracts.md` includes exact rational reasoning and special runtime-`Int` rules for remainder-bearing expressions; `static_literals.rs` contains wrapping integer evaluation. | Do not reuse mathematical simplifications as a sound fixed-width verifier without a semantic audit. First admit comparisons, not arithmetic terms. |
@@ -41,7 +42,7 @@ dependency before the initial slice can be attempted.
 | Gate | Required design change | Evidence before implementation selection |
 | --- | --- | --- |
 | P1: typed logic | Resolve each logical name to a declaration/binder and retain operand types, source spans, and signed integer meaning. Distinguish facts about values from repeated source spellings. | A small independent truth/ordering model and tests for shadowing, argument substitution, minimum/maximum integers, and rejection of unsupported numeric terms. |
-| P2: flow facts | Define facts for immutable locals, parameters, stable record fields, branch polarity, continuing paths, and return values. | Branch/alias/early-exit acceptance cases, including failures for leaked and unrelated facts. |
+| P2: flow facts | Define facts for immutable locals, parameters, record construction and projection, branch polarity, continuing paths, unreachable paths, and return values. Preserve eager Boolean evaluation and separate loop iterations. | Branch/alias/record/early-exit acceptance cases, including eager operands, vacuous obligations, and failures for leaked and unrelated facts. |
 | P3: callable contracts | Add bound parameters/results to callable contracts, define alpha-equivalence and implication-based assignment, and retain contracts across public interfaces. | Grammar/formatter prototype and direct, imported, aliased, nested, and indirect callable cases. |
 | P4: proof trust | Verify source implementations, define recursive summary use, and quarantine invalid declarations. Define which generated or host-backed declarations can supply facts. | Positive/negative body and recursive-component cases; no external summary accepted solely because its signature declares it. |
 | P5: executable boundary | Define static failure outcomes, JSON/human projections, and checked-to-core handoff. Preserve the meaning of existing runtime clauses, check executable entry adapters, and retain contract modes in generated API documentation. | Call-site, return, entry-boundary, human/JSON, lowering, and generated-documentation cases. |
@@ -50,6 +51,21 @@ P1 and P2 precede proof implementation. P3 and P4 precede exposing contract
 facts through general function values. P5 precedes publishing the feature.
 These gates can be implemented in focused follow-up targets after their design
 questions are resolved; none is currently cataloged as Ready.
+
+Each gate must supply a reviewable contract before an implementation target is
+selected. A prototype alone does not settle its observable behavior:
+
+| Gate | Required deliverable and acceptance boundary |
+| --- | --- |
+| P1 | A typed predicate grammar, signed 64-bit truth/order model, and mandatory entailment cases, including contradictions and integer endpoints. Fix the scope and accounting unit of each deterministic work limit, its versioned default, and its exhausted outcome. Measured feasibility evidence must justify the chosen values; this proposal does not invent numeric limits. |
+| P2 | Transfer and join rules for the events below, including result identities at expression joins, lexical-scope exit, eager operands, record patterns, and loop backedges. Demonstrate both required successful proofs and the absence of facts on unrelated paths. |
+| P3 | Accepted and rejected grammar fixtures and formatter round trips for declaration and callable clauses, nested binders, effect placement, and clause order. Specify capture rejection, alpha-equivalence, contextual checking, and unique contributed-candidate joins. An ambiguous join requires an annotation; it must not depend on branch order. |
+| P4 | A dependency-validation and recursive-component publication model. State which source snapshot and checked contracts a summary depends on. Exercise failure and recovery after a body-only change, not only a signature change; no caller may reuse an invalidated proof. |
+| P5 | Diagnostic identifiers, closed JSON detail schemas and related-note kinds, adapter projections, generated-documentation mode fields and version changes, and a checked-to-core readiness invariant. Exercise atomic rejection, once-only evaluation, and preservation of existing runtime clauses. |
+
+The gate deliverables are still required evidence, not completed implementation
+or permission to select a partial feature that erases contracts. Extensions
+outside these gates follow the [extension requirements](#extension-requirements).
 
 ## Proposed source surface and guarantee
 
@@ -175,11 +191,86 @@ before implementation selection.
 | --- | --- |
 | Enter a function | Static requirements over parameter values; no assumptions from its own ensures. |
 | `let y = x` for an immutable scalar | Equality of these values; shadowed bindings remain distinct. |
+| Construct, alias, or destructure an immutable record | Admitted scalar projections denote their evaluated initializer or source-field values, including nested fields. No whole-record logical equality is required. |
 | Enter the true/false branch of an admitted condition | The condition / its negation, scoped to that branch. |
 | Join continuing branches | Only facts justified on every continuing path; an exited branch does not constrain the continuation. |
 | Return a branch expression | That path's facts and its actual returned value for checking ensures. |
 | Complete a call with a valid static summary | The instantiated ensures over evaluated arguments and the returned value. |
 | Match an ADT | Existing variant refinement rules remain available; no arbitrary payload predicate is inferred. |
+
+### Evaluation and fact availability
+
+Ordinary expressions and executable predicates keep their existing evaluation
+order. Both operands of `and` and `or` evaluate, left before right. Check a
+call using facts established before that call executes. A preceding operand's
+verified postcondition is available, but its Boolean result is not assumed
+true or false while checking the other operand. A later operand supplies no
+facts to an earlier call. Boolean simplification of a static predicate does
+not permit skipping calls or other evaluation in ordinary code.
+
+For example, suppose `positive_check(x)` returns `Bool` and requires static
+`x > 0`. Neither `x > 0 and positive_check(x)` nor
+`x <= 0 or positive_check(x)` establishes that call's requirement for an
+unconstrained `x`. Reject both, including when they occur in an executable
+contract. An enclosing `if x > 0` provides the missing fact. A future
+short-circuit language change would need separate evaluation and proof rules.
+
+An ordinary computation outside the proof language produces an opaque value
+of its checked type. The ordinary computation remains permitted; writing that
+computation directly in a static predicate remains unsupported. For example,
+a saved arithmetic result can be compared with zero in an ordinary branch;
+that branch proves a fact about the saved result, without proving an
+arithmetic relation to its operands.
+
+### Records and expression results
+
+Record construction relates each admitted scalar field path to the value of
+its evaluated initializer. For `let r = {value: normalize(x)}`, the verified
+positive-result fact therefore applies to `r.value`. A transparent record
+alias preserves the same field values. A record pattern binding denotes its
+selected source field. These rules apply recursively to nested immutable
+records and to parameters and returned records. An annotation may forget
+fields but cannot change the identity of retained field values. Missing fields
+remain ordinary type errors, and distinct roots or field sequences share no
+facts without a demonstrated value relation.
+
+When an `if`, `match`, or `begin` expression supplies a value to a binding or
+return, relate that expression's result to the value produced on each
+continuing path. Keep a result fact only when every continuing path justifies
+it. Thus assigning the positive branches of `normalize` to a local before
+returning it must not lose positivity. Facts about an escaping result and
+still-visible values can survive lexical-scope exit; references to hidden
+locals cannot escape. These are required scalar/record transfer rules, not
+general refinement carriers for arbitrary ADT payloads.
+
+### Reachability and contradictory assumptions
+
+A path is proved unreachable when supported facts entail `false`, or when
+ordinary checked control flow has no continuation. Failure to decide
+reachability is not evidence that a path is unreachable. On a proved
+unreachable path, call and return proof obligations are vacuously proven.
+They take precedence over a refuted-predicate classification because no
+execution reaches that obligation. No assumption from that path enters a
+reachable sibling or continuation. If all incoming paths are unreachable,
+the join has no reachable continuation.
+
+Syntax, name resolution, ordinary type compatibility, static-predicate
+admissibility, and declaration validation still apply in unreachable code.
+Vacuity does not validate a hole, an unsupported predicate, or an invalid
+dependency. The checker may accept contradictory static requirements and a
+vacuous ensure under them. Their callable remains unusable on a reachable
+path unless the caller establishes every requirement; assignment cannot erase
+those requirements. Publication must not present a vacuous postcondition as
+a termination or inhabitation guarantee.
+
+For example, `consume(0)` inside both `if x > 0` and `if x <= 0` is vacuous,
+but the same call after those branches is refuted on a reachable path. A
+checked callee's `ensure static (false)` can make its normal continuation
+unreachable. Merely detecting a recursive call cannot do so. Partial
+correctness permits a verified non-returning function; it does not manufacture
+a returned value or justify evaluating that function during proof search.
+
+### Limits of the initial logic
 
 Arithmetic can still occur in ordinary bodies. In the first slice an arithmetic
 result supplies no arithmetic relationship to its operands unless represented
@@ -224,19 +315,24 @@ rule not present in the initial design. This proposal does not pretend that
 
 ## Verification, recursion, and trust
 
-Each body is checked under its static requirements. Every call, including a
-call appearing inside an executable runtime predicate, must discharge the
-callee's static requirements. Every returned value must discharge the body's
-static ensures. Static summaries never depend on declaration order or on
-whether a caller can access the source body.
+Each body is checked under its static requirements. Every reachable call,
+including a call appearing inside an executable runtime predicate, must
+discharge the callee's static requirements. Every reachable returned value
+must discharge the body's static ensures. Static summaries never depend on
+declaration order or on whether a caller can access the source body.
 
 Recursive and mutually recursive bodies may use declared summaries as partial
 correctness hypotheses. Each member must pass its own call and return
 obligations. No member's ensures are assumed at its own entry. A failed member
 invalidates publication of the dependent component. Non-returning recursion
 cannot establish a reachable returned value or justify unfolding a logical
-predicate. General loops without sufficient supported facts report unknown;
-loop invariants and termination checking are later work.
+predicate. Loop checking may retain established facts about unchanged outer
+immutable values and the current iteration's supported guard. A binding or
+call result evaluated anew in an iteration has a new value identity. A
+previous iteration's branch facts cannot establish the next iteration's
+requirements or a post-loop fact without a justified invariant. An obligation
+needing such a fact reports unknown in the first slice; explicit loop
+invariants and termination checking follow the extension requirements.
 
 Public summaries reference only bound parameters/results and accessible type
 identities. Internal helpers and local bindings cannot leak into public
@@ -266,9 +362,19 @@ original obligation.
 | Proof outcome | Compilation | Required observation |
 | --- | --- | --- |
 | Proven | Accept this obligation. | Static mode and proven outcome are retained through checked lowering. |
+| Vacuously proven | Accept a valid obligation on a proved unreachable path. | Retain the unreachable-path basis in checked proof evidence; no value or fact is exported to a reachable path. |
 | Refuted under the path facts | Reject. | State the failed predicate at the call or return. A concrete counterexample is optional and must be valid if shown. |
 | Unknown or proof budget exhausted | Reject. | Distinguish inability to prove from a demonstrated violation. Never label a timeout a counterexample. |
 | Unsupported logic or invalid predicate | Reject. | Identify the unsupported construct or ordinary syntax/name/type failure; add no assumptions. |
+
+For reachable path facts `F` and obligation `P`, proven means establishing
+`F` implies `P`. Refuted means establishing `F` implies `not P`; a single
+violating assignment is not enough to make that universal claim. When neither
+implication is established, report unknown. A counterexample on an unknown
+obligation may illustrate why the guarantee does not hold for all inputs,
+but must not claim that every permitted input violates it. Check proved
+unreachability first. If proof work ends before an outcome is established,
+report unknown with the budget reason.
 
 Human output places the failed fact in the primary message at the call,
 assignment, or return. Related notes identify the declared requirement/ensure,
@@ -343,6 +449,35 @@ which has only proven/runtime-required classification, remains authoritative.
 | Introduce full refinement types and an SMT solver first | Defer. The comparison-only slice can test the user-facing contract without selecting a dependency or proof-assistant workflow. Solver adoption requires its own dependency and numeric-soundness review. |
 | Use nominal validated wrappers for every condition | Useful alternative for independent reusable properties. Cross-argument and result/input relations still need contract logic. General carriers remain later work. |
 
+## Extension requirements
+
+The initial slice remains comparison-based and monomorphic. The following
+rows define the requirements for reconsidering excluded capabilities; they do
+not select them for implementation or require completing them before the
+initial slice. Each later proposal must identify a concrete API need, inspect
+relevant primary sources, choose a complete observable boundary, and provide
+positive, negative, and boundary acceptance cases. Unsupported uses retain
+their explicit error or unknown outcome until that extension is implemented.
+
+| Deferred capability | Reconsider when | Required contract and adoption evidence |
+| --- | --- | --- |
+| Integer arithmetic and bitwise proof terms | An API needs a relation such as a size increment or an index calculation. | Define each admitted operator using runtime signed 64-bit behavior, including wrapping, division, remainder, invalid shifts, and abrupt failure. Distinguish operation-definedness obligations from value claims. Check endpoints against an independent runtime-semantic model; never import unbounded-integer identities silently. |
+| Float predicates | A concrete numeric API needs static Float facts. | Model NaN, infinities, signed zero, comparisons, and any admitted arithmetic. Demonstrate rejected total-order inferences and agreement with supported backends. An Int proof rule cannot be reused merely because the source operator is shared. |
+| Collection measures and ADT payload relations | An API needs length/index or success-payload guarantees. | Define which values a measure observes, its numeric range, and verified construction, pattern, and update rules. Prove that `Ok`-branch facts do not attach to `Err`, including `?` propagation. Do not infer a positive payload from `Result<Int, Error>` alone. |
+| Reusable refinement carriers and aliases | A validated property must survive storage and public API transfer. | Specify introduction, elimination, assignment, visibility, and invalidation rules. Invalid construction must fail without publishing a value carrying the property. Check imported aliases, containers, pattern extraction, and attempts to forge or erase the guarantee. |
+| Generic, variadic, and effect-row-polymorphic contracts | A reusable higher-order API cannot express its contract with monomorphic fixed-arity types. | Define binder scope, substitution, variance, row constraints, and the meaning of contracts over a variadic tail. Distinguish ordinary containers holding monomorphic callables from abstraction over predicates. Check nested callbacks and failed substitutions without leaking tentative facts. |
+| Loop invariants and termination | A loop needs facts unavailable from outer immutable values and its current guard, or an API needs a termination promise. | Separate partial correctness from total correctness. For invariants, verify initialization, preservation on every backedge, and facts on normal and early exits. A termination extension additionally needs a well-founded decrease on every relevant recursive/loop edge. Retain partial-correctness behavior for unmarked functions. |
+| Logical predicates, reflection, and lemmas | Repeated contracts need named logical abstraction beyond a verified Boolean-returning helper. | Define logical admissibility, substitution, and proof authority independently of executable purity. Reflection must establish totality and reject circular proof authority; lemmas must discharge their own obligations. Check divergent pure functions and mutually dependent unproved lemmas. |
+| Mutable-state and host-state predicates | A contract must describe observations that can change after a call or guard. | Define state snapshots, reads/writes or frame conditions, aliasing, concurrency, and invalidation across calls and suspension. Demonstrate that a checked guard cannot justify a later observation after an invalidating change. A scoped fake handler is test support, not authority for a production summary. |
+| Trusted host, generated, and binary-only summaries | A dependency must expose verified facts without checked source bodies. | Define the trust root, summary identity, conformance evidence, and failure/revocation behavior. Bind summaries to the dependency and semantic versions they describe. Reject mismatched or invalidated artifacts and test transitive dependent rechecking; a signature alone remains insufficient. |
+| Dynamic boundary wrappers | An external entry must accept unknown inputs while calling a static API. | Define which supported predicates can run as checks, once-only input evaluation, and the author-selected failure policy. State what remains a static guarantee inside the wrapper. Do not silently change a static clause to runtime mode or invent an application error policy. |
+| Solver adoption | Required contracts exceed the bounded comparison engine. | Review the dependency and runtime numeric encoding, supported theories, deterministic work accounting, unknown/timeout behavior, and independent soundness cases. Compare proof coverage and resource cost on named workloads. Solver success cannot authorize unsupported terms or unvalidated summaries. |
+| Static invariants and default contract mode | Concrete usage shows that explicit requirements/ensures leave a necessary boundary unexpressed or systematically mislead users. | Define the covered entry/exit events and mode spelling, generated documentation, diagnostics, and repair consequences. Evaluate migration of executable pure-call predicates and mixed modes. Changing a default must not silently reinterpret an unsupported predicate as proved or erase a caller obligation. |
+
+These rows bound future design work, not a commitment to adopt every
+capability. Close or split an extension when its concrete use case is rejected
+or moves to another proposal; do not leave it as an implied initial guarantee.
+
 ## Planned acceptance evidence
 
 These cases specify outcomes independently of the chosen proof algorithm.
@@ -357,6 +492,14 @@ The names below identify planned cases, not existing fixture directories.
 | Body failure | Change `normalize`'s fallback from `1` to `0`. | Reject at that return and invalidate its dependent static summary. |
 | Relationship | A maximum-selection function returns either `a` or `b` under the corresponding ordering branch; promises result is at least both. | Accept using branch comparisons and returned-value equality. |
 | Named validator | A Boolean helper proves `result == (x > 0)`; caller branches on its result. | Accept consumption in the true branch; a runtime-only helper promise is insufficient. |
+| Eager Boolean operands | A Boolean helper requires `x > 0`; call it on the right of `x > 0 and ...` or `x <= 0 or ...`, in an ordinary condition and in a runtime predicate. | Reject for unconstrained `x`; accept under an enclosing positive guard. A later comparison cannot justify an earlier call. Preserve evaluation of both operands. |
+| Operand summaries | The left operand returns a Boolean and independently ensures `x > 0`; the right operand consumes `x`. | Accept using the verified ensure, without assuming the left Boolean is true. A mere equivalence between that Boolean and positivity is insufficient before branching. |
+| Record fact transfer | Store `normalize(x)` in a nested immutable record, alias the record, destructure its field, and consume each corresponding scalar. | Accept all retained projections, including through compatible width annotations. A different field or root without a value relation supplies no proof. Check returned-record ensures as well. |
+| Expression result join | Bind the positive branches of `normalize` through `if` or `begin` before consuming the result; change one reachable branch to zero. | Accept the all-positive join and preserve output facts after inner locals leave scope; reject the changed branch. A noncontinuing branch supplies no result contribution. |
+| Unreachable obligation | Call `consume(0)` under both `x > 0` and `x <= 0`, or under `if false`; then call it on a reachable continuation. | The unreachable call is vacuously proven; the reachable call is refuted. No contradictory fact leaks into the continuation. |
+| Vacuous declaration | Declare contradictory requirements with `ensure static (false)`, then attempt to call it or assign it to an all-input callable on a reachable path. | Accept the well-formed declaration under partial correctness; reject the reachable call and requirement erasure. A hole, invalid name/type, or unsupported static predicate in dead code still rejects compilation. |
+| Non-returning summary | Use a valid checked `ensure static (false)` summary, then contrast it with an ordinary recursive call lacking that summary. | Only the verified summary establishes no normal continuation; neither case proves termination or creates a returned value. |
+| Iteration boundary | A fact about a newly read value is established late in one iteration and would be needed before the next read is guarded. | Reject that use; the prior iteration's fact is unavailable. Accept a call proved independently by each iteration's guard or unchanged outer facts. |
 | Callback preservation | Store a positive-input callable in a record or pass it to another function. | Retain the requirement; reject assignment to a plain all-input callable. Accept weaker source requirements and stronger source ensures when implication is proved. |
 | Alpha-equivalence | Rename callable parameter/result binders without changing relations. | Preserve assignability; imports with equal spellings but different identities remain distinct. |
 | Repeated computation | Compare `read()` with zero, then consume a second `read()` result. | Reject unless that second value has its own proof. Guarding a saved immutable result is sufficient. |
@@ -365,22 +508,29 @@ The names below identify planned cases, not existing fixture directories.
 | Recursion | A mutually recursive component contains a failing base-case return. | Reject the component; declaration order cannot make its summary trusted. |
 | Boundary trust | Host return, hole, invalid imported body, or generated declaration supplies an unverified promise. | No static fact; ordinary guarded host values remain usable. |
 | Entry adapter | Select an executable entry whose static requirement the generated caller cannot establish. | Reject executable preparation; selecting an entry does not bypass a call obligation. An explicit guarded adapter can call it. |
-| Obligation outcome | A false literal call, an unconstrained call, and an exhausted search. | Distinct refuted/unknown/budget reasons; none compiles through implicit runtime fallback. |
+| Obligation outcome | A false literal call, an unconstrained call, `x >= 0` with an obligation `x > 0`, and an exhausted search. | Distinct refuted/unknown/budget reasons; mixed satisfying/violating inputs are unknown, not universally refuted. No case compiles through implicit runtime fallback. |
 | Mode separation | Remove `static` from a clause using a currently accepted runtime predicate. | Existing executable contract behavior remains; it supplies no verified static summary. |
 | Generated documentation | Export a function mixing static and runtime clauses and an API with a contract-bearing callback; then change only a clause mode or predicate. | Markdown, catalog JSON, and MCP declaration resources retain the distinction and nested contracts. The documentation digest changes. Private assumptions stay absent; an invalid static summary cannot produce a successful catalog. |
 | Incremental invalidation | Strengthen an imported requirement while keeping ordinary types unchanged. | Recheck callers and report newly unproved calls; no stale cache acceptance. |
+| Body-only invalidation and recovery | Change an imported producer body to violate its unchanged ensure; check consumers and generated documentation, then restore the body. | Reject consumers/publication while the summary is invalid and recover after revalidation. Warm and fresh checking agree, including for a mutually recursive component. |
 
 Planned verification ownership:
 
 - Syntax, formatting, and binder scoping: parser/AST/type tests, accepted and
   rejected source-surface fixtures, and formatter round trips.
 - Entailment and path facts: focused `veln-sema` tests using the truth/order
-  model; cover success, boundary, rejection, and restoration after scope exit.
+  model; cover success, boundary, rejection, vacuity, record projections,
+  expression-result joins, iteration boundaries, and restoration after scope
+  exit.
 - Observable compiler behavior: `examples/specification/check/` cases for
   direct/indirect/imported calls, human related notes, JSON outcomes, and holes.
 - Runtime preservation and checked lowering: focused `run/` and `test/`
   toolchain cases for the compiler/backend contract, including existing runtime
-  mode and once-only evaluation. These are not stdlib API tests.
+  mode, eager Boolean operands, and once-only evaluation. These are not stdlib
+  API tests. Observable evaluation cases must detect a skipped, duplicated,
+  or reordered operand in ordinary code and predicates that remain
+  runtime-required. Existing statically proven executable clauses may still
+  omit their runtime checks as specified by the current contract mode.
 - Future stdlib adoption: API behavior belongs in Veln companion tests under
   `crates/veln-stdlib/veln/`, following the
   [test placement policy](../reference/toolchain-test-harness.md#test-placement-policy).
@@ -390,7 +540,8 @@ Planned verification ownership:
   nested callable contracts, mixed modes, private-name exclusion, and atomic
   failure for an invalid static summary.
 - Incremental checking: language-service tests that change only an imported
-  static contract and compare saved diagnostics with a fresh check.
+  static contract or its implementation body and compare saved diagnostics with
+  a fresh check, including invalidation and recovery of documentation views.
 
 Before Ready selection, P1 must define operation-count budgets for long Boolean
 conditions, deep aliases, and repeated call summaries. Compare doubled input
@@ -405,8 +556,9 @@ not a portable acceptance threshold. Run generated/analysis workloads through
 This proposal stays under Design In Progress until P1–P5 have precise grammar,
 mandatory proof rules, trust boundaries, diagnostic schemas, work limits, and
 reviewed feasibility evidence. In particular, callback contract joins, `?`
-return facts, and invalid recursive-component publication must be exercised
-before promising compositional guarantees. No independent ownership/effect or
+return facts, eager operands, record fact transfer, unreachable-path obligations,
+and invalid recursive-component publication must be exercised before promising
+compositional guarantees. No independent ownership/effect or
 numeric-language redesign is a prerequisite for the restricted slice.
 
 A later Ready target must select a complete externally observable slice and
