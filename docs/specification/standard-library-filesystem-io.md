@@ -176,7 +176,10 @@ returns before cancellation is observed, the replacement is published and the
 cell is released before cancellation is reported; the cancelled task does not
 receive the callback result. Every outcome releases admission bookkeeping.
 Cancellation remains cooperative when a callback neither returns, fails, nor
-reaches a generated checkpoint.
+reaches a generated checkpoint. State values, callback context, replacements,
+and results can contain deeply nested Veln lists without consuming JVM
+call-stack depth in proportion to the list depth. A completed deep-value
+transition leaves the cell available for a later update.
 
 Within an active `io_provider::scope`, `io_provider::resource` accepts an
 unused nonnegative private slot for `ViewFamily::ReadFile` only when active
@@ -316,7 +319,9 @@ other declaration establishes only its static capability and effect boundary.
 - Private JVM adapter linkage:
   [`java_helpers_and_mapping.rs`](../../crates/veln-backend-jvm/src/tests/java_helpers_and_mapping.rs).
 - JVM-controlled atomic admission, cancellation checkpoints, publication,
-  failure, reentrancy, task freezing, and release:
+  failure identity, reentrancy, task freezing, release, and reusable
+  100,000-element list state, context, replacement, and result values without
+  nesting-proportional JVM stack use:
   [`AtomicStateHarness.java`](../../crates/veln-backend-jvm/test-support/AtomicStateHarness.java).
 - JVM retention of the captured operation-handler identities after their
   dynamic scopes exit:

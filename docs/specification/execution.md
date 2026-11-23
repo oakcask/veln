@@ -142,7 +142,10 @@ Every completed, failed, or cancellation-observing update releases the cell.
 Generated checkpoints remain active inside an admitted callback, including a
 compiled tail-recursive callback; a pure callback that reaches no checkpoint
 and does not return or fail retains the cell without a bounded cancellation
-latency.
+latency. Freezing state, context, replacement, and result values at this
+boundary does not consume JVM call-stack depth in proportion to nested Veln
+list depth. Deeply nested lists therefore do not strand an otherwise reusable
+cell at the host boundary.
 
 The JVM runtime also provides the bounded metric-series index reached by the
 embedded standard package through private `production_metric_index_*`
