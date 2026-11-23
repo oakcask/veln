@@ -102,7 +102,7 @@ discovery guidance; the linked subject pages own behavior and evidence.
   stream adapter:
   [standard-library-networking.md](standard-library-networking.md).
 - Exported filesystem and shared byte IO declarations, opaque capability
-  boundaries, file-view families, the bounded `ReadFile`, `WriteFile`, and `AppendFile`
+  boundaries, file-view families, the bounded `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile`
   registration and projection prototypes, and the remaining runtime limits:
   [standard-library-filesystem-io.md](standard-library-filesystem-io.md).
 - Exported pure portable path values, ordered lexical validation, exact

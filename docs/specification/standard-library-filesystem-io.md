@@ -9,9 +9,9 @@ update-when: The exported io, fs, or io_provider static source API, opaque capab
 
 The standard package exports `io`, `fs`, and `io_provider`. Their current
 contract combines a compiler-checked static surface with bounded `ReadFile`,
-`WriteFile`, and `AppendFile` registration and projection prototypes. It lets provider and
-generic IO source check capability-correct signatures and exercise three runtime
-resource families.
+`WriteFile`, `UpdateFile`, and `AppendFile` registration and projection
+prototypes. It lets provider and generic IO source check capability-correct
+signatures and exercise four runtime resource families.
 It is not a production filesystem API.
 
 ## Imports and static surface
@@ -129,7 +129,7 @@ retains `concurrency`, and the resource projections are pure.
 
 `ViewFamily` is `ReadFile`, `WriteFile`, `UpdateFile`, `AppendFile`, or
 `Duplex`. The registration selector does not add capabilities by itself.
-Only the bounded `ReadFile`, `WriteFile`, and `AppendFile` runtime behavior described below
+Only the bounded `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile` runtime behavior described below
 is implemented.
 
 The compiler adapters behind these declarations are available only to source
@@ -185,35 +185,60 @@ the slot. A negative or duplicate slot returns `io::ErrorKind::InvalidInput`.
 Neither same-family nor cross-family duplicate registration replaces the
 existing resource.
 
+For `ViewFamily::UpdateFile`, registration requires active `io::Read`,
+`io::Write`, `io::Seek`, `io::ReadAt`, `io::WriteAt`, `io::Close`, `io::Sync`,
+and `fs::Mutate` handlers. It validates the active owner and the nonnegative,
+unused slot before resolving handlers. Registration captures all eight
+handlers without invoking them and publishes the resource only after the
+complete handler set is available. A missing handler returns
+`io::ErrorKind::Unsupported`, publishes nothing, and leaves the slot available
+for a later complete registration. Negative and duplicate slots return
+`io::ErrorKind::InvalidInput`. Same-family duplicates and cross-family
+duplicates with `ReadFile`, `WriteFile`, and `AppendFile` preserve the original
+resource regardless of registration order.
+
 `io_provider::read_file` projects an accepted resource into reader, seeker,
 positional-reader, and closer capabilities. The resource and every projected
 capability retain the registration owner and private slot, as observed by the
 matching slot accessors. Projecting the resource through
-`io_provider::duplex` returns `io::ErrorKind::Unsupported`. That failed
-projection does not alter the resource, and a later `read_file` projection
-still succeeds.
+`io_provider::update_file` or `io_provider::duplex` returns
+`io::ErrorKind::Unsupported`. These failed projections do not alter the
+resource, and a later `read_file` projection still succeeds.
 
 `io_provider::append_file` projects an accepted `AppendFile` resource into
 writer, closer, and syncer capabilities. The resource and all three projected
 capabilities retain the registration owner and private slot. Projecting the
-resource through `io_provider::read_file` or `io_provider::duplex` returns
-`io::ErrorKind::Unsupported`. Neither failure changes the resource, and a
-later `append_file` projection still succeeds.
+resource through `io_provider::read_file`, `io_provider::update_file`, or
+`io_provider::duplex` returns `io::ErrorKind::Unsupported`. None of these
+failures changes the resource, and a later `append_file` projection still
+succeeds.
 
 `io_provider::write_file` projects an accepted `WriteFile` resource into
 writer, seeker, positional-writer, closer, syncer, and truncater capabilities.
 The resource retains all six captured operation handlers. Each projected
 capability retains its corresponding handler plus the registration owner and
 private slot after the registration handler scopes exit. Projecting the
-resource through `read_file`, `append_file`, or `duplex` returns
+resource through `read_file`, `update_file`, `append_file`, or `duplex` returns
 `io::ErrorKind::Unsupported`. These failures do not change the resource, and a
 later `write_file` projection still succeeds.
+
+`io_provider::update_file` projects an accepted `UpdateFile` resource into
+reader, writer, seeker, positional-reader, positional-writer, closer, syncer,
+and truncater capabilities in that order. The resource and every capability
+retain their registration owner, private slot, and corresponding captured
+handler after the supplying handler scopes exit. Projecting the resource
+through `read_file`, `write_file`, `append_file`, or `duplex` returns
+`io::ErrorKind::Unsupported`. These failures do not change the resource, and a
+later `update_file` projection still succeeds.
+
+The incompatible projections involving `UpdateFile` do not invoke any
+operation handler captured by the resource.
 
 ## Runtime limits
 
 This surface is not a production filesystem implementation. Runtime
-registration and projection are limited to the observations above. `UpdateFile`,
-and `Duplex` registration and projection remain static declarations only.
+registration and projection are limited to the observations above. `Duplex`
+registration and projection remain static declarations only.
 Compatibility combinations not described above remain outside the bounded
 runtime contract and require planned evidence. Operation dispatch through a
 resource, multiple-provider allocation, atomic provider state, publication
@@ -238,8 +263,9 @@ establishes only its static capability and effect boundary.
   `examples/specification/check/filesystem-io-opaque-identities/`.
 - Private compiler-adapter boundary:
   `examples/specification/check/filesystem-io-private-adapters/`.
-- `ReadFile`, `WriteFile`, and `AppendFile` registration, missing-handler rejection, slot
-  preservation, and projection behavior on the JVM-backed companion runner:
+- `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile` registration,
+  missing-handler rejection, slot preservation, and projection behavior on the
+  JVM-backed companion runner:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with scoped fakes in
   [`io_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_test_support_test.veln).
@@ -250,6 +276,11 @@ establishes only its static capability and effect boundary.
   [`IoProviderAppendFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderAppendFileHarness.java)
   and
   [`IoProviderWriteFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderWriteFileHarness.java).
+- JVM validation before `UpdateFile` publication and retention of all eight
+  captured handlers:
+  [`IoProviderUpdateFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderUpdateFileHarness.java).
 - JVM registry identity preservation after same-family and cross-family
   duplicate registration:
-  [`IoProviderWriteFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderWriteFileHarness.java).
+  [`IoProviderWriteFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderWriteFileHarness.java)
+  and
+  [`IoProviderUpdateFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderUpdateFileHarness.java).
