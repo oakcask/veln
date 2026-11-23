@@ -9,9 +9,9 @@ update-when: The exported io, fs, or io_provider static source API, opaque capab
 
 The standard package exports `io`, `fs`, and `io_provider`. Their current
 contract combines a compiler-checked static surface with bounded `ReadFile`,
-`WriteFile`, `UpdateFile`, and `AppendFile` registration and projection prototypes. It lets provider and
-generic IO source check capability-correct signatures and exercise four runtime
-resource families.
+`WriteFile`, `UpdateFile`, and `AppendFile` registration and projection
+prototypes. It lets provider and generic IO source check capability-correct
+signatures and exercise four runtime resource families.
 It is not a production filesystem API.
 
 ## Imports and static surface
@@ -202,17 +202,16 @@ positional-reader, and closer capabilities. The resource and every projected
 capability retain the registration owner and private slot, as observed by the
 matching slot accessors. Projecting the resource through
 `io_provider::update_file` or `io_provider::duplex` returns
-`io::ErrorKind::Unsupported`. These failed
-projection does not alter the resource, and a later `read_file` projection
-still succeeds.
+`io::ErrorKind::Unsupported`. These failed projections do not alter the
+resource, and a later `read_file` projection still succeeds.
 
 `io_provider::append_file` projects an accepted `AppendFile` resource into
 writer, closer, and syncer capabilities. The resource and all three projected
 capabilities retain the registration owner and private slot. Projecting the
 resource through `io_provider::read_file`, `io_provider::update_file`, or
-`io_provider::duplex` returns
-`io::ErrorKind::Unsupported`. None of these failures changes the resource, and a
-later `append_file` projection still succeeds.
+`io_provider::duplex` returns `io::ErrorKind::Unsupported`. None of these
+failures changes the resource, and a later `append_file` projection still
+succeeds.
 
 `io_provider::write_file` projects an accepted `WriteFile` resource into
 writer, seeker, positional-writer, closer, syncer, and truncater capabilities.
@@ -231,6 +230,9 @@ handler after the supplying handler scopes exit. Projecting the resource
 through `read_file`, `write_file`, `append_file`, or `duplex` returns
 `io::ErrorKind::Unsupported`. These failures do not change the resource, and a
 later `update_file` projection still succeeds.
+
+The incompatible projections involving `UpdateFile` do not invoke any
+operation handler captured by the resource.
 
 ## Runtime limits
 
@@ -261,8 +263,9 @@ establishes only its static capability and effect boundary.
   `examples/specification/check/filesystem-io-opaque-identities/`.
 - Private compiler-adapter boundary:
   `examples/specification/check/filesystem-io-private-adapters/`.
-- `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile` registration, missing-handler rejection, slot
-  preservation, and projection behavior on the JVM-backed companion runner:
+- `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile` registration,
+  missing-handler rejection, slot preservation, and projection behavior on the
+  JVM-backed companion runner:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with scoped fakes in
   [`io_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_test_support_test.veln).
