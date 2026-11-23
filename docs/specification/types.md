@@ -383,9 +383,11 @@ returned record when available, or from the expected result otherwise. It then
 checks a pure `fn(T, C) -> {state: T, result: R}` callback. These rules
 use the checked types of the argument expressions. Record-field expressions
 and branch-selected state values or callbacks therefore supply their concrete
-types. The rules preserve the generic arguments through core lowering instead
-of replacing them with `unknown`. The opaque state API and its runtime behavior
-are specified by
+types. The `T` argument of `State<T>` is invariant: a cell cannot be assigned
+to a state type with a wider or narrower value shape. This preserves the value
+type expected by every callback that shares the cell. The rules preserve the
+generic arguments through core lowering instead of replacing them with
+`unknown`. The opaque state API and its runtime behavior are specified by
 [Standard-library filesystem and byte IO](standard-library-filesystem-io.md#file-view-runtime-prototype).
 
 The same expected-function rule applies to ordinary same-module helpers, visible

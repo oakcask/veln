@@ -138,10 +138,11 @@ described below are implemented.
 The compiler adapters behind these declarations are available only to source
 embedded in the standard package. Application source cannot call their
 reserved `prelude_builtin` names, including by changing the name casing. Each
-admitted adapter has the same fixed operand and result types as its standard
-wrapper. Generic state adapters retain their inferred `T`, `C`, and `R` at the
-wrapper boundary. An expected type at a call site cannot reinterpret an owner
-as a byte capability or replace a required owner operand with an integer.
+reserved adapter is an implementation boundary, not a separately callable
+source API. The public declarations above own the fixed operand and result
+types. Generic state wrapper calls retain their inferred `T`, `C`, and `R` at
+that boundary. An expected type at a call site cannot reinterpret an owner as a
+byte capability or replace a required owner operand with an integer.
 
 ## Capability boundaries
 

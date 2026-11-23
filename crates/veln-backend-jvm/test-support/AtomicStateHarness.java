@@ -3,6 +3,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class AtomicStateHarness {
     private static Map<String, Object> transition(Object state, Object result) {
@@ -323,6 +324,57 @@ public final class AtomicStateHarness {
         require(read(cell) == 77L, "later update did not publish after deep values");
     }
 
+    private static void unrelatedInterruptDoesNotStrandAdmission() throws Exception {
+        Object cell = VelnRuntime.ioProviderState(Long.valueOf(80));
+        CountDownLatch admitted = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        AtomicBoolean waiterInterruptRestored = new AtomicBoolean(false);
+        AtomicReference<Throwable> failure = new AtomicReference<Throwable>();
+        Thread holder = new Thread(() -> {
+            try {
+                VelnRuntime.ioProviderStateUpdate(
+                    cell,
+                    VelnRuntime.UNIT,
+                    (VelnRuntime.Fn) args -> {
+                        admitted.countDown();
+                        await(release, "interrupted waiter holder release");
+                        return transition(Long.valueOf(81), VelnRuntime.UNIT);
+                    }
+                );
+            } catch (Throwable caught) {
+                failure.compareAndSet(null, caught);
+            }
+        });
+        Thread waiter = new Thread(() -> {
+            try {
+                VelnRuntime.ioProviderStateUpdate(
+                    cell,
+                    VelnRuntime.UNIT,
+                    (VelnRuntime.Fn) args -> transition(
+                        Long.valueOf(((Long) args[0]).longValue() + 1L),
+                        VelnRuntime.UNIT
+                    )
+                );
+                waiterInterruptRestored.set(Thread.currentThread().isInterrupted());
+            } catch (Throwable caught) {
+                failure.compareAndSet(null, caught);
+            }
+        });
+        holder.start();
+        await(admitted, "interrupt holder admission");
+        waiter.start();
+        waitForBlocked(waiter, "interrupt admission waiter");
+        waiter.interrupt();
+        release(release);
+        holder.join(TimeUnit.SECONDS.toMillis(10));
+        waiter.join(TimeUnit.SECONDS.toMillis(10));
+        require(!holder.isAlive(), "interrupted waiter stranded the admitted publisher");
+        require(!waiter.isAlive(), "interrupted waiter did not finish after publication");
+        require(failure.get() == null, "interrupt admission case failed: " + failure.get());
+        require(waiterInterruptRestored.get(), "unrelated waiter interrupt was not restored");
+        require(read(cell) == 82L, "interrupted waiter did not serialize after publication");
+    }
+
     public static void main(String[] args) throws Exception {
         serializationAndIdentity();
         cancellationBeforeAdmission();
@@ -330,5 +382,6 @@ public final class AtomicStateHarness {
         cancellationAfterCallbackReturnPublishes();
         failuresAndReentrancyPreserveAndRelease();
         deeplyNestedValuesAreStackBoundedAndReusable();
+        unrelatedInterruptDoesNotStrandAdmission();
     }
 }

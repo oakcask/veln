@@ -308,6 +308,17 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn shallow_expr_type(&self, expr: &Expr) -> Option<CoreType> {
+        if let Some(cached) = self.shallow_type_cache.borrow().get(&expr.node_id) {
+            return cached.clone();
+        }
+        let ty = self.uncached_shallow_expr_type(expr);
+        self.shallow_type_cache
+            .borrow_mut()
+            .insert(expr.node_id, ty.clone());
+        ty
+    }
+
+    fn uncached_shallow_expr_type(&self, expr: &Expr) -> Option<CoreType> {
         match &expr.kind {
             ExprKind::StringLiteral(_) => Some(CoreType::string()),
             ExprKind::IntLiteral(_) => Some(CoreType::int()),

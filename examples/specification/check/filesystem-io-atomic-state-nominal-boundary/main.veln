@@ -8,10 +8,25 @@ fn replace(value: Int, context: ()) -> {state: Int, result: Int}
 	{state: value, result: value}
 end
 
+fn replace_width(value: {name: String}, context: String) -> {state: {name: String}, result: ()}
+	{state: {name: context}, result: ()}
+end
+
+fn read_retained(value: {name: String, retained: String}, context: ()) -> {state: {name: String, retained: String}, result: String}
+	{state: value, result: value.retained}
+end
+
 pub fn forged_allocation() -> State<Int> effects [concurrency]
 	standard::state(1)
 end
 
 pub fn forged_update(cell: State<Int>) -> Int effects [concurrency]
 	standard::update(cell, (), replace)
+end
+
+pub fn invariant_state_argument() -> String effects [concurrency]
+	let precise = standard::state({name: "first", retained: "kept"})
+	let widened: standard::State<{name: String}> = precise
+	let _ = standard::update(widened, "second", replace_width)
+	standard::update(precise, (), read_retained)
 end

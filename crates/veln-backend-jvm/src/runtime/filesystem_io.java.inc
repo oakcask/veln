@@ -38,6 +38,7 @@
         IoState state = (IoState) stateValue;
         Thread current = Thread.currentThread();
         Object oldValue;
+        boolean admissionWaitInterrupted = false;
         synchronized (state) {
             if (state.admittedBy == current) {
                 throw new RuntimeFailure("reentrant io provider state update");
@@ -48,13 +49,14 @@
                     state.wait();
                 } catch (InterruptedException interrupted) {
                     throwTaskCancellationIfRequested();
-                    Thread.currentThread().interrupt();
+                    admissionWaitInterrupted = true;
                 }
             }
             throwTaskCancellationIfRequested();
             state.admittedBy = current;
             oldValue = state.value;
         }
+        if (admissionWaitInterrupted) current.interrupt();
 
         boolean published = false;
         try {

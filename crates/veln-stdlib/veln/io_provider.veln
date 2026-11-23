@@ -9,7 +9,7 @@ pub type Resource = IoResource
 ## Opaque synchronized storage for provider implementations. The private
 ## representation prevents source code from inspecting or forging a cell.
 pub type State<T>
-	State(value: T)
+	State(transition: fn(T) -> T)
 end
 
 pub type ViewFamily

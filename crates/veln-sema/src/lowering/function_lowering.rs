@@ -16,6 +16,7 @@ impl<'a> CoreLowerer<'a> {
             generated_local_count: 0,
             defer_capture_boundaries: Vec::new(),
             defer_captures: Vec::new(),
+            shallow_type_cache: RefCell::new(HashMap::new()),
         }
     }
 

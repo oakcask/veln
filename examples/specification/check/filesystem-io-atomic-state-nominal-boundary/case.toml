@@ -1,5 +1,6 @@
-# Placement: this compiler case owns the nominal boundary between the opaque
-# standard atomic state and an application declaration with the same name.
+# Placement: this compiler case owns the nominal and invariant generic
+# boundaries of the opaque standard atomic state. Its width-loss case would
+# make a later callback observe a value outside its checked state type.
 command = ["check", "--json", "main.veln"]
 exit = 1
 
@@ -11,7 +12,7 @@ format = "empty"
 
 [[json_assert]]
 path = "summary.by_kind.type"
-equals = 2
+equals = 3
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -19,4 +20,8 @@ equals = "type.mismatch"
 
 [[json_assert]]
 path = "diagnostics.1.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.2.id"
 equals = "type.mismatch"

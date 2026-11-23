@@ -14,6 +14,9 @@ use veln_core::{
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_literals::parse_integer_literal;
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+
 use crate::adt::descriptors::{AdtConstructor, AdtVariantKind};
 use crate::adt::registry::{ConstructorLookup, ConstructorShape};
 use crate::adt::{type_operations as adt, unification};
@@ -90,6 +93,7 @@ struct CoreLowerer<'a> {
     generated_local_count: usize,
     defer_capture_boundaries: Vec<usize>,
     defer_captures: Vec<Vec<CoreDeferredCapture>>,
+    shallow_type_cache: RefCell<HashMap<veln_ast::NodeId, Option<CoreType>>>,
 }
 
 impl CoreLowerer<'_> {
