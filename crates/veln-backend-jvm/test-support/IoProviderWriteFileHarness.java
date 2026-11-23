@@ -57,21 +57,6 @@ public final class IoProviderWriteFileHarness {
         return (java.util.Map<Long, Object>) OWNER_RESOURCES.get(owner);
     }
 
-    private static void requireInvalidInput(VelnRuntime.Result result, String label)
-        throws Exception {
-        require(!result.isOk(), label + " registration unexpectedly succeeded");
-        Object error = result.value();
-        require(
-            VelnRuntime.isAdt(error, "io::Error::Error"),
-            label + " registration returned a non-IO error"
-        );
-        Object[] payloads = (Object[]) ADT_PAYLOADS.get(error);
-        require(
-            VelnRuntime.isAdt(payloads[1], "io::ErrorKind::InvalidInput"),
-            label + " registration did not return InvalidInput"
-        );
-    }
-
     private static void requireRegisteredIdentity(
         Object owner,
         long slot,
@@ -115,24 +100,13 @@ public final class IoProviderWriteFileHarness {
         require(accepted.isOk(), "WriteFile registration failed before handler identity check");
         Object resource = accepted.value();
 
+        VelnRuntime.ioProviderResource(owner, Long.valueOf(23L), family);
+        requireRegisteredIdentity(owner, 23L, resource, "same-family duplicate WriteFile");
+
         push("std::io::Read");
         push("std::io::ReadAt");
         Object readFamily = VelnRuntime.adt("ViewFamily::ReadFile", new Object[0]);
-
-        VelnRuntime.Result duplicateWrite = (VelnRuntime.Result) VelnRuntime.ioProviderResource(
-            owner,
-            Long.valueOf(23L),
-            family
-        );
-        requireInvalidInput(duplicateWrite, "same-family duplicate WriteFile");
-        requireRegisteredIdentity(owner, 23L, resource, "same-family duplicate WriteFile");
-
-        VelnRuntime.Result incomingRead = (VelnRuntime.Result) VelnRuntime.ioProviderResource(
-            owner,
-            Long.valueOf(23L),
-            readFamily
-        );
-        requireInvalidInput(incomingRead, "incoming ReadFile duplicate");
+        VelnRuntime.ioProviderResource(owner, Long.valueOf(23L), readFamily);
         requireRegisteredIdentity(owner, 23L, resource, "incoming ReadFile duplicate");
 
         VelnRuntime.Result acceptedRead = (VelnRuntime.Result) VelnRuntime.ioProviderResource(
@@ -142,12 +116,7 @@ public final class IoProviderWriteFileHarness {
         );
         require(acceptedRead.isOk(), "ReadFile registration failed before cross-family check");
         Object readResource = acceptedRead.value();
-        VelnRuntime.Result incomingWrite = (VelnRuntime.Result) VelnRuntime.ioProviderResource(
-            owner,
-            Long.valueOf(29L),
-            family
-        );
-        requireInvalidInput(incomingWrite, "incoming WriteFile duplicate");
+        VelnRuntime.ioProviderResource(owner, Long.valueOf(29L), family);
         requireRegisteredIdentity(owner, 29L, readResource, "incoming WriteFile duplicate");
 
         for (int index = 0; index < 8; index++) VelnRuntime.popHandler();

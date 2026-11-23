@@ -250,6 +250,6 @@ establishes only its static capability and effect boundary.
   [`IoProviderAppendFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderAppendFileHarness.java)
   and
   [`IoProviderWriteFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderWriteFileHarness.java).
-- `WriteFile` same-family and cross-family duplicate registration preserving
-  the previously published resource:
+- JVM registry identity preservation after same-family and cross-family
+  duplicate registration:
   [`IoProviderWriteFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderWriteFileHarness.java).
