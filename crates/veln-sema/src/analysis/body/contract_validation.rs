@@ -309,7 +309,7 @@ impl<'a> FunctionChecker<'a> {
                     return (params, None, return_type, signature.effects.clone(), false);
                 }
                 (
-                    signature.params.clone(),
+                    signature.params.to_vec(),
                     signature.variadic.clone(),
                     signature.return_type.clone(),
                     signature.effects.clone(),

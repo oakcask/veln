@@ -370,7 +370,7 @@ fn invalid_function_recovery_signature(
         module_name: function.module_name.clone(),
         package_name: function.package_name.clone(),
         visibility: function.visibility,
-        params,
+        params: params.into(),
         variadic,
         return_type: parse_type_or_unknown(function.return_type.as_deref()),
         effects: function.effects.clone().unwrap_or_default(),

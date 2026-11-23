@@ -101,7 +101,7 @@ fn ordinary_function_signature(
             .iter()
             .filter(|param| !param.is_variadic)
             .map(|_| crate::semantic_model::Type::Unknown)
-            .collect();
+            .collect::<Vec<_>>();
         let variadic = function
             .params
             .iter()
@@ -152,7 +152,7 @@ fn ordinary_function_signature(
         module_name: function.module_name.clone(),
         package_name: function.package_name.clone(),
         visibility: function.visibility,
-        params,
+        params: params.into(),
         variadic,
         return_type,
         effects,

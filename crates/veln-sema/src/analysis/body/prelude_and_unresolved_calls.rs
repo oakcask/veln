@@ -1,4 +1,5 @@
 use super::*;
+use crate::semantic_model::TypeArgs;
 use crate::source_less_lookup::standard_module;
 use veln_ast::NameClass;
 
@@ -453,7 +454,7 @@ impl<'a> FunctionChecker<'a> {
         callee: &Expr,
         expected: Option<&Type>,
         handle_type: Option<&Type>,
-    ) -> Option<(Vec<Type>, Option<Type>, Type, CallOrigin)> {
+    ) -> Option<(TypeArgs, Option<Type>, Type, CallOrigin)> {
         let effective_bindings = self.effective_visible_bindings();
         let bindings = effective_bindings
             .iter()

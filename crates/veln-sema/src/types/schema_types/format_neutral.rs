@@ -39,7 +39,7 @@ pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
         module_name: schema.module_name.clone(),
         package_name: schema.package_name.clone(),
         visibility: schema.visibility,
-        params: vec![decoded_type.clone()],
+        params: vec![decoded_type.clone()].into(),
         variadic: None,
         return_type: Type::result(decoded_type, Type::string()),
         effects: Vec::new(),

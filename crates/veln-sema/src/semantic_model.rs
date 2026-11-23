@@ -274,6 +274,18 @@ impl PartialEq<TypeArgs> for Vec<Type> {
     }
 }
 
+impl<const N: usize> PartialEq<[Type; N]> for TypeArgs {
+    fn eq(&self, other: &[Type; N]) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+
+impl<const N: usize> PartialEq<TypeArgs> for [Type; N] {
+    fn eq(&self, other: &TypeArgs) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+
 impl Deref for TypeArgs {
     type Target = Vec<Type>;
 
@@ -542,7 +554,11 @@ impl Type {
         Self::static_named("Dict", Self::COMPILER_DICT_IDENTITY, vec![key, value])
     }
 
-    pub(crate) fn function(params: Vec<Type>, return_type: Type, effects: Vec<String>) -> Self {
+    pub(crate) fn function(
+        params: impl Into<TypeArgs>,
+        return_type: Type,
+        effects: Vec<String>,
+    ) -> Self {
         Self::Function {
             params: params.into(),
             variadic: None,
@@ -552,7 +568,7 @@ impl Type {
     }
 
     pub(crate) fn variadic_function(
-        params: Vec<Type>,
+        params: impl Into<TypeArgs>,
         variadic: Type,
         return_type: Type,
         effects: Vec<String>,
@@ -652,7 +668,7 @@ impl Type {
         }
     }
 
-    pub(crate) fn callable_parts(&self) -> Option<(&[Type], Option<&Type>, &Type)> {
+    pub(crate) fn callable_parts(&self) -> Option<(&TypeArgs, Option<&Type>, &Type)> {
         match self {
             Self::Function {
                 params,

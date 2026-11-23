@@ -410,7 +410,7 @@ pub(crate) fn collect_private_call_site_call_constraints(
             .constraints
             .signatures_by_path
             .get(&target_key)
-            .map(|signature| signature.params.clone())
+            .map(|signature| signature.params.to_vec())
         {
             for (index, arg) in args.iter().enumerate() {
                 if omitted_params.get(index).copied().unwrap_or(false) {
@@ -465,7 +465,7 @@ pub(crate) fn collect_private_call_site_call_constraints(
         .constraints
         .signatures_by_path
         .get(&target_key)
-        .map(|signature| signature.params.clone())
+        .map(|signature| signature.params.to_vec())
     else {
         return;
     };

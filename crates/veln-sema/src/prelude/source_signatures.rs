@@ -24,7 +24,7 @@ pub(super) fn compiler_adapter_callback_signature(
     source_prelude_callback_signatures()
         .iter()
         .find(|signature| signature.name == descriptor.name)
-        .map(|signature| (signature.params.clone(), signature.return_type.clone()))
+        .map(|signature| (signature.params.to_vec(), signature.return_type.clone()))
 }
 
 pub(super) fn source_prelude_callback_signatures() -> &'static [SourcePreludeSignature] {
