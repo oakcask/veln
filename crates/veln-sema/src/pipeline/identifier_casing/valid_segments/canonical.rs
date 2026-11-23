@@ -38,6 +38,9 @@ fn canonical_type_annotation_identities_with_context_impl(
     Vec<Option<CanonicalTypeAnnotationIdentity>>,
     CanonicalTypeAnnotationWork,
 ) {
+    if annotations.is_empty() {
+        return (Vec::new(), CanonicalTypeAnnotationWork::default());
+    }
     let environment = TypeEnvironment::for_path_classification(project);
     let mut type_parameter_contexts = BTreeMap::new();
     for (_, _, type_parameters) in annotations {
