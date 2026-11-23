@@ -2,9 +2,10 @@ use veln_ast::{Expr, ExprKind};
 use veln_core::{CoreCallTarget, CoreType};
 
 use crate::effects::{
-    concurrency_call_effects, concurrency_origin, concurrency_signature,
-    core_concurrency_signature, core_standard_library_signature, standard_library_origin,
-    standard_library_signature, stdio_signature,
+    ConcurrencyArgumentTypes, ConcurrencySignatureInputs, concurrency_call_effects,
+    concurrency_origin, concurrency_signature, core_concurrency_signature,
+    core_standard_library_signature, standard_library_origin, standard_library_signature,
+    stdio_signature,
 };
 use crate::prelude::{
     core_prelude_signature, prelude_signature, qualified_core_prelude_builtin_signature,
@@ -49,9 +50,7 @@ pub(crate) struct CoreCallSignature {
 
 struct TypeNamePathCallContext<'a> {
     expected: Option<&'a Type>,
-    handle_type: Option<&'a Type>,
-    context_type: Option<&'a Type>,
-    action_type: Option<&'a Type>,
+    argument_types: ConcurrencyArgumentTypes<'a, Type>,
     bindings: &'a [TypeBinding<'a>],
     environment: &'a TypeEnvironment,
     current_module: Option<&'a str>,
@@ -61,9 +60,7 @@ struct TypeNamePathCallContext<'a> {
 pub(crate) fn type_call_signature(
     callee: &Expr,
     expected: Option<&Type>,
-    handle_type: Option<&Type>,
-    context_type: Option<&Type>,
-    action_type: Option<&Type>,
+    argument_types: ConcurrencyArgumentTypes<'_, Type>,
     bindings: &[TypeBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
@@ -75,18 +72,14 @@ pub(crate) fn type_call_signature(
             segments,
             TypeNamePathCallContext {
                 expected,
-                handle_type,
-                context_type,
-                action_type,
+                argument_types,
                 bindings,
                 environment,
                 current_module,
                 current_package,
             },
         ),
-        ExprKind::TypeApply { .. } => {
-            type_applied_call_signature(callee, expected, handle_type, context_type, action_type)
-        }
+        ExprKind::TypeApply { .. } => type_applied_call_signature(callee, expected, argument_types),
         _ => None,
     }
 }
@@ -129,14 +122,9 @@ fn type_name_path_call_signature(
     {
         return Some(signature);
     }
-    if let Some(signature) = type_effect_call_signature(
-        callee,
-        segments,
-        context.expected,
-        context.handle_type,
-        context.context_type,
-        context.action_type,
-    ) {
+    if let Some(signature) =
+        type_effect_call_signature(callee, segments, context.expected, context.argument_types)
+    {
         return Some(signature);
     }
     match type_binding_call_signature(callee, segments, context.bindings) {
@@ -156,9 +144,7 @@ fn type_effect_call_signature(
     callee: &Expr,
     segments: &[String],
     expected: Option<&Type>,
-    handle_type: Option<&Type>,
-    context_type: Option<&Type>,
-    action_type: Option<&Type>,
+    argument_types: ConcurrencyArgumentTypes<'_, Type>,
 ) -> Option<TypeCallSignature> {
     if let Some(origin) = stdio_signature(segments, callee) {
         return Some(TypeCallSignature {
@@ -169,15 +155,16 @@ fn type_effect_call_signature(
         });
     }
     if let Some(origin) = concurrency_origin(segments, callee) {
+        let handle_type = argument_types.handle;
         let (params, return_type) = concurrency_signature(
             segments,
-            expected,
-            handle_type,
-            context_type,
-            action_type,
-            None,
-            None,
-            None,
+            ConcurrencySignatureInputs {
+                expected,
+                arguments: argument_types,
+                explicit_item: None,
+                explicit_context: None,
+                explicit_result: None,
+            },
         )?;
         let effects = concurrency_call_effects(segments, handle_type)?;
         return Some(TypeCallSignature {
@@ -202,9 +189,7 @@ fn type_effect_call_signature(
 fn type_applied_call_signature(
     callee: &Expr,
     expected: Option<&Type>,
-    handle_type: Option<&Type>,
-    context_type: Option<&Type>,
-    action_type: Option<&Type>,
+    argument_types: ConcurrencyArgumentTypes<'_, Type>,
 ) -> Option<TypeCallSignature> {
     let (segments, type_args) = type_applied_name_path(callee)?;
     let origin = concurrency_origin(segments, callee)?;
@@ -222,15 +207,16 @@ fn type_applied_call_signature(
         .get(2)
         .filter(|_| is_io_provider_update(segments))
         .and_then(|type_arg| parse_type_annotation(type_arg).ok());
+    let handle_type = argument_types.handle;
     let (params, return_type) = concurrency_signature(
         segments,
-        expected,
-        handle_type,
-        context_type,
-        action_type,
-        explicit_item.as_ref(),
-        explicit_context.as_ref(),
-        explicit_result.as_ref(),
+        ConcurrencySignatureInputs {
+            expected,
+            arguments: argument_types,
+            explicit_item: explicit_item.as_ref(),
+            explicit_context: explicit_context.as_ref(),
+            explicit_result: explicit_result.as_ref(),
+        },
     )?;
     let effects = concurrency_call_effects(segments, handle_type)?;
     Some(TypeCallSignature {
@@ -319,8 +305,20 @@ fn core_name_path_call_signature(
         });
     }
     if concurrency_origin(segments, callee).is_some() {
-        let (params, return_type) =
-            core_concurrency_signature(segments, expected, None, None, None, None, None, None)?;
+        let (params, return_type) = core_concurrency_signature(
+            segments,
+            ConcurrencySignatureInputs {
+                expected,
+                arguments: ConcurrencyArgumentTypes {
+                    handle: None,
+                    context: None,
+                    action: None,
+                },
+                explicit_item: None,
+                explicit_context: None,
+                explicit_result: None,
+            },
+        )?;
         return Some(CoreCallSignature {
             target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
             params,

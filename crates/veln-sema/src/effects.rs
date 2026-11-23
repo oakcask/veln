@@ -12,7 +12,10 @@ use crate::type_lowering::core_type;
 
 mod concurrency;
 
-pub(crate) use concurrency::{concurrency_signature, core_concurrency_signature};
+pub(crate) use concurrency::{
+    ConcurrencyArgumentTypes, ConcurrencySignatureInputs, concurrency_signature,
+    core_concurrency_signature,
+};
 
 pub(crate) const KNOWN_EFFECT_LABELS: &[&str] = &[
     "stdio",

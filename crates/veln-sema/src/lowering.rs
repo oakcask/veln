@@ -19,7 +19,10 @@ use crate::adt::registry::{ConstructorLookup, ConstructorShape};
 use crate::adt::{type_operations as adt, unification};
 use crate::call_resolution::CoreCallSignature;
 use crate::contracts::contract_predicate_is_statically_true_with_remainders;
-use crate::effects::{core_concurrency_signature, is_concurrency_call};
+use crate::effects::{
+    ConcurrencyArgumentTypes, ConcurrencySignatureInputs, core_concurrency_signature,
+    is_concurrency_call,
+};
 use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
 };

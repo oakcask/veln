@@ -206,13 +206,17 @@ impl<'a> CoreLowerer<'a> {
         let action_type = args.get(2).and_then(|arg| self.shallow_expr_type(arg));
         let signature = core_concurrency_signature(
             segments,
-            expected,
-            handle_type.as_ref(),
-            context_type.as_ref(),
-            action_type.as_ref(),
-            None,
-            None,
-            None,
+            ConcurrencySignatureInputs {
+                expected,
+                arguments: ConcurrencyArgumentTypes {
+                    handle: handle_type.as_ref(),
+                    context: context_type.as_ref(),
+                    action: action_type.as_ref(),
+                },
+                explicit_item: None,
+                explicit_context: None,
+                explicit_result: None,
+            },
         );
         Some(self.lower_concurrency_call_with_signature(expr, segments, args, signature))
     }
@@ -271,13 +275,17 @@ impl<'a> CoreLowerer<'a> {
             let action_type = args.get(2).and_then(|arg| self.shallow_expr_type(arg));
             let signature = core_concurrency_signature(
                 segments,
-                expected,
-                handle_type.as_ref(),
-                context_type.as_ref(),
-                action_type.as_ref(),
-                explicit_item.as_ref(),
-                explicit_context.as_ref(),
-                explicit_result.as_ref(),
+                ConcurrencySignatureInputs {
+                    expected,
+                    arguments: ConcurrencyArgumentTypes {
+                        handle: handle_type.as_ref(),
+                        context: context_type.as_ref(),
+                        action: action_type.as_ref(),
+                    },
+                    explicit_item: explicit_item.as_ref(),
+                    explicit_context: explicit_context.as_ref(),
+                    explicit_result: explicit_result.as_ref(),
+                },
             );
             return Some(
                 self.lower_concurrency_call_with_signature(expr, segments, args, signature),

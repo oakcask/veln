@@ -468,9 +468,11 @@ impl<'a> FunctionChecker<'a> {
         let signature = crate::call_resolution::type_call_signature(
             callee,
             expected,
-            handle_type,
-            context_type,
-            action_type,
+            crate::effects::ConcurrencyArgumentTypes {
+                handle: handle_type,
+                context: context_type,
+                action: action_type,
+            },
             &bindings,
             self.environment,
             self.function.module_name.as_deref(),
