@@ -372,6 +372,19 @@ fn materialize_reachable_functions(
     inputs: &ReachabilityInputs<'_>,
     reachable: &HashSet<ReachableFunction>,
 ) -> Vec<Function> {
+    let aliased_targets = reachable
+        .iter()
+        .filter(|function| function.alias.is_some())
+        .map(|function| {
+            (
+                function.kind,
+                function.package_name.as_deref(),
+                function.module_name.as_deref(),
+                function.name.as_str(),
+                function.node_id,
+            )
+        })
+        .collect::<HashSet<_>>();
     inputs
         .functions()
         .filter(|function| {
@@ -397,13 +410,13 @@ fn materialize_reachable_functions(
                     package_name: function.package_name.clone(),
                     node_id: Some(function.node_id),
                     alias: None,
-                }) || reachable.iter().any(|reachable| {
-                    reachable.kind == function.kind
-                        && reachable.name == *name
-                        && reachable.module_name == function.module_name
-                        && reachable.package_name == function.package_name
-                        && reachable.node_id == Some(function.node_id)
-                })
+                }) || aliased_targets.contains(&(
+                    function.kind,
+                    function.package_name.as_deref(),
+                    function.module_name.as_deref(),
+                    name.as_str(),
+                    Some(function.node_id),
+                ))
             })
         })
         .inspect(|_function| {
