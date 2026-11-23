@@ -133,6 +133,29 @@ fn io_provider_update_file_validates_before_publication_and_retains_handlers() {
 }
 
 #[test]
+fn io_provider_duplex_validates_before_publication_and_retains_handlers() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "io-provider-duplex-identities",
+        "IoProviderDuplexHarness.java",
+        include_str!("../../test-support/IoProviderDuplexHarness.java"),
+        &program,
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn jvm_runtime_schema_refinement_validation_rejects_negative_offsets() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

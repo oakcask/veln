@@ -17,12 +17,9 @@ also states it.
 ## Ready
 
 - [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete the
-  remaining F1 `Duplex` resource family and compatibility evidence not covered
-  by the bounded implemented slices, then F2–F5
-  evidence for provider-bound dispatch, atomic Veln state, transfer outcomes,
-  and cleanup. The F1 static boundary and bounded `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile`
-  registration and projection slices are implemented; the target does not require the
-  production filesystem API to be implemented first.
+  F2–F5 evidence for provider-bound dispatch, atomic Veln state, transfer
+  outcomes, and cleanup. The target does not require the production filesystem
+  API to be implemented first.
 
 ## Design In Progress
 
