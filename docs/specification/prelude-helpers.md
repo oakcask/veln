@@ -35,7 +35,9 @@ The descriptor-backed subset covers stdio effect metadata, concurrency effect
 metadata, minimal `fs`, `time`, and `process` intrinsics, observation-export
 adapters, private network host adapters, private filesystem IO adapters,
 private production metric-index adapters, and opaque network and filesystem IO
-resource type identities.
+resource type identities. The filesystem identities include the generic,
+invariant provider-state cell used by the compiler-known `io_provider` state
+operations.
 The private filesystem IO adapter surface and its runtime-readiness boundary
 are specified by
 [Standard-library filesystem and byte IO](standard-library-filesystem-io.md).
@@ -48,7 +50,9 @@ Constructor-bearing descriptors such as `Option`, `Result`, and `List` expose
 a finite set. The compiler-owned `Dict` identity has an opaque descriptor for
 public type-alias resolution; an alias retains dictionary identity without
 gaining constructors or variant refinements. The network and filesystem IO
-resource descriptors are also opaque. The
+resource descriptors are also opaque. The provider-state descriptor retains
+one invariant type argument; its public construction and update boundary
+remains the responsibility of the filesystem IO specification. The
 [type](types.md#compatibility-and-limits) and
 [diagnostic](diagnostics-json.md#diagnostic-families) specifications own the
 observable refinement rules and failures. The toolchain

@@ -325,6 +325,14 @@ join reports cancellation. The effect boundary during unwinding is specified by
 [effects.md](effects.md#effect-labels). The backend transfers a successful
 `begin` value only after that region's cleanup completes.
 
+An admitted `io_provider::update` is also an atomic cancellation boundary. A
+pending cancellation is delivered before callback entry or after the
+replacement and result have committed and the cell lock has been released. It
+is not delivered at callback checkpoints inside that interval. The
+[atomic provider state specification](standard-library-filesystem-io.md#atomic-provider-state)
+defines rollback, reentrancy, identity, and publication behavior for this
+boundary.
+
 Integer remainder evaluates the left operand once and then the right operand
 once. A failure in the left operand prevents evaluation of the right operand.
 A zero divisor discovered at runtime raises `runtime.remainder_by_zero` and

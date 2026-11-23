@@ -335,8 +335,11 @@ prototype. Those names and their capability operands are specified by
 [Standard-library filesystem and byte IO](standard-library-filesystem-io.md).
 They do not replace the compiler-known calls below. The prototype supports
 bounded five-family provider registration and projection through the required
-active operation handlers, but it does not
-yet dispatch byte operations or access the host filesystem. The bare coarse
+active operation handlers. Its compiler-known `io_provider::state` and
+`io_provider::update` calls infer `concurrency`; the update callback itself
+must be pure. The exact generic signatures and atomic transition behavior are
+specified by the linked filesystem page. The prototype does not yet dispatch
+byte operations or access the host filesystem. The bare coarse
 `fs` effect remains the host effect retained by the prototype's
 `fs::system_handler()` declaration.
 

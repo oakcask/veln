@@ -35,9 +35,9 @@ Implemented type annotations:
   `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`,
   `AcceptOutcome`, `StreamReadOutcome`, `DecodeStep<T>`,
   `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
-- opaque network, filesystem-provider, filesystem-token, and byte-capability
-  resource names, including public standard-package aliases that resolve to
-  those resource types
+- opaque network, filesystem-provider, filesystem-token, provider-state, and
+  byte-capability resource names, including public standard-package aliases
+  that resolve to those resource types
 - the standard structural wall-clock name `WallTime`
 - records: `{name: Type, ...}`
 - function types: `fn(T) -> U`, `fn(T, U) -> V`, or `fn(T, ...U) -> V`
@@ -120,14 +120,17 @@ literals; only the `time::wall_time` boundary provides normalized readings. A
 source-declared ADT named `WallTime`, and an alias that targets that ADT,
 remain nominal and do not acquire the standard record fields.
 
-`NetListener`, `NetStream`, `IoOwner`, `IoResource`, `FsFilesystem`,
-`FsMutableFilesystem`, `IoReader`, `IoWriter`, `IoSeeker`, `IoReaderAt`,
-`IoWriterAt`, `IoCloser`, `IoSyncer`, and `FsTruncater` are opaque nominal
-resource types. They have no source constructors or variants. Public standard
-package aliases expose the filesystem types through `fs`, `io`, and
-`io_provider`; the aliases preserve each distinct underlying identity. An
-alias chain does not make a handle constructible or expose a representation.
-The exported static surface and runtime limit are specified by
+`NetListener`, `NetStream`, `IoOwner`, `IoResource`, `IoProviderState<T>`,
+`FsFilesystem`, `FsMutableFilesystem`, `IoReader`, `IoWriter`, `IoSeeker`,
+`IoReaderAt`, `IoWriterAt`, `IoCloser`, `IoSyncer`, and `FsTruncater` are
+opaque nominal resource types. They have no source constructors or variants.
+`IoProviderState<T>` is invariant in `T`; distinct arguments cannot widen
+through the covariance rule for immutable compiler-owned containers. Public
+standard-package aliases expose the filesystem types through `fs`, `io`, and
+`io_provider`; the aliases preserve each distinct underlying identity and the
+state cell's type argument. An alias chain does not make a handle constructible
+or expose a representation. The exported static surface and runtime limit are
+specified by
 [Standard-library filesystem and byte IO](standard-library-filesystem-io.md).
 
 Public functions must annotate every parameter and the return type. Their

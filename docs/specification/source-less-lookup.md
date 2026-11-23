@@ -63,7 +63,7 @@ compiler adapter descriptors to publish.
 | Compiler-adapter descriptors reporting `compiler_adapter` | `prelude_builtin::name` |
 | The implicit standard module name reporting `standard_names` | `prelude` |
 | Built-in type-syntax descriptors reporting `type_syntax` | the built-in type constructor spelling |
-| Built-in ADT descriptors reporting `adt` | type and constructor lookup keys, such as `Option` and `Option::Some`; opaque network and filesystem IO resource types publish only their type names |
+| Built-in ADT descriptors reporting `adt` | type and constructor lookup keys, such as `Option` and `Option::Some`; opaque network and filesystem IO resource types, including `IoProviderState` with one type parameter, publish only their type names |
 
 ## Lookup Consumers
 
@@ -86,11 +86,13 @@ also provides an opaque descriptor for the compiler-owned `Dict` identity. A
 constructors or variant refinements.
 
 Opaque descriptors expose only their type identity. The opaque `NetListener`,
-`NetStream`, `IoOwner`, `IoResource`, `FsFilesystem`, `FsMutableFilesystem`,
-`IoReader`, `IoWriter`, `IoSeeker`, `IoReaderAt`, `IoWriterAt`, `IoCloser`,
-`IoSyncer`, and `FsTruncater` entries therefore let exported standard-package
-type aliases resolve to their compiler-provided resource identities without
-making a resource source-constructible or refinable. A built-in type-syntax identity
+`NetStream`, `IoOwner`, `IoResource`, `IoProviderState<T>`, `FsFilesystem`,
+`FsMutableFilesystem`, `IoReader`, `IoWriter`, `IoSeeker`, `IoReaderAt`,
+`IoWriterAt`, `IoCloser`, `IoSyncer`, and `FsTruncater` entries therefore let
+exported standard-package type aliases resolve to their compiler-provided
+resource identities without making a resource source-constructible or
+refinable. `IoProviderState<T>` retains one invariant argument; the other
+listed resource identities are not generic. A built-in type-syntax identity
 without an ADT descriptor likewise exposes no finite variant set. A source or
 imported type with the same displayed name retains its source-owned nominal
 identity; source-less fallback does not grant it a compiler-owned identity.
@@ -128,6 +130,11 @@ an unavailable private descriptor as a corrected target.
 Public `net::...` and `observe::...` declarations remain separate from these
 source-less routes: application source imports their modules from `std`, and
 the public operations retain their declared nominal effects.
+
+The runtime descriptor routes include `io_provider::state` and
+`io_provider::update`. Their generic signatures, `concurrency` effect, pure
+callback boundary, and runtime limits are specified by
+[Standard-library filesystem and byte IO](standard-library-filesystem-io.md).
 
 ## Limits
 
