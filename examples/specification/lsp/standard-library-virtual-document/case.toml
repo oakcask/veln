@@ -4,9 +4,9 @@ stdin_file = "case-text/root-stdin-1.raw"
 exit = 0
 
 [stdout]
-contains = ["\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/459a187cc777041f7b54c1ccc515df1aa9e87e7b4bd935e6354f72be99dd996a/prelude.veln\",\"range\":{\"start\":{\"line\":108,\"character\":7},\"end\":{\"line\":108,\"character\":11}}"]
+contains = ["\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/64605b9a91c24240d9f3ba94427cb88c5caa691d175368eab1f6279c50469a49/prelude.veln\",\"range\":{\"start\":{\"line\":108,\"character\":7},\"end\":{\"line\":108,\"character\":11}}"]
 contains_files = ["case-text/stdout-contains-1.txt", "case-text/stdout-contains-2.txt"]
-contains = ["\"id\":4,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/459a187cc777041f7b54c1ccc515df1aa9e87e7b4bd935e6354f72be99dd996a/prelude.veln\"", "\"id\":5,\"result\":{\"uri\":\"file://", "\"range\":{\"start\":{\"line\":10,\"character\":24}", "\"id\":6,\"result\":{\"uri\":\"file://", "\"range\":{\"start\":{\"line\":15,\"character\":6}", "\"id\":7,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/459a187cc777041f7b54c1ccc515df1aa9e87e7b4bd935e6354f72be99dd996a/http2/diagnostic.veln\"", "\"id\":8,\"result\":null", "\"id\":9,\"error\":{\"code\":-32602", "\"id\":10,\"result\":null"]
+contains = ["\"id\":4,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/64605b9a91c24240d9f3ba94427cb88c5caa691d175368eab1f6279c50469a49/prelude.veln\"", "\"id\":5,\"result\":{\"uri\":\"file://", "\"range\":{\"start\":{\"line\":10,\"character\":24}", "\"id\":6,\"result\":{\"uri\":\"file://", "\"range\":{\"start\":{\"line\":15,\"character\":6}", "\"id\":7,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/64605b9a91c24240d9f3ba94427cb88c5caa691d175368eab1f6279c50469a49/http2/diagnostic.veln\"", "\"id\":8,\"result\":null", "\"id\":9,\"error\":{\"code\":-32602", "\"id\":10,\"result\":null"]
 not_contains = ["crates/veln-stdlib", "target/debug"]
 
 [stderr]

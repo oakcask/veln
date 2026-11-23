@@ -737,6 +737,12 @@ fn standard_library_handler_references_keep_selected_projects_and_source_bodies_
         .unwrap()
         .to_owned();
 
+    let documentation = veln_repo_mcp_standard_library_docs::checked_bundle()
+        .expect("checked standard-library documentation should match its digest");
+    let package_documentation_uri = format!(
+        "veln-doc:///package/std/snapshot/{}/documentation/{}/declaration/4f9a4f61d83186052f54b164ba8e847e97638ff837b7fa90134c5ae6220e2dd3",
+        documentation.metadata.snapshot_digest, documentation.metadata.documentation_digest
+    );
     for project in ["left", "right"] {
         assert_standard_handler_project_isolation(
             &workspace,
@@ -744,6 +750,7 @@ fn standard_library_handler_references_keep_selected_projects_and_source_bodies_
             project,
             standard_source,
             &standard_uri,
+            &package_documentation_uri,
         );
     }
 
@@ -770,6 +777,7 @@ fn assert_standard_handler_project_isolation(
     project: &str,
     standard_source: &str,
     standard_uri: &str,
+    package_documentation_uri: &str,
 ) {
     let source = format!("{project}/main.veln");
     let source_uri = crate::definition::path_to_uri(&workspace.path(&source));
@@ -784,12 +792,7 @@ fn assert_standard_handler_project_isolation(
     let definition_content = json!({"definition":{
         "uri":standard_uri,
         "range":{"start":{"line":101,"column":13},"end":{"line":101,"column":19}},
-        "packageDocumentationUri":concat!(
-            "veln-doc:///package/std/snapshot/",
-            "459a187cc777041f7b54c1ccc515df1aa9e87e7b4bd935e6354f72be99dd996a/",
-            "documentation/7b48866f5ff03071d75b57077f96deb7dad6a3e4f0e2f9031215f0572e07c504/",
-            "declaration/4f9a4f61d83186052f54b164ba8e847e97638ff837b7fa90134c5ae6220e2dd3"
-        )
+        "packageDocumentationUri":package_documentation_uri
     }});
     assert_eq!(
         definition_response,
