@@ -303,6 +303,9 @@ other declaration establishes only its static capability and effect boundary.
   `examples/specification/check/filesystem-io-private-adapters/`.
 - Atomic state nominal boundary:
   `examples/specification/check/filesystem-io-atomic-state-nominal-boundary/`.
+- Atomic state generic inference, pure-callback enforcement, and concrete type
+  retention through checked core and typed IR:
+  [`lowering_and_types.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types.rs).
 - Atomic allocation identity, shared child identity, serialized completed
   updates, publication, and five-family registration and projection behavior:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),

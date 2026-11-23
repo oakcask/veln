@@ -378,10 +378,12 @@ context. The supported families are:
 The standard `io_provider::state` and `io_provider::update` declarations also
 receive API-specific generic call signatures. `state` infers `T` from its
 initial value or an expected `io_provider::State<T>`. `update` infers `T` from
-the cell, `C` from the context value, and `R` from the expected result. It then
-checks a pure `fn(T, C) -> {state: T, result: R}` callback. These rules preserve
-the generic arguments through core lowering instead of replacing them with
-`unknown`. The opaque state API and its runtime behavior are specified by
+the cell and `C` from the context value. It infers `R` from the callback's
+returned record when available, or from the expected result otherwise. It then
+checks a pure `fn(T, C) -> {state: T, result: R}` callback. These rules
+preserve the generic arguments through core lowering instead of replacing
+them with `unknown`. The opaque state API and its runtime behavior are
+specified by
 [Standard-library filesystem and byte IO](standard-library-filesystem-io.md#file-view-runtime-prototype).
 
 The same expected-function rule applies to ordinary same-module helpers, visible

@@ -326,9 +326,13 @@ fn io_provider_atomic_state_rejects_mismatched_generic_evidence() {
             "fn wrong_step(value: Bool, context: Int) -> {state: Bool, result: Bool}\n",
             "  {state: value, result: true}\n",
             "end\n",
+            "fn effectful_step(value: String, context: String) -> {state: String, result: Bool} effects [stdio]\n",
+            "  {state: value, result: true}\n",
+            "end\n",
             "pub fn evidence() -> () effects [concurrency]\n",
             "  let cell = state(\"value\")\n",
             "  let _ = update(cell, \"context\", wrong_step)\n",
+            "  let _ = update(cell, \"context\", effectful_step)\n",
             "  ()\n",
             "end\n",
         ),
@@ -347,6 +351,13 @@ fn io_provider_atomic_state_rejects_mismatched_generic_evidence() {
             .iter()
             .any(|diagnostic| diagnostic.id == "type.mismatch"
                 && diagnostic.message.contains("fn(String, String)")),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"
+                && diagnostic.message.contains("effects [stdio]")),
         "{diagnostics:#?}"
     );
 }
