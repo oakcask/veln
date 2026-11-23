@@ -489,23 +489,38 @@ pub(super) fn push_unique_effect(effects: &mut Vec<String>, effect: &str) {
 // Only effects change during inference. Keep every identity collision in source
 // order so visibility filtering retains the original first-match behavior.
 pub(super) struct EffectFunctionIndex {
-    by_identity: HashMap<super::effect_inference::EffectFunctionKey, Vec<usize>>,
+    by_identity: EffectFunctionPackages,
+}
+
+type EffectFunctionNames = HashMap<String, Vec<usize>>;
+
+#[derive(Default)]
+struct EffectFunctionModules {
+    moduleless: EffectFunctionNames,
+    modules: HashMap<String, EffectFunctionNames>,
+}
+
+#[derive(Default)]
+struct EffectFunctionPackages {
+    unpackaged: EffectFunctionModules,
+    packages: HashMap<String, EffectFunctionModules>,
 }
 
 impl EffectFunctionIndex {
     pub(super) fn new(functions: &[FunctionSignature]) -> Self {
-        let mut by_identity = HashMap::<_, Vec<_>>::new();
+        let mut by_identity = EffectFunctionPackages::default();
         for (index, function) in functions.iter().enumerate() {
             #[cfg(test)]
             effect_inference_counters::record_function_lookup_work();
-            by_identity
-                .entry((
-                    function.package_name.clone(),
-                    function.module_name.clone(),
-                    function.name.clone(),
-                ))
-                .or_default()
-                .push(index);
+            let modules = match &function.package_name {
+                Some(package) => by_identity.packages.entry(package.clone()).or_default(),
+                None => &mut by_identity.unpackaged,
+            };
+            let names = match &function.module_name {
+                Some(module) => modules.modules.entry(module.clone()).or_default(),
+                None => &mut modules.moduleless,
+            };
+            names.entry(function.name.clone()).or_default().push(index);
         }
         Self { by_identity }
     }
@@ -519,12 +534,16 @@ impl EffectFunctionIndex {
     ) -> impl Iterator<Item = &'a FunctionSignature> {
         #[cfg(test)]
         effect_inference_counters::record_function_lookup_work();
-        self.by_identity
-            .get(&(
-                package.map(str::to_owned),
-                module.map(str::to_owned),
-                name.to_owned(),
-            ))
+        let modules = match package {
+            Some(package) => self.by_identity.packages.get(package),
+            None => Some(&self.by_identity.unpackaged),
+        };
+        let names = modules.and_then(|modules| match module {
+            Some(module) => modules.modules.get(module),
+            None => Some(&modules.moduleless),
+        });
+        names
+            .and_then(|names| names.get(name))
             .into_iter()
             .flatten()
             .map(|&index| {
