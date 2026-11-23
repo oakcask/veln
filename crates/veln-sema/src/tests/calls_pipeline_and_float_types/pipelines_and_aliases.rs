@@ -289,6 +289,31 @@ fn pipeline_inserts_left_value_as_first_call_argument() {
 }
 
 #[test]
+fn pipeline_constructor_argument_preserves_prefix_and_explicit_payload_types() {
+    let module = clean_surface_module(
+        "main.veln",
+        concat!(
+            "pub type Pair<A, B>\n",
+            "  PairValue(A, B)\n",
+            "end\n",
+            "fn consume(pair: Pair<Int, String>) -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub fn main() -> Int\n",
+            "  consume(7 |> PairValue(\"second\"))\n",
+            "end\n",
+        ),
+    );
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert!(
+        lowered.core.is_some(),
+        "lower the pipeline constructor with Int then String payloads"
+    );
+}
+
+#[test]
 fn pipeline_requires_call_target() {
     let module = clean_surface_module("main.veln", "pub fn main() -> Int\n  1 |> 2\nend\n");
 
