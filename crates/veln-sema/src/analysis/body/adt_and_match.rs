@@ -1240,8 +1240,8 @@ impl<'a> FunctionChecker<'a> {
                 record_refined_match_refinement_variants(1);
                 (
                     Type::resolved_variant_refinement(
-                        name,
-                        identity,
+                        name.clone(),
+                        identity.clone(),
                         type_args.to_vec(),
                         vec![variant.clone()],
                     ),
@@ -1294,8 +1294,8 @@ impl<'a> FunctionChecker<'a> {
             let materialized = remaining_variants.len();
             (
                 Type::resolved_variant_refinement(
-                    name,
-                    identity,
+                    name.clone(),
+                    identity.clone(),
                     type_args.to_vec(),
                     remaining_variants,
                 ),
@@ -1880,8 +1880,8 @@ impl<'a> FunctionChecker<'a> {
             return None;
         }
         Some(Type::resolved_variant_refinement(
-            type_name,
-            identity,
+            type_name.clone(),
+            identity.clone(),
             type_args.to_vec(),
             vec![constructor.variant.name.clone()],
         ))

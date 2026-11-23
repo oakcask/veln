@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use super::{Type, TypeArgs};
@@ -10,10 +11,10 @@ thread_local! {
 
 enum TypeCloneTask<'a> {
     Visit(&'a Type),
-    Named(String, String, TypeArgs),
+    Named(Cow<'static, str>, Cow<'static, str>, TypeArgs),
     Variant(
-        String,
-        String,
+        Cow<'static, str>,
+        Cow<'static, str>,
         TypeArgs,
         Arc<[String]>,
         Vec<(String, Vec<Type>, String)>,
@@ -85,7 +86,7 @@ fn queue_type_clone<'a>(ty: &'a Type, tasks: &mut Vec<TypeCloneTask<'a>>, cloned
             name,
             identity,
             args,
-        } => queue_named_type_clone(name, identity, args, tasks),
+        } => queue_named_type_clone(name.clone(), identity.clone(), args, tasks),
         Type::VariantRefinement {
             name,
             identity,
@@ -93,8 +94,8 @@ fn queue_type_clone<'a>(ty: &'a Type, tasks: &mut Vec<TypeCloneTask<'a>>, cloned
             variants,
             unresolved_alternatives,
         } => queue_variant_type_clone(
-            name,
-            identity,
+            name.clone(),
+            identity.clone(),
             args,
             variants,
             unresolved_alternatives,
@@ -120,29 +121,25 @@ fn record_type_clone_node() {
 }
 
 fn queue_named_type_clone<'a>(
-    name: &str,
-    identity: &str,
+    name: Cow<'static, str>,
+    identity: Cow<'static, str>,
     args: &TypeArgs,
     tasks: &mut Vec<TypeCloneTask<'a>>,
 ) {
-    tasks.push(TypeCloneTask::Named(
-        name.to_owned(),
-        identity.to_owned(),
-        args.clone(),
-    ));
+    tasks.push(TypeCloneTask::Named(name, identity, args.clone()));
 }
 
 fn queue_variant_type_clone<'a>(
-    name: &str,
-    identity: &str,
+    name: Cow<'static, str>,
+    identity: Cow<'static, str>,
     args: &TypeArgs,
     variants: &Arc<[String]>,
     unresolved_alternatives: &[(String, Vec<Type>, String)],
     tasks: &mut Vec<TypeCloneTask<'a>>,
 ) {
     tasks.push(TypeCloneTask::Variant(
-        name.to_owned(),
-        identity.to_owned(),
+        name,
+        identity,
         args.clone(),
         variants.clone(),
         unresolved_alternatives.to_vec(),
@@ -289,8 +286,8 @@ mod tests {
                 Type::named("Vec", vec![Type::Unknown]),
             )])],
             variadic: Some(Box::new(Type::VariantRefinement {
-                name: "State".to_string(),
-                identity: "State".to_string(),
+                name: "State".into(),
+                identity: "State".into(),
                 args: vec![Type::named("Int", Vec::new())].into(),
                 variants: vec!["Ready".to_string()].into(),
                 unresolved_alternatives: vec![(

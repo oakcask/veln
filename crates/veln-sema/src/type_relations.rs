@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
 use crate::semantic_model::Type;
@@ -1440,8 +1441,7 @@ impl TypePresentationJoin {
                 if let Some((name, identity, _)) = mutable_presentation_named_parts(joined) {
                     let canonical = identity.rsplit("::").next().unwrap_or(name).to_string();
                     if *name != canonical {
-                        name.clear();
-                        name.push_str(&canonical);
+                        *name = canonical.into();
                         changed = true;
                     }
                 }
@@ -1459,7 +1459,9 @@ impl TypePresentationJoin {
     }
 }
 
-fn mutable_presentation_named_parts(ty: &mut Type) -> Option<(&mut String, &str, &mut [Type])> {
+fn mutable_presentation_named_parts(
+    ty: &mut Type,
+) -> Option<(&mut Cow<'static, str>, &str, &mut [Type])> {
     match ty {
         Type::Named {
             name,
@@ -1613,7 +1615,7 @@ fn merge_type_presentation<'a>(
 }
 
 fn merge_named_type_presentation<'a>(
-    joined_name: &'a mut String,
+    joined_name: &'a mut Cow<'static, str>,
     joined_identity: &str,
     joined_args: &'a mut [Type],
     actual: &'a Type,
@@ -1764,7 +1766,7 @@ fn prepare_presentation_children(
 }
 
 fn reconcile_presentation_name(
-    joined: &mut String,
+    joined: &mut Cow<'static, str>,
     actual: &str,
     canonical: &str,
     conflicted: &mut bool,
@@ -1774,23 +1776,20 @@ fn reconcile_presentation_name(
         if joined == canonical {
             return false;
         }
-        joined.clear();
-        joined.push_str(canonical);
+        *joined = canonical.to_string().into();
         return true;
     }
     if actual == canonical {
         return false;
     }
     if joined == canonical {
-        joined.clear();
-        joined.push_str(actual);
+        *joined = actual.to_string().into();
         return true;
     }
     if joined == actual {
         return false;
     }
-    joined.clear();
-    joined.push_str(canonical);
+    *joined = canonical.to_string().into();
     *conflicted = true;
     record_type_presentation_conflict_insertion();
     true

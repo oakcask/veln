@@ -354,7 +354,7 @@ fn encode_type_is_source_adt_candidate(
         }),
         Type::Named { name, args, .. }
             if matches!(
-                name.as_str(),
+                name.as_ref(),
                 "Int" | "Bool" | "Float" | "String" | "Option" | "List" | "Vec" | "Dict" | "Result"
             ) =>
         {

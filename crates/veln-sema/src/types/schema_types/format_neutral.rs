@@ -546,7 +546,7 @@ pub(crate) fn resolved_standard_runtime_type_kind(
     else {
         return None;
     };
-    let kind = match (identity.as_str(), args.len()) {
+    let kind = match (identity.as_ref(), args.len()) {
         (Type::COMPILER_OPTION_IDENTITY, 1) => StandardRuntimeTypeKind::Option,
         (Type::COMPILER_RESULT_IDENTITY, 2) => StandardRuntimeTypeKind::Result,
         (Type::COMPILER_LIST_IDENTITY, 1) => StandardRuntimeTypeKind::List,
