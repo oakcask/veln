@@ -474,63 +474,12 @@ fn io_provider_atomic_state_preserves_joined_initializer_types_through_core_and_
     let core = lowered
         .core
         .expect("joined state initializers should build checked core");
-    let core_evidence = evidence_core(&core);
-    for (index, (name, item_type)) in cases.iter().enumerate() {
-        let CoreStmtKind::Let { expr, .. } = &core_evidence.body[index].kind else {
-            panic!("expected state allocation binding for {name}");
-        };
-        let state_type = CoreType::named("State", vec![item_type.clone()]);
-        assert_eq!(expr.ty, state_type, "checked Core result for {name}");
-        let CoreExprKind::Call { args, .. } = &expr.kind else {
-            panic!("expected checked Core state call for {name}");
-        };
-        assert_eq!(
-            args[0].ty, *item_type,
-            "checked Core initializer for {name}"
-        );
-        match &args[0].kind {
-            CoreExprKind::List(items) => assert!(
-                items
-                    .iter()
-                    .all(|item| item.ty == record_type_for_case(item_type)),
-                "checked Core list contributions for {name}: {items:#?}",
-            ),
-            CoreExprKind::Match { arms, .. } => assert!(
-                arms.iter().all(|arm| arm.expr.ty == *item_type),
-                "checked Core control-flow contributions for {name}: {arms:#?}",
-            ),
-            kind => panic!("unexpected checked Core initializer for {name}: {kind:#?}"),
-        }
-    }
+    assert_joined_core_state_initializers(evidence_core(&core), &cases);
 
     let ir = lowered
         .ir
         .expect("joined state initializers should lower to typed IR");
-    let ir_evidence = evidence_ir(&ir);
-    for (index, (name, item_type)) in cases.iter().enumerate() {
-        let IrStmtKind::Let { value, .. } = &ir_evidence.body[index].kind else {
-            panic!("expected IR state allocation binding for {name}");
-        };
-        let state_type = CoreType::named("State", vec![item_type.clone()]);
-        assert_eq!(value.ty, state_type, "typed IR result for {name}");
-        let IrExprKind::Call { args, .. } = &value.kind else {
-            panic!("expected typed IR state call for {name}");
-        };
-        assert_eq!(args[0].ty, *item_type, "typed IR initializer for {name}");
-        match &args[0].kind {
-            IrExprKind::List(items) => assert!(
-                items
-                    .iter()
-                    .all(|item| item.ty == record_type_for_case(item_type)),
-                "typed IR list contributions for {name}: {items:#?}",
-            ),
-            IrExprKind::Match { arms, .. } => assert!(
-                arms.iter().all(|arm| arm.value.ty == *item_type),
-                "typed IR control-flow contributions for {name}: {arms:#?}",
-            ),
-            kind => panic!("unexpected typed IR initializer for {name}: {kind:#?}"),
-        }
-    }
+    assert_joined_ir_state_initializers(evidence_ir(&ir), &cases);
 }
 
 #[test]

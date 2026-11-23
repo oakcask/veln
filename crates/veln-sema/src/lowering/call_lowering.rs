@@ -306,23 +306,42 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
-        if let ExprKind::NamePath { segments, .. } = &callee.kind
-            && let [name] = segments.as_slice()
-            && let Some(index) = self
-                .bindings
-                .iter()
-                .rposition(|binding| binding.name == *name)
+        self.record_call_defer_capture(callee);
+        let (mut lowered_args, signature) =
+            self.lower_general_call_args(expr, callee, args, expected);
+        if signature
+            .as_ref()
+            .is_some_and(|signature| signature.callsite)
         {
-            self.record_defer_capture(index);
+            lowered_args.push(self.lower_direct_callsite(callsite_expr));
         }
-        let joined_state_initializer = self
-            .declared_io_provider_state_operation(callee)
-            .is_some_and(|operation| operation == "state")
-            .then(|| {
-                args.first()
-                    .and_then(|initial| self.joined_shallow_expr_type(initial))
-            })
-            .flatten();
+        let (target, return_type) = signature.map_or_else(
+            || {
+                let symbol = callee_symbol(callee).unwrap_or_else(|| "<unknown>".to_string());
+                (CoreCallTarget::Unresolved(symbol), CoreType::Unknown)
+            },
+            |signature| (signature.target, signature.return_type),
+        );
+        let target = self.call_target_with_context(target, &lowered_args, callsite_expr);
+
+        self.core_expr(
+            expr,
+            return_type,
+            CoreExprKind::Call {
+                target,
+                args: lowered_args,
+            },
+        )
+    }
+
+    fn lower_general_call_args(
+        &mut self,
+        expr: &Expr,
+        callee: &Expr,
+        args: &[Expr],
+        expected: Option<&CoreType>,
+    ) -> (Vec<CoreExpr>, Option<CoreCallSignature>) {
+        let joined_state_initializer = self.joined_state_initializer_type(callee, args);
         let preliminary_signature = self.core_call_signature(
             callee,
             expected,
@@ -359,29 +378,29 @@ impl<'a> CoreLowerer<'a> {
                 retag_state_initializer(initial, expected);
             }
         }
-        if signature
-            .as_ref()
-            .is_some_and(|signature| signature.callsite)
-        {
-            lowered_args.push(self.lower_direct_callsite(callsite_expr));
-        }
-        let (target, return_type) = signature.map_or_else(
-            || {
-                let symbol = callee_symbol(callee).unwrap_or_else(|| "<unknown>".to_string());
-                (CoreCallTarget::Unresolved(symbol), CoreType::Unknown)
-            },
-            |signature| (signature.target, signature.return_type),
-        );
-        let target = self.call_target_with_context(target, &lowered_args, callsite_expr);
+        (lowered_args, signature)
+    }
 
-        self.core_expr(
-            expr,
-            return_type,
-            CoreExprKind::Call {
-                target,
-                args: lowered_args,
-            },
-        )
+    fn record_call_defer_capture(&mut self, callee: &Expr) {
+        if let ExprKind::NamePath { segments, .. } = &callee.kind
+            && let [name] = segments.as_slice()
+            && let Some(index) = self
+                .bindings
+                .iter()
+                .rposition(|binding| binding.name == *name)
+        {
+            self.record_defer_capture(index);
+        }
+    }
+
+    fn joined_state_initializer_type(&mut self, callee: &Expr, args: &[Expr]) -> Option<CoreType> {
+        self.declared_io_provider_state_operation(callee)
+            .is_some_and(|operation| operation == "state")
+            .then(|| {
+                args.first()
+                    .and_then(|initial| self.joined_shallow_expr_type(initial))
+            })
+            .flatten()
     }
 
     fn declared_io_provider_state_operation(&self, callee: &Expr) -> Option<&str> {

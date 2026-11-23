@@ -18,69 +18,7 @@ impl<'a> FunctionChecker<'a> {
             else {
                 continue;
             };
-            let Some((_, base_segments)) = name.split_last() else {
-                continue;
-            };
-            if let [alias, type_name] = base_segments
-                && type_name == "State"
-                && ((alias == "io_provider"
-                    && self.function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME))
-                    || self.environment.uses.iter().any(|use_decl| {
-                        use_decl.module_name.as_deref() == self.function.module_name.as_deref()
-                            && use_decl.importing_package.as_deref()
-                                == self.function.package_name.as_deref()
-                            && use_decl.alias == *alias
-                            && use_decl.is_standard_package_import()
-                            && use_decl.written_name.ends_with("io_provider")
-                    }))
-            {
-                if let Some(span) = name_spans.last() {
-                    self.push_unresolved_name(
-                        pattern.node_id,
-                        span.clone(),
-                        &name.join("::"),
-                        "constructor",
-                    );
-                }
-                continue;
-            }
-            let base = base_segments.join("::");
-            let descriptor = self
-                .environment
-                .adts
-                .descriptor_for_type_path_any_arity(
-                    &base,
-                    self.function.module_name.as_deref(),
-                    &self.resolution_uses,
-                )
-                .or_else(|| {
-                    let [alias, type_name] = base_segments else {
-                        return None;
-                    };
-                    let import = self
-                        .resolution_uses
-                        .iter()
-                        .find(|use_decl| use_decl.alias == *alias)?;
-                    let package = import
-                        .package
-                        .as_deref()
-                        .or(import.importing_package.as_deref());
-                    let identity = package.map_or_else(
-                        || format!("{}::{type_name}", import.name),
-                        |package| format!("{package}::{}::{type_name}", import.name),
-                    );
-                    self.environment
-                        .adts
-                        .descriptors()
-                        .iter()
-                        .find(|descriptor| descriptor.identity() == identity)
-                });
-            let Some(descriptor) = descriptor else {
-                continue;
-            };
-            if descriptor.refinement_availability
-                != crate::adt::descriptors::VariantRefinementAvailability::Unavailable
-            {
+            if !self.constructor_pattern_is_unavailable(name) {
                 continue;
             }
             if let Some(span) = name_spans.last() {
@@ -92,6 +30,78 @@ impl<'a> FunctionChecker<'a> {
                 );
             }
         }
+    }
+
+    fn constructor_pattern_is_unavailable(&self, name: &[String]) -> bool {
+        let Some((_, base_segments)) = name.split_last() else {
+            return false;
+        };
+        self.is_standard_io_provider_state_path(base_segments)
+            || self.constructor_base_has_unavailable_refinement(base_segments)
+    }
+
+    fn is_standard_io_provider_state_path(&self, base_segments: &[String]) -> bool {
+        let [alias, type_name] = base_segments else {
+            return false;
+        };
+        if type_name != "State" {
+            return false;
+        }
+        if alias == "io_provider"
+            && self.function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+        {
+            return true;
+        }
+        self.environment.uses.iter().any(|use_decl| {
+            use_decl.module_name.as_deref() == self.function.module_name.as_deref()
+                && use_decl.importing_package.as_deref() == self.function.package_name.as_deref()
+                && use_decl.alias == *alias
+                && use_decl.is_standard_package_import()
+                && use_decl.written_name.ends_with("io_provider")
+        })
+    }
+
+    fn constructor_base_has_unavailable_refinement(&self, base_segments: &[String]) -> bool {
+        let base = base_segments.join("::");
+        let descriptor = self
+            .environment
+            .adts
+            .descriptor_for_type_path_any_arity(
+                &base,
+                self.function.module_name.as_deref(),
+                &self.resolution_uses,
+            )
+            .or_else(|| self.imported_constructor_base_descriptor(base_segments));
+        descriptor.is_some_and(|descriptor| {
+            descriptor.refinement_availability
+                == crate::adt::descriptors::VariantRefinementAvailability::Unavailable
+        })
+    }
+
+    fn imported_constructor_base_descriptor(
+        &self,
+        base_segments: &[String],
+    ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
+        let [alias, type_name] = base_segments else {
+            return None;
+        };
+        let import = self
+            .resolution_uses
+            .iter()
+            .find(|use_decl| use_decl.alias == *alias)?;
+        let package = import
+            .package
+            .as_deref()
+            .or(import.importing_package.as_deref());
+        let identity = package.map_or_else(
+            || format!("{}::{type_name}", import.name),
+            |package| format!("{package}::{}::{type_name}", import.name),
+        );
+        self.environment
+            .adts
+            .descriptors()
+            .iter()
+            .find(|descriptor| descriptor.identity() == identity)
     }
 
     pub(super) fn check_match_exhaustiveness(
