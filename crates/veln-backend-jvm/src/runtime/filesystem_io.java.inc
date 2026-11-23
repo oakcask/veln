@@ -8,6 +8,77 @@
     private static final String IO_SYNC_EFFECT = "std::io::Sync";
     private static final String FS_MUTATE_EFFECT = "std::fs::Mutate";
 
+    private static final class IoState {
+        Object value;
+        Thread admittedBy;
+
+        IoState(Object value) {
+            this.value = freezeBoundaryValue(value);
+        }
+    }
+
+    public static Object ioProviderState(Object initial) {
+        throwTaskCancellationIfRequested();
+        return new IoState(initial);
+    }
+
+    public static Object ioProviderStateUpdate(Object stateValue, Object context, Object action) {
+        if (!(stateValue instanceof IoState)) {
+            throw new RuntimeFailure("invalid io provider state cell");
+        }
+        IoState state = (IoState) stateValue;
+        Thread current = Thread.currentThread();
+        Object oldValue;
+        synchronized (state) {
+            if (state.admittedBy == current) {
+                throw new RuntimeFailure("reentrant io provider state update");
+            }
+            while (state.admittedBy != null) {
+                throwTaskCancellationIfRequested();
+                try {
+                    state.wait();
+                } catch (InterruptedException interrupted) {
+                    throwTaskCancellationIfRequested();
+                    Thread.currentThread().interrupt();
+                }
+            }
+            throwTaskCancellationIfRequested();
+            state.admittedBy = current;
+            oldValue = state.value;
+        }
+
+        boolean published = false;
+        try {
+            Object transition = call(action, oldValue, freezeBoundaryValue(context));
+            if (!(transition instanceof java.util.Map)) {
+                throw new RuntimeFailure("io provider state update callback returned an invalid transition");
+            }
+            java.util.Map<?, ?> fields = (java.util.Map<?, ?>) transition;
+            if (!fields.containsKey("state") || !fields.containsKey("result")) {
+                throw new RuntimeFailure("io provider state update callback returned an invalid transition");
+            }
+            Object replacement = freezeBoundaryValue(fields.get("state"));
+            Object result = freezeBoundaryValue(fields.get("result"));
+            synchronized (state) {
+                state.value = replacement;
+                state.admittedBy = null;
+                published = true;
+                state.notifyAll();
+            }
+            throwTaskCancellationIfRequested();
+            return result;
+        } finally {
+            if (!published) {
+                synchronized (state) {
+                    if (state.admittedBy == current) {
+                        state.admittedBy = null;
+                        state.notifyAll();
+                    }
+                }
+            }
+        }
+    }
+
     private static final class IoOwner {
         final HandlerFrame scope;
         final java.util.Map<Long, IoResource> resources =

@@ -6,6 +6,12 @@ use io
 pub type Owner = IoOwner
 pub type Resource = IoResource
 
+## Opaque synchronized storage for provider implementations. The private
+## representation prevents source code from inspecting or forging a cell.
+pub type State<T>
+	State(value: T)
+end
+
 pub type ViewFamily
 	pub ReadFile
 	pub WriteFile
@@ -20,6 +26,14 @@ end
 
 pub fn owner() -> Owner effects [Scope]
 	perform Scope::owner()
+end
+
+pub fn state(initial: T) -> State<T> effects [concurrency]
+	prelude_builtin::io_provider_state(initial)
+end
+
+pub fn update(cell: State<T>, context: C, action: fn(T, C) -> {state: T, result: R}) -> R effects [concurrency]
+	prelude_builtin::io_provider_state_update(cell, context, action)
 end
 
 pub handler scope() for Scope effects [concurrency]

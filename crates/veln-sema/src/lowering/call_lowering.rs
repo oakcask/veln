@@ -315,7 +315,14 @@ impl<'a> CoreLowerer<'a> {
         {
             self.record_defer_capture(index);
         }
-        let signature = self.core_call_signature(callee, expected);
+        let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
+        let context_type = args.get(1).and_then(|arg| self.shallow_expr_type(arg));
+        let signature = self.core_call_signature(
+            callee,
+            expected,
+            handle_type.as_ref(),
+            context_type.as_ref(),
+        );
         if let Some(signature) = &signature {
             self.validate_call_arity(
                 expr,

@@ -132,6 +132,17 @@ dispatch operations, open host resources, or implement owner cleanup. The
 owns the source-visible registration, projection, failure, and runtime-limit
 contract.
 
+The same private adapter boundary implements opaque `io_provider::State<T>`
+cells. Task-boundary freezing preserves a cell's identity. Updates serialize
+admission and reject same-thread reentrancy on the same cell. A callback result
+publishes its replacement before a pending cancellation is reported. A
+cancellation observed before admission or at a generated callback checkpoint,
+and a callback or runtime failure before publication, preserve the old value.
+All paths release the cell. Generated checkpoints remain active inside an
+admitted callback, including a compiled tail-recursive callback; a pure
+callback that reaches no checkpoint and does not return or fail retains the
+cell without a bounded cancellation latency.
+
 The JVM runtime also provides the bounded metric-series index reached by the
 embedded standard package through private `production_metric_index_*`
 compiler adapters. Application source cannot resolve those adapters as bare

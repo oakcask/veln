@@ -199,6 +199,116 @@ fn task_spawn_with_preserves_argument_and_item_type() {
 }
 
 #[test]
+fn io_provider_atomic_state_keeps_concrete_types_through_core_and_ir() {
+    let source = SourceFile::new(
+        "io_provider.veln",
+        concat!(
+            "mod std.io_provider\n",
+            "pub type State<T>\n",
+            "  State(value: T)\n",
+            "end\n",
+            "pub fn state(initial: T) -> State<T> effects [concurrency]\n",
+            "  prelude_builtin::io_provider_state(initial)\n",
+            "end\n",
+            "pub fn update(cell: State<T>, context: C, action: fn(T, C) -> {state: T, result: R}) -> R effects [concurrency]\n",
+            "  prelude_builtin::io_provider_state_update(cell, context, action)\n",
+            "end\n",
+            "type Sample\n",
+            "  Sample(value: Int)\n",
+            "end\n",
+            "fn string_step(value: String, context: ()) -> {state: String, result: Int}\n",
+            "  {state: value, result: 1}\n",
+            "end\n",
+            "fn record_step(value: {name: String}, context: ()) -> {state: {name: String}, result: Int}\n",
+            "  {state: value, result: 2}\n",
+            "end\n",
+            "fn list_step(value: List<Int>, context: ()) -> {state: List<Int>, result: Int}\n",
+            "  {state: value, result: 3}\n",
+            "end\n",
+            "fn sample_step(value: Sample, context: ()) -> {state: Sample, result: Int}\n",
+            "  {state: value, result: 4}\n",
+            "end\n",
+            "pub fn evidence() -> () effects [concurrency]\n",
+            "  let strings: State<String> = state(\"value\")\n",
+            "  let records: State<{name: String}> = state({name: \"value\"})\n",
+            "  let lists: State<List<Int>> = state(list_cons(1, list_nil()))\n",
+            "  let samples: State<Sample> = state(Sample(1))\n",
+            "  let _: Int = update(strings, (), string_step)\n",
+            "  let _: Int = update(records, (), record_step)\n",
+            "  let _: Int = update(lists, (), list_step)\n",
+            "  let _: Int = update(samples, (), sample_step)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut module = lower_standard_package_callables(&source);
+    for function in &mut module.functions {
+        function.module_name = Some("std::io_provider".to_string());
+    }
+    for declaration in &mut module.types {
+        declaration.module_name = Some("std::io_provider".to_string());
+        declaration.package_name = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    }
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+
+    let expected = [
+        CoreType::string(),
+        CoreType::Record(
+            [("name".to_string(), CoreType::string())]
+                .into_iter()
+                .collect(),
+        ),
+        CoreType::named("List", vec![CoreType::int()]),
+        CoreType::named("Sample", Vec::new()),
+    ]
+    .map(|item| CoreType::named("State", vec![item]));
+    let core = lowered
+        .core
+        .expect("atomic state should build checked core");
+    let evidence = core
+        .functions
+        .iter()
+        .find(|function| function.name.ends_with("$evidence"))
+        .expect("evidence function should lower");
+    for (statement, expected) in evidence.body.iter().take(4).zip(expected.iter()) {
+        let CoreStmtKind::Let { expr, .. } = &statement.kind else {
+            panic!("expected state allocation binding");
+        };
+        assert_eq!(&expr.ty, expected);
+    }
+    for statement in evidence.body.iter().skip(4).take(4) {
+        let expr = match &statement.kind {
+            CoreStmtKind::Let { expr, .. } | CoreStmtKind::Expr { expr } => expr,
+            _ => panic!("expected state update statement: {statement:#?}"),
+        };
+        assert_eq!(expr.ty, CoreType::int());
+        assert!(matches!(
+            expr.kind,
+            CoreExprKind::Call {
+                target: CoreCallTarget::CallbackBoundary { .. },
+                ..
+            }
+        ));
+    }
+
+    let ir = lowered.ir.expect("atomic state should lower to typed IR");
+    let evidence = ir
+        .functions
+        .iter()
+        .find(|function| function.name.ends_with("$evidence"))
+        .expect("evidence function should lower to IR");
+    for (statement, expected) in evidence.body.iter().take(4).zip(expected.iter()) {
+        let IrStmtKind::Let { value, .. } = &statement.kind else {
+            panic!("expected IR state allocation binding");
+        };
+        assert_eq!(&value.ty, expected);
+    }
+}
+
+#[test]
 fn task_spawn_with_preserves_explicit_item_type() {
     let source = SourceFile::new(
         "main.veln",

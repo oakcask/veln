@@ -222,6 +222,8 @@ compiler_adapter_symbol_set! {
     "io_write_all",
     "io_copy",
     "io_provider_scope_owner",
+    "io_provider_state",
+    "io_provider_state_update",
     "io_provider_filesystem",
     "io_provider_mutable_filesystem",
     "io_provider_resource",

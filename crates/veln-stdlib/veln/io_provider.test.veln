@@ -3,6 +3,7 @@ use fs
 use io
 use io_provider
 use io_provider_test_support_test
+use io_provider_state_test_support_test
 
 fn complete_registration(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
 	handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::close(calls)
@@ -759,4 +760,63 @@ end
 
 test all_five_families_preserve_first_registration_for_every_duplicate_order() -> Result<(), String> effects [concurrency]
 	handle all_family_duplicate_orders_preserve_first() with io_provider::scope()
+end
+
+test atomic_state_allocations_are_independent_and_publish_result_with_replacement() -> Result<(), String> effects [concurrency]
+	let first: io_provider::State<String> = io_provider::state("first")
+	let second: io_provider::State<String> = io_provider::state("first")
+	let prior: String = io_provider::update(first, "replacement", io_provider_state_test_support_test::replace_string)
+	let first_after: String = io_provider::update(first, (), io_provider_state_test_support_test::observe_string)
+	let second_after: String = io_provider::update(second, (), io_provider_state_test_support_test::observe_string)
+	if prior == "first" and first_after == "replacement" and second_after == "first"
+		Ok(())
+	else
+		Err("atomic state did not keep allocations independent or publish replacement and result together")
+	end
+end
+
+fn atomic_state_add_one(cell: io_provider::State<Int>) -> Int effects [concurrency]
+	io_provider::update(cell, 1, io_provider_state_test_support_test::add)
+end
+
+fn atomic_state_fail(cell: io_provider::State<Int>) -> Int effects [concurrency]
+	io_provider::update(cell, (), io_provider_state_test_support_test::fail_int)
+end
+
+test atomic_state_identity_is_shared_with_children_and_completed_updates_are_serialized() -> Result<(), String> effects [concurrency]
+	let cell: io_provider::State<Int> = io_provider::state(0)
+	let first = task::spawn_with(atomic_state_add_one, cell)
+	let second = task::spawn_with(atomic_state_add_one, cell)
+	let first_joined = task::join(first)
+	let second_joined = task::join(second)
+	let after: Int = io_provider::update(cell, (), io_provider_state_test_support_test::observe_int)
+	match first_joined
+		Ok(_) => match second_joined
+			Ok(_) => if after == 2
+				Ok(())
+			else
+				Err("completed child updates lost a serialized transition")
+			end
+			Err(_) => Err("second atomic-state child did not complete")
+		end
+		Err(_) => Err("first atomic-state child did not complete")
+	end
+end
+
+
+test atomic_state_callback_failure_preserves_state_and_releases_admission() -> Result<(), String> effects [concurrency]
+	let cell: io_provider::State<Int> = io_provider::state(7)
+	let failed = task::spawn_with(atomic_state_fail, cell)
+	let failure_observed = match task::join(failed)
+		Err(_) => true
+		Ok(_) => false
+	end
+	let before_survivor: Int = io_provider::update(cell, (), io_provider_state_test_support_test::observe_int)
+	let survivor_result: Int = io_provider::update(cell, 1, io_provider_state_test_support_test::add)
+	let after_survivor: Int = io_provider::update(cell, (), io_provider_state_test_support_test::observe_int)
+	if failure_observed and before_survivor == 7 and survivor_result == 7 and after_survivor == 8
+		Ok(())
+	else
+		Err("failed atomic-state callback changed state or retained admission")
+	end
 end

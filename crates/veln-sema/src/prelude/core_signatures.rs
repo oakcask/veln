@@ -64,6 +64,7 @@ fn core_compiler_adapter_signature(
     let signature = core_observation_export_signature(descriptor.name, &expected.direct)
         .or_else(|| core_production_metric_index_signature(descriptor.name))
         .or_else(|| core_net_system_signature(descriptor.name, &expected.direct))
+        .or_else(|| core_filesystem_state_signature(descriptor.name, &expected.direct))
         .or_else(|| core_filesystem_io_signature(descriptor.name))
         .or_else(|| core_prelude_float_signature(descriptor.name))
         .or_else(|| core_prelude_byte_signature(descriptor.name))
@@ -83,6 +84,44 @@ fn core_compiler_adapter_signature(
 
 fn core_filesystem_io_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> {
     super::filesystem_signatures::core_filesystem_io_signature(name)
+}
+
+fn core_filesystem_state_signature(
+    name: &str,
+    expected: &CoreType,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    match name {
+        "io_provider_state" => {
+            let item = match expected {
+                CoreType::Named { name, args } if name == "State" && args.len() == 1 => {
+                    args[0].clone()
+                }
+                _ => CoreType::Unknown,
+            };
+            Some((vec![item], expected.clone()))
+        }
+        "io_provider_state_update" => Some((
+            vec![
+                CoreType::Unknown,
+                CoreType::Unknown,
+                CoreType::Function {
+                    params: vec![CoreType::Unknown, CoreType::Unknown],
+                    variadic: None,
+                    return_type: Box::new(CoreType::Record(
+                        [
+                            ("state".to_string(), CoreType::Unknown),
+                            ("result".to_string(), expected.clone()),
+                        ]
+                        .into_iter()
+                        .collect(),
+                    )),
+                    effects: Vec::new(),
+                },
+            ],
+            expected.clone(),
+        )),
+        _ => None,
+    }
 }
 
 fn compiler_adapter_core_callback_signature(

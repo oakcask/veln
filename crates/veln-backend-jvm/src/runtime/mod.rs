@@ -54,6 +54,8 @@ runtime_method_table!(prelude_method, "vecLen", {
     "net_system_shutdown_write" => "netSystemShutdownWrite",
     "net_system_close_stream" => "netSystemCloseStream",
     "io_provider_scope_owner" => "ioProviderScopeOwner",
+    "io_provider_state" => "ioProviderState",
+    "io_provider_state_update" => "ioProviderStateUpdate",
     "io_provider_resource" => "ioProviderResource",
     "io_provider_read_file" => "ioProviderReadFile",
     "io_provider_write_file" => "ioProviderWriteFile",

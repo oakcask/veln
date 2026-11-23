@@ -4,6 +4,26 @@ use io_provider from "std"
 use net from "std"
 use path as portable from "std"
 
+type StateSample
+	pub StateSample(value: Int)
+end
+
+fn update_string(previous: String, suffix: String) -> {state: String, result: Int}
+	{state: suffix, result: 1}
+end
+
+fn update_record(previous: {name: String, count: Int}, amount: Int) -> {state: {name: String, count: Int}, result: String}
+	{state: {name: previous.name, count: previous.count + amount}, result: previous.name}
+end
+
+fn update_list(previous: List<Int>, value: Int) -> {state: List<Int>, result: Int}
+	{state: list_cons(value, previous), result: value}
+end
+
+fn update_constructor(previous: StateSample, value: Int) -> {state: StateSample, result: StateSample}
+	{state: StateSample(value), result: previous}
+end
+
 # F1 compiler contract: every byte capability has a distinct nominal operand.
 pub fn byte_operations(reader: io::Reader, writer: io::Writer, seeker: io::Seeker, reader_at: io::ReaderAt, writer_at: io::WriterAt, closer: io::Closer, syncer: io::Syncer, truncater: fs::Truncater, bytes: ByteChunk, count: ByteCount, offset: ByteOffset) -> () effects [io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, fs::Mutate]
 	let _: io::ReadOutcome = io::read(reader, count)
@@ -69,6 +89,21 @@ pub fn provider_operations(owner: io_provider::Owner, resource: io_provider::Res
 	let _: Result<Int, io::Error> = io_provider::closer_slot(owner, closer)
 	let _: Result<Int, io::Error> = io_provider::syncer_slot(owner, syncer)
 	let _: Result<Int, io::Error> = io_provider::truncater_slot(owner, truncater)
+	()
+end
+
+# F3 compiler contract: generic state allocation and pure callback lowering
+# retain the independently inferred String, record, List, and constructor
+# state arguments while update returns its callback result type.
+pub fn provider_atomic_state_operations() -> () effects [concurrency]
+	let string_state: io_provider::State<String> = io_provider::state("a")
+	let record_state: io_provider::State<{name: String, count: Int}> = io_provider::state({name: "record", count: 1})
+	let list_state: io_provider::State<List<Int>> = io_provider::state(list_cons(1, list_nil()))
+	let constructor_state: io_provider::State<StateSample> = io_provider::state(StateSample(1))
+	let _: Int = io_provider::update(string_state, "b", update_string)
+	let _: String = io_provider::update(record_state, 2, update_record)
+	let _: Int = io_provider::update(list_state, 2, update_list)
+	let _: StateSample = io_provider::update(constructor_state, 2, update_constructor)
 	()
 end
 

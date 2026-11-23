@@ -454,6 +454,7 @@ impl<'a> FunctionChecker<'a> {
         callee: &Expr,
         expected: Option<&Type>,
         handle_type: Option<&Type>,
+        context_type: Option<&Type>,
     ) -> Option<(TypeArgs, Option<Type>, Type, CallOrigin)> {
         let effective_bindings = self.effective_visible_bindings();
         let bindings = effective_bindings
@@ -468,6 +469,7 @@ impl<'a> FunctionChecker<'a> {
             callee,
             expected,
             handle_type,
+            context_type,
             &bindings,
             self.environment,
             self.function.module_name.as_deref(),

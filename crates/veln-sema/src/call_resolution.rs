@@ -50,6 +50,7 @@ pub(crate) struct CoreCallSignature {
 struct TypeNamePathCallContext<'a> {
     expected: Option<&'a Type>,
     handle_type: Option<&'a Type>,
+    context_type: Option<&'a Type>,
     bindings: &'a [TypeBinding<'a>],
     environment: &'a TypeEnvironment,
     current_module: Option<&'a str>,
@@ -60,6 +61,7 @@ pub(crate) fn type_call_signature(
     callee: &Expr,
     expected: Option<&Type>,
     handle_type: Option<&Type>,
+    context_type: Option<&Type>,
     bindings: &[TypeBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
@@ -72,6 +74,7 @@ pub(crate) fn type_call_signature(
             TypeNamePathCallContext {
                 expected,
                 handle_type,
+                context_type,
                 bindings,
                 environment,
                 current_module,
@@ -86,6 +89,8 @@ pub(crate) fn type_call_signature(
 pub(crate) fn core_call_signature(
     callee: &Expr,
     expected: Option<&CoreType>,
+    handle_type: Option<&CoreType>,
+    context_type: Option<&CoreType>,
     bindings: &[CoreBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
@@ -98,6 +103,8 @@ pub(crate) fn core_call_signature(
         callee,
         segments,
         expected,
+        handle_type,
+        context_type,
         bindings,
         environment,
         current_module,
@@ -114,6 +121,8 @@ fn type_name_path_call_signature(
         && let Some(signature) = function_type_call_signature(
             segments,
             context.expected,
+            context.handle_type,
+            context.context_type,
             context.environment,
             context.current_module,
             context.current_package,
@@ -132,6 +141,8 @@ fn type_name_path_call_signature(
         BindingCallSignature::Missing => function_type_call_signature(
             segments,
             context.expected,
+            context.handle_type,
+            context.context_type,
             context.environment,
             context.current_module,
             context.current_package,
@@ -255,6 +266,8 @@ fn core_name_path_call_signature(
     callee: &Expr,
     segments: &[String],
     expected: Option<&CoreType>,
+    handle_type: Option<&CoreType>,
+    context_type: Option<&CoreType>,
     bindings: &[CoreBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
@@ -264,6 +277,8 @@ fn core_name_path_call_signature(
         && let Some(signature) = core_function_call_signature(
             segments,
             expected,
+            handle_type,
+            context_type,
             environment,
             current_module,
             current_package,
@@ -314,6 +329,8 @@ fn core_name_path_call_signature(
     core_function_call_signature(
         segments,
         expected,
+        handle_type,
+        context_type,
         environment,
         current_module,
         current_package,
@@ -360,6 +377,8 @@ fn core_binding_call_signature(
 fn core_function_call_signature(
     segments: &[String],
     expected: Option<&CoreType>,
+    handle_type: Option<&CoreType>,
+    context_type: Option<&CoreType>,
     environment: &TypeEnvironment,
     current_module: Option<&str>,
     current_package: Option<&str>,
@@ -369,6 +388,14 @@ fn core_function_call_signature(
         let (params, return_type) = if function.module_name.as_deref() == Some("std::prelude") {
             core_prelude_signature(&function.name, expected)
                 .map(|(_, params, return_type)| (params, return_type))
+                .unwrap_or_else(|| {
+                    (
+                        function.params.iter().map(core_type).collect(),
+                        core_type(&function.return_type),
+                    )
+                })
+        } else if function.module_name.as_deref() == Some("std::io_provider") {
+            io_provider_state_core_signature(&function.name, expected, handle_type, context_type)
                 .unwrap_or_else(|| {
                     (
                         function.params.iter().map(core_type).collect(),
@@ -406,6 +433,63 @@ fn core_function_call_signature(
     None
 }
 
+fn io_provider_state_core_signature(
+    name: &str,
+    expected: Option<&CoreType>,
+    handle_type: Option<&CoreType>,
+    context_type: Option<&CoreType>,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    match name {
+        "state" => {
+            let item = match expected {
+                Some(CoreType::Named { name, args }) if name == "State" && args.len() == 1 => {
+                    Some(args[0].clone())
+                }
+                _ => None,
+            }
+            .or_else(|| handle_type.cloned())
+            .unwrap_or(CoreType::Unknown);
+            let state = match expected {
+                Some(state @ CoreType::Named { name, .. }) if name == "State" => state.clone(),
+                _ => CoreType::named("State", vec![item.clone()]),
+            };
+            Some((vec![item], state))
+        }
+        "update" => {
+            let cell = handle_type.cloned().unwrap_or(CoreType::Unknown);
+            let item = match &cell {
+                CoreType::Named { name, args } if name == "State" && args.len() == 1 => {
+                    args[0].clone()
+                }
+                _ => CoreType::Unknown,
+            };
+            let context = context_type.cloned().unwrap_or(CoreType::Unknown);
+            let result = expected.cloned().unwrap_or(CoreType::Unknown);
+            Some((
+                vec![
+                    cell,
+                    context.clone(),
+                    CoreType::Function {
+                        params: vec![item.clone(), context],
+                        variadic: None,
+                        return_type: Box::new(CoreType::Record(
+                            [
+                                ("state".to_string(), item),
+                                ("result".to_string(), result.clone()),
+                            ]
+                            .into_iter()
+                            .collect(),
+                        )),
+                        effects: Vec::new(),
+                    },
+                ],
+                result,
+            ))
+        }
+        _ => None,
+    }
+}
+
 fn core_call_signature_from_parts(
     (target, params, return_type): (CoreCallTarget, Vec<CoreType>, CoreType),
 ) -> CoreCallSignature {
@@ -427,6 +511,8 @@ enum BindingCallSignature<T> {
 fn function_type_call_signature(
     segments: &[String],
     expected: Option<&Type>,
+    handle_type: Option<&Type>,
+    context_type: Option<&Type>,
     environment: &TypeEnvironment,
     current_module: Option<&str>,
     current_package: Option<&str>,
@@ -448,6 +534,10 @@ fn function_type_call_signature(
         prelude_signature(&function.name, expected)
             .map(|(params, result)| (params.into(), result))
             .unwrap_or_else(|| (function.params.clone(), function.return_type.clone()))
+    } else if function.module_name.as_deref() == Some("std::io_provider") {
+        io_provider_state_surface_signature(&function.name, expected, handle_type, context_type)
+            .map(|(params, result)| (params.into(), result))
+            .unwrap_or_else(|| (function.params.clone(), function.return_type.clone()))
     } else {
         (function.params.clone(), function.return_type.clone())
     };
@@ -466,6 +556,81 @@ fn function_type_call_signature(
                 .starts_with(SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX),
         },
     })
+}
+
+fn io_provider_state_surface_signature(
+    name: &str,
+    expected: Option<&Type>,
+    handle_type: Option<&Type>,
+    context_type: Option<&Type>,
+) -> Option<(Vec<Type>, Type)> {
+    match name {
+        "state" => {
+            let item = match expected {
+                Some(Type::Named {
+                    name,
+                    identity,
+                    args,
+                }) if name == "State"
+                    && identity.ends_with("io_provider::State")
+                    && args.len() == 1 =>
+                {
+                    Some(args[0].clone())
+                }
+                _ => None,
+            }
+            .or_else(|| handle_type.cloned())
+            .unwrap_or(Type::Unknown);
+            let state = match expected {
+                Some(state @ Type::Named { name, identity, .. })
+                    if name == "State" && identity.ends_with("io_provider::State") =>
+                {
+                    state.clone()
+                }
+                _ => Type::resolved_named("State", "std::io_provider::State", vec![item.clone()]),
+            };
+            Some((vec![item], state))
+        }
+        "update" => {
+            let cell = handle_type.cloned()?;
+            let item = match &cell {
+                Type::Named {
+                    name,
+                    identity,
+                    args,
+                } if name == "State"
+                    && identity.ends_with("io_provider::State")
+                    && args.len() == 1 =>
+                {
+                    args[0].clone()
+                }
+                _ => return None,
+            };
+            let context = context_type.cloned().unwrap_or(Type::Unknown);
+            let result = expected.cloned().unwrap_or(Type::Unknown);
+            Some((
+                vec![
+                    cell,
+                    context.clone(),
+                    Type::Function {
+                        params: vec![item.clone(), context].into(),
+                        variadic: None,
+                        return_type: Box::new(Type::Record(
+                            [
+                                ("state".to_string(), item),
+                                ("result".to_string(), result.clone()),
+                            ]
+                            .into_iter()
+                            .collect(),
+                        )),
+                        effects: Vec::new(),
+                    },
+                ],
+                result,
+            ))
+        }
+        _ => None,
+    }
 }
 
 fn resolve_function<'a>(

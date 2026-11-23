@@ -444,6 +444,8 @@ impl<'a> CoreLowerer<'a> {
         &self,
         callee: &Expr,
         expected: Option<&CoreType>,
+        handle_type: Option<&CoreType>,
+        context_type: Option<&CoreType>,
     ) -> Option<CoreCallSignature> {
         let bindings = self
             .bindings
@@ -456,6 +458,8 @@ impl<'a> CoreLowerer<'a> {
         crate::call_resolution::core_call_signature(
             callee,
             expected,
+            handle_type,
+            context_type,
             &bindings,
             self.environment,
             self.function.module_name.as_deref(),

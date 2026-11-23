@@ -36,6 +36,8 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("float_greater_equal", "floatGreaterEqual"),
         ("byte", "byteValue"),
         ("io_provider_scope_owner", "ioProviderScopeOwner"),
+        ("io_provider_state", "ioProviderState"),
+        ("io_provider_state_update", "ioProviderStateUpdate"),
         ("io_provider_resource", "ioProviderResource"),
         ("io_provider_read_file", "ioProviderReadFile"),
         ("io_provider_write_file", "ioProviderWriteFile"),

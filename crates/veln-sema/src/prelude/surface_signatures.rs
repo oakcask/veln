@@ -13,6 +13,7 @@ pub(super) fn surface_prelude_signature(
     prelude_observation_export_signature(descriptor.name, expected)
         .or_else(|| prelude_production_metric_index_signature(descriptor.name))
         .or_else(|| prelude_net_system_signature(descriptor.name, expected))
+        .or_else(|| prelude_filesystem_state_signature(descriptor.name, &expected.direct))
         .or_else(|| prelude_filesystem_io_signature(descriptor.name))
         .or_else(|| prelude_float_signature(descriptor.name))
         .or_else(|| prelude_byte_signature(descriptor.name))
@@ -27,6 +28,41 @@ pub(super) fn surface_prelude_signature(
 
 fn prelude_filesystem_io_signature(name: &str) -> Option<(Vec<Type>, Type)> {
     super::filesystem_signatures::prelude_filesystem_io_signature(name)
+}
+
+fn prelude_filesystem_state_signature(name: &str, expected: &Type) -> Option<(Vec<Type>, Type)> {
+    match name {
+        "io_provider_state" => {
+            let item = match expected {
+                Type::Named { name, args, .. } if name == "State" && args.len() == 1 => {
+                    args[0].clone()
+                }
+                _ => Type::Unknown,
+            };
+            Some((vec![item], expected.clone()))
+        }
+        "io_provider_state_update" => Some((
+            vec![
+                Type::Unknown,
+                Type::Unknown,
+                Type::Function {
+                    params: vec![Type::Unknown, Type::Unknown].into(),
+                    variadic: None,
+                    return_type: Box::new(Type::Record(
+                        [
+                            ("state".to_string(), Type::Unknown),
+                            ("result".to_string(), expected.clone()),
+                        ]
+                        .into_iter()
+                        .collect(),
+                    )),
+                    effects: Vec::new(),
+                },
+            ],
+            expected.clone(),
+        )),
+        _ => None,
+    }
 }
 
 fn prelude_observation_export_signature(
