@@ -123,7 +123,7 @@ within the handler's finite resolver capacity.
 
 The JVM runtime also provides the private adapters for the bounded
 `io_provider` prototype. Within an active provider scope, the adapters can
-register `ReadFile`, `WriteFile`, and `AppendFile` resources against their
+register `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile` resources against their
 required active operation handler frames. They retain the provider owner and
 private slot in each resource and its projected capabilities. They do not
 dispatch operations, open host resources, or implement owner cleanup. The

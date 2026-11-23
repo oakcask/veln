@@ -118,8 +118,9 @@
         }
         boolean readFile = isAdt(familyValue, "ViewFamily::ReadFile");
         boolean writeFile = isAdt(familyValue, "ViewFamily::WriteFile");
+        boolean updateFile = isAdt(familyValue, "ViewFamily::UpdateFile");
         boolean appendFile = isAdt(familyValue, "ViewFamily::AppendFile");
-        if (!readFile && !writeFile && !appendFile) {
+        if (!readFile && !writeFile && !updateFile && !appendFile) {
             return ioProviderUnsupported("resource", "view family is outside the implemented prototype slice");
         }
 
@@ -158,6 +159,25 @@
                 }
                 resource = new IoResource(
                     owner, slot, "WriteFile", null, write, seek, null, writeAt, close, sync, mutate
+                );
+            } else if (updateFile) {
+                HandlerFrame read = findHandler(IO_READ_EFFECT);
+                HandlerFrame write = findHandler(IO_WRITE_EFFECT);
+                HandlerFrame seek = findHandler(IO_SEEK_EFFECT);
+                HandlerFrame readAt = findHandler(IO_READ_AT_EFFECT);
+                HandlerFrame writeAt = findHandler(IO_WRITE_AT_EFFECT);
+                HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
+                HandlerFrame sync = findHandler(IO_SYNC_EFFECT);
+                HandlerFrame mutate = findHandler(FS_MUTATE_EFFECT);
+                if (read == null || write == null || seek == null || readAt == null || writeAt == null
+                    || close == null || sync == null || mutate == null) {
+                    return ioProviderUnsupported(
+                        "resource",
+                        "UpdateFile registration requires io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, and fs::Mutate handlers"
+                    );
+                }
+                resource = new IoResource(
+                    owner, slot, "UpdateFile", read, write, seek, readAt, writeAt, close, sync, mutate
                 );
             } else {
                 HandlerFrame write = findHandler(IO_WRITE_EFFECT);
@@ -228,6 +248,29 @@
             new Object[] {
                 new IoCapability(resource.owner, resource.slot, resource.write),
                 new IoCapability(resource.owner, resource.slot, resource.seek),
+                new IoCapability(resource.owner, resource.slot, resource.writeAt),
+                new IoCapability(resource.owner, resource.slot, resource.close),
+                new IoCapability(resource.owner, resource.slot, resource.sync),
+                new IoCapability(resource.owner, resource.slot, resource.mutate)
+            }
+        ));
+    }
+
+    public static Object ioProviderUpdateFile(Object resourceValue) {
+        if (!(resourceValue instanceof IoResource)) {
+            return ioProviderInvalidInput("update_file", "invalid provider resource");
+        }
+        IoResource resource = (IoResource) resourceValue;
+        if (!resource.family.equals("UpdateFile")) {
+            return ioProviderUnsupported("update_file", "resource does not provide an UpdateFile view");
+        }
+        return ok(adt(
+            "fs::UpdateFile::UpdateFile",
+            new Object[] {
+                new IoCapability(resource.owner, resource.slot, resource.read),
+                new IoCapability(resource.owner, resource.slot, resource.write),
+                new IoCapability(resource.owner, resource.slot, resource.seek),
+                new IoCapability(resource.owner, resource.slot, resource.readAt),
                 new IoCapability(resource.owner, resource.slot, resource.writeAt),
                 new IoCapability(resource.owner, resource.slot, resource.close),
                 new IoCapability(resource.owner, resource.slot, resource.sync),

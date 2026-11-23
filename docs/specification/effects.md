@@ -334,7 +334,7 @@ The explicitly imported standard `fs` module also declares nominal
 prototype. Those names and their capability operands are specified by
 [Standard-library filesystem and byte IO](standard-library-filesystem-io.md).
 They do not replace the compiler-known calls below. The prototype supports
-bounded `ReadFile`, `WriteFile`, and `AppendFile` provider registration and
+bounded `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile` provider registration and
 projection through their required active operation handlers, but it does not
 yet dispatch byte operations or access the host filesystem. The bare coarse
 `fs` effect remains the host effect retained by the prototype's

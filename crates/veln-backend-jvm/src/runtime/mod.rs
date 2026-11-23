@@ -57,6 +57,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "io_provider_resource" => "ioProviderResource",
     "io_provider_read_file" => "ioProviderReadFile",
     "io_provider_write_file" => "ioProviderWriteFile",
+    "io_provider_update_file" => "ioProviderUpdateFile",
     "io_provider_append_file" => "ioProviderAppendFile",
     "io_provider_duplex" => "ioProviderDuplex",
     "io_provider_slot" => "ioProviderSlot",

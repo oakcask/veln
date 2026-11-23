@@ -68,6 +68,42 @@ fn write_without_mutate(owner: io_provider::Owner, slot: Int, calls: Sender<Stri
 	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls)
 end
 
+fn complete_update_registration(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn update_without_read(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn update_without_write(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn update_without_seek(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn update_without_read_at(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn update_without_write_at(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn update_without_close(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn update_without_sync(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn update_without_mutate(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls)
+end
+
 fn is_unsupported(result: Result<io_provider::Resource, io::Error>) -> Bool
 	match result
 		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => true
@@ -120,6 +156,13 @@ end
 fn projected_write_slots_match(owner: io_provider::Owner, resource: io_provider::Resource, slot: Int) -> Bool effects [concurrency]
 	match io_provider::write_file(resource)
 		Ok(fs::WriteFile::WriteFile(writer, seeker, writer_at, closer, syncer, truncater)) => slot_matches(io_provider::slot(owner, resource), slot) and slot_matches(io_provider::writer_slot(owner, writer), slot) and slot_matches(io_provider::seeker_slot(owner, seeker), slot) and slot_matches(io_provider::writer_at_slot(owner, writer_at), slot) and slot_matches(io_provider::closer_slot(owner, closer), slot) and slot_matches(io_provider::syncer_slot(owner, syncer), slot) and slot_matches(io_provider::truncater_slot(owner, truncater), slot)
+		_ => false
+	end
+end
+
+fn projected_update_slots_match(owner: io_provider::Owner, resource: io_provider::Resource, slot: Int) -> Bool effects [concurrency]
+	match io_provider::update_file(resource)
+		Ok(fs::UpdateFile::UpdateFile(reader, writer, seeker, reader_at, writer_at, closer, syncer, truncater)) => slot_matches(io_provider::slot(owner, resource), slot) and slot_matches(io_provider::reader_slot(owner, reader), slot) and slot_matches(io_provider::writer_slot(owner, writer), slot) and slot_matches(io_provider::seeker_slot(owner, seeker), slot) and slot_matches(io_provider::reader_at_slot(owner, reader_at), slot) and slot_matches(io_provider::writer_at_slot(owner, writer_at), slot) and slot_matches(io_provider::closer_slot(owner, closer), slot) and slot_matches(io_provider::syncer_slot(owner, syncer), slot) and slot_matches(io_provider::truncater_slot(owner, truncater), slot)
 		_ => false
 	end
 end
@@ -349,6 +392,134 @@ fn write_invalid_and_duplicate_slots_preserve_state() -> Result<(), String> effe
 	end
 end
 
+fn update_registration_and_projection_observations() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 91
+	let calls = channel::bounded<String>(32)
+	match complete_update_registration(owner, slot, calls.tx)
+		Ok(resource) => if not no_handler_calls(calls.rx) or not projected_update_slots_match(owner, resource, slot)
+			Err("UpdateFile registration or projection did not retain all identities")
+		else
+			match io_provider::read_file(resource)
+				Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => match io_provider::write_file(resource)
+					Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => match io_provider::append_file(resource)
+						Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => match io_provider::duplex(resource)
+							Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => if projected_update_slots_match(owner, resource, slot) and no_handler_calls(calls.rx)
+								Ok(())
+							else
+								Err("failed projections changed the UpdateFile resource or invoked a handler")
+							end
+							_ => Err("UpdateFile resource accepted an incompatible Duplex projection")
+						end
+						_ => Err("UpdateFile resource accepted an incompatible AppendFile projection")
+					end
+					_ => Err("UpdateFile resource accepted an incompatible WriteFile projection")
+				end
+				_ => Err("UpdateFile resource accepted an incompatible ReadFile projection")
+			end
+		end
+		Err(_) => Err("complete UpdateFile registration failed")
+	end
+end
+
+fn update_missing_handlers_preserve_slots() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let calls = channel::bounded<String>(32)
+	if not is_unsupported(update_without_read(owner, 101, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_update_registration(owner, 101, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Read did not reject UpdateFile before publication")
+	else if not is_unsupported(update_without_write(owner, 102, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_update_registration(owner, 102, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Write did not reject UpdateFile before publication")
+	else if not is_unsupported(update_without_seek(owner, 103, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_update_registration(owner, 103, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Seek did not reject UpdateFile before publication")
+	else if not is_unsupported(update_without_read_at(owner, 104, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_update_registration(owner, 104, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::ReadAt did not reject UpdateFile before publication")
+	else if not is_unsupported(update_without_write_at(owner, 105, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_update_registration(owner, 105, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::WriteAt did not reject UpdateFile before publication")
+	else if not is_unsupported(update_without_close(owner, 106, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_update_registration(owner, 106, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Close did not reject UpdateFile before publication")
+	else if not is_unsupported(update_without_sync(owner, 107, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_update_registration(owner, 107, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing io::Sync did not reject UpdateFile before publication")
+	else if not is_unsupported(update_without_mutate(owner, 108, calls.tx)) or not no_handler_calls(calls.rx) or not registration_succeeded(complete_update_registration(owner, 108, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing fs::Mutate did not reject UpdateFile before publication")
+	else
+		Ok(())
+	end
+end
+
+fn update_duplicate_registrations_preserve_originals() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let calls = channel::bounded<String>(32)
+	if not is_invalid_input(complete_update_registration(owner, -1, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("UpdateFile registration accepted a negative private slot")
+	else
+		match complete_update_registration(owner, 111, calls.tx)
+			Ok(update_resource) => if not is_invalid_input(complete_update_registration(owner, 111, calls.tx)) or not is_invalid_input(complete_registration(owner, 111, calls.tx)) or not is_invalid_input(complete_write_registration(owner, 111, calls.tx)) or not is_invalid_input(complete_append_registration(owner, 111, calls.tx)) or not no_handler_calls(calls.rx) or not projected_update_slots_match(owner, update_resource, 111)
+				Err("same-family or incoming existing-family duplicate changed UpdateFile")
+			else
+				match complete_registration(owner, 112, calls.tx)
+					Ok(read_resource) => if not is_invalid_input(complete_update_registration(owner, 112, calls.tx)) or not projected_slots_match(owner, read_resource, 112)
+						Err("incoming UpdateFile duplicate changed ReadFile")
+					else
+						match complete_write_registration(owner, 113, calls.tx)
+							Ok(write_resource) => if not is_invalid_input(complete_update_registration(owner, 113, calls.tx)) or not projected_write_slots_match(owner, write_resource, 113)
+								Err("incoming UpdateFile duplicate changed WriteFile")
+							else
+								match complete_append_registration(owner, 114, calls.tx)
+									Ok(append_resource) => if not is_invalid_input(complete_update_registration(owner, 114, calls.tx)) or not projected_append_slots_match(owner, append_resource, 114) or not no_handler_calls(calls.rx)
+										Err("incoming UpdateFile duplicate changed AppendFile or invoked a handler")
+									else
+										Ok(())
+									end
+									Err(_) => Err("AppendFile setup failed for UpdateFile duplicate check")
+								end
+							end
+							Err(_) => Err("WriteFile setup failed for UpdateFile duplicate check")
+						end
+					end
+					Err(_) => Err("ReadFile setup failed for UpdateFile duplicate check")
+				end
+			end
+			Err(_) => Err("initial UpdateFile registration failed")
+		end
+	end
+end
+
+fn existing_families_reject_update_projection() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let calls = channel::bounded<String>(32)
+	match complete_registration(owner, 121, calls.tx)
+		Ok(read_resource) => match io_provider::update_file(read_resource)
+			Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => if not projected_slots_match(owner, read_resource, 121)
+				Err("failed UpdateFile projection changed ReadFile")
+			else
+				match complete_write_registration(owner, 122, calls.tx)
+					Ok(write_resource) => match io_provider::update_file(write_resource)
+						Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => if not projected_write_slots_match(owner, write_resource, 122)
+							Err("failed UpdateFile projection changed WriteFile")
+						else
+							match complete_append_registration(owner, 123, calls.tx)
+								Ok(append_resource) => match io_provider::update_file(append_resource)
+									Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => if projected_append_slots_match(owner, append_resource, 123) and no_handler_calls(calls.rx)
+										Ok(())
+									else
+										Err("failed UpdateFile projection changed AppendFile or invoked a handler")
+									end
+									_ => Err("AppendFile resource accepted UpdateFile projection")
+								end
+								Err(_) => Err("AppendFile setup failed for projection check")
+							end
+						end
+						_ => Err("WriteFile resource accepted UpdateFile projection")
+					end
+					Err(_) => Err("WriteFile setup failed for projection check")
+				end
+			end
+			_ => Err("ReadFile resource accepted UpdateFile projection")
+		end
+		Err(_) => Err("ReadFile setup failed for projection check")
+	end
+end
+
 test read_file_registration_and_projection_retain_identity() -> Result<(), String> effects [concurrency]
 	handle registration_and_projection_observations() with io_provider::scope()
 end
@@ -388,4 +559,20 @@ end
 
 test write_file_invalid_and_duplicate_registrations_preserve_original_resource() -> Result<(), String> effects [concurrency]
 	handle write_invalid_and_duplicate_slots_preserve_state() with io_provider::scope()
+end
+
+test update_file_registration_and_projection_retain_all_identities() -> Result<(), String> effects [concurrency]
+	handle update_registration_and_projection_observations() with io_provider::scope()
+end
+
+test update_file_missing_handlers_reject_before_publication_without_poisoning_slots() -> Result<(), String> effects [concurrency]
+	handle update_missing_handlers_preserve_slots() with io_provider::scope()
+end
+
+test update_file_invalid_and_cross_family_duplicates_preserve_original_resources() -> Result<(), String> effects [concurrency]
+	handle update_duplicate_registrations_preserve_originals() with io_provider::scope()
+end
+
+test existing_file_families_reject_update_file_projection_without_change() -> Result<(), String> effects [concurrency]
+	handle existing_families_reject_update_projection() with io_provider::scope()
 end

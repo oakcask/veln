@@ -9,9 +9,9 @@ Implement a bounded source/adapter prototype that tests whether the proposed
 filesystem and shared byte IO design can preserve capabilities, provider
 identity, state, progress, and cleanup through ordinary Veln handlers.
 This is a Ready implementation target. The F1 static source and capability
-boundary plus the bounded `ReadFile`, `WriteFile`, and `AppendFile` registration and
-projection slices are implemented. The `UpdateFile` and `Duplex`
-F1 resource families and F2–F5 remain planned. Ready
+boundary plus the bounded `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile`
+registration and projection slices are implemented. The `Duplex` F1 resource
+family and F2–F5 remain planned. Ready
 authorizes building the prototype, not adopting the production API.
 
 ## Scope And Dependency Direction
@@ -23,14 +23,14 @@ its production implementation or promotion to Ready.
 
 The following sections of the filesystem proposal define the prototype's
 design inputs. The static source boundary, compiler-known adapter names and
-opaque identities, and bounded `ReadFile`, `WriteFile`, and `AppendFile` registration and
+opaque identities, and bounded `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile` registration and
 projection slices are implemented and specified by
 [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
 The table lists only the remaining proposed obligations:
 
 | Design input | Prototype obligation |
 | --- | --- |
-| [Source surface and static capabilities](filesystem-io.md#source-surface-and-static-capabilities) | Extend runtime registration and compatibility evidence to the remaining resource families. |
+| [Source surface and static capabilities](filesystem-io.md#source-surface-and-static-capabilities) | Extend runtime registration and compatibility evidence to `Duplex` and the remaining combinations. |
 | [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Invoke captured handlers through their registered resource, and add atomic `State<T>` operations. |
 | [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Preserve bytes, known and unknown progress, error context, and no-progress behavior. |
 | [Namespace, seek, and mutation transitions](filesystem-io.md#namespace-seek-and-mutation-transitions) | Observe successful and failed operations through bytes, cursors, bindings, and commit facts. |
@@ -55,7 +55,7 @@ its positive observations and its failure or preserved-state observations.
 
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
-| F1: remaining resource-family boundary | Registration enforces the handler set for `UpdateFile` and `Duplex`. Compatibility combinations outside the bounded implemented `ReadFile`, `WriteFile`, and `AppendFile` observations preserve the resource and its provider identity. | Companion registration and projection cases for `UpdateFile`, `Duplex`, and the remaining compatibility combinations, with focused backend checks for validation-before-publication and retained identity. |
+| F1: remaining resource-family boundary | Registration enforces the handler set for `Duplex`. Compatibility combinations outside the bounded implemented `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile` observations preserve the resource and its provider identity. | Companion registration and projection cases for `Duplex` and the remaining compatibility combinations, with focused backend checks for validation-before-publication and retained identity. |
 | F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. | Companion tests with distinct provider contents and operation logs; a backend dispatch case checks captured provider identity and absence of host fallback. |
 | F3: state and publication | Concurrent children, injected failure, and cancellation cannot strand the state cell lock or publish half a transition. Closing the owner rejects late publication and releases the late host resource. | Scoped Veln support plus backend atomic-state and owner-lifecycle cases. Force cancellation before entry and after commit; runtime callback failure preserves old state and releases the lock. Gate a host open across owner closure and observe release instead of publication, including retained cleanup failure. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
@@ -74,11 +74,11 @@ does not satisfy a gate. Such a failure does not promote the parent proposal.
 ## Implementation Sequence And Evidence Placement
 
 1. The accepted and rejected source cases for the F1 static boundary and its
-   compiler adapters are implemented. The `ReadFile`, `WriteFile`, and `AppendFile`
+   compiler adapters are implemented. The `ReadFile`, `WriteFile`, `UpdateFile`, and `AppendFile`
    missing-handler, validation-before-publication, duplicate-registration
    preservation, retained-identity, and incompatible projection observations
    described by the current specification are also implemented. Complete the
-   remaining resource families and compatibility combinations. Treat the
+   `Duplex` family and remaining compatibility combinations. Treat the
    remaining signature contracts as runtime obligations, not proof supplied by
    the static declarations.
 2. Demonstrate the atomic state boundary required by F3. Add separate Veln
