@@ -331,9 +331,8 @@ impl<'a> TypeParser<'a> {
     }
 
     fn skip_ws(&mut self) {
-        while self.current().is_some_and(char::is_whitespace) {
-            self.cursor += 1;
-        }
+        let remaining = &self.text[self.cursor..];
+        self.cursor += remaining.len() - remaining.trim_start().len();
     }
 
     fn eat(&mut self, expected: char) -> bool {

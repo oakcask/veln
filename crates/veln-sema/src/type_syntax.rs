@@ -99,6 +99,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn unicode_whitespace_in_type_annotations_preserves_character_boundaries() {
+        for (annotation, expected) in [
+            ("\u{2003}Int", "Int"),
+            ("Int\u{00a0}", "Int"),
+            ("Option<\u{3000}Int>", "Option<Int>"),
+            ("(\u{2003})", "()"),
+        ] {
+            assert_eq!(
+                parse_type_annotation(annotation).unwrap().render(),
+                expected
+            );
+        }
+    }
+
+    #[test]
     fn type_annotation_reference_names_ignore_record_fields() {
         let names =
             type_annotation_reference_names("{item: Int, payload: module::Packet}").unwrap();
