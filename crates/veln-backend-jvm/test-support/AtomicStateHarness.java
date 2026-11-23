@@ -66,6 +66,139 @@ public final class AtomicStateHarness {
         }
     }
 
+    private static long admissionSignalCount(Object cell) throws Exception {
+        Field field = cell.getClass().getDeclaredField("admissionSignalCount");
+        field.setAccessible(true);
+        synchronized (cell) {
+            return field.getLong(cell);
+        }
+    }
+
+    private static void boundedSuccessorHandoff() throws Exception {
+        Object cell = VelnRuntime.ioProviderState(Long.valueOf(0));
+        CountDownLatch holderEntered = new CountDownLatch(1);
+        CountDownLatch holderRelease = new CountDownLatch(1);
+        AtomicReference<Throwable> unexpected = new AtomicReference<Throwable>();
+        Thread holder = new Thread(() -> {
+            try {
+                VelnRuntime.ioProviderStateUpdate(
+                    cell,
+                    VelnRuntime.UNIT,
+                    (VelnRuntime.Fn) args -> {
+                        holderEntered.countDown();
+                        await(holderRelease, "bounded handoff holder release");
+                        return transition(args[0], VelnRuntime.UNIT);
+                    }
+                );
+            } catch (Throwable caught) {
+                unexpected.compareAndSet(null, caught);
+            }
+        });
+        holder.start();
+        await(holderEntered, "bounded handoff holder admission");
+
+        Thread[] contenders = new Thread[4];
+        for (int index = 0; index < contenders.length; index += 1) {
+            final int contender = index;
+            contenders[index] = new Thread(() -> {
+                try {
+                    VelnRuntime.ioProviderStateUpdate(
+                        cell,
+                        VelnRuntime.UNIT,
+                        (VelnRuntime.Fn) args -> {
+                            if (contender == 0) {
+                                throw new VelnRuntime.RuntimeFailure("planned queued failure");
+                            }
+                            return transition(
+                                Long.valueOf(((Long) args[0]).longValue() + 1L),
+                                VelnRuntime.UNIT
+                            );
+                        }
+                    );
+                    require(contender != 0, "planned queued failure returned");
+                } catch (VelnRuntime.RuntimeFailure failure) {
+                    if (contender != 0 || !failure.getMessage().contains("planned queued failure")) {
+                        unexpected.compareAndSet(null, failure);
+                    }
+                } catch (Throwable caught) {
+                    unexpected.compareAndSet(null, caught);
+                }
+            });
+            contenders[index].start();
+            waitForBlocked(contenders[index], "bounded queued contender " + index);
+        }
+
+        long before = admissionSignalCount(cell);
+        release(holderRelease);
+        holder.join(TimeUnit.SECONDS.toMillis(10));
+        for (Thread contender : contenders) {
+            contender.join(TimeUnit.SECONDS.toMillis(10));
+            require(!contender.isAlive(), "bounded queued contender remained blocked");
+        }
+        require(!holder.isAlive(), "bounded handoff holder remained blocked");
+        require(unexpected.get() == null, "bounded handoff failed: " + unexpected.get());
+        require(read(cell) == 3L, "failed queued contender changed state or stranded successors");
+        require(
+            admissionSignalCount(cell) - before == contenders.length,
+            "release notified more than one successor per queued transition"
+        );
+    }
+
+    private static void cancelledQueuedSuccessorDoesNotStrandQueue() throws Exception {
+        Object cell = VelnRuntime.ioProviderState(Long.valueOf(0));
+        CountDownLatch holderEntered = new CountDownLatch(1);
+        CountDownLatch holderRelease = new CountDownLatch(1);
+        Thread holder = new Thread(() -> VelnRuntime.ioProviderStateUpdate(
+            cell,
+            VelnRuntime.UNIT,
+            (VelnRuntime.Fn) args -> {
+                holderEntered.countDown();
+                await(holderRelease, "cancelled successor holder release");
+                return transition(args[0], VelnRuntime.UNIT);
+            }
+        ));
+        holder.start();
+        await(holderEntered, "cancelled successor holder admission");
+
+        AtomicBoolean cancelledInvoked = new AtomicBoolean(false);
+        Object cancelled = VelnRuntime.taskSpawn((VelnRuntime.Fn) ignored ->
+            VelnRuntime.ioProviderStateUpdate(
+                cell,
+                VelnRuntime.UNIT,
+                (VelnRuntime.Fn) args -> {
+                    cancelledInvoked.set(true);
+                    return transition(Long.valueOf(99), VelnRuntime.UNIT);
+                }
+            )
+        );
+        Field threadField = cancelled.getClass().getDeclaredField("thread");
+        threadField.setAccessible(true);
+        Thread cancelledThread = (Thread) threadField.get(cancelled);
+        waitForBlocked(cancelledThread, "cancelled queued successor");
+
+        Thread eligible = new Thread(() -> VelnRuntime.ioProviderStateUpdate(
+            cell,
+            VelnRuntime.UNIT,
+            (VelnRuntime.Fn) args -> transition(Long.valueOf(1), VelnRuntime.UNIT)
+        ));
+        eligible.start();
+        waitForBlocked(eligible, "eligible queued successor");
+        VelnRuntime.taskCancel(cancelled);
+        requireCancelled(VelnRuntime.taskJoin(cancelled), "cancelled queued successor");
+        require(!cancelledInvoked.get(), "cancelled queued successor entered its callback");
+
+        long before = admissionSignalCount(cell);
+        release(holderRelease);
+        holder.join(TimeUnit.SECONDS.toMillis(10));
+        eligible.join(TimeUnit.SECONDS.toMillis(10));
+        require(!eligible.isAlive(), "eligible successor was stranded after cancellation");
+        require(read(cell) == 1L, "eligible successor did not publish after cancellation");
+        require(
+            admissionSignalCount(cell) - before == 1L,
+            "release did not target exactly the remaining eligible successor"
+        );
+    }
+
     private static void serializationAndIdentity() throws Exception {
         Object cell = VelnRuntime.ioProviderState(Long.valueOf(0));
         Object other = VelnRuntime.ioProviderState(Long.valueOf(0));
@@ -377,6 +510,8 @@ public final class AtomicStateHarness {
 
     public static void main(String[] args) throws Exception {
         serializationAndIdentity();
+        boundedSuccessorHandoff();
+        cancelledQueuedSuccessorDoesNotStrandQueue();
         cancellationBeforeAdmission();
         cancellationAtCheckpoint();
         cancellationAfterCallbackReturnPublishes();

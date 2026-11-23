@@ -11,9 +11,84 @@
     private static final class IoState {
         Object value;
         Thread admittedBy;
+        IoStateWaiter admissionHead;
+        IoStateWaiter admissionTail;
+        long admissionSignalCount;
 
         IoState(Object value) {
             this.value = freezeBoundaryValue(value);
+        }
+    }
+
+    private static final class IoStateWaiter {
+        final Thread thread;
+        IoStateWaiter previous;
+        IoStateWaiter next;
+        boolean queued;
+        boolean admitted;
+
+        IoStateWaiter(Thread thread) {
+            this.thread = thread;
+        }
+    }
+
+    private static void enqueueIoStateWaiter(IoState state, IoStateWaiter waiter) {
+        waiter.previous = state.admissionTail;
+        waiter.queued = true;
+        if (state.admissionTail == null) {
+            state.admissionHead = waiter;
+        } else {
+            state.admissionTail.next = waiter;
+        }
+        state.admissionTail = waiter;
+    }
+
+    private static void unlinkIoStateWaiter(IoState state, IoStateWaiter waiter) {
+        if (!waiter.queued) return;
+        if (waiter.previous == null) {
+            state.admissionHead = waiter.next;
+        } else {
+            waiter.previous.next = waiter.next;
+        }
+        if (waiter.next == null) {
+            state.admissionTail = waiter.previous;
+        } else {
+            waiter.next.previous = waiter.previous;
+        }
+        waiter.previous = null;
+        waiter.next = null;
+        waiter.queued = false;
+    }
+
+    private static void releaseIoStateAdmission(IoState state, Thread current) {
+        synchronized (state) {
+            if (state.admittedBy != current) return;
+            IoStateWaiter successor = state.admissionHead;
+            if (successor == null) {
+                state.admittedBy = null;
+                return;
+            }
+            unlinkIoStateWaiter(state, successor);
+            state.admittedBy = successor.thread;
+            synchronized (successor) {
+                successor.admitted = true;
+                state.admissionSignalCount += 1L;
+                successor.notify();
+            }
+        }
+    }
+
+    private static void cancelIoStateAdmission(
+        IoState state,
+        IoStateWaiter waiter,
+        Thread current
+    ) {
+        synchronized (state) {
+            if (state.admittedBy == current) {
+                releaseIoStateAdmission(state, current);
+            } else {
+                unlinkIoStateWaiter(state, waiter);
+            }
         }
     }
 
@@ -39,21 +114,39 @@
         Thread current = Thread.currentThread();
         Object oldValue;
         boolean admissionWaitInterrupted = false;
+        IoStateWaiter waiter = null;
         synchronized (state) {
             if (state.admittedBy == current) {
                 throw new RuntimeFailure("reentrant io provider state update");
             }
-            while (state.admittedBy != null) {
-                throwTaskCancellationIfRequested();
-                try {
-                    state.wait();
-                } catch (InterruptedException interrupted) {
-                    throwTaskCancellationIfRequested();
-                    admissionWaitInterrupted = true;
-                }
-            }
             throwTaskCancellationIfRequested();
-            state.admittedBy = current;
+            if (state.admittedBy == null && state.admissionHead == null) {
+                state.admittedBy = current;
+            } else {
+                waiter = new IoStateWaiter(current);
+                enqueueIoStateWaiter(state, waiter);
+            }
+        }
+        if (waiter != null) {
+            try {
+                synchronized (waiter) {
+                    while (!waiter.admitted) {
+                        throwTaskCancellationIfRequested();
+                        try {
+                            waiter.wait();
+                        } catch (InterruptedException interrupted) {
+                            throwTaskCancellationIfRequested();
+                            admissionWaitInterrupted = true;
+                        }
+                    }
+                }
+                throwTaskCancellationIfRequested();
+            } catch (RuntimeException | Error failure) {
+                cancelIoStateAdmission(state, waiter, current);
+                throw failure;
+            }
+        }
+        synchronized (state) {
             oldValue = state.value;
         }
         if (admissionWaitInterrupted) current.interrupt();
@@ -72,21 +165,15 @@
             Object result = freezeBoundaryValue(fields.get("result"));
             synchronized (state) {
                 state.value = replacement;
-                state.admittedBy = null;
                 published = true;
-                state.notifyAll();
             }
+            releaseIoStateAdmission(state, current);
             if (afterPublication != null) afterPublication.run();
             throwTaskCancellationIfRequested();
             return result;
         } finally {
             if (!published) {
-                synchronized (state) {
-                    if (state.admittedBy == current) {
-                        state.admittedBy = null;
-                        state.notifyAll();
-                    }
-                }
+                releaseIoStateAdmission(state, current);
             }
         }
     }
