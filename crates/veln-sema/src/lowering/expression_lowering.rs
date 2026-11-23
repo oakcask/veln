@@ -374,7 +374,7 @@ impl<'a> CoreLowerer<'a> {
         ty
     }
 
-    pub(super) fn joined_shallow_expr_type(&self, expr: &Expr) -> Option<CoreType> {
+    pub(super) fn joined_shallow_expr_type(&mut self, expr: &Expr) -> Option<CoreType> {
         match &expr.kind {
             ExprKind::List(items) => {
                 joined_core_types(items.iter().map(|item| self.joined_shallow_expr_type(item)))
@@ -385,19 +385,27 @@ impl<'a> CoreLowerer<'a> {
                 else_if_branches,
                 else_branch,
                 ..
-            } => joined_core_types(
-                std::iter::once(self.joined_shallow_expr_type(then_branch))
-                    .chain(
-                        else_if_branches
-                            .iter()
-                            .map(|branch| self.joined_shallow_expr_type(&branch.expr)),
-                    )
-                    .chain(std::iter::once(self.joined_shallow_expr_type(else_branch))),
-            ),
-            ExprKind::Match { arms, .. } => joined_core_types(
-                arms.iter()
-                    .map(|arm| self.joined_shallow_expr_type(&arm.expr)),
-            ),
+            } => {
+                let mut branch_types = Vec::with_capacity(else_if_branches.len() + 2);
+                branch_types.push(self.joined_shallow_expr_type(then_branch));
+                for branch in else_if_branches {
+                    branch_types.push(self.joined_shallow_expr_type(&branch.expr));
+                }
+                branch_types.push(self.joined_shallow_expr_type(else_branch));
+                joined_core_types(branch_types)
+            }
+            ExprKind::Match { scrutinee, arms } => {
+                let scrutinee_type = self.joined_shallow_expr_type(scrutinee)?;
+                let mut arm_types = Vec::with_capacity(arms.len());
+                for arm in arms {
+                    let saved_bindings = self.bindings.len();
+                    self.bindings
+                        .extend(self.pattern_bindings(&arm.pattern, &scrutinee_type));
+                    arm_types.push(self.joined_shallow_expr_type(&arm.expr));
+                    self.bindings.truncate(saved_bindings);
+                }
+                joined_core_types(arm_types)
+            }
             _ => self.shallow_expr_type(expr),
         }
     }
@@ -411,6 +419,9 @@ impl<'a> CoreLowerer<'a> {
             | ExprKind::Unit => self.shallow_literal_type(expr),
             ExprKind::Record(_) | ExprKind::List(_) => self.shallow_collection_type(expr),
             ExprKind::NamePath { segments, .. } => self.shallow_name_path_type(segments),
+            ExprKind::FieldAccess { base, field, .. } => self
+                .shallow_expr_type(base)
+                .and_then(|ty| ty.record_field(field).cloned()),
             ExprKind::Call { callee, args } => self.shallow_call_type(callee, args),
             _ => None,
         }
