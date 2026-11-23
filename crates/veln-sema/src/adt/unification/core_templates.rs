@@ -50,7 +50,7 @@ pub(crate) fn core_type_template(ty: &Type) -> CoreType {
     match ty {
         Type::Unknown => CoreType::Unknown,
         Type::Named { name, args, .. } => CoreType::Named {
-            name: name.clone(),
+            name: name.to_string(),
             args: args.iter().map(core_type_template).collect(),
         },
         Type::VariantRefinement {

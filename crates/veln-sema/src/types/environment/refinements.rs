@@ -174,7 +174,7 @@ impl TypeEnvironment {
         };
         Some(VariantRefinementBaseFailure {
             reason: "not_adt",
-            resolved_identity: identity,
+            resolved_identity: identity.into_owned(),
             declaration_span: None,
             related_kind: "base_type_origin",
             provider: Some("type_syntax"),
@@ -694,7 +694,7 @@ impl TypeEnvironment {
         let base = name
             .rsplit_once("::")
             .map(|(base, _)| base)
-            .or_else(|| matches!(ty, Type::VariantRefinement { .. }).then_some(name.as_str()))?;
+            .or_else(|| matches!(ty, Type::VariantRefinement { .. }).then_some(name.as_ref()))?;
         self.type_path_arity_error(base, args.len(), current_module)
     }
 

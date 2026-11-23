@@ -1322,7 +1322,9 @@ fn refinement_alternative_identity(
 
 fn canonical_type_identity(ty: Type) -> Option<Type> {
     match ty {
-        Type::Named { identity, args, .. } => canonical_named_identity(identity, args.into_vec()),
+        Type::Named { identity, args, .. } => {
+            canonical_named_identity(identity.into_owned(), args.into_vec())
+        }
         Type::VariantRefinement {
             identity,
             args,
@@ -1330,7 +1332,7 @@ fn canonical_type_identity(ty: Type) -> Option<Type> {
             unresolved_alternatives,
             ..
         } if unresolved_alternatives.is_empty() => {
-            canonical_refinement_identity(identity, args.into_vec(), variants)
+            canonical_refinement_identity(identity.into_owned(), args.into_vec(), variants)
         }
         Type::VariantRefinement { .. } => None,
         Type::Record(fields) => canonical_record_identity(fields),
@@ -1358,8 +1360,8 @@ fn canonical_refinement_identity(
     variants: Arc<[String]>,
 ) -> Option<Type> {
     Some(Type::VariantRefinement {
-        name: identity.clone(),
-        identity,
+        name: identity.clone().into(),
+        identity: identity.into(),
         args: canonical_type_identities(args)?.into(),
         variants,
         unresolved_alternatives: Vec::new(),

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use veln_ast::NodeId;
@@ -318,13 +319,13 @@ impl<'a> IntoIterator for &'a mut TypeArgs {
 pub(crate) enum Type {
     Unknown,
     Named {
-        name: String,
-        identity: String,
+        name: Cow<'static, str>,
+        identity: Cow<'static, str>,
         args: TypeArgs,
     },
     VariantRefinement {
-        name: String,
-        identity: String,
+        name: Cow<'static, str>,
+        identity: Cow<'static, str>,
         args: TypeArgs,
         variants: Arc<[String]>,
         unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
@@ -363,7 +364,7 @@ impl Type {
     }
 
     pub(crate) fn named(name: impl Into<String>, args: Vec<Type>) -> Self {
-        let name = name.into();
+        let name = Self::type_symbol(name.into());
         Self::Named {
             identity: name.clone(),
             name,
@@ -372,7 +373,7 @@ impl Type {
     }
 
     pub(crate) fn path() -> Self {
-        Self::resolved_named("Path", Self::COMPILER_PATH_IDENTITY, Vec::new())
+        Self::static_named("Path", Self::COMPILER_PATH_IDENTITY, Vec::new())
     }
 
     pub(crate) fn resolved_named(
@@ -381,8 +382,8 @@ impl Type {
         args: Vec<Type>,
     ) -> Self {
         Self::Named {
-            name: name.into(),
-            identity: identity.into(),
+            name: Self::type_symbol(name.into()),
+            identity: Self::type_symbol(identity.into()),
             args: args.into(),
         }
     }
@@ -392,7 +393,7 @@ impl Type {
         args: Vec<Type>,
         variants: Vec<String>,
     ) -> Self {
-        let name = name.into();
+        let name = Self::type_symbol(name.into());
         Self::VariantRefinement {
             identity: name.clone(),
             name,
@@ -409,8 +410,8 @@ impl Type {
         variants: Vec<String>,
     ) -> Self {
         Self::VariantRefinement {
-            name: name.into(),
-            identity: identity.into(),
+            name: Self::type_symbol(name.into()),
+            identity: Self::type_symbol(identity.into()),
             args: args.into(),
             variants: variants.into(),
             unresolved_alternatives: Vec::new(),
@@ -424,8 +425,8 @@ impl Type {
         variants: Arc<[String]>,
     ) -> Self {
         Self::VariantRefinement {
-            name: name.into(),
-            identity: identity.into(),
+            name: Self::type_symbol(name.into()),
+            identity: Self::type_symbol(identity.into()),
             args: args.into(),
             variants,
             unresolved_alternatives: Vec::new(),
@@ -438,6 +439,7 @@ impl Type {
         variants: Vec<String>,
         unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
     ) -> Self {
+        let name = Self::type_symbol(name);
         Self::VariantRefinement {
             identity: name.clone(),
             name,
@@ -447,24 +449,56 @@ impl Type {
         }
     }
 
+    fn static_named(name: &'static str, identity: &'static str, args: Vec<Type>) -> Self {
+        Self::Named {
+            name: Cow::Borrowed(name),
+            identity: Cow::Borrowed(identity),
+            args: args.into(),
+        }
+    }
+
+    fn type_symbol(value: String) -> Cow<'static, str> {
+        let known = match value.as_str() {
+            "Bool" => "Bool",
+            "Int" => "Int",
+            "Float" => "Float",
+            "String" => "String",
+            "Unit" => "Unit",
+            "Path" => "Path",
+            "Option" => "Option",
+            "Result" => "Result",
+            "List" => "List",
+            "Vec" => "Vec",
+            "Dict" => "Dict",
+            Self::COMPILER_OPTION_IDENTITY => Self::COMPILER_OPTION_IDENTITY,
+            Self::COMPILER_RESULT_IDENTITY => Self::COMPILER_RESULT_IDENTITY,
+            Self::COMPILER_LIST_IDENTITY => Self::COMPILER_LIST_IDENTITY,
+            Self::COMPILER_VEC_IDENTITY => Self::COMPILER_VEC_IDENTITY,
+            Self::COMPILER_DICT_IDENTITY => Self::COMPILER_DICT_IDENTITY,
+            Self::COMPILER_PATH_IDENTITY => Self::COMPILER_PATH_IDENTITY,
+            _ => return Cow::Owned(value),
+        };
+        Cow::Borrowed(known)
+    }
+
     pub(crate) fn bool() -> Self {
-        Self::named("Bool", Vec::new())
+        Self::static_named("Bool", "Bool", Vec::new())
     }
 
     pub(crate) fn int() -> Self {
-        Self::named("Int", Vec::new())
+        Self::static_named("Int", "Int", Vec::new())
     }
 
     pub(crate) fn float() -> Self {
-        Self::named("Float", Vec::new())
+        Self::static_named("Float", "Float", Vec::new())
     }
 
     pub(crate) fn string() -> Self {
-        Self::named("String", Vec::new())
+        Self::static_named("String", "String", Vec::new())
     }
 
     pub(crate) fn unit() -> Self {
-        Self::named("Unit", Vec::new())
+        Self::static_named("Unit", "Unit", Vec::new())
     }
 
     pub(crate) fn wall_time() -> Self {
@@ -489,23 +523,23 @@ impl Type {
     }
 
     pub(crate) fn option(value: Type) -> Self {
-        Self::resolved_named("Option", Self::COMPILER_OPTION_IDENTITY, vec![value])
+        Self::static_named("Option", Self::COMPILER_OPTION_IDENTITY, vec![value])
     }
 
     pub(crate) fn result(value: Type, error: Type) -> Self {
-        Self::resolved_named("Result", Self::COMPILER_RESULT_IDENTITY, vec![value, error])
+        Self::static_named("Result", Self::COMPILER_RESULT_IDENTITY, vec![value, error])
     }
 
     pub(crate) fn list(item: Type) -> Self {
-        Self::resolved_named("List", Self::COMPILER_LIST_IDENTITY, vec![item])
+        Self::static_named("List", Self::COMPILER_LIST_IDENTITY, vec![item])
     }
 
     pub(crate) fn vec(item: Type) -> Self {
-        Self::resolved_named("Vec", Self::COMPILER_VEC_IDENTITY, vec![item])
+        Self::static_named("Vec", Self::COMPILER_VEC_IDENTITY, vec![item])
     }
 
     pub(crate) fn dict(key: Type, value: Type) -> Self {
-        Self::resolved_named("Dict", Self::COMPILER_DICT_IDENTITY, vec![key, value])
+        Self::static_named("Dict", Self::COMPILER_DICT_IDENTITY, vec![key, value])
     }
 
     pub(crate) fn function(params: Vec<Type>, return_type: Type, effects: Vec<String>) -> Self {

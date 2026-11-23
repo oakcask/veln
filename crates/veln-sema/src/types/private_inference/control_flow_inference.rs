@@ -180,7 +180,7 @@ fn private_control_flow_recovery_type(ty: &Type) -> Type {
             identity,
             args,
             ..
-        } => Type::resolved_named(name, identity, args.to_vec()),
+        } => Type::resolved_named(name.clone(), identity.clone(), args.to_vec()),
         ty => ty.clone(),
     }
 }
@@ -219,9 +219,11 @@ fn merge_expected_private_control_flow_result(result: &mut Type, actual: &Type) 
                 args: actual_args,
                 ..
             },
-        ) if identity == actual_identity && args == actual_args => {
-            Some(Type::resolved_named(name, identity, args.to_vec()))
-        }
+        ) if identity == actual_identity && args == actual_args => Some(Type::resolved_named(
+            name.clone(),
+            identity.clone(),
+            args.to_vec(),
+        )),
         (
             Type::Named {
                 name,
@@ -233,9 +235,11 @@ fn merge_expected_private_control_flow_result(result: &mut Type, actual: &Type) 
                 args: actual_args,
                 ..
             },
-        ) if identity == actual_identity && args == actual_args => {
-            Some(Type::resolved_named(name, identity, args.to_vec()))
-        }
+        ) if identity == actual_identity && args == actual_args => Some(Type::resolved_named(
+            name.clone(),
+            identity.clone(),
+            args.to_vec(),
+        )),
         _ => None,
     };
     if let Some(common_base) = common_base {

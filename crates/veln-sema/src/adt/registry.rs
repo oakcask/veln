@@ -415,7 +415,7 @@ impl AdtRegistry {
             _ => return None,
         };
         self.descriptors_by_identity
-            .get(identity)
+            .get(identity.as_ref())
             .into_iter()
             .flatten()
             .map(|index| {
@@ -501,7 +501,7 @@ impl AdtRegistry {
             _ => return None,
         };
         self.descriptors_by_identity
-            .get(identity)
+            .get(identity.as_ref())
             .into_iter()
             .flatten()
             .copied()
@@ -546,7 +546,7 @@ impl AdtRegistry {
         if identity != name
             && let Some(descriptor) = self
                 .descriptors_by_identity
-                .get(identity)
+                .get(identity.as_ref())
                 .into_iter()
                 .flatten()
                 .rev()

@@ -1823,9 +1823,9 @@ fn variant_refinement_base_renders(expected: &Type, actual: &Type) -> (String, S
     };
     let (expected_name, actual_name) =
         if expected_name == actual_name && expected_identity != actual_identity {
-            (expected_identity.as_str(), actual_identity.as_str())
+            (expected_identity.as_ref(), actual_identity.as_ref())
         } else {
-            (expected_name.as_str(), actual_name.as_str())
+            (expected_name.as_ref(), actual_name.as_ref())
         };
     let mut expected_arguments = Vec::with_capacity(expected_args.len());
     let mut actual_arguments = Vec::with_capacity(actual_args.len());
