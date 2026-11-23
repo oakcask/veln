@@ -1881,6 +1881,36 @@ fn check_summary_permit_publication_cancellation(baseline: Int) -> Result<(), St
 	end
 end
 
+test unpublished_permit_cleanup_keeps_call_state_unavailable_until_discard() -> Result<(), String> effects [concurrency]
+	let baseline = observe::buffered_export_permit_count_for_test()
+	let entered = channel::bounded<()>(1)
+	let release = channel::bounded<()>(1)
+	let probe = observe::start_unpublished_permit_cleanup_for_test(observe_test_support_test::decision_barrier, entered.tx, release.rx)
+	let reached: Option<()> = channel::recv(entered.rx)
+	let before = observe::take_unpublished_permit_call_state_for_test(probe.state)
+	let during = observe::buffered_export_permit_count_for_test()
+	let _ = channel::send(release.tx, ())
+	let cleanup: Task<()> = probe.cleanup
+	let joined = task::join(cleanup)
+	let after = observe::buffered_export_permit_count_for_test()
+	let restored = observe::take_unpublished_permit_call_state_for_test(probe.state)
+	match joined
+		Ok(_) => if buffered_unit_received(reached) and during == baseline + 1 and after == baseline
+			match before
+				None => match restored
+					Some(true) => Ok(())
+					Some(false) => Err("permit cleanup restored the wrong call state; preserve the original state after discarding the permit")
+					None => Err("permit cleanup did not restore call state; publish the original state after discarding the permit")
+				end
+				Some(_) => Err("call state became available before permit discard; keep it unavailable until the unpublished permit is discarded")
+			end
+		else
+			Err("unpublished permit cleanup retained or prematurely discarded its permit; retain it until cleanup and discard it before state publication")
+		end
+		Err(_) => Err("unpublished permit cleanup task failed; restore the permit and call state before returning")
+	end
+end
+
 fn buffered_failure_body() -> Int effects [observe::Observe]
 	log::info(None, "rejected", list_nil())
 	log::info(None, "exceptional", list_nil())

@@ -1610,12 +1610,40 @@ fn restore_uncommitted_buffered_call_state(state: Sender<BufferedCallState>, ori
 end
 
 fn restore_uncommitted_buffered_call_permit_state(state: Sender<BufferedCallState>, original: BufferedCallState, permit: Int, committed: Receiver<()>) -> () effects [concurrency]
+	restore_uncommitted_buffered_call_permit_state_with_discard_hook(state, original, permit, committed, NoBufferedWorkerBoundaryHook)
+end
+
+fn restore_uncommitted_buffered_call_permit_state_with_discard_hook(state: Sender<BufferedCallState>, original: BufferedCallState, permit: Int, committed: Receiver<()>, hook: BufferedWorkerBoundaryHook) -> () effects [concurrency]
 	match channel::select_many_timeout(list_cons(committed, list_nil()), 0)
 		Some(_) => ()
 		None => begin
-			let _ = channel::send(state, original)
+			notify_buffered_worker_boundary(hook)
 			prelude_builtin::observation_export_permit_discard(permit)
+			let _ = channel::send(state, original)
+			()
 		end
+	end
+end
+
+fn start_unpublished_permit_cleanup_for_test(callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>) -> { cleanup : Task<()>, state : Receiver<BufferedCallState> } effects [concurrency]
+	let state = channel::bounded<BufferedCallState>(1)
+	let committed = channel::bounded<()>(1)
+	let permit = prelude_builtin::observation_export_permit_create()
+	let cleanup = task::spawn_with(restore_unpublished_permit_task_for_test, { state: state.tx, permit: permit, committed: committed.rx, hook: TestBufferedWorkerBoundaryHook(callback, entered, release) })
+	{ cleanup: cleanup, state: state.rx }
+end
+
+fn restore_unpublished_permit_task_for_test(context: { state : Sender<BufferedCallState>, permit : Int, committed : Receiver<()>, hook : BufferedWorkerBoundaryHook }) -> () effects [concurrency]
+	restore_uncommitted_buffered_call_permit_state_with_discard_hook(context.state, BufferedCallState::NoCall, context.permit, context.committed, context.hook)
+end
+
+fn take_unpublished_permit_call_state_for_test(state: Receiver<BufferedCallState>) -> Option<Bool> effects [concurrency]
+	match channel::select_many_timeout(list_cons(state, list_nil()), 0)
+		Some(selected) => match selected.value
+			BufferedCallState::NoCall => Some(true)
+			_ => Some(false)
+		end
+		None => None
 	end
 end
 
