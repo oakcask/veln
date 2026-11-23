@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Static contract syntax, proof rules, callable contract subtyping, boundary validation, prerequisite decisions, or acceptance gates change.
+update-when: Static contract syntax, proof rules, callable contract subtyping, boundary validation, generated API documentation, prerequisite decisions, or acceptance gates change.
 ---
 
 # Static Contracts for Composable Calls
@@ -44,7 +44,7 @@ dependency before the initial slice can be attempted.
 | P2: flow facts | Define facts for immutable locals, parameters, stable record fields, branch polarity, continuing paths, and return values. | Branch/alias/early-exit acceptance cases, including failures for leaked and unrelated facts. |
 | P3: callable contracts | Add bound parameters/results to callable contracts, define alpha-equivalence and implication-based assignment, and retain contracts across public interfaces. | Grammar/formatter prototype and direct, imported, aliased, nested, and indirect callable cases. |
 | P4: proof trust | Verify source implementations, define recursive summary use, and quarantine invalid declarations. Define which generated or host-backed declarations can supply facts. | Positive/negative body and recursive-component cases; no external summary accepted solely because its signature declares it. |
-| P5: executable boundary | Define static failure outcomes, JSON/human projections, and checked-to-core handoff. Preserve the meaning of existing runtime clauses and check executable entry adapters. | Call-site, return, entry-boundary, human/JSON, and lowering cases. |
+| P5: executable boundary | Define static failure outcomes, JSON/human projections, and checked-to-core handoff. Preserve the meaning of existing runtime clauses, check executable entry adapters, and retain contract modes in generated API documentation. | Call-site, return, entry-boundary, human/JSON, lowering, and generated-documentation cases. |
 
 P1 and P2 precede proof implementation. P3 and P4 precede exposing contract
 facts through general function values. P5 precedes publishing the feature.
@@ -284,6 +284,38 @@ failure path chosen by the program author; tools cannot invent an application
 error policy. Proof work limits are deterministic; wall-clock interruption can
 fail checking but cannot change unknown into proven.
 
+## Generated API documentation
+
+Generated documentation is part of the published contract consumed by humans
+and coding agents. The current [package documentation boundary](../specification/package-documentation.md#published-boundary)
+already includes public function contracts. Static mode must remain observable
+in both generated Markdown and package-documentation JSON:
+
+- Markdown displays each public requirement and ensure with its predicate and
+  explicit static mode, for example `require static (value > 0)`. Existing
+  executable clauses remain distinguishable from static clauses. A reader
+  must not need the implementation body to identify the caller's obligation.
+- JSON retains clause kind and predicate text and provides an explicit
+  machine-readable contract mode. Mode must not be inferred by parsing display
+  text. The precise schema and generator-contract version change belong to P5.
+- Rendered public signatures and JSON preserve contracts nested in exposed
+  function types, including callback parameters, results, and record fields.
+  Binder names are scoped to their callable; documentation cannot erase a
+  requirement while retaining only ordinary input and result types.
+- Public documentation exposes no private proof assumptions or implementation
+  locals. Generation does not label unresolved or invalid static contracts as
+  verified. The catalog's semantic gate rejects such publication without a
+  partial successful catalog.
+- Changing only a public contract's mode or predicate changes the canonical
+  documentation content and its `doc-digest`. Retained MCP declaration
+  resources and rendered Markdown must agree with the catalog's contract mode
+  and predicate. Updating a cached view cannot keep a superseded guarantee.
+
+These are proposed extensions to generated documentation, not claims that the
+current generator understands `static`. Documentation communicates the same
+interface used by checking; it is not independent proof that the implementation
+satisfies a contract.
+
 ## Related work and alternatives
 
 Primary documentation was inspected for the following design comparisons.
@@ -335,6 +367,7 @@ The names below identify planned cases, not existing fixture directories.
 | Entry adapter | Select an executable entry whose static requirement the generated caller cannot establish. | Reject executable preparation; selecting an entry does not bypass a call obligation. An explicit guarded adapter can call it. |
 | Obligation outcome | A false literal call, an unconstrained call, and an exhausted search. | Distinct refuted/unknown/budget reasons; none compiles through implicit runtime fallback. |
 | Mode separation | Remove `static` from a clause using a currently accepted runtime predicate. | Existing executable contract behavior remains; it supplies no verified static summary. |
+| Generated documentation | Export a function mixing static and runtime clauses and an API with a contract-bearing callback; then change only a clause mode or predicate. | Markdown, catalog JSON, and MCP declaration resources retain the distinction and nested contracts. The documentation digest changes. Private assumptions stay absent; an invalid static summary cannot produce a successful catalog. |
 | Incremental invalidation | Strengthen an imported requirement while keeping ordinary types unchanged. | Recheck callers and report newly unproved calls; no stale cache acceptance. |
 
 Planned verification ownership:
@@ -351,6 +384,11 @@ Planned verification ownership:
 - Future stdlib adoption: API behavior belongs in Veln companion tests under
   `crates/veln-stdlib/veln/`, following the
   [test placement policy](../reference/toolchain-test-harness.md#test-placement-policy).
+- Generated API documentation: `examples/specification/doc/` cases for Markdown
+  and JSON, package-catalog identity tests for mode/predicate-only digest
+  changes, and MCP declaration-resource cases for retained content. Cover
+  nested callable contracts, mixed modes, private-name exclusion, and atomic
+  failure for an invalid static summary.
 - Incremental checking: language-service tests that change only an imported
   static contract and compare saved diagnostics with a fresh check.
 
@@ -374,8 +412,9 @@ numeric-language redesign is a prerequisite for the restricted slice.
 A later Ready target must select a complete externally observable slice and
 its acceptance cases. During implementation, promote checked examples and
 current behavior into `contracts.md`, `types.md`, and the relevant grammar,
-diagnostic, editor, and package-interface specifications. Update their
-`update-when` dependents when the corresponding behavior changes. The current
+diagnostic, editor, package-interface, and generated-documentation
+specifications. Update their `update-when` dependents when the corresponding
+behavior changes. The current
 specification and examples need no behavior edits for this documentation-only
 proposal. Remove completed proposal sections and retire this page when all
 remaining planned work is either implemented or explicitly closed.
