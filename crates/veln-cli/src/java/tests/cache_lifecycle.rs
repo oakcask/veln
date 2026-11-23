@@ -39,11 +39,13 @@ fn cache_validation_rejects_missing_manifest_and_poisoned_classes() {
         "complete cache should validate"
     );
 
-    fs::write(root.join("VelnEntry.class"), b"poisoned").expect("class should be poisoned");
-    assert!(
-        !validate_cached_jvm_classes(&root, &program).expect("cache should be checked"),
-        "poisoned cache should not validate"
-    );
+    for poisoned in [b"other".as_slice(), b"poisoned".as_slice()] {
+        fs::write(root.join("VelnEntry.class"), poisoned).expect("class should be poisoned");
+        assert!(
+            !validate_cached_jvm_classes(&root, &program).expect("cache should be checked"),
+            "poisoned cache should not validate"
+        );
+    }
 
     write_cached_jvm_classes(&root, &program).expect("classes should be restored");
     fs::write(root.join("extra.class"), b"extra").expect("extra class should be written");

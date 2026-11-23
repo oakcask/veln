@@ -346,10 +346,10 @@ fn validate_cached_jvm_classes(
         return Ok(false);
     }
 
-    let expected_digests = jvm_cache_class_digests(program);
-    let mut expected_paths = expected_digests
+    let mut expected_paths = program
+        .classes
         .iter()
-        .map(|class| class.path.to_string())
+        .map(|class| class.path.clone())
         .collect::<Vec<_>>();
     expected_paths.sort();
 
@@ -361,10 +361,10 @@ fn validate_cached_jvm_classes(
         return Ok(false);
     }
 
-    for class in expected_digests {
-        let path = cache_dir.join(class.path);
+    for class in &program.classes {
+        let path = cache_dir.join(&class.path);
         let contents = fs::read(path)?;
-        if contents.len() != class.byte_len || Sha256::digest(&contents) != class.digest {
+        if contents != class.contents {
             return Ok(false);
         }
     }
