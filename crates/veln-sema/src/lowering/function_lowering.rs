@@ -4,11 +4,13 @@ impl<'a> CoreLowerer<'a> {
     pub(super) fn new(
         function: &'a Function,
         environment: &'a TypeEnvironment,
+        state_call_types: &'a HashMap<veln_ast::NodeId, Type>,
         block_unsupported_callsite_runtime: bool,
     ) -> Self {
         Self {
             function,
             environment,
+            state_call_types,
             block_unsupported_callsite_runtime,
             bindings: Vec::new(),
             blockers: Vec::new(),

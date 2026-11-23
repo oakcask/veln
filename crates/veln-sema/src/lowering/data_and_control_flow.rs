@@ -56,10 +56,27 @@ impl<'a> CoreLowerer<'a> {
         {
             return self.core_expr(expr, expected.clone(), CoreExprKind::Dict(Vec::new()));
         }
+        let expected_by_name = match expected {
+            Some(CoreType::Record(expected_fields)) => {
+                let index = expected_fields
+                    .iter()
+                    .map(|(name, ty)| (name.as_str(), ty))
+                    .collect::<HashMap<_, _>>();
+                #[cfg(test)]
+                record_state_initializer_lowering_work(|work| {
+                    work.expected_record_index_entries += index.len();
+                    work.expected_record_lookups += fields.len();
+                });
+                Some(index)
+            }
+            _ => None,
+        };
         let fields = fields
             .iter()
             .map(|field| {
-                let expected = expected.and_then(|expected| expected.record_field(&field.name));
+                let expected = expected_by_name
+                    .as_ref()
+                    .and_then(|index| index.get(field.name.as_str()).copied());
                 let expr = self.lower_expr(&field.expr, expected);
                 CoreRecordField {
                     node_id: field.node_id,

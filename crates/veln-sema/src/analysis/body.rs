@@ -24,16 +24,33 @@ use crate::types::signatures::{
 type LocalNameDeclaration = (String, SourceSpan);
 type ScopedLocalName = (String, Option<LocalNameDeclaration>);
 
+#[cfg(test)]
 pub(crate) fn check_function_body(
     function: &Function,
     environment: &TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
 ) -> Vec<Diagnostic> {
+    check_function_body_with_facts(function, environment, variant_diagnostics).diagnostics
+}
+
+pub(crate) struct FunctionBodyAnalysis {
+    pub(crate) diagnostics: Vec<Diagnostic>,
+    pub(crate) state_call_types: HashMap<NodeId, Type>,
+}
+
+pub(crate) fn check_function_body_with_facts(
+    function: &Function,
+    environment: &TypeEnvironment,
+    variant_diagnostics: &mut VariantDiagnosticInterner,
+) -> FunctionBodyAnalysis {
     let mut checker =
         FunctionChecker::for_source_declaration(function, environment, variant_diagnostics);
     checker.check_body();
     checker.check_unavailable_constructor_patterns();
-    std::mem::take(&mut checker.diagnostics)
+    FunctionBodyAnalysis {
+        diagnostics: std::mem::take(&mut checker.diagnostics),
+        state_call_types: std::mem::take(&mut checker.state_call_types),
+    }
 }
 
 #[cfg(test)]
@@ -277,6 +294,7 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) inferred_return_type: Option<Type>,
     inferred_return_unknown_is_diagnosed: bool,
     pub(super) diagnostics: Vec<Diagnostic>,
+    pub(super) state_call_types: HashMap<NodeId, Type>,
     suppressed_diagnostic_indices: BTreeSet<usize>,
     defer_blocks: Vec<SourceSpan>,
     refined_match_domains: adt_and_match::RefinedMatchDomainCache,
@@ -638,6 +656,7 @@ impl<'a> FunctionChecker<'a> {
             inferred_return_type: None,
             inferred_return_unknown_is_diagnosed: false,
             diagnostics: Vec::new(),
+            state_call_types: HashMap::new(),
             suppressed_diagnostic_indices: BTreeSet::new(),
             defer_blocks: Vec::new(),
             refined_match_domains: adt_and_match::RefinedMatchDomainCache::default(),
@@ -1214,6 +1233,11 @@ pub(crate) use diagnostics_and_repairs::{
 mod expression_effects;
 mod name_and_declared_calls;
 mod patterns_and_exhaustiveness;
+#[cfg(test)]
+pub(crate) use patterns_and_exhaustiveness::{
+    ConstructorPatternScanWork, reset_constructor_pattern_scan_work,
+    take_constructor_pattern_scan_work,
+};
 mod prelude_and_unresolved_calls;
 mod recovery_helpers;
 mod remainder_diagnostics;

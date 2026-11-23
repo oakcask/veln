@@ -341,7 +341,7 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> (Vec<CoreExpr>, Option<CoreCallSignature>) {
-        let joined_state_initializer = self.joined_state_initializer_type(callee, args);
+        let joined_state_initializer = self.joined_state_initializer_type(expr, callee);
         let preliminary_signature = self.core_call_signature(
             callee,
             expected,
@@ -393,14 +393,20 @@ impl<'a> CoreLowerer<'a> {
         }
     }
 
-    fn joined_state_initializer_type(&mut self, callee: &Expr, args: &[Expr]) -> Option<CoreType> {
-        self.declared_io_provider_state_operation(callee)
-            .is_some_and(|operation| operation == "state")
-            .then(|| {
-                args.first()
-                    .and_then(|initial| self.joined_shallow_expr_type(initial))
-            })
-            .flatten()
+    fn joined_state_initializer_type(&self, expr: &Expr, callee: &Expr) -> Option<CoreType> {
+        if self.declared_io_provider_state_operation(callee) != Some("state") {
+            return None;
+        }
+        let Type::Named { args, .. } = self.state_call_types.get(&expr.node_id)? else {
+            return None;
+        };
+        let item = args.first().map(core_type)?;
+        #[cfg(test)]
+        record_state_initializer_lowering_work(|work| {
+            work.fact_lookups += 1;
+            work.materialized_type_nodes += core_type_node_count(&item);
+        });
+        Some(item)
     }
 
     fn declared_io_provider_state_operation(&self, callee: &Expr) -> Option<&str> {
@@ -905,10 +911,17 @@ fn retag_state_initializer(expr: &mut CoreExpr, expected: &CoreType) {
     expr.ty = expected.clone();
     match (&mut expr.kind, expected) {
         (CoreExprKind::Record(fields), CoreType::Record(expected_fields)) => {
+            let expected_by_name = expected_fields
+                .iter()
+                .map(|(name, ty)| (name.as_str(), ty))
+                .collect::<HashMap<_, _>>();
+            #[cfg(test)]
+            record_state_initializer_lowering_work(|work| {
+                work.retag_record_index_entries += expected_by_name.len();
+                work.retag_record_lookups += fields.len();
+            });
             for field in fields {
-                if let Some((_, expected)) =
-                    expected_fields.iter().find(|(name, _)| name == &field.name)
-                {
+                if let Some(expected) = expected_by_name.get(field.name.as_str()) {
                     retag_state_initializer(&mut field.expr, expected);
                 }
             }

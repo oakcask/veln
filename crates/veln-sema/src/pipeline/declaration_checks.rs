@@ -1,18 +1,29 @@
 use super::*;
+use crate::analysis::check_function_body_with_facts;
+use crate::semantic_model::Type;
 
 pub(super) fn check_module_declarations(
     module: &SurfaceModule,
     environment: &mut TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
-) -> (Vec<Diagnostic>, ModuleValuePublicationProvenance) {
+) -> (
+    Vec<Diagnostic>,
+    ModuleValuePublicationProvenance,
+    crate::semantic_model::StateCallTypes,
+) {
     let module_value_analysis = check_module_values(module, environment, variant_diagnostics);
     let mut module_value_publication = module_value_analysis.publication_provenance(module);
     let mut diagnostics = module_value_analysis.diagnostics;
 
     diagnostics.extend(check_invalid_name_casing(module, environment));
     append_name_collisions(module, &mut diagnostics, &mut module_value_publication);
-    append_boundary_diagnostics(module, environment, &mut diagnostics);
-    (diagnostics, module_value_publication)
+    let handler_state_call_types =
+        append_boundary_diagnostics(module, environment, &mut diagnostics);
+    (
+        diagnostics,
+        module_value_publication,
+        handler_state_call_types,
+    )
 }
 
 fn append_name_collisions(
@@ -37,7 +48,7 @@ fn append_boundary_diagnostics(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
     diagnostics: &mut Vec<Diagnostic>,
-) {
+) -> crate::semantic_model::StateCallTypes {
     diagnostics.extend(check_module_boundary(module));
     diagnostics.extend(check_reserved_prelude_aliases(module));
     diagnostics.extend(check_public_aliases(module, environment));
@@ -49,14 +60,16 @@ fn append_boundary_diagnostics(
     }
     diagnostics.extend(check_schema_field_primitives(module, environment));
     diagnostics.extend(check_schema_type_references(module));
-    diagnostics.extend(check_handler_declarations(module, environment));
+    let handlers = check_handler_declarations(module, environment);
+    diagnostics.extend(handlers.diagnostics);
+    handlers.state_call_types
 }
 
 pub(super) fn check_function_declaration_and_body(
     function: &veln_ast::Function,
     environment: &TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
-) -> Vec<Diagnostic> {
+) -> (Vec<Diagnostic>, HashMap<veln_ast::NodeId, Type>) {
     let mut diagnostics = Vec::new();
 
     diagnostics.extend(check_declared_effect_labels(function, environment));
@@ -72,11 +85,8 @@ pub(super) fn check_function_declaration_and_body(
     if function.kind == FunctionKind::Test {
         diagnostics.extend(check_test_declaration_boundary(function));
     }
-    diagnostics.extend(check_function_body(
-        function,
-        environment,
-        variant_diagnostics,
-    ));
+    let body = check_function_body_with_facts(function, environment, variant_diagnostics);
+    diagnostics.extend(body.diagnostics);
     diagnostics.extend(visibility_diagnostics);
-    diagnostics
+    (diagnostics, body.state_call_types)
 }

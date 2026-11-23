@@ -593,10 +593,12 @@ impl<'a> FunctionChecker<'a> {
             self.check_inferred_call_arguments(inferred, &origin, &row_substitutions);
         if valid_arity && valid_arguments {
             self.record_call_effects(expr, &origin, &row_substitutions);
-            return Some(instantiate_effect_rows_in_type(
-                &return_type,
-                &row_substitutions,
-            ));
+            let return_type = instantiate_effect_rows_in_type(&return_type, &row_substitutions);
+            if operation == "state" {
+                self.state_call_types
+                    .insert(expr.node_id, return_type.clone());
+            }
+            return Some(return_type);
         }
         Some(if call_bound_row.is_some() {
             Type::Unknown

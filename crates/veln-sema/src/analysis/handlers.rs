@@ -7,21 +7,34 @@ use std::collections::{BTreeMap, BTreeSet};
 use veln_ast::{HandlerDecl, HandlerOperationClauseDecl};
 use veln_source::SourceSpan;
 
+#[derive(Default)]
+pub(crate) struct HandlerAnalysis {
+    pub(crate) diagnostics: Vec<Diagnostic>,
+    pub(crate) state_call_types: crate::semantic_model::StateCallTypes,
+}
+
+impl HandlerAnalysis {
+    fn extend(&mut self, other: Self) {
+        self.diagnostics.extend(other.diagnostics);
+        self.state_call_types.extend(other.state_call_types);
+    }
+}
+
 pub(crate) fn check_handler_declarations(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
-) -> Vec<Diagnostic> {
-    module
-        .handlers
-        .iter()
-        .flat_map(|handler| check_handler_declaration(handler, environment))
-        .collect()
+) -> HandlerAnalysis {
+    let mut analysis = HandlerAnalysis::default();
+    for handler in &module.handlers {
+        analysis.extend(check_handler_declaration(handler, environment));
+    }
+    analysis
 }
 
 fn check_handler_declaration(
     handler: &HandlerDecl,
     environment: &TypeEnvironment,
-) -> Vec<Diagnostic> {
+) -> HandlerAnalysis {
     let Some(signature) = handler.name.as_ref().and_then(|name| {
         match environment.handler_path_in_owner(
             std::slice::from_ref(name),
@@ -34,7 +47,7 @@ fn check_handler_declaration(
             | HandlerPathResolution::Missing => None,
         }
     }) else {
-        return Vec::new();
+        return HandlerAnalysis::default();
     };
     let effect = match environment.resolve_user_effect_path_in_owner(
         &handler.effect,
@@ -43,26 +56,39 @@ fn check_handler_declaration(
     ) {
         UserEffectPathResolution::Found(effect) => effect,
         UserEffectPathResolution::PrivateCompanionTargetMismatch { effect, access } => {
-            return vec![private_companion_effect_target_diagnostic(
-                handler.node_id.display("handler"),
-                "handler_declaration",
-                &handler.effect.join("::"),
-                effect,
-                access,
-                handler.effect_span.clone(),
-            )];
+            return HandlerAnalysis {
+                diagnostics: vec![private_companion_effect_target_diagnostic(
+                    handler.node_id.display("handler"),
+                    "handler_declaration",
+                    &handler.effect.join("::"),
+                    effect,
+                    access,
+                    handler.effect_span.clone(),
+                )],
+                ..HandlerAnalysis::default()
+            };
         }
-        UserEffectPathResolution::QuarantinedImportTarget => return Vec::new(),
+        UserEffectPathResolution::QuarantinedImportTarget => return HandlerAnalysis::default(),
         UserEffectPathResolution::Missing => {
-            return vec![unknown_effect_diagnostic(handler, environment)];
+            return HandlerAnalysis {
+                diagnostics: vec![unknown_effect_diagnostic(handler, environment)],
+                ..HandlerAnalysis::default()
+            };
         }
     };
 
-    let mut diagnostics = declared_effect_diagnostics(handler, environment);
-    diagnostics.extend(duplicate_clause_diagnostics(handler, signature, effect));
-    diagnostics.extend(missing_clause_diagnostics(handler, signature, effect));
+    let mut analysis = HandlerAnalysis {
+        diagnostics: declared_effect_diagnostics(handler, environment),
+        ..HandlerAnalysis::default()
+    };
+    analysis
+        .diagnostics
+        .extend(duplicate_clause_diagnostics(handler, signature, effect));
+    analysis
+        .diagnostics
+        .extend(missing_clause_diagnostics(handler, signature, effect));
     for clause in &handler.operation_clauses {
-        diagnostics.extend(check_clause(
+        analysis.extend(check_clause(
             handler,
             clause,
             signature,
@@ -70,7 +96,7 @@ fn check_handler_declaration(
             environment,
         ));
     }
-    diagnostics
+    analysis
 }
 
 fn declared_effect_diagnostics(
@@ -324,33 +350,32 @@ fn check_clause(
     signature: &HandlerSignature,
     effect: &EffectSignature,
     environment: &TypeEnvironment,
-) -> Vec<Diagnostic> {
+) -> HandlerAnalysis {
     let Some(operation_name) = &clause.operation else {
-        return Vec::new();
+        return HandlerAnalysis::default();
     };
     let Some(operation) = effect
         .operations
         .iter()
         .find(|operation| operation.name == *operation_name)
     else {
-        return vec![unknown_operation_diagnostic(
-            clause,
-            operation_name,
-            signature,
-            effect,
-        )];
+        return HandlerAnalysis {
+            diagnostics: vec![unknown_operation_diagnostic(
+                clause,
+                operation_name,
+                signature,
+                effect,
+            )],
+            ..HandlerAnalysis::default()
+        };
     };
 
-    let mut diagnostics = clause_binding_diagnostics(clause, operation, signature, effect);
-    diagnostics.extend(clause_body_diagnostics(
-        handler,
-        clause,
-        operation,
-        signature,
-        effect,
-        environment,
-    ));
-    diagnostics
+    let mut analysis =
+        clause_body_analysis(handler, clause, operation, signature, effect, environment);
+    let mut binding_diagnostics = clause_binding_diagnostics(clause, operation, signature, effect);
+    binding_diagnostics.append(&mut analysis.diagnostics);
+    analysis.diagnostics = binding_diagnostics;
+    analysis
 }
 
 fn clause_binding_diagnostics(
@@ -418,14 +443,14 @@ fn clause_parameter_span(clause: &HandlerOperationClauseDecl) -> SourceSpan {
     )
 }
 
-fn clause_body_diagnostics(
+fn clause_body_analysis(
     handler: &HandlerDecl,
     clause: &HandlerOperationClauseDecl,
     operation: &EffectOperationSignature,
     signature: &HandlerSignature,
     effect: &EffectSignature,
     environment: &TypeEnvironment,
-) -> Vec<Diagnostic> {
+) -> HandlerAnalysis {
     let synthetic = synthetic_clause_function(handler, clause, operation);
     let mut variant_diagnostics = VariantDiagnosticInterner::default();
     let mut checker = FunctionChecker::for_synthetic_declaration(
@@ -439,7 +464,21 @@ fn clause_body_diagnostics(
     diagnostics.extend(clause_effect_diagnostics(
         handler, clause, operation, signature, effect, &checker,
     ));
-    diagnostics
+    let mut state_call_types = crate::semantic_model::StateCallTypes::new();
+    if !checker.state_call_types.is_empty() {
+        state_call_types.insert(
+            (
+                synthetic.package_name.clone(),
+                synthetic.module_name.clone(),
+                synthetic.name.clone().unwrap_or_default(),
+            ),
+            std::mem::take(&mut checker.state_call_types),
+        );
+    }
+    HandlerAnalysis {
+        diagnostics,
+        state_call_types,
+    }
 }
 
 fn admit_clause_bindings(
