@@ -5,6 +5,29 @@ use crate::effect_rows::{
 };
 use crate::types::effect_inference::user_effect_signature_for_path;
 
+#[derive(Clone, Copy)]
+struct EffectCallArguments<'a> {
+    piped: Option<&'a Expr>,
+    positional: &'a [Expr],
+}
+
+impl<'a> EffectCallArguments<'a> {
+    fn positional(args: &'a [Expr]) -> Self {
+        Self {
+            piped: None,
+            positional: args,
+        }
+    }
+
+    fn len(self) -> usize {
+        usize::from(self.piped.is_some()) + self.positional.len()
+    }
+
+    fn iter(self) -> impl Iterator<Item = &'a Expr> {
+        self.piped.into_iter().chain(self.positional.iter())
+    }
+}
+
 pub(super) fn type_for_effect_call_argument(
     expr: &Expr,
     expected: &Type,
@@ -47,7 +70,12 @@ pub(super) fn type_for_effect_call_argument(
             ..
         } => type_for_effect_perform(effect, operation, args, context),
         ExprKind::Record(fields) => type_for_effect_record(fields, expected, context),
-        ExprKind::Call { callee, args } => type_for_effect_call(callee, args, expected, context),
+        ExprKind::Call { callee, args } => type_for_effect_call(
+            callee,
+            EffectCallArguments::positional(args),
+            expected,
+            context,
+        ),
         ExprKind::Binary {
             op: veln_ast::BinaryOp::PipeGreater,
             left,
@@ -136,15 +164,20 @@ fn type_for_effect_pipeline(
     if !matches!(callee.kind, ExprKind::NamePath { .. }) {
         return None;
     }
-    let mut piped_args = Vec::with_capacity(args.len() + 1);
-    piped_args.push(left.clone());
-    piped_args.extend(args.iter().cloned());
-    type_for_effect_call(callee, &piped_args, expected, context)
+    type_for_effect_call(
+        callee,
+        EffectCallArguments {
+            piped: Some(left),
+            positional: args,
+        },
+        expected,
+        context,
+    )
 }
 
 fn type_for_effect_call(
     callee: &Expr,
-    args: &[Expr],
+    args: EffectCallArguments<'_>,
     expected: &Type,
     context: &ExprEffectContext<'_>,
 ) -> Option<Type> {
@@ -191,7 +224,7 @@ fn type_for_effect_call(
 }
 
 fn effect_call_argument_comparisons<'a>(
-    args: &[Expr],
+    args: EffectCallArguments<'_>,
     params: &'a [Type],
     variadic: Option<&'a Type>,
     context: &ExprEffectContext<'_>,
@@ -233,7 +266,7 @@ fn type_for_effect_schema_call(
 
 fn type_for_effect_constructor_call(
     callee: &Expr,
-    args: &[Expr],
+    args: EffectCallArguments<'_>,
     expected: &Type,
     context: &ExprEffectContext<'_>,
 ) -> Option<Type> {
@@ -282,7 +315,7 @@ struct EffectConstructorPayloads {
 
 fn effect_constructor_payloads(
     constructor: crate::adt::descriptors::AdtConstructor<'_>,
-    args: &[Expr],
+    args: EffectCallArguments<'_>,
     expected_args: &[Type],
     context: &ExprEffectContext<'_>,
 ) -> Option<EffectConstructorPayloads> {
