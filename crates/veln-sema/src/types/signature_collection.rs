@@ -122,7 +122,7 @@ impl TypeCanonicalizer<'_> {
                 variadic,
                 return_type,
                 effects,
-            } => self.canonicalize_function(params, variadic, *return_type, effects),
+            } => self.canonicalize_function(params.into_vec(), variadic, *return_type, effects),
             Type::Unknown => Type::Unknown,
         }
     }
@@ -408,7 +408,7 @@ impl TypeCanonicalizer<'_> {
         effects: Vec<String>,
     ) -> Type {
         Type::Function {
-            params: self.canonicalize_args(params),
+            params: self.canonicalize_args(params).into(),
             variadic: variadic.map(|ty| Box::new(self.canonicalize(*ty))),
             return_type: Box::new(self.canonicalize(return_type)),
             effects: canonical_declared_effects(

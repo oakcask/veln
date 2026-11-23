@@ -1341,7 +1341,7 @@ fn canonical_type_identity(ty: Type) -> Option<Type> {
             variadic,
             return_type,
             effects,
-        } => canonical_function_identity(params, variadic, *return_type, effects),
+        } => canonical_function_identity(params.into_vec(), variadic, *return_type, effects),
         Type::Unknown => None,
     }
 }
@@ -1384,7 +1384,7 @@ fn canonical_function_identity(
     effects: Vec<String>,
 ) -> Option<Type> {
     Some(Type::Function {
-        params: canonical_type_identities(params)?,
+        params: canonical_type_identities(params)?.into(),
         variadic: canonical_optional_type(variadic)?,
         return_type: Box::new(canonical_type_identity(return_type)?),
         effects,

@@ -213,7 +213,7 @@ pub(crate) struct TypeArgs(Arc<Vec<Type>>);
 
 impl PartialEq for TypeArgs {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.0, &other.0) || self.0 == other.0
+        Arc::ptr_eq(&self.0, &other.0) || self.as_slice() == other.as_slice()
     }
 }
 
@@ -332,7 +332,7 @@ pub(crate) enum Type {
     },
     Record(Vec<(String, Type)>),
     Function {
-        params: Vec<Type>,
+        params: TypeArgs,
         variadic: Option<Box<Type>>,
         return_type: Box<Type>,
         effects: Vec<String>,
@@ -544,7 +544,7 @@ impl Type {
 
     pub(crate) fn function(params: Vec<Type>, return_type: Type, effects: Vec<String>) -> Self {
         Self::Function {
-            params,
+            params: params.into(),
             variadic: None,
             return_type: Box::new(return_type),
             effects,
@@ -558,7 +558,7 @@ impl Type {
         effects: Vec<String>,
     ) -> Self {
         Self::Function {
-            params,
+            params: params.into(),
             variadic: Some(Box::new(variadic)),
             return_type: Box::new(return_type),
             effects,

@@ -234,7 +234,7 @@ fn build_function_bound(
     let return_type = Box::new(children.pop().expect("function result child"));
     let variadic = has_variadic.then(|| Box::new(children.pop().expect("variadic child")));
     results.push(Some(Type::Function {
-        params: children,
+        params: children.into(),
         variadic,
         return_type,
         effects,
