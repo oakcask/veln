@@ -175,7 +175,7 @@ fn function_input_meets_keep_irrelevant_arguments_exact() {
         )
     };
     let function = |argument| Type::Function {
-        params: vec![Type::resolved_named("Ignored", &identity, vec![argument])],
+        params: vec![Type::resolved_named("Ignored", &identity, vec![argument])].into(),
         variadic: None,
         return_type: Box::new(Type::int()),
         effects: Vec::new(),
@@ -613,7 +613,8 @@ fn function_input_width_meet_measurement(size: usize) -> FunctionInputWidthMeasu
             (0..width)
                 .map(|index| (format!("field_{index:03}"), Type::int()))
                 .collect(),
-        )],
+        )]
+        .into(),
         variadic: None,
         return_type: Box::new(Type::int()),
         effects: Vec::new(),
@@ -718,13 +719,13 @@ fn repeated_function_return_measurement(
         &parse(&SourceFile::new("main.veln", "")).tree,
     ));
     let callback = Type::Function {
-        params: vec![Type::string()],
+        params: vec![Type::string()].into(),
         variadic: None,
         return_type: Box::new(Type::int()),
         effects: vec!["stdio".to_string()],
     };
     let contribution = Type::Function {
-        params: vec![Type::int()],
+        params: vec![Type::int()].into(),
         variadic: None,
         return_type: Box::new(if nested { callback } else { Type::int() }),
         effects: Vec::new(),
@@ -825,7 +826,7 @@ fn distinct_return_record(
 
 fn function_returning(return_type: Type) -> Type {
     Type::Function {
-        params: vec![Type::int()],
+        params: vec![Type::int()].into(),
         variadic: None,
         return_type: Box::new(return_type),
         effects: Vec::new(),
@@ -1082,7 +1083,8 @@ fn deep_fallback_component(depth: usize, identity: &str) -> Type {
         params: vec![Type::Record(vec![(
             "value".to_string(),
             Type::resolved_named("Positive", identity, vec![nested]),
-        )])],
+        )])]
+        .into(),
         variadic: None,
         return_type: Box::new(Type::int()),
         effects: Vec::new(),
@@ -1342,7 +1344,7 @@ fn positive_identity(environment: &TypeEnvironment) -> String {
 
 fn deep_function_result(depth: usize, identity: &str, effects: Vec<String>) -> Type {
     let leaf = Type::Function {
-        params: vec![Type::int()],
+        params: vec![Type::int()].into(),
         variadic: None,
         return_type: Box::new(Type::int()),
         effects,
@@ -1351,7 +1353,7 @@ fn deep_function_result(depth: usize, identity: &str, effects: Vec<String>) -> T
         Type::resolved_named("Positive", identity, vec![argument])
     });
     Type::Function {
-        params: Vec::new(),
+        params: Vec::new().into(),
         variadic: None,
         return_type: Box::new(nested),
         effects: Vec::new(),
@@ -1402,13 +1404,13 @@ fn deep_bounded_function_join_uses_linear_frames_and_function_scans() {
 
 fn direct_function_return_chain(depth: usize, leaf_effects: Vec<String>) -> Type {
     let leaf = Type::Function {
-        params: vec![Type::int()],
+        params: vec![Type::int()].into(),
         variadic: None,
         return_type: Box::new(Type::int()),
         effects: leaf_effects,
     };
     (0..depth).fold(leaf, |return_type, _| Type::Function {
-        params: Vec::new(),
+        params: Vec::new().into(),
         variadic: None,
         return_type: Box::new(return_type),
         effects: Vec::new(),

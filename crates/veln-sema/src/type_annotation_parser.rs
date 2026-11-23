@@ -168,7 +168,7 @@ impl<'a> TypeParser<'a> {
         let return_type = self.parse_type()?;
         let effects = self.parse_function_effect_set()?;
         Ok(Type::Function {
-            params,
+            params: params.into(),
             variadic: variadic.map(Box::new),
             return_type: Box::new(return_type),
             effects,
