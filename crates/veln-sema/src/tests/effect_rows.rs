@@ -921,6 +921,47 @@ fn solved_effect_row_instantiates_the_call_result_type() {
 }
 
 #[test]
+fn nested_callable_arguments_preserve_local_aliases_and_non_callable_shadows() {
+    for (binding, callee, accepted) in [
+        ("let local = effect_identity", "local", true),
+        ("let effect_identity = 1", "effect_identity", false),
+    ] {
+        let source = format!(
+            "fn db_callback() -> () effects [db]\n\t()\nend\n\n\
+             fn effect_identity<effect E>(callback: fn() -> () effects [...E]) -> fn() -> () effects [...E]\n\tcallback\nend\n\n\
+             fn invoke<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]\n\tcallback()\nend\n\n\
+             pub fn main() -> ()\n\t{binding}\n\tinvoke({callee}(db_callback))\nend\n"
+        );
+        let diagnostics = analyze_surface_module(&module(&source));
+        if accepted {
+            assert_eq!(
+                diagnostics.len(),
+                1,
+                "nested local callable must retain its solved callback effect: {diagnostics:#?}"
+            );
+            assert_eq!(diagnostics[0].id, "effect.missing_public");
+            assert_eq!(
+                diagnostics[0].message,
+                "public function uses undeclared effect `db`"
+            );
+        } else {
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.id == "name.unresolved"),
+                "report the non-callable local shadow instead of resolving the hidden function: {diagnostics:#?}"
+            );
+            assert!(
+                diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+                "rejected nested calls must not publish the hidden function's callback effect: {diagnostics:#?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn return_only_call_bound_row_instantiates_empty_for_declared_and_local_calls() {
     let module = module(concat!(
         "fn pure_callback() -> ()\n",

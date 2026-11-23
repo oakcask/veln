@@ -184,24 +184,20 @@ fn type_for_effect_call(
     if let Some(constructed) = type_for_effect_constructor_call(callee, args, expected, context) {
         return Some(constructed);
     }
-    let Type::Function {
+    let EffectCallableType {
         params,
         variadic,
         return_type,
         effects,
-    } = function_type_for_expr(callee, context)?
-    else {
-        return None;
-    };
+    } = effect_value_type_for_expr(callee, context)?.callable()?;
     let arity_matches =
         args.len() >= params.len() && (variadic.is_some() || args.len() == params.len());
     if !arity_matches {
         return None;
     }
-    let comparisons =
-        effect_call_argument_comparisons(args, &params, variadic.as_deref(), context)?;
+    let comparisons = effect_call_argument_comparisons(args, params, variadic, context)?;
     let row = call_bound_effect_row_for_expr(callee, context)
-        .or_else(|| call_bound_effect_row(&params, variadic.as_deref(), &return_type, &effects));
+        .or_else(|| call_bound_effect_row(params, variadic, return_type, effects));
     let substitutions = solve_call_bound_effect_row(
         row.as_deref(),
         comparisons
@@ -217,10 +213,7 @@ fn type_for_effect_call(
     }) {
         return None;
     }
-    Some(instantiate_effect_rows_in_type(
-        &return_type,
-        &substitutions,
-    ))
+    Some(instantiate_effect_rows_in_type(return_type, &substitutions))
 }
 
 fn effect_call_argument_comparisons<'a>(

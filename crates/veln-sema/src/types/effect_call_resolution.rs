@@ -125,7 +125,47 @@ fn instantiate_callable_effect_rows_with_row(
     Some(instantiate_effect_rows(effects, &row_substitutions))
 }
 
-pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_>) -> Option<Type> {
+enum EffectValueType<'a> {
+    Binding(&'a Type),
+    Function(&'a FunctionSignature),
+}
+
+struct EffectCallableType<'a> {
+    params: &'a [Type],
+    variadic: Option<&'a Type>,
+    return_type: &'a Type,
+    effects: &'a [String],
+}
+
+impl<'a> EffectValueType<'a> {
+    fn callable(self) -> Option<EffectCallableType<'a>> {
+        match self {
+            Self::Binding(Type::Function {
+                params,
+                variadic,
+                return_type,
+                effects,
+            }) => Some(EffectCallableType {
+                params,
+                variadic: variadic.as_deref(),
+                return_type,
+                effects,
+            }),
+            Self::Binding(_) => None,
+            Self::Function(signature) => Some(EffectCallableType {
+                params: &signature.params,
+                variadic: signature.variadic.as_ref(),
+                return_type: &signature.return_type,
+                effects: &signature.effects,
+            }),
+        }
+    }
+}
+
+fn effect_value_type_for_expr<'a>(
+    expr: &Expr,
+    context: &ExprEffectContext<'a>,
+) -> Option<EffectValueType<'a>> {
     let segments = expr.callee_name_path()?;
     match segments {
         [name] => context
@@ -133,17 +173,24 @@ pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_
             .iter()
             .rev()
             .find(|binding| binding.name == *name)
-            .map(|binding| binding.ty.clone())
+            .map(|binding| EffectValueType::Binding(&binding.ty))
             .or_else(|| {
                 effect_function_signature_path(segments, context, context.companion_access_targets)
-                    .map(FunctionSignature::ty)
+                    .map(EffectValueType::Function)
             }),
         _ => {
             let public_or_same_module_access = BTreeMap::new();
             effect_function_signature_path(segments, context, &public_or_same_module_access)
-                .map(FunctionSignature::ty)
+                .map(EffectValueType::Function)
         }
     }
+}
+
+pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_>) -> Option<Type> {
+    effect_value_type_for_expr(expr, context).map(|value| match value {
+        EffectValueType::Binding(ty) => ty.clone(),
+        EffectValueType::Function(signature) => signature.ty(),
+    })
 }
 
 pub(super) fn call_bound_effect_row_for_expr(
