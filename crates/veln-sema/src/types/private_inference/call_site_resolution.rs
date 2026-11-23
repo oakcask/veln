@@ -38,7 +38,7 @@ pub(crate) fn private_call_site_non_target_params(
         context.current_module == Some("std::prelude")
             || signature.module_name.as_deref() != Some("std::prelude")
     }) {
-        return signature.params.clone();
+        return signature.params.to_vec();
     }
     private_prelude_non_target_params(segments, args, expected, context).unwrap_or_default()
 }

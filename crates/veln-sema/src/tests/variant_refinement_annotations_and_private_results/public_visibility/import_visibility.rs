@@ -202,7 +202,7 @@ fn unqualified_import_recovery_signatures(
                 .unwrap_or_else(|| panic!("{name} recovery signature"));
             (
                 (*name).to_string(),
-                signature.params.clone(),
+                signature.params.to_vec(),
                 signature.return_type.clone(),
                 environment.function_is_published_for_test(name),
             )

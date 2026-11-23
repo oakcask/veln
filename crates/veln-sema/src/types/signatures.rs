@@ -1,7 +1,7 @@
 use veln_ast::{ModuleValueDecl, NodeId, SchemaField, Visibility};
 use veln_source::SourceSpan;
 
-use crate::semantic_model::Type;
+use crate::semantic_model::{Type, TypeArgs};
 
 #[derive(Clone)]
 pub(crate) struct ModuleValueSignature {
@@ -152,7 +152,7 @@ pub(crate) struct FunctionSignature {
     pub(crate) module_name: Option<String>,
     pub(crate) package_name: Option<String>,
     pub(crate) visibility: Visibility,
-    pub(crate) params: Vec<Type>,
+    pub(crate) params: TypeArgs,
     pub(crate) variadic: Option<Type>,
     pub(crate) return_type: Type,
     pub(crate) effects: Vec<String>,

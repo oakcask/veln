@@ -10,7 +10,7 @@ use crate::prelude::{
     core_prelude_signature, prelude_signature, qualified_core_prelude_builtin_signature,
     qualified_core_prelude_signature,
 };
-use crate::semantic_model::{CallOrigin, Type};
+use crate::semantic_model::{CallOrigin, Type, TypeArgs};
 use crate::type_lowering::core_type;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::environment::TypeEnvironment;
@@ -33,7 +33,7 @@ pub(crate) struct CoreBinding<'a> {
 }
 
 pub(crate) struct TypeCallSignature {
-    pub(crate) params: Vec<Type>,
+    pub(crate) params: TypeArgs,
     pub(crate) variadic: Option<Type>,
     pub(crate) return_type: Type,
     pub(crate) origin: CallOrigin,
@@ -147,7 +147,7 @@ fn type_effect_call_signature(
 ) -> Option<TypeCallSignature> {
     if let Some(origin) = stdio_signature(segments, callee) {
         return Some(TypeCallSignature {
-            params: vec![Type::string()],
+            params: vec![Type::string()].into(),
             variadic: None,
             return_type: Type::unit(),
             origin,
@@ -158,7 +158,7 @@ fn type_effect_call_signature(
             concurrency_signature(segments, expected, handle_type, None, None)?;
         let effects = concurrency_call_effects(segments, handle_type)?;
         return Some(TypeCallSignature {
-            params,
+            params: params.into(),
             variadic: None,
             return_type,
             origin: CallOrigin { effects, ..origin },
@@ -167,7 +167,7 @@ fn type_effect_call_signature(
     if let Some(origin) = standard_library_origin(segments, callee) {
         let (params, return_type) = standard_library_signature(segments)?;
         return Some(TypeCallSignature {
-            params,
+            params: params.into(),
             variadic: None,
             return_type,
             origin,
@@ -202,7 +202,7 @@ fn type_applied_call_signature(
     )?;
     let effects = concurrency_call_effects(segments, handle_type)?;
     Some(TypeCallSignature {
-        params,
+        params: params.into(),
         variadic: None,
         return_type,
         origin: CallOrigin { effects, ..origin },
@@ -237,7 +237,7 @@ fn type_binding_call_signature(
     };
     let effects = binding.ty.function_effects().unwrap_or_default().to_vec();
     BindingCallSignature::Resolved(TypeCallSignature {
-        params: params.to_vec(),
+        params: params.clone(),
         variadic: variadic.cloned(),
         return_type: return_type.clone(),
         origin: CallOrigin {
@@ -446,6 +446,7 @@ fn function_type_call_signature(
     let function = function?;
     let (params, return_type) = if function.module_name.as_deref() == Some("std::prelude") {
         prelude_signature(&function.name, expected)
+            .map(|(params, result)| (params.into(), result))
             .unwrap_or_else(|| (function.params.clone(), function.return_type.clone()))
     } else {
         (function.params.clone(), function.return_type.clone())
