@@ -23,6 +23,10 @@ also states it.
 
 ## Design In Progress
 
+- [Static Contracts for Composable Calls](static-contracts.md): prove marked
+  preconditions at calls and postconditions at returns, retain contracts in
+  function types, and establish prerequisite proof, flow, and boundary designs.
+
 - Filesystem selection, host path conversion, shared byte IO, seek, provider
   ownership, and scoped fake filesystems; initial design decisions are fixed,
   but implementation selection depends on completing
