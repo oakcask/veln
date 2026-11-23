@@ -2,26 +2,20 @@ use super::*;
 use crate::effect_rows::EffectRowSubstitutions;
 use crate::types::ModuleValueLookup;
 
+mod call_argument_checks;
+mod diagnostics;
+mod io_provider_state;
+mod local_context;
+
+use call_argument_checks::call_argument_expected;
+use diagnostics::{ambiguous_module_value_candidate, module_value_not_callable_diagnostic};
+use io_provider_state::{
+    call_arity_is_valid, inferred_io_provider_arguments, io_provider_argument_evidence,
+};
+
 type InferredCallArgument<'a> = (&'a Expr, ExpectedType, Type, bool);
 
 impl<'a> FunctionChecker<'a> {
-    pub(super) fn projection_local_context(
-        &self,
-        name: &str,
-    ) -> Option<crate::aggregate_type_join::LocalContext> {
-        let index = self.visible_binding_index(name)?;
-        let current = self.binding_type(index);
-        Some(
-            if matches!(current, Type::Record(ref fields) if fields.is_empty()) {
-                crate::aggregate_type_join::LocalContext::EmptyRecord
-            } else if type_contains_unknown(&current) {
-                crate::aggregate_type_join::LocalContext::UnknownBearing
-            } else {
-                crate::aggregate_type_join::LocalContext::Complete
-            },
-        )
-    }
-
     pub(super) fn infer_name_path(
         &mut self,
         segments: &[String],
@@ -206,44 +200,9 @@ impl<'a> FunctionChecker<'a> {
             self.function.module_name.as_deref(),
             self.function.package_name.as_deref(),
         ) {
-            use crate::types::ModuleValueAmbiguityCandidateKind;
-
-            let package = candidate.package_name.as_deref().unwrap_or("<current>");
-            let package_origin = candidate.package_name.as_deref().map_or_else(
-                || "the current package".to_string(),
-                |package| format!("package `{package}`"),
-            );
-            let (candidate_kind, message) = match candidate.kind {
-                ModuleValueAmbiguityCandidateKind::ModuleValue => (
-                    "module_value",
-                    format!(
-                        "Module `{}` from {package_origin} exports module value `{symbol}`; use `{}::{symbol}` to select it.",
-                        candidate.module_name, candidate.alias
-                    ),
-                ),
-                ModuleValueAmbiguityCandidateKind::Function => (
-                    "function",
-                    format!(
-                        "Module `{}` from {package_origin} exports function `{symbol}`; use `{}::{symbol}` to select it.",
-                        candidate.module_name, candidate.alias
-                    ),
-                ),
-                ModuleValueAmbiguityCandidateKind::ImportTarget => (
-                    "import_target",
-                    format!(
-                        "Import `{}` from package `{package}` can select `{symbol}`; give this import a distinct alias to select that package.",
-                        candidate.alias
-                    ),
-                ),
-            };
-            diagnostic.related.push(JsonValue::object([
-                ("kind", JsonValue::string("import_candidate")),
-                ("candidate_kind", JsonValue::string(candidate_kind)),
-                ("package", JsonValue::string(package)),
-                ("module", JsonValue::string(&candidate.module_name)),
-                ("message", JsonValue::string(message)),
-                ("span", span_json(&candidate.span)),
-            ]));
+            diagnostic
+                .related
+                .push(ambiguous_module_value_candidate(&symbol, &candidate));
         }
         self.diagnostics.push(diagnostic);
         Type::Unknown
@@ -541,19 +500,7 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
     ) -> Option<Type> {
         if self.bare_call_is_ambiguous(callee) {
-            if let ExprKind::NamePath { segments, .. } = &callee.kind
-                && let [name] = segments.as_slice()
-            {
-                self.push_ambiguous_unqualified_function_import(
-                    callee.node_id,
-                    callee.span.clone(),
-                    name,
-                    "call_target",
-                );
-            }
-            for arg in args {
-                self.infer_expr(arg, None);
-            }
+            self.infer_ambiguous_declared_call(callee, args);
             return Some(Type::Unknown);
         }
         if self.declared_call_is_standard_prelude(callee) {
@@ -598,6 +545,22 @@ impl<'a> FunctionChecker<'a> {
         })
     }
 
+    fn infer_ambiguous_declared_call(&mut self, callee: &Expr, args: &[Expr]) {
+        if let ExprKind::NamePath { segments, .. } = &callee.kind
+            && let [name] = segments.as_slice()
+        {
+            self.push_ambiguous_unqualified_function_import(
+                callee.node_id,
+                callee.span.clone(),
+                name,
+                "call_target",
+            );
+        }
+        for arg in args {
+            self.infer_expr(arg, None);
+        }
+    }
+
     fn infer_io_provider_state_call(
         &mut self,
         expr: &Expr,
@@ -608,59 +571,18 @@ impl<'a> FunctionChecker<'a> {
         let operation = self
             .declared_io_provider_state_operation(callee)?
             .to_string();
-        let mut actuals = Vec::with_capacity(args.len());
-        for (index, arg) in args.iter().enumerate() {
-            if operation == "update"
-                && index == 0
-                && matches!(arg.kind, ExprKind::NamePath { .. })
-                && let Some(actual) = self.shallow_expr_type(arg)
-            {
-                actuals.push((actual, true));
-                continue;
-            }
-            let diagnostics_before = self.diagnostics.len();
-            let actual = self.infer_expr(arg, None);
-            actuals.push((actual, self.diagnostics.len() == diagnostics_before));
-        }
+        let mut actuals = self.infer_io_provider_state_actuals(&operation, args);
         let (params, variadic, return_type, origin) = self.call_signature(
             callee,
             expected.map(|expected| &expected.ty),
-            crate::call_resolution::CallArgumentEvidence {
-                first: actuals.first().map(|(ty, _)| ty),
-                second: actuals.get(1).map(|(ty, _)| ty),
-                third: actuals.get(2).map(|(ty, _)| ty),
-            },
+            io_provider_argument_evidence(&actuals),
         )?;
-        if operation == "update"
-            && let (Some(arg), Some(param_type), Some(actual)) =
-                (args.first(), params.first(), actuals.first_mut())
-            && matches!(arg.kind, ExprKind::NamePath { .. })
-        {
-            let expected = call_argument_expected(param_type, &origin, None);
-            let diagnostics_before = self.diagnostics.len();
-            actual.0 = self.infer_expr(arg, Some(&expected));
-            actual.1 = self.diagnostics.len() == diagnostics_before;
-        }
-        let valid_arity = variadic
-            .as_ref()
-            .is_some_and(|_| args.len() >= params.len())
-            || (variadic.is_none() && args.len() == params.len());
+        self.reinfer_io_provider_state_cell(&operation, args, &params, &origin, &mut actuals);
+        let valid_arity = call_arity_is_valid(args.len(), params.len(), variadic.as_ref());
         let call_bound_row =
             call_bound_effect_row(&params, variadic.as_ref(), &return_type, &origin.effects);
-        let inferred = args
-            .iter()
-            .zip(actuals.iter())
-            .enumerate()
-            .filter_map(|(index, (arg, (actual, valid)))| {
-                let param_type = params.get(index).or(variadic.as_ref())?;
-                Some((
-                    arg,
-                    call_argument_expected(param_type, &origin, None),
-                    actual.clone(),
-                    *valid,
-                ))
-            })
-            .collect::<Vec<_>>();
+        let inferred =
+            inferred_io_provider_arguments(args, &actuals, &params, variadic.as_ref(), &origin);
         let row_substitutions = solve_call_bound_effect_row(
             call_bound_row.as_deref(),
             inferred
@@ -708,23 +630,6 @@ impl<'a> FunctionChecker<'a> {
         .then_some(function.name.as_str())
     }
 
-    fn record_call_effects(
-        &mut self,
-        expr: &Expr,
-        origin: &CallOrigin,
-        instantiated_effects: &EffectRowSubstitutions,
-    ) {
-        for effect in &instantiate_effect_rows(&origin.effects, instantiated_effects) {
-            self.inferred_effects.push(EffectUse {
-                effect: effect.clone(),
-                node_id: expr.node_id,
-                span: expr.span.clone(),
-                kind: "direct_call",
-                symbol: origin.symbol.clone(),
-            });
-        }
-    }
-
     pub(super) fn declared_call_is_standard_prelude(&self, callee: &Expr) -> bool {
         if self.function.module_name.as_deref() == Some("std::prelude") {
             return false;
@@ -752,162 +657,4 @@ impl<'a> FunctionChecker<'a> {
                 && crate::prelude::prelude_signature(&function.name, None).is_some()
         })
     }
-
-    pub(super) fn check_call_arguments(
-        &mut self,
-        args: &[Expr],
-        params: &[Type],
-        variadic: Option<&Type>,
-        origin: &CallOrigin,
-    ) -> Option<EffectRowSubstitutions> {
-        let row = call_bound_effect_row(params, variadic, &Type::Unknown, &origin.effects);
-        self.check_call_arguments_with_origin(args, params, variadic, origin, None, row.as_deref())
-    }
-
-    fn check_call_arguments_with_origin(
-        &mut self,
-        args: &[Expr],
-        params: &[Type],
-        variadic: Option<&Type>,
-        origin: &CallOrigin,
-        type_origin: Option<&TypeOrigin>,
-        call_bound_row: Option<&str>,
-    ) -> Option<EffectRowSubstitutions> {
-        let valid_arity = variadic.is_some_and(|_| args.len() >= params.len())
-            || (variadic.is_none() && args.len() == params.len());
-        let inferred =
-            self.infer_call_arguments(args, params, variadic, origin, type_origin, call_bound_row);
-        let row_substitutions = solve_call_bound_effect_row(
-            call_bound_row,
-            inferred
-                .iter()
-                .map(|(_, expected, actual, _)| (&expected.ty, actual)),
-        );
-        let valid_arguments =
-            self.check_inferred_call_arguments(inferred, origin, &row_substitutions);
-        (valid_arity && valid_arguments).then_some(row_substitutions)
-    }
-
-    fn infer_call_arguments<'b>(
-        &mut self,
-        args: &'b [Expr],
-        params: &[Type],
-        variadic: Option<&Type>,
-        origin: &CallOrigin,
-        type_origin: Option<&TypeOrigin>,
-        call_bound_row: Option<&str>,
-    ) -> Vec<InferredCallArgument<'b>> {
-        let mut inferred = Vec::new();
-        for (index, arg) in args.iter().enumerate() {
-            let param_type = params.get(index).or(variadic);
-            let Some(param_type) = param_type else {
-                self.infer_expr(arg, None);
-                continue;
-            };
-            let expected = call_argument_expected(param_type, origin, type_origin);
-            let inference_expected = inference_expected_type(&expected, call_bound_row);
-            let diagnostics_before = self.diagnostics.len();
-            let actual = self.infer_expr(arg, Some(&inference_expected));
-            let argument_valid = self.diagnostics.len() == diagnostics_before;
-            inferred.push((arg, expected, actual, argument_valid));
-        }
-        inferred
-    }
-
-    fn check_inferred_call_arguments(
-        &mut self,
-        inferred: Vec<InferredCallArgument<'_>>,
-        origin: &CallOrigin,
-        row_substitutions: &EffectRowSubstitutions,
-    ) -> bool {
-        let mut valid = true;
-        for (arg, mut expected, actual, argument_valid) in inferred {
-            expected.ty = instantiate_effect_rows_in_type(&expected.ty, row_substitutions);
-            valid &= argument_valid
-                && is_assignable_with_registry(&expected.ty, &actual, &self.environment.adts);
-            if origin.schema_encode {
-                self.check_schema_encode_assignable(
-                    arg,
-                    &expected.ty,
-                    &actual,
-                    &expected,
-                    "call_argument",
-                );
-            } else {
-                self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
-            }
-        }
-        valid
-    }
-}
-
-fn call_argument_expected(
-    param_type: &Type,
-    origin: &CallOrigin,
-    type_origin: Option<&TypeOrigin>,
-) -> ExpectedType {
-    type_origin.map_or_else(
-        || ExpectedType {
-            ty: param_type.clone(),
-            source: if origin.schema_encode {
-                ExpectedTypeSource::SchemaEncodeParameter
-            } else {
-                ExpectedTypeSource::DeclaredParameter
-            },
-            origin_node_id: origin.node_id,
-            origin_span: Some(origin.span.clone()),
-            declaration_span: (!origin.schema_encode)
-                .then(|| origin.declaration_span.clone())
-                .flatten(),
-            origin_message: "Callee parameter type declared here.",
-        },
-        |type_origin| ExpectedType {
-            ty: param_type.clone(),
-            source: type_origin.source,
-            origin_node_id: type_origin.node_id,
-            origin_span: Some(type_origin.span.clone()),
-            declaration_span: type_origin.declaration_span.clone(),
-            origin_message: type_origin.message,
-        },
-    )
-}
-
-fn inference_expected_type(expected: &ExpectedType, call_bound_row: Option<&str>) -> ExpectedType {
-    call_bound_row.map_or_else(
-        || expected.clone(),
-        |row| ExpectedType {
-            ty: mask_call_bound_effect_row(&expected.ty, row),
-            ..expected.clone()
-        },
-    )
-}
-
-fn module_value_not_callable_diagnostic(
-    value: &crate::types::ModuleValueSignature,
-    callee: &Expr,
-) -> Diagnostic {
-    let name = value.declaration.name.as_deref().unwrap_or("<missing>");
-    let mut diagnostic = Diagnostic::new(
-        "type.not_callable",
-        Severity::Error,
-        DiagnosticKind::Type,
-        format!("module value `{name}` is not callable"),
-        Some(callee.span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("type_check")),
-            ("node_id", JsonValue::string(callee.node_id.display("name"))),
-            ("constraint", JsonValue::string("call_target")),
-            ("actual", JsonValue::string("module_value")),
-            ("name", JsonValue::string(name)),
-        ]),
-    );
-    diagnostic.related.push(JsonValue::object([
-        ("kind", JsonValue::string("module_value_declaration")),
-        (
-            "message",
-            JsonValue::string(format!("Module value `{name}` is declared here.")),
-        ),
-        ("span", span_json(&value.declaration.span)),
-    ]));
-    diagnostic
 }

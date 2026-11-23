@@ -21,6 +21,10 @@ use crate::types::signatures::{
     SCHEMA_VALIDATE_TARGET_PREFIX,
 };
 
+mod io_provider_state;
+
+use io_provider_state::{io_provider_state_core_signature, io_provider_state_surface_signature};
+
 pub(crate) struct TypeBinding<'a> {
     pub(crate) name: &'a str,
     pub(crate) ty: &'a Type,
@@ -373,187 +377,86 @@ fn core_function_call_signature(
         resolution.current_module,
         resolution.current_package,
     ) {
-        let (params, return_type) = if function.module_name.as_deref() == Some("std::prelude") {
-            if function.name == "list_cons"
-                && let Some(item) = evidence.first
-            {
-                Some((
-                    CoreCallTarget::PreludeBuiltin(function.name.clone()),
-                    vec![item.clone(), CoreType::named("List", vec![item.clone()])],
-                    CoreType::named("List", vec![item.clone()]),
-                ))
-            } else {
-                core_prelude_signature(&function.name, expected)
-            }
-            .map(|(_, params, return_type)| (params, return_type))
-            .unwrap_or_else(|| {
-                (
-                    function.params.iter().map(core_type).collect(),
-                    core_type(&function.return_type),
-                )
-            })
-        } else if function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-            && function.module_name.as_deref() == Some("std::io_provider")
-        {
-            io_provider_state_core_signature(&function.name, expected, evidence).unwrap_or_else(
-                || {
-                    (
-                        function.params.iter().map(core_type).collect(),
-                        core_type(&function.return_type),
-                    )
-                },
-            )
-        } else {
-            (
-                function.params.iter().map(core_type).collect(),
-                core_type(&function.return_type),
-            )
-        };
-        return Some(CoreCallSignature {
-            target: core_target_from_signature_name(&function.target_name),
-            params,
-            variadic: function.variadic.as_ref().map(core_type),
-            return_type,
-            callsite: function.callsite,
-        });
+        return Some(resolved_core_function_call_signature(
+            function, expected, evidence,
+        ));
     }
     if let Some(signature) = qualified_core_prelude_signature(segments, expected) {
         return Some(core_call_signature_from_parts(signature));
     }
-    if matches!(segments, [name] if name == "list_cons")
-        && let Some(item) = evidence.first
-    {
-        return Some(CoreCallSignature {
-            target: CoreCallTarget::PreludeBuiltin("list_cons".to_string()),
-            params: vec![item.clone(), CoreType::named("List", vec![item.clone()])],
-            variadic: None,
-            return_type: CoreType::named("List", vec![item.clone()]),
-            callsite: false,
-        });
-    }
-    if let [name] = segments
-        && let Some((target, params, return_type)) = core_prelude_signature(name, expected)
-    {
-        return Some(CoreCallSignature {
-            target,
-            params,
-            variadic: None,
-            return_type,
-            callsite: false,
-        });
-    }
-    None
+    unresolved_core_prelude_signature(segments, expected, evidence.first)
 }
 
-fn io_provider_state_core_signature(
-    name: &str,
+fn resolved_core_function_call_signature(
+    function: &FunctionSignature,
     expected: Option<&CoreType>,
     evidence: CallArgumentEvidence<'_, CoreType>,
+) -> CoreCallSignature {
+    let fallback = || lowered_function_types(function);
+    let (params, return_type) = if function.module_name.as_deref() == Some("std::prelude") {
+        resolved_core_prelude_types(function, expected, evidence.first).unwrap_or_else(fallback)
+    } else if is_io_provider_function(function) {
+        io_provider_state_core_signature(&function.name, expected, evidence)
+            .unwrap_or_else(fallback)
+    } else {
+        fallback()
+    };
+    CoreCallSignature {
+        target: core_target_from_signature_name(&function.target_name),
+        params,
+        variadic: function.variadic.as_ref().map(core_type),
+        return_type,
+        callsite: function.callsite,
+    }
+}
+
+fn resolved_core_prelude_types(
+    function: &FunctionSignature,
+    expected: Option<&CoreType>,
+    first: Option<&CoreType>,
 ) -> Option<(Vec<CoreType>, CoreType)> {
-    match name {
-        "state" => {
-            let item = match expected {
-                Some(CoreType::Named { name, args }) if name == "State" && args.len() == 1 => {
-                    Some(args[0].clone())
-                }
-                _ => None,
-            }
-            .or_else(|| evidence.first.cloned())
-            .unwrap_or(CoreType::Unknown);
-            let state = match expected {
-                Some(state @ CoreType::Named { name, .. }) if name == "State" => state.clone(),
-                _ => CoreType::named("State", vec![item.clone()]),
-            };
-            Some((vec![item], state))
-        }
-        "update" => {
-            let original_cell = evidence.first.cloned().unwrap_or(CoreType::Unknown);
-            let mut item = match &original_cell {
-                CoreType::Named { name, args } if name == "State" && args.len() == 1 => {
-                    args[0].clone()
-                }
-                _ => CoreType::Unknown,
-            };
-            if core_type_contains_unknown(&item)
-                && let Some(callback_item) = evidence.third.and_then(core_callback_item_type)
-            {
-                item = callback_item;
-            }
-            let cell = match original_cell {
-                CoreType::Named { name, .. } if name == "State" => {
-                    CoreType::named("State", vec![item.clone()])
-                }
-                _ => original_cell,
-            };
-            let context = evidence.second.cloned().unwrap_or(CoreType::Unknown);
-            let result = evidence
-                .third
-                .and_then(core_callback_result_type)
-                .or_else(|| expected.cloned())
-                .unwrap_or(CoreType::Unknown);
-            Some((
-                vec![
-                    cell,
-                    context.clone(),
-                    CoreType::Function {
-                        params: vec![item.clone(), context],
-                        variadic: None,
-                        return_type: Box::new(CoreType::Record(
-                            [
-                                ("state".to_string(), item),
-                                ("result".to_string(), result.clone()),
-                            ]
-                            .into_iter()
-                            .collect(),
-                        )),
-                        effects: Vec::new(),
-                    },
-                ],
-                result,
-            ))
-        }
-        _ => None,
+    if function.name == "list_cons"
+        && let Some(item) = first
+    {
+        return Some((
+            vec![item.clone(), CoreType::named("List", vec![item.clone()])],
+            CoreType::named("List", vec![item.clone()]),
+        ));
     }
+    core_prelude_signature(&function.name, expected)
+        .map(|(_, params, return_type)| (params, return_type))
 }
 
-fn core_callback_result_type(callback: &CoreType) -> Option<CoreType> {
-    let CoreType::Function { return_type, .. } = callback else {
-        return None;
-    };
-    let CoreType::Record(fields) = return_type.as_ref() else {
-        return None;
-    };
-    fields
-        .iter()
-        .find(|(name, _)| name == "result")
-        .map(|(_, ty)| ty.clone())
-}
-
-fn core_callback_item_type(callback: &CoreType) -> Option<CoreType> {
-    let CoreType::Function { params, .. } = callback else {
-        return None;
-    };
-    params.first().cloned()
-}
-
-fn core_type_contains_unknown(ty: &CoreType) -> bool {
-    match ty {
-        CoreType::Unknown => true,
-        CoreType::Named { args, .. } => args.iter().any(core_type_contains_unknown),
-        CoreType::Record(fields) => fields
-            .iter()
-            .any(|(_, field)| core_type_contains_unknown(field)),
-        CoreType::Function {
-            params,
-            variadic,
-            return_type,
-            ..
-        } => {
-            params.iter().any(core_type_contains_unknown)
-                || variadic.as_deref().is_some_and(core_type_contains_unknown)
-                || core_type_contains_unknown(return_type)
-        }
+fn unresolved_core_prelude_signature(
+    segments: &[String],
+    expected: Option<&CoreType>,
+    first: Option<&CoreType>,
+) -> Option<CoreCallSignature> {
+    if matches!(segments, [name] if name == "list_cons")
+        && let Some(item) = first
+    {
+        return Some(core_call_signature_from_parts((
+            CoreCallTarget::PreludeBuiltin("list_cons".to_string()),
+            vec![item.clone(), CoreType::named("List", vec![item.clone()])],
+            CoreType::named("List", vec![item.clone()]),
+        )));
     }
+    let [name] = segments else {
+        return None;
+    };
+    core_prelude_signature(name, expected).map(core_call_signature_from_parts)
+}
+
+fn lowered_function_types(function: &FunctionSignature) -> (Vec<CoreType>, CoreType) {
+    (
+        function.params.iter().map(core_type).collect(),
+        core_type(&function.return_type),
+    )
+}
+
+fn is_io_provider_function(function: &FunctionSignature) -> bool {
+    function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+        && function.module_name.as_deref() == Some("std::io_provider")
 }
 
 fn core_call_signature_from_parts(
@@ -580,41 +483,8 @@ fn function_type_call_signature(
     evidence: CallArgumentEvidence<'_, Type>,
     resolution: CallResolutionContext<'_>,
 ) -> Option<TypeCallSignature> {
-    let (function, symbol) = match segments {
-        [name] => (
-            resolution
-                .environment
-                .unqualified_function_in_owner(
-                    name,
-                    resolution.current_module,
-                    resolution.current_package,
-                )
-                .found(),
-            name.clone(),
-        ),
-        _ => (
-            resolution.environment.function_path_in_owner(
-                segments,
-                resolution.current_module,
-                resolution.current_package,
-            ),
-            segments.join("::"),
-        ),
-    };
-    let function = function?;
-    let (params, return_type) = if function.module_name.as_deref() == Some("std::prelude") {
-        prelude_signature(&function.name, expected)
-            .map(|(params, result)| (params.into(), result))
-            .unwrap_or_else(|| (function.params.clone(), function.return_type.clone()))
-    } else if function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-        && function.module_name.as_deref() == Some("std::io_provider")
-    {
-        io_provider_state_surface_signature(&function.name, expected, evidence)
-            .map(|(params, result)| (params.into(), result))
-            .unwrap_or_else(|| (function.params.clone(), function.return_type.clone()))
-    } else {
-        (function.params.clone(), function.return_type.clone())
-    };
+    let (function, symbol) = resolve_function_and_symbol(segments, resolution)?;
+    let (params, return_type) = resolved_surface_function_types(function, expected, evidence);
     Some(TypeCallSignature {
         params,
         variadic: function.variadic.clone(),
@@ -632,141 +502,48 @@ fn function_type_call_signature(
     })
 }
 
-fn io_provider_state_surface_signature(
-    name: &str,
+fn resolve_function_and_symbol<'a>(
+    segments: &[String],
+    resolution: CallResolutionContext<'a>,
+) -> Option<(&'a FunctionSignature, String)> {
+    match segments {
+        [name] => Some((
+            resolution
+                .environment
+                .unqualified_function_in_owner(
+                    name,
+                    resolution.current_module,
+                    resolution.current_package,
+                )
+                .found()?,
+            name.clone(),
+        )),
+        _ => Some((
+            resolution.environment.function_path_in_owner(
+                segments,
+                resolution.current_module,
+                resolution.current_package,
+            )?,
+            segments.join("::"),
+        )),
+    }
+}
+
+fn resolved_surface_function_types(
+    function: &FunctionSignature,
     expected: Option<&Type>,
     evidence: CallArgumentEvidence<'_, Type>,
-) -> Option<(Vec<Type>, Type)> {
-    match name {
-        "state" => {
-            let item = match expected {
-                Some(Type::Named {
-                    name,
-                    identity,
-                    args,
-                }) if name == "State"
-                    && identity == "std::io_provider::State"
-                    && args.len() == 1 =>
-                {
-                    Some(args[0].clone())
-                }
-                _ => None,
-            }
-            .or_else(|| evidence.first.map(state_item_type))
-            .unwrap_or(Type::Unknown);
-            let state = match expected {
-                Some(state @ Type::Named { name, identity, .. })
-                    if name == "State" && identity == "std::io_provider::State" =>
-                {
-                    state.clone()
-                }
-                _ => Type::resolved_named("State", "std::io_provider::State", vec![item.clone()]),
-            };
-            Some((vec![item], state))
-        }
-        "update" => {
-            let original_cell = evidence.first.cloned().unwrap_or(Type::Unknown);
-            let mut item = match &original_cell {
-                Type::Named {
-                    name,
-                    identity,
-                    args,
-                } if name == "State"
-                    && identity == "std::io_provider::State"
-                    && args.len() == 1 =>
-                {
-                    args[0].clone()
-                }
-                _ => Type::Unknown,
-            };
-            if state_type_contains_unknown(&item)
-                && let Some(callback_item) = evidence.third.and_then(callback_item_type)
-            {
-                item = callback_item;
-            }
-            let cell = Type::resolved_named("State", "std::io_provider::State", vec![item.clone()]);
-            let context = evidence.second.cloned().unwrap_or(Type::Unknown);
-            let result = evidence
-                .third
-                .and_then(callback_result_type)
-                .or_else(|| expected.cloned())
-                .unwrap_or(Type::Unknown);
-            Some((
-                vec![
-                    cell,
-                    context.clone(),
-                    Type::Function {
-                        params: vec![item.clone(), context].into(),
-                        variadic: None,
-                        return_type: Box::new(Type::Record(
-                            [
-                                ("state".to_string(), item),
-                                ("result".to_string(), result.clone()),
-                            ]
-                            .into_iter()
-                            .collect(),
-                        )),
-                        effects: Vec::new(),
-                    },
-                ],
-                result,
-            ))
-        }
-        _ => None,
-    }
-}
-
-fn callback_result_type(callback: &Type) -> Option<Type> {
-    let Type::Function { return_type, .. } = callback else {
-        return None;
-    };
-    let Type::Record(fields) = return_type.as_ref() else {
-        return None;
-    };
-    fields
-        .iter()
-        .find(|(name, _)| name == "result")
-        .map(|(_, ty)| ty.clone())
-}
-
-fn callback_item_type(callback: &Type) -> Option<Type> {
-    let Type::Function { params, .. } = callback else {
-        return None;
-    };
-    params.first().cloned()
-}
-
-fn state_type_contains_unknown(ty: &Type) -> bool {
-    match ty {
-        Type::Unknown => true,
-        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
-            args.iter().any(state_type_contains_unknown)
-        }
-        Type::Record(fields) => fields
-            .iter()
-            .any(|(_, field)| state_type_contains_unknown(field)),
-        Type::Function {
-            params,
-            variadic,
-            return_type,
-            ..
-        } => {
-            params.iter().any(state_type_contains_unknown)
-                || variadic.as_deref().is_some_and(state_type_contains_unknown)
-                || state_type_contains_unknown(return_type)
-        }
-    }
-}
-
-fn state_item_type(ty: &Type) -> Type {
-    match ty {
-        Type::VariantRefinement {
-            name,
-            identity,
-            args,
-            ..
-        } => Type::resolved_named(name.to_string(), identity.to_string(), args.to_vec()),
-        _ => ty.clone(),
+) -> (TypeArgs, Type) {
+    if function.module_name.as_deref() == Some("std::prelude") {
+        prelude_signature(&function.name, expected)
+            .map(|(params, result)| (params.into(), result))
+            .unwrap_or_else(|| (function.params.clone(), function.return_type.clone()))
+    } else if is_io_provider_function(function) {
+        io_provider_state_surface_signature(&function.name, expected, evidence)
+            .map(|(params, result)| (params.into(), result))
+            .unwrap_or_else(|| (function.params.clone(), function.return_type.clone()))
+    } else {
+        (function.params.clone(), function.return_type.clone())
     }
 }
 
