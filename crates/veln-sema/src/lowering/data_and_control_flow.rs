@@ -446,6 +446,7 @@ impl<'a> CoreLowerer<'a> {
         expected: Option<&CoreType>,
         evidence: crate::call_resolution::CallArgumentEvidence<'_, CoreType>,
     ) -> Option<CoreCallSignature> {
+        record_core_call_signature_work();
         let bindings = self
             .bindings
             .iter()

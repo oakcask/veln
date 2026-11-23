@@ -374,14 +374,24 @@ fn core_function_call_signature(
         resolution.current_package,
     ) {
         let (params, return_type) = if function.module_name.as_deref() == Some("std::prelude") {
-            core_prelude_signature(&function.name, expected)
-                .map(|(_, params, return_type)| (params, return_type))
-                .unwrap_or_else(|| {
-                    (
-                        function.params.iter().map(core_type).collect(),
-                        core_type(&function.return_type),
-                    )
-                })
+            if function.name == "list_cons"
+                && let Some(item) = evidence.first
+            {
+                Some((
+                    CoreCallTarget::PreludeBuiltin(function.name.clone()),
+                    vec![item.clone(), CoreType::named("List", vec![item.clone()])],
+                    CoreType::named("List", vec![item.clone()]),
+                ))
+            } else {
+                core_prelude_signature(&function.name, expected)
+            }
+            .map(|(_, params, return_type)| (params, return_type))
+            .unwrap_or_else(|| {
+                (
+                    function.params.iter().map(core_type).collect(),
+                    core_type(&function.return_type),
+                )
+            })
         } else if function.module_name.as_deref() == Some("std::io_provider") {
             io_provider_state_core_signature(&function.name, expected, evidence).unwrap_or_else(
                 || {
@@ -407,6 +417,17 @@ fn core_function_call_signature(
     }
     if let Some(signature) = qualified_core_prelude_signature(segments, expected) {
         return Some(core_call_signature_from_parts(signature));
+    }
+    if matches!(segments, [name] if name == "list_cons")
+        && let Some(item) = evidence.first
+    {
+        return Some(CoreCallSignature {
+            target: CoreCallTarget::PreludeBuiltin("list_cons".to_string()),
+            params: vec![item.clone(), CoreType::named("List", vec![item.clone()])],
+            variadic: None,
+            return_type: CoreType::named("List", vec![item.clone()]),
+            callsite: false,
+        });
     }
     if let [name] = segments
         && let Some((target, params, return_type)) = core_prelude_signature(name, expected)

@@ -96,6 +96,18 @@ fn instantiate_callable_effect_rows_with_row(
     if !arity_matches {
         return None;
     }
+    if row.is_none()
+        && effects.is_empty()
+        && args
+            .iter()
+            .any(|arg| matches!(arg.kind, ExprKind::Call { .. }))
+    {
+        // The expression-effect collector visits argument calls separately.
+        // A pure, row-free callee contributes no additional effects, so
+        // recursively reconstructing a nested call's type here only repeats
+        // the body check at every enclosing call.
+        return Some(Vec::new());
+    }
     let mut comparisons = Vec::new();
     for (index, arg) in args.iter().enumerate() {
         let param = params.get(index).or(variadic)?;

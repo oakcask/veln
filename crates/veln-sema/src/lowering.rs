@@ -41,6 +41,29 @@ mod function_lowering;
 mod module_value_lowering;
 
 #[cfg(test)]
+thread_local! {
+    static CORE_CALL_SIGNATURE_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_core_call_signature_work() {
+    CORE_CALL_SIGNATURE_WORK.with(|work| work.set(work.get() + 1));
+}
+
+#[cfg(not(test))]
+fn record_core_call_signature_work() {}
+
+#[cfg(test)]
+pub(crate) fn reset_core_call_signature_work() {
+    CORE_CALL_SIGNATURE_WORK.with(|work| work.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_core_call_signature_work() -> usize {
+    CORE_CALL_SIGNATURE_WORK.with(|work| work.replace(0))
+}
+
+#[cfg(test)]
 pub(crate) use module_value_lowering::{
     ModuleValueImportPreparationWork, reset_module_value_import_preparation_work,
     take_module_value_import_preparation_work,

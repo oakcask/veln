@@ -315,16 +315,22 @@ impl<'a> CoreLowerer<'a> {
         {
             self.record_defer_capture(index);
         }
-        let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
-        let context_type = args.get(1).and_then(|arg| self.shallow_expr_type(arg));
-        let callback_type = args.get(2).and_then(|arg| self.shallow_expr_type(arg));
+        let preliminary_signature = self.core_call_signature(
+            callee,
+            expected,
+            crate::call_resolution::CallArgumentEvidence::default(),
+        );
+        let mut lowered_args = match &preliminary_signature {
+            Some(signature) => self.lower_args_with_preliminary_signature(args, signature),
+            None => self.lower_args_with_params(args, None),
+        };
         let signature = self.core_call_signature(
             callee,
             expected,
             crate::call_resolution::CallArgumentEvidence {
-                first: handle_type.as_ref(),
-                second: context_type.as_ref(),
-                third: callback_type.as_ref(),
+                first: lowered_args.first().map(|arg| &arg.ty),
+                second: lowered_args.get(1).map(|arg| &arg.ty),
+                third: lowered_args.get(2).map(|arg| &arg.ty),
             },
         );
         if let Some(signature) = &signature {
@@ -335,10 +341,6 @@ impl<'a> CoreLowerer<'a> {
                 signature.variadic.is_some(),
             );
         }
-        let mut lowered_args = match &signature {
-            Some(signature) => self.lower_args_with_signature(args, signature),
-            None => self.lower_args_with_params(args, None),
-        };
         if signature
             .as_ref()
             .is_some_and(|signature| signature.callsite)
@@ -688,20 +690,36 @@ impl<'a> CoreLowerer<'a> {
             .collect()
     }
 
-    pub(super) fn lower_args_with_signature(
+    fn lower_args_with_preliminary_signature(
         &mut self,
         args: &[Expr],
         signature: &CoreCallSignature,
     ) -> Vec<CoreExpr> {
         let Some(variadic) = &signature.variadic else {
-            return self.lower_args_with_params(args, Some(&signature.params));
+            return args
+                .iter()
+                .enumerate()
+                .map(|(index, arg)| {
+                    let expected = signature
+                        .params
+                        .get(index)
+                        .filter(|expected| !core_type_contains_unknown(expected));
+                    self.lower_expr(arg, expected)
+                })
+                .collect();
         };
         let fixed_count = signature.params.len();
         let mut lowered = args
             .iter()
             .take(fixed_count)
             .enumerate()
-            .map(|(index, arg)| self.lower_expr(arg, signature.params.get(index)))
+            .map(|(index, arg)| {
+                let expected = signature
+                    .params
+                    .get(index)
+                    .filter(|expected| !core_type_contains_unknown(expected));
+                self.lower_expr(arg, expected)
+            })
             .collect::<Vec<_>>();
         let tail_items = args
             .iter()
@@ -818,5 +836,25 @@ impl<'a> CoreLowerer<'a> {
             lowered_args.push(lowered);
         }
         lowered_args
+    }
+}
+
+fn core_type_contains_unknown(ty: &CoreType) -> bool {
+    match ty {
+        CoreType::Unknown => true,
+        CoreType::Named { args, .. } => args.iter().any(core_type_contains_unknown),
+        CoreType::Record(fields) => fields
+            .iter()
+            .any(|(_, field)| core_type_contains_unknown(field)),
+        CoreType::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params.iter().any(core_type_contains_unknown)
+                || variadic.as_deref().is_some_and(core_type_contains_unknown)
+                || core_type_contains_unknown(return_type)
+        }
     }
 }

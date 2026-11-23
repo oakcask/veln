@@ -163,8 +163,19 @@ fn io_provider_atomic_state_controls_admission_cancellation_publication_and_rele
         return;
     }
     let ir = lower_to_ir(concat!(
-        "fn atomic_state_tail(value: Int, context: ()) -> {state: Int, result: ()}\n",
-        "  atomic_state_tail(value, context)\n",
+        "fn atomic_state_step(remaining: Int, probe: fn() -> Int) -> Int\n",
+        "  if remaining == 1\n",
+        "    probe()\n",
+        "  else\n",
+        "    1\n",
+        "  end\n",
+        "end\n",
+        "fn atomic_state_tail(remaining: Int, probe: fn() -> Int) -> {state: Int, result: ()}\n",
+        "  if remaining == 0\n",
+        "    {state: 99, result: ()}\n",
+        "  else\n",
+        "    atomic_state_tail(remaining - atomic_state_step(remaining, probe), probe)\n",
+        "  end\n",
         "end\n",
         "pub fn main() -> ()\n",
         "  ()\n",

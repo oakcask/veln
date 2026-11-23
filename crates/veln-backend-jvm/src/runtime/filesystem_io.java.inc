@@ -23,6 +23,15 @@
     }
 
     public static Object ioProviderStateUpdate(Object stateValue, Object context, Object action) {
+        return ioProviderStateUpdateObserved(stateValue, context, action, null);
+    }
+
+    static Object ioProviderStateUpdateObserved(
+        Object stateValue,
+        Object context,
+        Object action,
+        Runnable afterPublication
+    ) {
         if (!(stateValue instanceof IoState)) {
             throw new RuntimeFailure("invalid io provider state cell");
         }
@@ -65,6 +74,7 @@
                 published = true;
                 state.notifyAll();
             }
+            if (afterPublication != null) afterPublication.run();
             throwTaskCancellationIfRequested();
             return result;
         } finally {

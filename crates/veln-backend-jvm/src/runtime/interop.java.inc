@@ -40,78 +40,136 @@
         return value;
     }
 
-    private static java.util.List<Object> freezeBoundaryList(java.util.List<Object> values) {
-        java.util.ArrayList<Object> frozen = new java.util.ArrayList<Object>(values.size());
-        for (Object value : values) {
-            frozen.add(freezeBoundaryValue(value));
+    private static final class BoundaryFreezeFrame {
+        final Object value;
+        final boolean expanded;
+
+        BoundaryFreezeFrame(Object value, boolean expanded) {
+            this.value = value;
+            this.expanded = expanded;
         }
-        return java.util.Collections.unmodifiableList(frozen);
     }
 
-    private static <K, V> java.util.Map<K, V> freezeBoundaryMap(java.util.Map<K, V> values) {
-        java.util.LinkedHashMap<K, V> frozen = new java.util.LinkedHashMap<K, V>();
-        for (java.util.Map.Entry<K, V> entry : values.entrySet()) {
-            @SuppressWarnings("unchecked")
-            K key = (K) freezeBoundaryValue(entry.getKey());
-            @SuppressWarnings("unchecked")
-            V value = (V) freezeBoundaryValue(entry.getValue());
-            frozen.put(key, value);
-        }
-        return java.util.Collections.unmodifiableMap(frozen);
+    private static boolean isBoundaryComposite(Object value) {
+        return value instanceof DiagnosticResultValue
+            || value instanceof java.util.List
+            || value instanceof java.util.Map
+            || value instanceof Result
+            || value instanceof Option && ((Option) value).some
+            || value instanceof ListValue && ((ListValue) value).cons
+            || value instanceof Adt;
     }
 
-    @SuppressWarnings("unchecked")
-    private static Object freezeBoundaryValue(Object value) {
+    private static void pushBoundaryChildren(
+        java.util.ArrayDeque<BoundaryFreezeFrame> pending,
+        Object value
+    ) {
+        if (value instanceof DiagnosticResultValue) {
+            pending.push(new BoundaryFreezeFrame(((DiagnosticResultValue) value).value, false));
+        } else if (value instanceof java.util.List) {
+            java.util.List<?> values = (java.util.List<?>) value;
+            for (int index = values.size() - 1; index >= 0; index -= 1) {
+                pending.push(new BoundaryFreezeFrame(values.get(index), false));
+            }
+        } else if (value instanceof java.util.Map) {
+            java.util.ArrayList<java.util.Map.Entry<?, ?>> entries =
+                new java.util.ArrayList<java.util.Map.Entry<?, ?>>(
+                    ((java.util.Map<?, ?>) value).entrySet()
+                );
+            for (int index = entries.size() - 1; index >= 0; index -= 1) {
+                java.util.Map.Entry<?, ?> entry = entries.get(index);
+                pending.push(new BoundaryFreezeFrame(entry.getValue(), false));
+                pending.push(new BoundaryFreezeFrame(entry.getKey(), false));
+            }
+        } else if (value instanceof Result) {
+            pending.push(new BoundaryFreezeFrame(((Result) value).value, false));
+        } else if (value instanceof Option) {
+            pending.push(new BoundaryFreezeFrame(((Option) value).value, false));
+        } else if (value instanceof ListValue) {
+            ListValue list = (ListValue) value;
+            pending.push(new BoundaryFreezeFrame(list.tail, false));
+            pending.push(new BoundaryFreezeFrame(list.head, false));
+        } else if (value instanceof Adt) {
+            Object[] payloads = ((Adt) value).payloads;
+            for (int index = payloads.length - 1; index >= 0; index -= 1) {
+                pending.push(new BoundaryFreezeFrame(payloads[index], false));
+            }
+        }
+    }
+
+    private static Object rebuildBoundaryComposite(
+        Object value,
+        java.util.IdentityHashMap<Object, Object> frozen
+    ) {
         if (value instanceof DiagnosticResultValue) {
             DiagnosticResultValue diagnostic = (DiagnosticResultValue) value;
             return new DiagnosticResultValue(
-                freezeBoundaryValue(diagnostic.value),
+                frozen.get(diagnostic.value),
                 diagnostic.fixtureHexDiagnostic,
                 diagnostic.byteDiagnostic,
                 diagnostic.valueDiagnostic,
                 diagnostic.protocolDiagnostic,
-                diagnostic.transportFailure
+                diagnostic.transportFailure,
+                true
             );
         }
-        if (isByteViewValue(value)) {
-            return freezeByteView(value);
-        }
-        if (value instanceof FrozenByteChunk) {
-            return value;
-        }
         if (value instanceof java.util.List) {
-            return freezeBoundaryList((java.util.List<Object>) value);
+            java.util.List<?> values = (java.util.List<?>) value;
+            java.util.ArrayList<Object> result = new java.util.ArrayList<Object>(values.size());
+            for (Object item : values) result.add(frozen.get(item));
+            return java.util.Collections.unmodifiableList(result);
         }
         if (value instanceof java.util.Map) {
-            return freezeBoundaryMap((java.util.Map<Object, Object>) value);
+            java.util.LinkedHashMap<Object, Object> result =
+                new java.util.LinkedHashMap<Object, Object>();
+            for (java.util.Map.Entry<?, ?> entry : ((java.util.Map<?, ?>) value).entrySet()) {
+                result.put(frozen.get(entry.getKey()), frozen.get(entry.getValue()));
+            }
+            return java.util.Collections.unmodifiableMap(result);
         }
         if (value instanceof Result) {
             Result result = (Result) value;
-            return new Result(result.ok, freezeBoundaryValue(result.value));
+            return new Result(result.ok, frozen.get(result.value));
         }
         if (value instanceof Option) {
             Option option = (Option) value;
-            return option.some ? new Option(true, freezeBoundaryValue(option.value)) : value;
+            return new Option(true, frozen.get(option.value));
         }
         if (value instanceof ListValue) {
             ListValue list = (ListValue) value;
-            return list.cons
-                ? new ListValue(
-                    true,
-                    freezeBoundaryValue(list.head),
-                    freezeBoundaryValue(list.tail)
-                )
-                : value;
+            return new ListValue(true, frozen.get(list.head), frozen.get(list.tail));
         }
-        if (value instanceof Adt) {
-            Adt adt = (Adt) value;
-            Object[] payloads = new Object[adt.payloads.length];
-            for (int index = 0; index < adt.payloads.length; index += 1) {
-                payloads[index] = freezeBoundaryValue(adt.payloads[index]);
+        Adt adt = (Adt) value;
+        Object[] payloads = new Object[adt.payloads.length];
+        for (int index = 0; index < payloads.length; index += 1) {
+            payloads[index] = frozen.get(adt.payloads[index]);
+        }
+        return new Adt(adt.name, payloads);
+    }
+
+    private static Object freezeBoundaryValue(Object value) {
+        java.util.ArrayDeque<BoundaryFreezeFrame> pending =
+            new java.util.ArrayDeque<BoundaryFreezeFrame>();
+        java.util.IdentityHashMap<Object, Object> frozen =
+            new java.util.IdentityHashMap<Object, Object>();
+        pending.push(new BoundaryFreezeFrame(value, false));
+        while (!pending.isEmpty()) {
+            BoundaryFreezeFrame frame = pending.pop();
+            if (frozen.containsKey(frame.value)) continue;
+            if (!frame.expanded) {
+                if (isByteViewValue(frame.value)) {
+                    frozen.put(frame.value, freezeByteView(frame.value));
+                } else if (isBoundaryComposite(frame.value)) {
+                    pending.push(new BoundaryFreezeFrame(frame.value, true));
+                    pushBoundaryChildren(pending, frame.value);
+                } else {
+                    frozen.put(frame.value, frame.value);
+                }
+            } else {
+                frozen.put(frame.value, rebuildBoundaryComposite(frame.value, frozen));
             }
-            return new Adt(adt.name, payloads);
         }
-        return freezeValue(value);
+        return frozen.get(value);
     }
     public static Object call(Object fn, Object... args) {
         if (fn instanceof Fn) {

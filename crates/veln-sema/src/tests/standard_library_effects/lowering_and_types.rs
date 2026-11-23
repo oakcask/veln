@@ -1,4 +1,5 @@
 use super::*;
+use crate::lowering::{reset_core_call_signature_work, take_core_call_signature_work};
 use veln_ir::IrCallbackTarget;
 
 #[test]
@@ -306,6 +307,140 @@ fn io_provider_atomic_state_keeps_concrete_types_through_core_and_ir() {
         };
         assert_eq!(&value.ty, expected);
     }
+}
+
+#[test]
+fn io_provider_atomic_state_uses_lowered_field_and_control_flow_types() {
+    let source = SourceFile::new(
+        "io_provider.veln",
+        concat!(
+            "mod std.io_provider\n",
+            "pub type State<T>\n",
+            "  State(value: T)\n",
+            "end\n",
+            "pub fn state(initial: T) -> State<T> effects [concurrency]\n",
+            "  prelude_builtin::io_provider_state(initial)\n",
+            "end\n",
+            "pub fn update(cell: State<T>, context: C, action: fn(T, C) -> {state: T, result: R}) -> R effects [concurrency]\n",
+            "  prelude_builtin::io_provider_state_update(cell, context, action)\n",
+            "end\n",
+            "fn step(value: {name: String}, context: ()) -> {state: {name: String}, result: Int}\n",
+            "  {state: value, result: 7}\n",
+            "end\n",
+            "pub fn evidence(input: {name: String}, holder: {action: fn({name: String}, ()) -> {state: {name: String}, result: Int}}, choose: Bool) -> () effects [concurrency]\n",
+            "  let field_cell = state({name: input.name})\n",
+            "  let selected_cell = state(if choose\n",
+            "    {name: input.name}\n",
+            "  else\n",
+            "    input\n",
+            "  end)\n",
+            "  let field_result = update(field_cell, (), holder.action)\n",
+            "  let selected_result = update(selected_cell, (), if choose\n",
+            "    holder.action\n",
+            "  else\n",
+            "    step\n",
+            "  end)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let mut module = lower_standard_package_callables(&source);
+    for function in &mut module.functions {
+        function.module_name = Some("std::io_provider".to_string());
+    }
+    for declaration in &mut module.types {
+        declaration.module_name = Some("std::io_provider".to_string());
+        declaration.package_name = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    }
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let state_type = CoreType::named(
+        "State",
+        vec![CoreType::Record(vec![(
+            "name".to_string(),
+            CoreType::string(),
+        )])],
+    );
+    let core = lowered
+        .core
+        .expect("field-derived state calls should build checked core");
+    let evidence = core
+        .functions
+        .iter()
+        .find(|function| function.name.ends_with("$evidence"))
+        .expect("evidence function should lower");
+    for statement in evidence.body.iter().take(2) {
+        let CoreStmtKind::Let { expr, .. } = &statement.kind else {
+            panic!("expected state allocation binding");
+        };
+        assert_eq!(expr.ty, state_type);
+    }
+    for statement in evidence.body.iter().skip(2).take(2) {
+        let CoreStmtKind::Let { expr, .. } = &statement.kind else {
+            panic!("expected state update binding");
+        };
+        assert_eq!(expr.ty, CoreType::int());
+    }
+
+    let ir = lowered
+        .ir
+        .expect("field-derived state calls should lower to typed IR");
+    let evidence = ir
+        .functions
+        .iter()
+        .find(|function| function.name.ends_with("$evidence"))
+        .expect("evidence function should lower to IR");
+    for statement in evidence.body.iter().take(2) {
+        let IrStmtKind::Let { value, .. } = &statement.kind else {
+            panic!("expected IR state allocation binding");
+        };
+        assert_eq!(value.ty, state_type);
+    }
+    for statement in evidence.body.iter().skip(2).take(2) {
+        let IrStmtKind::Let { value, .. } = &statement.kind else {
+            panic!("expected IR state update binding");
+        };
+        assert_eq!(value.ty, CoreType::int());
+    }
+}
+
+#[test]
+fn ordinary_nested_calls_have_linear_core_signature_work() {
+    fn work_at_depth(depth: usize) -> usize {
+        let mut expression = "value".to_string();
+        for _ in 0..depth {
+            expression = format!("identity({expression})");
+        }
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "fn identity(value: Int) -> Int\n  value\nend\npub fn main(value: Int) -> Int\n  {expression}\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+        reset_core_call_signature_work();
+        let lowered = lower_checked_surface_module(&module);
+        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+        assert!(lowered.ir.is_some());
+        take_core_call_signature_work()
+    }
+
+    std::thread::Builder::new()
+        .name("nested-call-scaling".to_string())
+        .stack_size(32 * 1024 * 1024)
+        .spawn(|| {
+            let at_200 = work_at_depth(200);
+            let at_400 = work_at_depth(400);
+            let at_800 = work_at_depth(800);
+            assert_eq!(at_200, 400);
+            assert_eq!(at_400, 800);
+            assert_eq!(at_800, 1600);
+        })
+        .expect("nested-call scaling worker should start")
+        .join()
+        .expect("nested-call scaling worker should finish");
 }
 
 #[test]
