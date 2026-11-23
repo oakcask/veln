@@ -216,78 +216,107 @@ fn io_provider_signature<T: SignatureType>(
     inputs: ConcurrencySignatureInputs<'_, T>,
 ) -> Option<(Vec<T>, T)> {
     match name {
-        "state" => {
-            let item = inputs
-                .explicit_item
-                .cloned()
-                .or_else(|| inputs.arguments.handle.cloned())
-                .or_else(|| {
-                    inputs
-                        .expected
-                        .and_then(|ty| provider_state_item(ty).cloned())
-                })
-                .unwrap_or_else(T::unknown);
-            Some((vec![item.clone()], T::named("IoProviderState", vec![item])))
-        }
-        "update" => {
-            let action_parts = inputs
-                .arguments
-                .action
-                .and_then(SignatureType::function_parts);
-            let action_params = action_parts.map(|(params, _)| params);
-            let action_return = action_parts.map(|(_, return_type)| return_type);
-            let item = inputs
-                .explicit_item
-                .cloned()
-                .or_else(|| {
-                    inputs
-                        .arguments
-                        .handle
-                        .and_then(provider_state_item)
-                        .filter(|ty| **ty != T::unknown())
-                        .cloned()
-                })
-                .or_else(|| action_params.and_then(|params| params.first()).cloned())
-                .or_else(|| {
-                    inputs
-                        .arguments
-                        .handle
-                        .and_then(provider_state_item)
-                        .cloned()
-                })
-                .unwrap_or_else(T::unknown);
-            let context = inputs
-                .explicit_context
-                .cloned()
-                .or_else(|| action_params.and_then(|params| params.get(1)).cloned())
-                .or_else(|| inputs.arguments.context.cloned())
-                .unwrap_or_else(T::unknown);
-            let result = inputs
-                .explicit_result
-                .cloned()
-                .or_else(|| inputs.expected.filter(|ty| **ty != T::unknown()).cloned())
-                .or_else(|| {
-                    action_return
-                        .and_then(|ty| ty.record_field("result"))
-                        .cloned()
-                })
-                .or_else(|| inputs.expected.cloned())
-                .unwrap_or_else(T::unknown);
-            let transition = T::record(vec![
-                ("state".to_string(), item.clone()),
-                ("result".to_string(), result.clone()),
-            ]);
-            Some((
-                vec![
-                    T::named("IoProviderState", vec![item.clone()]),
-                    context.clone(),
-                    T::function(vec![item, context], transition, Vec::new()),
-                ],
-                result,
-            ))
-        }
+        "state" => Some(io_provider_state_signature(inputs)),
+        "update" => Some(io_provider_update_signature(inputs)),
         _ => None,
     }
+}
+
+fn io_provider_state_signature<T: SignatureType>(
+    inputs: ConcurrencySignatureInputs<'_, T>,
+) -> (Vec<T>, T) {
+    let item = inputs
+        .explicit_item
+        .cloned()
+        .or_else(|| inputs.arguments.handle.cloned())
+        .or_else(|| {
+            inputs
+                .expected
+                .and_then(|ty| provider_state_item(ty).cloned())
+        })
+        .unwrap_or_else(T::unknown);
+    (vec![item.clone()], T::named("IoProviderState", vec![item]))
+}
+
+fn io_provider_update_signature<T: SignatureType>(
+    inputs: ConcurrencySignatureInputs<'_, T>,
+) -> (Vec<T>, T) {
+    let action_parts = inputs
+        .arguments
+        .action
+        .and_then(SignatureType::function_parts);
+    let action_params = action_parts.map(|(params, _)| params);
+    let action_return = action_parts.map(|(_, return_type)| return_type);
+    let item = io_provider_update_item(&inputs, action_params);
+    let context = io_provider_update_context(&inputs, action_params);
+    let result = io_provider_update_result(&inputs, action_return);
+    let transition = T::record(vec![
+        ("state".to_string(), item.clone()),
+        ("result".to_string(), result.clone()),
+    ]);
+    (
+        vec![
+            T::named("IoProviderState", vec![item.clone()]),
+            context.clone(),
+            T::function(vec![item, context], transition, Vec::new()),
+        ],
+        result,
+    )
+}
+
+fn io_provider_update_item<T: SignatureType>(
+    inputs: &ConcurrencySignatureInputs<'_, T>,
+    action_params: Option<&[T]>,
+) -> T {
+    inputs
+        .explicit_item
+        .cloned()
+        .or_else(|| {
+            inputs
+                .arguments
+                .handle
+                .and_then(provider_state_item)
+                .filter(|ty| **ty != T::unknown())
+                .cloned()
+        })
+        .or_else(|| action_params.and_then(|params| params.first()).cloned())
+        .or_else(|| {
+            inputs
+                .arguments
+                .handle
+                .and_then(provider_state_item)
+                .cloned()
+        })
+        .unwrap_or_else(T::unknown)
+}
+
+fn io_provider_update_context<T: SignatureType>(
+    inputs: &ConcurrencySignatureInputs<'_, T>,
+    action_params: Option<&[T]>,
+) -> T {
+    inputs
+        .explicit_context
+        .cloned()
+        .or_else(|| action_params.and_then(|params| params.get(1)).cloned())
+        .or_else(|| inputs.arguments.context.cloned())
+        .unwrap_or_else(T::unknown)
+}
+
+fn io_provider_update_result<T: SignatureType>(
+    inputs: &ConcurrencySignatureInputs<'_, T>,
+    action_return: Option<&T>,
+) -> T {
+    inputs
+        .explicit_result
+        .cloned()
+        .or_else(|| inputs.expected.filter(|ty| **ty != T::unknown()).cloned())
+        .or_else(|| {
+            action_return
+                .and_then(|ty| ty.record_field("result"))
+                .cloned()
+        })
+        .or_else(|| inputs.expected.cloned())
+        .unwrap_or_else(T::unknown)
 }
 
 fn provider_state_item<T: SignatureType>(ty: &T) -> Option<&T> {

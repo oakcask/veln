@@ -5,6 +5,12 @@ pub(super) enum ConstructorTypeContext<'a> {
     Inferred(Vec<CoreType>),
 }
 
+struct ExplicitConcurrencyTypes {
+    item: Option<CoreType>,
+    context: Option<CoreType>,
+    result: Option<CoreType>,
+}
+
 impl<'a> ConstructorTypeContext<'a> {
     pub(super) fn new(expected: Option<&'a CoreType>, constructor: AdtConstructor<'_>) -> Self {
         match expected {
@@ -228,70 +234,88 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> Option<CoreExpr> {
-        if let Some((segments, type_args)) = callee.callee_name_path_and_type_args()
-            && is_concurrency_call(segments)
-            && matches!(callee.kind, ExprKind::TypeApply { .. })
-        {
-            let type_args = type_args.unwrap_or(&[]);
-            if let Some(expected) = expected_concurrency_type_arg_count(segments)
-                && type_args.len() > expected
-            {
-                self.unsupported_expression(
-                    callee,
-                    "type_argument_count_mismatch",
-                    format!(
-                        "`{}` expects at most {expected} type argument(s), found {}",
-                        segments.join("::"),
-                        type_args.len()
-                    ),
-                    Some(JsonValue::object([
-                        (
-                            "expected_type_argument_count",
-                            JsonValue::Number(expected as i64),
-                        ),
-                        (
-                            "actual_type_argument_count",
-                            JsonValue::Number(type_args.len() as i64),
-                        ),
-                    ])),
-                );
-            }
-            let explicit_item = type_args
-                .first()
-                .and_then(|type_arg| parse_type_annotation(type_arg).ok())
-                .map(|ty| self.parsed_core_type(ty));
-            let explicit_context = type_args
-                .get(1)
-                .filter(|_| matches!(segments, [module, name] if (module == "task" && name == "spawn_with") || (module == "io_provider" && name == "update")))
-                .and_then(|type_arg| parse_type_annotation(type_arg).ok())
-                .map(|ty| self.parsed_core_type(ty));
-            let explicit_result = type_args
-                .get(2)
-                .filter(|_| matches!(segments, [module, name] if module == "io_provider" && name == "update"))
-                .and_then(|type_arg| parse_type_annotation(type_arg).ok())
-                .map(|ty| self.parsed_core_type(ty));
-            let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
-            let context_type = args.get(1).and_then(|arg| self.shallow_expr_type(arg));
-            let action_type = args.get(2).and_then(|arg| self.shallow_expr_type(arg));
-            let signature = core_concurrency_signature(
-                segments,
-                ConcurrencySignatureInputs {
-                    expected,
-                    arguments: ConcurrencyArgumentTypes {
-                        handle: handle_type.as_ref(),
-                        context: context_type.as_ref(),
-                        action: action_type.as_ref(),
-                    },
-                    explicit_item: explicit_item.as_ref(),
-                    explicit_context: explicit_context.as_ref(),
-                    explicit_result: explicit_result.as_ref(),
-                },
-            );
-            return Some(
-                self.lower_concurrency_call_with_signature(expr, segments, args, signature),
-            );
+        let (segments, type_args) = callee.callee_name_path_and_type_args()?;
+        if !is_concurrency_call(segments) || !matches!(callee.kind, ExprKind::TypeApply { .. }) {
+            return None;
         }
-        None
+        let type_args = type_args.unwrap_or(&[]);
+        self.validate_concurrency_type_arg_count(callee, segments, type_args.len());
+        let explicit = self.explicit_concurrency_types(segments, type_args);
+        let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
+        let context_type = args.get(1).and_then(|arg| self.shallow_expr_type(arg));
+        let action_type = args.get(2).and_then(|arg| self.shallow_expr_type(arg));
+        let signature = core_concurrency_signature(
+            segments,
+            ConcurrencySignatureInputs {
+                expected,
+                arguments: ConcurrencyArgumentTypes {
+                    handle: handle_type.as_ref(),
+                    context: context_type.as_ref(),
+                    action: action_type.as_ref(),
+                },
+                explicit_item: explicit.item.as_ref(),
+                explicit_context: explicit.context.as_ref(),
+                explicit_result: explicit.result.as_ref(),
+            },
+        );
+        Some(self.lower_concurrency_call_with_signature(expr, segments, args, signature))
+    }
+
+    fn validate_concurrency_type_arg_count(
+        &mut self,
+        callee: &Expr,
+        segments: &[String],
+        actual: usize,
+    ) {
+        let Some(expected) = expected_concurrency_type_arg_count(segments) else {
+            return;
+        };
+        if actual <= expected {
+            return;
+        }
+        self.unsupported_expression(
+            callee,
+            "type_argument_count_mismatch",
+            format!(
+                "`{}` expects at most {expected} type argument(s), found {actual}",
+                segments.join("::")
+            ),
+            Some(JsonValue::object([
+                (
+                    "expected_type_argument_count",
+                    JsonValue::Number(expected as i64),
+                ),
+                (
+                    "actual_type_argument_count",
+                    JsonValue::Number(actual as i64),
+                ),
+            ])),
+        );
+    }
+
+    fn explicit_concurrency_types(
+        &self,
+        segments: &[String],
+        type_args: &[String],
+    ) -> ExplicitConcurrencyTypes {
+        let supports_context = matches!(segments, [module, name] if (module == "task" && name == "spawn_with") || (module == "io_provider" && name == "update"));
+        let supports_result =
+            matches!(segments, [module, name] if module == "io_provider" && name == "update");
+        ExplicitConcurrencyTypes {
+            item: self.parse_concurrency_type_arg(type_args.first()),
+            context: supports_context
+                .then(|| self.parse_concurrency_type_arg(type_args.get(1)))
+                .flatten(),
+            result: supports_result
+                .then(|| self.parse_concurrency_type_arg(type_args.get(2)))
+                .flatten(),
+        }
+    }
+
+    fn parse_concurrency_type_arg(&self, type_arg: Option<&String>) -> Option<CoreType> {
+        type_arg
+            .and_then(|type_arg| parse_type_annotation(type_arg).ok())
+            .map(|ty| self.parsed_core_type(ty))
     }
 
     pub(super) fn lower_concurrency_call_with_signature(
