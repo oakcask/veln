@@ -18,7 +18,7 @@ also states it.
 
 - [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete the
   remaining F1 `UpdateFile` and `Duplex` resource families and
-  compatibility evidence, then F2–F5
+  compatibility evidence not covered by the bounded implemented slices, then F2–F5
   evidence for provider-bound dispatch, atomic Veln state, transfer outcomes,
   and cleanup. The F1 static boundary and bounded `ReadFile`, `WriteFile`, and `AppendFile`
   registration and projection slices are implemented; the target does not require the

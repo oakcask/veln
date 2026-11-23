@@ -189,33 +189,34 @@ existing resource.
 positional-reader, and closer capabilities. The resource and every projected
 capability retain the registration owner and private slot, as observed by the
 matching slot accessors. Projecting the resource through
-`io_provider::write_file`, `io_provider::append_file`, or
-`io_provider::duplex` returns `io::ErrorKind::Unsupported`. These failed
-projections do not alter the resource, and a later `read_file` projection still
-succeeds.
+`io_provider::duplex` returns `io::ErrorKind::Unsupported`. That failed
+projection does not alter the resource, and a later `read_file` projection
+still succeeds.
 
 `io_provider::append_file` projects an accepted `AppendFile` resource into
 writer, closer, and syncer capabilities. The resource and all three projected
 capabilities retain the registration owner and private slot. Projecting the
-resource through `io_provider::read_file`, `io_provider::write_file`, or
-`io_provider::duplex` returns `io::ErrorKind::Unsupported`. These failures do
-not change the resource, and a later `append_file` projection still succeeds.
+resource through `io_provider::read_file` or `io_provider::duplex` returns
+`io::ErrorKind::Unsupported`. Neither failure changes the resource, and a
+later `append_file` projection still succeeds.
 
 `io_provider::write_file` projects an accepted `WriteFile` resource into
 writer, seeker, positional-writer, closer, syncer, and truncater capabilities.
-The resource and all six capabilities retain the registration owner, private
-slot, and captured operation handler after the registration handler scopes
-exit. Projecting the resource through `read_file`, `append_file`, or `duplex`
-returns `io::ErrorKind::Unsupported`. These failures do not change the
-resource, and a later `write_file` projection still succeeds.
+The resource retains all six captured operation handlers. Each projected
+capability retains its corresponding handler plus the registration owner and
+private slot after the registration handler scopes exit. Projecting the
+resource through `read_file`, `append_file`, or `duplex` returns
+`io::ErrorKind::Unsupported`. These failures do not change the resource, and a
+later `write_file` projection still succeeds.
 
 ## Runtime limits
 
 This surface is not a production filesystem implementation. Runtime
 registration and projection are limited to the observations above. `UpdateFile`,
-`Duplex`, and compatibility combinations not described above remain static
-declarations only. Operation dispatch through a resource, multiple-provider
-allocation, atomic provider state, publication
+and `Duplex` registration and projection remain static declarations only.
+Compatibility combinations not described above remain outside the bounded
+runtime contract and require planned evidence. Operation dispatch through a
+resource, multiple-provider allocation, atomic provider state, publication
 and owner-close races, transfer and namespace behavior, cleanup, and host
 filesystem access remain unimplemented. Type-checking any other declaration
 establishes only its static capability and effect boundary.
