@@ -702,7 +702,8 @@ impl<'a> FunctionChecker<'a> {
                 self.function.package_name.as_deref(),
             ),
         }?;
-        (function.module_name.as_deref() == Some("std::io_provider")
+        (function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+            && function.module_name.as_deref() == Some("std::io_provider")
             && matches!(function.name.as_str(), "state" | "update"))
         .then_some(function.name.as_str())
     }

@@ -392,7 +392,9 @@ fn core_function_call_signature(
                     core_type(&function.return_type),
                 )
             })
-        } else if function.module_name.as_deref() == Some("std::io_provider") {
+        } else if function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+            && function.module_name.as_deref() == Some("std::io_provider")
+        {
             io_provider_state_core_signature(&function.name, expected, evidence).unwrap_or_else(
                 || {
                     (
@@ -604,7 +606,9 @@ fn function_type_call_signature(
         prelude_signature(&function.name, expected)
             .map(|(params, result)| (params.into(), result))
             .unwrap_or_else(|| (function.params.clone(), function.return_type.clone()))
-    } else if function.module_name.as_deref() == Some("std::io_provider") {
+    } else if function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+        && function.module_name.as_deref() == Some("std::io_provider")
+    {
         io_provider_state_surface_signature(&function.name, expected, evidence)
             .map(|(params, result)| (params.into(), result))
             .unwrap_or_else(|| (function.params.clone(), function.return_type.clone()))

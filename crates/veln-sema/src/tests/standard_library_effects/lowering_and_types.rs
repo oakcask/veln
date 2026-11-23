@@ -1,5 +1,7 @@
 use super::*;
 use crate::lowering::{reset_core_call_signature_work, take_core_call_signature_work};
+use crate::semantic_model::Type;
+use crate::types::TypeEnvironment;
 use veln_ir::IrCallbackTarget;
 
 #[test]
@@ -307,6 +309,145 @@ fn io_provider_atomic_state_keeps_concrete_types_through_core_and_ir() {
         };
         assert_eq!(&value.ty, expected);
     }
+}
+
+#[test]
+fn foreign_io_provider_namesakes_keep_declared_types_through_core_and_ir() {
+    let source = SourceFile::new(
+        "foreign_io_provider.veln",
+        concat!(
+            "mod std.io_provider\n",
+            "pub type ForeignState\n",
+            "  ForeignState(value: String)\n",
+            "end\n",
+            "pub fn state(initial: Int) -> ForeignState\n",
+            "  ForeignState(\"foreign\")\n",
+            "end\n",
+            "pub fn update(cell: ForeignState, replacement: String) -> String\n",
+            "  replacement\n",
+            "end\n",
+            "pub fn evidence() -> String\n",
+            "  let cell = state(1)\n",
+            "  update(cell, \"replacement\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut module = lower_surface_ast(&parsed.tree);
+    for function in &mut module.functions {
+        function.module_name = Some("std::io_provider".to_string());
+        function.package_name = Some("foreign-provider".to_string());
+    }
+    for declaration in &mut module.types {
+        declaration.module_name = Some("std::io_provider".to_string());
+        declaration.package_name = Some("foreign-provider".to_string());
+    }
+
+    let environment = TypeEnvironment::from_module(&module);
+    let allocation = environment
+        .function("state")
+        .expect("foreign state signature");
+    assert_eq!(allocation.package_name.as_deref(), Some("foreign-provider"));
+    assert_eq!(allocation.params.as_slice(), &[Type::int()]);
+    assert!(matches!(
+        &allocation.return_type,
+        Type::Named {
+            name,
+            identity,
+            args,
+        } if name == "ForeignState"
+            && identity == "foreign-provider::std::io_provider::ForeignState"
+            && args.is_empty()
+    ));
+    let update = environment
+        .function("update")
+        .expect("foreign update signature");
+    assert_eq!(update.package_name.as_deref(), Some("foreign-provider"));
+    assert_eq!(update.params.len(), 2);
+    assert!(matches!(
+        &update.params[0],
+        Type::Named {
+            name,
+            identity,
+            args,
+        } if name == "ForeignState"
+            && identity == "foreign-provider::std::io_provider::ForeignState"
+            && args.is_empty()
+    ));
+    assert_eq!(update.params[1], Type::string());
+    assert_eq!(update.return_type, Type::string());
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+
+    let foreign_state = CoreType::named("ForeignState", Vec::new());
+    let core = lowered
+        .core
+        .expect("foreign io-provider namesakes should build checked core");
+    let evidence = core
+        .functions
+        .iter()
+        .find(|function| function.name == "foreign-provider::std::io_provider::evidence")
+        .expect("foreign evidence function should lower");
+    let CoreStmtKind::Let {
+        expr: allocation, ..
+    } = &evidence.body[0].kind
+    else {
+        panic!("expected foreign state allocation binding");
+    };
+    assert_eq!(allocation.ty, foreign_state);
+    assert!(matches!(
+        &allocation.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::Function(name),
+            ..
+        } if name == "foreign-provider::std::io_provider::state"
+    ));
+    let CoreStmtKind::Return { expr: update } = &evidence.body[1].kind else {
+        panic!("expected foreign state update expression");
+    };
+    assert_eq!(update.ty, CoreType::string());
+    assert!(matches!(
+        &update.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::Function(name),
+            args,
+        } if name == "foreign-provider::std::io_provider::update"
+            && args.len() == 2
+            && args[0].ty == foreign_state
+            && args[1].ty == CoreType::string()
+    ));
+
+    let ir = lowered
+        .ir
+        .expect("foreign io-provider namesakes should lower to typed IR");
+    let evidence = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "foreign-provider::std::io_provider::evidence")
+        .expect("foreign evidence function should lower to IR");
+    let IrStmtKind::Let {
+        value: allocation, ..
+    } = &evidence.body[0].kind
+    else {
+        panic!("expected foreign IR state allocation binding");
+    };
+    assert_eq!(allocation.ty, foreign_state);
+    let IrStmtKind::Return { value: update } = &evidence.body[1].kind else {
+        panic!("expected foreign IR state update expression");
+    };
+    assert_eq!(update.ty, CoreType::string());
+    assert!(matches!(
+        &update.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::Function(name),
+            args,
+        } if name == "foreign-provider::std::io_provider::update"
+            && args.len() == 2
+            && args[0].ty == foreign_state
+            && args[1].ty == CoreType::string()
+    ));
 }
 
 #[test]
