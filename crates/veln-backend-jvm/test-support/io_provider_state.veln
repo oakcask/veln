@@ -1,0 +1,7 @@
+pub fn state_transition(value: Int, amount: Int) -> { state : Int, result : Int }
+	{ state: value + amount, result: value }
+end
+
+pub fn main() -> ()
+	()
+end

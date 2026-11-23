@@ -760,3 +760,45 @@ end
 test all_five_families_preserve_first_registration_for_every_duplicate_order() -> Result<(), String> effects [concurrency]
 	handle all_family_duplicate_orders_preserve_first() with io_provider::scope()
 end
+
+fn state_add(value: Int, amount: Int) -> { state : Int, result : Int }
+	{ state: value + amount, result: value }
+end
+
+fn state_read(value: Int, ignored: ()) -> { state : Int, result : Int }
+	{ state: value, result: value }
+end
+
+fn state_worker(context: { cell : io_provider::State<Int>, amount : Int }) -> Int effects [concurrency]
+	io_provider::update(context.cell, context.amount, state_add)
+end
+
+test provider_state_cells_are_independent_and_publish_result_with_replacement() -> Result<(), String> effects [concurrency]
+	let first = io_provider::state(10)
+	let second = io_provider::state(10)
+	let previous: Int = io_provider::update(first, 5, state_add)
+	let first_value: Int = io_provider::update(first, (), state_read)
+	let second_value: Int = io_provider::update(second, (), state_read)
+	if previous == 10 and first_value == 15 and second_value == 10
+		Ok(())
+	else
+		Err("provider state did not preserve independent identity and atomic result publication")
+	end
+end
+
+test provider_state_identity_is_shared_by_concurrent_children_without_lost_writes() -> Result<(), String> effects [concurrency]
+	let cell = io_provider::state(0)
+	let first = task::spawn_with(state_worker, { cell: cell, amount: 1 })
+	let second = task::spawn_with(state_worker, { cell: cell, amount: 10 })
+	match task::join(first)
+		Err(_) => Err("first provider state child failed")
+		Ok(_) => match task::join(second)
+			Err(_) => Err("second provider state child failed")
+			Ok(_) => if io_provider::update(cell, (), state_read) == 11
+				Ok(())
+			else
+				Err("provider state child updates lost a write or copied cell identity")
+			end
+		end
+	end
+end

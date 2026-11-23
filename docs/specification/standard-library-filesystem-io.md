@@ -10,9 +10,10 @@ update-when: The exported io, fs, or io_provider static source API, opaque capab
 The standard package exports `io`, `fs`, and `io_provider`. Their current
 contract combines a compiler-checked static surface with bounded `ReadFile`,
 `WriteFile`, `UpdateFile`, `AppendFile`, and `Duplex` registration and
-projection prototypes. It lets provider and generic IO source check
-capability-correct signatures and exercise five runtime resource families.
-It is not a production filesystem API.
+projection prototypes plus atomic provider state. It lets provider and generic
+IO source check capability-correct signatures, exercise five runtime resource
+families, and keep fake-provider decisions in synchronized Veln state. It is
+not a production filesystem API.
 
 ## Imports and static surface
 
@@ -123,6 +124,7 @@ retains `concurrency`, and the resource projections are pure.
 | Group | Signatures |
 | --- | --- |
 | Scope and factories | `owner() -> Owner effects [Scope]`; `scope()` handles `Scope` with `concurrency`; `filesystem(Owner, Int) -> Result<fs::Filesystem, io::Error>`; `mutable_filesystem(Owner, Int) -> Result<fs::MutableFilesystem, io::Error>`; `resource(Owner, Int, ViewFamily) -> Result<Resource, io::Error>` |
+| Atomic state | `state<T>(T) -> State<T>`; `update<T, C, R>(State<T>, C, fn(T, C) -> {state: T, result: R}) -> R`; both use only `concurrency` |
 | Resource projections | `read_file(Resource) -> Result<fs::ReadFile, io::Error>`; `write_file(Resource) -> Result<fs::WriteFile, io::Error>`; `update_file(Resource) -> Result<fs::UpdateFile, io::Error>`; `append_file(Resource) -> Result<fs::AppendFile, io::Error>`; `duplex(Resource) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error>` |
 | Identity slots | `slot(Owner, Resource) -> Result<Int, io::Error>`; `filesystem_slot(Owner, fs::Filesystem) -> Result<Int, io::Error>`; `mutable_filesystem_slot(Owner, fs::MutableFilesystem) -> Result<Int, io::Error>` |
 | Capability slots | `reader_slot(Owner, io::Reader)`, `writer_slot(Owner, io::Writer)`, `seeker_slot(Owner, io::Seeker)`, `reader_at_slot(Owner, io::ReaderAt)`, `writer_at_slot(Owner, io::WriterAt)`, `closer_slot(Owner, io::Closer)`, `syncer_slot(Owner, io::Syncer)`, and `truncater_slot(Owner, fs::Truncater)` each return `Result<Int, io::Error>` |
@@ -131,6 +133,10 @@ retains `concurrency`, and the resource projections are pure.
 `Duplex`. The registration selector does not add capabilities by itself.
 Only the bounded registration and projection behavior described below is
 implemented.
+
+`State<T>` is an opaque invariant cell. Source cannot construct, inspect, or
+refine a cell except through `state` and `update`. The update callback is pure;
+an action that retains an effect is rejected before runtime.
 
 The compiler adapters behind these declarations are available only to source
 embedded in the standard package. Application source cannot call their
@@ -253,20 +259,53 @@ registration at a used owner slot returns `io::ErrorKind::InvalidInput` and
 preserves the first resource and provider identity regardless of registration
 order.
 
+## Atomic provider state
+
+`io_provider::state(initial)` creates a cell with independent identity and the
+given immutable Veln value. Freezing the cell into a child task preserves that
+identity. It does not copy the stored value into an independent cell. Two
+separate calls to `state` never share updates.
+
+`io_provider::update(cell, context, action)` admits one action at a time for a
+cell. The action receives the current value and caller context. It returns a
+record containing the replacement `state` and the public `result`. The runtime
+publishes the replacement and returns the result as one transition. Concurrent
+children that share a cell therefore observe a serial order and cannot lose a
+completed write.
+
+If the callback or runtime fails before publication, the old value remains
+current and the cell accepts a later update. An action cannot update the same
+cell reentrantly. Such an attempt raises a runtime failure and releases the
+cell for later use instead of waiting for itself.
+
+Task cancellation is observed before callback entry or after the replacement
+has committed and the cell has been released. Once an update is admitted,
+cancellation checkpoints inside its compiled Veln callback defer delivery
+until after commit. Cancellation cannot publish only the replacement or only
+the result, and it cannot strand the cell lock.
+
 ## Runtime limits
 
 This surface is not a production filesystem implementation. Runtime
 registration and projection are limited to the observations above. `Duplex`
 does not add operation dispatch through the projected capabilities. Operation
-dispatch through a resource, multiple-provider allocation, atomic provider
-state, publication and owner-close races, transfer and namespace behavior,
-cleanup, and host filesystem access remain unimplemented. Type-checking any
-other declaration establishes only its static capability and effect boundary.
+dispatch through a resource, multiple-provider allocation, publication and
+owner-close races, transfer and namespace behavior, cleanup, and host
+filesystem access remain unimplemented. Type-checking any other declaration
+establishes only its static capability and effect boundary.
 
 ## References
 
 - Complete accepted static surface:
   `examples/specification/check/filesystem-io-static-api/`.
+- Pure transition callback compiler boundary:
+  `examples/specification/check/filesystem-io-state-effectful-callback/`.
+- Atomic state API behavior, independent identity, and shared child-task
+  updates: `crates/veln-stdlib/veln/io_provider.test.veln`.
+- JVM exclusivity, rollback and unlock, reentrancy rejection, task-boundary
+  identity, and deterministic cancellation boundaries:
+  `crates/veln-backend-jvm/src/tests/runtime_integration.rs` with
+  `crates/veln-backend-jvm/test-support/IoProviderStateHarness.java`.
 - Wrong capability operands:
   `examples/specification/check/filesystem-io-capability-boundaries/`.
 - Missing read-file closer, write-file truncater, update-file positional

@@ -8,6 +8,71 @@
     private static final String IO_SYNC_EFFECT = "std::io::Sync";
     private static final String FS_MUTATE_EFFECT = "std::fs::Mutate";
 
+    private static final class IoProviderState {
+        Object value;
+        Thread updatingThread;
+        IoProviderStateBoundaryGate boundaryGate;
+
+        IoProviderState(Object value) {
+            this.value = freezeBoundaryValue(value);
+        }
+    }
+
+    public interface IoProviderStateBoundaryGate {
+        void beforeAdmission();
+        void afterAdmission();
+        void afterCommit();
+    }
+
+    public static Object ioProviderStateInstallBoundaryGate(
+        Object stateValue,
+        IoProviderStateBoundaryGate gate
+    ) {
+        IoProviderState state = (IoProviderState) stateValue;
+        synchronized (state) {
+            state.boundaryGate = gate;
+        }
+        return UNIT;
+    }
+
+    public static Object ioProviderState(Object initial) {
+        return new IoProviderState(initial);
+    }
+
+    public static Object ioProviderUpdateState(Object stateValue, Object context, Object action) {
+        if (!(stateValue instanceof IoProviderState)) {
+            throw new RuntimeFailure("invalid io provider state cell");
+        }
+        IoProviderState state = (IoProviderState) stateValue;
+        IoProviderStateBoundaryGate gate = state.boundaryGate;
+        if (gate != null) gate.beforeAdmission();
+        throwTaskCancellationIfRequested();
+        Object result;
+        synchronized (state) {
+            if (state.updatingThread == Thread.currentThread()) {
+                throw new RuntimeFailure("reentrant io provider state update");
+            }
+            throwTaskCancellationIfRequested();
+            state.updatingThread = Thread.currentThread();
+            deferTaskCancellationDelivery();
+            try {
+                if (gate != null) gate.afterAdmission();
+                Object transition = call(action, state.value, context);
+                Object replacement = recordField(transition, "state");
+                Object transitionResult = recordField(transition, "result");
+                Object frozenReplacement = freezeBoundaryValue(replacement);
+                result = freezeBoundaryValue(transitionResult);
+                state.value = frozenReplacement;
+            } finally {
+                resumeTaskCancellationDelivery();
+                state.updatingThread = null;
+            }
+        }
+        if (gate != null) gate.afterCommit();
+        throwTaskCancellationIfRequested();
+        return result;
+    }
+
     private static final class IoOwner {
         final HandlerFrame scope;
         final java.util.Map<Long, IoResource> resources =

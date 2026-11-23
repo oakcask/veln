@@ -362,6 +362,7 @@ pub(super) const OPAQUE_BUILTIN_TYPE_NAMES: &[&str] = &[
     "NetStream",
     "IoOwner",
     "IoResource",
+    "IoProviderState",
     "FsFilesystem",
     "FsMutableFilesystem",
     "IoReader",
@@ -379,14 +380,23 @@ pub(crate) fn is_opaque_builtin_type(name: &str) -> bool {
 }
 
 fn opaque_builtin_descriptor(name: &str) -> AdtDescriptor {
+    let generic_state = name == "IoProviderState";
     AdtDescriptor {
         type_name: name.to_string(),
         name_class: SourceLessNameClass::Type,
         package_name: None,
         module_name: None,
         nominal_identity: None,
-        type_parameters: Vec::new(),
-        parameter_variances: Vec::new(),
+        type_parameters: if generic_state {
+            vec!["T".to_string()]
+        } else {
+            Vec::new()
+        },
+        parameter_variances: if generic_state {
+            vec![super::variance::Variance::Invariant]
+        } else {
+            Vec::new()
+        },
         variants: Vec::new(),
         diagnostic_name: name.to_ascii_lowercase(),
         refinement_availability: super::descriptors::VariantRefinementAvailability::Opaque,

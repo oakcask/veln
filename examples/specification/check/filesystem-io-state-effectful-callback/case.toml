@@ -1,0 +1,8 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+contains = ["error[type.mismatch]", "expected `fn(Int, unknown) -> {state: Int, result: Int}`, but found `fn(Int, ()) -> {state: Int, result: Int} effects [concurrency]`"]
+
+[stderr]
+format = "empty"

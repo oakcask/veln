@@ -156,6 +156,33 @@ fn io_provider_duplex_validates_before_publication_and_retains_handlers() {
 }
 
 #[test]
+fn io_provider_state_is_atomic_across_identity_failure_reentrancy_and_cancellation() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir(include_str!("../../test-support/io_provider_state.veln"));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "io-provider-atomic-state",
+        "IoProviderStateHarness.java",
+        include_str!("../../test-support/IoProviderStateHarness.java"),
+        &program,
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "atomic provider state invariants held\n"
+    );
+}
+
+#[test]
 fn jvm_runtime_schema_refinement_validation_rejects_negative_offsets() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

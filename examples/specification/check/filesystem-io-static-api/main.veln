@@ -106,6 +106,17 @@ pub fn provider_scope() -> io_provider::Owner effects [concurrency]
 	handle io_provider::owner() with io_provider::scope()
 end
 
+fn provider_state_transition(value: Int, amount: Int) -> { state : Int, result : String }
+	{ state: value + amount, result: "updated" }
+end
+
+# Compiler integration contract: atomic provider state keeps its generic cell
+# identity, pure transition signature, result type, and concurrency-only effect.
+pub fn provider_state_operations() -> String effects [concurrency]
+	let cell: io_provider::State<Int> = io_provider::state(1)
+	io_provider::update(cell, 2, provider_state_transition)
+end
+
 pub fn host_filesystem(root: Path) -> Result<fs::MutableFilesystem, io::Error> effects [fs, concurrency]
 	handle handle fs::system(root) with fs::system_handler() with io_provider::scope()
 end

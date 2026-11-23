@@ -136,6 +136,18 @@ pub(crate) const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.task.join_error_is_cancelled",
     ),
     runtime_symbol("task", "cancel", CONCURRENCY_EFFECTS, "runtime.task.cancel"),
+    runtime_symbol(
+        "io_provider",
+        "state",
+        CONCURRENCY_EFFECTS,
+        "runtime.io_provider.state",
+    ),
+    runtime_symbol(
+        "io_provider",
+        "update",
+        CONCURRENCY_EFFECTS,
+        "runtime.io_provider.update",
+    ),
     runtime_symbol_with_signature(
         "fs",
         "read_to_string",

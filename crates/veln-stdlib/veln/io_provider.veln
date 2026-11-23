@@ -5,6 +5,7 @@ use io
 ## these types; source constructors, integer casts, and refinements do not.
 pub type Owner = IoOwner
 pub type Resource = IoResource
+pub type State = IoProviderState
 
 pub type ViewFamily
 	pub ReadFile

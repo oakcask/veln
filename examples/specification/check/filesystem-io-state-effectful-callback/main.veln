@@ -1,0 +1,13 @@
+use io_provider from "std"
+
+fn effectful_transition(value: Int, context: ()) -> { state : Int, result : Int } effects [concurrency]
+	let _ = channel::bounded<Int>(1)
+	{ state: value, result: value }
+end
+
+# Compiler integration contract: provider state actions are pure even though
+# state and update themselves expose the concurrency effect.
+pub fn rejected_effectful_transition() -> Int effects [concurrency]
+	let cell: io_provider::State<Int> = io_provider::state(1)
+	io_provider::update(cell, (), effectful_transition)
+end

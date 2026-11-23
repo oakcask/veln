@@ -201,8 +201,51 @@ fn signature<T: SignatureType>(
     match module.as_str() {
         "channel" => channel_signature(name, expected, handle_type, explicit_item),
         "task" => task_signature(name, expected, handle_type, explicit_item, explicit_context),
+        "io_provider" => io_provider_signature(name, expected, handle_type),
         _ => None,
     }
+}
+
+fn io_provider_signature<T: SignatureType>(
+    name: &str,
+    expected: Option<&T>,
+    handle_type: Option<&T>,
+) -> Option<(Vec<T>, T)> {
+    match name {
+        "state" => {
+            let item = handle_type
+                .cloned()
+                .or_else(|| expected.and_then(|ty| provider_state_item(ty).cloned()))
+                .unwrap_or_else(T::unknown);
+            Some((vec![item.clone()], T::named("IoProviderState", vec![item])))
+        }
+        "update" => {
+            let item = handle_type
+                .and_then(provider_state_item)
+                .cloned()
+                .unwrap_or_else(T::unknown);
+            let result = expected.cloned().unwrap_or_else(T::unknown);
+            let context = T::unknown();
+            let transition = T::record(vec![
+                ("state".to_string(), item.clone()),
+                ("result".to_string(), result.clone()),
+            ]);
+            Some((
+                vec![
+                    T::named("IoProviderState", vec![item.clone()]),
+                    context.clone(),
+                    T::function(vec![item, context], transition, Vec::new()),
+                ],
+                result,
+            ))
+        }
+        _ => None,
+    }
+}
+
+fn provider_state_item<T: SignatureType>(ty: &T) -> Option<&T> {
+    ty.named_argument("IoProviderState")
+        .or_else(|| ty.named_argument("State"))
 }
 
 fn channel_signature<T: SignatureType>(
@@ -505,6 +548,46 @@ mod tests {
         assert_eq!(
             surface.0,
             vec![Type::named("Sender", vec![Type::int()]), Type::int()]
+        );
+    }
+
+    #[test]
+    fn provider_state_update_signature_keeps_a_pure_callback_boundary() {
+        let path = ["io_provider".to_string(), "update".to_string()];
+        let state = Type::named("IoProviderState", vec![Type::int()]);
+        let expected = Type::string();
+        let surface = concurrency_signature(&path, Some(&expected), Some(&state), None, None)
+            .expect("provider state update signature should resolve");
+        let Type::Function {
+            params,
+            return_type,
+            effects,
+            ..
+        } = &surface.0[2]
+        else {
+            panic!("provider update action should remain a callback")
+        };
+        assert_eq!(params, &[Type::int(), Type::Unknown]);
+        assert_eq!(effects, &Vec::<String>::new());
+        assert_eq!(
+            return_type.as_ref(),
+            &Type::Record(vec![
+                ("state".to_string(), Type::int()),
+                ("result".to_string(), Type::string()),
+            ])
+        );
+
+        let core_state = core_type(&state);
+        let core_expected = core_type(&expected);
+        let core =
+            core_concurrency_signature(&path, Some(&core_expected), Some(&core_state), None, None)
+                .expect("core provider state update signature should resolve");
+        assert_eq!(
+            core,
+            (
+                surface.0.iter().map(core_type).collect::<Vec<_>>(),
+                core_type(&surface.1),
+            )
         );
     }
 }

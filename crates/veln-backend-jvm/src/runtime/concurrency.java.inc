@@ -9,6 +9,7 @@
         private final java.util.concurrent.atomic.AtomicBoolean delivered =
             new java.util.concurrent.atomic.AtomicBoolean(false);
         private volatile boolean requested;
+        private int deliveryDeferrals;
 
         private void request() {
             requested = true;
@@ -24,11 +25,22 @@
     private static void throwTaskCancellationIfRequested() {
         TaskCancellation cancellation = CURRENT_TASK_CANCELLATION.get();
         if (cancellation != null
+            && cancellation.deliveryDeferrals == 0
             && cancellation.requested
             && cancellation.delivered.compareAndSet(false, true)) {
             Thread.interrupted();
             throw new TaskCancellationFailure();
         }
+    }
+
+    private static void deferTaskCancellationDelivery() {
+        TaskCancellation cancellation = CURRENT_TASK_CANCELLATION.get();
+        if (cancellation != null) cancellation.deliveryDeferrals += 1;
+    }
+
+    private static void resumeTaskCancellationDelivery() {
+        TaskCancellation cancellation = CURRENT_TASK_CANCELLATION.get();
+        if (cancellation != null) cancellation.deliveryDeferrals -= 1;
     }
 
     public static void taskCancellationCheckpoint() {

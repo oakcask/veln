@@ -382,6 +382,8 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("task::join", "taskJoin"),
         ("task::join_error_is_cancelled", "taskJoinErrorIsCancelled"),
         ("task::cancel", "taskCancel"),
+        ("io_provider::state", "ioProviderState"),
+        ("io_provider::update", "ioProviderUpdateState"),
     ] {
         assert_eq!(concurrency_method(surface), method);
     }

@@ -27,7 +27,7 @@ The table lists only the remaining proposed obligations:
 
 | Design input | Prototype obligation |
 | --- | --- |
-| [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Invoke captured handlers through their registered resource, and add atomic `State<T>` operations. |
+| [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Invoke captured handlers through their registered resource. Atomic `State<T>` operations are implemented in [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md#atomic-provider-state). |
 | [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Preserve bytes, known and unknown progress, error context, and no-progress behavior. |
 | [Namespace, seek, and mutation transitions](filesystem-io.md#namespace-seek-and-mutation-transitions) | Observe successful and failed operations through bytes, cursors, bindings, and commit facts. |
 | [Concurrent operations and cleanup](filesystem-io.md#concurrent-operations-and-cleanup) | Preserve per-open admission, release obligations, aliases, and failure precedence. |
@@ -52,14 +52,14 @@ its positive observations and its failure or preserved-state observations.
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
 | F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. | Companion tests with distinct provider contents and operation logs; a backend dispatch case checks captured provider identity and absence of host fallback. |
-| F3: state and publication | Concurrent children, injected failure, and cancellation cannot strand the state cell lock or publish half a transition. Closing the owner rejects late publication and releases the late host resource. | Scoped Veln support plus backend atomic-state and owner-lifecycle cases. Force cancellation before entry and after commit; runtime callback failure preserves old state and releases the lock. Gate a host open across owner closure and observe release instead of publication, including retained cleanup failure. |
+| F3: publication | Closing the owner rejects late publication and releases the late host resource. | Atomic state identity, exclusivity, rollback, reentrancy, and cancellation boundaries are implemented and checked by the current specification. The remaining scoped Veln and owner-lifecycle cases must gate a host open across owner closure and observe release instead of publication, including retained cleanup failure. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
 | F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
 
-F3 must demonstrate cancellation atomicity of `update` before the fake relies
-on that operation. Tests must control entry, commit, publication, and cleanup
-boundaries explicitly rather than relying on timing or an external filesystem
-to produce a rare failure.
+The implemented `update` boundary has deterministic admission and post-commit
+cancellation evidence. Remaining fake, publication, and cleanup tests must
+control their boundaries explicitly rather than relying on timing or an
+external filesystem to produce a rare failure.
 
 If F2–F3 cannot be demonstrated with the named adapter extension, revise the
 resource design and affected acceptance contracts before continuing to F4–F5.
@@ -68,9 +68,9 @@ does not satisfy a gate. Such a failure does not promote the parent proposal.
 
 ## Implementation Sequence And Evidence Placement
 
-1. Demonstrate the atomic state boundary required by F3. Add separate Veln
-   provider support and use it to demonstrate F2 and the remaining publication
-   observations in F3. Keep fake state and failure plans in Veln.
+1. Add separate Veln provider support using the implemented atomic state API.
+   Demonstrate F2 and the remaining publication observations in F3. Keep fake
+   state and failure plans in Veln.
 2. Apply the outcome and transition tables to F4 and F5. Add host-boundary
    cases only for observations that require a real host or backend integration.
 
@@ -95,12 +95,18 @@ checks the explicit adapter extension rather than treating nominal
 dispatch alone as proof of feasibility. Extending ordinary `perform` to route
 all operations by resource identity remains outside the selected design.
 
+The current
+[atomic provider state](../specification/standard-library-filesystem-io.md#atomic-provider-state)
+provides the synchronized Veln state prerequisite for F2 and F3. This proposal
+does not retain atomic cell behavior as future work. It retains provider-bound
+dispatch, Veln fake allocation, publication, and owner closure.
+
 The current [JVM execution boundary](../specification/execution.md#runtime-readiness-and-host-boundaries)
 ties system network resources to handler owners, shares those owners with
 child tasks, and rejects publication after owner closure. This is relevant
 local precedent for F3 and F5. It does not provide Veln-only allocation or
-atomic Veln state. The prototype must demonstrate those separately; reusing
-a host network handle as the fake filesystem would not establish them.
+provider-bound dispatch. The prototype must demonstrate those separately;
+reusing a host network handle as the fake filesystem would not establish them.
 
 The current [cleanup rules and limits](../specification/execution.md#cleanup-limits)
 exclude implicit close and process-termination guarantees. The execution

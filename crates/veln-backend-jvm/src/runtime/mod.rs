@@ -247,6 +247,8 @@ runtime_method_table!(concurrency_method, "channelRecv", {
     "task::join" => "taskJoin",
     "task::join_error_is_cancelled" => "taskJoinErrorIsCancelled",
     "task::cancel" => "taskCancel",
+    "io_provider::state" => "ioProviderState",
+    "io_provider::update" => "ioProviderUpdateState",
 });
 
 runtime_method_table!(standard_library_method, reject_unknown "standard library builtin", {

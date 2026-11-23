@@ -288,7 +288,7 @@ evidence that their runtime support exists.
 | --- | --- | --- |
 | Public API | Nominal capability views and separate namespace and byte effects; no traits, implicit capability coercions, or new effect syntax. | Keep the [implemented static source surface](../specification/standard-library-filesystem-io.md) type-checking; reject a reader passed to write or a stream passed to seek. |
 | Provider dispatch | Opaque runtime tokens retain their owner and creating operation handlers. Extend the runtime resource boundary explicitly; do not encode public handles as integers or host objects. | Two Veln providers, nested shadowing, wrong-owner publication, closed-owner use, and cross-provider copy at the feasibility gate. |
-| Fake state | A synchronized `io_provider::State<T>` cell carries each fake filesystem's immutable state. Resource slots, file identities, cursors, close facts, and failure plans are ordinary Veln data. The runtime extension provides atomic storage, not fake behavior. | Concurrent children share updates; failure and cancellation cannot strand the state lock; independent fake instances remain independent. |
+| Fake state | The implemented synchronized `io_provider::State<T>` cell carries each fake filesystem's immutable state. Resource slots, file identities, cursors, close facts, and failure plans remain ordinary Veln data. | [Atomic provider state](../specification/standard-library-filesystem-io.md#atomic-provider-state) checks shared child updates, independent cells, failure, reentrancy, and cancellation boundaries. |
 | Native paths | Keep the current host-owned `Path` as the explicit native boundary; `path::Path` remains portable. Support only exactly representable names initially. | Nonrepresentable names fail with `UnrepresentablePath`; display is never used as a conversion. |
 | Links and confinement | Follow links for ordinary open; explicit follow/no-follow metadata. No confinement or link-creation capability initially. A subtree is only a namespace view. | Dangling links, cycles, unsupported no-follow, and a link outside a subtree cannot be misreported as confined access. |
 | IO outcomes | Preserve delivered bytes, exact or unknown progress, typed errors, and copy's independent consumed/committed counts. | Scripted partial-failure, empty-request, no-progress, and unknown-progress cases below. |
@@ -348,23 +348,12 @@ nominal view and apply the same owner check. Operation handlers receive these
 views, not the underlying `Resource`; no public view-to-resource conversion may
 upgrade a restricted capability.
 
-The same runtime extension supplies `State<T>` and two operations:
-
-- `state<T>(initial: T) -> State<T> effects [concurrency]` creates independent
-  synchronized storage; task freezing preserves cell identity.
-- `update<T, C, R>(state: State<T>, context: C, action: fn(T, C) -> {state: T,
-  result: R}) -> R effects [concurrency]` runs a pure callback under exclusive
-  access and commits its returned replacement with its result. Runtime failure
-  leaves the old state and releases the lock. Cancellation is delivered before
-  entry or after commit, never between acquiring and releasing the state.
-  Reentrant updates are rejected as runtime failures rather than deadlock.
-
-This is an explicit compiler-known atomic storage adapter, not an assumed
-existing source API. A raw channel receive/compute/send sequence is rejected because
-cancellation can strand the state token. Pure callback transitions keep all
-fake filesystem decisions in Veln and cannot perform nested provider IO while
-holding the cell. Cell allocation and updates expose only `concurrency`, not
-host `fs` or `net` effects.
+The compiler-known `State<T>`, `state`, and `update` surface and its atomic,
+failure, reentrancy, task-freezing, and cancellation behavior are implemented
+in [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md#atomic-provider-state).
+The remaining runtime extension in this proposal is provider-bound captured
+dispatch. Fake filesystem decisions remain Veln behavior built on the current
+cell rather than runtime fake behavior.
 
 Public filesystem and byte facades invoke the resource's captured operation
 handler with its original provider context. They retain the declared nominal
@@ -388,8 +377,8 @@ Every operation applies a pure state transition through `update`. File
 identity is separate from directory binding and per-open slot identity, so
 rename cannot redirect an existing handle. Scripted failures, bytes, and logs
 are ordinary Veln data. Independent executions allocate separate cells and
-owners. Runtime tests must demonstrate cancellation atomicity of `update`
-before the source fake relies on it.
+owners. The current atomic-state evidence establishes cancellation atomicity of
+`update` before the source fake relies on it.
 
 ### Outcomes And Error Translation
 
