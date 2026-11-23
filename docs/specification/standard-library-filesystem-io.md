@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#imports-and-static-surface; behavior=#file-view-runtime-prototype; limits=#runtime-limits
-update-when: The exported io, fs, or io_provider static source API, opaque capability identities, file-view declarations, or filesystem IO runtime readiness changes.
+update-when: The exported io, fs, or io_provider static source API, opaque capability identities, atomic provider-state typing or runtime behavior, checked filesystem IO evidence, file-view declarations, or filesystem IO runtime readiness changes.
 ---
 
 # Standard-library filesystem and byte IO
@@ -171,6 +171,16 @@ one transition sequence. A concrete expected `State<T>` supplies `T` to the
 initial value expression, so an annotation can resolve an otherwise ambiguous
 nullary generic constructor such as `None`. Without a concrete expected state
 type or an independently concrete initial value, allocation remains ambiguous.
+List, `if`, and `match` initializers retain the joined concrete type of
+compatible contributions through checked core and typed IR. Nested compatible
+named arguments and same-field records remain concrete when record field order
+or contribution order differs. The cell's nominal standard-library identity
+and invariant `T` prevent a same-spelled source type or a state type whose
+record argument omits retained fields from satisfying the state API's cell
+boundary. The
+[type rules](types.md#inference-rules) own these inference and compatibility
+rules.
+
 `io_provider::update` admits one callback at a time, passes it the current value
 and supplied context, and publishes the returned replacement and result as one
 transition. Its callback is pure. Attempting to update the same cell reentrantly
@@ -323,9 +333,10 @@ other declaration establishes only its static capability and effect boundary.
 - Atomic state nominal boundary:
   `examples/specification/check/filesystem-io-atomic-state-nominal-boundary/`.
 - Atomic state value and expected-type inference, including a nullary generic
-  initializer, pure-callback enforcement, concrete type retention, and
-  foreign-package namesake isolation through checked core and typed IR:
-  [`lowering_and_types.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types.rs).
+  initializer, list and control-flow joins in either contribution order,
+  pure-callback enforcement, concrete type retention, and foreign-package
+  namesake isolation through checked core and typed IR:
+  [`io_provider.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types/io_provider.rs).
 - Atomic allocation identity, shared child identity, serialized completed
   updates, publication, and five-family registration and projection behavior:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),

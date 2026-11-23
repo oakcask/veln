@@ -387,7 +387,12 @@ from the callback's returned record when available, or from the expected result
 otherwise. It then checks a pure `fn(T, C) -> {state: T, result: R}` callback.
 These rules use the checked types of the argument expressions. Record-field
 expressions and branch-selected state values or callbacks therefore supply
-their concrete types. The `T` argument of `State<T>` is invariant: a cell cannot
+their concrete types. When a `state` initializer is a list, `if`, or `match`,
+lowering retains the joined concrete type of compatible contributions through
+checked core and typed IR. This includes nested named arguments and records
+with the same named fields in different source orders, regardless of which
+compatible contribution appears first. The `T` argument of `State<T>` is
+invariant: a cell cannot
 be assigned to a state type with a wider or narrower value shape. This preserves
 the value type expected by every callback that shares the cell. The rules
 preserve the generic arguments through core lowering instead of replacing them
@@ -2390,7 +2395,7 @@ case covers that boundary. Schema predicates do not accept `%`.
   `crates/veln-sema/src/type_annotation_parser.rs`.
 - Effect-row typing: `crates/veln-sema/src/effect_rows.rs`.
 - Atomic state argument inference:
-  `crates/veln-sema/src/tests/standard_library_effects/lowering_and_types.rs`.
+  `crates/veln-sema/src/tests/standard_library_effects/lowering_and_types/io_provider.rs`.
 - Refined-match coverage scaling:
   `crates/veln-sema/src/tests/variant_refinement_match_scaling.rs`.
 - Aggregate and alias-presentation join scaling:
