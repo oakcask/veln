@@ -189,6 +189,8 @@ fn duplicate_slot_preserves_original_resource() -> Result<(), String> effects [i
 			Err("duplicate registration without io::Close did not preserve the original resource")
 		else if not is_invalid_input(complete_registration(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_slots_match(owner, original, slot)
 			Err("complete duplicate registration did not preserve the original resource")
+		else if not is_invalid_input(complete_write_registration(owner, slot, calls.tx)) or not no_handler_calls(calls.rx) or not projected_slots_match(owner, original, slot)
+			Err("cross-family duplicate registration changed the ReadFile resource")
 		else
 			Ok(())
 		end
