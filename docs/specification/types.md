@@ -377,17 +377,21 @@ context. The supported families are:
 
 The `std` package's `io_provider::state` and `io_provider::update` declarations
 also receive API-specific generic call signatures. `state` infers `T` from its
-initial value or an expected `io_provider::State<T>`. `update` infers `T` from
-the cell and `C` from the context value. It infers `R` from the callback's
-returned record when available, or from the expected result otherwise. It then
-checks a pure `fn(T, C) -> {state: T, result: R}` callback. These rules
-use the checked types of the argument expressions. Record-field expressions
-and branch-selected state values or callbacks therefore supply their concrete
-types. The `T` argument of `State<T>` is invariant: a cell cannot be assigned
-to a state type with a wider or narrower value shape. This preserves the value
-type expected by every callback that shares the cell. The rules preserve the
-generic arguments through core lowering instead of replacing them with
-`unknown`. The opaque state API and its runtime behavior are specified by
+initial value or an expected `io_provider::State<T>`. A concrete expected state
+type supplies `T` as the expected type of the initial value expression. For
+example, `let cell: io_provider::State<Option<Int>> = io_provider::state(None)`
+resolves `None` as `Option<Int>`. Without a concrete state expectation, an
+otherwise ambiguous initial value retains its ordinary inference diagnostic.
+`update` infers `T` from the cell and `C` from the context value. It infers `R`
+from the callback's returned record when available, or from the expected result
+otherwise. It then checks a pure `fn(T, C) -> {state: T, result: R}` callback.
+These rules use the checked types of the argument expressions. Record-field
+expressions and branch-selected state values or callbacks therefore supply
+their concrete types. The `T` argument of `State<T>` is invariant: a cell cannot
+be assigned to a state type with a wider or narrower value shape. This preserves
+the value type expected by every callback that shares the cell. The rules
+preserve the generic arguments through core lowering instead of replacing them
+with `unknown`. The opaque state API and its runtime behavior are specified by
 [Standard-library filesystem and byte IO](standard-library-filesystem-io.md#file-view-runtime-prototype).
 The package identity is part of this compiler-known boundary. A declaration in
 another package keeps its declared parameter and result types during checking,
