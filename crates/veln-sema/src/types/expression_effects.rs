@@ -1,4 +1,4 @@
-use super::effect_inference::{EffectsByFunction, EffectsByModulePath};
+use super::effect_inference::EffectsByFunction;
 use super::*;
 
 use crate::adt::registry::AdtRegistry;
@@ -14,7 +14,6 @@ pub(super) struct ExprEffectContext<'a> {
     pub(super) function_lookup: &'a EffectFunctionIndex,
     pub(super) argument_types: &'a std::cell::OnceCell<CheckedEffectArgumentTypes>,
     pub(super) effects_by_function: &'a EffectsByFunction,
-    pub(super) effects_by_module_path: &'a EffectsByModulePath,
     pub(super) companion_access_targets: &'a BTreeMap<String, String>,
     pub(super) companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
     pub(super) user_effects: &'a [EffectSignature],
@@ -266,7 +265,6 @@ impl ExprEffectCollector<'_, '_, '_> {
                 self.context.current_package,
                 self.context.bindings,
                 self.context.effects_by_function,
-                self.context.effects_by_module_path,
                 self.context.companion_access_targets,
             ) {
                 self.push_all(effects);

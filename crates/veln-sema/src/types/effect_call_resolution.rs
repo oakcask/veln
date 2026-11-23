@@ -1,6 +1,6 @@
 mod effect_argument_types;
 
-use super::effect_inference::{EffectsByFunction, EffectsByModulePath};
+use super::effect_inference::EffectsByFunction;
 use super::*;
 use effect_argument_types::type_for_effect_call_argument;
 
@@ -251,7 +251,6 @@ pub(super) fn concurrency_effects_for_call(
                         context.current_package,
                         context.bindings,
                         context.effects_by_function,
-                        context.effects_by_module_path,
                         context.companion_access_targets,
                     )
                 })
@@ -271,7 +270,6 @@ pub(super) fn effects_for_callee_path<'a>(
     current_package: Option<&str>,
     bindings: &'a [Binding],
     effects_by_function: &'a EffectsByFunction,
-    effects_by_module_path: &'a EffectsByModulePath,
     companion_access_targets: &'a BTreeMap<String, String>,
 ) -> Option<&'a [String]> {
     match segments {
@@ -289,22 +287,22 @@ pub(super) fn effects_for_callee_path<'a>(
                 current_module,
                 current_package,
             )?;
-            effects_by_module_path
+            effects_by_function
                 .get(&(
                     use_decl.resolved_target().package,
                     Some(use_decl.name.clone()),
                     name.clone(),
                 ))
-                .filter(|(_, visibility)| {
+                .filter(|fact| {
                     imported_effects_are_visible(
                         use_decl,
                         current_module,
                         use_decl.name.as_str(),
-                        *visibility,
+                        fact.visibility,
                         companion_access_targets,
                     )
                 })
-                .map(|(effects, _)| effects.as_slice())
+                .map(|fact| fact.effects.as_slice())
         }
         _ => None,
     }
@@ -318,7 +316,9 @@ pub(super) fn lexical_effects_for_bare_callee<'a>(
 ) -> Option<&'a [String]> {
     let binding = bindings.iter().rev().find(|binding| binding.name == name)?;
     if let Some(target) = &binding.private_function_value {
-        return effects_by_function.get(target).map(Vec::as_slice);
+        return effects_by_function
+            .get(target)
+            .map(|fact| fact.effects.as_slice());
     }
     Some(binding.ty.function_effects().unwrap_or(&[]))
 }
@@ -486,11 +486,11 @@ pub(super) fn effects_for_bare_callee<'a>(
                 Some(current_module.to_string()),
                 name.to_string(),
             ))
-            .map(Vec::as_slice);
+            .map(|fact| fact.effects.as_slice());
     }
     effects_by_function
         .get(&(current_package.map(str::to_string), None, name.to_string()))
-        .map(Vec::as_slice)
+        .map(|fact| fact.effects.as_slice())
 }
 
 pub(super) fn push_unique_effect(effects: &mut Vec<String>, effect: &str) {

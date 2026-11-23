@@ -20,7 +20,6 @@ struct FunctionEffectContext<'a> {
     user_effects: &'a [EffectSignature],
     handlers: &'a [HandlerSignature],
     effects_by_function: &'a EffectsByFunction,
-    effects_by_module_path: &'a EffectsByModulePath,
     companion_access_targets: &'a BTreeMap<String, String>,
     companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
 }
@@ -42,7 +41,6 @@ impl FunctionEffectContext<'_> {
             function_lookup: self.function_lookup,
             argument_types: self.argument_types,
             effects_by_function: self.effects_by_function,
-            effects_by_module_path: self.effects_by_module_path,
             companion_access_targets: self.companion_access_targets,
             companion_effect_access_targets: self.companion_effect_access_targets,
             user_effects: self.user_effects,
@@ -60,7 +58,6 @@ struct HandlerEffectContext<'a> {
     function_lookup: &'a EffectFunctionIndex,
     argument_types: &'a std::cell::OnceCell<CheckedEffectArgumentTypes>,
     effects_by_function: &'a EffectsByFunction,
-    effects_by_module_path: &'a EffectsByModulePath,
     handlers: &'a [HandlerSignature],
     companion_access_targets: &'a BTreeMap<String, String>,
     companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
@@ -77,7 +74,6 @@ impl HandlerEffectContext<'_> {
             user_effects: self.user_effects,
             handlers: self.handlers,
             effects_by_function: self.effects_by_function,
-            effects_by_module_path: self.effects_by_module_path,
             companion_access_targets: self.companion_access_targets,
             companion_effect_access_targets: self.companion_effect_access_targets,
         }
@@ -94,8 +90,12 @@ pub(super) fn infer_function_and_private_handler_effects(
     EffectInference::new(module, functions, user_effects, handlers, prepared_adts).run();
 }
 
-pub(super) type EffectsByFunction = BTreeMap<EffectFunctionKey, Vec<String>>;
-pub(super) type EffectsByModulePath = BTreeMap<EffectFunctionKey, (Vec<String>, Visibility)>;
+pub(super) type EffectsByFunction = BTreeMap<EffectFunctionKey, FunctionEffectFact>;
+
+pub(super) struct FunctionEffectFact {
+    pub(super) effects: Vec<String>,
+    pub(super) visibility: Visibility,
+}
 
 struct EffectInference<'a> {
     module: &'a SurfaceModule,
@@ -111,7 +111,6 @@ struct EffectInference<'a> {
     companion_effect_access_targets: BTreeMap<String, CompanionAccessTarget>,
     clause_companion_access_targets: BTreeMap<String, String>,
     effects_by_function: EffectsByFunction,
-    effects_by_module_path: EffectsByModulePath,
     handler_index: BTreeMap<EffectFunctionKey, usize>,
     function_index: BTreeMap<EffectFunctionKey, usize>,
     function_ast_by_key: BTreeMap<EffectFunctionKey, &'a Function>,
@@ -130,7 +129,7 @@ impl<'a> EffectInference<'a> {
     ) -> Self {
         let adts = prepared_adts.unwrap_or_else(|| Arc::new(AdtRegistry::from_module(module)));
         let function_lookup = EffectFunctionIndex::new(functions);
-        let (effects_by_function, effects_by_module_path) = effect_lookup_maps(functions);
+        let effects_by_function = effect_lookup_map(functions);
         let mut inference = Self {
             module,
             uses: adts.import_scope(),
@@ -139,7 +138,6 @@ impl<'a> EffectInference<'a> {
             companion_effect_access_targets: companion_access_target_infos(module),
             clause_companion_access_targets: companion_access_targets_for_signatures(functions),
             effects_by_function,
-            effects_by_module_path,
             handler_index: handler_signature_index(handlers),
             function_index: function_signature_index(functions),
             function_ast_by_key: function_ast_index(module),
@@ -194,7 +192,11 @@ impl<'a> EffectInference<'a> {
     fn evaluate_function(&mut self, function_key: &EffectFunctionKey) -> Option<bool> {
         let function = self.function_ast_by_key.get(function_key).copied()?;
         let inferred = collect_function_body_effects(function, &self.function_context());
-        let changed = self.effects_by_function.get(function_key) != Some(&inferred);
+        let changed = self
+            .effects_by_function
+            .get(function_key)
+            .map(|fact| &fact.effects)
+            != Some(&inferred);
         if changed {
             self.update_function_effects(function_key, inferred);
         }
@@ -214,7 +216,6 @@ impl<'a> EffectInference<'a> {
                 function_lookup: &self.function_lookup,
                 argument_types: &self.argument_types,
                 effects_by_function: &self.effects_by_function,
-                effects_by_module_path: &self.effects_by_module_path,
                 handlers: self.handlers,
                 companion_access_targets: &self.clause_companion_access_targets,
                 companion_effect_access_targets: &self.companion_effect_access_targets,
@@ -237,7 +238,6 @@ impl<'a> EffectInference<'a> {
             user_effects: self.user_effects,
             handlers: self.handlers,
             effects_by_function: &self.effects_by_function,
-            effects_by_module_path: &self.effects_by_module_path,
             companion_access_targets: &self.companion_access_targets,
             companion_effect_access_targets: &self.companion_effect_access_targets,
         }
@@ -249,23 +249,18 @@ impl<'a> EffectInference<'a> {
         if let Some(argument_types) = self.argument_types.get_mut() {
             argument_types.update_effects(function_key, &inferred);
         }
-        self.effects_by_function
-            .insert(function_key.clone(), inferred.clone());
-        if let Some(module_name) = &function_key.1 {
-            let visibility = self
-                .function_index
-                .get(function_key)
-                .map(|index| self.functions[*index].visibility)
-                .unwrap_or(Visibility::Private);
-            self.effects_by_module_path.insert(
-                (
-                    function_key.0.clone(),
-                    Some(module_name.clone()),
-                    function_key.2.clone(),
-                ),
-                (inferred.clone(), visibility),
-            );
-        }
+        let visibility = self
+            .function_index
+            .get(function_key)
+            .map(|index| self.functions[*index].visibility)
+            .unwrap_or(Visibility::Private);
+        self.effects_by_function.insert(
+            function_key.clone(),
+            FunctionEffectFact {
+                effects: inferred.clone(),
+                visibility,
+            },
+        );
         if let Some(index) = self.function_index.get(function_key).copied() {
             self.functions[index].effects = inferred;
         }
@@ -283,8 +278,8 @@ impl<'a> EffectInference<'a> {
     }
 }
 
-fn effect_lookup_maps(functions: &[FunctionSignature]) -> (EffectsByFunction, EffectsByModulePath) {
-    let effects_by_function = functions
+fn effect_lookup_map(functions: &[FunctionSignature]) -> EffectsByFunction {
+    functions
         .iter()
         .map(|function| {
             (
@@ -293,24 +288,13 @@ fn effect_lookup_maps(functions: &[FunctionSignature]) -> (EffectsByFunction, Ef
                     function.module_name.clone(),
                     function.name.clone(),
                 ),
-                function.effects.clone(),
+                FunctionEffectFact {
+                    effects: function.effects.clone(),
+                    visibility: function.visibility,
+                },
             )
         })
-        .collect::<BTreeMap<_, _>>();
-    let effects_by_module_path = functions
-        .iter()
-        .filter_map(|function| {
-            Some((
-                (
-                    function.package_name.clone(),
-                    Some(function.module_name.clone()?),
-                    function.name.clone(),
-                ),
-                (function.effects.clone(), function.visibility),
-            ))
-        })
-        .collect::<BTreeMap<_, _>>();
-    (effects_by_function, effects_by_module_path)
+        .collect()
 }
 
 fn handler_signature_index(handlers: &[HandlerSignature]) -> BTreeMap<EffectFunctionKey, usize> {
@@ -652,7 +636,7 @@ fn collect_function_body_effects(
     let mut inferred = context
         .effects_by_function
         .get(&function_key)
-        .cloned()
+        .map(|fact| fact.effects.clone())
         .unwrap_or_default();
     visit_function_body_expressions(
         function,
