@@ -20,22 +20,9 @@ its production implementation or promotion to Ready.
 
 The implemented provider foundation is specified by
 [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
-It owns the completed F3 observations. Concurrent child callers through two
-same-owner writer registrations retain both completed transitions in one
-shared fake-provider state cell. Owner closure wins publication admission,
-rejects and releases a late provider resource, retains a release failure,
-disables facade and lexical use before cleanup, and grants only the matching
-owner access to the exact releasing resource and its projected capabilities.
-Ordinary recursive close and stale same-slot aliases remain rejected. Release
-callbacks run outside registry admission so inherited child rejection can
-progress. Facade and accepted lexical opens use one owner-matched publication
-admission boundary. After closure, a nested facade or lexical byte handler
-cannot inherit that admission to publish another resource. One owner's active
-cleanup does not suppress another owner's late-resource release. Cancellation
-first delivered by a release handler remains the primary unwind after all
-selected resources receive their bounded release attempt and registry removal.
-The current specification owns the exact results, ordering, and
-preserved-state contracts.
+It owns the completed F3 observations and the restricted owner-release
+boundary that F5 must reuse. This proposal does not restate those current
+results, ordering rules, or preserved-state contracts.
 The following sections of the filesystem proposal define the remaining
 prototype obligations:
 

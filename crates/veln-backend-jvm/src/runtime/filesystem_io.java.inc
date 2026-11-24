@@ -327,7 +327,9 @@
 
     private static Object releaseIoProviderResource(IoResource resource) {
         IoResource previousResource = IO_PROVIDER_RELEASE_RESOURCE.get();
+        IoOwner previousAdmission = IO_PROVIDER_ADMISSION_OWNER.get();
         IO_PROVIDER_RELEASE_RESOURCE.set(resource);
+        IO_PROVIDER_ADMISSION_OWNER.remove();
         Object outcome;
         try {
             outcome = invokeHandler(
@@ -343,6 +345,8 @@
         } finally {
             if (previousResource == null) IO_PROVIDER_RELEASE_RESOURCE.remove();
             else IO_PROVIDER_RELEASE_RESOURCE.set(previousResource);
+            if (previousAdmission == null) IO_PROVIDER_ADMISSION_OWNER.remove();
+            else IO_PROVIDER_ADMISSION_OWNER.set(previousAdmission);
         }
         if (!isAdt(outcome, "CloseOutcome::Closed")) {
             retainIoProviderReleaseFailure(resource.owner, outcome);

@@ -270,6 +270,12 @@ public final class IoProviderOwnerLifecycleHarness {
                     );
                 }
                 if (closeCall != expectedCloseCalls) return closed();
+                require(
+                    isInvalidResource(VelnRuntime.ioProviderResource(
+                        ownerRef.get(), Long.valueOf(62L), family()
+                    )),
+                    "late release inherited publication admission"
+                );
                 if (throwRelease) throw thrownRelease;
                 return failRelease ? failedOutcome : closed();
             }
@@ -643,6 +649,7 @@ public final class IoProviderOwnerLifecycleHarness {
         java.util.concurrent.atomic.AtomicReference<Throwable> childFailure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
 
         pushScope();
+        Object scope = handlers().get(handlers().size() - 1);
         Object releaseOwner = owner();
         pushReadFileHandlers(
             (Object... supplied) -> VelnRuntime.adt("io::ReadOutcome::End", new Object[0]),
@@ -702,6 +709,7 @@ public final class IoProviderOwnerLifecycleHarness {
         publicationThread.join();
         require(childFailure.get() == null, "monitor-boundary publication failed: " + childFailure.get());
         require(isInvalidResource(publication.get()), "monitor-boundary late publication succeeded");
+        require(releaseFailures(scope).isEmpty(), "monitor-boundary release retained a callback failure");
     }
 
     public static void main(String[] args) throws Exception {
