@@ -70,8 +70,8 @@ portable paths, optional network error, optional commit fact, and a message.
 `ErrorKind` can be `InvalidInput`, `NotFound`, `AlreadyExists`,
 `PermissionDenied`, `NotDirectory`, `IsDirectory`, `DirectoryNotEmpty`,
 `LinkLoop`, `UnrepresentablePath`, `CrossFilesystem`, `Unsupported`, `Closed`,
-`Busy`, `InvalidResource`, `Cancelled`, `NoProgress`, or `Other`. These are
-Captured Veln handlers can produce the individual operation outcomes. The
+`Busy`, `InvalidResource`, `Cancelled`, `NoProgress`, or `Other`. Captured
+Veln handlers can produce the individual operation outcomes. The
 bounded `copy` path produces `CopyOutcome`; `ExactOutcome` remains static only.
 The [runtime limits](#runtime-limits) exclude the complete transfer, mutation,
 cleanup, and host translation matrix.

@@ -329,10 +329,9 @@ ordinary nominal dispatch provides resource-bound routing. The bounded current
 slice registers all five resource families, projects their capabilities, and
 invokes the captured handlers through the standard `fs` and `io` facades. The
 atomic state portion of the adapter extension is implemented separately.
-Existing
-`NetListener` and `NetStream` demonstrate opaque handles, but do not provide a
-general Veln-only provider allocation API. Do not reuse their network bridge or
-invent an unimplemented trait or closure representation.
+Existing `NetListener` and `NetStream` demonstrate opaque handles, but do not
+provide a general Veln-only provider allocation API. Do not reuse their network
+bridge or invent an unimplemented trait or closure representation.
 
 The bounded adapter slice already creates owner-scoped read-only and mutable
 filesystem tokens, captures their namespace handlers, registers all five byte
