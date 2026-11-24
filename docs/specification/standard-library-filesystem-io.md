@@ -420,7 +420,7 @@ ordinary lexical `perform` dispatch. Each operation returns its documented
 `InvalidResource` result shape, and the captured or lexically selected
 provider is not invoked.
 
-`io::copy` requires a positive chunk size. A zero chunk size returns
+`io::copy` requires a positive chunk size. A non-positive chunk size returns
 `InvalidInput` with known zero consumed and committed progress before either
 provider is invoked. For a positive size, it reads until `End`. A short read is
 data, not end-of-input. The source and destination can belong to different
@@ -526,9 +526,8 @@ capability and effect boundary.
 
 - Complete accepted static surface:
   `examples/specification/check/filesystem-io-static-api/`.
-- Bounded copy behavior with short reads and suffix-only partial-write retry:
-  `examples/specification/run/filesystem-io-copy-outcomes/`. The complete
-  outcome and progress companion matrix is in
+- Bounded copy behavior with short reads and suffix-only partial-write retry,
+  including the complete outcome and progress matrix:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with scripts and progress logs in
   [`io_copy_test_support_test.veln`](../../crates/veln-stdlib/veln/io_copy_test_support_test.veln).

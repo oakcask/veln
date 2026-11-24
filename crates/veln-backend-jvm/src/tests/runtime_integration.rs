@@ -1851,6 +1851,32 @@ fn jvm_runtime_byte_chunk_slicing_has_linear_work_and_bounded_retention_when_jav
 }
 
 #[test]
+fn jvm_io_copy_reuses_each_current_suffix_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "io-copy-suffix-work",
+        "IoCopySuffixWorkHarness.java",
+        include_str!("../../test-support/IoCopySuffixWorkHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "copy suffix materialization remained linear\n"
+    );
+}
+
+#[test]
 fn bytecode_backend_public_list_helpers_traverse_large_lists_iteratively_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

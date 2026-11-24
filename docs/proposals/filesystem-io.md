@@ -133,16 +133,16 @@ helpers, positional operations, and host adapters.
 | Sequential write | Reports the committed prefix of the input and advances according to committed bytes. Failure does not imply rollback. |
 | Complete read | Distinguishes obtaining the requested amount from reaching end early, and preserves obtained bytes on failure. |
 | Complete write | Repeats only the uncommitted suffix after partial success; stops on failure and preserves total progress. |
-| Copy | Names independent input and output resources, preserves output progress, and terminates on end or failure. Failure can consume more input than it commits to output; the outcome must retain both facts. |
 | Positional read/write | Uses an explicit absolute byte offset without changing the sequential cursor. Lack of support is explicit, not an unsynchronized seek-and-transfer emulation. |
 
 For a positive-size request, successful empty reads or zero-progress writes
-must not cause a helper to spin indefinitely or silently report completion.
+must not cause `read_exact` or `write_all` to spin indefinitely or silently
+report completion.
 The common outcome design must preserve data or progress when an operation
 also fails. Unknown host progress is represented explicitly, never fabricated
-as zero or as a known exact count. A helper must not automatically retry a
-failure with unknown progress. The outcome table below fixes zero-size
-behavior and the outcome ADTs.
+as zero or as a known exact count. These helpers must not automatically retry
+a failure with unknown progress. The outcome table below fixes their zero-size
+behavior and outcome ADTs.
 
 Go's [Reader and Writer contracts](https://pkg.go.dev/io) motivate capability
 composition and preserving progress alongside failure. Veln adapts these to
@@ -326,7 +326,6 @@ automatic retry. `Commit` is `No`, `Yes`, or `Unknown`.
 | `io::ReadOutcome` | `Data(bytes: ByteChunk)`, `End`, `ReadFailed(bytes: ByteChunk, consumed: Progress, error: io::Error)`. Failure bytes are the exact delivered prefix; consumed input may exceed it only when reported explicitly. |
 | `io::WriteOutcome` | `Written(count: ByteCount)`, `WriteFailed(committed: Progress, error: io::Error)`. A known count cannot exceed the request. |
 | `io::ExactOutcome` | `Complete(bytes: ByteChunk)`, `Short(bytes: ByteChunk)`, `ExactFailed(bytes: ByteChunk, consumed: Progress, error: io::Error)`. `Short` means clean end before the requested size. |
-| `io::CopyOutcome` | `Copied(count: ByteCount)`, `CopyFailed(consumed: Progress, committed: Progress, error: io::Error)`. Consumed and committed totals are separate even when their values happen to match. |
 | `fs::MutationOutcome` | `Applied`, `MutationFailed(committed: Commit, error: io::Error)`. Unknown does not promise rollback or invite an automatic retry. |
 | `io::CloseOutcome` | `Closed`, `CloseFailed(released: Commit, error: io::Error)`. Release facts describe ownership, not byte durability. |
 | `io::Error` | Record: `operation: String`, `kind: io::ErrorKind`, `path: Option<path::Path>`, `other_path: Option<path::Path>`, `network: Option<net::NetError>`, `commit: Option<Commit>`, `message: String`. Commit carries namespace changes from failed open; transfer progress remains in its outcome ADT. Message is explanatory and not a stable comparison key. |
@@ -344,14 +343,13 @@ independent of error category and namespace/ownership commit facts.
 | Input or outcome | Required state and helper behavior |
 | --- | --- |
 | Zero-size read/write/exact request on a live permitted view | Return empty `Data`, `Written(0)`, or empty `Complete` without a provider transfer. Validate owner, capability, and closed state first; zero size cannot revive a closed resource. |
-| Copy with zero chunk size | `InvalidInput`; no read or write. |
 | Positive request, empty successful read or zero successful write | Direct facade reports `NoProgress`; complete helpers stop. No spin, invented end, or success. |
 | Short data read | Deliver bytes and continue only if a helper needs more. It is not end. |
-| Read failure with delivered bytes | Include those bytes and consumption in the failure. `read_exact` retains all previously delivered bytes. Copy does not write the failing read's bytes; its consumed total still includes them. |
+| Read failure with delivered bytes | Include those bytes and consumption in the failure. `read_exact` retains all previously delivered bytes. |
 | Partial successful write | `write_all` retries the suffix. A later failure includes total known committed progress and stops. |
 | Exception after a host transfer attempt | Preserve independently established prefix/progress; otherwise report unknown progress. Sequential cursor becomes unavailable until successful absolute `Start` seek or close if its value is unknown. Relative seek fails with `InvalidResource` in that state. |
 | Positional failure | Preserve the sequential cursor, including when transfer progress is unknown. Unknown content changes remain observable; no seek-and-transfer emulation. |
-| Count outside the submitted bounds or counter overflow | Stop with `InvalidInput` for caller input or `InvalidResource` for an invalid provider reply. Do not wrap counts or retry using a fabricated suffix. |
+| Remaining direct-facade or complete-helper count outside the submitted bounds, or counter overflow | Stop with `InvalidInput` for caller input or `InvalidResource` for an invalid provider reply. Do not wrap counts or retry using a fabricated suffix. |
 
 ### Namespace, Seek, And Mutation Transitions
 

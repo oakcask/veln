@@ -1033,10 +1033,6 @@ than degrading it to a generic rendered result value.
   removal, queued callback failure, checkpoint cancellation, publication, and
   cell reuse in
   [`AtomicStateHarness.java`](../../crates/veln-backend-jvm/test-support/AtomicStateHarness.java).
-- Bounded JVM provider copy dispatch, short reads, and suffix-only
-  partial-write retry are checked by
-  [`filesystem-io-copy-outcomes`](../../examples/specification/run/filesystem-io-copy-outcomes/).
-  The standard-library companion matrix owns the API outcome contract.
 - Normal completion, nested unwinding, registration-time snapshots, and the
   public test boundary are checked by
   [`deferred-cleanup-runtime-boundary`](../../examples/specification/run/deferred-cleanup-runtime-boundary/),

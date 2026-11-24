@@ -923,7 +923,7 @@
 
     public static Object ioCopy(Object reader, Object writer, Object chunkSize) {
         long requested = byteCountLong(chunkSize);
-        if (requested == 0L) {
+        if (requested <= 0L) {
             Object zero = adt("io::Progress::Known", new Object[] { byteCountObject(0L) });
             Object error = ioProviderError("copy", "InvalidInput", "copy chunk size must be positive");
             return adt("io::CopyOutcome::CopyFailed", new Object[] { zero, zero, error });
@@ -996,12 +996,9 @@
             }
             consumed += count;
 
-            int offset = 0;
             int remaining = (int) count;
+            Object suffix = bytes;
             while (remaining > 0) {
-                Object suffix = offset == 0
-                    ? bytes
-                    : byteChunkDerivedObject(bytes, offset, remaining);
                 Object write = ioProviderDispatch2(IO_WRITE_EFFECT, "write", writer, suffix);
                 if (isAdt(write, "WriteOutcome::WriteFailed")) {
                     Object failureProgress = adtPayload(write, 0);
@@ -1055,8 +1052,10 @@
                     );
                 }
                 committed += written;
-                offset += (int) written;
                 remaining -= (int) written;
+                if (remaining > 0) {
+                    suffix = byteChunkDerivedObject(suffix, (int) written, remaining);
+                }
             }
         }
     }
