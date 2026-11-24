@@ -351,7 +351,7 @@ reuses this implemented boundary for the remaining close outcomes, retries,
 reverse cleanup, and cleanup-failure projection matrix.
 
 Publication and the owner's closing transition share the implemented admission
-boundary. A late host open is rejected and released; a failed release is
+boundary. A late provider open is rejected and released; a failed release is
 retained. Release callbacks run outside registry admission, so inherited child
 registration can reach its rejection while a close handler waits. F5 still
 defines how release obligations, retries, and primary or related failures are
