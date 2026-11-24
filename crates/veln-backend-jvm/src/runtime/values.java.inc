@@ -538,6 +538,8 @@
         };
     private static final ThreadLocal<HandlerFrame> INVOKED_HANDLER =
         new ThreadLocal<HandlerFrame>();
+    private static final ThreadLocal<IoOwner> IO_PROVIDER_INVOCATION_OWNER =
+        new ThreadLocal<IoOwner>();
 
     private static final class NetworkResourceIdentity {
         private final HandlerFrame owner;
@@ -572,7 +574,6 @@
         private long networkResourceReleaseWork;
         private volatile boolean ioProviderScopeClosed;
         private IoOwner ioOwner;
-        private IoOwner ioProviderOwner;
         private final java.util.Map<NetworkResourceIdentity, Object> networkResources =
             new java.util.LinkedHashMap<NetworkResourceIdentity, Object>();
 

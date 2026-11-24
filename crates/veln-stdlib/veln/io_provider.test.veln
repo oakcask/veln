@@ -1191,3 +1191,99 @@ end
 test provider_bound_dispatch_preserves_nested_identity_and_cross_provider_bytes() -> Result<(), String> effects [fs::Mutate, io::Read, io::Write, concurrency]
 	handle f2_outer_provider_observations() with io_provider::scope()
 end
+
+fn f2_read_matches(result: io::ReadOutcome, expected: String) -> Bool
+	match result
+		io::ReadOutcome::Data(bytes) => match byte_chunk_to_visible_ascii_string(bytes)
+			Ok(actual) => actual == expected
+			Err(_) => false
+		end
+		_ => false
+	end
+end
+
+fn f2_shared_inner_observations(first_owner: io_provider::Owner, first_filesystem: fs::Filesystem, first_state: io_provider::State<filesystem_provider_test_support_test::FakeState>, second_state: io_provider::State<filesystem_provider_test_support_test::FakeState>, providers: io_provider::State<filesystem_provider_test_support_test::SharedProviders>) -> Result<(), String> effects [io_provider::Scope, fs::Read, io::Read, concurrency]
+	let second_owner = io_provider::owner()
+	let second = filesystem_provider_test_support_test::SharedProvider(second_owner, 59, 71, second_state)
+	let _ = filesystem_provider_test_support_test::register_second(providers, second)
+	match io_provider::filesystem(second_owner, 59)
+		Err(_) => Err("second owner could not reuse the shared namespace handler")
+		Ok(second_filesystem) => begin
+			let before_foreign_first = filesystem_provider_test_support_test::snapshot(first_state)
+			let before_foreign_second = filesystem_provider_test_support_test::snapshot(second_state)
+			let foreign_namespace = perform fs::Read::open_read(first_filesystem, path::root())
+			let after_foreign_first = filesystem_provider_test_support_test::snapshot(first_state)
+			let after_foreign_second = filesystem_provider_test_support_test::snapshot(second_state)
+			if not f2_foreign_filesystem_rejected(foreign_namespace)
+				Err("shared-frame foreign namespace token was not rejected")
+			else if not f2_snapshot_matches(before_foreign_first, "first", "", 0, "") or not f2_snapshot_matches(after_foreign_first, "first", "", 0, "")
+				Err("shared-frame foreign namespace token changed the first provider")
+			else if not f2_snapshot_matches(before_foreign_second, "second", "", 0, "") or not f2_snapshot_matches(after_foreign_second, "second", "", 0, "")
+				Err("shared-frame foreign namespace token changed the second provider")
+			else match fs::open_read(first_filesystem, path::root())
+				Err(_) => Err("shared namespace handler did not dispatch the first owner")
+				Ok(fs::ReadFile(first_reader, _, _, _)) => match fs::open_read(second_filesystem, path::root())
+					Err(_) => Err("shared namespace handler did not dispatch the second owner")
+					Ok(fs::ReadFile(second_reader, _, _, _)) => match byte_count(6)
+						Err(_) => Err("could not construct the shared-provider read bound")
+						Ok(maximum) => begin
+							let before_foreign_capability_first = filesystem_provider_test_support_test::snapshot(first_state)
+							let before_foreign_capability_second = filesystem_provider_test_support_test::snapshot(second_state)
+							let foreign_capability = perform io::Read::read(first_reader, maximum)
+							let after_foreign_capability_first = filesystem_provider_test_support_test::snapshot(first_state)
+							let after_foreign_capability_second = filesystem_provider_test_support_test::snapshot(second_state)
+							if not f2_foreign_reader_rejected(foreign_capability)
+								Err("shared-frame foreign byte capability was not rejected")
+							else if not f2_snapshot_matches(before_foreign_capability_first, "first", "", 0, "open_read;") or not f2_snapshot_matches(after_foreign_capability_first, "first", "", 0, "open_read;")
+								Err("shared-frame foreign byte capability changed the first provider")
+							else if not f2_snapshot_matches(before_foreign_capability_second, "second", "", 0, "open_read;") or not f2_snapshot_matches(after_foreign_capability_second, "second", "", 0, "open_read;")
+								Err("shared-frame foreign byte capability changed the second provider")
+							else begin
+								let first_read = io::read(first_reader, maximum)
+								let second_read = io::read(second_reader, maximum)
+								let final_first = filesystem_provider_test_support_test::snapshot(first_state)
+								let final_second = filesystem_provider_test_support_test::snapshot(second_state)
+								if f2_read_matches(first_read, "first") and f2_read_matches(second_read, "second") and f2_snapshot_matches(final_first, "first", "", 1, "open_read;read;") and f2_snapshot_matches(final_second, "second", "", 1, "open_read;read;")
+									Ok(())
+								else
+									Err("shared handler frames did not preserve independent provider bytes and logs")
+								end
+							end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+end
+
+fn f2_shared_handler_observations(first_owner: io_provider::Owner, first_state: io_provider::State<filesystem_provider_test_support_test::FakeState>, second_state: io_provider::State<filesystem_provider_test_support_test::FakeState>, providers: io_provider::State<filesystem_provider_test_support_test::SharedProviders>) -> Result<(), String> effects [fs::Read, io::Read, concurrency]
+	match io_provider::filesystem(first_owner, 31)
+		Err(_) => Err("first owner could not register through the shared namespace handler")
+		Ok(first_filesystem) => handle f2_shared_inner_observations(first_owner, first_filesystem, first_state, second_state, providers) with io_provider::scope()
+	end
+end
+
+fn f2_shared_outer_observations() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let first_owner = io_provider::owner()
+	match byte_chunk_from_hex("6669727374")
+		Err(_) => Err("could not construct first shared-provider bytes")
+		Ok(first_bytes) => match byte_chunk_from_hex("7365636f6e64")
+			Err(_) => Err("could not construct second shared-provider bytes")
+			Ok(second_bytes) => begin
+				let first_state = filesystem_provider_test_support_test::state(first_bytes)
+				let second_state = filesystem_provider_test_support_test::state(second_bytes)
+				let first = filesystem_provider_test_support_test::SharedProvider(first_owner, 31, 43, first_state)
+				let providers = filesystem_provider_test_support_test::shared(first)
+				handle handle handle handle handle f2_shared_handler_observations(first_owner, first_state, second_state, providers) with filesystem_provider_test_support_test::shared_filesystem(providers) with filesystem_provider_test_support_test::shared_reader(providers) with filesystem_provider_test_support_test::shared_seeker() with filesystem_provider_test_support_test::shared_positional_reader() with filesystem_provider_test_support_test::shared_closer()
+			end
+		end
+	end
+end
+
+test shared_handler_frames_preserve_independent_provider_owners() -> Result<(), String> effects [concurrency]
+	handle f2_shared_outer_observations() with io_provider::scope()
+end

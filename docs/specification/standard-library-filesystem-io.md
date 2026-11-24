@@ -360,6 +360,12 @@ passes the public token or restricted capability to the handler; it does not
 expose the underlying `io_provider::Resource`. A handler can use the matching
 slot accessor with its owner while a nested provider scope is active.
 
+One captured handler frame can serve registrations for more than one active
+provider owner. Each token, resource, and capability retains its own owner.
+Captured dispatch makes only that owner available to matching slot access for
+the duration of the handler invocation. Nested captured calls restore the
+preceding owner after normal return, a returned failure, or a runtime failure.
+
 Nested handlers affect newly allocated tokens and capabilities. They do not
 reinterpret an older value. A facade call on an older value selects its
 creating handler even after that handler's dynamic scope exits, provided its
@@ -367,10 +373,12 @@ provider owner remains usable. Dispatch never selects the currently active
 same-effect handler as a fallback and does not perform host filesystem or
 network IO.
 
-Ordinary `perform` retains lexical handler selection. If a direct low-level
-operation supplies a filesystem token or byte capability captured by a
-different handler, the runtime returns the operation's `InvalidResource`
-failure shape before invoking either provider. Wrong-owner resource and
+Ordinary `perform` retains lexical handler selection and does not receive a
+captured invocation owner. If a direct low-level operation supplies a
+filesystem token or byte capability from a different provider owner, the
+runtime returns the operation's `InvalidResource` failure shape before
+invoking either provider. This applies when the owners share a handler frame
+and when different frames captured the operand. Wrong-owner resource and
 capability slot access also returns `InvalidResource`. These failures do not
 change either provider's `State<T>`.
 
@@ -431,9 +439,9 @@ capability and effect boundary.
   updates, publication, namespace-token handler capture, missing-handler slot
   preservation, duplicate and wrong-owner rejection, closed-owner slot
   rejection, post-close read-only projection, and five-family registration and
-  projection behavior, two independent fake providers, nested captured
-  dispatch, foreign-identity state preservation, and successful cross-provider
-  copy:
+  projection behavior, two independent fake providers, shared handler-frame
+  registration by two owners, nested captured dispatch, foreign-identity state
+  preservation, and successful cross-provider copy:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with pure state transitions in
   [`io_provider_state_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_state_test_support_test.veln)
@@ -447,8 +455,9 @@ capability and effect boundary.
   projection, owner matching, and inherited closed-scope factory and slot
   rejection:
   [`IoProviderFilesystemHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderFilesystemHarness.java).
-- JVM namespace-token and projected-capability dispatch through retained
-  handler identities, restricted operand forwarding, foreign-identity
+- JVM namespace-token and projected-capability dispatch through retained and
+  shared handler identities, invocation-owner restoration after normal and
+  failed nested calls, restricted operand forwarding, foreign-identity
   rejection before either provider runs, and absence of active host fallback:
   [`IoProviderDispatchHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderDispatchHarness.java).
 - JVM-controlled single-successor admission handoff, cancelled-waiter removal,

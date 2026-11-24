@@ -300,30 +300,8 @@
     }
 
     private static boolean ioProviderOwnerIsCurrent(IoOwner owner) {
-        HandlerFrame invoked = INVOKED_HANDLER.get();
         return findHandler(IO_PROVIDER_SCOPE_EFFECT) == owner.scope
-            || (invoked != null && invoked.ioProviderOwner == owner);
-    }
-
-    private static boolean bindIoProviderHandler(HandlerFrame handler, IoOwner owner) {
-        if (handler == null) return true;
-        synchronized (handler) {
-            if (handler.ioProviderOwner != null && handler.ioProviderOwner != owner) return false;
-            handler.ioProviderOwner = owner;
-            return true;
-        }
-    }
-
-    private static boolean bindIoProviderHandlers(IoOwner owner, HandlerFrame... handlers) {
-        for (HandlerFrame handler : handlers) {
-            if (handler != null && handler.ioProviderOwner != null && handler.ioProviderOwner != owner) {
-                return false;
-            }
-        }
-        for (HandlerFrame handler : handlers) {
-            if (!bindIoProviderHandler(handler, owner)) return false;
-        }
-        return true;
+            || IO_PROVIDER_INVOCATION_OWNER.get() == owner;
     }
 
     private static void closeIoProviderScope(HandlerFrame scope) {
@@ -385,9 +363,6 @@
                         ? "mutable filesystem registration requires fs::Read and fs::Mutate handlers"
                         : "filesystem registration requires an fs::Read handler"
                 );
-            }
-            if (!bindIoProviderHandlers(owner, read, mutate)) {
-                return ioProviderInvalidResource(operation, "filesystem handlers belong to another provider owner");
             }
             Object filesystem = mutable
                 ? new IoMutableFilesystem(owner, slot, read, mutate)
@@ -515,19 +490,6 @@
                 resource = new IoResource(
                     owner, slot, "Duplex", read, write, null, null, null, close, null, null
                 );
-            }
-            if (!bindIoProviderHandlers(
-                owner,
-                resource.read,
-                resource.write,
-                resource.seek,
-                resource.readAt,
-                resource.writeAt,
-                resource.close,
-                resource.sync,
-                resource.mutate
-            )) {
-                return ioProviderInvalidResource("resource", "operation handlers belong to another provider owner");
             }
             owner.resources.put(Long.valueOf(slot), resource);
             return ok(resource);
@@ -752,13 +714,17 @@
             : operand instanceof IoFilesystem
                 ? ((IoFilesystem) operand).owner
                 : ((IoMutableFilesystem) operand).owner;
-        if (handler.ioProviderOwner != owner) {
-            throw new RuntimeFailure("provider-bound handler identity does not match its operand owner");
-        }
         Object[] args = new Object[trailing.length + 1];
         args[0] = operand;
         System.arraycopy(trailing, 0, args, 1, trailing.length);
-        return invokeHandler(handler, operation, args);
+        IoOwner previous = IO_PROVIDER_INVOCATION_OWNER.get();
+        IO_PROVIDER_INVOCATION_OWNER.set(owner);
+        try {
+            return invokeHandler(handler, operation, args);
+        } finally {
+            if (previous == null) IO_PROVIDER_INVOCATION_OWNER.remove();
+            else IO_PROVIDER_INVOCATION_OWNER.set(previous);
+        }
     }
 
     public static Object ioProviderDispatch1(Object effect, Object operation, Object operand) {
@@ -813,7 +779,15 @@
     ) {
         if (args.length == 0) return null;
         HandlerFrame captured = ioProviderCapturedHandler(effect, args[0]);
-        return captured != null && captured != selected
+        IoOwner owner = args[0] instanceof IoCapability
+            ? ((IoCapability) args[0]).owner
+            : args[0] instanceof IoFilesystem
+                ? ((IoFilesystem) args[0]).owner
+                : args[0] instanceof IoMutableFilesystem
+                    ? ((IoMutableFilesystem) args[0]).owner
+                    : null;
+        HandlerFrame lexicalScope = findHandler(IO_PROVIDER_SCOPE_EFFECT);
+        return captured != null && (captured != selected || owner == null || owner.scope != lexicalScope)
             ? ioProviderForeignFailure(effect, operation)
             : null;
     }

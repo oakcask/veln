@@ -48,14 +48,17 @@ its positive observations and its failure or preserved-state observations.
 
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
-| F3: provider state and owner lifecycle | Concurrent provider-fake writes cannot lose completed updates. Closing the owner rejects late host-resource publication, releases the late resource, and retains any cleanup failure. | Companion provider-fake write observations and backend owner-lifecycle cases, including a host open gated across owner closure. |
+| F3: provider state and owner lifecycle | Concurrent provider-fake writes cannot lose completed updates. Closing the owner rejects late host-resource publication, releases the late resource, and retains any cleanup failure. After ordinary resource use becomes unavailable, a registered close handler can still read the matching resource or capability slot while releasing it; a foreign owner receives `InvalidResource`. | Companion provider-fake write observations and backend owner-lifecycle cases, including a host open gated across owner closure and slot access at the restricted release boundary. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
-| F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
+| F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table. Every cleanup attempt retains matching-owner slot access while ordinary use remains unavailable and rejects a foreign owner. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry, including matching and foreign-owner slot observations during cleanup; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
 
 The remaining F3 evidence must make concurrent provider-fake writes, owner
 closure, late host-resource publication and release, and retained cleanup
 failure observable at the applicable publication and cleanup boundaries. It
-must not rely on timing or an external filesystem to produce a rare failure.
+must also observe matching-owner slot access during registered close-handler
+release after ordinary use is unavailable, with foreign-owner rejection and
+unchanged unrelated state. It must not rely on timing or an external
+filesystem to produce a rare failure.
 
 If F3 cannot be demonstrated with the implemented adapter extension, revise
 the resource design and affected acceptance contracts before continuing to

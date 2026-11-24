@@ -11,6 +11,14 @@ pub type Snapshot
 	pub Snapshot(source: ByteChunk, output: ByteChunk, reads: Int, log: String)
 end
 
+pub type SharedProvider
+	pub SharedProvider(owner: io_provider::Owner, namespace_slot: Int, resource_slot: Int, cell: io_provider::State<FakeState>)
+end
+
+pub type SharedProviders
+	pub SharedProviders(first: SharedProvider, second: Option<SharedProvider>)
+end
+
 pub fn state(source: ByteChunk) -> io_provider::State<FakeState> effects [concurrency]
 	io_provider::state(FakeState(source, byte_chunk([]), 0, ""))
 end
@@ -23,6 +31,28 @@ end
 
 pub fn snapshot(cell: io_provider::State<FakeState>) -> Snapshot effects [concurrency]
 	io_provider::update(cell, (), observe)
+end
+
+fn observe_shared(current: SharedProviders, context: ()) -> {state: SharedProviders, result: SharedProviders}
+	{state: current, result: current}
+end
+
+pub fn shared(first: SharedProvider) -> io_provider::State<SharedProviders> effects [concurrency]
+	io_provider::state(SharedProviders(first, None))
+end
+
+fn add_second(current: SharedProviders, second: SharedProvider) -> {state: SharedProviders, result: ()}
+	match current
+		SharedProviders(first, _) => {state: SharedProviders(first, Some(second)), result: ()}
+	end
+end
+
+pub fn register_second(providers: io_provider::State<SharedProviders>, second: SharedProvider) -> () effects [concurrency]
+	io_provider::update(providers, second, add_second)
+end
+
+fn shared_snapshot(providers: io_provider::State<SharedProviders>) -> SharedProviders effects [concurrency]
+	io_provider::update(providers, (), observe_shared)
 end
 
 fn append_log(log: String, operation: String) -> String
@@ -191,4 +221,81 @@ pub handler mutable_filesystem(owner: io_provider::Owner, namespace_slot: Int, w
 	remove_directory(filesystem, path) => fs::MutationOutcome::MutationFailed(io::Commit::No, unsupported("remove_directory"))
 	rename(filesystem, from_path, to_path) => fs::MutationOutcome::MutationFailed(io::Commit::No, unsupported("rename"))
 	truncate(capability, size) => fs::MutationOutcome::MutationFailed(io::Commit::No, unsupported("truncate"))
+end
+
+fn shared_read_file(provider: SharedProvider) -> Result<fs::ReadFile, io::Error> effects [concurrency]
+	match provider
+		SharedProvider(owner, _, resource_slot, _) => match io_provider::resource(owner, resource_slot, io_provider::ViewFamily::ReadFile)
+			Ok(resource) => io_provider::read_file(resource)
+			Err(error) => Err(error)
+		end
+	end
+end
+
+fn shared_open(providers: SharedProviders, filesystem: fs::Filesystem) -> Result<fs::ReadFile, io::Error> effects [concurrency]
+	match providers
+		SharedProviders(first, second) => match first
+			SharedProvider(owner, namespace_slot, _, cell) => if slot_matches(io_provider::filesystem_slot(owner, filesystem), namespace_slot)
+				begin
+					let _ = io_provider::update(cell, "open_read", note_open)
+					shared_read_file(first)
+				end
+			else match second
+				Some(candidate) => match candidate
+					SharedProvider(second_owner, second_namespace_slot, _, second_cell) => if slot_matches(io_provider::filesystem_slot(second_owner, filesystem), second_namespace_slot)
+						begin
+							let _ = io_provider::update(second_cell, "open_read", note_open)
+							shared_read_file(candidate)
+						end
+					else
+						Err(invalid_resource("open_read"))
+					end
+				end
+				None => Err(invalid_resource("open_read"))
+			end
+			end
+		end
+	end
+end
+
+pub handler shared_filesystem(providers: io_provider::State<SharedProviders>) for fs::Read effects [concurrency]
+	open_read(filesystem, path) => shared_open(shared_snapshot(providers), filesystem)
+	metadata(filesystem, path, follow) => Err(unsupported("metadata"))
+	entries(filesystem, path) => Err(unsupported("entries"))
+end
+
+fn shared_read_capability(providers: SharedProviders, capability: io::Reader) -> io::ReadOutcome effects [concurrency]
+	match providers
+		SharedProviders(first, second) => match first
+			SharedProvider(owner, _, resource_slot, cell) => if slot_matches(io_provider::reader_slot(owner, capability), resource_slot)
+				io_provider::update(cell, (), read_next)
+			else match second
+				Some(candidate) => match candidate
+					SharedProvider(second_owner, _, second_resource_slot, second_cell) => if slot_matches(io_provider::reader_slot(second_owner, capability), second_resource_slot)
+						io_provider::update(second_cell, (), read_next)
+					else
+						io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(byte_chunk_count(byte_chunk([]))), invalid_resource("read"))
+					end
+				end
+				None => io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(byte_chunk_count(byte_chunk([]))), invalid_resource("read"))
+			end
+			end
+		end
+	end
+end
+
+pub handler shared_reader(providers: io_provider::State<SharedProviders>) for io::Read effects [concurrency]
+	read(capability, maximum) => shared_read_capability(shared_snapshot(providers), capability)
+end
+
+pub handler shared_seeker() for io::Seek
+	seek(capability, origin) => Err(unsupported("seek"))
+end
+
+pub handler shared_positional_reader() for io::ReadAt
+	read_at(capability, offset, maximum) => io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(byte_chunk_count(byte_chunk([]))), unsupported("read_at"))
+end
+
+pub handler shared_closer() for io::Close
+	close(capability) => io::CloseOutcome::CloseFailed(io::Commit::No, unsupported("close"))
 end

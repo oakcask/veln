@@ -329,6 +329,14 @@ closure, release retained resources through their captured close handlers, and
 preserve cleanup failures. It must use the current `io_provider::State<T>`
 boundary for fake state rather than adding a second state mechanism.
 
+While a registered close handler releases a resource, it must be able to read
+that resource's or projected capability's private slot with the matching
+owner. This access remains available after owner cleanup has made ordinary
+resource use unavailable. A foreign owner must still receive
+`io::ErrorKind::InvalidResource`. F3 owns the transition into this restricted
+release boundary. F5 owns the close outcomes, retries, reverse cleanup, and
+cleanup failures that occur within it.
+
 Publication and the owner's closing transition share an atomic admission
 boundary. A late host open is closed before returning `Closed`; cleanup failure
 is retained as related context and the owner retains its release obligation.
