@@ -400,16 +400,18 @@ fn module_value_lowering_import_preparation_is_additive_in_values_and_imports() 
         let module = module_with_literal_values_and_imports(value_count, import_count);
         assert_eq!(module.module_values.len(), value_count);
         assert_eq!(module.uses.len(), import_count);
-        let diagnostics = analyze_surface_module(&module);
+        crate::pipeline::reset_semantic_analysis_passes();
+        crate::lowering::reset_module_value_import_preparation_work();
+        let lowered = lower_checked_surface_module(&module);
         assert!(
-            diagnostics
+            lowered
+                .diagnostics
                 .iter()
                 .all(|diagnostic| diagnostic.severity != veln_diagnostics::Severity::Error),
-            "{diagnostics:#?}"
+            "{:#?}",
+            lowered.diagnostics
         );
-
-        crate::lowering::reset_module_value_import_preparation_work();
-        let lowered = lower_analyzed_surface_module(&module, diagnostics);
+        assert_eq!(crate::pipeline::semantic_analysis_passes(), 1);
         let work = crate::lowering::take_module_value_import_preparation_work();
 
         let core = lowered
