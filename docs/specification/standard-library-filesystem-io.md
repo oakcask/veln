@@ -546,8 +546,8 @@ capability and effect boundary.
   provider calls, owner-exit ordering, exact-resource slot access,
   foreign-owner and cleanup-time registration rejection, cancellation cleanup,
   cancellation first delivered during release with all selected handlers
-  attempted, post-scope non-continuation, and unrelated state preservation use
-  separate scoped support in
+  attempted, post-scope non-continuation, and unrelated state preservation are
+  checked in `io_provider.test.veln`, with separate scoped support in
   [`io_provider_lifecycle_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_lifecycle_test_support_test.veln).
 - Private JVM adapter linkage:
   [`java_helpers_and_mapping.rs`](../../crates/veln-backend-jvm/src/tests/java_helpers_and_mapping.rs).
