@@ -118,7 +118,9 @@ qualified `prelude_builtin::name` keys. The filesystem provider adapters,
 including `io_provider_state` and `io_provider_state_update`, and the
 `string_contains_nul` and `string_nul` adapters used by the portable path
 module and its companion tests use the same qualified-only route. Bare prelude
-lookup does not publish those names.
+lookup does not publish those names. The same boundary covers the bounded
+`io_provider_dispatch1` through `io_provider_dispatch3` adapters used only by
+the standard filesystem and byte facades.
 These routes keep private adapters out of the public prelude surface while
 allowing embedded standard-package source to resolve the reserved qualified
 route. Publishing a qualified key does not grant every package access to it.

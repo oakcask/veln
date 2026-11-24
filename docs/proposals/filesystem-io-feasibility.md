@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The filesystem IO F2–F5 feasibility scope, provider adapter prototype, acceptance evidence, or completion and promotion conditions change.
+update-when: The filesystem IO F3–F5 feasibility scope, provider adapter prototype, acceptance evidence, or completion and promotion conditions change.
 ---
 
 # Filesystem IO Feasibility
@@ -8,26 +8,28 @@ update-when: The filesystem IO F2–F5 feasibility scope, provider adapter proto
 Implement a bounded source/adapter prototype that tests whether the proposed
 filesystem and shared byte IO design can preserve capabilities, provider
 identity, state, progress, and cleanup through ordinary Veln handlers.
-This Ready target owns F2–F5. Ready authorizes building the prototype, not
+This Ready target owns F3–F5. Ready authorizes building the prototype, not
 adopting the production API.
 
 ## Scope And Dependency Direction
 
-This proposal owns the remaining feasibility gates F2–F5 extracted from
+This proposal owns the remaining feasibility gates F3–F5 extracted from
 [Filesystem And Shared Byte IO](filesystem-io.md). That proposal remains in
 Design In Progress until this work completes. This work does not depend on
 its production implementation or promotion to Ready.
 
-The following sections of the filesystem proposal define the prototype's
-design inputs. The static source boundary, compiler-known adapter names and
-opaque identities, namespace-token factories, and bounded five-family
-registration and projection are implemented and specified by
+The implemented provider foundation is specified by
 [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
-The table lists only the remaining proposed obligations:
+It separates nearest-scope namespace registration from the temporary owner
+authority supplied to a captured handler for byte-resource publication and
+slot access. It also rejects byte-resource registration when that invocation
+owner is closed. This bounded rejection does not demonstrate late host-resource
+release or cleanup failure retention.
+The following sections of the filesystem proposal define the remaining
+prototype obligations:
 
 | Design input | Prototype obligation |
 | --- | --- |
-| [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Invoke the handlers already captured by namespace tokens and registered resources, and use the [atomic `State<T>` operations](../specification/standard-library-filesystem-io.md#atomic-state) for fake provider state. |
 | [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Preserve bytes, known and unknown progress, error context, and no-progress behavior. |
 | [Namespace, seek, and mutation transitions](filesystem-io.md#namespace-seek-and-mutation-transitions) | Observe successful and failed operations through bytes, cursors, bindings, and commit facts. |
 | [Concurrent operations and cleanup](filesystem-io.md#concurrent-operations-and-cleanup) | Preserve per-open admission, release obligations, aliases, and failure precedence. |
@@ -51,26 +53,26 @@ its positive observations and its failure or preserved-state observations.
 
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
-| F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. | Companion tests with distinct provider contents and operation logs; a backend dispatch case checks captured provider identity and absence of host fallback. |
-| F3: provider state and owner lifecycle | Concurrent provider-fake writes cannot lose completed updates. Closing the owner rejects late host-resource publication, releases the late resource, and retains any cleanup failure. | Companion provider-fake write observations and backend owner-lifecycle cases, including a host open gated across owner closure. |
+| F3: provider state and owner lifecycle | Concurrent provider-fake writes cannot lose completed updates. Closing the owner rejects late host-resource publication, releases the late resource, and retains any cleanup failure. After ordinary resource use becomes unavailable, a registered close handler can still read the matching resource or capability slot while releasing it; a foreign owner receives `InvalidResource`. | Companion provider-fake write observations and backend owner-lifecycle cases, including a host open gated across owner closure and slot access at the restricted release boundary. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
-| F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
+| F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table. Every cleanup attempt retains matching-owner slot access while ordinary use remains unavailable and rejects a foreign owner. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry, including matching and foreign-owner slot observations during cleanup; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
 
 The remaining F3 evidence must make concurrent provider-fake writes, owner
 closure, late host-resource publication and release, and retained cleanup
 failure observable at the applicable publication and cleanup boundaries. It
-must not rely on timing or an external filesystem to produce a rare failure.
+must also observe matching-owner slot access during registered close-handler
+release after ordinary use is unavailable, with foreign-owner rejection and
+unchanged unrelated state. It must not rely on timing or an external
+filesystem to produce a rare failure.
 
-If F2–F3 cannot be demonstrated with the named adapter extension, revise the
-resource design and affected acceptance contracts before continuing to F4–F5.
-A platform-only fake or an assumed unimplemented dispatch primitive does not
-satisfy a gate. Such a failure does not promote the parent proposal.
+If F3 cannot be demonstrated with the implemented adapter extension, revise
+the resource design and affected acceptance contracts before continuing to
+F4–F5. Such a failure does not promote the parent proposal.
 
 ## Implementation Sequence And Evidence Placement
 
-1. Add separate Veln provider support and demonstrate F2 and the concurrent
-   provider-fake and owner-lifecycle observations in F3. Keep fake state and
-   failure plans in Veln.
+1. Add the concurrent provider-fake and owner-lifecycle observations in F3.
+   Keep fake state and failure plans in Veln.
 2. Apply the outcome and transition tables to F4 and F5. Add host-boundary
    cases only for observations that require a real host or backend integration.
 
@@ -78,22 +80,15 @@ satisfy a gate. Such a failure does not promote the parent proposal.
 | --- | --- |
 | Standard-library API results, progress, state, operation ordering, and scripted failure behavior | Companion `.test.veln` files under `crates/veln-stdlib/veln/`, using separate Veln test support; run `bash scripts/agent-stdlib-test`. |
 | Compiler capability and effect rejection for remaining provider calls | Focused compiler tests or checked cases under `examples/specification/check/`; run the selected cases through `bash scripts/agent-test`. |
-| Captured dispatch, owner publication, and resource release | Focused `veln-backend-jvm` tests through `bash scripts/agent-test -p veln-backend-jvm`; identify the backend invariant each case checks. |
+| Owner publication and resource release | Focused `veln-backend-jvm` tests through `bash scripts/agent-test -p veln-backend-jvm`; identify the backend invariant each case checks. |
 | Real-host semantics and human/JSON cleanup projections | Focused host integration or CLI cases under the [test placement policy](../reference/toolchain-test-harness.md#test-placement-policy); run the selected integration tests through `bash scripts/agent-test`. |
 
-When implementing handler dispatch and lifetime support, follow the
+When implementing handler lifetime support, follow the
 effect-handler maintenance workflow, including the `effect_boundary_policy`
 and `effect_injection` checks. Use the guarded runners for execution bounds.
 No compiler or CLI wrapper substitutes for companion coverage of API behavior.
 
 ## Related Work And Design Basis
-
-The current [nominal effect boundary](../specification/effects.md#effect-labels)
-provides source-defined operations and handlers. It does not establish the
-proposed general resource allocation or captured-dispatch API. F2 therefore
-checks the explicit adapter extension rather than treating nominal
-dispatch alone as proof of feasibility. Extending ordinary `perform` to route
-all operations by resource identity remains outside the selected design.
 
 The current [JVM execution boundary](../specification/execution.md#runtime-readiness-and-host-boundaries)
 ties system network resources to handler owners, shares those owners with
@@ -113,9 +108,9 @@ remain rationale for its IO contracts; they do not prove Veln adapter support.
 
 ## Completion And Parent Promotion
 
-This proposal completes only when F2–F5 have checked evidence at the stated
+This proposal completes only when F3–F5 have checked evidence at the stated
 boundaries, with every linked outcome and transition row accounted for.
-Passing F2–F3 alone is insufficient. A failed gate keeps the target incomplete
+Passing F3 alone is insufficient. A failed gate keeps the target incomplete
 until the design and its independent expectations are reconciled.
 
 For any adapter or API behavior retained as implemented, update the smallest

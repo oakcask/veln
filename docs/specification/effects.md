@@ -346,10 +346,14 @@ standard callback remain active. A `state` call in a nominal handler operation
 clause preserves the same concrete initializer and `State<T>` types through
 checked core and typed IR as a call in an ordinary function body. The
 [type rules](types.md#inference-rules) own the join, variance, and compatibility
-contract. The prototype does not
-yet dispatch byte operations or access the host filesystem. The bare coarse
-`fs` effect remains the host effect retained by the prototype's
-`fs::system_handler()` declaration.
+contract. The standard `fs` and `io` facades dispatch namespace and byte
+operations to the handlers captured by their opaque token or capability. The
+facade calls retain their declared nominal effects for static checking. A
+direct `perform` keeps lexical handler selection. If its standard filesystem
+or byte operand belongs to another provider, the operation returns an
+`InvalidResource` outcome before either handler runs. The prototype does not
+access the host filesystem. The bare coarse `fs` effect remains the host
+effect retained by the prototype's `fs::system_handler()` declaration.
 
 The checker recognizes these file-system call targets through the standard
 symbol table:

@@ -140,9 +140,10 @@ contribute to the signature or declaration identity. Declaration identity does
 not use source order or source byte offsets. A duplicate semantic identity
 fails the complete package documentation result. A detected module or
 declaration identifier collision also fails the complete package documentation
-result. Initializer source bytes remain part of the package snapshot, so an
-initializer-only source change rotates the snapshot identity, canonical result
-bytes, and documentation digest.
+result. Function and handler bodies and module-value initializer source bytes
+remain part of the package snapshot. A body-only or initializer-only source
+change therefore rotates the snapshot identity, canonical result bytes, and
+documentation digest while preserving an unchanged declaration identifier.
 
 ## Published Boundary
 

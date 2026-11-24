@@ -108,31 +108,31 @@ pub effect Sync
 end
 
 pub fn read(reader: Reader, maximum: ByteCount) -> ReadOutcome effects [Read]
-	perform Read::read(reader, maximum)
+	prelude_builtin::io_provider_dispatch2("std::io::Read", "read", reader, maximum)
 end
 
 pub fn write(writer: Writer, bytes: ByteChunk) -> WriteOutcome effects [Write]
-	perform Write::write(writer, bytes)
+	prelude_builtin::io_provider_dispatch2("std::io::Write", "write", writer, bytes)
 end
 
 pub fn seek(seeker: Seeker, origin: SeekOrigin) -> Result<ByteOffset, Error> effects [Seek]
-	perform Seek::seek(seeker, origin)
+	prelude_builtin::io_provider_dispatch2("std::io::Seek", "seek", seeker, origin)
 end
 
 pub fn read_at(reader: ReaderAt, offset: ByteOffset, maximum: ByteCount) -> ReadOutcome effects [ReadAt]
-	perform ReadAt::read_at(reader, offset, maximum)
+	prelude_builtin::io_provider_dispatch3("std::io::ReadAt", "read_at", reader, offset, maximum)
 end
 
 pub fn write_at(writer: WriterAt, offset: ByteOffset, bytes: ByteChunk) -> WriteOutcome effects [WriteAt]
-	perform WriteAt::write_at(writer, offset, bytes)
+	prelude_builtin::io_provider_dispatch3("std::io::WriteAt", "write_at", writer, offset, bytes)
 end
 
 pub fn close(closer: Closer) -> CloseOutcome effects [Close]
-	perform Close::close(closer)
+	prelude_builtin::io_provider_dispatch1("std::io::Close", "close", closer)
 end
 
 pub fn sync(syncer: Syncer) -> Result<(), Error> effects [Sync]
-	perform Sync::sync(syncer)
+	prelude_builtin::io_provider_dispatch1("std::io::Sync", "sync", syncer)
 end
 
 ## Static prototype signature. Runtime transfer behavior remains gated by the
@@ -147,8 +147,8 @@ pub fn write_all(writer: Writer, bytes: ByteChunk) -> WriteOutcome effects [Writ
 	prelude_builtin::io_write_all(writer, bytes)
 end
 
-## Static prototype signature. Runtime transfer behavior remains gated by the
-## filesystem IO feasibility proposal.
+## Bounded provider transfer. The complete progress and failure matrix remains
+## gated by the filesystem IO feasibility proposal.
 pub fn copy(reader: Reader, writer: Writer, chunk_size: ByteCount) -> CopyOutcome effects [Read, Write]
 	prelude_builtin::io_copy(reader, writer, chunk_size)
 end

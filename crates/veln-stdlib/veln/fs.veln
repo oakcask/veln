@@ -97,45 +97,45 @@ pub fn read_only(filesystem: MutableFilesystem) -> Filesystem
 end
 
 pub fn open_read(filesystem: Filesystem, path: portable::Path) -> Result<ReadFile, io::Error> effects [Read]
-	perform Read::open_read(filesystem, path)
+	prelude_builtin::io_provider_dispatch2("std::fs::Read", "open_read", filesystem, path)
 end
 
 pub fn metadata(filesystem: Filesystem, path: portable::Path, follow: FollowLinks) -> Result<Metadata, io::Error> effects [Read]
-	perform Read::metadata(filesystem, path, follow)
+	prelude_builtin::io_provider_dispatch3("std::fs::Read", "metadata", filesystem, path, follow)
 end
 
 pub fn entries(filesystem: Filesystem, path: portable::Path) -> Result<List<Entry>, io::Error> effects [Read]
-	perform Read::entries(filesystem, path)
+	prelude_builtin::io_provider_dispatch2("std::fs::Read", "entries", filesystem, path)
 end
 
 pub fn open_write(filesystem: MutableFilesystem, path: portable::Path, mode: WriteMode) -> Result<WriteFile, io::Error> effects [Mutate]
-	perform Mutate::open_write(filesystem, path, mode)
+	prelude_builtin::io_provider_dispatch3("std::fs::Mutate", "open_write", filesystem, path, mode)
 end
 
 pub fn open_read_write(filesystem: MutableFilesystem, path: portable::Path, mode: UpdateMode) -> Result<UpdateFile, io::Error> effects [Mutate]
-	perform Mutate::open_read_write(filesystem, path, mode)
+	prelude_builtin::io_provider_dispatch3("std::fs::Mutate", "open_read_write", filesystem, path, mode)
 end
 
 pub fn open_append(filesystem: MutableFilesystem, path: portable::Path, create: CreateMode) -> Result<AppendFile, io::Error> effects [Mutate]
-	perform Mutate::open_append(filesystem, path, create)
+	prelude_builtin::io_provider_dispatch3("std::fs::Mutate", "open_append", filesystem, path, create)
 end
 
 pub fn create_directory(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome effects [Mutate]
-	perform Mutate::create_directory(filesystem, path)
+	prelude_builtin::io_provider_dispatch2("std::fs::Mutate", "create_directory", filesystem, path)
 end
 
 pub fn remove_file(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome effects [Mutate]
-	perform Mutate::remove_file(filesystem, path)
+	prelude_builtin::io_provider_dispatch2("std::fs::Mutate", "remove_file", filesystem, path)
 end
 
 pub fn remove_directory(filesystem: MutableFilesystem, path: portable::Path) -> MutationOutcome effects [Mutate]
-	perform Mutate::remove_directory(filesystem, path)
+	prelude_builtin::io_provider_dispatch2("std::fs::Mutate", "remove_directory", filesystem, path)
 end
 
 pub fn rename(filesystem: MutableFilesystem, from_path: portable::Path, to_path: portable::Path) -> MutationOutcome effects [Mutate]
-	perform Mutate::rename(filesystem, from_path, to_path)
+	prelude_builtin::io_provider_dispatch3("std::fs::Mutate", "rename", filesystem, from_path, to_path)
 end
 
 pub fn truncate(file: Truncater, size: ByteOffset) -> MutationOutcome effects [Mutate]
-	perform Mutate::truncate(file, size)
+	prelude_builtin::io_provider_dispatch2("std::fs::Mutate", "truncate", file, size)
 end

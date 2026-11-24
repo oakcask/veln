@@ -102,6 +102,24 @@ where
             ],
             expected.clone(),
         )),
+        "io_provider_dispatch1" => Some((
+            vec![T::unknown(), T::unknown(), T::unknown()],
+            expected.clone(),
+        )),
+        "io_provider_dispatch2" => Some((
+            vec![T::unknown(), T::unknown(), T::unknown(), T::unknown()],
+            expected.clone(),
+        )),
+        "io_provider_dispatch3" => Some((
+            vec![
+                T::unknown(),
+                T::unknown(),
+                T::unknown(),
+                T::unknown(),
+                T::unknown(),
+            ],
+            expected.clone(),
+        )),
         _ => None,
     }
 }

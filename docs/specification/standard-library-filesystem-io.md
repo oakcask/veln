@@ -12,9 +12,9 @@ contract combines a compiler-checked static surface with bounded `ReadFile`,
 `WriteFile`, `UpdateFile`, `AppendFile`, and `Duplex` registration and
 projection prototypes, provider-bound filesystem namespace tokens, and opaque
 atomic provider state. It lets provider and generic IO source check
-capability-correct signatures, capture namespace handlers without invoking
-them, exercise five runtime resource families, and keep immutable fake-provider
-state in shared cells.
+capability-correct signatures, capture and invoke provider handlers, exercise
+five runtime resource families, transfer bytes between independently owned
+fake resources, and keep immutable fake-provider state in shared cells.
 It is not a production filesystem API.
 
 ## Imports and static surface
@@ -70,9 +70,11 @@ portable paths, optional network error, optional commit fact, and a message.
 `ErrorKind` can be `InvalidInput`, `NotFound`, `AlreadyExists`,
 `PermissionDenied`, `NotDirectory`, `IsDirectory`, `DirectoryNotEmpty`,
 `LinkLoop`, `UnrepresentablePath`, `CrossFilesystem`, `Unsupported`, `Closed`,
-`Busy`, `InvalidResource`, `Cancelled`, `NoProgress`, or `Other`. These are
-declarations only; the [runtime limits](#runtime-limits) mean no filesystem or
-byte operation currently produces these outcomes at runtime.
+`Busy`, `InvalidResource`, `Cancelled`, `NoProgress`, or `Other`. Captured
+Veln handlers can produce the individual operation outcomes. The
+bounded `copy` path produces `CopyOutcome`; `ExactOutcome` remains static only.
+The [runtime limits](#runtime-limits) exclude the complete transfer, mutation,
+cleanup, and host translation matrix.
 
 `fs::Read` and `fs::Mutate` separate namespace reads from mutation. Portable
 names use `path::Path`. Their facade signatures are:
@@ -239,6 +241,14 @@ leaves the existing registration unchanged. A missing required handler returns
 `io::ErrorKind::Unsupported` and leaves the slot available for a later complete
 factory call.
 
+The nearest-scope requirement is lexical registration authority. Captured
+dispatch does not extend it. If a retained namespace handler runs while a
+nested provider scope is nearest, that handler cannot use the dispatched
+token's owner to register another namespace token. The attempt returns
+`io::ErrorKind::InvalidInput` before resolving a namespace handler, does not
+consume the requested slot, and does not change provider state. The outer
+owner can use that slot after its scope becomes nearest again.
+
 `fs::read_only` removes mutation authority from a mutable token while retaining
 its owner, private slot, and captured read handler. This pure projection does
 not require the owner scope to remain active. The matching `filesystem_slot`
@@ -264,6 +274,14 @@ them. If any handler is absent, registration returns
 `io::ErrorKind::Unsupported` before publishing the resource. This failure
 performs no host filesystem or network fallback and does not consume the slot,
 so a complete registration can subsequently use the same owner and slot.
+
+A captured namespace handler can register a byte resource for the owner of
+the filesystem token that invoked it, even when another provider scope is
+lexically nearest. This invocation authority is limited to that owner and the
+duration of the captured call. It does not authorize namespace-token
+registration. If the owner's scope is closed, resource registration returns
+`io::ErrorKind::InvalidInput` before publication or operation-handler
+resolution and leaves the slot and provider state unchanged.
 
 For `ViewFamily::AppendFile`, registration applies the same owner, slot,
 validation-before-publication, and duplicate-preservation rules. It requires
@@ -349,17 +367,57 @@ registration at a used owner slot returns `io::ErrorKind::InvalidInput` and
 preserves the first resource and provider identity regardless of registration
 order.
 
+### Provider-bound dispatch
+
+The exported `fs` namespace facades invoke the `fs::Read` or `fs::Mutate`
+handler captured by their filesystem token. The exported `io` byte facades
+invoke the operation handler captured by their projected capability. Dispatch
+passes the public token or restricted capability to the handler; it does not
+expose the underlying `io_provider::Resource`. A handler can use the matching
+slot accessor with its owner while a nested provider scope is active.
+
+One captured handler frame can serve registrations for more than one active
+provider owner. Each token, resource, and capability retains its own owner.
+Captured dispatch makes only that owner available to matching slot access and
+byte-resource registration for the duration of the handler invocation. It
+does not grant namespace-token registration authority. Nested captured calls
+restore the preceding owner after normal return, a returned failure, or a
+runtime failure.
+
+Nested handlers affect newly allocated tokens and capabilities. They do not
+reinterpret an older value. A facade call on an older value selects its
+creating handler even after that handler's dynamic scope exits, provided its
+provider owner remains usable. Dispatch never selects the currently active
+same-effect handler as a fallback and does not perform host filesystem or
+network IO.
+
+Ordinary `perform` retains lexical handler selection and does not receive a
+captured invocation owner. If a direct low-level operation supplies a
+filesystem token or byte capability from a different provider owner, the
+runtime returns the operation's `InvalidResource` failure shape before
+invoking either provider. This applies when the owners share a handler frame
+and when different frames captured the operand. Wrong-owner resource and
+capability slot access also returns `InvalidResource`. These failures do not
+change either provider's `State<T>`.
+
+`io::copy` implements the bounded successful provider path. It reads through
+the source capability until `End`, writes each selected chunk through the
+destination capability, and returns the independently accumulated byte count.
+The source and destination can belong to different provider owners. F2
+establishes only the successful path. The complete partial-progress and failure
+translation matrix remains provisional until F4.
+
 ## Runtime limits
 
 This surface is not a production filesystem implementation. Runtime
-state, namespace-token allocation, registration, and projection are limited to
-the observations above.
-`Duplex` does not add operation dispatch through the projected capabilities.
-Operation dispatch through a namespace token or byte resource, the two-provider
-fake and cross-provider copy, host-resource publication racing with owner
-closure, release of late host resources, transfer and namespace operations,
-cleanup, and host filesystem access remain unimplemented. Type-checking any
-other declaration establishes only its static capability and effect boundary.
+state, namespace-token allocation, registration, projection, provider-bound
+dispatch, and successful cross-provider copy are limited to the observations
+above. Host-resource publication racing with owner closure, release of late
+host resources, the complete transfer and namespace outcome matrix, cleanup,
+host filesystem selection, and network-to-byte adapters remain unimplemented.
+`read_exact` and `write_all` remain static prototype signatures. Type-checking
+any behavior outside the implemented slice establishes only its static
+capability and effect boundary.
 
 ## References
 
@@ -399,18 +457,30 @@ other declaration establishes only its static capability and effect boundary.
   updates, publication, namespace-token handler capture, missing-handler slot
   preservation, duplicate and wrong-owner rejection, closed-owner slot
   rejection, post-close read-only projection, and five-family registration and
-  projection behavior:
+  projection behavior, two independent fake providers, shared handler-frame
+  registration by two owners, nested captured dispatch, foreign-identity state
+  preservation, rejection of namespace registration for a non-nearest owner
+  without consuming its slot, and successful cross-provider copy:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with pure state transitions in
   [`io_provider_state_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_state_test_support_test.veln)
-  and scoped operation fakes in
+  and scoped registration fakes in
   [`io_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_test_support_test.veln).
+  The provider-dispatch state and handlers are separate test support in
+  [`filesystem_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/filesystem_provider_test_support_test.veln).
 - Private JVM adapter linkage:
   [`java_helpers_and_mapping.rs`](../../crates/veln-backend-jvm/src/tests/java_helpers_and_mapping.rs).
 - JVM namespace-token captured-handler identity, post-close read-only
   projection, owner matching, and inherited closed-scope factory and slot
   rejection:
   [`IoProviderFilesystemHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderFilesystemHarness.java).
+- JVM namespace-token and projected-capability dispatch through retained and
+  shared handler identities, invocation-owner restoration after normal and
+  failed nested calls, restricted operand forwarding, foreign-identity
+  rejection before either provider runs, lexical namespace-registration
+  authority, closed-owner resource-publication rejection, and absence of
+  active host fallback:
+  [`IoProviderDispatchHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderDispatchHarness.java).
 - JVM-controlled single-successor admission handoff, cancelled-waiter removal,
   cancellation checkpoints, publication, queued failure release, failure
   identity, reentrancy, task freezing, and reusable 100,000-element list state,
