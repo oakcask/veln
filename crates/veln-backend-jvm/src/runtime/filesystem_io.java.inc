@@ -262,14 +262,10 @@
 
     private static final class IoCapability {
         final IoResource resource;
-        final IoOwner owner;
-        final long slot;
         final HandlerFrame handler;
 
         IoCapability(IoResource resource, HandlerFrame handler) {
             this.resource = resource;
-            this.owner = resource.owner;
-            this.slot = resource.slot;
             this.handler = handler;
         }
     }
@@ -751,10 +747,10 @@
             return ioProviderInvalidInput(operation, "invalid provider capability identity");
         }
         IoCapability value = (IoCapability) capability;
-        return value.owner == owner
-            && (ioProviderOrdinaryAccess(value.owner)
+        return value.resource.owner == owner
+            && (ioProviderOrdinaryAccess(value.resource.owner)
                 || ioProviderReleaseAccess(value.resource))
-            ? ok(Long.valueOf(value.slot))
+            ? ok(Long.valueOf(value.resource.slot))
             : ioProviderInvalidResource(operation, "capability belongs to another provider owner");
     }
 
@@ -801,6 +797,13 @@
         return null;
     }
 
+    private static IoOwner ioProviderOperandOwner(Object operand) {
+        if (operand instanceof IoCapability) return ((IoCapability) operand).resource.owner;
+        if (operand instanceof IoFilesystem) return ((IoFilesystem) operand).owner;
+        if (operand instanceof IoMutableFilesystem) return ((IoMutableFilesystem) operand).owner;
+        return null;
+    }
+
     private static boolean ioProviderCanPublishResource(String effect, String operation) {
         return (effect.equals(FS_READ_EFFECT) && operation.equals("open_read"))
             || (effect.equals(FS_MUTATE_EFFECT)
@@ -821,11 +824,7 @@
         if (handler == null) {
             throw new RuntimeFailure("invalid provider-bound operand for " + effect + "::" + operation);
         }
-        IoOwner owner = operand instanceof IoCapability
-            ? ((IoCapability) operand).owner
-            : operand instanceof IoFilesystem
-                ? ((IoFilesystem) operand).owner
-                : ((IoMutableFilesystem) operand).owner;
+        IoOwner owner = ioProviderOperandOwner(operand);
         if (owner.scope.ioProviderScopeClosed) {
             return ioProviderForeignFailure(effect, operation);
         }
@@ -900,13 +899,7 @@
     ) {
         if (args.length == 0) return null;
         HandlerFrame captured = ioProviderCapturedHandler(effect, args[0]);
-        IoOwner owner = args[0] instanceof IoCapability
-            ? ((IoCapability) args[0]).owner
-            : args[0] instanceof IoFilesystem
-                ? ((IoFilesystem) args[0]).owner
-                : args[0] instanceof IoMutableFilesystem
-                    ? ((IoMutableFilesystem) args[0]).owner
-                    : null;
+        IoOwner owner = ioProviderOperandOwner(args[0]);
         HandlerFrame lexicalScope = findHandler(IO_PROVIDER_SCOPE_EFFECT);
         return captured != null && (owner == null || owner.scope.ioProviderScopeClosed
             || captured != selected || owner.scope != lexicalScope)

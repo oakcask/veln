@@ -173,6 +173,19 @@ public final class IoProviderDuplexHarness {
         requireCapability(view.get("reader"), read, "reader");
         requireCapability(view.get("writer"), write, "writer");
         requireCapability(view.get("closer"), close, "closer");
+        VelnRuntime.Result closerSlot = (VelnRuntime.Result) VelnRuntime.ioProviderCloserSlot(
+            owner,
+            view.get("closer")
+        );
+        require(closerSlot.isOk() && closerSlot.value().equals(31L), "closer lost resource slot");
+        VelnRuntime.Result foreignCloserSlot = (VelnRuntime.Result) VelnRuntime.ioProviderCloserSlot(
+            inactiveOwner,
+            view.get("closer")
+        );
+        require(
+            !foreignCloserSlot.isOk(),
+            "closer accepted a foreign resource owner"
+        );
 
         VelnRuntime.popHandler();
     }
