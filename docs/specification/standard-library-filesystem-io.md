@@ -351,7 +351,9 @@ other declaration establishes only its static capability and effect boundary.
   isolation through checked core and typed IR:
   [`io_provider.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types/io_provider.rs).
 - Atomic state source-ADT variance joins, invariant-join rejection,
-  handler-clause handoff, and bounded adjacent-size analysis work:
+  handler-clause handoff, bounded adjacent-size type analysis, and additive
+  import and pattern work when an unavailable state constructor is written
+  through an explicit standard-module alias:
   [`bounded_types.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types/io_provider/bounded_types.rs).
 - Atomic state generic mismatch, invariant-cell, and pure-callback rejection:
   [`lowering_and_types.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types.rs).

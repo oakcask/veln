@@ -775,6 +775,14 @@ of ownership state each, but they do not add repeated lookups or multiply the
 work for the matched alias group. Every instrumented match-local owner returns
 to zero after analysis.
 
+For a function with `I` import declarations and `P` constructor patterns
+written through an explicit alias of the standard `io_provider` module,
+opaque-state constructor screening indexes the `I` imports once and performs
+one alias lookup per pattern. Its instrumented import work is therefore
+additive in `I + P`; it does not rescan every import for every pattern. The
+screening still reports each unavailable `State` constructor pattern through
+the ordinary name-resolution contract.
+
 Increasing stable field-path depth or repeated access count adds only linear
 path discovery and lookup work. Transparent aliases of one record root reuse
 that root and its path keys. Distinct active record roots add independent roots
