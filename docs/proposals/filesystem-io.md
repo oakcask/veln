@@ -338,7 +338,9 @@ mechanism.
 The foundation distinguishes namespace registration from captured invocation
 authority. A captured namespace handler can publish a byte resource for its
 invoking owner, but it cannot register another namespace token unless that
-owner is also the nearest lexical provider scope. The current
+owner is also the nearest lexical provider scope. The publication admission is
+limited to that open operation. After owner closure, a nested facade or lexical
+byte handler cannot inherit it to publish another resource. The current
 [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md#owner-closure-and-restricted-release)
 owns closed-owner admission, late release, and restricted cleanup access.
 

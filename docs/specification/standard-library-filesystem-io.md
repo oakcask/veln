@@ -404,14 +404,16 @@ network IO.
 Ordinary `perform` retains lexical handler selection and does not receive the
 broader captured invocation authority. An accepted lexical provider open
 receives only a per-call admission identity for publication. It cannot use
-that identity to register namespace tokens or authorize unrelated lexical
-calls to register byte resources. If a direct low-level operation supplies a
-filesystem token or byte capability from a different provider owner, the
-runtime returns the operation's `InvalidResource` failure shape before
-invoking either provider. This applies when the owners share a handler frame
-and when different frames captured the operand. Wrong-owner resource and
-capability slot access also returns `InvalidResource`. These failures do not
-change either provider's `State<T>`.
+that identity to register namespace tokens. After owner closure, a facade or
+lexical byte operation nested in the admitted open does not inherit its
+publication admission. Registration attempted by the byte handler returns
+`InvalidResource` and does not become an admitted late resource. If a direct
+low-level operation supplies a filesystem token or byte capability from a
+different provider owner, the runtime returns the operation's
+`InvalidResource` failure shape before invoking either provider. This applies
+when the owners share a handler frame and when different frames captured the
+operand. Wrong-owner resource and capability slot access also returns
+`InvalidResource`. These failures do not change either provider's `State<T>`.
 
 Owner closure applies the same rejection before both facade dispatch and
 ordinary lexical `perform` dispatch. Each operation returns its documented
@@ -562,7 +564,8 @@ capability and effect boundary.
   failed late release, cross-owner admission during cleanup, retained release
   failure, facade and lexical ordinary-use rejection, cancellation first
   delivered during release, recursive-close non-reentry, exact-resource
-  identity, stale same-slot rejection, and occupied-slot admission:
+  identity, stale same-slot rejection, occupied-slot admission, and rejection
+  of publication attempted from a nested facade or lexical byte handler:
   [`IoProviderOwnerLifecycleHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderOwnerLifecycleHarness.java).
 - JVM-controlled single-successor admission handoff, cancelled-waiter removal,
   cancellation checkpoints, publication, queued failure release, failure

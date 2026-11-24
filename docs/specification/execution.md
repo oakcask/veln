@@ -160,13 +160,16 @@ deterministic
 gates publication across closure without host timing or filesystem state.
 Low-level lexical dispatch does not acquire the broader captured invocation
 authority. An accepted lexical provider open receives only its matching
-per-call publication admission identity. Other lexical calls cannot use that
-identity to register a resource. Lexical dispatch rejects an operand from a
-different or closed provider owner before invoking the selected frame,
-including when owners share that frame. If cancellation is first delivered by
-a checkpoint in a close handler, the owner still attempts and removes every
-resource selected for bounded release. The cancellation then resumes as the
-primary unwind, so execution after the handled owner scope does not continue.
+per-call publication admission identity. After owner closure, a facade or
+lexical byte operation nested in that open does not inherit its publication
+admission. Registration attempted by the byte handler returns
+`InvalidResource` and does not enter late-resource release. Lexical dispatch
+rejects an operand from a different or closed provider owner before invoking
+the selected frame, including when owners share that frame. If cancellation is
+first delivered by a checkpoint in a close handler, the owner still attempts
+and removes every resource selected for bounded release. The cancellation then
+resumes as the primary unwind, so execution after the handled owner scope does
+not continue.
 Ordinary release failures can still be retained alongside cancellation; the F5
 retry, release-order, and cleanup-failure projection matrix remains
 unimplemented. This bounded lifecycle is not a production filesystem. The
