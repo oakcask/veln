@@ -2,10 +2,6 @@ name: workflow / conftest
 
 on:
   pull_request:
-    paths:
-      - .github/workflows/*.yaml
-      - .github/workflows/*.yml
-      - conftest/workflow/*.rego
 
 permissions:
   contents: read
@@ -14,9 +10,18 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    container: openpolicyagent/conftest:v0.71.0@sha256:3ec6dad358db08acecda56b7a3184037cd810394a65046fafa4f33c7750141b1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "26"
+      - name: Inventory existing tracked files
+        run: node workflow-scripts/workflow-path-inventory.mjs .workflow-policy-data.json
       - name: Verify workflow policy regressions
-        run: conftest verify -p conftest/workflow
-      - run: conftest test -o github -p conftest/workflow .github/workflows
+        uses: docker://openpolicyagent/conftest:v0.71.0@sha256:3ec6dad358db08acecda56b7a3184037cd810394a65046fafa4f33c7750141b1
+        with:
+          args: verify -p conftest/workflow
+      - name: Validate workflow policies and literal path filters
+        uses: docker://openpolicyagent/conftest:v0.71.0@sha256:3ec6dad358db08acecda56b7a3184037cd810394a65046fafa4f33c7750141b1
+        with:
+          args: test -o github --all-namespaces --data .workflow-policy-data.json -p conftest/workflow .github/workflows

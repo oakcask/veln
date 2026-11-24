@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - .github/workflows/lint--rust.yaml
-      - .cargo/config.toml
       - .github/actions/cargo-dependencies/action.yaml
       - .github/actions/clippy/action.yaml
       - .github/actions/setup-jdk/action.yaml
@@ -20,7 +19,6 @@ on:
   pull_request:
     paths:
       - .github/workflows/lint--rust.yaml
-      - .cargo/config.toml
       - .github/actions/cargo-dependencies/action.yaml
       - .github/actions/clippy/action.yaml
       - .github/actions/setup-jdk/action.yaml
