@@ -70,6 +70,14 @@ fn wrong_owner_filesystem_slot(filesystem: fs::Filesystem) -> Result<Int, io::Er
 	handle fresh_owner_filesystem_slot(filesystem) with io_provider::scope()
 end
 
+fn fresh_owner_mutable_filesystem_slot(filesystem: fs::MutableFilesystem) -> Result<Int, io::Error> effects [io_provider::Scope, concurrency]
+	io_provider::mutable_filesystem_slot(io_provider::owner(), filesystem)
+end
+
+fn wrong_owner_mutable_filesystem_slot(filesystem: fs::MutableFilesystem) -> Result<Int, io::Error> effects [concurrency]
+	handle fresh_owner_mutable_filesystem_slot(filesystem) with io_provider::scope()
+end
+
 fn allocate_namespace_pair(calls: Sender<String>) -> Result<{owner: io_provider::Owner, filesystem: fs::Filesystem}, io::Error> effects [io_provider::Scope, concurrency]
 	let owner = io_provider::owner()
 	match readonly_filesystem(owner, 3, calls)
@@ -80,6 +88,18 @@ end
 
 fn closed_namespace_pair(calls: Sender<String>) -> Result<{owner: io_provider::Owner, filesystem: fs::Filesystem}, io::Error> effects [concurrency]
 	handle allocate_namespace_pair(calls) with io_provider::scope()
+end
+
+fn allocate_mutable_namespace_pair(calls: Sender<String>) -> Result<{owner: io_provider::Owner, filesystem: fs::MutableFilesystem}, io::Error> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	match mutable_filesystem(owner, 5, calls)
+		Ok(filesystem) => Ok({owner: owner, filesystem: filesystem})
+		Err(error) => Err(error)
+	end
+end
+
+fn closed_mutable_namespace_pair(calls: Sender<String>) -> Result<{owner: io_provider::Owner, filesystem: fs::MutableFilesystem}, io::Error> effects [concurrency]
+	handle allocate_mutable_namespace_pair(calls) with io_provider::scope()
 end
 
 fn namespace_owner_and_duplicate_boundaries() -> Result<(), String> effects [io_provider::Scope, concurrency]
@@ -103,6 +123,25 @@ fn namespace_owner_and_duplicate_boundaries() -> Result<(), String> effects [io_
 			end
 		end
 		Err(_) => Err("namespace duplicate setup failed")
+	end
+end
+
+fn mutable_namespace_lifecycle_boundaries() -> Result<(), String> effects [concurrency]
+	let calls = channel::bounded<String>(16)
+	match closed_mutable_namespace_pair(calls.tx)
+		Ok(closed) => begin
+			let readonly = fs::read_only(closed.filesystem)
+			if not is_invalid_resource_slot(wrong_owner_mutable_filesystem_slot(closed.filesystem))
+				Err("wrong-owner mutable filesystem slot lookup was accepted")
+			else if not is_invalid_resource_slot(io_provider::mutable_filesystem_slot(closed.owner, closed.filesystem))
+				Err("closed-owner mutable filesystem slot lookup was accepted")
+			else if not is_invalid_resource_slot(io_provider::filesystem_slot(closed.owner, readonly)) or not no_handler_calls(calls.rx)
+				Err("closed-owner read-only projection was unusable or invoked a captured handler")
+			else
+				Ok(())
+			end
+		end
+		Err(_) => Err("closed-owner mutable namespace setup failed")
 	end
 end
 
@@ -839,6 +878,10 @@ end
 
 test namespace_factories_reject_duplicate_wrong_and_closed_owner_access() -> Result<(), String> effects [concurrency]
 	handle namespace_owner_and_duplicate_boundaries() with io_provider::scope()
+end
+
+test mutable_namespace_projection_and_slot_checks_preserve_closed_owner_boundaries() -> Result<(), String> effects [concurrency]
+	mutable_namespace_lifecycle_boundaries()
 end
 
 test missing_handlers_reject_before_publication_without_poisoning_slots() -> Result<(), String> effects [concurrency]

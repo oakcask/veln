@@ -99,10 +99,6 @@ public final class IoProviderFilesystemHarness {
         require(((Long) MUTABLE_SLOT.get(mutable)).longValue() == 12L, "mutable filesystem lost its slot");
         require(MUTABLE_READ.get(mutable) == mutableRead, "mutable filesystem lost its read handler");
         require(MUTABLE_MUTATE.get(mutable) == mutableMutate, "mutable filesystem lost its mutate handler");
-        Object projected = VelnRuntime.fsReadOnly(mutable);
-        require(READONLY_OWNER.get(projected) == owner, "read-only projection changed the owner");
-        require(((Long) READONLY_SLOT.get(projected)).longValue() == 12L, "read-only projection changed the slot");
-        require(READONLY_READ.get(projected) == mutableRead, "read-only projection changed the read handler");
         VelnRuntime.popHandler();
         VelnRuntime.popHandler();
 
@@ -122,17 +118,35 @@ public final class IoProviderFilesystemHarness {
             "active owner could not access its filesystem slot"
         );
 
-        final java.util.concurrent.atomic.AtomicReference<Object> closedResult =
+        push("std::fs::Read");
+        final java.util.concurrent.atomic.AtomicReference<Object> closedSlotResult =
             new java.util.concurrent.atomic.AtomicReference<Object>();
-        Thread inherited = new Thread(() -> closedResult.set(
-            VelnRuntime.ioProviderFilesystemSlot(owner, readonly)
-        ));
+        final java.util.concurrent.atomic.AtomicReference<Object> closedFactoryResult =
+            new java.util.concurrent.atomic.AtomicReference<Object>();
+        Thread inherited = new Thread(() -> {
+            closedSlotResult.set(VelnRuntime.ioProviderFilesystemSlot(owner, readonly));
+            closedFactoryResult.set(VelnRuntime.ioProviderFilesystem(owner, Long.valueOf(13L)));
+        });
         VelnRuntime.popHandler();
+        VelnRuntime.popHandler();
+
+        Object projected = VelnRuntime.fsReadOnly(mutable);
+        require(READONLY_OWNER.get(projected) == owner, "closed-owner read-only projection changed the owner");
+        require(((Long) READONLY_SLOT.get(projected)).longValue() == 12L, "closed-owner read-only projection changed the slot");
+        require(READONLY_READ.get(projected) == mutableRead, "closed-owner read-only projection changed the read handler");
+
         inherited.start();
         inherited.join();
         require(
-            result(closedResult.get()).toString().contains("InvalidResource"),
+            result(closedSlotResult.get()).toString().contains("InvalidResource"),
             "inherited handler frame kept a closed owner usable"
+        );
+        String factoryFailure = result(closedFactoryResult.get()).toString();
+        require(
+            factoryFailure.contains("filesystem")
+                && factoryFailure.contains("InvalidInput")
+                && factoryFailure.contains("provider owner scope is closed"),
+            "inherited handler frame published a namespace token through a closed owner: " + factoryFailure
         );
     }
 }
