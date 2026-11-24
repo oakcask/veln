@@ -576,8 +576,10 @@ capability and effect boundary.
   failed late release, cross-owner admission during cleanup, retained release
   failure, facade and lexical ordinary-use rejection, recursive-close
   non-reentry, exact-resource identity, stale same-slot rejection,
-  occupied-slot admission, and rejection of publication attempted from a
-  nested facade or lexical byte handler:
+  occupied-slot admission, rejection of publication attempted from a nested
+  facade or lexical byte handler, registered release after normal and abrupt
+  runtime exits, and fatal JVM release-failure propagation with resource
+  removal plus authority and handler-stack restoration:
   [`IoProviderOwnerLifecycleHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderOwnerLifecycleHarness.java).
 - JVM-controlled single-successor admission handoff, cancelled-waiter removal,
   cancellation checkpoints, publication, queued failure release, failure

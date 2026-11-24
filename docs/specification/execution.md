@@ -161,10 +161,13 @@ decision is atomic with owner closure and slot occupancy. One owner's active
 release does not suppress another owner's independently admitted late-resource
 release. Release code runs after registry
 admission is relinquished, so a close handler can wait for an inherited child's
-rejected registration without deadlocking. The
-deterministic
+rejected registration without deadlocking. The deterministic
 [`IoProviderOwnerLifecycleHarness`](../../crates/veln-backend-jvm/test-support/IoProviderOwnerLifecycleHarness.java)
-gates publication across closure without host timing or filesystem state.
+gates publication across closure without host timing or filesystem state. It
+also checks registered release after normal and abrupt runtime exits and a
+fatal JVM `Error` from release, including throwable identity,
+non-continuation, resource removal, and release-authority and handler-stack
+restoration.
 Low-level lexical dispatch does not acquire the broader captured invocation
 authority. An accepted lexical provider open receives only its matching
 per-call publication admission identity. After owner closure, a facade or
