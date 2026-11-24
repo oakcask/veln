@@ -17,12 +17,12 @@ also states it.
 ## Ready
 
 - [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete the
-  provider-state and owner-lifecycle work in F3, then F4 and F5. F2
+  remaining owner-lifecycle work in F3, then F4 and F5. F2
   provider-bound dispatch, nested-provider identity, and cross-provider copy
-  are implemented. The remaining evidence covers concurrent fake-provider
-  writes, transfer and mutation outcomes, owner publication, and cleanup. The
-  target does not require the production filesystem API to be implemented
-  first.
+  and the F3 concurrent fake-provider write observation are implemented. The
+  remaining evidence covers owner publication and release, restricted cleanup
+  access, transfer and mutation outcomes, and cleanup failure behavior. The
+  target does not require the production filesystem API to be implemented first.
 
 ## Design In Progress
 

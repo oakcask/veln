@@ -19,8 +19,21 @@ pub type SharedProviders
 	pub SharedProviders(first: SharedProvider, second: Option<SharedProvider>)
 end
 
+pub type WriteRequest
+	pub WriteRequest(writer: io::Writer, bytes: ByteChunk, ready: Sender<()>, start: Receiver<()>)
+end
+
+pub type WriteReport
+	pub WriteCompleted(count: Int)
+	pub WriteFailed
+end
+
 pub fn state(source: ByteChunk) -> io_provider::State<FakeState> effects [concurrency]
-	io_provider::state(FakeState(source, byte_chunk([]), 0, ""))
+	seeded_state(source, byte_chunk([]))
+end
+
+pub fn seeded_state(source: ByteChunk, output: ByteChunk) -> io_provider::State<FakeState> effects [concurrency]
+	io_provider::state(FakeState(source, output, 0, ""))
 end
 
 fn observe(current: FakeState, context: ()) -> {state: FakeState, result: Snapshot}
@@ -102,6 +115,16 @@ fn write_next(current: FakeState, bytes: ByteChunk) -> {state: FakeState, result
 	end
 end
 
+fn named_write_next(current: FakeState, context: {bytes: ByteChunk, operation: String}) -> {state: FakeState, result: io::WriteOutcome}
+	match current
+		FakeState(source, output, reads, log) => begin
+			let next_output = byte_append(output, context.bytes)
+			let operation = string::concat("write:", context.operation)
+			{state: FakeState(source, next_output, reads, append_log(log, operation)), result: io::WriteOutcome::Written(byte_chunk_count(context.bytes))}
+		end
+	end
+end
+
 pub handler reader(owner: io_provider::Owner, slot: Int, cell: io_provider::State<FakeState>) for io::Read effects [concurrency]
 	read(capability, maximum) => if slot_matches(io_provider::reader_slot(owner, capability), slot)
 		io_provider::update(cell, (), read_next)
@@ -116,6 +139,18 @@ pub handler writer(owner: io_provider::Owner, slot: Int, cell: io_provider::Stat
 	else
 		io::WriteOutcome::WriteFailed(io::Progress::Known(byte_chunk_count(byte_chunk([]))), invalid_resource("write"))
 	end
+end
+
+pub handler named_writer(owner: io_provider::Owner, slot: Int, cell: io_provider::State<FakeState>, operation: String) for io::Write effects [concurrency]
+	write(capability, bytes) => if slot_matches(io_provider::writer_slot(owner, capability), slot)
+		io_provider::update(cell, {bytes: bytes, operation: operation}, named_write_next)
+	else
+		io::WriteOutcome::WriteFailed(io::Progress::Known(byte_chunk_count(byte_chunk([]))), invalid_resource("write"))
+	end
+end
+
+handler rejecting_writer() for io::Write
+	write(capability, bytes) => io::WriteOutcome::WriteFailed(io::Progress::Known(byte_chunk_count(byte_chunk([]))), invalid_resource("write"))
 end
 
 pub handler seeker(owner: io_provider::Owner, slot: Int) for io::Seek effects [concurrency]
@@ -190,6 +225,34 @@ fn allocate_writer(owner: io_provider::Owner, slot: Int, cell: io_provider::Stat
 		Ok(resource) => io_provider::write_file(resource)
 		Err(error) => Err(error)
 	end
+end
+
+pub fn registered_writer(owner: io_provider::Owner, slot: Int, cell: io_provider::State<FakeState>, operation: String) -> Result<io::Writer, io::Error> effects [concurrency]
+	let registered = handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with named_writer(owner, slot, cell, operation) with seeker(owner, slot) with positional_writer(owner, slot) with closer(owner, slot) with syncer(owner, slot) with truncater(owner, slot)
+	match registered
+		Err(error) => Err(error)
+		Ok(resource) => match io_provider::write_file(resource)
+			Err(error) => Err(error)
+			Ok(fs::WriteFile(capability, _, _, _, _, _)) => Ok(capability)
+		end
+	end
+end
+
+pub fn coordinated_write(context: WriteRequest) -> WriteReport effects [io::Write, concurrency]
+	match context
+		WriteRequest(writer, bytes, ready, start) => begin
+			let _ = channel::send(ready, ())
+			let _ = channel::recv(start)
+			match io::write(writer, bytes)
+				io::WriteOutcome::Written(count) => WriteCompleted(byte_count_to_int(count))
+				io::WriteOutcome::WriteFailed(_, _) => WriteFailed
+			end
+		end
+	end
+end
+
+pub fn spawn_coordinated_write(request: WriteRequest) -> Task<WriteReport> effects [concurrency]
+	handle task::spawn_with<WriteReport, WriteRequest>(coordinated_write, request) with rejecting_writer()
 end
 
 pub handler filesystem(owner: io_provider::Owner, read_slot: Int, cell: io_provider::State<FakeState>) for fs::Read effects [concurrency]
