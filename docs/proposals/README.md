@@ -17,8 +17,9 @@ also states it.
 ## Ready
 
 - [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete the
-  remaining F4 transfer and mutation gate and F5 cleanup gate. F2 and F3 are
-  implemented and belong to the current
+  remaining F4 direct, complete-transfer, host-translation, seek, namespace,
+  and mutation rows and the F5 cleanup gate. Bounded `io::copy` outcomes and
+  progress, F2, and F3 are implemented and belong to the current
   [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
   The target does not require the production filesystem API to be implemented
   first.

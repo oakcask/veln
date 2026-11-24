@@ -1,0 +1,98 @@
+use io from "std"
+use io_provider from "std"
+use stdio
+
+type CopyState
+	CopyState(read_step: Int, write_step: Int, first: ByteChunk, second: ByteChunk, output: ByteChunk, writes: List<ByteChunk>)
+end
+
+fn observe(current: CopyState, context: ()) -> {state: CopyState, result: CopyState}
+	{state: current, result: current}
+end
+
+fn next_read(current: CopyState, context: ()) -> {state: CopyState, result: io::ReadOutcome}
+	match current
+		CopyState(0, write_step, first, second, output, writes) => {state: CopyState(1, write_step, first, second, output, writes), result: io::ReadOutcome::Data(first)}
+		CopyState(1, write_step, first, second, output, writes) => {state: CopyState(2, write_step, first, second, output, writes), result: io::ReadOutcome::Data(second)}
+		CopyState(step, write_step, first, second, output, writes) => {state: CopyState(step, write_step, first, second, output, writes), result: io::ReadOutcome::End}
+	end
+end
+
+fn next_write(current: CopyState, bytes: ByteChunk) -> {state: CopyState, result: io::WriteOutcome}
+	match current
+		CopyState(read_step, write_step, first, second, output, writes) => begin
+			let count = if write_step == 1 byte_count(2) else byte_count(1) end
+			match count
+				Err(_) => {state: current, result: io::WriteOutcome::Written(byte_chunk_count(byte_chunk([])))}
+				Ok(valid_count) => match byte_take(bytes, valid_count)
+					Err(_) => {state: current, result: io::WriteOutcome::Written(byte_chunk_count(byte_chunk([])))}
+					Ok(prefix) => {state: CopyState(read_step, write_step + 1, first, second, byte_append(output, prefix), Cons(bytes, writes)), result: io::WriteOutcome::Written(valid_count)}
+				end
+			end
+		end
+	end
+end
+
+handler reader(owner: io_provider::Owner, slot: Int, state: io_provider::State<CopyState>) for io::Read effects [concurrency]
+	read(capability, maximum) => match io_provider::reader_slot(owner, capability)
+		Ok(actual) => if actual == slot
+			io_provider::update(state, (), next_read)
+		else
+			io::ReadOutcome::End
+		end
+		Err(_) => io::ReadOutcome::End
+	end
+end
+
+handler writer(owner: io_provider::Owner, slot: Int, state: io_provider::State<CopyState>) for io::Write effects [concurrency]
+	write(capability, bytes) => match io_provider::writer_slot(owner, capability)
+		Ok(actual) => if actual == slot
+			io_provider::update(state, bytes, next_write)
+		else
+			io::WriteOutcome::Written(byte_chunk_count(byte_chunk([])))
+		end
+		Err(_) => io::WriteOutcome::Written(byte_chunk_count(byte_chunk([])))
+	end
+end
+
+handler closer() for io::Close
+	close(capability) => io::CloseOutcome::Closed
+end
+
+fn copy_body(owner: io_provider::Owner, state: io_provider::State<CopyState>) -> Result<(), String> effects [io::Read, io::Write, concurrency]
+	match io_provider::resource(owner, 41, io_provider::ViewFamily::Duplex)
+		Err(_) => Err("could not register copy resource")
+		Ok(resource) => match io_provider::duplex(resource)
+			Err(_) => Err("could not project copy resource")
+			Ok(view) => match io::copy(view.reader, view.writer, byte_count(4)?)
+		io::CopyOutcome::Copied(count) => match io_provider::update(state, (), observe)
+			CopyState(2, 4, _, _, output, Cons(fourth, Cons(third, Cons(second, Cons(first, Nil))))) => if byte_count_to_int(count) == 5 and byte_chunk_to_visible_ascii_string(output)? == "abcde" and byte_chunk_to_visible_ascii_string(first)? == "abc" and byte_chunk_to_visible_ascii_string(second)? == "bc" and byte_chunk_to_visible_ascii_string(third)? == "de" and byte_chunk_to_visible_ascii_string(fourth)? == "e"
+				Ok(())
+			else
+				Err("copy returned incorrect bytes or progress")
+			end
+			_ => Err("copy did not retry only unwritten suffixes")
+		end
+		io::CopyOutcome::CopyFailed(_, _, _) => Err("copy unexpectedly failed")
+			end
+		end
+	end
+end
+
+fn scoped_copy() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let first = byte_chunk_from_visible_ascii_string("abc")?
+	let second = byte_chunk_from_visible_ascii_string("de")?
+	let state = io_provider::state(CopyState(0, 0, first, second, byte_chunk([]), list_nil()))
+	handle handle handle copy_body(owner, state) with reader(owner, 41, state) with writer(owner, 41, state) with closer()
+end
+
+fn run_copy() -> Result<(), String> effects [concurrency]
+	handle scoped_copy() with io_provider::scope()
+end
+
+fn main() -> Result<(), String> effects [stdio, concurrency]
+	let _ = run_copy()?
+	stdio::println("copy outcomes and suffix writes")
+	Ok(())
+end
