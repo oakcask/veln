@@ -5,12 +5,19 @@ use super::*;
 pub(crate) struct ConstructorPatternScanWork {
     pub(crate) traversed: usize,
     pub(crate) retained: usize,
+    pub(crate) state_import_identities_indexed: usize,
+    pub(crate) state_import_alias_lookups: usize,
 }
 
 #[cfg(test)]
 thread_local! {
     static CONSTRUCTOR_PATTERN_SCAN_WORK: std::cell::Cell<ConstructorPatternScanWork> =
-        const { std::cell::Cell::new(ConstructorPatternScanWork { traversed: 0, retained: 0 }) };
+        const { std::cell::Cell::new(ConstructorPatternScanWork {
+            traversed: 0,
+            retained: 0,
+            state_import_identities_indexed: 0,
+            state_import_alias_lookups: 0,
+        }) };
 }
 
 #[cfg(test)]
@@ -35,6 +42,30 @@ fn record_constructor_pattern_scan(retained: bool) {
 
 #[cfg(not(test))]
 fn record_constructor_pattern_scan(_retained: bool) {}
+
+#[cfg(test)]
+pub(super) fn record_state_import_identity_indexed() {
+    CONSTRUCTOR_PATTERN_SCAN_WORK.set({
+        let mut work = CONSTRUCTOR_PATTERN_SCAN_WORK.get();
+        work.state_import_identities_indexed += 1;
+        work
+    });
+}
+
+#[cfg(not(test))]
+pub(super) fn record_state_import_identity_indexed() {}
+
+#[cfg(test)]
+pub(super) fn record_state_import_alias_lookup() {
+    CONSTRUCTOR_PATTERN_SCAN_WORK.set({
+        let mut work = CONSTRUCTOR_PATTERN_SCAN_WORK.get();
+        work.state_import_alias_lookups += 1;
+        work
+    });
+}
+
+#[cfg(not(test))]
+pub(super) fn record_state_import_alias_lookup() {}
 
 pub(super) fn collect_constructor_patterns_from_body<'a>(
     body: &'a [BodyLine],

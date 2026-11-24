@@ -225,3 +225,69 @@ fn unavailable_constructor_pattern_scan_retains_each_nested_node_once() {
     assert_eq!(larger.traversed, 130);
     assert_eq!(larger.retained, 128);
 }
+
+fn aliased_state_pattern_module(import_count: usize, pattern_count: usize) -> SurfaceModule {
+    let unrelated_imports = (0..import_count)
+        .map(|index| {
+            format!("use dependency_{index} as unrelated_{index} from \"package_{index}\"\n")
+        })
+        .collect::<String>();
+    let arms = (0..pattern_count)
+        .map(|_| "    provider::State::State(_) => ()\n")
+        .collect::<String>();
+    let source = SourceFile::new(
+        "app.veln",
+        format!(
+            "mod app\n{unrelated_imports}use io_provider as provider from \"std\"\nfn evidence(cell: provider::State<Int>) -> ()\n  match cell\n{arms}    _ => ()\n  end\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut module = lower_surface_ast(&parsed.tree);
+    for use_decl in &mut module.uses {
+        use_decl.importing_package = Some("app".to_string());
+    }
+    for function in &mut module.functions {
+        function.package_name = Some("app".to_string());
+    }
+    module
+}
+
+fn aliased_state_pattern_work(
+    import_count: usize,
+    pattern_count: usize,
+) -> crate::analysis::ConstructorPatternScanWork {
+    let module = aliased_state_pattern_module(import_count, pattern_count);
+    reset_constructor_pattern_scan_work();
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.id == "name.unresolved"
+                    && diagnostic.message.contains("provider::State::State")
+            })
+            .count(),
+        pattern_count,
+        "{diagnostics:#?}"
+    );
+    take_constructor_pattern_scan_work()
+}
+
+#[test]
+fn unavailable_aliased_state_patterns_index_import_identity_once_per_function() {
+    let smaller = aliased_state_pattern_work(32, 32);
+    let larger = aliased_state_pattern_work(64, 64);
+    eprintln!("aliased state pattern work: smaller={smaller:?}, larger={larger:?}");
+
+    assert_eq!(smaller.state_import_identities_indexed, 33);
+    assert_eq!(smaller.state_import_alias_lookups, 32);
+    assert_eq!(larger.state_import_identities_indexed, 65);
+    assert_eq!(larger.state_import_alias_lookups, 64);
+
+    let smaller_import_work =
+        smaller.state_import_identities_indexed + smaller.state_import_alias_lookups;
+    let larger_import_work =
+        larger.state_import_identities_indexed + larger.state_import_alias_lookups;
+    assert!(larger_import_work <= smaller_import_work * 2);
+}

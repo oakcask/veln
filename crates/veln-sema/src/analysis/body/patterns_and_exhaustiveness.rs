@@ -1,4 +1,6 @@
 use super::*;
+use std::cell::OnceCell;
+use std::collections::HashSet;
 
 mod constructor_pattern_scan;
 
@@ -16,10 +18,28 @@ struct MatchCoverageProgress {
     proving_arms: Vec<(String, SourceSpan)>,
 }
 
+fn index_standard_io_provider_state_aliases(
+    resolution_uses: &[veln_ast::UseDecl],
+) -> HashSet<String> {
+    resolution_uses
+        .iter()
+        .filter_map(|use_decl| {
+            constructor_pattern_scan::record_state_import_identity_indexed();
+            (use_decl.is_standard_package_import()
+                && use_decl.written_name.ends_with("io_provider"))
+            .then(|| use_decl.alias.clone())
+        })
+        .collect()
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn check_unavailable_constructor_patterns(&mut self) {
         let mut patterns = Vec::new();
         collect_constructor_patterns_from_body(&self.function.body, &mut patterns);
+        if patterns.is_empty() {
+            return;
+        }
+        let standard_io_provider_state_aliases = OnceCell::new();
         for pattern in patterns {
             let PatternKind::Constructor {
                 name, name_spans, ..
@@ -27,7 +47,7 @@ impl<'a> FunctionChecker<'a> {
             else {
                 continue;
             };
-            if !self.constructor_pattern_is_unavailable(name) {
+            if !self.constructor_pattern_is_unavailable(name, &standard_io_provider_state_aliases) {
                 continue;
             }
             if let Some(span) = name_spans.last() {
@@ -41,15 +61,23 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    fn constructor_pattern_is_unavailable(&self, name: &[String]) -> bool {
+    fn constructor_pattern_is_unavailable(
+        &self,
+        name: &[String],
+        standard_io_provider_state_aliases: &OnceCell<HashSet<String>>,
+    ) -> bool {
         let Some((_, base_segments)) = name.split_last() else {
             return false;
         };
-        self.is_standard_io_provider_state_path(base_segments)
+        self.is_standard_io_provider_state_path(base_segments, standard_io_provider_state_aliases)
             || self.constructor_base_has_unavailable_refinement(base_segments)
     }
 
-    fn is_standard_io_provider_state_path(&self, base_segments: &[String]) -> bool {
+    fn is_standard_io_provider_state_path(
+        &self,
+        base_segments: &[String],
+        standard_io_provider_state_aliases: &OnceCell<HashSet<String>>,
+    ) -> bool {
         let [alias, type_name] = base_segments else {
             return false;
         };
@@ -61,13 +89,10 @@ impl<'a> FunctionChecker<'a> {
         {
             return true;
         }
-        self.environment.uses.iter().any(|use_decl| {
-            use_decl.module_name.as_deref() == self.function.module_name.as_deref()
-                && use_decl.importing_package.as_deref() == self.function.package_name.as_deref()
-                && use_decl.alias == *alias
-                && use_decl.is_standard_package_import()
-                && use_decl.written_name.ends_with("io_provider")
-        })
+        let standard_io_provider_state_aliases = standard_io_provider_state_aliases
+            .get_or_init(|| index_standard_io_provider_state_aliases(&self.resolution_uses));
+        constructor_pattern_scan::record_state_import_alias_lookup();
+        standard_io_provider_state_aliases.contains(alias)
     }
 
     fn constructor_base_has_unavailable_refinement(&self, base_segments: &[String]) -> bool {
