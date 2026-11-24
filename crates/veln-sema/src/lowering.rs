@@ -512,26 +512,6 @@ fn render_core_type(ty: &CoreType) -> String {
     }
 }
 
-fn core_type_contains_unknown(ty: &CoreType) -> bool {
-    match ty {
-        CoreType::Unknown => true,
-        CoreType::Named { args, .. } => args.iter().any(core_type_contains_unknown),
-        CoreType::Record(fields) => fields
-            .iter()
-            .any(|(_, field_ty)| core_type_contains_unknown(field_ty)),
-        CoreType::Function {
-            params,
-            variadic,
-            return_type,
-            ..
-        } => {
-            params.iter().any(core_type_contains_unknown)
-                || variadic.as_deref().is_some_and(core_type_contains_unknown)
-                || core_type_contains_unknown(return_type)
-        }
-    }
-}
-
 fn constructor_arity_reason(constructor: AdtConstructor) -> &'static str {
     match constructor.descriptor.type_name.as_str() {
         "Option" => "option_constructor_arity_mismatch",

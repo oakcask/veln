@@ -610,8 +610,8 @@ impl<'a> CoreLowerer<'a> {
     ) -> CoreExpr {
         let mut ty = self.bindings[index].ty.clone();
         if let Some(expected) = expected
-            && !core_type_contains_unknown(expected)
-            && (core_type_contains_unknown(&ty)
+            && !expected.contains_unknown()
+            && (ty.contains_unknown()
                 || matches!(ty, CoreType::Record(ref fields) if fields.is_empty())
                     && expected.dict_parts().is_some())
         {

@@ -771,7 +771,7 @@ impl<'a> CoreLowerer<'a> {
                     let expected = signature
                         .params
                         .get(index)
-                        .filter(|expected| !core_type_contains_unknown(expected));
+                        .filter(|expected| !expected.contains_unknown());
                     self.lower_expr(arg, expected)
                 })
                 .collect();
@@ -785,7 +785,7 @@ impl<'a> CoreLowerer<'a> {
                 let expected = signature
                     .params
                     .get(index)
-                    .filter(|expected| !core_type_contains_unknown(expected));
+                    .filter(|expected| !expected.contains_unknown());
                 self.lower_expr(arg, expected)
             })
             .collect::<Vec<_>>();
@@ -949,25 +949,5 @@ fn retag_state_initializer(expr: &mut CoreExpr, expected: &CoreType) {
             }
         }
         _ => {}
-    }
-}
-
-fn core_type_contains_unknown(ty: &CoreType) -> bool {
-    match ty {
-        CoreType::Unknown => true,
-        CoreType::Named { args, .. } => args.iter().any(core_type_contains_unknown),
-        CoreType::Record(fields) => fields
-            .iter()
-            .any(|(_, field)| core_type_contains_unknown(field)),
-        CoreType::Function {
-            params,
-            variadic,
-            return_type,
-            ..
-        } => {
-            params.iter().any(core_type_contains_unknown)
-                || variadic.as_deref().is_some_and(core_type_contains_unknown)
-                || core_type_contains_unknown(return_type)
-        }
     }
 }

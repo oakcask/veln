@@ -566,18 +566,7 @@ pub(super) fn is_allowed_test_return(ty: &Type) -> bool {
 }
 
 pub(in crate::analysis) fn type_contains_unknown(ty: &Type) -> bool {
-    match ty {
-        Type::Unknown => true,
-        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
-            args.iter().any(type_contains_unknown)
-        }
-        Type::Record(fields) => fields.iter().any(|(_, ty)| type_contains_unknown(ty)),
-        Type::Function {
-            params,
-            return_type,
-            ..
-        } => params.iter().any(type_contains_unknown) || type_contains_unknown(return_type),
-    }
+    ty.contains_unknown()
 }
 
 pub(super) fn test_return_diagnostic(
