@@ -1,6 +1,36 @@
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
+
+static FIXTURE_ID: AtomicUsize = AtomicUsize::new(0);
+
+struct Fixture {
+    root: PathBuf,
+}
+
+impl Fixture {
+    fn new() -> Self {
+        let id = FIXTURE_ID.fetch_add(1, Ordering::Relaxed);
+        let root =
+            std::env::temp_dir().join(format!("veln-repo-metrics-{}-{id}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        Self { root }
+    }
+
+    fn rust_file(&self, relative: &str) -> PathBuf {
+        let path = self.root.join(relative);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "fn sample() {}\n").unwrap();
+        path
+    }
+}
+
+impl Drop for Fixture {
+    fn drop(&mut self) {
+        fs::remove_dir_all(&self.root).unwrap();
+    }
+}
 
 #[test]
 fn reports_function_over_threshold() {
@@ -193,4 +223,33 @@ fn renders_bounded_human_output_with_machine_report_route() {
     assert!(human.contains("first.rs:1: file has 701 lines"));
     assert!(!human.contains("second.rs:1: file has 702 lines"));
     assert!(human.contains("use --format json for the complete report"));
+}
+
+#[test]
+fn rust_file_collection_skips_generated_directories() {
+    let fixture = Fixture::new();
+    let source = fixture.rust_file("src/lib.rs");
+    fixture.rust_file("target/generated.rs");
+    fixture.rust_file("node_modules/package/generated.rs");
+    fixture.rust_file(".git/generated.rs");
+
+    let mut files = Vec::new();
+    collect_rust_files(&fixture.root, &mut files).unwrap();
+
+    assert_eq!(files, vec![source]);
+}
+
+#[cfg(unix)]
+#[test]
+fn rust_file_collection_does_not_follow_directory_symlinks() {
+    let fixture = Fixture::new();
+    let source = fixture.rust_file("src/lib.rs");
+    let linked = fixture.rust_file("generated/output.rs");
+    std::os::unix::fs::symlink(linked.parent().unwrap(), fixture.root.join("linked")).unwrap();
+
+    let mut files = Vec::new();
+    collect_rust_files(&fixture.root, &mut files).unwrap();
+    files.sort();
+
+    assert_eq!(files, vec![linked, source]);
 }

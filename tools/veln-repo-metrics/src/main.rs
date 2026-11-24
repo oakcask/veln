@@ -356,8 +356,11 @@ fn collect_configured_rust_files(config: &Config) -> Result<Vec<PathBuf>, String
 }
 
 fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
-    let metadata = fs::metadata(path)
+    let metadata = fs::symlink_metadata(path)
         .map_err(|error| format!("failed to read metadata for {}: {error}", path.display()))?;
+    if metadata.is_symlink() {
+        return Ok(());
+    }
     if metadata.is_file() {
         if path.extension() == Some(OsStr::new("rs")) {
             files.push(path.to_path_buf());
@@ -366,6 +369,12 @@ fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), Strin
     }
 
     if !metadata.is_dir() {
+        return Ok(());
+    }
+    if path
+        .file_name()
+        .is_some_and(|name| matches!(name.to_str(), Some("target" | ".git" | "node_modules")))
+    {
         return Ok(());
     }
 
