@@ -13,9 +13,10 @@ streams, and memory.
 The [design decisions](#design-decisions) resolve the initial scope. The static
 source names and capability boundaries, bounded namespace-token allocation and
 projection, five-family registration, projection and compatibility, and atomic
-provider state are implemented for feasibility. Namespace and resource
-operation dispatch and the remaining acceptance evidence are planned.
-Implementation selection remains blocked on the separate
+provider state are implemented for feasibility. Provider-bound namespace and
+resource dispatch is also implemented. The remaining lifecycle, outcome, and
+host-integration evidence is planned. Implementation selection remains blocked
+on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
 ## Current Boundary And Scope
@@ -256,10 +257,9 @@ per-open lifecycle, synchronized state, and scripted failures.
 
 ## Acceptance Model
 
-Except for the checked static source and capability boundary, bounded
-namespace-token allocation and projection, the five-family registration,
-projection, and compatibility slice, and atomic provider state, the evidence
-below is planned.
+The checked feasibility foundation belongs to the
+[current specification](../specification/standard-library-filesystem-io.md).
+The evidence below is planned.
 Expected byte sequences and state transitions come from the contracts and
 decision tables in this proposal, not from copying the implementation's
 output. Fake tests do not establish real host behavior.
@@ -267,7 +267,6 @@ output. Fake tests do not establish real host behavior.
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
 | Host conversion | An unrepresentable name fails without selecting another entry; native and portable types cannot be interchanged implicitly. | Companion tests plus focused host-conversion and compiler type-boundary tests. |
-| Multiple resources | Copy between two resources and two filesystem instances reaches the intended input and output under nested handlers. | Companion tests with distinct bytes and provider traces. |
 | Partial transfer | Short reads are data; complete helpers preserve bytes and progress; partial writes retry only an uncommitted suffix; unknown progress stops retry. | Scripted Veln fake tests with independent expected contents and operation logs. |
 | Seek and positional IO | Origin arithmetic, invalid targets, beyond-end reads, independent opens, aliases, and positional cursor preservation obey the state table. | Companion tests shared by memory and supported system providers; host tests for native translation. |
 | Namespace updates | Open modes, exclusive create, directory operations, rename, and truncation obey the mutation transition table, including failure preservation. | Shared provider conformance tests and focused real-host integration cases. |
@@ -284,17 +283,15 @@ No broad stress or performance claim is part of this proposal.
 
 These decisions replace the former open questions. The adapter and capability
 choices are Veln design inferences, not guarantees supplied by the comparative
-sources. The static API contract, bounded namespace-token allocation and
-projection, bounded five-family runtime slice, and atomic state prerequisite
-are implemented where the table links to the current specification. The
-remaining runtime decisions are proposed contracts, not evidence that their
+sources. Implemented prerequisites belong to the
+[current specification](../specification/standard-library-filesystem-io.md).
+The table lists remaining runtime decisions; it is not evidence that their
 runtime support exists.
 
 | Concern | Selected initial design | Acceptance obligation |
 | --- | --- | --- |
-| Public API | Nominal capability views and separate namespace and byte effects; no traits, implicit capability coercions, or new effect syntax. | Keep the [implemented static source surface](../specification/standard-library-filesystem-io.md) type-checking; reject a reader passed to write or a stream passed to seek. |
-| Provider dispatch | Opaque runtime tokens retain their owner and creating operation handlers. Extend the runtime resource boundary explicitly; do not encode public handles as integers or host objects. | Two Veln providers, nested shadowing, wrong-owner publication, closed-owner use, and cross-provider copy at the feasibility gate. |
-| Fake state | Use the implemented synchronized `io_provider::State<T>` cell to carry each fake filesystem's immutable state. Resource slots, file identities, cursors, close facts, and failure plans are ordinary Veln data. The runtime extension provides atomic storage, not fake behavior. | Two provider-bound Veln fakes use the cell without sharing state between independent fake instances. The [current atomic-state contract](../specification/standard-library-filesystem-io.md#atomic-state) continues to own shared-child updates, failure preservation, cancellation, and admission release. |
+| Provider lifecycle | Preserve the owner identity retained by opaque runtime tokens through task freezing and owner cleanup. Do not encode public handles as integers or host objects. | Reject wrong-owner or closed-owner publication, release late resources, and retain cleanup failures at the feasibility gate. |
+| Fake state | Use the current synchronized [`io_provider::State<T>`](../specification/standard-library-filesystem-io.md#atomic-state) cell to carry each fake filesystem's immutable state. Resource slots, file identities, cursors, close facts, and failure plans are ordinary Veln data. | Provider-bound Veln fakes use the cell without sharing state between independent fake instances. |
 | Native paths | Keep the current host-owned `Path` as the explicit native boundary; `path::Path` remains portable. Support only exactly representable names initially. | Nonrepresentable names fail with `UnrepresentablePath`; display is never used as a conversion. |
 | Links and confinement | Follow links for ordinary open; explicit follow/no-follow metadata. No confinement or link-creation capability initially. A subtree is only a namespace view. | Dangling links, cycles, unsupported no-follow, and a link outside a subtree cannot be misreported as confined access. |
 | IO outcomes | Preserve delivered bytes, exact or unknown progress, typed errors, and copy's independent consumed/committed counts. | Scripted partial-failure, empty-request, no-progress, and unknown-progress cases below. |
@@ -322,61 +319,15 @@ access. Append must remain a separate entry point and must not grant read,
 truncate, seek, or positional-write views. Optional capability discovery is
 outside the initial API.
 
-### Provider-Bound Dispatch And Remaining Lifecycle
+### Provider Lifecycle
 
-This is an implemented runtime/compiler adapter extension, not a claim that
-ordinary nominal dispatch provides resource-bound routing. The bounded current
-slice registers all five resource families, projects their capabilities, and
-invokes the captured handlers through the standard `fs` and `io` facades. The
-atomic state portion of the adapter extension is implemented separately.
-Existing `NetListener` and `NetStream` demonstrate opaque handles, but do not
-provide a general Veln-only provider allocation API. Do not reuse their network
-bridge or invent an unimplemented trait or closure representation.
-
-The bounded adapter slice already creates owner-scoped read-only and mutable
-filesystem tokens, captures their namespace handlers, registers all five byte
-resource families, projects their capabilities, and validates their private
-slots. The
-[current filesystem and byte IO specification](../specification/standard-library-filesystem-io.md#runtime-prototypes)
-owns those allocation, failure, identity, and projection rules.
-
-The current specification owns the implemented F2 observations:
-
-| Boundary | Required observation |
-| --- | --- |
-| Namespace dispatch | The standard facade invokes the `fs::Read` or `fs::Mutate` handler captured by the filesystem token. Nested handler shadowing does not redirect an existing token. |
-| Byte-resource dispatch | The standard facade invokes exactly the operation handler retained by the projected capability and passes the public restricted view. |
-| Byte-resource slot access | Matching active owners can read private slots during captured dispatch. Wrong-owner access returns `InvalidResource`. |
-
-Owner and resource lifecycle remains proposed. It must preserve identity
-across task freezing, reject operations and late publication after owner
+The implemented provider foundation and its limits belong to the
+[current filesystem and byte IO specification](../specification/standard-library-filesystem-io.md#runtime-prototypes).
+The remaining lifecycle work must preserve owner and resource identity across
+task freezing. It must reject operations and late publication after owner
 closure, release retained resources through their captured close handlers, and
-preserve cleanup failures.
-
-Dispatch must not fall back to a host filesystem or network operation when a
-captured handler is missing or unusable. Integer equality is never a public
-filesystem-token or resource identity test.
-
-The same runtime extension now supplies the opaque `State<T>` API. Its generic
-signatures, serialized updates, task identity, failure preservation,
-reentrancy rejection, publication boundary, and cooperative-cancellation limit
-are current behavior owned by
-[Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md#atomic-state).
-The remaining provider work must use that API for fake state instead of adding
-a second state boundary. Pure callbacks keep fake filesystem decisions in Veln
-and cannot perform nested provider IO while holding the cell. Allocation and
-updates expose only `concurrency`, not host `fs` or `net` effects.
-
-The implemented public filesystem and byte facades invoke the resource's
-captured operation handler with its original provider context and retain the
-declared nominal effect in static checking. Runtime routing is restricted to
-these standard resource facades; ordinary `perform` keeps lexical selection.
-Calling another provider's low-level operation with a foreign token fails
-before changing provider state. Nested handlers affect only newly created
-resources, while calls on existing resources retain their creator. The
-[current specification](../specification/standard-library-filesystem-io.md#provider-bound-dispatch)
-owns these rules. Preventing dispatched operations after owner closure remains
-part of the lifecycle work below.
+preserve cleanup failures. It must use the current `io_provider::State<T>`
+boundary for fake state rather than adding a second state mechanism.
 
 Publication and the owner's closing transition share an atomic admission
 boundary. A late host open is closed before returning `Closed`; cleanup failure
@@ -522,10 +473,9 @@ invalidation belong to a separate buffering proposal before such helpers exist.
 
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) owns the remaining
 F3–F5 prototype scope, evidence, and completion conditions. It is independently
-selectable from Ready. The implemented static source surface, provider
-allocation, and F2 dispatch slice, together with the planned lifecycle,
-outcome, and transition tables here, remain the design contract exercised by
-that work.
+selectable from Ready. The current provider foundation, together with the
+planned lifecycle, outcome, and transition tables here, remains the design
+contract exercised by that work.
 Implementing the complete production filesystem runtime is not its
 prerequisite.
 
