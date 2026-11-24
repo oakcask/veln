@@ -445,7 +445,10 @@ operations return their `InvalidResource` failure shape without invoking a
 captured or selected operation handler. Ordinary dispatch remains unavailable
 during cleanup. This includes recursive `io::close`, which returns the closed
 owner failure without re-entering the close handler. The transition applies on
-normal return, propagated `Err`, and task cancellation.
+normal return, a returned `Err`, an abrupt contract or modeled runtime failure,
+and task cancellation. When restricted cleanup succeeds during an abrupt
+failure, the original failure remains primary and execution does not continue
+after the handled scope.
 
 The runtime then invokes each registered resource's captured close handler.
 During that invocation, the matching owner can inspect the releasing resource
@@ -458,6 +461,12 @@ The close handler's scripted success or failure does not replace an ordinary
 body `Result`; the complete F5 primary and related cleanup-failure projection
 remains unimplemented.
 
+A failed close outcome or modeled Veln runtime failure is retained at this
+bounded owner boundary. A fatal JVM `Error` is not a retained release result.
+After the runtime restores the current release authority and removes the
+current registered resource and scope frame, the same fatal error escapes to
+the JVM execution boundary.
+
 If cancellation is first delivered at a checkpoint in a close handler, the
 runtime retains cancellation as the primary unwind. It still attempts all
 already-selected release handlers. Execution after the handled owner scope
@@ -469,8 +478,9 @@ A facade or accepted lexical namespace call that began while the owner was
 open can finish its provider call after owner closure. A resource produced by
 that call is rejected with `io::ErrorKind::InvalidResource`, is not inserted
 into the owner registry, and is passed once to its captured close handler. A
-failed close outcome or a runtime failure from that release is retained by the
-owner boundary. This admission decision is atomic with owner closure and
+failed close outcome or a modeled Veln runtime failure from that release is
+retained by the owner boundary. This admission decision is atomic with owner
+closure and
 existing-slot validation. An active release for one owner does not change the
 release obligation of another owner's independently admitted late resource.
 The runtime leaves registry admission before it invokes the close handler, so

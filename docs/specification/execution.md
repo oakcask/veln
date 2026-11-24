@@ -145,14 +145,21 @@ access only for the matching owner and exact resource being released, including
 capabilities projected from that resource. Stale same-slot aliases and foreign
 owners receive `InvalidResource`. Ordinary dispatch, including recursive close,
 remains unavailable. Rejected access leaves unrelated provider state unchanged.
-This boundary runs for normal return, propagated errors, and task cancellation.
+This boundary runs for normal return, a returned `Err`, an abrupt contract or
+modeled runtime failure, and task cancellation. When restricted cleanup
+succeeds during an abrupt failure, the original failure remains primary and
+execution does not continue after the handled scope.
 
 A facade or accepted lexical open admitted before owner closure can finish
-afterward. Its resource is rejected instead of published, released once
-through the captured close handler, and a failed close outcome or runtime
-failure is retained. The publication decision is atomic with owner closure and
-slot occupancy. One owner's active release does not suppress another owner's
-independently admitted late-resource release. Release code runs after registry
+afterward. Its resource is rejected instead of published and released once
+through the captured close handler. A failed close outcome or a modeled Veln
+runtime failure is retained. A fatal JVM `Error` from a close handler is not
+converted into a retained release result. For registered-resource cleanup, the
+runtime restores the current release authority, removes the current resource,
+restores the handler stack, and then lets the same error escape. The publication
+decision is atomic with owner closure and slot occupancy. One owner's active
+release does not suppress another owner's independently admitted late-resource
+release. Release code runs after registry
 admission is relinquished, so a close handler can wait for an inherited child's
 rejected registration without deadlocking. The
 deterministic

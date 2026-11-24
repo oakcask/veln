@@ -339,7 +339,7 @@
             );
         } catch (TaskCancellationFailure cancelled) {
             throw cancelled;
-        } catch (RuntimeException | Error failure) {
+        } catch (RuntimeFailure failure) {
             retainIoProviderReleaseFailure(resource.owner, failure);
             return failure;
         } finally {

@@ -148,7 +148,15 @@ public final class IoProviderOwnerLifecycleHarness {
         VelnRuntime.popHandler();
     }
 
-    private static void registeredRelease(Object foreignOwner, String exitKind) throws Exception {
+    private static void raiseRuntimeFailure(VelnRuntime.RuntimeFailure failure) {
+        throw failure;
+    }
+
+    private static void registeredRelease(
+        Object foreignOwner,
+        String exitKind,
+        VelnRuntime.RuntimeFailure abruptFailure
+    ) throws Exception {
         java.util.concurrent.atomic.AtomicInteger readCalls = new java.util.concurrent.atomic.AtomicInteger();
         java.util.concurrent.atomic.AtomicInteger closeCalls = new java.util.concurrent.atomic.AtomicInteger();
         java.util.concurrent.atomic.AtomicInteger unrelatedState = new java.util.concurrent.atomic.AtomicInteger(7);
@@ -208,7 +216,27 @@ public final class IoProviderOwnerLifecycleHarness {
         readerRef.set(VelnRuntime.adtPayload(projected.value(), 0));
         popReadFileHandlers();
 
-        VelnRuntime.popHandler();
+        VelnRuntime.RuntimeFailure observedFailure = null;
+        boolean continuedAfterScope = false;
+        try {
+            try {
+                if (abruptFailure != null) raiseRuntimeFailure(abruptFailure);
+            } finally {
+                VelnRuntime.popHandler();
+            }
+            continuedAfterScope = true;
+        } catch (VelnRuntime.RuntimeFailure failure) {
+            observedFailure = failure;
+        }
+
+        require(
+            observedFailure == abruptFailure,
+            exitKind + " exit changed the abrupt body failure"
+        );
+        require(
+            abruptFailure == null || !continuedAfterScope,
+            exitKind + " exit continued after the abrupt body failure"
+        );
 
         require(closeCalls.get() == 1, exitKind + " exit did not release exactly once");
         require(
@@ -219,6 +247,70 @@ public final class IoProviderOwnerLifecycleHarness {
             isInvalidResource(VelnRuntime.ioProviderSlot(releaseOwner, registered.value())),
             exitKind + " exit left ordinary slot access available"
         );
+    }
+
+    private static void fatalReleaseErrorPropagates(Object foreignOwner) throws Exception {
+        int outerHandlerDepth = handlers().size();
+        java.util.concurrent.atomic.AtomicInteger closeCalls = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger unrelatedState = new java.util.concurrent.atomic.AtomicInteger(11);
+        java.util.concurrent.atomic.AtomicReference<Object> ownerRef = new java.util.concurrent.atomic.AtomicReference<Object>();
+        java.util.concurrent.atomic.AtomicReference<Object> resourceRef = new java.util.concurrent.atomic.AtomicReference<Object>();
+        java.util.concurrent.atomic.AtomicReference<Object> closerRef = new java.util.concurrent.atomic.AtomicReference<Object>();
+        Error fatal = new Error("planned fatal release error");
+
+        pushScope();
+        Object scope = handlers().get(handlers().size() - 1);
+        Object releaseOwner = owner();
+        ownerRef.set(releaseOwner);
+        pushReadFileHandlers(
+            (Object... supplied) -> VelnRuntime.adt("io::ReadOutcome::End", new Object[0]),
+            (Object... supplied) -> {
+                closeCalls.incrementAndGet();
+                Object closer = supplied[0];
+                closerRef.set(closer);
+                require(
+                    slotEquals(VelnRuntime.ioProviderCloserSlot(ownerRef.get(), closer), 52L),
+                    "fatal release could not inspect its matching capability slot"
+                );
+                require(
+                    isInvalidResource(VelnRuntime.ioProviderCloserSlot(foreignOwner, closer)),
+                    "fatal release granted a foreign owner access"
+                );
+                require(unrelatedState.get() == 11, "fatal release changed unrelated state");
+                throw fatal;
+            }
+        );
+        VelnRuntime.Result registered = result(
+            VelnRuntime.ioProviderResource(releaseOwner, Long.valueOf(52L), family())
+        );
+        require(registered.isOk(), "fatal-release resource registration failed");
+        resourceRef.set(registered.value());
+        popReadFileHandlers();
+
+        Error observed = null;
+        boolean continuedAfterScope = false;
+        try {
+            VelnRuntime.popHandler();
+            continuedAfterScope = true;
+        } catch (Error failure) {
+            observed = failure;
+        }
+
+        require(observed == fatal, "fatal release did not preserve throwable identity");
+        require(!continuedAfterScope, "fatal release continued after the owner scope");
+        require(closeCalls.get() == 1, "fatal release did not invoke the close handler once");
+        require(resourceCount(releaseOwner) == 0, "fatal release left its resource registered");
+        require(releaseFailures(scope).isEmpty(), "fatal release was converted to a retained failure");
+        require(handlers().size() == outerHandlerDepth, "fatal release did not restore handler frames");
+        require(
+            isInvalidResource(VelnRuntime.ioProviderCloserSlot(releaseOwner, closerRef.get())),
+            "fatal release did not restore restricted release authority"
+        );
+        require(
+            isInvalidResource(VelnRuntime.ioProviderSlot(releaseOwner, resourceRef.get())),
+            "fatal release left ordinary slot access available"
+        );
+        require(unrelatedState.get() == 11, "fatal release changed unrelated state after unwind");
     }
 
     private static void latePublication(
@@ -714,7 +806,13 @@ public final class IoProviderOwnerLifecycleHarness {
 
     public static void main(String[] args) throws Exception {
         Object foreignOwner = makeForeignOwner();
-        registeredRelease(foreignOwner, "normal");
+        registeredRelease(foreignOwner, "normal", null);
+        registeredRelease(
+            foreignOwner,
+            "abrupt runtime failure",
+            new VelnRuntime.RuntimeFailure("planned abrupt owner body failure")
+        );
+        fatalReleaseErrorPropagates(foreignOwner);
         latePublication(foreignOwner, false, false, false, false, false);
         latePublication(foreignOwner, true, false, false, false, false);
         latePublication(foreignOwner, false, false, true, false, false);
