@@ -404,7 +404,7 @@ This preserves the value type expected by every callback that shares the cell.
 The rules preserve the generic arguments through core lowering instead of
 replacing them with `unknown`. The opaque state API and its runtime behavior
 are specified by
-[Standard-library filesystem and byte IO](standard-library-filesystem-io.md#file-view-runtime-prototype).
+[Standard-library filesystem and byte IO](standard-library-filesystem-io.md#atomic-state).
 The package identity is part of this compiler-known boundary. A declaration in
 another package keeps its declared parameter and result types during checking,
 checked-core lowering, and typed-IR lowering even if its module and function

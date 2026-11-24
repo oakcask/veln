@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#imports-and-static-surface; behavior=#file-view-runtime-prototype; limits=#runtime-limits
+specification-coverage: usage=#imports-and-static-surface; behavior=#runtime-prototypes; limits=#runtime-limits
 update-when: The exported io, fs, or io_provider static source API, opaque capability identities, atomic provider-state typing or runtime behavior, checked filesystem IO evidence, file-view declarations, or filesystem IO runtime readiness changes.
 ---
 
@@ -163,7 +163,9 @@ one projection cannot be assigned as another file-view family. The focused
 cases under [References](#references) check wrong and missing operands,
 filesystem and projection separation, and opaque identities.
 
-## File-view runtime prototype
+## Runtime prototypes
+
+### Atomic state
 
 `io_provider::state` creates an independent opaque `State<T>` cell. Passing a
 cell to a child task preserves cell identity, so parent and child updates share
@@ -216,6 +218,8 @@ reaches a generated checkpoint. State values, callback context, replacements,
 and results can contain deeply nested Veln lists without consuming JVM
 call-stack depth in proportion to the list depth. A completed deep-value
 transition leaves the cell available for a later update.
+
+### File views
 
 Within an active `io_provider::scope`, `io_provider::resource` accepts an
 unused nonnegative private slot for `ViewFamily::ReadFile` only when active

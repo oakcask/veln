@@ -290,7 +290,7 @@ evidence that their runtime support exists.
 | --- | --- | --- |
 | Public API | Nominal capability views and separate namespace and byte effects; no traits, implicit capability coercions, or new effect syntax. | Keep the [implemented static source surface](../specification/standard-library-filesystem-io.md) type-checking; reject a reader passed to write or a stream passed to seek. |
 | Provider dispatch | Opaque runtime tokens retain their owner and creating operation handlers. Extend the runtime resource boundary explicitly; do not encode public handles as integers or host objects. | Two Veln providers, nested shadowing, wrong-owner publication, closed-owner use, and cross-provider copy at the feasibility gate. |
-| Fake state | Use the implemented synchronized `io_provider::State<T>` cell to carry each fake filesystem's immutable state. Resource slots, file identities, cursors, close facts, and failure plans are ordinary Veln data. The runtime extension provides atomic storage, not fake behavior. | Two provider-bound Veln fakes use the cell without sharing state between independent fake instances. The [current atomic-state contract](../specification/standard-library-filesystem-io.md#file-view-runtime-prototype) continues to own shared-child updates, failure preservation, cancellation, and admission release. |
+| Fake state | Use the implemented synchronized `io_provider::State<T>` cell to carry each fake filesystem's immutable state. Resource slots, file identities, cursors, close facts, and failure plans are ordinary Veln data. The runtime extension provides atomic storage, not fake behavior. | Two provider-bound Veln fakes use the cell without sharing state between independent fake instances. The [current atomic-state contract](../specification/standard-library-filesystem-io.md#atomic-state) continues to own shared-child updates, failure preservation, cancellation, and admission release. |
 | Native paths | Keep the current host-owned `Path` as the explicit native boundary; `path::Path` remains portable. Support only exactly representable names initially. | Nonrepresentable names fail with `UnrepresentablePath`; display is never used as a conversion. |
 | Links and confinement | Follow links for ordinary open; explicit follow/no-follow metadata. No confinement or link-creation capability initially. A subtree is only a namespace view. | Dangling links, cycles, unsupported no-follow, and a link outside a subtree cannot be misreported as confined access. |
 | IO outcomes | Preserve delivered bytes, exact or unknown progress, typed errors, and copy's independent consumed/committed counts. | Scripted partial-failure, empty-request, no-progress, and unknown-progress cases below. |
@@ -355,7 +355,7 @@ The same runtime extension now supplies the opaque `State<T>` API. Its generic
 signatures, serialized updates, task identity, failure preservation,
 reentrancy rejection, publication boundary, and cooperative-cancellation limit
 are current behavior owned by
-[Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md#file-view-runtime-prototype).
+[Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md#atomic-state).
 The remaining provider work must use that API for fake state instead of adding
 a second state boundary. Pure callbacks keep fake filesystem decisions in Veln
 and cannot perform nested provider IO while holding the cell. Allocation and

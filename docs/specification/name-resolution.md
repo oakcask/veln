@@ -655,7 +655,7 @@ selects the standard `io_provider` module, such as
 `provider::State::State`. The alias does not publish a constructor. An exact
 `io_provider.test.veln` companion has the same boundary and cannot construct
 or inspect a state cell. The
-[filesystem IO specification](standard-library-filesystem-io.md#file-view-runtime-prototype)
+[filesystem IO specification](standard-library-filesystem-io.md#atomic-state)
 defines the allocation API. The checked
 [`constructor boundary`](../../examples/specification/check/filesystem-io-opaque-state-companion-boundary/)
 and
