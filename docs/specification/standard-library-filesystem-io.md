@@ -558,10 +558,11 @@ capability and effect boundary.
   authority, closed-owner resource-publication rejection, and absence of
   active host fallback:
   [`IoProviderDispatchHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderDispatchHarness.java).
-- JVM owner closure, gated late publication, successful and failed late
-  release, retained release failure, facade and lexical ordinary-use
-  rejection, recursive-close non-reentry, exact-resource identity, stale
-  same-slot rejection, and occupied-slot admission:
+- JVM owner closure, gated facade and lexical late publication, successful and
+  failed late release, cross-owner admission during cleanup, retained release
+  failure, facade and lexical ordinary-use rejection, cancellation first
+  delivered during release, recursive-close non-reentry, exact-resource
+  identity, stale same-slot rejection, and occupied-slot admission:
   [`IoProviderOwnerLifecycleHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderOwnerLifecycleHarness.java).
 - JVM-controlled single-successor admission handoff, cancelled-waiter removal,
   cancellation checkpoints, publication, queued failure release, failure
