@@ -1,0 +1,95 @@
+use io from "std"
+use io_provider from "std"
+
+type CopyState
+	CopyState(source: ByteChunk, reads: Int, writes: Int)
+end
+
+fn zero_progress() -> io::Progress
+	io::Progress::Known(byte_chunk_count(byte_chunk([])))
+end
+
+fn invalid_resource(message: String) -> io::Error
+	io::Error::Error("copy-work-test", io::ErrorKind::InvalidResource, None, None, None, None, message)
+end
+
+fn slot_matches(actual: Result<Int, io::Error>, expected: Int) -> Bool
+	match actual
+		Ok(slot) => slot == expected
+		Err(_) => false
+	end
+end
+
+fn next_read(current: CopyState, maximum: ByteCount) -> {state: CopyState, result: io::ReadOutcome}
+	match current
+		CopyState(source, reads, writes) => if reads == 0
+			{state: CopyState(source, 1, writes), result: io::ReadOutcome::Data(source)}
+		else
+			{state: CopyState(source, reads + 1, writes), result: io::ReadOutcome::End}
+		end
+	end
+end
+
+fn next_write(current: CopyState, bytes: ByteChunk) -> {state: CopyState, result: io::WriteOutcome}
+	match current
+		CopyState(source, reads, writes) => {state: CopyState(source, reads, writes + 1), result: io::WriteOutcome::Written(ByteCount(1))}
+	end
+end
+
+fn snapshot(current: CopyState, context: ()) -> {state: CopyState, result: {reads: Int, writes: Int}}
+	match current
+		CopyState(_, reads, writes) => {state: current, result: {reads: reads, writes: writes}}
+	end
+end
+
+handler reader(owner: io_provider::Owner, slot: Int, state: io_provider::State<CopyState>) for io::Read effects [concurrency]
+	read(resource, maximum) => if slot_matches(io_provider::reader_slot(owner, resource), slot)
+		io_provider::update(state, maximum, next_read)
+	else
+		io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), invalid_resource("reader belongs to another provider"))
+	end
+end
+
+handler writer(owner: io_provider::Owner, slot: Int, state: io_provider::State<CopyState>) for io::Write effects [concurrency]
+	write(resource, bytes) => if slot_matches(io_provider::writer_slot(owner, resource), slot)
+		io_provider::update(state, bytes, next_write)
+	else
+		io::WriteOutcome::WriteFailed(zero_progress(), invalid_resource("writer belongs to another provider"))
+	end
+end
+
+handler closer() for io::Close
+	close(resource) => io::CloseOutcome::Closed
+end
+
+fn copy_body(owner: io_provider::Owner, slot: Int, state: io_provider::State<CopyState>) -> Result<(), String> effects [io::Read, io::Write, concurrency]
+	match io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex)
+		Err(_) => Err("could not register copy work resource")
+		Ok(resource) => match io_provider::duplex(resource)
+			Err(_) => Err("could not project copy work resource")
+			Ok(view) => match io::copy(view.reader, view.writer, ByteCount(64))
+				io::CopyOutcome::Copied(count) => begin
+					let observed = io_provider::update(state, (), snapshot)
+					if byte_count_to_int(count) == 64 and observed.reads == 2 and observed.writes == 64
+						Ok(())
+					else
+						Err("copy changed its bounded provider call sequence")
+					end
+				end
+				_ => Err("copy did not complete")
+			end
+		end
+	end
+end
+
+fn execute(source: ByteChunk) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 905
+	let state = io_provider::state(CopyState(source, 0, 0))
+	handle handle handle copy_body(owner, slot, state) with reader(owner, slot, state) with writer(owner, slot, state) with closer()
+end
+
+pub fn main() -> Result<(), String> effects [concurrency]
+	let source = byte_chunk_from_visible_ascii_string("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")?
+	handle execute(source) with io_provider::scope()
+end
