@@ -996,9 +996,12 @@
             }
             consumed += count;
 
+            int offset = 0;
             int remaining = (int) count;
-            Object suffix = bytes;
             while (remaining > 0) {
+                Object suffix = offset == 0
+                    ? bytes
+                    : byteChunkDerivedObject(bytes, offset, remaining);
                 Object write = ioProviderDispatch2(IO_WRITE_EFFECT, "write", writer, suffix);
                 if (isAdt(write, "WriteOutcome::WriteFailed")) {
                     Object failureProgress = adtPayload(write, 0);
@@ -1052,10 +1055,8 @@
                     );
                 }
                 committed += written;
+                offset += (int) written;
                 remaining -= (int) written;
-                if (remaining > 0) {
-                    suffix = byteChunkDerivedObject(suffix, (int) written, remaining);
-                }
             }
         }
     }

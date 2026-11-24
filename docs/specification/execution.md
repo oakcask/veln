@@ -153,10 +153,7 @@ execution does not continue after the handled scope.
 The same private adapter implements bounded `io::copy` by dispatching through
 the source and destination capabilities. It retries only the uncommitted write
 suffix, stops on no progress or invalid provider counts, and preserves separate
-consumed and committed progress on failure. When partial writes repeatedly
-shorten one read chunk, the adapter derives each suffix from the current suffix.
-The total newly materialized suffix storage does not exceed the original chunk
-length. The
+consumed and committed progress on failure. The
 [standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#provider-bound-dispatch)
 owns the source-visible outcomes, validation rules, and remaining limits.
 
@@ -1036,10 +1033,6 @@ than degrading it to a generic rendered result value.
   removal, queued callback failure, checkpoint cancellation, publication, and
   cell reuse in
   [`AtomicStateHarness.java`](../../crates/veln-backend-jvm/test-support/AtomicStateHarness.java).
-- JVM bounded-copy evidence submits one 64-byte read chunk through 64 one-byte
-  partial writes and requires correct suffixes with at most 64 bytes of newly
-  materialized suffix storage in
-  [`IoCopySuffixWorkHarness.java`](../../crates/veln-backend-jvm/test-support/IoCopySuffixWorkHarness.java).
 - Normal completion, nested unwinding, registration-time snapshots, and the
   public test boundary are checked by
   [`deferred-cleanup-runtime-boundary`](../../examples/specification/run/deferred-cleanup-runtime-boundary/),
