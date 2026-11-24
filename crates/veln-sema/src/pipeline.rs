@@ -32,7 +32,10 @@ mod identifier_casing;
 mod module_value_publication;
 mod publication;
 
-use declaration_checks::{check_function_declaration_and_body, check_module_declarations};
+use declaration_checks::{
+    SurfaceAnalysis, check_function_declaration_and_body, check_module_declarations,
+    retain_function_state_call_types,
+};
 use diagnostic_ordering::{
     merge_variant_refinement_base_diagnostics, order_delayed_parse_diagnostics,
     order_variant_refinement_visibility_diagnostics,
@@ -102,12 +105,6 @@ impl LoweredSurfaceModule {
             module_value_publication: IndexedModuleValuePublicationProvenance::default(),
         }
     }
-}
-
-struct SurfaceAnalysis {
-    diagnostics: Vec<Diagnostic>,
-    module_value_publication: ModuleValuePublicationProvenance,
-    state_call_types: crate::semantic_model::StateCallTypes,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -369,16 +366,11 @@ fn analyze_surface_module_with_environment(
         let (function_diagnostics, function_state_call_types) =
             check_function_declaration_and_body(function, &environment, &mut variant_diagnostics);
         diagnostics.extend(function_diagnostics);
-        if !function_state_call_types.is_empty() {
-            state_call_types.insert(
-                (
-                    function.package_name.clone(),
-                    function.module_name.clone(),
-                    function.name.clone().unwrap_or_default(),
-                ),
-                function_state_call_types,
-            );
-        }
+        retain_function_state_call_types(
+            &mut state_call_types,
+            function,
+            function_state_call_types,
+        );
     }
 
     order_variant_refinement_visibility_diagnostics(&mut diagnostics);

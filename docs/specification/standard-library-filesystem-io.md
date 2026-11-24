@@ -347,10 +347,12 @@ other declaration establishes only its static capability and effect boundary.
   and `examples/specification/check/filesystem-io-opaque-state-pattern-boundary/`.
 - Atomic state value and expected-type inference, including a nullary generic
   initializer, list and control-flow joins in either contribution order,
-  record-width and source-ADT variance joins, invariant-join rejection,
-  handler-clause handoff, bounded lowering work, concrete type retention, and
-  foreign-package namesake isolation through checked core and typed IR:
+  record-width joins, concrete type retention, and foreign-package namesake
+  isolation through checked core and typed IR:
   [`io_provider.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types/io_provider.rs).
+- Atomic state source-ADT variance joins, invariant-join rejection,
+  handler-clause handoff, and bounded adjacent-size analysis work:
+  [`bounded_types.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types/io_provider/bounded_types.rs).
 - Atomic state generic mismatch, invariant-cell, and pure-callback rejection:
   [`lowering_and_types.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types.rs).
 - Atomic allocation identity, shared child identity, serialized completed

@@ -1,5 +1,29 @@
 use super::*;
 
+fn expected_record_field_types(
+    expected: Option<&CoreType>,
+    _field_count: usize,
+) -> Option<HashMap<&str, &CoreType>> {
+    let CoreType::Record(expected_fields) = expected? else {
+        return None;
+    };
+    let index = expected_fields
+        .iter()
+        .map(|(name, ty)| (name.as_str(), ty))
+        .collect::<HashMap<_, _>>();
+    #[cfg(test)]
+    record_state_initializer_lowering_work(|work| {
+        work.expected_record_index_entries += index.len();
+        work.expected_record_lookups += _field_count;
+    });
+    Some(index)
+}
+
+fn empty_dict_type(fields: &[RecordField], expected: Option<&CoreType>) -> Option<CoreType> {
+    let expected = expected?;
+    (fields.is_empty() && expected.dict_parts().is_some()).then(|| expected.clone())
+}
+
 impl<'a> CoreLowerer<'a> {
     pub(super) fn lower_field_access(&mut self, expr: &Expr, base: &Expr, field: &str) -> CoreExpr {
         let base = self.lower_expr(base, None);
@@ -50,27 +74,10 @@ impl<'a> CoreLowerer<'a> {
         fields: &[RecordField],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
-        if fields.is_empty()
-            && let Some(expected) = expected
-            && expected.dict_parts().is_some()
-        {
-            return self.core_expr(expr, expected.clone(), CoreExprKind::Dict(Vec::new()));
+        if let Some(dict_type) = empty_dict_type(fields, expected) {
+            return self.core_expr(expr, dict_type, CoreExprKind::Dict(Vec::new()));
         }
-        let expected_by_name = match expected {
-            Some(CoreType::Record(expected_fields)) => {
-                let index = expected_fields
-                    .iter()
-                    .map(|(name, ty)| (name.as_str(), ty))
-                    .collect::<HashMap<_, _>>();
-                #[cfg(test)]
-                record_state_initializer_lowering_work(|work| {
-                    work.expected_record_index_entries += index.len();
-                    work.expected_record_lookups += fields.len();
-                });
-                Some(index)
-            }
-            _ => None,
-        };
+        let expected_by_name = expected_record_field_types(expected, fields.len());
         let fields = fields
             .iter()
             .map(|field| {

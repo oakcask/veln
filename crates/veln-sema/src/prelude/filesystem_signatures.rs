@@ -74,12 +74,100 @@ impl FilesystemPreludeType for CoreType {
     }
 }
 
-pub(super) fn prelude_filesystem_io_signature(name: &str) -> Option<(Vec<Type>, Type)> {
-    filesystem_io_signature(name)
+pub(super) fn prelude_filesystem_signature(
+    name: &str,
+    expected: &Type,
+) -> Option<(Vec<Type>, Type)> {
+    filesystem_state_signature(name, expected).or_else(|| filesystem_io_signature(name))
 }
 
-pub(super) fn core_filesystem_io_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> {
-    filesystem_io_signature(name)
+pub(super) fn core_filesystem_signature(
+    name: &str,
+    expected: &CoreType,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    filesystem_state_signature(name, expected).or_else(|| filesystem_io_signature(name))
+}
+
+fn filesystem_state_signature<T>(name: &str, expected: &T) -> Option<(Vec<T>, T)>
+where
+    T: FilesystemPreludeType + StatePreludeType,
+{
+    match name {
+        "io_provider_state" => Some((vec![expected.state_item()], expected.clone())),
+        "io_provider_state_update" => Some((
+            vec![
+                T::unknown(),
+                T::unknown(),
+                T::state_update_callback(expected),
+            ],
+            expected.clone(),
+        )),
+        _ => None,
+    }
+}
+
+trait StatePreludeType: Clone {
+    fn unknown() -> Self;
+    fn state_item(&self) -> Self;
+    fn state_update_callback(result: &Self) -> Self;
+}
+
+impl StatePreludeType for Type {
+    fn unknown() -> Self {
+        Type::Unknown
+    }
+
+    fn state_item(&self) -> Self {
+        match self {
+            Type::Named { name, args, .. } if name == "State" && args.len() == 1 => args[0].clone(),
+            _ => Type::Unknown,
+        }
+    }
+
+    fn state_update_callback(result: &Self) -> Self {
+        Type::Function {
+            params: vec![Type::Unknown, Type::Unknown].into(),
+            variadic: None,
+            return_type: Box::new(Type::Record(
+                [
+                    ("state".to_string(), Type::Unknown),
+                    ("result".to_string(), result.clone()),
+                ]
+                .into_iter()
+                .collect(),
+            )),
+            effects: Vec::new(),
+        }
+    }
+}
+
+impl StatePreludeType for CoreType {
+    fn unknown() -> Self {
+        CoreType::Unknown
+    }
+
+    fn state_item(&self) -> Self {
+        match self {
+            CoreType::Named { name, args } if name == "State" && args.len() == 1 => args[0].clone(),
+            _ => CoreType::Unknown,
+        }
+    }
+
+    fn state_update_callback(result: &Self) -> Self {
+        CoreType::Function {
+            params: vec![CoreType::Unknown, CoreType::Unknown],
+            variadic: None,
+            return_type: Box::new(CoreType::Record(
+                [
+                    ("state".to_string(), CoreType::Unknown),
+                    ("result".to_string(), result.clone()),
+                ]
+                .into_iter()
+                .collect(),
+            )),
+            effects: Vec::new(),
+        }
+    }
 }
 
 fn filesystem_io_signature<T: FilesystemPreludeType>(name: &str) -> Option<(Vec<T>, T)> {

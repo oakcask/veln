@@ -96,12 +96,7 @@ fn instantiate_callable_effect_rows_with_row(
     if !arity_matches {
         return None;
     }
-    if row.is_none()
-        && effects.is_empty()
-        && args
-            .iter()
-            .any(|arg| matches!(arg.kind, ExprKind::Call { .. }))
-    {
+    if pure_row_free_call_wraps_call(row, effects, args) {
         // The expression-effect collector visits argument calls separately.
         // A pure, row-free callee contributes no additional effects, so
         // recursively reconstructing a nested call's type here only repeats
@@ -135,6 +130,14 @@ fn instantiate_callable_effect_rows_with_row(
         return None;
     }
     Some(instantiate_effect_rows(effects, &row_substitutions))
+}
+
+fn pure_row_free_call_wraps_call(row: Option<&str>, effects: &[String], args: &[Expr]) -> bool {
+    row.is_none()
+        && effects.is_empty()
+        && args
+            .iter()
+            .any(|arg| matches!(arg.kind, ExprKind::Call { .. }))
 }
 
 enum EffectValueType<'a> {

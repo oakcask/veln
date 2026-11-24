@@ -2,6 +2,29 @@ use super::*;
 use crate::analysis::check_function_body_with_facts;
 use crate::semantic_model::Type;
 
+pub(super) struct SurfaceAnalysis {
+    pub(super) diagnostics: Vec<Diagnostic>,
+    pub(super) module_value_publication: ModuleValuePublicationProvenance,
+    pub(super) state_call_types: crate::semantic_model::StateCallTypes,
+}
+
+pub(super) fn retain_function_state_call_types(
+    state_call_types: &mut crate::semantic_model::StateCallTypes,
+    function: &veln_ast::Function,
+    function_state_call_types: HashMap<veln_ast::NodeId, Type>,
+) {
+    if !function_state_call_types.is_empty() {
+        state_call_types.insert(
+            (
+                function.package_name.clone(),
+                function.module_name.clone(),
+                function.name.clone().unwrap_or_default(),
+            ),
+            function_state_call_types,
+        );
+    }
+}
+
 pub(super) fn check_module_declarations(
     module: &SurfaceModule,
     environment: &mut TypeEnvironment,
