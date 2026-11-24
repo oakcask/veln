@@ -77,8 +77,8 @@ portable paths, optional network error, optional commit fact, and a message.
 `Busy`, `InvalidResource`, `Cancelled`, `NoProgress`, or `Other`. Captured
 Veln handlers can produce the individual operation outcomes. The
 bounded `copy` path produces `CopyOutcome`; `ExactOutcome` remains static only.
-The [runtime limits](#runtime-limits) exclude the complete transfer, mutation,
-cleanup, and host translation matrix.
+The [runtime limits](#runtime-limits) identify the remaining complete-transfer
+helpers, mutation, cleanup, and host-translation behavior.
 
 `fs::Read` and `fs::Mutate` separate namespace reads from mutation. Portable
 names use `path::Path`. Their facade signatures are:
@@ -531,6 +531,10 @@ capability and effect boundary.
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with scripts and progress logs in
   [`io_copy_test_support_test.veln`](../../crates/veln-stdlib/veln/io_copy_test_support_test.veln).
+- JVM suffix-materialization work for a chunk drained through one-byte writes:
+  [`io_copy_suffix_work.veln`](../../crates/veln-backend-jvm/test-support/io_copy_suffix_work.veln)
+  and
+  [`runtime_integration.rs`](../../crates/veln-backend-jvm/src/tests/runtime_integration.rs).
 - Wrong capability operands:
   `examples/specification/check/filesystem-io-capability-boundaries/`.
 - Missing read-file closer, write-file truncater, update-file positional
