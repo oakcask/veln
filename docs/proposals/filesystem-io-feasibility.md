@@ -25,6 +25,10 @@ authority supplied to a captured handler for byte-resource publication and
 slot access. It also rejects byte-resource registration when that invocation
 owner is closed. This bounded rejection does not demonstrate late host-resource
 release or cleanup failure retention.
+The F3 provider-state observation is also implemented: concurrent child
+callers through two same-owner writer registrations retain both completed
+transitions in one shared fake-provider state cell. The current specification
+owns the exact result, ordering, and preserved-state contract.
 The following sections of the filesystem proposal define the remaining
 prototype obligations:
 
@@ -53,17 +57,17 @@ its positive observations and its failure or preserved-state observations.
 
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
-| F3: provider state and owner lifecycle | Concurrent provider-fake writes cannot lose completed updates. Closing the owner rejects late host-resource publication, releases the late resource, and retains any cleanup failure. After ordinary resource use becomes unavailable, a registered close handler can still read the matching resource or capability slot while releasing it; a foreign owner receives `InvalidResource`. | Companion provider-fake write observations and backend owner-lifecycle cases, including a host open gated across owner closure and slot access at the restricted release boundary. |
+| F3: remaining owner lifecycle | Closing the owner rejects late host-resource publication, releases the late resource, and retains any cleanup failure. After ordinary resource use becomes unavailable, a registered close handler can still read the matching resource or capability slot while releasing it; a foreign owner receives `InvalidResource`. | Backend owner-lifecycle cases, including a host open gated across owner closure and slot access at the restricted release boundary. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
 | F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table. Every cleanup attempt retains matching-owner slot access while ordinary use remains unavailable and rejects a foreign owner. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry, including matching and foreign-owner slot observations during cleanup; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
 
-The remaining F3 evidence must make concurrent provider-fake writes, owner
-closure, late host-resource publication and release, and retained cleanup
-failure observable at the applicable publication and cleanup boundaries. It
-must also observe matching-owner slot access during registered close-handler
-release after ordinary use is unavailable, with foreign-owner rejection and
-unchanged unrelated state. It must not rely on timing or an external
-filesystem to produce a rare failure.
+The remaining F3 evidence must make owner closure, late host-resource
+publication and release, and retained cleanup failure observable at the
+applicable publication and cleanup boundaries. It must also observe
+matching-owner slot access during registered close-handler release after
+ordinary use is unavailable, with foreign-owner rejection and unchanged
+unrelated state. It must not rely on timing or an external filesystem to
+produce a rare failure.
 
 If F3 cannot be demonstrated with the implemented adapter extension, revise
 the resource design and affected acceptance contracts before continuing to
@@ -71,8 +75,8 @@ F4–F5. Such a failure does not promote the parent proposal.
 
 ## Implementation Sequence And Evidence Placement
 
-1. Add the concurrent provider-fake and owner-lifecycle observations in F3.
-   Keep fake state and failure plans in Veln.
+1. Complete the remaining owner-lifecycle observations in F3. Keep fake state
+   and failure plans in Veln.
 2. Apply the outcome and transition tables to F4 and F5. Add host-boundary
    cases only for observations that require a real host or backend integration.
 

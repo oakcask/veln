@@ -14,7 +14,8 @@ projection prototypes, provider-bound filesystem namespace tokens, and opaque
 atomic provider state. It lets provider and generic IO source check
 capability-correct signatures, capture and invoke provider handlers, exercise
 five runtime resource families, transfer bytes between independently owned
-fake resources, and keep immutable fake-provider state in shared cells.
+fake resources, keep immutable fake-provider state in shared cells, and retain
+completed fake-provider writes from concurrent child callers.
 It is not a production filesystem API.
 
 ## Imports and static surface
@@ -407,14 +408,25 @@ The source and destination can belong to different provider owners. F2
 establishes only the successful path. The complete partial-progress and failure
 translation matrix remains provisional until F4.
 
+Two independently registered writers owned by one active provider can share
+one provider-state cell. When child tasks reach a readiness gate and are then
+released to write distinct chunks, each completed call reports the byte count
+of its own chunk. The seeded output retains both whole chunks in either
+serialized order. The operation log contains exactly the same two writes in
+that order, and unrelated source and read state remain unchanged. This
+observation establishes that completed provider transitions are not lost or
+partially interleaved under concurrent callers. The gate does not establish
+simultaneous runtime admission or a scheduler order.
+
 ## Runtime limits
 
 This surface is not a production filesystem implementation. Runtime
 state, namespace-token allocation, registration, projection, provider-bound
-dispatch, and successful cross-provider copy are limited to the observations
-above. Host-resource publication racing with owner closure, release of late
-host resources, the complete transfer and namespace outcome matrix, cleanup,
-host filesystem selection, and network-to-byte adapters remain unimplemented.
+dispatch, successful cross-provider copy, and serialized completed fake-provider
+writes are limited to the observations above. Host-resource publication racing
+with owner closure, release of late host resources, the complete transfer and
+namespace outcome matrix, cleanup, host filesystem selection, and
+network-to-byte adapters remain unimplemented.
 `read_exact` and `write_all` remain static prototype signatures. Type-checking
 any behavior outside the implemented slice establishes only its static
 capability and effect boundary.
@@ -460,7 +472,9 @@ capability and effect boundary.
   projection behavior, two independent fake providers, shared handler-frame
   registration by two owners, nested captured dispatch, foreign-identity state
   preservation, rejection of namespace registration for a non-nearest owner
-  without consuming its slot, and successful cross-provider copy:
+  without consuming its slot, successful cross-provider copy, and two
+  same-owner writers sharing one fake-provider state cell without losing or
+  interleaving completed chunks:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with pure state transitions in
   [`io_provider_state_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_state_test_support_test.veln)

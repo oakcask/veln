@@ -1422,3 +1422,73 @@ end
 test shared_handler_frames_preserve_independent_provider_owners() -> Result<(), String> effects [concurrency]
 	handle f2_shared_outer_observations() with io_provider::scope()
 end
+
+fn f3_write_count_matches(joined: Result<filesystem_provider_test_support_test::WriteReport, task::JoinError>, expected: Int) -> Bool
+	match joined
+		Ok(filesystem_provider_test_support_test::WriteCompleted(count)) => count == expected
+		_ => false
+	end
+end
+
+fn f3_concurrent_writer_observations() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	match byte_chunk_from_hex("736f75726365")
+		Err(_) => Err("could not construct concurrent writer source bytes")
+		Ok(source) => match byte_chunk_from_hex("736565643a")
+			Err(_) => Err("could not construct concurrent writer seed bytes")
+			Ok(seed) => match byte_chunk_from_hex("6c656674")
+				Err(_) => Err("could not construct first concurrent writer chunk")
+				Ok(first_chunk) => match byte_chunk_from_hex("5249474854")
+					Err(_) => Err("could not construct second concurrent writer chunk")
+					Ok(second_chunk) => begin
+						let cell = filesystem_provider_test_support_test::seeded_state(source, seed)
+						match filesystem_provider_test_support_test::registered_writer(owner, 301, cell, "first")
+							Err(_) => Err("first concurrent writer registration failed")
+							Ok(first_writer) => match filesystem_provider_test_support_test::registered_writer(owner, 302, cell, "second")
+								Err(_) => Err("second concurrent writer registration failed")
+								Ok(second_writer) => begin
+									let ready = channel::bounded<()>(2)
+									let start = channel::bounded<()>(2)
+									let first_request = filesystem_provider_test_support_test::WriteRequest(first_writer, first_chunk, ready.tx, start.rx)
+									let second_request = filesystem_provider_test_support_test::WriteRequest(second_writer, second_chunk, ready.tx, start.rx)
+									let first = filesystem_provider_test_support_test::spawn_coordinated_write(first_request)
+									let second = filesystem_provider_test_support_test::spawn_coordinated_write(second_request)
+									let first_ready: Option<()> = channel::recv(ready.rx)
+									let second_ready: Option<()> = channel::recv(ready.rx)
+									let _ = channel::send(start.tx, ())
+									let _ = channel::send(start.tx, ())
+									let first_joined = task::join(first)
+									let second_joined = task::join(second)
+									let final_snapshot = filesystem_provider_test_support_test::snapshot(cell)
+									match final_snapshot
+										filesystem_provider_test_support_test::Snapshot(final_source, final_output, reads, log) => match byte_chunk_to_visible_ascii_string(final_source)
+											Err(_) => Err("concurrent writer source bytes were not observable")
+											Ok(source_text) => match byte_chunk_to_visible_ascii_string(final_output)
+												Err(_) => Err("concurrent writer output bytes were not observable")
+												Ok(output_text) => if first_ready == None or second_ready == None
+													Err("a concurrent writer did not reach the start gate")
+												else if not f3_write_count_matches(first_joined, 4) or not f3_write_count_matches(second_joined, 5)
+													Err("a concurrent writer did not report its exact completed byte count")
+												else if source_text != "source" or reads != 0
+													Err("concurrent writes changed unrelated source or read state")
+												else if not ((output_text == "seed:leftRIGHT" and log == "write:first;write:second;") or (output_text == "seed:RIGHTleft" and log == "write:second;write:first;"))
+													Err("concurrent writes lost or interleaved a completed chunk or changed write-log order")
+												else
+													Ok(())
+												end
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+test concurrent_registered_writers_preserve_completed_provider_transitions() -> Result<(), String> effects [concurrency]
+	handle f3_concurrent_writer_observations() with io_provider::scope()
+end
