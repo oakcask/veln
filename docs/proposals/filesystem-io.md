@@ -32,9 +32,11 @@ factories capture read and mutation handlers in opaque filesystem tokens and
 can project a mutable token to read-only authority. It also provides opaque
 atomic provider state with cooperative cancellation. Its standard facades
 dispatch namespace and byte operations to captured Veln handlers and support a
-bounded cross-provider copy. It provides no host filesystem execution. This
-proposal replaces the minimal production boundary; retaining its source API is
-not required.
+bounded cross-provider copy. Captured dispatch can publish byte resources for
+its operand's owner, but only the nearest lexical provider scope can register
+new namespace tokens. Closed-owner resource registration is rejected before
+publication. It provides no host filesystem execution. This proposal replaces
+the minimal production boundary; retaining its source API is not required.
 
 The current [network API](../specification/standard-library-networking.md)
 provides a source-defined `net::IO` effect, a system handler, byte read outcomes,
@@ -328,6 +330,13 @@ task freezing. It must reject operations and late publication after owner
 closure, release retained resources through their captured close handlers, and
 preserve cleanup failures. It must use the current `io_provider::State<T>`
 boundary for fake state rather than adding a second state mechanism.
+
+The foundation distinguishes namespace registration from captured invocation
+authority. A captured namespace handler can publish a byte resource for its
+invoking owner, but it cannot register another namespace token unless that
+owner is also the nearest lexical provider scope. A closed invoking owner
+rejects byte-resource registration before publication. These checks do not
+complete the remaining late-host-publication, release, or cleanup obligations.
 
 While a registered close handler releases a resource, it must be able to read
 that resource's or projected capability's private slot with the matching

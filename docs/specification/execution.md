@@ -134,11 +134,15 @@ private slot in each resource and its projected capabilities. Standard `fs`
 and `io` facade calls invoke the retained frame with the restricted token or
 capability, even while another handler for the same nominal effect is active.
 One frame can serve registrations for multiple owners; captured calls supply
-and restore the operand's owner only for matching slot access. Low-level
-lexical dispatch does not acquire that invocation owner and rejects an operand
-from a different lexical provider owner before invoking the selected frame,
-including when both owners share that frame. This boundary does not open host
-resources or implement owner cleanup. The
+and restore the operand's owner for matching slot access and byte-resource
+registration. That invocation owner does not authorize namespace-token
+registration: only the nearest lexical provider scope can register a
+filesystem token. Resource registration also rejects a closed invocation
+owner before publication. Low-level lexical dispatch does not acquire an
+invocation owner and rejects an operand from a different lexical provider
+owner before invoking the selected frame, including when both owners share
+that frame. This boundary does not open host resources or implement owner
+cleanup. The
 [standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#runtime-prototypes)
 owns the source-visible registration, projection, dispatch, failure, and
 runtime-limit contract.

@@ -20,6 +20,11 @@ its production implementation or promotion to Ready.
 
 The implemented provider foundation is specified by
 [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
+It separates nearest-scope namespace registration from the temporary owner
+authority supplied to a captured handler for byte-resource publication and
+slot access. It also rejects byte-resource registration when that invocation
+owner is closed. This bounded rejection does not demonstrate late host-resource
+release or cleanup failure retention.
 The following sections of the filesystem proposal define the remaining
 prototype obligations:
 

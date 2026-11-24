@@ -241,6 +241,14 @@ leaves the existing registration unchanged. A missing required handler returns
 `io::ErrorKind::Unsupported` and leaves the slot available for a later complete
 factory call.
 
+The nearest-scope requirement is lexical registration authority. Captured
+dispatch does not extend it. If a retained namespace handler runs while a
+nested provider scope is nearest, that handler cannot use the dispatched
+token's owner to register another namespace token. The attempt returns
+`io::ErrorKind::InvalidInput` before resolving a namespace handler, does not
+consume the requested slot, and does not change provider state. The outer
+owner can use that slot after its scope becomes nearest again.
+
 `fs::read_only` removes mutation authority from a mutable token while retaining
 its owner, private slot, and captured read handler. This pure projection does
 not require the owner scope to remain active. The matching `filesystem_slot`
@@ -266,6 +274,14 @@ them. If any handler is absent, registration returns
 `io::ErrorKind::Unsupported` before publishing the resource. This failure
 performs no host filesystem or network fallback and does not consume the slot,
 so a complete registration can subsequently use the same owner and slot.
+
+A captured namespace handler can register a byte resource for the owner of
+the filesystem token that invoked it, even when another provider scope is
+lexically nearest. This invocation authority is limited to that owner and the
+duration of the captured call. It does not authorize namespace-token
+registration. If the owner's scope is closed, resource registration returns
+`io::ErrorKind::InvalidInput` before publication or operation-handler
+resolution and leaves the slot and provider state unchanged.
 
 For `ViewFamily::AppendFile`, registration applies the same owner, slot,
 validation-before-publication, and duplicate-preservation rules. It requires
@@ -362,9 +378,11 @@ slot accessor with its owner while a nested provider scope is active.
 
 One captured handler frame can serve registrations for more than one active
 provider owner. Each token, resource, and capability retains its own owner.
-Captured dispatch makes only that owner available to matching slot access for
-the duration of the handler invocation. Nested captured calls restore the
-preceding owner after normal return, a returned failure, or a runtime failure.
+Captured dispatch makes only that owner available to matching slot access and
+byte-resource registration for the duration of the handler invocation. It
+does not grant namespace-token registration authority. Nested captured calls
+restore the preceding owner after normal return, a returned failure, or a
+runtime failure.
 
 Nested handlers affect newly allocated tokens and capabilities. They do not
 reinterpret an older value. A facade call on an older value selects its
@@ -441,7 +459,8 @@ capability and effect boundary.
   rejection, post-close read-only projection, and five-family registration and
   projection behavior, two independent fake providers, shared handler-frame
   registration by two owners, nested captured dispatch, foreign-identity state
-  preservation, and successful cross-provider copy:
+  preservation, rejection of namespace registration for a non-nearest owner
+  without consuming its slot, and successful cross-provider copy:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with pure state transitions in
   [`io_provider_state_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_state_test_support_test.veln)
@@ -458,7 +477,9 @@ capability and effect boundary.
 - JVM namespace-token and projected-capability dispatch through retained and
   shared handler identities, invocation-owner restoration after normal and
   failed nested calls, restricted operand forwarding, foreign-identity
-  rejection before either provider runs, and absence of active host fallback:
+  rejection before either provider runs, lexical namespace-registration
+  authority, closed-owner resource-publication rejection, and absence of
+  active host fallback:
   [`IoProviderDispatchHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderDispatchHarness.java).
 - JVM-controlled single-successor admission handoff, cancelled-waiter removal,
   cancellation checkpoints, publication, queued failure release, failure
