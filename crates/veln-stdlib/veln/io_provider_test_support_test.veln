@@ -2,6 +2,21 @@ use prelude
 use fs
 use io
 
+pub handler filesystem_read(calls: Sender<String>) for fs::Read effects [concurrency]
+	open_read(filesystem, path) => begin
+		let _ = channel::send(calls, "open_read")
+		Err(io::Error::Error("open_read", io::ErrorKind::Unsupported, None, Some(path), None, None, "fake namespace handler does not open resources"))
+	end
+	metadata(filesystem, path, follow) => begin
+		let _ = channel::send(calls, "metadata")
+		Err(io::Error::Error("metadata", io::ErrorKind::Unsupported, None, Some(path), None, None, "fake namespace handler does not provide metadata"))
+	end
+	entries(filesystem, path) => begin
+		let _ = channel::send(calls, "entries")
+		Err(io::Error::Error("entries", io::ErrorKind::Unsupported, None, Some(path), None, None, "fake namespace handler does not enumerate directories"))
+	end
+end
+
 pub handler read(calls: Sender<String>) for io::Read effects [concurrency]
 	read(reader, maximum) => begin
 		let _ = channel::send(calls, "read")

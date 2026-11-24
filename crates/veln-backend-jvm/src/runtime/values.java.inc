@@ -570,6 +570,7 @@
         private volatile boolean networkSystemClosed;
         private int networkSystemProducers;
         private long networkResourceReleaseWork;
+        private volatile boolean ioProviderScopeClosed;
         private IoOwner ioOwner;
         private final java.util.Map<NetworkResourceIdentity, Object> networkResources =
             new java.util.LinkedHashMap<NetworkResourceIdentity, Object>();
@@ -592,7 +593,9 @@
 
     public static Object popHandler() {
         java.util.List<HandlerFrame> stack = HANDLERS.get();
-        HandlerFrame frame = stack.remove(stack.size() - 1);
+        HandlerFrame frame = stack.get(stack.size() - 1);
+        closeIoProviderScope(frame);
+        stack.remove(stack.size() - 1);
         cleanupNetworkSystem(frame);
         return UNIT;
     }

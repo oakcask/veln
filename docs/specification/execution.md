@@ -123,6 +123,9 @@ within the handler's finite resolver capacity.
 
 The JVM runtime also provides the private adapters for the bounded
 `io_provider` prototype. Within an active provider scope, the adapters can
+publish read-only and mutable filesystem namespace tokens that retain the
+required captured handler frames, owner, and private slot. Scope exit prevents
+inherited child frames from using those namespace tokens. The adapters can also
 register `ReadFile`, `WriteFile`, `UpdateFile`, `AppendFile`, and `Duplex`
 resources against their required active operation handler frames. They retain
 the provider owner and private slot in each resource and its projected

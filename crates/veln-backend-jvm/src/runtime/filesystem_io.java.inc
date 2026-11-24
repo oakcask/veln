@@ -6,6 +6,7 @@
     private static final String IO_WRITE_AT_EFFECT = "std::io::WriteAt";
     private static final String IO_CLOSE_EFFECT = "std::io::Close";
     private static final String IO_SYNC_EFFECT = "std::io::Sync";
+    private static final String FS_READ_EFFECT = "std::fs::Read";
     private static final String FS_MUTATE_EFFECT = "std::fs::Mutate";
 
     private static final class IoState {
@@ -180,11 +181,42 @@
 
     private static final class IoOwner {
         final HandlerFrame scope;
-        final java.util.Map<Long, IoResource> resources =
-            new java.util.LinkedHashMap<Long, IoResource>();
+        final java.util.Map<Long, Object> resources =
+            new java.util.LinkedHashMap<Long, Object>();
 
         IoOwner(HandlerFrame scope) {
             this.scope = scope;
+        }
+    }
+
+    private static final class IoFilesystem {
+        final IoOwner owner;
+        final long slot;
+        final HandlerFrame read;
+
+        IoFilesystem(IoOwner owner, long slot, HandlerFrame read) {
+            this.owner = owner;
+            this.slot = slot;
+            this.read = read;
+        }
+    }
+
+    private static final class IoMutableFilesystem {
+        final IoOwner owner;
+        final long slot;
+        final HandlerFrame read;
+        final HandlerFrame mutate;
+
+        IoMutableFilesystem(
+            IoOwner owner,
+            long slot,
+            HandlerFrame read,
+            HandlerFrame mutate
+        ) {
+            this.owner = owner;
+            this.slot = slot;
+            this.read = read;
+            this.mutate = mutate;
         }
     }
 
@@ -263,15 +295,95 @@
         return err(ioProviderError(operation, "InvalidInput", message));
     }
 
+    private static Result ioProviderInvalidResource(String operation, String message) {
+        return err(ioProviderError(operation, "InvalidResource", message));
+    }
+
+    private static void closeIoProviderScope(HandlerFrame scope) {
+        if (!scope.effect.equals(IO_PROVIDER_SCOPE_EFFECT)) return;
+        IoOwner owner;
+        synchronized (scope) {
+            owner = scope.ioOwner;
+            if (owner == null) {
+                scope.ioProviderScopeClosed = true;
+                return;
+            }
+        }
+        synchronized (owner.resources) {
+            scope.ioProviderScopeClosed = true;
+        }
+    }
+
     public static Object ioProviderScopeOwner() {
         HandlerFrame scope = currentHandlerFrame();
         if (!scope.effect.equals(IO_PROVIDER_SCOPE_EFFECT)) {
             throw new IllegalStateException("io provider owner intrinsic used outside its scope handler");
         }
         synchronized (scope) {
+            if (scope.ioProviderScopeClosed) {
+                throw new RuntimeFailure("io provider owner scope is closed");
+            }
             if (scope.ioOwner == null) scope.ioOwner = new IoOwner(scope);
             return scope.ioOwner;
         }
+    }
+
+    private static Object ioProviderNamespace(
+        String operation,
+        Object ownerValue,
+        Object slotValue,
+        boolean mutable
+    ) {
+        if (!(ownerValue instanceof IoOwner)) {
+            return ioProviderInvalidInput(operation, "invalid provider owner");
+        }
+        long slot = asLong(slotValue);
+        if (slot < 0L) {
+            return ioProviderInvalidInput(operation, "provider slots must be nonnegative");
+        }
+        IoOwner owner = (IoOwner) ownerValue;
+        if (findHandler(IO_PROVIDER_SCOPE_EFFECT) != owner.scope) {
+            return ioProviderInvalidInput(operation, "provider owner is not active in this scope");
+        }
+        synchronized (owner.resources) {
+            if (owner.scope.ioProviderScopeClosed) {
+                return ioProviderInvalidInput(operation, "provider owner scope is closed");
+            }
+            if (owner.resources.containsKey(Long.valueOf(slot))) {
+                return ioProviderInvalidInput(operation, "provider slot is already registered");
+            }
+            HandlerFrame read = findHandler(FS_READ_EFFECT);
+            HandlerFrame mutate = mutable ? findHandler(FS_MUTATE_EFFECT) : null;
+            if (read == null || (mutable && mutate == null)) {
+                return ioProviderUnsupported(
+                    operation,
+                    mutable
+                        ? "mutable filesystem registration requires fs::Read and fs::Mutate handlers"
+                        : "filesystem registration requires an fs::Read handler"
+                );
+            }
+            Object filesystem = mutable
+                ? new IoMutableFilesystem(owner, slot, read, mutate)
+                : new IoFilesystem(owner, slot, read);
+            owner.resources.put(Long.valueOf(slot), filesystem);
+            return ok(filesystem);
+        }
+    }
+
+    public static Object ioProviderFilesystem(Object owner, Object slot) {
+        return ioProviderNamespace("filesystem", owner, slot, false);
+    }
+
+    public static Object ioProviderMutableFilesystem(Object owner, Object slot) {
+        return ioProviderNamespace("mutable_filesystem", owner, slot, true);
+    }
+
+    public static Object fsReadOnly(Object filesystem) {
+        if (!(filesystem instanceof IoMutableFilesystem)) {
+            throw new RuntimeFailure("invalid mutable filesystem token");
+        }
+        IoMutableFilesystem value = (IoMutableFilesystem) filesystem;
+        return new IoFilesystem(value.owner, value.slot, value.read);
     }
 
     public static Object ioProviderResource(Object ownerValue, Object slotValue, Object familyValue) {
@@ -296,6 +408,9 @@
         }
 
         synchronized (owner.resources) {
+            if (owner.scope.ioProviderScopeClosed) {
+                return ioProviderInvalidInput("resource", "provider owner scope is closed");
+            }
             if (owner.resources.containsKey(Long.valueOf(slot))) {
                 return ioProviderInvalidInput("resource", "provider slot is already registered");
             }
@@ -486,6 +601,48 @@
         return value.owner == owner
             ? ok(Long.valueOf(value.slot))
             : ioProviderInvalidInput("slot", "resource belongs to another provider owner");
+    }
+
+    private static Object ioProviderNamespaceSlot(
+        String operation,
+        Object ownerValue,
+        Object filesystemValue,
+        boolean mutable
+    ) {
+        if (!(ownerValue instanceof IoOwner)) {
+            return ioProviderInvalidInput(operation, "invalid provider owner");
+        }
+        IoOwner owner = (IoOwner) ownerValue;
+        if (findHandler(IO_PROVIDER_SCOPE_EFFECT) != owner.scope) {
+            return ioProviderInvalidResource(operation, "provider owner is not active in this scope");
+        }
+        if (owner.scope.ioProviderScopeClosed) {
+            return ioProviderInvalidResource(operation, "provider owner scope is closed");
+        }
+        if (mutable) {
+            if (!(filesystemValue instanceof IoMutableFilesystem)) {
+                return ioProviderInvalidInput(operation, "invalid mutable filesystem identity");
+            }
+            IoMutableFilesystem filesystem = (IoMutableFilesystem) filesystemValue;
+            return filesystem.owner == owner
+                ? ok(Long.valueOf(filesystem.slot))
+                : ioProviderInvalidResource(operation, "filesystem belongs to another provider owner");
+        }
+        if (!(filesystemValue instanceof IoFilesystem)) {
+            return ioProviderInvalidInput(operation, "invalid filesystem identity");
+        }
+        IoFilesystem filesystem = (IoFilesystem) filesystemValue;
+        return filesystem.owner == owner
+            ? ok(Long.valueOf(filesystem.slot))
+            : ioProviderInvalidResource(operation, "filesystem belongs to another provider owner");
+    }
+
+    public static Object ioProviderFilesystemSlot(Object owner, Object filesystem) {
+        return ioProviderNamespaceSlot("filesystem_slot", owner, filesystem, false);
+    }
+
+    public static Object ioProviderMutableFilesystemSlot(Object owner, Object filesystem) {
+        return ioProviderNamespaceSlot("mutable_filesystem_slot", owner, filesystem, true);
     }
 
     private static Object ioProviderCapabilitySlot(String operation, Object owner, Object capability) {

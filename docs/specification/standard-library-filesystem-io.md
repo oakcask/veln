@@ -10,9 +10,11 @@ update-when: The exported io, fs, or io_provider static source API, opaque capab
 The standard package exports `io`, `fs`, and `io_provider`. Their current
 contract combines a compiler-checked static surface with bounded `ReadFile`,
 `WriteFile`, `UpdateFile`, `AppendFile`, and `Duplex` registration and
-projection prototypes plus opaque atomic provider state. It lets provider and
-generic IO source check capability-correct signatures, exercise five runtime
-resource families, and keep immutable fake-provider state in shared cells.
+projection prototypes, provider-bound filesystem namespace tokens, and opaque
+atomic provider state. It lets provider and generic IO source check
+capability-correct signatures, capture namespace handlers without invoking
+them, exercise five runtime resource families, and keep immutable fake-provider
+state in shared cells.
 It is not a production filesystem API.
 
 ## Imports and static surface
@@ -219,6 +221,32 @@ and results can contain deeply nested Veln lists without consuming JVM
 call-stack depth in proportion to the list depth. A completed deep-value
 transition leaves the cell available for a later update.
 
+### Filesystem namespace tokens
+
+Within the nearest active `io_provider::scope`,
+`io_provider::filesystem(owner, slot)` captures the active `fs::Read` handler
+and returns an opaque read-only filesystem token. The mutable factory captures
+both the active `fs::Read` and `fs::Mutate` handlers and returns an opaque
+mutable token. Neither factory invokes a captured handler or falls back to a
+host filesystem or network effect.
+
+Both factories require the supplied owner to match the nearest active provider
+scope. They accept a nonnegative private slot that is unused by any namespace
+token or byte resource registered to that owner. A negative or duplicate slot
+returns `io::ErrorKind::InvalidInput` before handler resolution. A missing
+required handler returns `io::ErrorKind::Unsupported` and leaves the slot
+available for a later complete factory call.
+
+`fs::read_only` removes mutation authority from a mutable token while retaining
+its owner, private slot, and captured read handler. The matching
+`filesystem_slot` and `mutable_filesystem_slot` accessors return the private
+slot only while the supplied owner is the matching active owner. A token of the
+wrong namespace kind, a different owner, or an owner whose scope has exited is
+rejected. Wrong-owner and closed-owner access returns
+`io::ErrorKind::InvalidResource`. Scope exit closes namespace-token access for
+child tasks that inherited the handler frame; this boundary does not perform
+resource cleanup.
+
 ### File views
 
 Within an active `io_provider::scope`, `io_provider::resource` accepts an
@@ -320,12 +348,14 @@ order.
 ## Runtime limits
 
 This surface is not a production filesystem implementation. Runtime
-state, registration, and projection are limited to the observations above.
+state, namespace-token allocation, registration, and projection are limited to
+the observations above.
 `Duplex` does not add operation dispatch through the projected capabilities.
-Operation dispatch through a resource, multiple-provider allocation, resource
-publication and owner-close races, transfer and namespace behavior, cleanup,
-and host filesystem access remain unimplemented. Type-checking any
-other declaration establishes only its static capability and effect boundary.
+Operation dispatch through a namespace token or byte resource, the two-provider
+fake and cross-provider copy, byte-resource publication and owner-close races,
+transfer and namespace operations, cleanup, and host filesystem access remain
+unimplemented. Type-checking any other declaration establishes only its static
+capability and effect boundary.
 
 ## References
 
@@ -362,7 +392,8 @@ other declaration establishes only its static capability and effect boundary.
 - Atomic state generic mismatch, invariant-cell, and pure-callback rejection:
   [`lowering_and_types.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types.rs).
 - Atomic allocation identity, shared child identity, serialized completed
-  updates, publication, and five-family registration and projection behavior:
+  updates, publication, namespace-token factory behavior, and five-family
+  registration and projection behavior:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with pure state transitions in
   [`io_provider_state_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_state_test_support_test.veln)
@@ -370,6 +401,9 @@ other declaration establishes only its static capability and effect boundary.
   [`io_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_test_support_test.veln).
 - Private JVM adapter linkage:
   [`java_helpers_and_mapping.rs`](../../crates/veln-backend-jvm/src/tests/java_helpers_and_mapping.rs).
+- JVM namespace-token captured-handler identity, projection, owner matching,
+  and inherited closed-scope rejection:
+  [`IoProviderFilesystemHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderFilesystemHarness.java).
 - JVM-controlled single-successor admission handoff, cancelled-waiter removal,
   cancellation checkpoints, publication, queued failure release, failure
   identity, reentrancy, task freezing, and reusable 100,000-element list state,

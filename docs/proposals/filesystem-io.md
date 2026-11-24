@@ -26,9 +26,11 @@ reading, text writing, existence checks, and directory listing. The current
 [static filesystem and byte IO prototype](../specification/standard-library-filesystem-io.md)
 also declares public opaque file views, seek capabilities, and nominal
 filesystem handlers. Its bounded runtime can register and project all five
-resource families while retaining their owners and slots. It also provides
-opaque atomic provider state with cooperative cancellation. It provides no
-resource operation dispatch or host filesystem execution. This
+resource families while retaining their owners and slots. Its namespace
+factories capture read and mutation handlers in opaque filesystem tokens and
+can project a mutable token to read-only authority. It also provides opaque
+atomic provider state with cooperative cancellation. It provides no namespace
+or resource operation dispatch or host filesystem execution. This
 proposal
 replaces the minimal production boundary; retaining its source API is not
 required.
