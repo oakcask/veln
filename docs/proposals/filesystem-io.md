@@ -344,6 +344,7 @@ The remaining `io_provider` work requires these runtime observations:
 | --- | --- |
 | Namespace dispatch | Invoke the `fs::Read` or `fs::Mutate` handler captured by the filesystem token. Nested handler shadowing must not redirect an existing token. |
 | Byte-resource dispatch | Invoke exactly the operation handler retained by the projected capability. Pass the public restricted view, not the underlying `Resource`, and do not expose a view-to-resource upgrade. |
+| Byte-resource slot access | Make `io_provider::slot` and every capability slot accessor return the private slot only for the matching owner while the resource is usable or while its registered close handler is releasing it. Wrong-owner access returns `InvalidResource`. |
 | Owner and resource lifecycle | Preserve owner and resource identity across task freezing. Reject operations and late publication after owner closure, release retained resources through their captured close handlers, and preserve cleanup failures. |
 
 Dispatch must not fall back to a host filesystem or network operation when a
