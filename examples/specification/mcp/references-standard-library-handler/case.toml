@@ -13,7 +13,7 @@ contains = "veln-pkg:///std/snapshot/"
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/definition/range"
-equals = {"start":{"line":250,"column":13},"end":{"line":250,"column":17}}
+equals = {"start":{"line":251,"column":13},"end":{"line":251,"column":17}}
 
 [[mcp_assert]]
 id = 3
