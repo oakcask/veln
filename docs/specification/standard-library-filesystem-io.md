@@ -232,20 +232,23 @@ host filesystem or network effect.
 
 Both factories require the supplied owner to match the nearest active provider
 scope. They accept a nonnegative private slot that is unused by any namespace
-token or byte resource registered to that owner. A negative or duplicate slot
-returns `io::ErrorKind::InvalidInput` before handler resolution. A missing
-required handler returns `io::ErrorKind::Unsupported` and leaves the slot
-available for a later complete factory call.
+token or byte resource registered to that owner. An owner from another,
+inactive, or closed scope and a negative or duplicate slot return
+`io::ErrorKind::InvalidInput` before handler resolution. A missing required
+handler returns `io::ErrorKind::Unsupported` and leaves the slot available for
+a later complete factory call.
 
 `fs::read_only` removes mutation authority from a mutable token while retaining
-its owner, private slot, and captured read handler. The matching
-`filesystem_slot` and `mutable_filesystem_slot` accessors return the private
-slot only while the supplied owner is the matching active owner. A token of the
-wrong namespace kind, a different owner, or an owner whose scope has exited is
-rejected. Wrong-owner and closed-owner access returns
-`io::ErrorKind::InvalidResource`. Scope exit closes namespace-token access for
-child tasks that inherited the handler frame; this boundary does not perform
-resource cleanup.
+its owner, private slot, and captured read handler. This pure projection does
+not require the owner scope to remain active. The matching `filesystem_slot`
+and `mutable_filesystem_slot` accessors return the private slot only while the
+supplied owner is the matching active owner. Source typing rejects the other
+namespace-token kind. Wrong-owner and closed-owner slot access returns
+`io::ErrorKind::InvalidResource`.
+
+Scope exit prevents an inherited child task from allocating another namespace
+token with that owner or reading an existing token's private slot. It does not
+invalidate the pure read-only projection or perform resource cleanup.
 
 ### File views
 
@@ -352,10 +355,10 @@ state, namespace-token allocation, registration, and projection are limited to
 the observations above.
 `Duplex` does not add operation dispatch through the projected capabilities.
 Operation dispatch through a namespace token or byte resource, the two-provider
-fake and cross-provider copy, byte-resource publication and owner-close races,
-transfer and namespace operations, cleanup, and host filesystem access remain
-unimplemented. Type-checking any other declaration establishes only its static
-capability and effect boundary.
+fake and cross-provider copy, host-resource publication racing with owner
+closure, release of late host resources, transfer and namespace operations,
+cleanup, and host filesystem access remain unimplemented. Type-checking any
+other declaration establishes only its static capability and effect boundary.
 
 ## References
 

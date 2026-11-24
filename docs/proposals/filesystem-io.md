@@ -331,27 +331,24 @@ portion of the adapter extension is implemented separately. Existing
 general Veln-only provider allocation API. Do not reuse their network bridge or
 invent an unimplemented trait or closure representation.
 
-The remaining `io_provider` work requires these runtime observations. The
-current five-family slice covers only the registration and projection parts
-identified in the table:
+The bounded adapter slice already creates owner-scoped read-only and mutable
+filesystem tokens, captures their namespace handlers, registers all five byte
+resource families, projects their capabilities, and validates their private
+slots. The
+[current filesystem and byte IO specification](../specification/standard-library-filesystem-io.md#runtime-prototypes)
+owns those allocation, failure, identity, and projection rules.
 
-| Entry point | Required observation |
+The remaining `io_provider` work requires these runtime observations:
+
+| Boundary | Required observation |
 | --- | --- |
-| `Owner` and `Resource` | Preserve identity across task freezing. Only the allocation functions can produce them. |
-| `owner` and `scope` | Return the owner of the nearest installed scope handler. Each handler application creates a fresh owner and releases it at handler exit. Ordinary helper returns do not close the owner. No implicit process-global scope exists. |
-| `filesystem` and `mutable_filesystem` | Publish a filesystem bound to the provider's active namespace handlers. Only the mutable factory grants mutation rights; the read-only factory needs no mutation handler. |
-| `resource` | Register one resource with exactly the operations of its declared view family and capture those active handlers, including close. Do not open a host file or socket. Use the nonnegative private slot to address provider-owned Veln state. |
-| File-view and duplex projections | Return the corresponding declared view for a compatible family. Reject incompatible families and missing handlers with `Unsupported`; do not fall back to the host. |
-| `slot` | Return the private slot only for the matching owner while usable or while its registered close handler is releasing it. Reject wrong-owner access with `InvalidResource`. Integer equality is never a public resource identity test. |
+| Namespace dispatch | Invoke the `fs::Read` or `fs::Mutate` handler captured by the filesystem token. Nested handler shadowing must not redirect an existing token. |
+| Byte-resource dispatch | Invoke exactly the operation handler retained by the projected capability. Pass the public restricted view, not the underlying `Resource`, and do not expose a view-to-resource upgrade. |
+| Owner and resource lifecycle | Preserve owner and resource identity across task freezing. Reject operations and late publication after owner closure, release retained resources through their captured close handlers, and preserve cleanup failures. |
 
-Registration must require every handler in the selected `ViewFamily`, grant no
-other operations, and reject missing operations before publication. The
-filesystem and mutable-filesystem slot accessors must apply the same owner
-checks as the resource slot accessor. Namespace tokens cannot be used as byte
-resource tokens. The capability slot accessors must accept only their matching
-nominal view and apply the same owner check. Operation handlers receive these
-views, not the underlying `Resource`; no public view-to-resource conversion may
-upgrade a restricted capability.
+Dispatch must not fall back to a host filesystem or network operation when a
+captured handler is missing or unusable. Integer equality is never a public
+filesystem-token or resource identity test.
 
 The same runtime extension now supplies the opaque `State<T>` API. Its generic
 signatures, serialized updates, task identity, failure preservation,
@@ -372,12 +369,9 @@ provider state. Nested handlers affect newly created resources, while calls on
 existing resources retain their creator. Capture does not retain a usable
 resource after its owner closes.
 
-A provider can create distinct filesystem slots under one owner. Resource
-slots are unique within that owner's state; runtime allocation does not expose
-an integer-to-handle lookup or let another owner forge its tokens. Publication
-and the owner's closing transition share an atomic admission boundary. A late
-host open is closed before returning `Closed`; cleanup failure is retained as
-related context and the owner retains its release obligation.
+Publication and the owner's closing transition share an atomic admission
+boundary. A late host open is closed before returning `Closed`; cleanup failure
+is retained as related context and the owner retains its release obligation.
 
 The Veln fake allocates a fresh state cell, installs an owner scope, and
 installs its namespace and byte handlers with that cell and owner as context.
