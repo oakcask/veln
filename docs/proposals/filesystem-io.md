@@ -29,11 +29,11 @@ filesystem handlers. Its bounded runtime can register and project all five
 resource families while retaining their owners and slots. Its namespace
 factories capture read and mutation handlers in opaque filesystem tokens and
 can project a mutable token to read-only authority. It also provides opaque
-atomic provider state with cooperative cancellation. It provides no namespace
-or resource operation dispatch or host filesystem execution. This
-proposal
-replaces the minimal production boundary; retaining its source API is not
-required.
+atomic provider state with cooperative cancellation. Its standard facades
+dispatch namespace and byte operations to captured Veln handlers and support a
+bounded cross-provider copy. It provides no host filesystem execution. This
+proposal replaces the minimal production boundary; retaining its source API is
+not required.
 
 The current [network API](../specification/standard-library-networking.md)
 provides a source-defined `net::IO` effect, a system handler, byte read outcomes,
@@ -114,8 +114,8 @@ Operations carry explicit resource operands. The active handler supplies an
 implementation, while a resource retains its creating provider and owner.
 Nesting another handler must not reinterpret an existing resource as a resource
 of the newly active provider. Distinct nominal view types enforce static
-capabilities; the provider-bound dispatch contract is specified below and its
-feasibility work is selected through the separate proposal.
+capabilities. The implemented provider-bound dispatch contract belongs to the
+[current specification](../specification/standard-library-filesystem-io.md#provider-bound-dispatch).
 
 The public substitutable boundaries are nominal effects implemented by ordinary
 Veln handlers. A system handler translates those operations into real host IO;
@@ -322,13 +322,14 @@ access. Append must remain a separate entry point and must not grant read,
 truncate, seek, or positional-write views. Optional capability discovery is
 outside the initial API.
 
-### Provider-Bound Dispatch Prerequisite
+### Provider-Bound Dispatch And Remaining Lifecycle
 
-This is an explicit runtime/compiler adapter extension, not a claim that
-ordinary nominal dispatch already provides resource-bound routing. The
-bounded current slice registers all five resource families and projects their
-capabilities, but does not invoke the captured handlers. The atomic state
-portion of the adapter extension is implemented separately. Existing
+This is an implemented runtime/compiler adapter extension, not a claim that
+ordinary nominal dispatch provides resource-bound routing. The bounded current
+slice registers all five resource families, projects their capabilities, and
+invokes the captured handlers through the standard `fs` and `io` facades. The
+atomic state portion of the adapter extension is implemented separately.
+Existing
 `NetListener` and `NetStream` demonstrate opaque handles, but do not provide a
 general Veln-only provider allocation API. Do not reuse their network bridge or
 invent an unimplemented trait or closure representation.
@@ -340,14 +341,18 @@ slots. The
 [current filesystem and byte IO specification](../specification/standard-library-filesystem-io.md#runtime-prototypes)
 owns those allocation, failure, identity, and projection rules.
 
-The remaining `io_provider` work requires these runtime observations:
+The current specification owns the implemented F2 observations:
 
 | Boundary | Required observation |
 | --- | --- |
-| Namespace dispatch | Invoke the `fs::Read` or `fs::Mutate` handler captured by the filesystem token. Nested handler shadowing must not redirect an existing token. |
-| Byte-resource dispatch | Invoke exactly the operation handler retained by the projected capability. Pass the public restricted view, not the underlying `Resource`, and do not expose a view-to-resource upgrade. |
-| Byte-resource slot access | Make `io_provider::slot` and every capability slot accessor return the private slot only for the matching owner while the resource is usable or while its registered close handler is releasing it. Wrong-owner access returns `InvalidResource`. |
-| Owner and resource lifecycle | Preserve owner and resource identity across task freezing. Reject operations and late publication after owner closure, release retained resources through their captured close handlers, and preserve cleanup failures. |
+| Namespace dispatch | The standard facade invokes the `fs::Read` or `fs::Mutate` handler captured by the filesystem token. Nested handler shadowing does not redirect an existing token. |
+| Byte-resource dispatch | The standard facade invokes exactly the operation handler retained by the projected capability and passes the public restricted view. |
+| Byte-resource slot access | Matching active owners can read private slots during captured dispatch. Wrong-owner access returns `InvalidResource`. |
+
+Owner and resource lifecycle remains proposed. It must preserve identity
+across task freezing, reject operations and late publication after owner
+closure, release retained resources through their captured close handlers, and
+preserve cleanup failures.
 
 Dispatch must not fall back to a host filesystem or network operation when a
 captured handler is missing or unusable. Integer equality is never a public
@@ -363,17 +368,16 @@ a second state boundary. Pure callbacks keep fake filesystem decisions in Veln
 and cannot perform nested provider IO while holding the cell. Allocation and
 updates expose only `concurrency`, not host `fs` or `net` effects.
 
-The planned public filesystem and byte facades must invoke the resource's
-captured operation handler with its original provider context. They must retain
-the declared nominal effect in static checking. Runtime routing must remain
-restricted to these standard resource facades; ordinary `perform` keeps
-lexical dispatch. Calling another provider's low-level operation with a
-foreign token must fail before changing provider state. Nested handlers must
-affect only newly created resources, while calls on existing resources must
-retain their creator. Capturing a handler must not make dispatched operations
-usable after the owner closes. This lifecycle requirement does not limit the
-implemented pure `fs::read_only` projection described by the current
-specification.
+The implemented public filesystem and byte facades invoke the resource's
+captured operation handler with its original provider context and retain the
+declared nominal effect in static checking. Runtime routing is restricted to
+these standard resource facades; ordinary `perform` keeps lexical selection.
+Calling another provider's low-level operation with a foreign token fails
+before changing provider state. Nested handlers affect only newly created
+resources, while calls on existing resources retain their creator. The
+[current specification](../specification/standard-library-filesystem-io.md#provider-bound-dispatch)
+owns these rules. Preventing dispatched operations after owner closure remains
+part of the lifecycle work below.
 
 Publication and the owner's closing transition share an atomic admission
 boundary. A late host open is closed before returning `Closed`; cleanup failure
@@ -517,11 +521,12 @@ invalidation belong to a separate buffering proposal before such helpers exist.
 
 ### Feasibility Dependency
 
-[Filesystem IO Feasibility](filesystem-io-feasibility.md) owns F2–F5, their
-prototype scope, evidence, and completion conditions. It is independently
-selectable from Ready. The implemented static source surface and provider
-allocation slice, together with the planned provider dispatch, outcomes, and
-transition tables here, remain the design contract exercised by that work.
+[Filesystem IO Feasibility](filesystem-io-feasibility.md) owns the remaining
+F3–F5 prototype scope, evidence, and completion conditions. It is independently
+selectable from Ready. The implemented static source surface, provider
+allocation, and F2 dispatch slice, together with the planned lifecycle,
+outcome, and transition tables here, remain the design contract exercised by
+that work.
 Implementing the complete production filesystem runtime is not its
 prerequisite.
 

@@ -299,6 +299,33 @@
         return err(ioProviderError(operation, "InvalidResource", message));
     }
 
+    private static boolean ioProviderOwnerIsCurrent(IoOwner owner) {
+        HandlerFrame invoked = INVOKED_HANDLER.get();
+        return findHandler(IO_PROVIDER_SCOPE_EFFECT) == owner.scope
+            || (invoked != null && invoked.ioProviderOwner == owner);
+    }
+
+    private static boolean bindIoProviderHandler(HandlerFrame handler, IoOwner owner) {
+        if (handler == null) return true;
+        synchronized (handler) {
+            if (handler.ioProviderOwner != null && handler.ioProviderOwner != owner) return false;
+            handler.ioProviderOwner = owner;
+            return true;
+        }
+    }
+
+    private static boolean bindIoProviderHandlers(IoOwner owner, HandlerFrame... handlers) {
+        for (HandlerFrame handler : handlers) {
+            if (handler != null && handler.ioProviderOwner != null && handler.ioProviderOwner != owner) {
+                return false;
+            }
+        }
+        for (HandlerFrame handler : handlers) {
+            if (!bindIoProviderHandler(handler, owner)) return false;
+        }
+        return true;
+    }
+
     private static void closeIoProviderScope(HandlerFrame scope) {
         if (!scope.effect.equals(IO_PROVIDER_SCOPE_EFFECT)) return;
         IoOwner owner;
@@ -339,7 +366,7 @@
             return ioProviderInvalidInput(operation, "provider slots must be nonnegative");
         }
         IoOwner owner = (IoOwner) ownerValue;
-        if (findHandler(IO_PROVIDER_SCOPE_EFFECT) != owner.scope) {
+        if (!ioProviderOwnerIsCurrent(owner)) {
             return ioProviderInvalidInput(operation, "provider owner is not active in this scope");
         }
         synchronized (owner.resources) {
@@ -358,6 +385,9 @@
                         ? "mutable filesystem registration requires fs::Read and fs::Mutate handlers"
                         : "filesystem registration requires an fs::Read handler"
                 );
+            }
+            if (!bindIoProviderHandlers(owner, read, mutate)) {
+                return ioProviderInvalidResource(operation, "filesystem handlers belong to another provider owner");
             }
             Object filesystem = mutable
                 ? new IoMutableFilesystem(owner, slot, read, mutate)
@@ -392,7 +422,7 @@
             return ioProviderInvalidInput("resource", "provider slots must be nonnegative");
         }
         IoOwner owner = (IoOwner) ownerValue;
-        if (findHandler(IO_PROVIDER_SCOPE_EFFECT) != owner.scope) {
+        if (!ioProviderOwnerIsCurrent(owner)) {
             return ioProviderInvalidInput("resource", "provider owner is not active in this scope");
         }
         boolean readFile = isAdt(familyValue, "ViewFamily::ReadFile");
@@ -485,6 +515,19 @@
                 resource = new IoResource(
                     owner, slot, "Duplex", read, write, null, null, null, close, null, null
                 );
+            }
+            if (!bindIoProviderHandlers(
+                owner,
+                resource.read,
+                resource.write,
+                resource.seek,
+                resource.readAt,
+                resource.writeAt,
+                resource.close,
+                resource.sync,
+                resource.mutate
+            )) {
+                return ioProviderInvalidResource("resource", "operation handlers belong to another provider owner");
             }
             owner.resources.put(Long.valueOf(slot), resource);
             return ok(resource);
@@ -592,9 +635,9 @@
             return ioProviderInvalidInput("slot", "invalid provider identity");
         }
         IoResource value = (IoResource) resource;
-        return value.owner == owner
+        return value.owner == owner && ioProviderOwnerIsCurrent(value.owner)
             ? ok(Long.valueOf(value.slot))
-            : ioProviderInvalidInput("slot", "resource belongs to another provider owner");
+            : ioProviderInvalidResource("slot", "resource belongs to another provider owner");
     }
 
     private static Object ioProviderNamespaceSlot(
@@ -607,7 +650,7 @@
             return ioProviderInvalidInput(operation, "invalid provider owner");
         }
         IoOwner owner = (IoOwner) ownerValue;
-        if (findHandler(IO_PROVIDER_SCOPE_EFFECT) != owner.scope) {
+        if (!ioProviderOwnerIsCurrent(owner)) {
             return ioProviderInvalidResource(operation, "provider owner is not active in this scope");
         }
         if (owner.scope.ioProviderScopeClosed) {
@@ -644,9 +687,9 @@
             return ioProviderInvalidInput(operation, "invalid provider capability identity");
         }
         IoCapability value = (IoCapability) capability;
-        return value.owner == owner
+        return value.owner == owner && ioProviderOwnerIsCurrent(value.owner)
             ? ok(Long.valueOf(value.slot))
-            : ioProviderInvalidInput(operation, "capability belongs to another provider owner");
+            : ioProviderInvalidResource(operation, "capability belongs to another provider owner");
     }
 
     public static Object ioProviderReaderSlot(Object owner, Object capability) {
@@ -672,4 +715,154 @@
     }
     public static Object ioProviderTruncaterSlot(Object owner, Object capability) {
         return ioProviderCapabilitySlot("truncater_slot", owner, capability);
+    }
+
+    private static HandlerFrame ioProviderCapturedHandler(String effect, Object operand) {
+        if (operand instanceof IoFilesystem && effect.equals(FS_READ_EFFECT)) {
+            return ((IoFilesystem) operand).read;
+        }
+        if (operand instanceof IoMutableFilesystem) {
+            IoMutableFilesystem filesystem = (IoMutableFilesystem) operand;
+            if (effect.equals(FS_READ_EFFECT)) return filesystem.read;
+            if (effect.equals(FS_MUTATE_EFFECT)) return filesystem.mutate;
+        }
+        if (operand instanceof IoCapability) {
+            IoCapability capability = (IoCapability) operand;
+            return capability.handler != null && capability.handler.effect.equals(effect)
+                ? capability.handler
+                : null;
+        }
+        return null;
+    }
+
+    private static Object ioProviderDispatch(
+        Object effectValue,
+        Object operationValue,
+        Object operand,
+        Object[] trailing
+    ) {
+        String effect = asString(effectValue);
+        String operation = asString(operationValue);
+        HandlerFrame handler = ioProviderCapturedHandler(effect, operand);
+        if (handler == null) {
+            throw new RuntimeFailure("invalid provider-bound operand for " + effect + "::" + operation);
+        }
+        IoOwner owner = operand instanceof IoCapability
+            ? ((IoCapability) operand).owner
+            : operand instanceof IoFilesystem
+                ? ((IoFilesystem) operand).owner
+                : ((IoMutableFilesystem) operand).owner;
+        if (handler.ioProviderOwner != owner) {
+            throw new RuntimeFailure("provider-bound handler identity does not match its operand owner");
+        }
+        Object[] args = new Object[trailing.length + 1];
+        args[0] = operand;
+        System.arraycopy(trailing, 0, args, 1, trailing.length);
+        return invokeHandler(handler, operation, args);
+    }
+
+    public static Object ioProviderDispatch1(Object effect, Object operation, Object operand) {
+        return ioProviderDispatch(effect, operation, operand, new Object[] {});
+    }
+
+    public static Object ioProviderDispatch2(
+        Object effect,
+        Object operation,
+        Object operand,
+        Object argument
+    ) {
+        return ioProviderDispatch(effect, operation, operand, new Object[] { argument });
+    }
+
+    public static Object ioProviderDispatch3(
+        Object effect,
+        Object operation,
+        Object operand,
+        Object first,
+        Object second
+    ) {
+        return ioProviderDispatch(effect, operation, operand, new Object[] { first, second });
+    }
+
+    private static Object ioProviderForeignFailure(String effect, String operation) {
+        Object error = ioProviderError(operation, "InvalidResource", "operand belongs to another provider");
+        Object zero = adt("io::Progress::Known", new Object[] { byteCountObject(0L) });
+        Object empty = byteChunkFromByteArray(new byte[] {}, 0);
+        if (effect.equals(FS_READ_EFFECT)) return err(error);
+        if (effect.equals(FS_MUTATE_EFFECT)) {
+            if (operation.startsWith("open_")) return err(error);
+            return adt("fs::MutationOutcome::MutationFailed", new Object[] { adt("io::Commit::No", new Object[] {}), error });
+        }
+        if (effect.equals(IO_READ_EFFECT) || effect.equals(IO_READ_AT_EFFECT)) {
+            return adt("io::ReadOutcome::ReadFailed", new Object[] { empty, zero, error });
+        }
+        if (effect.equals(IO_WRITE_EFFECT) || effect.equals(IO_WRITE_AT_EFFECT)) {
+            return adt("io::WriteOutcome::WriteFailed", new Object[] { zero, error });
+        }
+        if (effect.equals(IO_CLOSE_EFFECT)) {
+            return adt("io::CloseOutcome::CloseFailed", new Object[] { adt("io::Commit::No", new Object[] {}), error });
+        }
+        return err(error);
+    }
+
+    private static Object ioProviderLexicalDispatchFailure(
+        String effect,
+        String operation,
+        Object[] args,
+        HandlerFrame selected
+    ) {
+        if (args.length == 0) return null;
+        HandlerFrame captured = ioProviderCapturedHandler(effect, args[0]);
+        return captured != null && captured != selected
+            ? ioProviderForeignFailure(effect, operation)
+            : null;
+    }
+
+    public static Object ioCopy(Object reader, Object writer, Object chunkSize) {
+        long total = 0L;
+        while (true) {
+            Object read = ioProviderDispatch2(IO_READ_EFFECT, "read", reader, chunkSize);
+            if (isAdt(read, "ReadOutcome::End")) {
+                return adt("io::CopyOutcome::Copied", new Object[] { byteCountObject(total) });
+            }
+            if (isAdt(read, "ReadOutcome::ReadFailed")) {
+                return adt(
+                    "io::CopyOutcome::CopyFailed",
+                    new Object[] { adtPayload(read, 1), adt("io::Progress::Known", new Object[] { byteCountObject(total) }), adtPayload(read, 2) }
+                );
+            }
+            if (!isAdt(read, "ReadOutcome::Data")) {
+                throw new RuntimeFailure("provider read handler returned an invalid outcome");
+            }
+            Object bytes = adtPayload(read, 0);
+            long count = byteChunkBytes(bytes).size();
+            if (count == 0L) {
+                Object error = ioProviderError("copy", "NoProgress", "provider read returned an empty data chunk");
+                Object known = adt("io::Progress::Known", new Object[] { byteCountObject(total) });
+                return adt("io::CopyOutcome::CopyFailed", new Object[] { known, known, error });
+            }
+            Object write = ioProviderDispatch2(IO_WRITE_EFFECT, "write", writer, bytes);
+            if (isAdt(write, "WriteOutcome::WriteFailed")) {
+                return adt(
+                    "io::CopyOutcome::CopyFailed",
+                    new Object[] { adt("io::Progress::Known", new Object[] { byteCountObject(total + count) }), adtPayload(write, 0), adtPayload(write, 1) }
+                );
+            }
+            if (!isAdt(write, "WriteOutcome::Written")) {
+                throw new RuntimeFailure("provider write handler returned an invalid outcome");
+            }
+            long written = byteCountLong(adtPayload(write, 0));
+            total += written;
+            if (written != count) {
+                Object error = ioProviderError("copy", "NoProgress", "provider write did not consume the complete chunk");
+                return adt(
+                    "io::CopyOutcome::CopyFailed",
+                    new Object[] {
+                        adt("io::Progress::Known", new Object[] { byteCountObject(total - written + count) }),
+                        adt("io::Progress::Known", new Object[] { byteCountObject(total) }),
+                        error
+                    }
+                );
+            }
+        }
     }

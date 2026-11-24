@@ -17,3 +17,7 @@ end
 pub fn casing_recovery_cannot_reveal_private_adapter() -> io_provider::Owner
 	prelude_builtin::Io_provider_scope_owner()
 end
+
+pub fn provider_dispatch_adapter_is_private() -> io::ReadOutcome
+	prelude_builtin::io_provider_dispatch2()
+end

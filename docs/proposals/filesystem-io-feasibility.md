@@ -8,26 +8,26 @@ update-when: The filesystem IO F2–F5 feasibility scope, provider adapter proto
 Implement a bounded source/adapter prototype that tests whether the proposed
 filesystem and shared byte IO design can preserve capabilities, provider
 identity, state, progress, and cleanup through ordinary Veln handlers.
-This Ready target owns F2–F5. Ready authorizes building the prototype, not
-adopting the production API.
+F2 is implemented. This Ready target owns the remaining F3–F5 work. Ready
+authorizes building the prototype, not adopting the production API.
 
 ## Scope And Dependency Direction
 
-This proposal owns the remaining feasibility gates F2–F5 extracted from
+This proposal owns the remaining feasibility gates F3–F5 extracted from
 [Filesystem And Shared Byte IO](filesystem-io.md). That proposal remains in
 Design In Progress until this work completes. This work does not depend on
 its production implementation or promotion to Ready.
 
 The following sections of the filesystem proposal define the prototype's
 design inputs. The static source boundary, compiler-known adapter names and
-opaque identities, namespace-token factories, and bounded five-family
-registration and projection are implemented and specified by
+opaque identities, namespace-token factories, bounded five-family
+registration and projection, provider-bound dispatch, and the two-provider F2
+fake are implemented and specified by
 [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
 The table lists only the remaining proposed obligations:
 
 | Design input | Prototype obligation |
 | --- | --- |
-| [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Invoke the handlers already captured by namespace tokens and registered resources, and use the [atomic `State<T>` operations](../specification/standard-library-filesystem-io.md#atomic-state) for fake provider state. |
 | [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Preserve bytes, known and unknown progress, error context, and no-progress behavior. |
 | [Namespace, seek, and mutation transitions](filesystem-io.md#namespace-seek-and-mutation-transitions) | Observe successful and failed operations through bytes, cursors, bindings, and commit facts. |
 | [Concurrent operations and cleanup](filesystem-io.md#concurrent-operations-and-cleanup) | Preserve per-open admission, release obligations, aliases, and failure precedence. |
@@ -51,7 +51,7 @@ its positive observations and its failure or preserved-state observations.
 
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
-| F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. | Companion tests with distinct provider contents and operation logs; a backend dispatch case checks captured provider identity and absence of host fallback. |
+| F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. | Implemented. [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln) checks independent contents, logs, nested identity, foreign-state preservation, and copy; [`IoProviderDispatchHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderDispatchHarness.java) checks captured identity and no active fallback. |
 | F3: provider state and owner lifecycle | Concurrent provider-fake writes cannot lose completed updates. Closing the owner rejects late host-resource publication, releases the late resource, and retains any cleanup failure. | Companion provider-fake write observations and backend owner-lifecycle cases, including a host open gated across owner closure. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
 | F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
@@ -61,16 +61,14 @@ closure, late host-resource publication and release, and retained cleanup
 failure observable at the applicable publication and cleanup boundaries. It
 must not rely on timing or an external filesystem to produce a rare failure.
 
-If F2–F3 cannot be demonstrated with the named adapter extension, revise the
-resource design and affected acceptance contracts before continuing to F4–F5.
-A platform-only fake or an assumed unimplemented dispatch primitive does not
-satisfy a gate. Such a failure does not promote the parent proposal.
+If F3 cannot be demonstrated with the implemented adapter extension, revise
+the resource design and affected acceptance contracts before continuing to
+F4–F5. Such a failure does not promote the parent proposal.
 
 ## Implementation Sequence And Evidence Placement
 
-1. Add separate Veln provider support and demonstrate F2 and the concurrent
-   provider-fake and owner-lifecycle observations in F3. Keep fake state and
-   failure plans in Veln.
+1. Add the concurrent provider-fake and owner-lifecycle observations in F3.
+   Keep fake state and failure plans in Veln.
 2. Apply the outcome and transition tables to F4 and F5. Add host-boundary
    cases only for observations that require a real host or backend integration.
 
@@ -89,11 +87,11 @@ No compiler or CLI wrapper substitutes for companion coverage of API behavior.
 ## Related Work And Design Basis
 
 The current [nominal effect boundary](../specification/effects.md#effect-labels)
-provides source-defined operations and handlers. It does not establish the
-proposed general resource allocation or captured-dispatch API. F2 therefore
-checks the explicit adapter extension rather than treating nominal
-dispatch alone as proof of feasibility. Extending ordinary `perform` to route
-all operations by resource identity remains outside the selected design.
+provides source-defined operations and handlers. The implemented F2 adapter
+routes only the standard filesystem and byte facades by opaque resource
+identity. Ordinary `perform` retains lexical selection and rejects a foreign
+provider operand before invoking either provider. A general resource-bound
+nominal dispatch rule remains outside the selected design.
 
 The current [JVM execution boundary](../specification/execution.md#runtime-readiness-and-host-boundaries)
 ties system network resources to handler owners, shares those owners with

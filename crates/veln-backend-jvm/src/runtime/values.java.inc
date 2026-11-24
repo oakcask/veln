@@ -572,6 +572,7 @@
         private long networkResourceReleaseWork;
         private volatile boolean ioProviderScopeClosed;
         private IoOwner ioOwner;
+        private IoOwner ioProviderOwner;
         private final java.util.Map<NetworkResourceIdentity, Object> networkResources =
             new java.util.LinkedHashMap<NetworkResourceIdentity, Object>();
 
@@ -633,6 +634,8 @@
     public static Object perform(String effect, String operation, Object[] args) {
         HandlerFrame frame = findHandler(effect);
         if (frame == null) throw new IllegalStateException("unhandled effect operation " + effect + "::" + operation);
+        Object providerFailure = ioProviderLexicalDispatchFailure(effect, operation, args, frame);
+        if (providerFailure != null) return providerFailure;
         Object ownershipFailure = netSystemDispatchOwnershipFailure(effect, operation, args, frame);
         if (ownershipFailure != null) return ownershipFailure;
         return invokeHandler(frame, operation, args);

@@ -39,11 +39,13 @@ resource type identities.
 The private filesystem IO adapter surface and its runtime-readiness boundary
 are specified by
 [Standard-library filesystem and byte IO](standard-library-filesystem-io.md).
-That surface includes the private `io_provider_state` and
-`io_provider_state_update` adapters. Their compiler signatures preserve the
-state value, callback context, replacement, and callback result types across
-the public generic `io_provider` wrappers; they remain unavailable as bare or
-application-callable helpers.
+That surface includes the private `io_provider_state`,
+`io_provider_state_update`, and bounded `io_provider_dispatch1` through
+`io_provider_dispatch3` adapters. The state signatures preserve the value,
+callback context, replacement, and callback result types across the public
+generic `io_provider` wrappers. The dispatch signatures preserve the facade's
+checked result type while the standard wrapper fixes the nominal effect and
+operation. All remain unavailable as bare or application-callable helpers.
 Public network operations are ordinary declarations in the exported
 `std::net` module, not compiler-known descriptors. The resource descriptors
 have no constructors and allow exported standard-package aliases to name host

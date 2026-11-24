@@ -103,7 +103,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
   [standard-library-networking.md](standard-library-networking.md).
 - Exported filesystem and shared byte IO declarations, opaque capability
   boundaries, file-view families, provider-bound namespace-token factories,
-  the bounded five-family registration and projection prototypes, atomic
+  the bounded five-family registration and projection prototypes,
+  provider-bound facade dispatch, successful cross-provider copy, atomic
   provider state, and the remaining runtime limits:
   [standard-library-filesystem-io.md](standard-library-filesystem-io.md).
 - Exported pure portable path values, ordered lexical validation, exact

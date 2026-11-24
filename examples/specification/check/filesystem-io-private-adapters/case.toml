@@ -12,12 +12,12 @@ format = "empty"
 
 [[json_assert]]
 path = "summary.by_kind.name"
-equals = 4
+equals = 5
 
 [[json_assert]]
 path = "diagnostics.0.id"
 equals = "name.unresolved"
 
 [[json_assert]]
-path = "diagnostics.3.id"
+path = "diagnostics.4.id"
 equals = "name.unresolved"

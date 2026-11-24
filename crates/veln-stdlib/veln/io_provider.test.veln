@@ -4,6 +4,8 @@ use io
 use io_provider
 use io_provider_test_support_test
 use io_provider_state_test_support_test
+use path
+use filesystem_provider_test_support_test
 
 fn readonly_filesystem(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<fs::Filesystem, io::Error> effects [concurrency]
 	handle io_provider::filesystem(owner, slot) with io_provider_test_support_test::filesystem_read(calls)
@@ -1062,4 +1064,130 @@ test atomic_state_callback_failure_preserves_state_and_releases_admission() -> R
 	else
 		Err("failed atomic-state callback changed state or retained admission")
 	end
+end
+
+fn f2_readonly_filesystem(owner: io_provider::Owner, slot: Int, cell: io_provider::State<filesystem_provider_test_support_test::FakeState>) -> Result<fs::Filesystem, io::Error> effects [concurrency]
+	handle io_provider::filesystem(owner, slot) with filesystem_provider_test_support_test::filesystem(owner, slot, cell)
+end
+
+fn f2_mutable_filesystem(owner: io_provider::Owner, slot: Int, cell: io_provider::State<filesystem_provider_test_support_test::FakeState>) -> Result<fs::MutableFilesystem, io::Error> effects [concurrency]
+	handle handle io_provider::mutable_filesystem(owner, slot) with filesystem_provider_test_support_test::filesystem(owner, slot, cell) with filesystem_provider_test_support_test::mutable_filesystem(owner, slot, slot + 200, cell)
+end
+
+fn f2_is_invalid_resource(error: io::Error) -> Bool
+	match error
+		io::Error::Error(_, io::ErrorKind::InvalidResource, _, _, _, _, _) => true
+		_ => false
+	end
+end
+
+fn f2_foreign_filesystem_rejected(result: Result<fs::ReadFile, io::Error>) -> Bool
+	match result
+		Err(error) => f2_is_invalid_resource(error)
+		Ok(_) => false
+	end
+end
+
+fn f2_foreign_reader_rejected(result: io::ReadOutcome) -> Bool
+	match result
+		io::ReadOutcome::ReadFailed(_, io::Progress::Known(count), error) => byte_count_to_int(count) == 0 and f2_is_invalid_resource(error)
+		_ => false
+	end
+end
+
+fn f2_snapshot_matches(snapshot: filesystem_provider_test_support_test::Snapshot, source: String, output: String, reads: Int, log: String) -> Bool
+	match snapshot
+		filesystem_provider_test_support_test::Snapshot(source_bytes, output_bytes, actual_reads, actual_log) => match byte_chunk_to_visible_ascii_string(source_bytes)
+			Ok(source_text) => match byte_chunk_to_visible_ascii_string(output_bytes)
+				Ok(output_text) => source_text == source and output_text == output and actual_reads == reads and actual_log == log
+				Err(_) => false
+			end
+			Err(_) => false
+		end
+	end
+end
+
+fn f2_inner_provider_observations(outer_filesystem: fs::Filesystem, outer_state: io_provider::State<filesystem_provider_test_support_test::FakeState>, expected_count: ByteCount) -> Result<(), String> effects [io_provider::Scope, fs::Mutate, io::Read, io::Write, concurrency]
+	let inner_owner = io_provider::owner()
+	match byte_chunk_from_hex("696e6e6572736f75726365")
+		Err(_) => Err("could not construct inner provider bytes")
+		Ok(inner_bytes) => begin
+			let inner_state = filesystem_provider_test_support_test::state(inner_bytes)
+			match f2_mutable_filesystem(inner_owner, 2, inner_state)
+				Err(_) => Err("inner mutable filesystem allocation failed")
+				Ok(inner_mutable) => begin
+					let before_outer = filesystem_provider_test_support_test::snapshot(outer_state)
+					let before_inner = filesystem_provider_test_support_test::snapshot(inner_state)
+					let foreign_namespace = handle perform fs::Read::open_read(outer_filesystem, path::root()) with filesystem_provider_test_support_test::filesystem(inner_owner, 2, inner_state)
+					let after_foreign_outer = filesystem_provider_test_support_test::snapshot(outer_state)
+					let after_foreign_inner = filesystem_provider_test_support_test::snapshot(inner_state)
+					if not f2_foreign_filesystem_rejected(foreign_namespace)
+						Err("foreign namespace token was not rejected as InvalidResource")
+					else if not f2_snapshot_matches(before_outer, "outerbytes", "", 0, "") or not f2_snapshot_matches(after_foreign_outer, "outerbytes", "", 0, "")
+						Err("foreign namespace token changed the outer fake provider state")
+					else if not f2_snapshot_matches(before_inner, "innersource", "", 0, "") or not f2_snapshot_matches(after_foreign_inner, "innersource", "", 0, "")
+						Err("foreign namespace token changed the inner fake provider state")
+					else begin
+						let outer_open = handle fs::open_read(outer_filesystem, path::root()) with filesystem_provider_test_support_test::filesystem(inner_owner, 2, inner_state)
+						match outer_open
+							Err(_) => Err("nested handler shadowing redirected the outer filesystem token")
+							Ok(fs::ReadFile(outer_reader, _, _, _)) => begin
+								let before_capability_outer = filesystem_provider_test_support_test::snapshot(outer_state)
+								let before_capability_inner = filesystem_provider_test_support_test::snapshot(inner_state)
+								let foreign_capability = handle perform io::Read::read(outer_reader, expected_count) with filesystem_provider_test_support_test::reader(inner_owner, 102, inner_state)
+								let after_capability_outer = filesystem_provider_test_support_test::snapshot(outer_state)
+								let after_capability_inner = filesystem_provider_test_support_test::snapshot(inner_state)
+								if not f2_foreign_reader_rejected(foreign_capability)
+									Err("foreign byte capability was not rejected as InvalidResource")
+								else if not f2_snapshot_matches(before_capability_outer, "outerbytes", "", 0, "open_read;") or not f2_snapshot_matches(after_capability_outer, "outerbytes", "", 0, "open_read;")
+									Err("foreign byte capability changed the outer fake provider state")
+								else if not f2_snapshot_matches(before_capability_inner, "innersource", "", 0, "") or not f2_snapshot_matches(after_capability_inner, "innersource", "", 0, "")
+									Err("foreign byte capability changed the inner fake provider state")
+								else begin
+									match fs::open_write(inner_mutable, path::root(), fs::WriteMode::WriteMode(fs::CreateMode::CreateIfMissing, true))
+										Err(_) => Err("inner writer allocation failed")
+										Ok(fs::WriteFile(inner_writer, _, _, _, _, _)) => match io::copy(outer_reader, inner_writer, expected_count)
+											io::CopyOutcome::Copied(count) => begin
+												let outer_after = filesystem_provider_test_support_test::snapshot(outer_state)
+												let inner_after = filesystem_provider_test_support_test::snapshot(inner_state)
+												if byte_count_to_int(count) == byte_count_to_int(expected_count) and f2_snapshot_matches(outer_after, "outerbytes", "", 1, "open_read;read;end;") and f2_snapshot_matches(inner_after, "innersource", "outerbytes", 0, "open_write;write;")
+													Ok(())
+												else
+													Err("cross-provider copy did not preserve distinct bytes and operation logs")
+												end
+											end
+											io::CopyOutcome::CopyFailed(_, _, _) => Err("cross-provider copy failed")
+										end
+									end
+								end
+								end
+							end
+						end
+					end
+					end
+				end
+			end
+		end
+	end
+end
+
+fn f2_outer_provider_observations() -> Result<(), String> effects [io_provider::Scope, fs::Mutate, io::Read, io::Write, concurrency]
+	let outer_owner = io_provider::owner()
+	match byte_chunk_from_hex("6f757465726279746573")
+		Err(_) => Err("could not construct outer provider bytes")
+		Ok(outer_bytes) => begin
+			let outer_state = filesystem_provider_test_support_test::state(outer_bytes)
+			match f2_readonly_filesystem(outer_owner, 1, outer_state)
+				Err(_) => Err("outer filesystem allocation failed")
+				Ok(outer_filesystem) => match byte_count(10)
+					Err(_) => Err("could not construct copy chunk size")
+					Ok(expected_count) => handle f2_inner_provider_observations(outer_filesystem, outer_state, expected_count) with io_provider::scope()
+				end
+			end
+		end
+	end
+end
+
+test provider_bound_dispatch_preserves_nested_identity_and_cross_provider_bytes() -> Result<(), String> effects [fs::Mutate, io::Read, io::Write, concurrency]
+	handle f2_outer_provider_observations() with io_provider::scope()
 end
