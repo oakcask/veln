@@ -23,6 +23,17 @@ also states it.
 
 ## Design In Progress
 
+- [Typed Predicate Logic and Flow Facts](typed-predicate-facts.md): define
+  typed scalar predicates, value identity, flow transfer, and bounded proof
+  outcomes as the shared prerequisite for callable interfaces and static
+  contracts.
+- [Contract-bearing Callable Types](contract-bearing-callable-types.md): retain
+  bound pre/post interfaces through function values and public types; depends
+  on typed predicate facts.
+- [Static Contracts for Composable Calls](static-contracts.md): prove marked
+  preconditions at calls and postconditions at returns, validate summaries,
+  and enforce executable boundaries; depends on both language proposals above.
+
 - Filesystem selection, host path conversion, shared byte IO, seek, provider
   ownership, and scoped fake filesystems; initial design decisions are fixed,
   but implementation selection depends on completing
