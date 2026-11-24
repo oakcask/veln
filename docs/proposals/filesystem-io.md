@@ -11,10 +11,10 @@ handlers. The same byte-processing helpers should work with files, network
 streams, and memory.
 
 The [design decisions](#design-decisions) resolve the initial scope. The static
-source names and capability boundaries plus bounded five-family registration,
-projection, compatibility, and atomic provider state are implemented for
-feasibility. Resource operation dispatch and the remaining acceptance evidence
-are planned.
+source names and capability boundaries, bounded namespace-token allocation and
+projection, five-family registration, projection and compatibility, and atomic
+provider state are implemented for feasibility. Namespace and resource
+operation dispatch and the remaining acceptance evidence are planned.
 Implementation selection remains blocked on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
@@ -256,9 +256,10 @@ per-open lifecycle, synchronized state, and scripted failures.
 
 ## Acceptance Model
 
-Except for the checked static source and capability boundary, the bounded
-five-family registration, projection, and compatibility slice, and atomic
-provider state, the evidence below is planned.
+Except for the checked static source and capability boundary, bounded
+namespace-token allocation and projection, the five-family registration,
+projection, and compatibility slice, and atomic provider state, the evidence
+below is planned.
 Expected byte sequences and state transitions come from the contracts and
 decision tables in this proposal, not from copying the implementation's
 output. Fake tests do not establish real host behavior.
@@ -283,10 +284,11 @@ No broad stress or performance claim is part of this proposal.
 
 These decisions replace the former open questions. The adapter and capability
 choices are Veln design inferences, not guarantees supplied by the comparative
-sources. The static API contract and bounded five-family runtime slice are
-implemented, as is the atomic state prerequisite, where the table links to the current
-specification. The remaining runtime decisions are proposed contracts, not
-evidence that their runtime support exists.
+sources. The static API contract, bounded namespace-token allocation and
+projection, bounded five-family runtime slice, and atomic state prerequisite
+are implemented where the table links to the current specification. The
+remaining runtime decisions are proposed contracts, not evidence that their
+runtime support exists.
 
 | Concern | Selected initial design | Acceptance obligation |
 | --- | --- | --- |
@@ -517,10 +519,11 @@ invalidation belong to a separate buffering proposal before such helpers exist.
 
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) owns F2–F5, their
 prototype scope, evidence, and completion conditions. It is independently
-selectable from Ready. The implemented static source surface and the planned
-provider extension, outcomes, and transition tables here remain the design
-contract exercised by that work; implementing the complete production
-filesystem runtime is not its prerequisite.
+selectable from Ready. The implemented static source surface and provider
+allocation slice, together with the planned provider dispatch, outcomes, and
+transition tables here, remain the design contract exercised by that work.
+Implementing the complete production filesystem runtime is not its
+prerequisite.
 
 ## Implementation Readiness And Promotion
 
