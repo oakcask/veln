@@ -569,7 +569,8 @@ capability and effect boundary.
   projection behavior, two independent fake providers, shared handler-frame
   registration by two owners, nested captured dispatch, foreign-identity state
   preservation, rejection of namespace registration for a non-nearest owner
-  without consuming its slot, successful cross-provider copy, and two
+  without consuming its slot, the bounded cross-provider copy outcome matrix,
+  and two
   same-owner writers sharing one fake-provider state cell without losing or
   interleaving completed chunks:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),

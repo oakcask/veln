@@ -13,9 +13,10 @@ streams, and memory.
 The [design decisions](#design-decisions) resolve the initial scope. The
 implemented static and bounded runtime prerequisites belong to the current
 [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
-The remaining F4 outcome and mutation behavior, F5 cleanup behavior, and host
-integration evidence are planned. Implementation selection remains blocked on
-the separate
+The bounded `io::copy` outcome matrix is implemented. The remaining F4 direct
+and complete-transfer, host-translation, seek, namespace, and mutation
+behavior, F5 cleanup behavior, and host integration evidence are planned.
+Implementation selection remains blocked on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
 ## Current Boundary And Scope
@@ -121,9 +122,10 @@ an implicit system provider to every helper.
 The byte layer uses `ByteChunk`, `ByteCount`, and `ByteOffset`, with a common
 typed IO error vocabulary that is independent of `net::NetError`. Filesystem
 and network adapters retain domain context when translating failures. The
-[implemented static source surface](../specification/standard-library-filesystem-io.md)
-fixes the type boundaries. The outcome contracts below define the planned
-runtime semantics.
+[implemented source surface and bounded `copy` behavior](../specification/standard-library-filesystem-io.md)
+fix the current type boundaries and `copy` outcomes. The remaining rows below
+define planned runtime semantics for the direct facade, complete-transfer
+helpers, positional operations, and host adapters.
 
 | Operation family | Observable contract |
 | --- | --- |
@@ -243,7 +245,9 @@ per-open lifecycle, synchronized state, and scripted failures.
 
 The checked feasibility foundation belongs to the
 [current specification](../specification/standard-library-filesystem-io.md).
-The evidence below is planned.
+The evidence below is planned for the remaining behavior. The implemented
+bounded `copy` matrix and its checked evidence belong to the
+[current specification](../specification/standard-library-filesystem-io.md#references).
 Expected byte sequences and state transitions come from the contracts and
 decision tables in this proposal, not from copying the implementation's
 output. Fake tests do not establish real host behavior.
@@ -251,7 +255,7 @@ output. Fake tests do not establish real host behavior.
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
 | Host conversion | An unrepresentable name fails without selecting another entry; native and portable types cannot be interchanged implicitly. | Companion tests plus focused host-conversion and compiler type-boundary tests. |
-| Partial transfer | Short reads are data; complete helpers preserve bytes and progress; partial writes retry only an uncommitted suffix; unknown progress stops retry. | Scripted Veln fake tests with independent expected contents and operation logs. |
+| Remaining partial transfer | Direct operations and complete helpers preserve bytes and progress; partial writes retry only an uncommitted suffix; unknown progress stops retry. | Scripted Veln fake tests with independent expected contents and operation logs. |
 | Seek and positional IO | Origin arithmetic, invalid targets, beyond-end reads, independent opens, aliases, and positional cursor preservation obey the state table. | Companion tests shared by memory and supported system providers; host tests for native translation. |
 | Namespace updates | Open modes, exclusive create, directory operations, rename, and truncation obey the mutation transition table, including failure preservation. | Shared provider conformance tests and focused real-host integration cases. |
 | Errors and cleanup | Stable error kinds retain operation and path context; close and cleanup transitions preserve progress and the selected primary failure. | Companion tests plus human/JSON execution coverage where runtime cleanup diagnostics apply. |
@@ -276,7 +280,7 @@ runtime support exists.
 | Failure-plan state | Extend the provider-bound Veln fake state with scripted failures, resource cursors, close facts, and operation progress as ordinary Veln data. | A scripted failure changes only the selected provider instance and records the commit facts required by the operation outcome matrix. |
 | Native paths | Keep the current host-owned `Path` as the explicit native boundary; `path::Path` remains portable. Support only exactly representable names initially. | Nonrepresentable names fail with `UnrepresentablePath`; display is never used as a conversion. |
 | Links and confinement | Follow links for ordinary open; explicit follow/no-follow metadata. No confinement or link-creation capability initially. A subtree is only a namespace view. | Dangling links, cycles, unsupported no-follow, and a link outside a subtree cannot be misreported as confined access. |
-| IO outcomes | Preserve delivered bytes, exact or unknown progress, typed errors, and copy's independent consumed/committed counts. | Scripted partial-failure, empty-request, no-progress, and unknown-progress cases below. |
+| Remaining IO outcomes | Preserve delivered bytes, exact or unknown progress, and typed errors for the direct facade, complete-transfer helpers, and host adapters. The current specification owns bounded `copy` outcomes. | Scripted partial-failure, empty-request, no-progress, and unknown-progress cases below, excluding the implemented bounded `copy` matrix. |
 | Seek and mutation | Absolute logical cursor, host-defined gap bytes, append-only writer views, no-replacement atomic rename where supported, and explicit mutation commit facts. | Shared transition cases plus host tests for unsupported and unknown host outcomes. |
 | Concurrency and cancellation | Nonblocking per-open admission returns `Busy` for overlapping transfers, seek, truncate, or sync. Close can invalidate an in-flight operation. No bounded host cancellation promise. | Gated overlap, close/interruption races, and reconciliation after unknown cursor or close state. |
 | Cleanup and durability | Reverse-publication cleanup, continue after failures, network-compatible close commit facts and abrupt cleanup precedence. No automatic sync. | Known-false, known-true, and unknown close failures, retries, and body-failure precedence. |
@@ -442,8 +446,9 @@ invalidation belong to a separate buffering proposal before such helpers exist.
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) owns the remaining
 F4–F5 prototype scope, evidence, and completion conditions. It is independently
 selectable from Ready. The current provider foundation, together with the
-planned outcome, transition, and complete cleanup tables here, remains the
-design contract exercised by that work.
+implemented bounded `copy` matrix and the planned remaining outcome,
+transition, and complete cleanup tables here, remains the design contract
+exercised by that work.
 Implementing the complete production filesystem runtime is not its
 prerequisite.
 

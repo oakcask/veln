@@ -150,6 +150,13 @@ modeled runtime failure, and task cancellation. When restricted cleanup
 succeeds during an abrupt failure, the original failure remains primary and
 execution does not continue after the handled scope.
 
+The same private adapter implements bounded `io::copy` by dispatching through
+the source and destination capabilities. It retries only the uncommitted write
+suffix, stops on no progress or invalid provider counts, and preserves separate
+consumed and committed progress on failure. The
+[standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#provider-bound-dispatch)
+owns the source-visible outcomes, validation rules, and remaining limits.
+
 A facade or accepted lexical open admitted before owner closure can finish
 afterward. Its resource is rejected instead of published and released once
 through the captured close handler. A failed close outcome or a modeled Veln
@@ -1026,6 +1033,10 @@ than degrading it to a generic rendered result value.
   removal, queued callback failure, checkpoint cancellation, publication, and
   cell reuse in
   [`AtomicStateHarness.java`](../../crates/veln-backend-jvm/test-support/AtomicStateHarness.java).
+- Bounded JVM provider copy dispatch, short reads, and suffix-only
+  partial-write retry are checked by
+  [`filesystem-io-copy-outcomes`](../../examples/specification/run/filesystem-io-copy-outcomes/).
+  The standard-library companion matrix owns the API outcome contract.
 - Normal completion, nested unwinding, registration-time snapshots, and the
   public test boundary are checked by
   [`deferred-cleanup-runtime-boundary`](../../examples/specification/run/deferred-cleanup-runtime-boundary/),
