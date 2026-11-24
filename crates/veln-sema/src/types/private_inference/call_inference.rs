@@ -1,30 +1,6 @@
 use super::*;
 use crate::adt::descriptors::AdtPayloadField;
 
-fn private_type_contains_unknown(ty: &Type) -> bool {
-    match ty {
-        Type::Unknown => true,
-        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
-            args.iter().any(private_type_contains_unknown)
-        }
-        Type::Record(fields) => fields
-            .iter()
-            .any(|(_, field)| private_type_contains_unknown(field)),
-        Type::Function {
-            params,
-            variadic,
-            return_type,
-            ..
-        } => {
-            params.iter().any(private_type_contains_unknown)
-                || variadic
-                    .as_deref()
-                    .is_some_and(private_type_contains_unknown)
-                || private_type_contains_unknown(return_type)
-        }
-    }
-}
-
 pub(crate) fn infer_private_signature_call_type(
     callee: &Expr,
     args: &[Expr],
@@ -362,7 +338,7 @@ impl PrivatePayloadInferencePlan {
             field.is_some_and(|field| matches!(field.ty, AdtPayloadType::TypeParameter(_)));
         let concrete_payload =
             field.is_some_and(|field| matches!(field.ty, AdtPayloadType::Concrete(_)));
-        let payload_has_unknown = private_type_contains_unknown(payload_expected);
+        let payload_has_unknown = payload_expected.contains_unknown();
         Self {
             widens_aggregate_member: has_expected_type
                 || (field.is_some() && !direct_joining_parameter && !payload_has_unknown),

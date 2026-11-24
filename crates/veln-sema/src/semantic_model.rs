@@ -362,6 +362,26 @@ impl Type {
     pub(crate) const COMPILER_DICT_IDENTITY: &'static str = "internal:compiler:Dict";
     pub(crate) const COMPILER_PATH_IDENTITY: &'static str = "internal:compiler::Path";
 
+    pub(crate) fn contains_unknown(&self) -> bool {
+        match self {
+            Self::Unknown => true,
+            Self::Named { args, .. } | Self::VariantRefinement { args, .. } => {
+                args.iter().any(Self::contains_unknown)
+            }
+            Self::Record(fields) => fields.iter().any(|(_, ty)| ty.contains_unknown()),
+            Self::Function {
+                params,
+                variadic,
+                return_type,
+                ..
+            } => {
+                params.iter().any(Self::contains_unknown)
+                    || variadic.as_deref().is_some_and(Self::contains_unknown)
+                    || return_type.contains_unknown()
+            }
+        }
+    }
+
     pub(crate) fn recovery_slot(index: usize) -> Self {
         Self::resolved_named(
             "",
@@ -744,4 +764,22 @@ fn render_type_list(types: &[Type]) -> String {
         .map(Type::render)
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn contains_unknown_traverses_variadic_function_type_position() {
+        let function = Type::Function {
+            params: vec![Type::bool()].into(),
+            variadic: Some(Box::new(Type::Unknown)),
+            return_type: Box::new(Type::unit()),
+            effects: Vec::new(),
+        };
+
+        assert!(function.contains_unknown());
+        assert!(!Type::option(Type::string()).contains_unknown());
+    }
 }

@@ -33,7 +33,7 @@ fn core_update_signature(
 ) -> (Vec<CoreType>, CoreType) {
     let original_cell = evidence.first.cloned().unwrap_or(CoreType::Unknown);
     let mut item = core_state_item(&original_cell).unwrap_or(CoreType::Unknown);
-    if core_type_contains_unknown(&item)
+    if item.contains_unknown()
         && let Some(callback_item) = evidence.third.and_then(core_callback_item_type)
     {
         item = callback_item;
@@ -94,26 +94,6 @@ fn core_callback_item_type(callback: &CoreType) -> Option<CoreType> {
     params.first().cloned()
 }
 
-fn core_type_contains_unknown(ty: &CoreType) -> bool {
-    match ty {
-        CoreType::Unknown => true,
-        CoreType::Named { args, .. } => args.iter().any(core_type_contains_unknown),
-        CoreType::Record(fields) => fields
-            .iter()
-            .any(|(_, field)| core_type_contains_unknown(field)),
-        CoreType::Function {
-            params,
-            variadic,
-            return_type,
-            ..
-        } => {
-            params.iter().any(core_type_contains_unknown)
-                || variadic.as_deref().is_some_and(core_type_contains_unknown)
-                || core_type_contains_unknown(return_type)
-        }
-    }
-}
-
 pub(super) fn io_provider_state_surface_signature(
     name: &str,
     expected: Option<&Type>,
@@ -144,7 +124,7 @@ fn surface_update_signature(
 ) -> (Vec<Type>, Type) {
     let original_cell = evidence.first.cloned().unwrap_or(Type::Unknown);
     let mut item = surface_state_item(&original_cell).unwrap_or(Type::Unknown);
-    if state_type_contains_unknown(&item)
+    if item.contains_unknown()
         && let Some(callback_item) = evidence.third.and_then(callback_item_type)
     {
         item = callback_item;
@@ -212,28 +192,6 @@ fn callback_item_type(callback: &Type) -> Option<Type> {
         return None;
     };
     params.first().cloned()
-}
-
-fn state_type_contains_unknown(ty: &Type) -> bool {
-    match ty {
-        Type::Unknown => true,
-        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
-            args.iter().any(state_type_contains_unknown)
-        }
-        Type::Record(fields) => fields
-            .iter()
-            .any(|(_, field)| state_type_contains_unknown(field)),
-        Type::Function {
-            params,
-            variadic,
-            return_type,
-            ..
-        } => {
-            params.iter().any(state_type_contains_unknown)
-                || variadic.as_deref().is_some_and(state_type_contains_unknown)
-                || state_type_contains_unknown(return_type)
-        }
-    }
 }
 
 fn state_item_type(ty: &Type) -> Type {

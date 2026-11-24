@@ -15,6 +15,24 @@ pub enum CoreType {
 }
 
 impl CoreType {
+    pub fn contains_unknown(&self) -> bool {
+        match self {
+            Self::Unknown => true,
+            Self::Named { args, .. } => args.iter().any(Self::contains_unknown),
+            Self::Record(fields) => fields.iter().any(|(_, ty)| ty.contains_unknown()),
+            Self::Function {
+                params,
+                variadic,
+                return_type,
+                ..
+            } => {
+                params.iter().any(Self::contains_unknown)
+                    || variadic.as_deref().is_some_and(Self::contains_unknown)
+                    || return_type.contains_unknown()
+            }
+        }
+    }
+
     pub fn named(name: impl Into<String>, args: Vec<CoreType>) -> Self {
         Self::Named {
             name: name.into(),
@@ -269,5 +287,18 @@ mod tests {
             .record_field("anything"),
             None
         );
+    }
+
+    #[test]
+    fn contains_unknown_traverses_variadic_function_type_position() {
+        let function = CoreType::Function {
+            params: vec![CoreType::int()],
+            variadic: Some(Box::new(CoreType::Unknown)),
+            return_type: Box::new(CoreType::bool()),
+            effects: Vec::new(),
+        };
+
+        assert!(function.contains_unknown());
+        assert!(!CoreType::option(CoreType::string()).contains_unknown());
     }
 }
