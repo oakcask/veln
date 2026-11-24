@@ -27,7 +27,7 @@ The table lists only the remaining proposed obligations:
 
 | Design input | Prototype obligation |
 | --- | --- |
-| [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Invoke captured handlers through their registered resource, and use the implemented atomic `State<T>` operations for fake provider state. |
+| [Provider-bound dispatch prerequisite](filesystem-io.md#provider-bound-dispatch-prerequisite) | Invoke captured handlers through their registered resource, and use the [atomic `State<T>` operations](../specification/standard-library-filesystem-io.md#file-view-runtime-prototype) for fake provider state. |
 | [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Preserve bytes, known and unknown progress, error context, and no-progress behavior. |
 | [Namespace, seek, and mutation transitions](filesystem-io.md#namespace-seek-and-mutation-transitions) | Observe successful and failed operations through bytes, cursors, bindings, and commit facts. |
 | [Concurrent operations and cleanup](filesystem-io.md#concurrent-operations-and-cleanup) | Preserve per-open admission, release obligations, aliases, and failure precedence. |
@@ -43,19 +43,6 @@ old compiler-known calls, and the complete network-to-byte adapter rollout
 remain in the filesystem proposal. This target does not introduce buffering,
 confinement, new effect syntax, or performance guarantees.
 
-## Atomic State Cancellation Boundary
-
-The atomic state prerequisite is current behavior specified by
-[Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md#file-view-runtime-prototype)
-and [Execution](../specification/execution.md#runtime-readiness-and-host-boundaries).
-It already has checked compiler, companion, and backend evidence for generic
-state, source-ADT variance joins, invariant-join rejection, handler-clause type
-handoff, bounded lowering work, shared identity, serialization, failure
-preservation, cooperative cancellation, publication, reentrancy rejection,
-bounded successor handoff, cancelled-waiter removal, and release after queued
-callback failure. This proposal does not redefine that contract. F3 retains
-only the provider-fake and owner publication observations that use it.
-
 ## Acceptance Gates
 
 Expected bytes and state come from the linked contracts and independently
@@ -65,16 +52,14 @@ its positive observations and its failure or preserved-state observations.
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
 | F2: Veln-only allocation | Two fake filesystem instances return opaque resources using Veln handler state without any host fs/net call. Nested shadowing does not redirect an older handle; cross-provider copy transfers the selected bytes. | Companion tests with distinct provider contents and operation logs; a backend dispatch case checks captured provider identity and absence of host fallback. |
-| F3: state and publication | Concurrent children cannot lose completed writes. Failure and cancellation preserve the linked atomic-state transition boundary. Closing the owner rejects late publication and releases the late host resource. | The atomic state prerequisite has separate companion, compiler, and backend evidence, including bounded handoff past failed and cancelled waiters. The remaining gate needs provider-fake write observations and owner-lifecycle cases, including a host open gated across owner closure and retained cleanup failure. |
+| F3: provider state and owner lifecycle | Concurrent provider-fake writes cannot lose completed updates. Closing the owner rejects late host-resource publication, releases the late resource, and retains any cleanup failure. | Companion provider-fake write observations and backend owner-lifecycle cases, including a host open gated across owner closure. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
 | F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
 
-The remaining F3 gate must use this implemented cancellation boundary when the
-provider fake is added. It must still demonstrate concurrent fake writes,
-owner closure, and late host-resource release. Those observations, together
-with the implemented atomic prerequisite, must control entry, checkpoint
-observation, commit, publication, and cleanup explicitly rather than relying
-on timing or an external filesystem to produce a rare failure.
+The remaining F3 evidence must make concurrent provider-fake writes, owner
+closure, late host-resource publication and release, and retained cleanup
+failure observable at the applicable publication and cleanup boundaries. It
+must not rely on timing or an external filesystem to produce a rare failure.
 
 If F2–F3 cannot be demonstrated with the named adapter extension, revise the
 resource design and affected acceptance contracts before continuing to F4–F5.
@@ -83,9 +68,9 @@ satisfy a gate. Such a failure does not promote the parent proposal.
 
 ## Implementation Sequence And Evidence Placement
 
-1. Use the implemented atomic state boundary to add separate Veln provider
-   support and demonstrate F2 and the remaining publication observations in
-   F3. Keep fake state and failure plans in Veln.
+1. Add separate Veln provider support and demonstrate F2 and the concurrent
+   provider-fake and owner-lifecycle observations in F3. Keep fake state and
+   failure plans in Veln.
 2. Apply the outcome and transition tables to F4 and F5. Add host-boundary
    cases only for observations that require a real host or backend integration.
 
@@ -109,15 +94,6 @@ proposed general resource allocation or captured-dispatch API. F2 therefore
 checks the explicit adapter extension rather than treating nominal
 dispatch alone as proof of feasibility. Extending ordinary `perform` to route
 all operations by resource identity remains outside the selected design.
-
-The current [task boundary](../specification/effects.md#concurrency-calls)
-defines cancellation as cooperative. The atomic state transition uses that
-existing boundary: a generated checkpoint may cancel an admitted callback
-before publication, while a completed publication remains committed. Deferring
-all callback checkpoints was rejected because a compiled tail-recursive
-callback could retain the cell after cancellation. Unconditional preemption
-was rejected because the runtime does not provide termination analysis or a
-safe arbitrary-thread stop.
 
 The current [JVM execution boundary](../specification/execution.md#runtime-readiness-and-host-boundaries)
 ties system network resources to handler owners, shares those owners with
