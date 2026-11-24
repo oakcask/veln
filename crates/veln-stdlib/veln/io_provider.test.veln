@@ -371,6 +371,13 @@ fn no_handler_calls(calls: Receiver<String>) -> Bool effects [concurrency]
 	end
 end
 
+fn next_handler_call_is(calls: Receiver<String>, expected: String) -> Bool effects [concurrency]
+	match channel::select_many_timeout(list_cons(calls, list_nil()), 0)
+		Some(selected) => selected.index == 0 and selected.value == expected
+		None => false
+	end
+end
+
 fn registration_succeeded(result: Result<io_provider::Resource, io::Error>) -> Bool
 	match result
 		Ok(_) => true
@@ -1064,6 +1071,80 @@ test atomic_state_callback_failure_preserves_state_and_releases_admission() -> R
 	else
 		Err("failed atomic-state callback changed state or retained admission")
 	end
+end
+
+fn namespace_facade_dispatch_observations(filesystem: fs::MutableFilesystem, captured: Receiver<String>, fallback: Receiver<String>) -> Result<(), String> effects [fs::Read, fs::Mutate, concurrency]
+	let readonly = fs::read_only(filesystem)
+	let root = path::root()
+	let _ = fs::open_read(readonly, root)
+	let _ = fs::metadata(readonly, root, fs::FollowLinks::Follow)
+	let _ = fs::entries(readonly, root)
+	let _ = fs::open_write(filesystem, root, fs::WriteMode::WriteMode(fs::CreateMode::Existing, false))
+	let _ = fs::open_read_write(filesystem, root, fs::UpdateMode::UpdateMode(fs::CreateMode::Existing, false))
+	let _ = fs::open_append(filesystem, root, fs::CreateMode::Existing)
+	let _ = fs::create_directory(filesystem, root)
+	let _ = fs::remove_file(filesystem, root)
+	let _ = fs::remove_directory(filesystem, root)
+	let _ = fs::rename(filesystem, root, root)
+	if next_handler_call_is(captured, "open_read") and next_handler_call_is(captured, "metadata") and next_handler_call_is(captured, "entries") and next_handler_call_is(captured, "open_write") and next_handler_call_is(captured, "open_read_write") and next_handler_call_is(captured, "open_append") and next_handler_call_is(captured, "create_directory") and next_handler_call_is(captured, "remove_file") and next_handler_call_is(captured, "remove_directory") and next_handler_call_is(captured, "rename") and no_handler_calls(captured) and no_handler_calls(fallback)
+		Ok(())
+	else
+		Err("filesystem namespace facades did not dispatch every operation to their captured handlers")
+	end
+end
+
+fn namespace_facade_dispatch_setup() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let captured = channel::bounded<String>(16)
+	let fallback = channel::bounded<String>(16)
+	match mutable_filesystem(owner, 181, captured.tx)
+		Ok(filesystem) => handle handle namespace_facade_dispatch_observations(filesystem, captured.rx, fallback.rx) with io_provider_test_support_test::filesystem_read(fallback.tx) with io_provider_test_support_test::mutate(fallback.tx)
+		Err(_) => Err("filesystem namespace dispatch setup failed")
+	end
+end
+
+test namespace_facades_dispatch_all_captured_operations() -> Result<(), String> effects [concurrency]
+	handle namespace_facade_dispatch_setup() with io_provider::scope()
+end
+
+fn capability_facade_dispatch_observations(view: fs::UpdateFile, captured: Receiver<String>, fallback: Receiver<String>) -> Result<(), String> effects [io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, fs::Mutate, concurrency]
+	match view
+		fs::UpdateFile::UpdateFile(reader, writer, seeker, reader_at, writer_at, closer, syncer, truncater) => begin
+			let maximum = byte_count(2)?
+			let offset = byte_offset(3)?
+			let bytes = byte_chunk_from_hex("6162")?
+			let _ = io::read(reader, maximum)
+			let _ = io::write(writer, bytes)
+			let _ = io::seek(seeker, io::SeekOrigin::Start(offset))
+			let _ = io::read_at(reader_at, offset, maximum)
+			let _ = io::write_at(writer_at, offset, bytes)
+			let _ = io::close(closer)
+			let _ = io::sync(syncer)
+			let _ = fs::truncate(truncater, offset)
+			if next_handler_call_is(captured, "read") and next_handler_call_is(captured, "write") and next_handler_call_is(captured, "seek") and next_handler_call_is(captured, "read_at") and next_handler_call_is(captured, "write_at") and next_handler_call_is(captured, "close") and next_handler_call_is(captured, "sync") and next_handler_call_is(captured, "truncate") and no_handler_calls(captured) and no_handler_calls(fallback)
+				Ok(())
+			else
+				Err("projected capability facades did not dispatch every operation to their captured handlers")
+			end
+		end
+	end
+end
+
+fn capability_facade_dispatch_setup() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let captured = channel::bounded<String>(16)
+	let fallback = channel::bounded<String>(16)
+	match complete_update_registration(owner, 182, captured.tx)
+		Err(_) => Err("projected capability dispatch registration failed")
+		Ok(resource) => match io_provider::update_file(resource)
+			Err(_) => Err("projected capability dispatch projection failed")
+			Ok(view) => handle handle handle handle handle handle handle handle capability_facade_dispatch_observations(view, captured.rx, fallback.rx) with io_provider_test_support_test::read(fallback.tx) with io_provider_test_support_test::write(fallback.tx) with io_provider_test_support_test::seek(fallback.tx) with io_provider_test_support_test::read_at(fallback.tx) with io_provider_test_support_test::write_at(fallback.tx) with io_provider_test_support_test::close(fallback.tx) with io_provider_test_support_test::sync(fallback.tx) with io_provider_test_support_test::mutate(fallback.tx)
+		end
+	end
+end
+
+test projected_capability_facades_dispatch_all_captured_operations() -> Result<(), String> effects [concurrency]
+	handle capability_facade_dispatch_setup() with io_provider::scope()
 end
 
 fn f2_readonly_filesystem(owner: io_provider::Owner, slot: Int, cell: io_provider::State<filesystem_provider_test_support_test::FakeState>) -> Result<fs::Filesystem, io::Error> effects [concurrency]
