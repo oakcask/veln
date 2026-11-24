@@ -1,0 +1,20 @@
+pub fn replace_string(previous: String, replacement: String) -> {state: String, result: String}
+	{state: replacement, result: previous}
+end
+
+pub fn observe_string(value: String, ignored: ()) -> {state: String, result: String}
+	{state: value, result: value}
+end
+
+pub fn add(value: Int, amount: Int) -> {state: Int, result: Int}
+	{state: value + amount, result: value}
+end
+
+pub fn observe_int(value: Int, ignored: ()) -> {state: Int, result: Int}
+	{state: value, result: value}
+end
+
+pub fn fail_int(value: Int, ignored: ()) -> {state: Int, result: Int}
+	require false
+	{state: value + 1, result: value}
+end

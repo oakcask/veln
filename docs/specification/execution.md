@@ -128,9 +128,27 @@ resources against their required active operation handler frames. They retain
 the provider owner and private slot in each resource and its projected
 capabilities. They do not
 dispatch operations, open host resources, or implement owner cleanup. The
-[standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#file-view-runtime-prototype)
+[standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#runtime-prototypes)
 owns the source-visible registration, projection, failure, and runtime-limit
 contract.
+
+The same private adapter boundary implements opaque `io_provider::State<T>`
+cells. Task-boundary freezing preserves a cell's identity. Updates serialize
+admission and reject same-thread reentrancy on the same cell. Releasing an
+admitted update signals at most one queued successor. Cancelling a queued
+successor removes it before its callback runs and leaves later eligible
+successors able to enter. A callback result publishes its replacement before a
+pending cancellation is reported. A cancellation observed before admission or
+at a generated callback checkpoint, and a callback or runtime failure before
+publication, preserve the old value. Every completed, failed, or
+cancellation-observing update releases the cell and any eligible successor.
+Generated checkpoints remain active inside an admitted callback, including a
+compiled tail-recursive callback; a pure callback that reaches no checkpoint
+and does not return or fail retains the cell without a bounded cancellation
+latency. Freezing state, context, replacement, and result values at this
+boundary does not consume JVM call-stack depth in proportion to nested Veln
+list depth. Deeply nested lists therefore do not strand an otherwise reusable
+cell at the host boundary.
 
 The JVM runtime also provides the bounded metric-series index reached by the
 embedded standard package through private `production_metric_index_*`
@@ -949,6 +967,10 @@ than degrading it to a generic rendered result value.
   order, option and byte forwarding, translated failures, retry state, and
   cleanup-failure unwinding without substituting fake behavior in production
   handlers.
+- JVM atomic-state evidence checks bounded successor handoff, cancelled-waiter
+  removal, queued callback failure, checkpoint cancellation, publication, and
+  cell reuse in
+  [`AtomicStateHarness.java`](../../crates/veln-backend-jvm/test-support/AtomicStateHarness.java).
 - Normal completion, nested unwinding, registration-time snapshots, and the
   public test boundary are checked by
   [`deferred-cleanup-runtime-boundary`](../../examples/specification/run/deferred-cleanup-runtime-boundary/),

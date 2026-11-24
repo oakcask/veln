@@ -1,5 +1,10 @@
 use super::*;
+use crate::lowering::{reset_core_call_signature_work, take_core_call_signature_work};
+use crate::semantic_model::Type;
+use crate::types::TypeEnvironment;
 use veln_ir::IrCallbackTarget;
+
+mod io_provider;
 
 #[test]
 fn pure_source_less_calls_lower_with_string_and_path_types() {
@@ -196,6 +201,149 @@ fn task_spawn_with_preserves_argument_and_item_type() {
                 } if name == "task::spawn_with" && args.len() == 2
             )
     ));
+}
+
+#[test]
+fn ordinary_nested_calls_have_linear_core_signature_work() {
+    fn work_at_depth(depth: usize) -> usize {
+        let mut expression = "value".to_string();
+        for _ in 0..depth {
+            expression = format!("identity({expression})");
+        }
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "fn identity(value: Int) -> Int\n  value\nend\npub fn main(value: Int) -> Int\n  {expression}\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+        reset_core_call_signature_work();
+        let lowered = lower_checked_surface_module(&module);
+        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+        assert!(lowered.ir.is_some());
+        take_core_call_signature_work()
+    }
+
+    std::thread::Builder::new()
+        .name("nested-call-scaling".to_string())
+        .stack_size(32 * 1024 * 1024)
+        .spawn(|| {
+            let at_200 = work_at_depth(200);
+            let at_400 = work_at_depth(400);
+            let at_800 = work_at_depth(800);
+            assert_eq!(at_200, 400);
+            assert_eq!(at_400, 800);
+            assert_eq!(at_800, 1600);
+        })
+        .expect("nested-call scaling worker should start")
+        .join()
+        .expect("nested-call scaling worker should finish");
+}
+
+#[test]
+fn nested_concurrency_calls_have_linear_shallow_type_work() {
+    fn work_at_depth(depth: usize) -> usize {
+        let mut expression = "sender".to_string();
+        for _ in 0..depth {
+            expression = format!("channel::clone({expression})");
+        }
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "pub fn main(sender: Sender<Int>) -> Sender<Int> effects [concurrency]\n  {expression}\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+        reset_core_call_signature_work();
+        let lowered = lower_checked_surface_module(&module);
+        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+        assert!(lowered.ir.is_some());
+        take_core_call_signature_work()
+    }
+
+    let at_50 = work_at_depth(50);
+    let at_100 = work_at_depth(100);
+    assert_eq!(at_50, 49);
+    assert_eq!(at_100, 99);
+    assert!(
+        at_100 <= at_50 * 3,
+        "nested concurrency shallow-type work grew faster than linear: depth 50={at_50}, depth 100={at_100}"
+    );
+}
+
+#[test]
+fn io_provider_atomic_state_rejects_mismatched_generic_evidence() {
+    let source = SourceFile::new(
+        "io_provider.veln",
+        concat!(
+            "mod std.io_provider\n",
+            "pub type State<T>\n",
+            "end\n",
+            "pub fn state(initial: T) -> State<T> effects [concurrency]\n",
+            "  prelude_builtin::io_provider_state(initial)\n",
+            "end\n",
+            "pub fn update(cell: State<T>, context: C, action: fn(T, C) -> {state: T, result: R}) -> R effects [concurrency]\n",
+            "  prelude_builtin::io_provider_state_update(cell, context, action)\n",
+            "end\n",
+            "fn wrong_step(value: Bool, context: Int) -> {state: Bool, result: Bool}\n",
+            "  {state: value, result: true}\n",
+            "end\n",
+            "fn effectful_step(value: String, context: String) -> {state: String, result: Bool} effects [stdio]\n",
+            "  {state: value, result: true}\n",
+            "end\n",
+            "fn width_step(value: {name: String}, context: String) -> {state: {name: String}, result: ()}\n",
+            "  {state: {name: context}, result: ()}\n",
+            "end\n",
+            "fn exact_step(value: {name: String, retained: String}, context: ()) -> {state: {name: String, retained: String}, result: String}\n",
+            "  {state: value, result: value.retained}\n",
+            "end\n",
+            "pub fn evidence() -> () effects [concurrency]\n",
+            "  let cell = state(\"value\")\n",
+            "  let _ = update(cell, \"context\", wrong_step)\n",
+            "  let _ = update(cell, \"context\", effectful_step)\n",
+            "  let precise = state({name: \"first\", retained: \"kept\"})\n",
+            "  let widened: State<{name: String}> = precise\n",
+            "  let _ = update(widened, \"second\", width_step)\n",
+            "  let _ = update(precise, (), exact_step)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let mut module = lower_standard_package_callables(&source);
+    for function in &mut module.functions {
+        function.module_name = Some("std::io_provider".to_string());
+    }
+    for declaration in &mut module.types {
+        declaration.module_name = Some("std::io_provider".to_string());
+        declaration.package_name = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    }
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"
+                && diagnostic.message.contains("fn(String, String)")),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"
+                && diagnostic.message.contains("effects [stdio]")),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"
+                && diagnostic.message.contains("State<{name: String}>")
+                && diagnostic
+                    .message
+                    .contains("State<{name: String, retained: String}>")),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

@@ -156,6 +156,47 @@ fn io_provider_duplex_validates_before_publication_and_retains_handlers() {
 }
 
 #[test]
+fn io_provider_atomic_state_controls_admission_cancellation_publication_and_release() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir(concat!(
+        "fn atomic_state_step(remaining: Int, probe: fn() -> Int) -> Int\n",
+        "  if remaining == 1\n",
+        "    probe()\n",
+        "  else\n",
+        "    1\n",
+        "  end\n",
+        "end\n",
+        "fn atomic_state_tail(remaining: Int, probe: fn() -> Int) -> {state: Int, result: ()}\n",
+        "  if remaining == 0\n",
+        "    {state: 99, result: ()}\n",
+        "  else\n",
+        "    atomic_state_tail(remaining - atomic_state_step(remaining, probe), probe)\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "io-provider-atomic-state",
+        "AtomicStateHarness.java",
+        include_str!("../../test-support/AtomicStateHarness.java"),
+        &program,
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn jvm_runtime_schema_refinement_validation_rejects_negative_offsets() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

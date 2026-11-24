@@ -10,11 +10,10 @@ use crate::analysis::{
     ModuleValuePublicationProvenance, VariantDiagnosticInterner, check_declared_effect_labels,
     check_duplicate_constructor_names, check_duplicate_effect_names,
     check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
-    check_duplicate_use_aliases, check_function_body, check_handler_declarations,
-    check_module_boundary, check_module_values, check_public_adt_variant_refinement_visibility,
-    check_public_aliases, check_public_function_boundary, check_reserved_prelude_aliases,
-    check_schema_field_primitives, check_schema_type_references, check_test_declaration_boundary,
-    check_variant_refinement_bases,
+    check_duplicate_use_aliases, check_handler_declarations, check_module_boundary,
+    check_module_values, check_public_adt_variant_refinement_visibility, check_public_aliases,
+    check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
+    check_schema_type_references, check_test_declaration_boundary, check_variant_refinement_bases,
 };
 use crate::lowering::{
     lower_executable_surface_module_to_core, lower_project_surface_module_to_core,
@@ -33,7 +32,10 @@ mod identifier_casing;
 mod module_value_publication;
 mod publication;
 
-use declaration_checks::{check_function_declaration_and_body, check_module_declarations};
+use declaration_checks::{
+    SurfaceAnalysis, check_function_declaration_and_body, check_module_declarations,
+    retain_function_state_call_types,
+};
 use diagnostic_ordering::{
     merge_variant_refinement_base_diagnostics, order_delayed_parse_diagnostics,
     order_variant_refinement_visibility_diagnostics,
@@ -103,11 +105,6 @@ impl LoweredSurfaceModule {
             module_value_publication: IndexedModuleValuePublicationProvenance::default(),
         }
     }
-}
-
-struct SurfaceAnalysis {
-    diagnostics: Vec<Diagnostic>,
-    module_value_publication: ModuleValuePublicationProvenance,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -334,6 +331,7 @@ fn check_project_surface_module_with_environment(
         module,
         semantic_diagnostics.clone(),
         analysis.module_value_publication,
+        analysis.state_call_types,
         &environment,
         SurfaceLoweringMode::ProjectCheck,
     );
@@ -349,13 +347,13 @@ fn analyze_surface_module_with_environment(
         return SurfaceAnalysis {
             diagnostics: vec![failure.diagnostic()],
             module_value_publication: ModuleValuePublicationProvenance::default(),
+            state_call_types: HashMap::new(),
         };
     }
     let mut diagnostics = Vec::new();
     let mut variant_diagnostics = VariantDiagnosticInterner::default();
     let mut environment = environment.clone();
-
-    let (module_diagnostics, module_value_publication) =
+    let (module_diagnostics, module_value_publication, mut state_call_types) =
         check_module_declarations(module, &mut environment, &mut variant_diagnostics);
     diagnostics.extend(module_diagnostics);
 
@@ -365,11 +363,14 @@ fn analyze_surface_module_with_environment(
         {
             continue;
         }
-        diagnostics.extend(check_function_declaration_and_body(
+        let (function_diagnostics, function_state_call_types) =
+            check_function_declaration_and_body(function, &environment, &mut variant_diagnostics);
+        diagnostics.extend(function_diagnostics);
+        retain_function_state_call_types(
+            &mut state_call_types,
             function,
-            &environment,
-            &mut variant_diagnostics,
-        ));
+            function_state_call_types,
+        );
     }
 
     order_variant_refinement_visibility_diagnostics(&mut diagnostics);
@@ -383,6 +384,7 @@ fn analyze_surface_module_with_environment(
     SurfaceAnalysis {
         diagnostics,
         module_value_publication,
+        state_call_types,
     }
 }
 
@@ -516,6 +518,7 @@ pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceMod
             module,
             analysis.diagnostics,
             analysis.module_value_publication,
+            analysis.state_call_types,
             &environment,
             SurfaceLoweringMode::Module,
         )
@@ -586,6 +589,7 @@ fn lower_project_reachable_surface_module_with_environment(
         module,
         analysis.diagnostics,
         analysis.module_value_publication,
+        analysis.state_call_types,
         &environment,
         SurfaceLoweringMode::Execution,
     )
@@ -610,10 +614,13 @@ pub fn lower_analyzed_surface_module(
             &mut VariantDiagnosticInterner::default(),
         );
         let module_value_publication = module_value_analysis.publication_provenance(module);
+        let state_call_types =
+            analyze_surface_module_with_environment(module, &environment, true).state_call_types;
         lower_analyzed_surface_module_with_environment(
             module,
             diagnostics,
             module_value_publication,
+            state_call_types,
             &environment,
             SurfaceLoweringMode::Module,
         )
@@ -635,6 +642,7 @@ fn lower_analyzed_surface_module_with_environment(
     module: &SurfaceModule,
     diagnostics: Vec<Diagnostic>,
     module_value_publication: ModuleValuePublicationProvenance,
+    state_call_types: crate::semantic_model::StateCallTypes,
     environment: &TypeEnvironment,
     mode: SurfaceLoweringMode,
 ) -> LoweredSurfaceModule {
@@ -654,12 +662,14 @@ fn lower_analyzed_surface_module_with_environment(
     }
 
     let lowered_core = match mode {
-        SurfaceLoweringMode::Module => lower_surface_module_to_core(module, environment),
+        SurfaceLoweringMode::Module => {
+            lower_surface_module_to_core(module, environment, &state_call_types)
+        }
         SurfaceLoweringMode::ProjectCheck => {
-            lower_project_surface_module_to_core(module, environment)
+            lower_project_surface_module_to_core(module, environment, &state_call_types)
         }
         SurfaceLoweringMode::Execution => {
-            lower_executable_surface_module_to_core(module, environment)
+            lower_executable_surface_module_to_core(module, environment, &state_call_types)
         }
     };
     diagnostics.extend(lowered_core.diagnostics);

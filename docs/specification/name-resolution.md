@@ -646,6 +646,22 @@ exhaustiveness behavior. The
 [type inference rules](types.md#inference-rules) define the resulting match coverage, and the
 [diagnostic contract](diagnostics-json.md#diagnostic-families) defines the
 machine-readable projection.
+
+The exported `std::io_provider::State<T>` identity resolves as a type but
+publishes no constructor. A source constructor expression or constructor
+pattern spelled `io_provider::State::State` reports `name.unresolved` in the
+`constructor` namespace. The same rule applies when an explicit import alias
+selects the standard `io_provider` module, such as
+`provider::State::State`. The alias does not publish a constructor. An exact
+`io_provider.test.veln` companion has the same boundary and cannot construct
+or inspect a state cell. The
+[filesystem IO specification](standard-library-filesystem-io.md#atomic-state)
+defines the allocation API. The checked
+[`constructor boundary`](../../examples/specification/check/filesystem-io-opaque-state-companion-boundary/)
+and
+[`pattern boundary`](../../examples/specification/check/filesystem-io-opaque-state-pattern-boundary/)
+cases verify both source forms.
+
 When more than one import provides the same bare function name, including a
 conflict between a written import and the implicit prelude import, the checker
 reports `name.ambiguous` at the bare name and lists qualified spellings in

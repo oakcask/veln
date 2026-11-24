@@ -14,6 +14,9 @@ use veln_core::{
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_literals::parse_integer_literal;
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+
 use crate::adt::descriptors::{AdtConstructor, AdtVariantKind};
 use crate::adt::registry::{ConstructorLookup, ConstructorShape};
 use crate::adt::{type_operations as adt, unification};
@@ -23,6 +26,7 @@ use crate::effects::{core_concurrency_signature, is_concurrency_call};
 use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
 };
+use crate::semantic_model::StateCallTypes;
 use crate::semantic_model::Type;
 use crate::type_lowering::core_type;
 use crate::type_syntax::{parse_type_annotation, parse_type_or_unknown};
@@ -39,6 +43,96 @@ mod data_and_control_flow;
 mod expression_lowering;
 mod function_lowering;
 mod module_value_lowering;
+
+#[cfg(test)]
+thread_local! {
+    static CORE_CALL_SIGNATURE_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct StateInitializerLoweringWork {
+    pub(crate) fact_lookups: usize,
+    pub(crate) materialized_type_nodes: usize,
+    pub(crate) expected_record_index_entries: usize,
+    pub(crate) expected_record_lookups: usize,
+    pub(crate) retag_record_index_entries: usize,
+    pub(crate) retag_record_lookups: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static STATE_INITIALIZER_LOWERING_WORK: std::cell::Cell<StateInitializerLoweringWork> =
+        const { std::cell::Cell::new(StateInitializerLoweringWork {
+            fact_lookups: 0,
+            materialized_type_nodes: 0,
+            expected_record_index_entries: 0,
+            expected_record_lookups: 0,
+            retag_record_index_entries: 0,
+            retag_record_lookups: 0,
+        }) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_state_initializer_lowering_work() {
+    STATE_INITIALIZER_LOWERING_WORK.set(StateInitializerLoweringWork::default());
+}
+
+#[cfg(test)]
+pub(crate) fn take_state_initializer_lowering_work() -> StateInitializerLoweringWork {
+    STATE_INITIALIZER_LOWERING_WORK.replace(StateInitializerLoweringWork::default())
+}
+
+#[cfg(test)]
+fn record_state_initializer_lowering_work(update: impl FnOnce(&mut StateInitializerLoweringWork)) {
+    STATE_INITIALIZER_LOWERING_WORK.set({
+        let mut work = STATE_INITIALIZER_LOWERING_WORK.get();
+        update(&mut work);
+        work
+    });
+}
+
+#[cfg(test)]
+fn core_type_node_count(ty: &CoreType) -> usize {
+    match ty {
+        CoreType::Unknown => 1,
+        CoreType::Named { args, .. } => 1 + args.iter().map(core_type_node_count).sum::<usize>(),
+        CoreType::Record(fields) => {
+            1 + fields
+                .iter()
+                .map(|(_, field)| core_type_node_count(field))
+                .sum::<usize>()
+        }
+        CoreType::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            1 + params.iter().map(core_type_node_count).sum::<usize>()
+                + variadic.as_deref().map_or(0, core_type_node_count)
+                + core_type_node_count(return_type)
+        }
+    }
+}
+
+#[cfg(test)]
+fn record_core_call_signature_work() {
+    CORE_CALL_SIGNATURE_WORK.with(|work| work.set(work.get() + 1));
+}
+
+#[cfg(not(test))]
+fn record_core_call_signature_work() {}
+
+#[cfg(test)]
+pub(crate) fn reset_core_call_signature_work() {
+    CORE_CALL_SIGNATURE_WORK.with(|work| work.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_core_call_signature_work() -> usize {
+    CORE_CALL_SIGNATURE_WORK.with(|work| work.replace(0))
+}
 
 #[cfg(test)]
 pub(crate) use module_value_lowering::{
@@ -60,6 +154,7 @@ struct IfLoweringTarget<'a> {
 struct CoreLowerer<'a> {
     function: &'a Function,
     environment: &'a TypeEnvironment,
+    state_call_types: &'a HashMap<veln_ast::NodeId, Type>,
     block_unsupported_callsite_runtime: bool,
     bindings: Vec<CoreBinding>,
     blockers: Vec<CoreBlocker>,
@@ -67,6 +162,7 @@ struct CoreLowerer<'a> {
     generated_local_count: usize,
     defer_capture_boundaries: Vec<usize>,
     defer_captures: Vec<Vec<CoreDeferredCapture>>,
+    shallow_type_cache: RefCell<HashMap<veln_ast::NodeId, Option<CoreType>>>,
 }
 
 impl CoreLowerer<'_> {
@@ -107,10 +203,21 @@ impl LoweredFunctions {
         &mut self,
         function: &Function,
         environment: &TypeEnvironment,
+        state_call_types: &StateCallTypes,
         block_unsupported_callsite_runtime: bool,
     ) {
-        let mut lowerer =
-            CoreLowerer::new(function, environment, block_unsupported_callsite_runtime);
+        let function_key = (
+            function.package_name.clone(),
+            function.module_name.clone(),
+            function.name.clone().unwrap_or_default(),
+        );
+        let empty = HashMap::new();
+        let mut lowerer = CoreLowerer::new(
+            function,
+            environment,
+            state_call_types.get(&function_key).unwrap_or(&empty),
+            block_unsupported_callsite_runtime,
+        );
         self.functions.push(lowerer.lower_function());
         self.blockers.extend(lowerer.blockers);
         self.diagnostics.extend(lowerer.diagnostics);
@@ -120,26 +227,29 @@ impl LoweredFunctions {
 pub(crate) fn lower_surface_module_to_core(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
+    state_call_types: &StateCallTypes,
 ) -> CoreLoweringOutput {
-    lower_surface_module_to_core_if(module, environment, false, |_| true)
+    lower_surface_module_to_core_if(module, environment, state_call_types, false, |_| true)
 }
 
 pub(crate) fn lower_executable_surface_module_to_core(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
+    state_call_types: &StateCallTypes,
 ) -> CoreLoweringOutput {
-    lower_surface_module_to_core_if(module, environment, true, |_| true)
+    lower_surface_module_to_core_if(module, environment, state_call_types, true, |_| true)
 }
 
 pub(crate) fn lower_project_surface_module_to_core(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
+    state_call_types: &StateCallTypes,
 ) -> CoreLoweringOutput {
     let has_application_functions = module
         .functions
         .iter()
         .any(|function| function.package_name.as_deref() != Some(veln_stdlib::PACKAGE_NAME));
-    lower_surface_module_to_core_if(module, environment, false, |function| {
+    lower_surface_module_to_core_if(module, environment, state_call_types, false, |function| {
         !has_application_functions
             || function.package_name.as_deref() != Some(veln_stdlib::PACKAGE_NAME)
     })
@@ -148,6 +258,7 @@ pub(crate) fn lower_project_surface_module_to_core(
 fn lower_surface_module_to_core_if(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
+    state_call_types: &StateCallTypes,
     block_unsupported_callsite_runtime: bool,
     include: impl Fn(&Function) -> bool,
 ) -> CoreLoweringOutput {
@@ -158,6 +269,7 @@ fn lower_surface_module_to_core_if(
     } = lower_module_functions(
         module,
         environment,
+        state_call_types,
         block_unsupported_callsite_runtime,
         include,
     );
@@ -187,16 +299,27 @@ fn lower_surface_module_to_core_if(
 fn lower_module_functions(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
+    state_call_types: &StateCallTypes,
     block_unsupported_callsite_runtime: bool,
     include: impl Fn(&Function) -> bool,
 ) -> LoweredFunctions {
     let mut lowered = LoweredFunctions::default();
     for function in module.functions.iter().filter(|function| include(function)) {
-        lowered.push(function, environment, block_unsupported_callsite_runtime);
+        lowered.push(
+            function,
+            environment,
+            state_call_types,
+            block_unsupported_callsite_runtime,
+        );
     }
     for handler in &module.handlers {
         for function in lower_handler_clause_functions(handler, environment) {
-            lowered.push(&function, environment, block_unsupported_callsite_runtime);
+            lowered.push(
+                &function,
+                environment,
+                state_call_types,
+                block_unsupported_callsite_runtime,
+            );
         }
     }
     lowered

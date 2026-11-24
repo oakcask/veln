@@ -1,8 +1,8 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#imports-and-static-surface; behavior=#file-view-runtime-prototype; limits=#runtime-limits
-update-when: The exported io, fs, or io_provider static source API, opaque capability identities, file-view declarations, or filesystem IO runtime readiness changes.
+specification-coverage: usage=#imports-and-static-surface; behavior=#runtime-prototypes; limits=#runtime-limits
+update-when: The exported io, fs, or io_provider static source API, opaque capability identities, atomic provider-state typing or runtime behavior, checked filesystem IO evidence, file-view declarations, or filesystem IO runtime readiness changes.
 ---
 
 # Standard-library filesystem and byte IO
@@ -10,8 +10,9 @@ update-when: The exported io, fs, or io_provider static source API, opaque capab
 The standard package exports `io`, `fs`, and `io_provider`. Their current
 contract combines a compiler-checked static surface with bounded `ReadFile`,
 `WriteFile`, `UpdateFile`, `AppendFile`, and `Duplex` registration and
-projection prototypes. It lets provider and generic IO source check
-capability-correct signatures and exercise five runtime resource families.
+projection prototypes plus opaque atomic provider state. It lets provider and
+generic IO source check capability-correct signatures, exercise five runtime
+resource families, and keep immutable fake-provider state in shared cells.
 It is not a production filesystem API.
 
 ## Imports and static surface
@@ -116,12 +117,14 @@ alias syntax. Their constructor payload names preserve the file-view field
 contract. Possessing those file-view values does not create or upgrade any
 opaque capability value.
 
-`io_provider` exposes the adapter surface below. The factories and both slot
-groups retain `concurrency`; `owner` requires `Scope`, the `scope` handler
-retains `concurrency`, and the resource projections are pure.
+`io_provider` exposes the adapter surface below. State allocation and update,
+the factories, and both slot groups retain `concurrency`; `owner` requires
+`Scope`, the `scope` handler retains `concurrency`, and the resource
+projections are pure.
 
 | Group | Signatures |
 | --- | --- |
+| Atomic state | `state(initial: T) -> State<T> effects [concurrency]`; `update(cell: State<T>, context: C, action: fn(T, C) -> {state: T, result: R}) -> R effects [concurrency]` |
 | Scope and factories | `owner() -> Owner effects [Scope]`; `scope()` handles `Scope` with `concurrency`; `filesystem(Owner, Int) -> Result<fs::Filesystem, io::Error>`; `mutable_filesystem(Owner, Int) -> Result<fs::MutableFilesystem, io::Error>`; `resource(Owner, Int, ViewFamily) -> Result<Resource, io::Error>` |
 | Resource projections | `read_file(Resource) -> Result<fs::ReadFile, io::Error>`; `write_file(Resource) -> Result<fs::WriteFile, io::Error>`; `update_file(Resource) -> Result<fs::UpdateFile, io::Error>`; `append_file(Resource) -> Result<fs::AppendFile, io::Error>`; `duplex(Resource) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, io::Error>` |
 | Identity slots | `slot(Owner, Resource) -> Result<Int, io::Error>`; `filesystem_slot(Owner, fs::Filesystem) -> Result<Int, io::Error>`; `mutable_filesystem_slot(Owner, fs::MutableFilesystem) -> Result<Int, io::Error>` |
@@ -129,15 +132,20 @@ retains `concurrency`, and the resource projections are pure.
 
 `ViewFamily` is `ReadFile`, `WriteFile`, `UpdateFile`, `AppendFile`, or
 `Duplex`. The registration selector does not add capabilities by itself.
-Only the bounded registration and projection behavior described below is
-implemented.
+The atomic state behavior and the bounded registration and projection behavior
+described below are implemented.
 
 The compiler adapters behind these declarations are available only to source
 embedded in the standard package. Application source cannot call their
 reserved `prelude_builtin` names, including by changing the name casing. Each
-admitted adapter has the same fixed operand and result types as its standard
-wrapper; an expected type at a call site cannot reinterpret an owner as a byte
-capability or replace a required owner operand with an integer.
+reserved adapter is an implementation boundary, not a separately callable
+source API. The public declarations above own the fixed operand and result
+types. Generic state wrapper calls retain their inferred `T`, `C`, and `R` at
+that boundary. This specialization requires the standard package identity;
+same-spelled declarations from another package retain their own declared call
+types through checked core and typed IR. An expected type at a call site cannot
+reinterpret an owner as a byte capability or replace a required owner operand
+with an integer.
 
 ## Capability boundaries
 
@@ -155,7 +163,63 @@ one projection cannot be assigned as another file-view family. The focused
 cases under [References](#references) check wrong and missing operands,
 filesystem and projection separation, and opaque identities.
 
-## File-view runtime prototype
+## Runtime prototypes
+
+### Atomic state
+
+`io_provider::state` creates an independent opaque `State<T>` cell. Passing a
+cell to a child task preserves cell identity, so parent and child updates share
+one transition sequence. `State<T>` has no source constructor or pattern, so
+application source and an exact `io_provider.test.veln` companion cannot forge
+or inspect a cell; `io_provider::state` is the only allocation path. A concrete
+expected `State<T>` supplies `T` to the
+initial value expression, so an annotation can resolve an otherwise ambiguous
+nullary generic constructor such as `None`. Without a concrete expected state
+type or an independently concrete initial value, allocation remains ambiguous.
+List, `if`, and `match` initializers retain the joined concrete type of
+compatible contributions through checked core and typed IR. Nested compatible
+named arguments and same-field records remain concrete when record field order
+differs. Record-width joins retain the unique contributed record accepted by
+every contribution. Source-ADT arguments apply their checked variance: a
+contravariant parameter can select a bounded meet, while incompatible
+invariant arguments fail before checked core or typed IR is produced. Neither
+join result depends on contribution order. State allocation in an ordinary
+function or a handler operation clause retains the resulting concrete
+`State<T>` type through checked core and typed IR. The cell's nominal
+standard-library identity
+and invariant `T` prevent a same-spelled source type or a state type whose
+record argument omits retained fields from satisfying the state API's cell
+boundary. The
+[type rules](types.md#inference-rules) own these inference and compatibility
+rules.
+
+`io_provider::update` admits one callback at a time, passes it the current value
+and supplied context, and publishes the returned replacement and result as one
+transition. Its callback is pure. Attempting to update the same cell reentrantly
+fails at runtime instead of waiting on itself.
+
+When several updates wait for one cell, each completed, failed, or cancelled
+admitted update releases at most one queued successor. A cancelled queued
+update is removed before its callback runs and does not prevent a later
+eligible update from entering. A queued callback that fails also releases the
+next eligible update, while preserving the old value.
+
+Cancellation before admission does not invoke the callback and is reported as
+task cancellation. Cancellation at a generated checkpoint after admission
+aborts the callback, preserves the old value, and is reported as task
+cancellation, including for a compiled tail-recursive callback. Callback or
+runtime failure before publication preserves the old value and propagates the
+failure to the caller. If the callback returns before cancellation is observed,
+the replacement is published and the cell is released before cancellation is
+reported; the cancelled task does not receive the callback result. Every
+outcome releases admission bookkeeping.
+Cancellation remains cooperative when a callback neither returns, fails, nor
+reaches a generated checkpoint. State values, callback context, replacements,
+and results can contain deeply nested Veln lists without consuming JVM
+call-stack depth in proportion to the list depth. A completed deep-value
+transition leaves the cell available for a later update.
+
+### File views
 
 Within an active `io_provider::scope`, `io_provider::resource` accepts an
 unused nonnegative private slot for `ViewFamily::ReadFile` only when active
@@ -256,11 +320,11 @@ order.
 ## Runtime limits
 
 This surface is not a production filesystem implementation. Runtime
-registration and projection are limited to the observations above. `Duplex`
-does not add operation dispatch through the projected capabilities. Operation
-dispatch through a resource, multiple-provider allocation, atomic provider
-state, publication and owner-close races, transfer and namespace behavior,
-cleanup, and host filesystem access remain unimplemented. Type-checking any
+state, registration, and projection are limited to the observations above.
+`Duplex` does not add operation dispatch through the projected capabilities.
+Operation dispatch through a resource, multiple-provider allocation, resource
+publication and owner-close races, transfer and namespace behavior, cleanup,
+and host filesystem access remain unimplemented. Type-checking any
 other declaration establishes only its static capability and effect boundary.
 
 ## References
@@ -280,14 +344,38 @@ other declaration establishes only its static capability and effect boundary.
   `examples/specification/check/filesystem-io-opaque-identities/`.
 - Private compiler-adapter boundary:
   `examples/specification/check/filesystem-io-private-adapters/`.
-- Five-family registration, missing-handler rejection, duplicate and slot
-  preservation, complete projection compatibility, and absence of operation
-  invocation on the JVM-backed companion runner:
+- Atomic state nominal boundary:
+  `examples/specification/check/filesystem-io-atomic-state-nominal-boundary/`,
+  including exact-companion constructor and pattern rejection in
+  `examples/specification/check/filesystem-io-opaque-state-companion-boundary/`
+  and `examples/specification/check/filesystem-io-opaque-state-pattern-boundary/`.
+- Atomic state value and expected-type inference, including a nullary generic
+  initializer, list and control-flow joins in either contribution order,
+  record-width joins, concrete type retention, and foreign-package namesake
+  isolation through checked core and typed IR:
+  [`io_provider.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types/io_provider.rs).
+- Atomic state source-ADT variance joins, invariant-join rejection,
+  handler-clause handoff, bounded adjacent-size type analysis, and additive
+  import and pattern work when an unavailable state constructor is written
+  through an explicit standard-module alias:
+  [`bounded_types.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types/io_provider/bounded_types.rs).
+- Atomic state generic mismatch, invariant-cell, and pure-callback rejection:
+  [`lowering_and_types.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types.rs).
+- Atomic allocation identity, shared child identity, serialized completed
+  updates, publication, and five-family registration and projection behavior:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
-  with scoped fakes in
+  with pure state transitions in
+  [`io_provider_state_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_state_test_support_test.veln)
+  and scoped operation fakes in
   [`io_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_test_support_test.veln).
 - Private JVM adapter linkage:
   [`java_helpers_and_mapping.rs`](../../crates/veln-backend-jvm/src/tests/java_helpers_and_mapping.rs).
+- JVM-controlled single-successor admission handoff, cancelled-waiter removal,
+  cancellation checkpoints, publication, queued failure release, failure
+  identity, reentrancy, task freezing, and reusable 100,000-element list state,
+  context, replacement, and result values without nesting-proportional JVM
+  stack use:
+  [`AtomicStateHarness.java`](../../crates/veln-backend-jvm/test-support/AtomicStateHarness.java).
 - JVM retention of the captured operation-handler identities after their
   dynamic scopes exit:
   [`IoProviderAppendFileHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderAppendFileHarness.java)

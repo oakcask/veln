@@ -453,7 +453,27 @@
             ProtocolDiagnostic protocolDiagnostic,
             TransportFailure transportFailure
         ) {
-            this.value = freezeValue(value);
+            this(
+                value,
+                fixtureHexDiagnostic,
+                byteDiagnostic,
+                valueDiagnostic,
+                protocolDiagnostic,
+                transportFailure,
+                false
+            );
+        }
+
+        DiagnosticResultValue(
+            Object value,
+            FixtureHexDiagnostic fixtureHexDiagnostic,
+            ByteDiagnostic byteDiagnostic,
+            ValueDiagnostic valueDiagnostic,
+            ProtocolDiagnostic protocolDiagnostic,
+            TransportFailure transportFailure,
+            boolean valueIsFrozen
+        ) {
+            this.value = valueIsFrozen ? value : freezeValue(value);
             this.fixtureHexDiagnostic = fixtureHexDiagnostic;
             this.byteDiagnostic = byteDiagnostic;
             this.valueDiagnostic = valueDiagnostic;

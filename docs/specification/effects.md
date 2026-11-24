@@ -335,7 +335,16 @@ prototype. Those names and their capability operands are specified by
 [Standard-library filesystem and byte IO](standard-library-filesystem-io.md).
 They do not replace the compiler-known calls below. The prototype supports
 bounded five-family provider registration and projection through the required
-active operation handlers, but it does not
+active operation handlers. It also exposes the `std` package's compiler-backed
+`io_provider::state` and `io_provider::update`; both contribute only
+`concurrency`, and `update` requires a pure callback. Same-spelled declarations
+owned by another package remain ordinary functions with their own declared
+signatures and effect rows. Generated cancellation checkpoints inside the
+standard callback remain active. A `state` call in a nominal handler operation
+clause preserves the same concrete initializer and `State<T>` types through
+checked core and typed IR as a call in an ordinary function body. The
+[type rules](types.md#inference-rules) own the join, variance, and compatibility
+contract. The prototype does not
 yet dispatch byte operations or access the host filesystem. The bare coarse
 `fs` effect remains the host effect retained by the prototype's
 `fs::system_handler()` declaration.

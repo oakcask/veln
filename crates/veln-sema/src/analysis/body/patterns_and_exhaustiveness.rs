@@ -1,4 +1,15 @@
 use super::*;
+use std::cell::OnceCell;
+use std::collections::HashSet;
+
+mod constructor_pattern_scan;
+
+use constructor_pattern_scan::collect_constructor_patterns_from_body;
+#[cfg(test)]
+pub(crate) use constructor_pattern_scan::{
+    ConstructorPatternScanWork, reset_constructor_pattern_scan_work,
+    take_constructor_pattern_scan_work,
+};
 
 struct MatchCoverageProgress {
     catches_all: bool,
@@ -7,7 +18,126 @@ struct MatchCoverageProgress {
     proving_arms: Vec<(String, SourceSpan)>,
 }
 
+fn index_standard_io_provider_state_aliases(
+    resolution_uses: &[veln_ast::UseDecl],
+) -> HashSet<String> {
+    resolution_uses
+        .iter()
+        .filter_map(|use_decl| {
+            constructor_pattern_scan::record_state_import_identity_indexed();
+            (use_decl.is_standard_package_import()
+                && use_decl.written_name.ends_with("io_provider"))
+            .then(|| use_decl.alias.clone())
+        })
+        .collect()
+}
+
 impl<'a> FunctionChecker<'a> {
+    pub(super) fn check_unavailable_constructor_patterns(&mut self) {
+        let mut patterns = Vec::new();
+        collect_constructor_patterns_from_body(&self.function.body, &mut patterns);
+        if patterns.is_empty() {
+            return;
+        }
+        let standard_io_provider_state_aliases = OnceCell::new();
+        for pattern in patterns {
+            let PatternKind::Constructor {
+                name, name_spans, ..
+            } = &pattern.kind
+            else {
+                continue;
+            };
+            if !self.constructor_pattern_is_unavailable(name, &standard_io_provider_state_aliases) {
+                continue;
+            }
+            if let Some(span) = name_spans.last() {
+                self.push_unresolved_name(
+                    pattern.node_id,
+                    span.clone(),
+                    &name.join("::"),
+                    "constructor",
+                );
+            }
+        }
+    }
+
+    fn constructor_pattern_is_unavailable(
+        &self,
+        name: &[String],
+        standard_io_provider_state_aliases: &OnceCell<HashSet<String>>,
+    ) -> bool {
+        let Some((_, base_segments)) = name.split_last() else {
+            return false;
+        };
+        self.is_standard_io_provider_state_path(base_segments, standard_io_provider_state_aliases)
+            || self.constructor_base_has_unavailable_refinement(base_segments)
+    }
+
+    fn is_standard_io_provider_state_path(
+        &self,
+        base_segments: &[String],
+        standard_io_provider_state_aliases: &OnceCell<HashSet<String>>,
+    ) -> bool {
+        let [alias, type_name] = base_segments else {
+            return false;
+        };
+        if type_name != "State" {
+            return false;
+        }
+        if alias == "io_provider"
+            && self.function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+        {
+            return true;
+        }
+        let standard_io_provider_state_aliases = standard_io_provider_state_aliases
+            .get_or_init(|| index_standard_io_provider_state_aliases(&self.resolution_uses));
+        constructor_pattern_scan::record_state_import_alias_lookup();
+        standard_io_provider_state_aliases.contains(alias)
+    }
+
+    fn constructor_base_has_unavailable_refinement(&self, base_segments: &[String]) -> bool {
+        let base = base_segments.join("::");
+        let descriptor = self
+            .environment
+            .adts
+            .descriptor_for_type_path_any_arity(
+                &base,
+                self.function.module_name.as_deref(),
+                &self.resolution_uses,
+            )
+            .or_else(|| self.imported_constructor_base_descriptor(base_segments));
+        descriptor.is_some_and(|descriptor| {
+            descriptor.refinement_availability
+                == crate::adt::descriptors::VariantRefinementAvailability::Unavailable
+        })
+    }
+
+    fn imported_constructor_base_descriptor(
+        &self,
+        base_segments: &[String],
+    ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
+        let [alias, type_name] = base_segments else {
+            return None;
+        };
+        let import = self
+            .resolution_uses
+            .iter()
+            .find(|use_decl| use_decl.alias == *alias)?;
+        let package = import
+            .package
+            .as_deref()
+            .or(import.importing_package.as_deref());
+        let identity = package.map_or_else(
+            || format!("{}::{type_name}", import.name),
+            |package| format!("{package}::{}::{type_name}", import.name),
+        );
+        self.environment
+            .adts
+            .descriptors()
+            .iter()
+            .find(|descriptor| descriptor.identity() == identity)
+    }
+
     pub(super) fn check_match_exhaustiveness(
         &mut self,
         expr: &Expr,

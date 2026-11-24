@@ -306,28 +306,9 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
-        if let ExprKind::NamePath { segments, .. } = &callee.kind
-            && let [name] = segments.as_slice()
-            && let Some(index) = self
-                .bindings
-                .iter()
-                .rposition(|binding| binding.name == *name)
-        {
-            self.record_defer_capture(index);
-        }
-        let signature = self.core_call_signature(callee, expected);
-        if let Some(signature) = &signature {
-            self.validate_call_arity(
-                expr,
-                args.len(),
-                signature.params.len(),
-                signature.variadic.is_some(),
-            );
-        }
-        let mut lowered_args = match &signature {
-            Some(signature) => self.lower_args_with_signature(args, signature),
-            None => self.lower_args_with_params(args, None),
-        };
+        self.record_call_defer_capture(callee);
+        let (mut lowered_args, signature) =
+            self.lower_general_call_args(expr, callee, args, expected);
         if signature
             .as_ref()
             .is_some_and(|signature| signature.callsite)
@@ -351,6 +332,106 @@ impl<'a> CoreLowerer<'a> {
                 args: lowered_args,
             },
         )
+    }
+
+    fn lower_general_call_args(
+        &mut self,
+        expr: &Expr,
+        callee: &Expr,
+        args: &[Expr],
+        expected: Option<&CoreType>,
+    ) -> (Vec<CoreExpr>, Option<CoreCallSignature>) {
+        let joined_state_initializer = self.joined_state_initializer_type(expr, callee);
+        let preliminary_signature = self.core_call_signature(
+            callee,
+            expected,
+            crate::call_resolution::CallArgumentEvidence {
+                first: joined_state_initializer.as_ref(),
+                second: None,
+                third: None,
+            },
+        );
+        let mut lowered_args = match &preliminary_signature {
+            Some(signature) => self.lower_args_with_preliminary_signature(args, signature),
+            None => self.lower_args_with_params(args, None),
+        };
+        let signature = self.core_call_signature(
+            callee,
+            expected,
+            crate::call_resolution::CallArgumentEvidence {
+                first: lowered_args.first().map(|arg| &arg.ty),
+                second: lowered_args.get(1).map(|arg| &arg.ty),
+                third: lowered_args.get(2).map(|arg| &arg.ty),
+            },
+        );
+        if let Some(signature) = &signature {
+            self.validate_call_arity(
+                expr,
+                args.len(),
+                signature.params.len(),
+                signature.variadic.is_some(),
+            );
+            if joined_state_initializer.is_some()
+                && let (Some(initial), Some(expected)) =
+                    (lowered_args.first_mut(), signature.params.first())
+            {
+                retag_state_initializer(initial, expected);
+            }
+        }
+        (lowered_args, signature)
+    }
+
+    fn record_call_defer_capture(&mut self, callee: &Expr) {
+        if let ExprKind::NamePath { segments, .. } = &callee.kind
+            && let [name] = segments.as_slice()
+            && let Some(index) = self
+                .bindings
+                .iter()
+                .rposition(|binding| binding.name == *name)
+        {
+            self.record_defer_capture(index);
+        }
+    }
+
+    fn joined_state_initializer_type(&self, expr: &Expr, callee: &Expr) -> Option<CoreType> {
+        if self.declared_io_provider_state_operation(callee) != Some("state") {
+            return None;
+        }
+        let Type::Named { args, .. } = self.state_call_types.get(&expr.node_id)? else {
+            return None;
+        };
+        let item = args.first().map(core_type)?;
+        #[cfg(test)]
+        record_state_initializer_lowering_work(|work| {
+            work.fact_lookups += 1;
+            work.materialized_type_nodes += core_type_node_count(&item);
+        });
+        Some(item)
+    }
+
+    fn declared_io_provider_state_operation(&self, callee: &Expr) -> Option<&str> {
+        let ExprKind::NamePath { segments, .. } = &callee.kind else {
+            return None;
+        };
+        let function = match segments.as_slice() {
+            [name] => self
+                .environment
+                .unqualified_function_in_owner(
+                    name,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
+                .found(),
+            _ => self.environment.function_path_in_owner(
+                segments,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            ),
+        }?;
+        (function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+            && function.module_name.as_deref() == Some("std::io_provider")
+            && matches!(function.name.as_str(), "state" | "update"))
+        .then_some(function.name.as_str())
     }
 
     fn call_target_with_context(
@@ -677,20 +758,36 @@ impl<'a> CoreLowerer<'a> {
             .collect()
     }
 
-    pub(super) fn lower_args_with_signature(
+    fn lower_args_with_preliminary_signature(
         &mut self,
         args: &[Expr],
         signature: &CoreCallSignature,
     ) -> Vec<CoreExpr> {
         let Some(variadic) = &signature.variadic else {
-            return self.lower_args_with_params(args, Some(&signature.params));
+            return args
+                .iter()
+                .enumerate()
+                .map(|(index, arg)| {
+                    let expected = signature
+                        .params
+                        .get(index)
+                        .filter(|expected| !core_type_contains_unknown(expected));
+                    self.lower_expr(arg, expected)
+                })
+                .collect();
         };
         let fixed_count = signature.params.len();
         let mut lowered = args
             .iter()
             .take(fixed_count)
             .enumerate()
-            .map(|(index, arg)| self.lower_expr(arg, signature.params.get(index)))
+            .map(|(index, arg)| {
+                let expected = signature
+                    .params
+                    .get(index)
+                    .filter(|expected| !core_type_contains_unknown(expected));
+                self.lower_expr(arg, expected)
+            })
             .collect::<Vec<_>>();
         let tail_items = args
             .iter()
@@ -807,5 +904,70 @@ impl<'a> CoreLowerer<'a> {
             lowered_args.push(lowered);
         }
         lowered_args
+    }
+}
+
+fn retag_state_initializer(expr: &mut CoreExpr, expected: &CoreType) {
+    expr.ty = expected.clone();
+    match (&mut expr.kind, expected) {
+        (CoreExprKind::Record(fields), CoreType::Record(expected_fields)) => {
+            let expected_by_name = expected_fields
+                .iter()
+                .map(|(name, ty)| (name.as_str(), ty))
+                .collect::<HashMap<_, _>>();
+            #[cfg(test)]
+            record_state_initializer_lowering_work(|work| {
+                work.retag_record_index_entries += expected_by_name.len();
+                work.retag_record_lookups += fields.len();
+            });
+            for field in fields {
+                if let Some(expected) = expected_by_name.get(field.name.as_str()) {
+                    retag_state_initializer(&mut field.expr, expected);
+                }
+            }
+        }
+        (CoreExprKind::List(items), CoreType::Named { name, args })
+            if name == "Vec" && args.len() == 1 =>
+        {
+            for item in items {
+                retag_state_initializer(item, &args[0]);
+            }
+        }
+        (CoreExprKind::Match { arms, .. }, _) => {
+            for arm in arms {
+                retag_state_initializer(&mut arm.expr, expected);
+            }
+        }
+        (CoreExprKind::CleanupRegion { region }, _) => {
+            if let Some(statement) = region.statements.last_mut() {
+                match &mut statement.kind {
+                    CoreStmtKind::Expr { expr } | CoreStmtKind::Return { expr } => {
+                        retag_state_initializer(expr, expected);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn core_type_contains_unknown(ty: &CoreType) -> bool {
+    match ty {
+        CoreType::Unknown => true,
+        CoreType::Named { args, .. } => args.iter().any(core_type_contains_unknown),
+        CoreType::Record(fields) => fields
+            .iter()
+            .any(|(_, field)| core_type_contains_unknown(field)),
+        CoreType::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params.iter().any(core_type_contains_unknown)
+                || variadic.as_deref().is_some_and(core_type_contains_unknown)
+                || core_type_contains_unknown(return_type)
+        }
     }
 }

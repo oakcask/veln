@@ -13,7 +13,7 @@ pub(super) fn surface_prelude_signature(
     prelude_observation_export_signature(descriptor.name, expected)
         .or_else(|| prelude_production_metric_index_signature(descriptor.name))
         .or_else(|| prelude_net_system_signature(descriptor.name, expected))
-        .or_else(|| prelude_filesystem_io_signature(descriptor.name))
+        .or_else(|| prelude_filesystem_signature(descriptor.name, &expected.direct))
         .or_else(|| prelude_float_signature(descriptor.name))
         .or_else(|| prelude_byte_signature(descriptor.name))
         .or_else(|| prelude_string_signature(descriptor.name))
@@ -25,8 +25,8 @@ pub(super) fn surface_prelude_signature(
         .or_else(|| compiler_adapter_callback_signature(descriptor))
 }
 
-fn prelude_filesystem_io_signature(name: &str) -> Option<(Vec<Type>, Type)> {
-    super::filesystem_signatures::prelude_filesystem_io_signature(name)
+fn prelude_filesystem_signature(name: &str, expected: &Type) -> Option<(Vec<Type>, Type)> {
+    super::filesystem_signatures::prelude_filesystem_signature(name, expected)
 }
 
 fn prelude_observation_export_signature(

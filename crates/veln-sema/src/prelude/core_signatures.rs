@@ -64,7 +64,7 @@ fn core_compiler_adapter_signature(
     let signature = core_observation_export_signature(descriptor.name, &expected.direct)
         .or_else(|| core_production_metric_index_signature(descriptor.name))
         .or_else(|| core_net_system_signature(descriptor.name, &expected.direct))
-        .or_else(|| core_filesystem_io_signature(descriptor.name))
+        .or_else(|| core_filesystem_signature(descriptor.name, &expected.direct))
         .or_else(|| core_prelude_float_signature(descriptor.name))
         .or_else(|| core_prelude_byte_signature(descriptor.name))
         .or_else(|| core_prelude_string_signature(descriptor.name))
@@ -81,8 +81,8 @@ fn core_compiler_adapter_signature(
     ))
 }
 
-fn core_filesystem_io_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> {
-    super::filesystem_signatures::core_filesystem_io_signature(name)
+fn core_filesystem_signature(name: &str, expected: &CoreType) -> Option<(Vec<CoreType>, CoreType)> {
+    super::filesystem_signatures::core_filesystem_signature(name, expected)
 }
 
 fn compiler_adapter_core_callback_signature(

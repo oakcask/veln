@@ -1,0 +1,23 @@
+# Placement: this compiler case checks the exact-companion source boundary of
+# the constructor-free atomic state identity. Ordinary source ADTs retain their
+# established companion-private constructor access in separate companion cases.
+command = ["check", "--json", "io_provider.test.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.0.details.symbol"
+equals = "io_provider::State::State"

@@ -870,7 +870,11 @@ classification reports `type.mismatch`. Compiler-owned covariance requires the
 resolved compiler-owned identity. A source or imported constructor with the
 same displayed name instead uses its own checked classifications, and its
 aliases retain those classifications. Distinct nominal owners remain
-incompatible. The checked
+incompatible. An invariant atomic provider state also rejects a same-spelled
+source-owned state and a state type whose record argument omits retained fields
+with ordinary `type.mismatch`. The checked
+[`atomic state nominal boundary`](../../examples/specification/check/filesystem-io-atomic-state-nominal-boundary/)
+case covers those rejections. The checked
 [`dependency-source-adt-variance-diagnostics`](../../examples/specification/check/dependency-source-adt-variance-diagnostics/)
 case covers the rejection after a direct dependency payload selects an
 invariant classification. The [type rules](types.md#source-adt-parameter-classifications)

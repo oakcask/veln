@@ -1,0 +1,10 @@
+use io_provider
+
+fn identity(value: Int) -> Int
+	value
+end
+
+test companion_cannot_construct_opaque_state() -> ()
+	let _: io_provider::State<Int> = io_provider::State::State(identity)
+	()
+end

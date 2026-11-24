@@ -375,6 +375,41 @@ context. The supported families are:
 | `Option<T>` | `option_map`, `option_and_then` | item `T` |
 | `Result<T,E>` | `result_map`, `result_and_then`, `result_map_err` | success `T` or error `E` |
 
+The `std` package's `io_provider::state` and `io_provider::update` declarations
+also receive API-specific generic call signatures. `state` infers `T` from its
+initial value or an expected `io_provider::State<T>`. A concrete expected state
+type supplies `T` as the expected type of the initial value expression. For
+example, `let cell: io_provider::State<Option<Int>> = io_provider::state(None)`
+resolves `None` as `Option<Int>`. Without a concrete state expectation, an
+otherwise ambiguous initial value retains its ordinary inference diagnostic.
+`update` infers `T` from the cell and `C` from the context value. It infers `R`
+from the callback's returned record when available, or from the expected result
+otherwise. It then checks a pure `fn(T, C) -> {state: T, result: R}` callback.
+These rules use the checked types of the argument expressions. Record-field
+expressions and branch-selected state values or callbacks therefore supply
+their concrete types. When a `state` initializer is a list, `if`, or `match`,
+lowering retains the joined concrete type of compatible contributions through
+checked core and typed IR. This includes nested named arguments and records
+with the same named fields in different source orders. It also includes
+record-width joins that select the unique contributed record accepted by every
+contribution. These results do not depend on which compatible contribution
+appears first. Source-ADT arguments use their checked parameter variance in
+these joins. Covariant positions use a bounded join, contravariant positions
+use a bounded meet, and an incompatible invariant position reports
+`type.mismatch` before checked core or typed IR is produced. Ordinary function
+bodies and handler operation clauses preserve the resulting `State<T>` type
+through checked core and typed IR. The `T` argument of `State<T>` is invariant:
+a cell cannot be assigned to a state type with a wider or narrower value shape.
+This preserves the value type expected by every callback that shares the cell.
+The rules preserve the generic arguments through core lowering instead of
+replacing them with `unknown`. The opaque state API and its runtime behavior
+are specified by
+[Standard-library filesystem and byte IO](standard-library-filesystem-io.md#atomic-state).
+The package identity is part of this compiler-known boundary. A declaration in
+another package keeps its declared parameter and result types during checking,
+checked-core lowering, and typed-IR lowering even if its module and function
+names are also `std::io_provider::state` or `std::io_provider::update`.
+
 The same expected-function rule applies to ordinary same-module helpers, visible
 imported public helpers, public aliases, concrete function-typed local bindings,
 record fields, return expressions, `match` arms, `if` branches, constructor
@@ -739,6 +774,14 @@ group work or state. Independently tracked ADT locals add one group and member
 of ownership state each, but they do not add repeated lookups or multiply the
 work for the matched alias group. Every instrumented match-local owner returns
 to zero after analysis.
+
+For a function with `I` import declarations and `P` constructor patterns
+written through an explicit alias of the standard `io_provider` module,
+opaque-state constructor screening indexes the `I` imports once and performs
+one alias lookup per pattern. Its instrumented import work is therefore
+additive in `I + P`; it does not rescan every import for every pattern. The
+screening still reports each unavailable `State` constructor pattern through
+the ordinary name-resolution contract.
 
 Increasing stable field-path depth or repeated access count adds only linear
 path discovery and lookup work. Transparent aliases of one record root reuse
@@ -2366,6 +2409,8 @@ case covers that boundary. Schema predicates do not accept `%`.
 - Type inference and compatibility: `crates/veln-sema/src/types.rs` and
   `crates/veln-sema/src/type_annotation_parser.rs`.
 - Effect-row typing: `crates/veln-sema/src/effect_rows.rs`.
+- Atomic state argument inference:
+  `crates/veln-sema/src/tests/standard_library_effects/lowering_and_types/io_provider.rs`.
 - Refined-match coverage scaling:
   `crates/veln-sema/src/tests/variant_refinement_match_scaling.rs`.
 - Aggregate and alias-presentation join scaling:

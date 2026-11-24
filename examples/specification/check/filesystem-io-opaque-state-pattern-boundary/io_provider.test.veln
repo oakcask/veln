@@ -1,0 +1,8 @@
+use io_provider
+
+test companion_cannot_match_opaque_state() -> ()
+	let cell: io_provider::State<Int> = io_provider::impossible()
+	match cell
+		io_provider::State::State(_) => ()
+	end
+end

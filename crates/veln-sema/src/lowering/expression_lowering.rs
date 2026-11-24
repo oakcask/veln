@@ -5,9 +5,46 @@ use crate::types::ModuleValueLookup;
 impl<'a> CoreLowerer<'a> {
     pub(super) fn lower_expr(&mut self, expr: &Expr, expected: Option<&CoreType>) -> CoreExpr {
         match &expr.kind {
+            ExprKind::Missing | ExprKind::Hole { .. } | ExprKind::NamePath { .. } => {
+                self.lower_reference_expr(expr, expected)
+            }
+            ExprKind::StringLiteral(_)
+            | ExprKind::IntLiteral(_)
+            | ExprKind::FloatLiteral(_)
+            | ExprKind::BoolLiteral(_)
+            | ExprKind::Unit
+            | ExprKind::TypeApply { .. } => self.lower_literal_expr(expr),
+            ExprKind::Call { .. }
+            | ExprKind::Perform { .. }
+            | ExprKind::Handle { .. }
+            | ExprKind::SchemaDecode { .. }
+            | ExprKind::SchemaEncode { .. }
+            | ExprKind::SchemaValidate { .. }
+            | ExprKind::FieldAccess { .. }
+            | ExprKind::Try { .. } => self.lower_application_expr(expr, expected),
+            ExprKind::Record(_)
+            | ExprKind::Dict(_)
+            | ExprKind::List(_)
+            | ExprKind::Match { .. }
+            | ExprKind::If { .. }
+            | ExprKind::Begin { .. } => self.lower_structured_expr(expr, expected),
+            ExprKind::Prefix { .. } | ExprKind::Binary { .. } => {
+                self.lower_operator_expr(expr, expected)
+            }
+        }
+    }
+
+    fn lower_reference_expr(&mut self, expr: &Expr, expected: Option<&CoreType>) -> CoreExpr {
+        match &expr.kind {
             ExprKind::Missing => self.lower_missing_expr(expr, expected),
             ExprKind::Hole { name, .. } => self.lower_hole_expr(expr, expected, name),
             ExprKind::NamePath { segments, .. } => self.lower_name_path(expr, segments, expected),
+            _ => unreachable!("reference expression dispatcher received another expression kind"),
+        }
+    }
+
+    fn lower_literal_expr(&self, expr: &Expr) -> CoreExpr {
+        match &expr.kind {
             ExprKind::StringLiteral(value) => self.lower_string_literal(expr, value),
             ExprKind::IntLiteral(value) => self.lower_int_literal(expr, value),
             ExprKind::FloatLiteral(value) => self.lower_float_literal(expr, value),
@@ -16,6 +53,12 @@ impl<'a> CoreLowerer<'a> {
             ExprKind::TypeApply { .. } => {
                 self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
             }
+            _ => unreachable!("literal expression dispatcher received another expression kind"),
+        }
+    }
+
+    fn lower_application_expr(&mut self, expr: &Expr, expected: Option<&CoreType>) -> CoreExpr {
+        match &expr.kind {
             ExprKind::Call { callee, args } => self.lower_call(expr, callee, args, expected),
             ExprKind::Perform {
                 effect,
@@ -45,6 +88,12 @@ impl<'a> CoreLowerer<'a> {
             } => self.lower_schema_validate(expr, schema, value, base),
             ExprKind::FieldAccess { base, field, .. } => self.lower_field_access(expr, base, field),
             ExprKind::Try { expr: inner, .. } => self.lower_try(expr, inner, expected),
+            _ => unreachable!("application expression dispatcher received another expression kind"),
+        }
+    }
+
+    fn lower_structured_expr(&mut self, expr: &Expr, expected: Option<&CoreType>) -> CoreExpr {
+        match &expr.kind {
             ExprKind::Record(fields) => self.lower_record(expr, fields, expected),
             ExprKind::Dict(entries) => self.lower_dict(expr, entries, expected),
             ExprKind::List(items) => self.lower_list(expr, items, expected),
@@ -74,10 +123,17 @@ impl<'a> CoreLowerer<'a> {
                     },
                 )
             }
+            _ => unreachable!("structured expression dispatcher received another expression kind"),
+        }
+    }
+
+    fn lower_operator_expr(&mut self, expr: &Expr, expected: Option<&CoreType>) -> CoreExpr {
+        match &expr.kind {
             ExprKind::Prefix { op, expr: inner } => self.lower_prefix(expr, *op, inner, expected),
             ExprKind::Binary { op, left, right } => {
                 self.lower_binary(expr, *op, left, right, expected)
             }
+            _ => unreachable!("operator expression dispatcher received another expression kind"),
         }
     }
 
@@ -308,41 +364,145 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn shallow_expr_type(&self, expr: &Expr) -> Option<CoreType> {
+        if let Some(cached) = self.shallow_type_cache.borrow().get(&expr.node_id) {
+            return cached.clone();
+        }
+        let ty = self.uncached_shallow_expr_type(expr);
+        self.shallow_type_cache
+            .borrow_mut()
+            .insert(expr.node_id, ty.clone());
+        ty
+    }
+
+    fn uncached_shallow_expr_type(&self, expr: &Expr) -> Option<CoreType> {
         match &expr.kind {
+            ExprKind::StringLiteral(_)
+            | ExprKind::IntLiteral(_)
+            | ExprKind::FloatLiteral(_)
+            | ExprKind::BoolLiteral(_)
+            | ExprKind::Unit => self.shallow_literal_type(expr),
+            ExprKind::Record(_) | ExprKind::List(_) => self.shallow_collection_type(expr),
+            ExprKind::NamePath { segments, .. } => self.shallow_name_path_type(segments),
+            ExprKind::FieldAccess { base, field, .. } => self
+                .shallow_expr_type(base)
+                .and_then(|ty| ty.record_field(field).cloned()),
+            ExprKind::Call { callee, args } => self.shallow_call_type(callee, args),
+            _ => None,
+        }
+    }
+
+    fn shallow_literal_type(&self, expr: &Expr) -> Option<CoreType> {
+        match &expr.kind {
+            ExprKind::StringLiteral(_) => Some(CoreType::string()),
             ExprKind::IntLiteral(_) => Some(CoreType::int()),
             ExprKind::FloatLiteral(_) => Some(CoreType::float()),
             ExprKind::BoolLiteral(_) => Some(CoreType::bool()),
-            ExprKind::NamePath { segments, .. } => match segments.as_slice() {
-                [name] => self
-                    .bindings
-                    .iter()
-                    .rev()
-                    .find(|binding| binding.name == *name)
-                    .map(|binding| binding.ty.clone())
-                    .or_else(|| {
-                        self.environment
-                            .unqualified_function_in_owner(
-                                name,
-                                self.function.module_name.as_deref(),
-                                self.function.package_name.as_deref(),
-                            )
-                            .found()
-                            .map(|function| core_type(&function.ty()))
-                    }),
-                _ => self
-                    .environment
-                    .function_path_in_owner(
-                        segments,
-                        self.function.module_name.as_deref(),
-                        self.function.package_name.as_deref(),
-                    )
-                    .map(|function| core_type(&function.ty())),
-            },
-            ExprKind::Call { callee, .. } => self
-                .core_call_signature(callee, None)
-                .map(|signature| signature.return_type),
-            _ => None,
+            ExprKind::Unit => Some(CoreType::unit()),
+            _ => unreachable!("shallow literal dispatcher received another expression kind"),
         }
+    }
+
+    fn shallow_collection_type(&self, expr: &Expr) -> Option<CoreType> {
+        match &expr.kind {
+            ExprKind::Record(fields) => fields
+                .iter()
+                .map(|field| {
+                    self.shallow_expr_type(&field.expr)
+                        .map(|ty| (field.name.clone(), ty))
+                })
+                .collect::<Option<Vec<_>>>()
+                .map(CoreType::Record),
+            ExprKind::List(items) => items
+                .first()
+                .and_then(|item| self.shallow_expr_type(item))
+                .map(CoreType::vec),
+            _ => unreachable!("shallow collection dispatcher received another expression kind"),
+        }
+    }
+
+    fn shallow_name_path_type(&self, segments: &[String]) -> Option<CoreType> {
+        match segments {
+            [name] => self
+                .bindings
+                .iter()
+                .rev()
+                .find(|binding| binding.name == *name)
+                .map(|binding| binding.ty.clone())
+                .or_else(|| {
+                    self.environment
+                        .unqualified_function_in_owner(
+                            name,
+                            self.function.module_name.as_deref(),
+                            self.function.package_name.as_deref(),
+                        )
+                        .found()
+                        .map(|function| core_type(&function.ty()))
+                }),
+            _ => self
+                .environment
+                .function_path_in_owner(
+                    segments,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
+                .map(|function| core_type(&function.ty())),
+        }
+    }
+
+    fn shallow_call_type(&self, callee: &Expr, args: &[Expr]) -> Option<CoreType> {
+        if let Some(list_type) = self.shallow_list_cons_type(callee, args) {
+            return Some(list_type);
+        }
+        if let Some(constructed_type) = self.shallow_constructor_type(callee, args) {
+            return Some(constructed_type);
+        }
+        self.shallow_callable_return_type(callee, args)
+    }
+
+    fn shallow_list_cons_type(&self, callee: &Expr, args: &[Expr]) -> Option<CoreType> {
+        let ExprKind::NamePath { segments, .. } = &callee.kind else {
+            return None;
+        };
+        if !matches!(segments.as_slice(), [name] if name == "list_cons") {
+            return None;
+        }
+        args.first()
+            .and_then(|arg| self.shallow_expr_type(arg))
+            .map(|item| CoreType::named("List", vec![item]))
+    }
+
+    fn shallow_constructor_type(&self, callee: &Expr, args: &[Expr]) -> Option<CoreType> {
+        let ExprKind::NamePath { segments, .. } = &callee.kind else {
+            return None;
+        };
+        let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
+            segments,
+            self.function.module_name.as_deref(),
+            &self.environment.uses,
+        ) else {
+            return None;
+        };
+        let payloads = args
+            .iter()
+            .map(|arg| self.shallow_expr_type(arg).unwrap_or(CoreType::Unknown))
+            .collect::<Vec<_>>();
+        Some(adt::core_constructed_type(constructor, &payloads))
+    }
+
+    fn shallow_callable_return_type(&self, callee: &Expr, args: &[Expr]) -> Option<CoreType> {
+        let first = args.first().and_then(|arg| self.shallow_expr_type(arg));
+        let second = args.get(1).and_then(|arg| self.shallow_expr_type(arg));
+        let third = args.get(2).and_then(|arg| self.shallow_expr_type(arg));
+        self.core_call_signature(
+            callee,
+            None,
+            crate::call_resolution::CallArgumentEvidence {
+                first: first.as_ref(),
+                second: second.as_ref(),
+                third: third.as_ref(),
+            },
+        )
+        .map(|signature| signature.return_type)
     }
 
     pub(super) fn lower_name_path(
