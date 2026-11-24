@@ -401,8 +401,11 @@ provider owner remains usable. Dispatch never selects the currently active
 same-effect handler as a fallback and does not perform host filesystem or
 network IO.
 
-Ordinary `perform` retains lexical handler selection and does not receive a
-captured invocation owner. If a direct low-level operation supplies a
+Ordinary `perform` retains lexical handler selection and does not receive the
+broader captured invocation authority. An accepted lexical provider open
+receives only a per-call admission identity for publication. It cannot use
+that identity to register namespace tokens or authorize unrelated lexical
+calls to register byte resources. If a direct low-level operation supplies a
 filesystem token or byte capability from a different provider owner, the
 runtime returns the operation's `InvalidResource` failure shape before
 invoking either provider. This applies when the owners share a handler frame
@@ -453,12 +456,21 @@ The close handler's scripted success or failure does not replace an ordinary
 body `Result`; the complete F5 primary and related cleanup-failure projection
 remains unimplemented.
 
-Captured namespace dispatch that began while the owner was open can finish its
-provider call after owner closure. A resource produced by that call is rejected
-with `io::ErrorKind::InvalidResource`, is not inserted into the owner registry,
-and is passed once to its captured close handler. A failed close outcome or a
-runtime failure from that release is retained by the owner boundary. This
-admission decision is atomic with owner closure and existing-slot validation.
+If cancellation is first delivered at a checkpoint in a close handler, the
+runtime retains cancellation as the primary unwind. It still attempts and
+removes every resource already selected for bounded owner release. Execution
+after the handled owner scope does not continue. A later selected release can
+retain an ordinary cleanup failure alongside cancellation, but retry,
+release-order, and diagnostic projection remain part of F5.
+
+A facade or accepted lexical namespace call that began while the owner was
+open can finish its provider call after owner closure. A resource produced by
+that call is rejected with `io::ErrorKind::InvalidResource`, is not inserted
+into the owner registry, and is passed once to its captured close handler. A
+failed close outcome or a runtime failure from that release is retained by the
+owner boundary. This admission decision is atomic with owner closure and
+existing-slot validation. An active release for one owner does not change the
+release obligation of another owner's independently admitted late resource.
 The runtime leaves registry admission before it invokes the close handler, so
 an inherited child can reach its own closed-owner registration rejection while
 the handler waits for it. This bounded retention is backend-observable;

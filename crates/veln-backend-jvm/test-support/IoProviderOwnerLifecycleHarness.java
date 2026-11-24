@@ -213,7 +213,8 @@ public final class IoProviderOwnerLifecycleHarness {
         boolean failRelease,
         boolean duplicateSlot,
         boolean throwRelease,
-        boolean occupiedNamespaceSlot
+        boolean occupiedNamespaceSlot,
+        boolean lexicalOpen
     ) throws Exception {
         java.util.concurrent.CountDownLatch openStarted = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.CountDownLatch finishOpen = new java.util.concurrent.CountDownLatch(1);
@@ -225,6 +226,7 @@ public final class IoProviderOwnerLifecycleHarness {
         java.util.concurrent.atomic.AtomicReference<Throwable> childFailure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
         VelnRuntime.RuntimeFailure thrownRelease =
             new VelnRuntime.RuntimeFailure("planned late release runtime failure");
+        Object failedOutcome = closeFailed("planned late release failure");
         int expectedCloseCalls = duplicateSlot ? 2 : 1;
 
         pushScope();
@@ -256,7 +258,7 @@ public final class IoProviderOwnerLifecycleHarness {
                 }
                 if (closeCall != expectedCloseCalls) return closed();
                 if (throwRelease) throw thrownRelease;
-                return failRelease ? closeFailed("planned late release failure") : closed();
+                return failRelease ? failedOutcome : closed();
             }
         );
         push("std::fs::Read", "open_read", (Object... supplied) -> {
@@ -294,9 +296,13 @@ public final class IoProviderOwnerLifecycleHarness {
             try {
                 childHandlers = handlers();
                 childHandlers.addAll(inherited);
-                publication.set(VelnRuntime.ioProviderDispatch2(
-                    "std::fs::Read", "open_read", filesystem.value(), "gated"
-                ));
+                publication.set(lexicalOpen
+                    ? VelnRuntime.perform(
+                        "std::fs::Read", "open_read", new Object[] { filesystem.value(), "gated" }
+                    )
+                    : VelnRuntime.ioProviderDispatch2(
+                        "std::fs::Read", "open_read", filesystem.value(), "gated"
+                    ));
             } catch (Throwable failure) {
                 childFailure.set(failure);
             } finally {
@@ -331,7 +337,130 @@ public final class IoProviderOwnerLifecycleHarness {
                 releaseFailures(scope).get(0) == thrownRelease,
                 "late release did not retain the runtime failure identity"
             );
+        } else if (failRelease) {
+            require(
+                releaseFailures(scope).get(0) == failedOutcome,
+                "late release did not retain the failed close outcome"
+            );
         }
+    }
+
+    private static void crossOwnerLatePublicationDuringRelease() throws Exception {
+        java.util.concurrent.CountDownLatch openStarted = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch finishOpen = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicInteger ownerACloseCalls = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger ownerBCloseCalls = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger unrelatedState = new java.util.concurrent.atomic.AtomicInteger(19);
+        java.util.concurrent.atomic.AtomicBoolean ownerBBoundaryObserved = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.atomic.AtomicReference<Object> ownerBCloser = new java.util.concurrent.atomic.AtomicReference<Object>();
+        java.util.concurrent.atomic.AtomicReference<Object> publication = new java.util.concurrent.atomic.AtomicReference<Object>();
+        java.util.concurrent.atomic.AtomicReference<Throwable> childFailure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        Object ownerBFailure = closeFailed("planned cross-owner late release failure");
+
+        pushScope();
+        Object ownerAScope = handlers().get(handlers().size() - 1);
+        Object ownerA = owner();
+        java.util.concurrent.atomic.AtomicReference<Thread> publicationThread =
+            new java.util.concurrent.atomic.AtomicReference<Thread>();
+        java.util.concurrent.atomic.AtomicReference<Object> ownerBRef =
+            new java.util.concurrent.atomic.AtomicReference<Object>();
+        java.util.concurrent.atomic.AtomicReference<Object> ownerBScopeRef =
+            new java.util.concurrent.atomic.AtomicReference<Object>();
+        pushReadFileHandlers(
+            (Object... supplied) -> VelnRuntime.adt("io::ReadOutcome::End", new Object[0]),
+            (Object... supplied) -> {
+                ownerACloseCalls.incrementAndGet();
+                finishOpen.countDown();
+                try {
+                    publicationThread.get().join();
+                    require(childFailure.get() == null, "cross-owner publication failed: " + childFailure.get());
+                    require(isInvalidResource(publication.get()), "cross-owner late resource was published");
+                    require(ownerBCloseCalls.get() == 1, "cross-owner late resource was not released exactly once");
+                    require(ownerBBoundaryObserved.get(), "owner B release boundary was not externally observed");
+                    require(
+                        isInvalidResource(VelnRuntime.ioProviderCloserSlot(ownerA, ownerBCloser.get())),
+                        "owner A inspected owner B's releasing capability"
+                    );
+                    require(resourceCount(ownerBRef.get()) == 1, "owner B late release changed its registry");
+                    require(
+                        releaseFailures(ownerBScopeRef.get()).size() == 1
+                            && releaseFailures(ownerBScopeRef.get()).get(0) == ownerBFailure,
+                        "owner B did not retain its exact release failure"
+                    );
+                    require(unrelatedState.get() == 19, "cross-owner release changed unrelated state");
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new VelnRuntime.RuntimeFailure("cross-owner publication join interrupted");
+                } catch (Exception failure) {
+                    throw new VelnRuntime.RuntimeFailure("cross-owner release assertion failed: " + failure);
+                }
+                return closed();
+            }
+        );
+        VelnRuntime.Result ownerAResource = result(
+            VelnRuntime.ioProviderResource(ownerA, Long.valueOf(91L), family())
+        );
+        require(ownerAResource.isOk(), "owner A resource registration failed");
+        popReadFileHandlers();
+
+        pushScope();
+        Object ownerBScope = handlers().get(handlers().size() - 1);
+        Object ownerB = owner();
+        ownerBRef.set(ownerB);
+        ownerBScopeRef.set(ownerBScope);
+        pushReadFileHandlers(
+            (Object... supplied) -> VelnRuntime.adt("io::ReadOutcome::End", new Object[0]),
+            (Object... supplied) -> {
+                ownerBCloseCalls.incrementAndGet();
+                Object closer = supplied[0];
+                ownerBCloser.set(closer);
+                ownerBBoundaryObserved.set(
+                    slotEquals(VelnRuntime.ioProviderCloserSlot(ownerB, closer), 93L)
+                        && isInvalidResource(VelnRuntime.ioProviderCloserSlot(ownerA, closer))
+                        && unrelatedState.get() == 19
+                );
+                return ownerBFailure;
+            }
+        );
+        push("std::fs::Read", "open_read", (Object... supplied) -> {
+            openStarted.countDown();
+            try {
+                finishOpen.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new VelnRuntime.RuntimeFailure("cross-owner gated open interrupted");
+            }
+            return VelnRuntime.ioProviderResource(ownerB, Long.valueOf(93L), family());
+        });
+        VelnRuntime.Result filesystem = result(VelnRuntime.ioProviderFilesystem(ownerB, Long.valueOf(92L)));
+        require(filesystem.isOk(), "owner B filesystem registration failed");
+        java.util.List<Object> inherited = new java.util.ArrayList<Object>(handlers());
+        Thread child = new Thread(() -> {
+            java.util.List<Object> childHandlers = null;
+            try {
+                childHandlers = handlers();
+                childHandlers.addAll(inherited);
+                publication.set(VelnRuntime.ioProviderDispatch2(
+                    "std::fs::Read", "open_read", filesystem.value(), "gated"
+                ));
+            } catch (Throwable failure) {
+                childFailure.set(failure);
+            } finally {
+                if (childHandlers != null) childHandlers.clear();
+            }
+        });
+        publicationThread.set(child);
+        child.start();
+        openStarted.await();
+
+        VelnRuntime.popHandler();
+        popReadFileHandlers();
+        VelnRuntime.popHandler();
+        VelnRuntime.popHandler();
+
+        require(ownerACloseCalls.get() == 1, "owner A did not release exactly once");
+        require(resourceCount(ownerA) == 0, "owner A registry was not cleared");
+        require(releaseFailures(ownerAScope).isEmpty(), "owner A retained an unexpected release failure");
     }
 
     private static void closedDispatchPaths() throws Exception {
@@ -445,11 +574,15 @@ public final class IoProviderOwnerLifecycleHarness {
     public static void main(String[] args) throws Exception {
         Object foreignOwner = makeForeignOwner();
         registeredRelease(foreignOwner, "normal");
-        latePublication(foreignOwner, false, false, false, false);
-        latePublication(foreignOwner, true, false, false, false);
-        latePublication(foreignOwner, false, false, true, false);
-        latePublication(foreignOwner, false, true, false, false);
-        latePublication(foreignOwner, false, false, false, true);
+        latePublication(foreignOwner, false, false, false, false, false);
+        latePublication(foreignOwner, true, false, false, false, false);
+        latePublication(foreignOwner, false, false, true, false, false);
+        latePublication(foreignOwner, false, true, false, false, false);
+        latePublication(foreignOwner, false, false, false, true, false);
+        latePublication(foreignOwner, false, false, false, false, true);
+        latePublication(foreignOwner, true, false, false, false, true);
+        latePublication(foreignOwner, false, false, true, false, true);
+        crossOwnerLatePublicationDuringRelease();
         closedDispatchPaths();
         lateReleaseDoesNotHoldRegistryMonitor();
     }

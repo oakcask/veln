@@ -335,6 +335,8 @@
                 "close",
                 new Object[] { new IoCapability(resource, resource.close) }
             );
+        } catch (TaskCancellationFailure cancelled) {
+            throw cancelled;
         } catch (RuntimeException | Error failure) {
             retainIoProviderReleaseFailure(resource.owner, failure);
             return failure;
@@ -365,12 +367,19 @@
                 if (registered instanceof IoResource) resources.add((IoResource) registered);
             }
         }
+        TaskCancellationFailure cancellation = null;
         for (IoResource resource : resources) {
-            releaseIoProviderResource(resource);
-            synchronized (owner.resources) {
-                owner.resources.remove(Long.valueOf(resource.slot), resource);
+            try {
+                releaseIoProviderResource(resource);
+            } catch (TaskCancellationFailure cancelled) {
+                if (cancellation == null) cancellation = cancelled;
+            } finally {
+                synchronized (owner.resources) {
+                    owner.resources.remove(Long.valueOf(resource.slot), resource);
+                }
             }
         }
+        if (cancellation != null) throw cancellation;
     }
 
     public static Object ioProviderScopeOwner() {
@@ -465,8 +474,7 @@
 
         synchronized (owner.resources) {
             if (owner.scope.ioProviderScopeClosed) {
-                if (IO_PROVIDER_INVOCATION_OWNER.get() != owner
-                    || IO_PROVIDER_RELEASE_RESOURCE.get() != null) {
+                if (IO_PROVIDER_ADMISSION_OWNER.get() != owner) {
                     return ioProviderInvalidResource("resource", "provider owner scope is closed");
                 }
             } else if (owner.resources.containsKey(Long.valueOf(slot))) {
@@ -555,7 +563,7 @@
         boolean releaseAfterAdmission = false;
         synchronized (owner.resources) {
             if (owner.scope.ioProviderScopeClosed) {
-                if (IO_PROVIDER_INVOCATION_OWNER.get() == owner) {
+                if (IO_PROVIDER_ADMISSION_OWNER.get() == owner) {
                     releaseAfterAdmission = true;
                 }
             } else if (owner.resources.containsKey(Long.valueOf(slot))) {
@@ -813,12 +821,16 @@
         args[0] = operand;
         System.arraycopy(trailing, 0, args, 1, trailing.length);
         IoOwner previous = IO_PROVIDER_INVOCATION_OWNER.get();
+        IoOwner previousAdmission = IO_PROVIDER_ADMISSION_OWNER.get();
         IO_PROVIDER_INVOCATION_OWNER.set(owner);
+        IO_PROVIDER_ADMISSION_OWNER.set(owner);
         try {
             return invokeHandler(handler, operation, args);
         } finally {
             if (previous == null) IO_PROVIDER_INVOCATION_OWNER.remove();
             else IO_PROVIDER_INVOCATION_OWNER.set(previous);
+            if (previousAdmission == null) IO_PROVIDER_ADMISSION_OWNER.remove();
+            else IO_PROVIDER_ADMISSION_OWNER.set(previousAdmission);
         }
     }
 
@@ -886,6 +898,21 @@
             || captured != selected || owner.scope != lexicalScope)
             ? ioProviderForeignFailure(effect, operation)
             : null;
+    }
+
+    private static IoOwner ioProviderLexicalAdmissionOwner(
+        String effect,
+        String operation,
+        Object[] args,
+        HandlerFrame selected
+    ) {
+        if (args.length == 0 || !operation.startsWith("open_")) return null;
+        if (!effect.equals(FS_READ_EFFECT) && !effect.equals(FS_MUTATE_EFFECT)) return null;
+        HandlerFrame captured = ioProviderCapturedHandler(effect, args[0]);
+        if (captured == null || captured != selected) return null;
+        if (args[0] instanceof IoFilesystem) return ((IoFilesystem) args[0]).owner;
+        if (args[0] instanceof IoMutableFilesystem) return ((IoMutableFilesystem) args[0]).owner;
+        return null;
     }
 
     public static Object ioCopy(Object reader, Object writer, Object chunkSize) {

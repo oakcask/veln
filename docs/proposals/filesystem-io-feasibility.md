@@ -28,8 +28,12 @@ disables facade and lexical use before cleanup, and grants only the matching
 owner access to the exact releasing resource and its projected capabilities.
 Ordinary recursive close and stale same-slot aliases remain rejected. Release
 callbacks run outside registry admission so inherited child rejection can
-progress. The current specification owns the exact results, ordering, and
-preserved-state contracts.
+progress. Facade and accepted lexical opens use one owner-matched publication
+admission boundary, and one owner's active cleanup does not suppress another
+owner's late-resource release. Cancellation first delivered by a release
+handler remains the primary unwind after all selected resources receive their
+bounded release attempt and registry removal. The current specification owns
+the exact results, ordering, and preserved-state contracts.
 The following sections of the filesystem proposal define the remaining
 prototype obligations:
 

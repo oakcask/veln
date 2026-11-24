@@ -85,6 +85,67 @@ pub fn register(owner: io_provider::Owner, plan: ReleasePlan) -> Result<io_provi
 	handle handle handle handle io_provider::resource(owner, 401, io_provider::ViewFamily::ReadFile) with read(plan) with seek() with read_at() with release(plan)
 end
 
+pub type CancellationReleasePlan
+	pub CancellationReleasePlan(owner: io_provider::Owner, foreign_owner: io_provider::Owner, state: io_provider::State<Int>, events: Sender<String>, entered: Sender<()>, blocked: Receiver<()>)
+end
+
+pub handler cancellation_read() for io::Read
+	read(reader, maximum) => io::ReadOutcome::End
+end
+
+pub handler cancellation_release(plan: CancellationReleasePlan) for io::Close effects [concurrency]
+	close(closer) => match plan
+		CancellationReleasePlan(owner, foreign_owner, state, events, entered, blocked) => begin
+			let slot = io_provider::closer_slot(owner, closer)
+			let matching = match slot
+				Ok(actual) => actual == 501 or actual == 502
+				_ => false
+			end
+			let foreign = invalid_resource_slot(io_provider::closer_slot(foreign_owner, closer))
+			let registration = invalid_resource_registration(io_provider::resource(owner, 503, io_provider::ViewFamily::ReadFile))
+			let unchanged = observe_state(state) == 17
+			let boundary = if not matching
+				"invalid-matching-slot"
+			else if not foreign
+				"invalid-foreign-slot"
+			else if not registration
+				"invalid-registration"
+			else if not unchanged
+				"invalid-state"
+			else
+				"valid"
+			end
+			match slot
+				Ok(501) => begin
+					let _ = channel::send(events, if boundary == "valid" "release-checkpoint" else boundary end)
+					let _ = channel::send(entered, ())
+					let _: Option<()> = channel::recv(blocked)
+					io::CloseOutcome::Closed
+				end
+				Ok(502) => begin
+					let _ = channel::send(events, if boundary == "valid" "remaining-release" else boundary end)
+					io::CloseOutcome::Closed
+				end
+				_ => io::CloseOutcome::CloseFailed(io::Commit::No, io::Error::Error("close", io::ErrorKind::InvalidResource, None, None, None, Some(io::Commit::No), "unexpected cancellation release slot"))
+			end
+		end
+	end
+end
+
+fn register_cancellation_resource(owner: io_provider::Owner, slot: Int, plan: CancellationReleasePlan) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with cancellation_read() with seek() with read_at() with cancellation_release(plan)
+end
+
+pub fn register_cancellation_resources(owner: io_provider::Owner, plan: CancellationReleasePlan) -> Result<(), io::Error> effects [concurrency]
+	match register_cancellation_resource(owner, 501, plan)
+		Err(error) => Err(error)
+		Ok(_) => match register_cancellation_resource(owner, 502, plan)
+			Err(error) => Err(error)
+			Ok(_) => Ok(())
+		end
+	end
+end
+
 pub type ClosedDispatchReport
 	pub ClosedDispatchReport(facade_rejected: Bool, lexical_rejected: Bool, state_unchanged: Bool)
 end

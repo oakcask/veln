@@ -147,20 +147,29 @@ owners receive `InvalidResource`. Ordinary dispatch, including recursive close,
 remains unavailable. Rejected access leaves unrelated provider state unchanged.
 This boundary runs for normal return, propagated errors, and task cancellation.
 
-A captured open admitted before owner closure can finish afterward. Its
-resource is rejected instead of published, released once through the captured
-close handler, and a failed close outcome or runtime failure is retained. The
-publication decision is atomic with owner closure and slot occupancy. Release
-code runs after registry admission is relinquished, so a close handler can wait
-for an inherited child's rejected registration without deadlocking. The
+A facade or accepted lexical open admitted before owner closure can finish
+afterward. Its resource is rejected instead of published, released once
+through the captured close handler, and a failed close outcome or runtime
+failure is retained. The publication decision is atomic with owner closure and
+slot occupancy. One owner's active release does not suppress another owner's
+independently admitted late-resource release. Release code runs after registry
+admission is relinquished, so a close handler can wait for an inherited child's
+rejected registration without deadlocking. The
 deterministic
 [`IoProviderOwnerLifecycleHarness`](../../crates/veln-backend-jvm/test-support/IoProviderOwnerLifecycleHarness.java)
 gates publication across closure without host timing or filesystem state.
-Low-level lexical dispatch does not acquire an invocation owner. It rejects an
-operand from a different or closed lexical provider owner before invoking the
-selected frame, including when owners share that frame. This bounded lifecycle is
-not a production filesystem and does not implement the F5 retry, release-order,
-or cleanup-failure projection matrix. The
+Low-level lexical dispatch does not acquire the broader captured invocation
+authority. An accepted lexical provider open receives only its matching
+per-call publication admission identity. Other lexical calls cannot use that
+identity to register a resource. Lexical dispatch rejects an operand from a
+different or closed provider owner before invoking the selected frame,
+including when owners share that frame. If cancellation is first delivered by
+a checkpoint in a close handler, the owner still attempts and removes every
+resource selected for bounded release. The cancellation then resumes as the
+primary unwind, so execution after the handled owner scope does not continue.
+Ordinary release failures can still be retained alongside cancellation; the F5
+retry, release-order, and cleanup-failure projection matrix remains
+unimplemented. This bounded lifecycle is not a production filesystem. The
 [standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#runtime-prototypes)
 owns the source-visible registration, projection, dispatch, failure, and
 runtime-limit contract.
