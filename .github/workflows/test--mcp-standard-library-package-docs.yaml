@@ -9,7 +9,6 @@ on:
       - Cargo.lock
       - Cargo.toml
       - crates/**
-      - docs/reference/implemented-proposals/mcp-standard-library-package-documentation-resources.md
       - docs/specification/mcp.md
       - rust-toolchain.toml
       - tools/veln-repo-mcp-standard-library-docs/**
@@ -19,7 +18,6 @@ on:
       - Cargo.lock
       - Cargo.toml
       - crates/**
-      - docs/reference/implemented-proposals/mcp-standard-library-package-documentation-resources.md
       - docs/specification/mcp.md
       - rust-toolchain.toml
       - tools/veln-repo-mcp-standard-library-docs/**
