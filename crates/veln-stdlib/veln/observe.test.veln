@@ -1695,7 +1695,7 @@ fn new_buffered_failure_for_test(failed_exports: Int, diagnostic_destination: Di
 	)
 end
 
-fn new_buffered_interruption_boundary_for_test(entered: Sender<()>, release: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+fn new_buffered_interruption_boundary_for_test(entered: Sender<()>, release: Receiver<()>, ready: Sender<()>) -> BufferedJsonLinesConstruction effects [concurrency]
 	observe::new_buffered_json_lines_with_interruption_hook_for_test(
 		observe::Resource("interruption-boundary", list_nil()),
 		observe::InstrumentationScope("scope", "1"),
@@ -1709,6 +1709,7 @@ fn new_buffered_interruption_boundary_for_test(entered: Sender<()>, release: Rec
 		observe_test_support_test::decision_barrier,
 		entered,
 		release,
+		ready,
 	)
 end
 
@@ -2517,12 +2518,15 @@ test abnormal_worker_exit_while_open_freezes_exact_unsettled_accounting() -> Res
 end
 
 test interruption_freezes_metric_health_after_atomic_admission() -> Result<(), String> effects [time, concurrency]
+	let worker_ready = channel::bounded<()>(1)
 	let interruption_entered = channel::bounded<()>(1)
 	let interruption_release = channel::bounded<()>(1)
 	let lines = observe_test_support_test::export_lines(1)
-	let constructed = handle new_buffered_interruption_boundary_for_test(interruption_entered.tx, interruption_release.rx) with observe_test_support_test::exporter(lines.tx, true)
+	let constructed = handle new_buffered_interruption_boundary_for_test(interruption_entered.tx, interruption_release.rx, worker_ready.tx) with observe_test_support_test::exporter(lines.tx, true)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
+			# Cancellation must follow registration of the worker interruption cleanup.
+			let ready: Option<()> = channel::recv(worker_ready.rx)
 			let interruption = task::spawn_with(cancel_buffered_worker_task, exporter)
 			let interruption_waiting: Option<()> = channel::recv(interruption_entered.rx)
 			let emitted = handle handle handled_emit(buffered_named_metric("atomic-race"), 1) with observe::buffered_json_lines(exporter) with observe_test_support_test::clock(0)
@@ -2531,7 +2535,7 @@ test interruption_freezes_metric_health_after_atomic_admission() -> Result<(), S
 			let report = observe::shutdown_buffered(exporter)
 			let health = observe::buffered_exporter_health(exporter)
 			let no_call: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
-			if not buffered_unit_received(interruption_waiting) or emitted != 1
+			if not buffered_unit_received(ready) or not buffered_unit_received(interruption_waiting) or emitted != 1
 				Err("metric admission and interruption did not reach the atomic boundary")
 			else match interruption_result
 				Ok(()) => match report
