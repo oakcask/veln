@@ -175,12 +175,23 @@ pub struct ModuleValuePublicationWork {
 
 #[cfg(test)]
 thread_local! {
+    static SEMANTIC_ANALYSIS_PASSES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static PUBLICATION_PROPAGATION_WORK: std::cell::Cell<PublicationPropagationWork> =
         const { std::cell::Cell::new(PublicationPropagationWork {
             reverse_edges: 0,
             admitted_cause_pairs: 0,
             propagation_attempts: 0,
         }) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_semantic_analysis_passes() {
+    SEMANTIC_ANALYSIS_PASSES.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn semantic_analysis_passes() -> usize {
+    SEMANTIC_ANALYSIS_PASSES.get()
 }
 
 #[cfg(test)]
@@ -343,6 +354,9 @@ fn analyze_surface_module_with_environment(
     environment: &TypeEnvironment,
     validate_standard_bodies: bool,
 ) -> SurfaceAnalysis {
+    #[cfg(test)]
+    SEMANTIC_ANALYSIS_PASSES.set(SEMANTIC_ANALYSIS_PASSES.get() + 1);
+
     if let Err(failure) = validate_source_less_lookup_registries() {
         return SurfaceAnalysis {
             diagnostics: vec![failure.diagnostic()],
@@ -597,35 +611,6 @@ fn lower_project_reachable_surface_module_with_environment(
 
 mod helpers;
 use helpers::should_validate_standard_bodies;
-
-pub fn lower_analyzed_surface_module(
-    module: &SurfaceModule,
-    diagnostics: Vec<Diagnostic>,
-) -> LoweredSurfaceModule {
-    crate::name_recovery::with_import_classification(module, || {
-        if let Err(failure) = validate_source_less_lookup_registries() {
-            return lowered_internal_failure(vec![failure.diagnostic()]);
-        }
-        let environment = TypeEnvironment::from_module(module);
-        let mut module_value_environment = environment.clone();
-        let module_value_analysis = check_module_values(
-            module,
-            &mut module_value_environment,
-            &mut VariantDiagnosticInterner::default(),
-        );
-        let module_value_publication = module_value_analysis.publication_provenance(module);
-        let state_call_types =
-            analyze_surface_module_with_environment(module, &environment, true).state_call_types;
-        lower_analyzed_surface_module_with_environment(
-            module,
-            diagnostics,
-            module_value_publication,
-            state_call_types,
-            &environment,
-            SurfaceLoweringMode::Module,
-        )
-    })
-}
 
 #[derive(Clone, Copy)]
 enum SurfaceLoweringMode {

@@ -27,36 +27,6 @@ fn module_values_retain_checked_core_and_typed_ir_without_diagnostics() {
     assert_eq!(ir.module_values.len(), 3);
     assert_eq!(core.module_values[0].identity.name, "answer");
     assert_eq!(ir.module_values[0].identity, core.module_values[0].identity);
-
-    let unrelated = Diagnostic::new(
-        "caller.unrelated",
-        veln_diagnostics::Severity::Warning,
-        DiagnosticKind::Module,
-        "caller-owned unrelated warning",
-        None,
-        veln_diagnostics::JsonValue::Null,
-    );
-    let lowered_with_warning = lower_analyzed_surface_module(&module, vec![unrelated.clone()]);
-    assert_eq!(lowered_with_warning.diagnostics.len(), 1);
-    assert_eq!(lowered_with_warning.diagnostics[0].id, unrelated.id);
-    assert_eq!(
-        lowered_with_warning
-            .core
-            .as_ref()
-            .unwrap()
-            .module_values
-            .len(),
-        3
-    );
-    assert_eq!(
-        lowered_with_warning
-            .ir
-            .as_ref()
-            .unwrap()
-            .module_values
-            .len(),
-        3
-    );
 }
 
 #[test]
