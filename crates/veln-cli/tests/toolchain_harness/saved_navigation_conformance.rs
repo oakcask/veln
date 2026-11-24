@@ -74,11 +74,11 @@ fn assert_standard_library_handler_conformance(
         declaration.range,
         NormalizedRange {
             start: NormalizedPosition {
-                line: 250,
+                line: 251,
                 column: 13,
             },
             end: NormalizedPosition {
-                line: 250,
+                line: 251,
                 column: 17,
             },
         }
