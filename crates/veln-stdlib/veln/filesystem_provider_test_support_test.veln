@@ -4,11 +4,11 @@ use io
 use io_provider
 
 pub type FakeState
-	pub FakeState(source: ByteChunk, output: ByteChunk, reads: Int, log: String)
+	pub FakeState(source: ByteChunk, output: ByteChunk, reads: Int, log: String, write_inputs: List<ByteChunk>)
 end
 
 pub type Snapshot
-	pub Snapshot(source: ByteChunk, output: ByteChunk, reads: Int, log: String)
+	pub Snapshot(source: ByteChunk, output: ByteChunk, reads: Int, log: String, write_inputs: List<ByteChunk>)
 end
 
 pub type SharedProvider
@@ -33,12 +33,12 @@ pub fn state(source: ByteChunk) -> io_provider::State<FakeState> effects [concur
 end
 
 pub fn seeded_state(source: ByteChunk, output: ByteChunk) -> io_provider::State<FakeState> effects [concurrency]
-	io_provider::state(FakeState(source, output, 0, ""))
+	io_provider::state(FakeState(source, output, 0, "", list_nil()))
 end
 
 fn observe(current: FakeState, context: ()) -> {state: FakeState, result: Snapshot}
 	match current
-		FakeState(source, output, reads, log) => {state: current, result: Snapshot(source, output, reads, log)}
+		FakeState(source, output, reads, log, inputs) => {state: current, result: Snapshot(source, output, reads, log, inputs)}
 	end
 end
 
@@ -89,8 +89,8 @@ end
 
 fn note_open(current: FakeState, operation: String) -> {state: FakeState, result: ()}
 	match current
-		FakeState(source, output, reads, log) => begin
-			let next = FakeState(source, output, reads, append_log(log, operation))
+		FakeState(source, output, reads, log, inputs) => begin
+			let next = FakeState(source, output, reads, append_log(log, operation), inputs)
 			{state: next, result: ()}
 		end
 	end
@@ -98,29 +98,44 @@ end
 
 fn read_next(current: FakeState, context: ()) -> {state: FakeState, result: io::ReadOutcome}
 	match current
-		FakeState(source, output, reads, log) => if reads == 0
-			{state: FakeState(source, output, 1, append_log(log, "read")), result: io::ReadOutcome::Data(source)}
+		FakeState(source, output, reads, log, inputs) => if reads == 0
+			{state: FakeState(source, output, 1, append_log(log, "read"), inputs), result: io::ReadOutcome::Data(source)}
 		else
-			{state: FakeState(source, output, reads, append_log(log, "end")), result: io::ReadOutcome::End}
+			{state: FakeState(source, output, reads, append_log(log, "end"), inputs), result: io::ReadOutcome::End}
 		end
 	end
 end
 
 fn write_next(current: FakeState, bytes: ByteChunk) -> {state: FakeState, result: io::WriteOutcome}
 	match current
-		FakeState(source, output, reads, log) => begin
+		FakeState(source, output, reads, log, inputs) => begin
 			let next_output = byte_append(output, bytes)
-			{state: FakeState(source, next_output, reads, append_log(log, "write")), result: io::WriteOutcome::Written(byte_chunk_count(bytes))}
+			{state: FakeState(source, next_output, reads, append_log(log, "write"), Cons(bytes, inputs)), result: io::WriteOutcome::Written(byte_chunk_count(bytes))}
+		end
+	end
+end
+
+fn partial_write_next(current: FakeState, bytes: ByteChunk) -> {state: FakeState, result: io::WriteOutcome}
+	match current
+		FakeState(source, output, reads, log, inputs) => match inputs
+			Nil => match byte_take(bytes, ByteCount(1))
+				Ok(prefix) => {state: FakeState(source, byte_append(output, prefix), reads, append_log(log, "partial-write"), Cons(bytes, inputs)), result: io::WriteOutcome::Written(ByteCount(1))}
+				Err(_) => {state: current, result: io::WriteOutcome::WriteFailed(io::Progress::Known(byte_chunk_count(byte_chunk([]))), invalid_resource("partial write received an empty chunk"))}
+			end
+			Cons(_, _) => begin
+				let next_output = byte_append(output, bytes)
+				{state: FakeState(source, next_output, reads, append_log(log, "write"), Cons(bytes, inputs)), result: io::WriteOutcome::Written(byte_chunk_count(bytes))}
+			end
 		end
 	end
 end
 
 fn named_write_next(current: FakeState, context: {bytes: ByteChunk, operation: String}) -> {state: FakeState, result: io::WriteOutcome}
 	match current
-		FakeState(source, output, reads, log) => begin
+		FakeState(source, output, reads, log, inputs) => begin
 			let next_output = byte_append(output, context.bytes)
 			let operation = string::concat("write:", context.operation)
-			{state: FakeState(source, next_output, reads, append_log(log, operation)), result: io::WriteOutcome::Written(byte_chunk_count(context.bytes))}
+			{state: FakeState(source, next_output, reads, append_log(log, operation), Cons(context.bytes, inputs)), result: io::WriteOutcome::Written(byte_chunk_count(context.bytes))}
 		end
 	end
 end
@@ -138,6 +153,14 @@ pub handler writer(owner: io_provider::Owner, slot: Int, cell: io_provider::Stat
 		io_provider::update(cell, bytes, write_next)
 	else
 		io::WriteOutcome::WriteFailed(io::Progress::Known(byte_chunk_count(byte_chunk([]))), invalid_resource("write"))
+	end
+end
+
+pub handler partial_writer(owner: io_provider::Owner, slot: Int, cell: io_provider::State<FakeState>) for io::Write effects [concurrency]
+	write(capability, bytes) => if slot_matches(io_provider::writer_slot(owner, capability), slot)
+		io_provider::update(cell, bytes, partial_write_next)
+	else
+		io::WriteOutcome::WriteFailed(io::Progress::Known(byte_chunk_count(byte_chunk([]))), invalid_resource("wrong-lexical-write"))
 	end
 end
 
@@ -227,6 +250,14 @@ fn allocate_writer(owner: io_provider::Owner, slot: Int, cell: io_provider::Stat
 	end
 end
 
+fn allocate_partial_writer(owner: io_provider::Owner, slot: Int, cell: io_provider::State<FakeState>) -> Result<fs::WriteFile, io::Error> effects [concurrency]
+	let registered = handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with partial_writer(owner, slot, cell) with seeker(owner, slot) with positional_writer(owner, slot) with closer(owner, slot) with syncer(owner, slot) with truncater(owner, slot)
+	match registered
+		Ok(resource) => io_provider::write_file(resource)
+		Err(error) => Err(error)
+	end
+end
+
 pub fn registered_writer(owner: io_provider::Owner, slot: Int, cell: io_provider::State<FakeState>, operation: String) -> Result<io::Writer, io::Error> effects [concurrency]
 	let registered = handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with named_writer(owner, slot, cell, operation) with seeker(owner, slot) with positional_writer(owner, slot) with closer(owner, slot) with syncer(owner, slot) with truncater(owner, slot)
 	match registered
@@ -273,6 +304,24 @@ pub handler mutable_filesystem(owner: io_provider::Owner, namespace_slot: Int, w
 		begin
 			let _ = io_provider::update(cell, "open_write", note_open)
 			allocate_writer(owner, write_slot, cell)
+		end
+	else
+		Err(invalid_resource("open_write"))
+	end
+	open_read_write(filesystem, path, mode) => Err(unsupported("open_read_write"))
+	open_append(filesystem, path, create) => Err(unsupported("open_append"))
+	create_directory(filesystem, path) => fs::MutationOutcome::MutationFailed(io::Commit::No, unsupported("create_directory"))
+	remove_file(filesystem, path) => fs::MutationOutcome::MutationFailed(io::Commit::No, unsupported("remove_file"))
+	remove_directory(filesystem, path) => fs::MutationOutcome::MutationFailed(io::Commit::No, unsupported("remove_directory"))
+	rename(filesystem, from_path, to_path) => fs::MutationOutcome::MutationFailed(io::Commit::No, unsupported("rename"))
+	truncate(capability, size) => fs::MutationOutcome::MutationFailed(io::Commit::No, unsupported("truncate"))
+end
+
+pub handler partial_mutable_filesystem(owner: io_provider::Owner, namespace_slot: Int, write_slot: Int, cell: io_provider::State<FakeState>) for fs::Mutate effects [concurrency]
+	open_write(filesystem, path, mode) => if slot_matches(io_provider::mutable_filesystem_slot(owner, filesystem), namespace_slot)
+		begin
+			let _ = io_provider::update(cell, "open_write", note_open)
+			allocate_partial_writer(owner, write_slot, cell)
 		end
 	else
 		Err(invalid_resource("open_write"))

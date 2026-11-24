@@ -147,8 +147,9 @@ pub fn write_all(writer: Writer, bytes: ByteChunk) -> WriteOutcome effects [Writ
 	prelude_builtin::io_write_all(writer, bytes)
 end
 
-## Bounded provider transfer. The complete progress and failure matrix remains
-## gated by the filesystem IO feasibility proposal.
+## Bounded provider transfer with explicit consumed and committed progress.
+## A positive chunk size is required; empty reads and zero writes stop with
+## NoProgress, and invalid provider counts stop with InvalidResource.
 pub fn copy(reader: Reader, writer: Writer, chunk_size: ByteCount) -> CopyOutcome effects [Read, Write]
 	prelude_builtin::io_copy(reader, writer, chunk_size)
 end

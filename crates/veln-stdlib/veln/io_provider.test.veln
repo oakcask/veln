@@ -7,6 +7,7 @@ use io_provider_state_test_support_test
 use io_provider_lifecycle_test_support_test
 use path
 use filesystem_provider_test_support_test
+use io_copy_test_support_test
 
 fn readonly_filesystem(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<fs::Filesystem, io::Error> effects [concurrency]
 	handle io_provider::filesystem(owner, slot) with io_provider_test_support_test::filesystem_read(calls)
@@ -1153,7 +1154,7 @@ fn f2_readonly_filesystem(owner: io_provider::Owner, slot: Int, cell: io_provide
 end
 
 fn f2_mutable_filesystem(owner: io_provider::Owner, slot: Int, cell: io_provider::State<filesystem_provider_test_support_test::FakeState>) -> Result<fs::MutableFilesystem, io::Error> effects [concurrency]
-	handle handle io_provider::mutable_filesystem(owner, slot) with filesystem_provider_test_support_test::filesystem(owner, slot, cell) with filesystem_provider_test_support_test::mutable_filesystem(owner, slot, slot + 200, cell)
+	handle handle io_provider::mutable_filesystem(owner, slot) with filesystem_provider_test_support_test::filesystem(owner, slot, cell) with filesystem_provider_test_support_test::partial_mutable_filesystem(owner, slot, slot + 200, cell)
 end
 
 fn f2_is_invalid_resource(error: io::Error) -> Bool
@@ -1179,7 +1180,7 @@ end
 
 fn f2_snapshot_matches(snapshot: filesystem_provider_test_support_test::Snapshot, source: String, output: String, reads: Int, log: String) -> Bool
 	match snapshot
-		filesystem_provider_test_support_test::Snapshot(source_bytes, output_bytes, actual_reads, actual_log) => match byte_chunk_to_visible_ascii_string(source_bytes)
+		filesystem_provider_test_support_test::Snapshot(source_bytes, output_bytes, actual_reads, actual_log, _) => match byte_chunk_to_visible_ascii_string(source_bytes)
 			Ok(source_text) => match byte_chunk_to_visible_ascii_string(output_bytes)
 				Ok(output_text) => source_text == source and output_text == output and actual_reads == reads and actual_log == log
 				Err(_) => false
@@ -1189,7 +1190,14 @@ fn f2_snapshot_matches(snapshot: filesystem_provider_test_support_test::Snapshot
 	end
 end
 
-fn f2_inner_provider_observations(outer_filesystem: fs::Filesystem, outer_state: io_provider::State<filesystem_provider_test_support_test::FakeState>, expected_count: ByteCount) -> Result<(), String> effects [io_provider::Scope, fs::Mutate, io::Read, io::Write, concurrency]
+fn f2_snapshot_write_inputs_match(snapshot: filesystem_provider_test_support_test::Snapshot, first: String, second: String) -> Bool
+	match snapshot
+		filesystem_provider_test_support_test::Snapshot(_, _, _, _, Cons(first_bytes, Cons(second_bytes, Nil))) => byte_chunk_to_visible_ascii_string(first_bytes)? == first and byte_chunk_to_visible_ascii_string(second_bytes)? == second
+		_ => false
+	end
+end
+
+fn f2_inner_provider_observations(outer_owner: io_provider::Owner, outer_filesystem: fs::Filesystem, outer_state: io_provider::State<filesystem_provider_test_support_test::FakeState>, expected_count: ByteCount) -> Result<(), String> effects [io_provider::Scope, fs::Mutate, io::Read, io::Write, concurrency]
 	let inner_owner = io_provider::owner()
 	match byte_chunk_from_hex("696e6e6572736f75726365")
 		Err(_) => Err("could not construct inner provider bytes")
@@ -1228,11 +1236,11 @@ fn f2_inner_provider_observations(outer_filesystem: fs::Filesystem, outer_state:
 								else begin
 									match fs::open_write(inner_mutable, path::root(), fs::WriteMode::WriteMode(fs::CreateMode::CreateIfMissing, true))
 										Err(_) => Err("inner writer allocation failed")
-										Ok(fs::WriteFile(inner_writer, _, _, _, _, _)) => match io::copy(outer_reader, inner_writer, expected_count)
+										Ok(fs::WriteFile(inner_writer, _, _, _, _, _)) => match handle handle io::copy(outer_reader, inner_writer, expected_count) with filesystem_provider_test_support_test::reader(inner_owner, 102, inner_state) with filesystem_provider_test_support_test::writer(outer_owner, 201, outer_state)
 											io::CopyOutcome::Copied(count) => begin
 												let outer_after = filesystem_provider_test_support_test::snapshot(outer_state)
 												let inner_after = filesystem_provider_test_support_test::snapshot(inner_state)
-												if byte_count_to_int(count) == byte_count_to_int(expected_count) and f2_snapshot_matches(outer_after, "outerbytes", "", 1, "open_read;read;end;") and f2_snapshot_matches(inner_after, "innersource", "outerbytes", 0, "open_write;write;")
+												if byte_count_to_int(count) == byte_count_to_int(expected_count) and f2_snapshot_matches(outer_after, "outerbytes", "", 1, "open_read;read;end;") and f2_snapshot_matches(inner_after, "innersource", "outerbytes", 0, "open_write;partial-write;write;") and f2_snapshot_write_inputs_match(inner_after, "uterbytes", "outerbytes")
 													Ok(())
 												else
 													Err("cross-provider copy did not preserve distinct bytes and operation logs")
@@ -1263,7 +1271,7 @@ fn f2_outer_provider_observations() -> Result<(), String> effects [io_provider::
 				Err(_) => Err("outer filesystem allocation failed")
 				Ok(outer_filesystem) => match byte_count(10)
 					Err(_) => Err("could not construct copy chunk size")
-					Ok(expected_count) => handle f2_inner_provider_observations(outer_filesystem, outer_state, expected_count) with io_provider::scope()
+					Ok(expected_count) => handle f2_inner_provider_observations(outer_owner, outer_filesystem, outer_state, expected_count) with io_provider::scope()
 				end
 			end
 		end
@@ -1462,7 +1470,7 @@ fn f3_concurrent_writer_observations() -> Result<(), String> effects [io_provide
 									let second_joined = task::join(second)
 									let final_snapshot = filesystem_provider_test_support_test::snapshot(cell)
 									match final_snapshot
-										filesystem_provider_test_support_test::Snapshot(final_source, final_output, reads, log) => match byte_chunk_to_visible_ascii_string(final_source)
+										filesystem_provider_test_support_test::Snapshot(final_source, final_output, reads, log, _) => match byte_chunk_to_visible_ascii_string(final_source)
 											Err(_) => Err("concurrent writer source bytes were not observable")
 											Ok(source_text) => match byte_chunk_to_visible_ascii_string(final_output)
 												Err(_) => Err("concurrent writer output bytes were not observable")
@@ -1710,4 +1718,292 @@ test cancellation_first_delivered_by_release_remains_primary() -> Result<(), Str
 		Ok(_) => Err("release-delivered cancellation completed normally")
 	end
 end
+end
+
+fn f4_copy_error(kind: io::ErrorKind, message: String) -> io::Error
+	io::Error::Error("scripted", kind, None, None, None, None, message)
+end
+
+fn f4_copy(script: io_copy_test_support_test::Script, chunk_size: ByteCount) -> Result<io_copy_test_support_test::Observation, String> effects [concurrency]
+	handle io_copy_test_support_test::execute(script, chunk_size) with io_provider::scope()
+end
+
+fn f4_snapshot_is_empty(snapshot: io_copy_test_support_test::Snapshot) -> Bool
+	match snapshot
+		io_copy_test_support_test::Snapshot(output, Nil, Nil, Cons(_, Nil), Nil) => byte_count_to_int(byte_chunk_count(output)) == 0
+		_ => false
+	end
+end
+
+fn f4_snapshot_output(snapshot: io_copy_test_support_test::Snapshot, expected: String) -> Bool
+	match snapshot
+		io_copy_test_support_test::Snapshot(output, _, _, _, _) => match byte_chunk_to_visible_ascii_string(output)
+			Ok(actual) => actual == expected
+			Err(_) => false
+		end
+	end
+end
+
+fn f4_inputs_match_two(inputs: List<ByteChunk>, first: String, second: String) -> Bool
+	match inputs
+		Cons(first_bytes, Cons(second_bytes, Nil)) => byte_chunk_to_visible_ascii_string(first_bytes)? == first and byte_chunk_to_visible_ascii_string(second_bytes)? == second
+		_ => false
+	end
+end
+
+fn f4_inputs_match_four(inputs: List<ByteChunk>, first: String, second: String, third: String, fourth: String) -> Bool
+	match inputs
+		Cons(first_bytes, Cons(second_bytes, Cons(third_bytes, Cons(fourth_bytes, Nil)))) => match byte_chunk_to_visible_ascii_string(first_bytes)
+			Ok(first_actual) => match byte_chunk_to_visible_ascii_string(second_bytes)
+				Ok(second_actual) => match byte_chunk_to_visible_ascii_string(third_bytes)
+					Ok(third_actual) => match byte_chunk_to_visible_ascii_string(fourth_bytes)
+						Ok(fourth_actual) => first_actual == first and second_actual == second and third_actual == third and fourth_actual == fourth
+						Err(_) => false
+					end
+					Err(_) => false
+				end
+				Err(_) => false
+			end
+			Err(_) => false
+		end
+		_ => false
+	end
+end
+
+test copy_rejects_zero_chunk_without_provider_calls() -> Result<(), String> effects [concurrency]
+	let script = io_copy_test_support_test::Script(list_cons(io::ReadOutcome::End, list_nil()), list_nil())
+	match f4_copy(script, byte_count(0)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidInput, _, _, _, _, _)), snapshot) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and f4_snapshot_is_empty(snapshot)
+			Ok(())
+		else
+			Err("zero-sized copy changed progress or invoked a provider")
+		end
+		_ => Err("zero-sized copy did not return InvalidInput with known zero progress")
+	end
+end
+
+test copy_rejects_negative_chunk_without_provider_calls() -> Result<(), String> effects [concurrency]
+	let script = io_copy_test_support_test::Script(list_cons(io::ReadOutcome::End, list_nil()), list_nil())
+	match f4_copy(script, ByteCount(-1))?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidInput, _, _, _, _, _)), snapshot) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and f4_snapshot_is_empty(snapshot)
+			Ok(())
+		else
+			Err("negative-sized copy changed progress or invoked a provider")
+		end
+		_ => Err("negative-sized copy did not return InvalidInput with known zero progress")
+	end
+end
+
+test copy_stops_on_empty_successful_read() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk([])), list_cons(io::ReadOutcome::End, list_nil()))
+	let script = io_copy_test_support_test::Script(reads, list_nil())
+	match f4_copy(script, byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::NoProgress, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(maximum, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0 and maximum == 4
+			Ok(())
+		else
+			Err("empty successful read did not stop after one provider call")
+		end
+		_ => Err("empty successful read did not return NoProgress")
+	end
+end
+
+test copy_retries_only_unwritten_suffixes_across_short_reads() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abc")?), list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("de")?), list_cons(io::ReadOutcome::End, list_nil())))
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::Written(byte_count(2)?), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil()))))
+	let script = io_copy_test_support_test::Script(reads, writes)
+	match f4_copy(script, byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::Copied(count), io_copy_test_support_test::Snapshot(output, Cons(4, Cons(4, Cons(4, Nil))), inputs, Nil, Nil)) => if byte_count_to_int(count) == 5 and byte_chunk_to_visible_ascii_string(output)? == "abcde" and f4_inputs_match_four(inputs, "e", "de", "bc", "abc")
+			Ok(())
+		else
+			Err("copy did not preserve short reads and exact unwritten suffixes")
+		end
+		_ => Err("copy did not complete multiple short reads and partial writes")
+	end
+end
+
+test copy_stops_on_zero_write_after_partial_success() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("ab")?), list_nil())
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil()))
+	let script = io_copy_test_support_test::Script(reads, writes)
+	match f4_copy(script, byte_count(2)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::NoProgress, _, _, _, _, _)), snapshot) => if byte_count_to_int(consumed) == 2 and byte_count_to_int(committed) == 1 and f4_snapshot_output(snapshot, "a")
+			Ok(())
+		else
+			Err("zero write did not preserve consumed and committed progress")
+		end
+		_ => Err("zero write did not stop with NoProgress")
+	end
+end
+
+test copy_accumulates_known_read_failure_without_writing_failure_bytes() -> Result<(), String> effects [concurrency]
+	let failure = f4_copy_error(io::ErrorKind::Other, "known read failure")
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("ab")?), list_cons(io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("x")?, io::Progress::Known(byte_count(1)?), failure), list_nil()))
+	let script = io_copy_test_support_test::Script(reads, list_nil())
+	match f4_copy(script, byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "known read failure")), snapshot) => if byte_count_to_int(consumed) == 3 and byte_count_to_int(committed) == 2 and f4_snapshot_output(snapshot, "ab")
+			Ok(())
+		else
+			Err("known read failure did not preserve progress or excluded bytes")
+		end
+		_ => Err("known read failure did not preserve its original error")
+	end
+end
+
+test copy_propagates_unknown_read_failure_progress() -> Result<(), String> effects [concurrency]
+	let failure = f4_copy_error(io::ErrorKind::Other, "unknown read failure")
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("a")?), list_cons(io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("x")?, io::Progress::Unknown(byte_count(2)?), failure), list_nil()))
+	let script = io_copy_test_support_test::Script(reads, list_nil())
+	match f4_copy(script, byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "unknown read failure")), snapshot) => if byte_count_to_int(consumed) == 3 and byte_count_to_int(committed) == 1 and f4_snapshot_output(snapshot, "a")
+			Ok(())
+		else
+			Err("unknown read failure did not preserve its accumulated lower bound")
+		end
+		_ => Err("unknown read failure did not propagate Unknown progress")
+	end
+end
+
+test copy_keeps_consumed_and_known_committed_progress_distinct() -> Result<(), String> effects [concurrency]
+	let failure = f4_copy_error(io::ErrorKind::Other, "known write failure")
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_nil())
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::WriteFailed(io::Progress::Known(byte_count(2)?), failure), list_nil()))
+	let script = io_copy_test_support_test::Script(reads, writes)
+	match f4_copy(script, byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "known write failure")), snapshot) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 3 and f4_snapshot_output(snapshot, "abc")
+			Ok(())
+		else
+			Err("known write failure conflated consumed and committed progress")
+		end
+		_ => Err("known write failure did not preserve its original error")
+	end
+end
+
+test copy_propagates_unknown_write_failure_progress() -> Result<(), String> effects [concurrency]
+	let failure = f4_copy_error(io::ErrorKind::Other, "unknown write failure")
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_nil())
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::WriteFailed(io::Progress::Unknown(byte_count(1)?), failure), list_nil()))
+	let script = io_copy_test_support_test::Script(reads, writes)
+	match f4_copy(script, byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "unknown write failure")), snapshot) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 2 and f4_snapshot_output(snapshot, "ab")
+			Ok(())
+		else
+			Err("unknown write failure did not preserve its accumulated lower bound")
+		end
+		_ => Err("unknown write failure did not propagate Unknown progress")
+	end
+end
+
+test copy_rejects_data_beyond_the_requested_maximum() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcde")?), list_cons(io::ReadOutcome::End, list_nil()))
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil())
+	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0
+			Ok(())
+		else
+			Err("oversized read data fabricated progress or output")
+		end
+		_ => Err("oversized read data did not stop after the malformed reply")
+	end
+end
+
+test copy_rejects_failed_read_bytes_beyond_the_progress_lower_bound() -> Result<(), String> effects [concurrency]
+	let failure = f4_copy_error(io::ErrorKind::Other, "malformed read bytes")
+	let malformed = io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("ab")?, io::Progress::Known(byte_count(1)?), failure)
+	let reads = list_cons(malformed, list_cons(io::ReadOutcome::End, list_nil()))
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil())
+	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0
+			Ok(())
+		else
+			Err("malformed failed-read bytes fabricated progress or output")
+		end
+		_ => Err("malformed failed-read bytes did not stop after one read")
+	end
+end
+
+test copy_rejects_failed_read_progress_beyond_the_request() -> Result<(), String> effects [concurrency]
+	let failure = f4_copy_error(io::ErrorKind::Other, "malformed read progress")
+	let malformed = io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("a")?, io::Progress::Known(byte_count(5)?), failure)
+	let reads = list_cons(malformed, list_cons(io::ReadOutcome::End, list_nil()))
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil())
+	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0
+			Ok(())
+		else
+			Err("oversized failed-read progress fabricated progress or output")
+		end
+		_ => Err("oversized failed-read progress did not stop after one read")
+	end
+end
+
+test copy_rejects_write_counts_beyond_the_current_suffix() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_cons(io::ReadOutcome::End, list_nil()))
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::Written(byte_count(4)?), list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil())))
+	let script = io_copy_test_support_test::Script(reads, writes)
+	match f4_copy(script, byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), inputs, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 1 and byte_chunk_to_visible_ascii_string(output)? == "a" and f4_inputs_match_two(inputs, "bcd", "abcd")
+			Ok(())
+		else
+			Err("oversized write count fabricated provider progress")
+		end
+		_ => Err("oversized current-suffix write count did not stop after the malformed reply")
+	end
+end
+
+test copy_rejects_negative_write_counts() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_cons(io::ReadOutcome::End, list_nil()))
+	let writes = list_cons(io::WriteOutcome::Written(ByteCount(-1)), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil()))
+	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), Cons(input, Nil), Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0 and byte_chunk_to_visible_ascii_string(input)? == "abcd"
+			Ok(())
+		else
+			Err("negative write count fabricated provider progress or output")
+		end
+		_ => Err("negative write count did not stop after the malformed reply")
+	end
+end
+
+test copy_rejects_failed_write_progress_beyond_the_current_suffix() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_cons(io::ReadOutcome::End, list_nil()))
+	let failure = f4_copy_error(io::ErrorKind::Other, "oversized write failure")
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::WriteFailed(io::Progress::Known(byte_count(4)?), failure), list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil())))
+	let script = io_copy_test_support_test::Script(reads, writes)
+	match f4_copy(script, byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), inputs, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 1 and byte_chunk_to_visible_ascii_string(output)? == "a" and f4_inputs_match_two(inputs, "bcd", "abcd")
+			Ok(())
+		else
+			Err("oversized failed-write progress fabricated provider progress")
+		end
+		_ => Err("oversized current-suffix failure did not stop after the malformed reply")
+	end
+end
+
+test copy_rejects_negative_failed_write_progress() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_cons(io::ReadOutcome::End, list_nil()))
+	let failure = f4_copy_error(io::ErrorKind::Other, "negative write failure")
+	let malformed = io::WriteOutcome::WriteFailed(io::Progress::Known(ByteCount(-1)), failure)
+	let writes = list_cons(malformed, list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil()))
+	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), Cons(input, Nil), Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0 and byte_chunk_to_visible_ascii_string(input)? == "abcd"
+			Ok(())
+		else
+			Err("negative failed-write progress fabricated provider progress or output")
+		end
+		_ => Err("negative failed-write progress did not stop after the malformed reply")
+	end
+end
+
+test copy_rejects_progress_accumulation_overflow() -> Result<(), String> effects [concurrency]
+	let maximum = byte_count(9223372036854775807)?
+	let failure = f4_copy_error(io::ErrorKind::Other, "overflowing read failure")
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("a")?), list_cons(io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(maximum), failure), list_nil()))
+	let script = io_copy_test_support_test::Script(reads, list_nil())
+	match f4_copy(script, maximum)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), snapshot) => if byte_count_to_int(consumed) == 1 and byte_count_to_int(committed) == 1 and f4_snapshot_output(snapshot, "a")
+			Ok(())
+		else
+			Err("overflowing provider progress fabricated an accumulated count")
+		end
+		_ => Err("overflowing provider progress did not return InvalidResource")
+	end
 end

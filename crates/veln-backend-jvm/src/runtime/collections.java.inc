@@ -1,4 +1,8 @@
     private static final int byteChunkMaximumRetainedCapacityRatio = 4;
+    private static final java.util.concurrent.atomic.AtomicBoolean byteChunkCopyObserverForTest =
+        new java.util.concurrent.atomic.AtomicBoolean();
+    private static final java.util.concurrent.atomic.AtomicLong byteChunkCopiedElementsForTest =
+        new java.util.concurrent.atomic.AtomicLong();
 
     private static final class SchemaRefinementPath {
         final SchemaRefinementPath parent;
@@ -794,6 +798,9 @@
             }
             if ((long) frozen.storage.size()
                 > (long) byteChunkMaximumRetainedCapacityRatio * count) {
+                if (byteChunkCopyObserverForTest.get()) {
+                    byteChunkCopiedElementsForTest.addAndGet(count);
+                }
                 return byteChunkObject(frozen.storage.subList(offset, offset + count));
             }
             return new FrozenByteChunk(
@@ -803,7 +810,20 @@
             );
         }
         java.util.List<Object> bytes = byteChunkBytes(chunk);
+        if (byteChunkCopyObserverForTest.get()) {
+            byteChunkCopiedElementsForTest.addAndGet(count);
+        }
         return byteChunkObject(bytes.subList(relativeOffset, relativeOffset + count));
+    }
+
+    public static void resetByteChunkCopiedElementsForTest() {
+        byteChunkCopiedElementsForTest.set(0L);
+        byteChunkCopyObserverForTest.set(true);
+    }
+
+    public static long byteChunkCopiedElementsForTest() {
+        byteChunkCopyObserverForTest.set(false);
+        return byteChunkCopiedElementsForTest.get();
     }
 
     public static boolean byteChunksShareStorageForTest(Object left, Object right) {

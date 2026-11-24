@@ -18,23 +18,25 @@ This proposal owns the remaining feasibility gates F4–F5 extracted from
 Design In Progress until this work completes. This work does not depend on
 its production implementation or promotion to Ready.
 
-The implemented provider foundation is specified by
-[Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
-It owns the completed F3 observations and the restricted owner-release
-boundary that F5 must reuse. This proposal does not restate those current
-results, ordering rules, or preserved-state contracts.
+The implemented provider foundation and bounded `io::copy` outcome matrix are
+specified by [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
+That specification owns the completed `copy` observations, F3 observations,
+and the restricted owner-release boundary that F5 must reuse. This proposal
+does not restate those current results, ordering rules, or preserved-state
+contracts.
 The following sections of the filesystem proposal define the remaining
 prototype obligations:
 
 | Design input | Prototype obligation |
 | --- | --- |
-| [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Preserve bytes, known and unknown progress, error context, and no-progress behavior. |
+| [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Complete the direct facade, `read_exact`, `write_all`, and host-translation rows not covered by bounded `copy`. |
 | [Namespace, seek, and mutation transitions](filesystem-io.md#namespace-seek-and-mutation-transitions) | Observe successful and failed operations through bytes, cursors, bindings, and commit facts. |
 | [Concurrent operations and cleanup](filesystem-io.md#concurrent-operations-and-cleanup) | Preserve per-open admission, release obligations, aliases, and failure precedence. |
 
 Implement only the adapter and source/provider support needed to demonstrate
-these contracts. F4 retains every outcome and transition row in the linked
-contracts; a small prototype is not permission to omit difficult failures.
+these remaining contracts. F4 retains every unimplemented outcome and
+transition row in the linked contracts; the implemented bounded `copy` matrix
+is no longer proposal work.
 Scripted failures belong in separate scoped Veln test support. Focused host
 adapters establish host-specific behavior that a fake cannot prove.
 
@@ -51,14 +53,15 @@ its positive observations and its failure or preserved-state observations.
 
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
-| F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
+| F4: remaining transfer and mutation | Direct read and write, `read_exact`, `write_all`, host translation, seek and positional IO, open modes, metadata and entries, namespace mutation, truncate, append, and sync have independent expected bytes, cursor, commit, and namespace observations. This includes unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
 | F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table while reusing the implemented F3 restricted-release boundary. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry across the restricted boundary; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
 
 ## Implementation Sequence And Evidence Placement
 
-1. Apply the outcome and transition tables to F4 and F5. Keep fake state and
-   failure plans in Veln. Add host-boundary cases only for observations that
-   require a real host or backend integration.
+1. Apply the unimplemented outcome and transition rows to F4 and F5. Keep fake
+   state and failure plans in Veln. Add host-boundary cases only for
+   observations that require a real host or backend integration. Do not repeat
+   the implemented bounded `copy` matrix as proposal evidence.
 
 | Evidence | Placement and local verification route |
 | --- | --- |
@@ -89,11 +92,10 @@ remain rationale for its IO contracts; they do not prove Veln adapter support.
 
 ## Completion And Parent Promotion
 
-This proposal completes only when F4–F5 have checked evidence at the stated
-boundaries, with every linked outcome and transition row accounted for. F3 is
-implemented and specified independently. A failed remaining gate keeps the
-target incomplete until the design and its independent expectations are
-reconciled.
+This proposal completes only when the remaining F4 rows and F5 have checked
+evidence at the stated boundaries. Bounded `copy` and F3 are implemented and
+specified independently. A failed remaining gate keeps the target incomplete
+until the design and its independent expectations are reconciled.
 
 For any adapter or API behavior retained as implemented, update the smallest
 current effects, execution, or standard-library specification alongside its

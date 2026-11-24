@@ -150,6 +150,12 @@ modeled runtime failure, and task cancellation. When restricted cleanup
 succeeds during an abrupt failure, the original failure remains primary and
 execution does not continue after the handled scope.
 
+The same private adapter implements bounded `io::copy` by dispatching through
+the source and destination capabilities. It retries only the uncommitted write
+suffix, stops on no progress or invalid provider counts, and preserves separate
+consumed and committed progress on failure. The
+[standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#provider-bound-dispatch)
+owns the source-visible outcomes, validation rules, and remaining limits.
 A facade or accepted lexical open admitted before owner closure can finish
 afterward. Its resource is rejected instead of published and released once
 through the captured close handler. A failed close outcome or a modeled Veln

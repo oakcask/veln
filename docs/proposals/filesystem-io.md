@@ -13,9 +13,10 @@ streams, and memory.
 The [design decisions](#design-decisions) resolve the initial scope. The
 implemented static and bounded runtime prerequisites belong to the current
 [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
-The remaining F4 outcome and mutation behavior, F5 cleanup behavior, and host
-integration evidence are planned. Implementation selection remains blocked on
-the separate
+The bounded `io::copy` outcome matrix is implemented. The remaining F4 direct
+and complete-transfer, host-translation, seek, namespace, and mutation
+behavior, F5 cleanup behavior, and host integration evidence are planned.
+Implementation selection remains blocked on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
 ## Current Boundary And Scope
@@ -121,9 +122,10 @@ an implicit system provider to every helper.
 The byte layer uses `ByteChunk`, `ByteCount`, and `ByteOffset`, with a common
 typed IO error vocabulary that is independent of `net::NetError`. Filesystem
 and network adapters retain domain context when translating failures. The
-[implemented static source surface](../specification/standard-library-filesystem-io.md)
-fixes the type boundaries. The outcome contracts below define the planned
-runtime semantics.
+[implemented source surface and bounded `copy` behavior](../specification/standard-library-filesystem-io.md)
+fix the current type boundaries and `copy` outcomes. The remaining rows below
+define planned runtime semantics for the direct facade, complete-transfer
+helpers, positional operations, and host adapters.
 
 | Operation family | Observable contract |
 | --- | --- |
@@ -131,16 +133,16 @@ runtime semantics.
 | Sequential write | Reports the committed prefix of the input and advances according to committed bytes. Failure does not imply rollback. |
 | Complete read | Distinguishes obtaining the requested amount from reaching end early, and preserves obtained bytes on failure. |
 | Complete write | Repeats only the uncommitted suffix after partial success; stops on failure and preserves total progress. |
-| Copy | Names independent input and output resources, preserves output progress, and terminates on end or failure. Failure can consume more input than it commits to output; the outcome must retain both facts. |
 | Positional read/write | Uses an explicit absolute byte offset without changing the sequential cursor. Lack of support is explicit, not an unsynchronized seek-and-transfer emulation. |
 
 For a positive-size request, successful empty reads or zero-progress writes
-must not cause a helper to spin indefinitely or silently report completion.
+must not cause `read_exact` or `write_all` to spin indefinitely or silently
+report completion.
 The common outcome design must preserve data or progress when an operation
 also fails. Unknown host progress is represented explicitly, never fabricated
-as zero or as a known exact count. A helper must not automatically retry a
-failure with unknown progress. The outcome table below fixes zero-size
-behavior and the outcome ADTs.
+as zero or as a known exact count. These helpers must not automatically retry
+a failure with unknown progress. The outcome table below fixes their zero-size
+behavior and outcome ADTs.
 
 Go's [Reader and Writer contracts](https://pkg.go.dev/io) motivate capability
 composition and preserving progress alongside failure. Veln adapts these to
@@ -243,7 +245,9 @@ per-open lifecycle, synchronized state, and scripted failures.
 
 The checked feasibility foundation belongs to the
 [current specification](../specification/standard-library-filesystem-io.md).
-The evidence below is planned.
+The evidence below is planned for the remaining behavior. The implemented
+bounded `copy` matrix and its checked evidence belong to the
+[current specification](../specification/standard-library-filesystem-io.md#references).
 Expected byte sequences and state transitions come from the contracts and
 decision tables in this proposal, not from copying the implementation's
 output. Fake tests do not establish real host behavior.
@@ -251,7 +255,7 @@ output. Fake tests do not establish real host behavior.
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
 | Host conversion | An unrepresentable name fails without selecting another entry; native and portable types cannot be interchanged implicitly. | Companion tests plus focused host-conversion and compiler type-boundary tests. |
-| Partial transfer | Short reads are data; complete helpers preserve bytes and progress; partial writes retry only an uncommitted suffix; unknown progress stops retry. | Scripted Veln fake tests with independent expected contents and operation logs. |
+| Remaining partial transfer | Direct operations and complete helpers preserve bytes and progress; partial writes retry only an uncommitted suffix; unknown progress stops retry. | Scripted Veln fake tests with independent expected contents and operation logs. |
 | Seek and positional IO | Origin arithmetic, invalid targets, beyond-end reads, independent opens, aliases, and positional cursor preservation obey the state table. | Companion tests shared by memory and supported system providers; host tests for native translation. |
 | Namespace updates | Open modes, exclusive create, directory operations, rename, and truncation obey the mutation transition table, including failure preservation. | Shared provider conformance tests and focused real-host integration cases. |
 | Errors and cleanup | Stable error kinds retain operation and path context; close and cleanup transitions preserve progress and the selected primary failure. | Companion tests plus human/JSON execution coverage where runtime cleanup diagnostics apply. |
@@ -276,7 +280,7 @@ runtime support exists.
 | Failure-plan state | Extend the provider-bound Veln fake state with scripted failures, resource cursors, close facts, and operation progress as ordinary Veln data. | A scripted failure changes only the selected provider instance and records the commit facts required by the operation outcome matrix. |
 | Native paths | Keep the current host-owned `Path` as the explicit native boundary; `path::Path` remains portable. Support only exactly representable names initially. | Nonrepresentable names fail with `UnrepresentablePath`; display is never used as a conversion. |
 | Links and confinement | Follow links for ordinary open; explicit follow/no-follow metadata. No confinement or link-creation capability initially. A subtree is only a namespace view. | Dangling links, cycles, unsupported no-follow, and a link outside a subtree cannot be misreported as confined access. |
-| IO outcomes | Preserve delivered bytes, exact or unknown progress, typed errors, and copy's independent consumed/committed counts. | Scripted partial-failure, empty-request, no-progress, and unknown-progress cases below. |
+| Remaining IO outcomes | Preserve delivered bytes, exact or unknown progress, and typed errors for the direct facade, complete-transfer helpers, and host adapters. The current specification owns bounded `copy` outcomes. | Scripted partial-failure, empty-request, no-progress, and unknown-progress cases below, excluding the implemented bounded `copy` matrix. |
 | Seek and mutation | Absolute logical cursor, host-defined gap bytes, append-only writer views, no-replacement atomic rename where supported, and explicit mutation commit facts. | Shared transition cases plus host tests for unsupported and unknown host outcomes. |
 | Concurrency and cancellation | Nonblocking per-open admission returns `Busy` for overlapping transfers, seek, truncate, or sync. Close can invalidate an in-flight operation. No bounded host cancellation promise. | Gated overlap, close/interruption races, and reconciliation after unknown cursor or close state. |
 | Cleanup and durability | Reverse-publication cleanup, continue after failures, network-compatible close commit facts and abrupt cleanup precedence. No automatic sync. | Known-false, known-true, and unknown close failures, retries, and body-failure precedence. |
@@ -322,7 +326,6 @@ automatic retry. `Commit` is `No`, `Yes`, or `Unknown`.
 | `io::ReadOutcome` | `Data(bytes: ByteChunk)`, `End`, `ReadFailed(bytes: ByteChunk, consumed: Progress, error: io::Error)`. Failure bytes are the exact delivered prefix; consumed input may exceed it only when reported explicitly. |
 | `io::WriteOutcome` | `Written(count: ByteCount)`, `WriteFailed(committed: Progress, error: io::Error)`. A known count cannot exceed the request. |
 | `io::ExactOutcome` | `Complete(bytes: ByteChunk)`, `Short(bytes: ByteChunk)`, `ExactFailed(bytes: ByteChunk, consumed: Progress, error: io::Error)`. `Short` means clean end before the requested size. |
-| `io::CopyOutcome` | `Copied(count: ByteCount)`, `CopyFailed(consumed: Progress, committed: Progress, error: io::Error)`. Consumed and committed totals are separate even when their values happen to match. |
 | `fs::MutationOutcome` | `Applied`, `MutationFailed(committed: Commit, error: io::Error)`. Unknown does not promise rollback or invite an automatic retry. |
 | `io::CloseOutcome` | `Closed`, `CloseFailed(released: Commit, error: io::Error)`. Release facts describe ownership, not byte durability. |
 | `io::Error` | Record: `operation: String`, `kind: io::ErrorKind`, `path: Option<path::Path>`, `other_path: Option<path::Path>`, `network: Option<net::NetError>`, `commit: Option<Commit>`, `message: String`. Commit carries namespace changes from failed open; transfer progress remains in its outcome ADT. Message is explanatory and not a stable comparison key. |
@@ -340,14 +343,13 @@ independent of error category and namespace/ownership commit facts.
 | Input or outcome | Required state and helper behavior |
 | --- | --- |
 | Zero-size read/write/exact request on a live permitted view | Return empty `Data`, `Written(0)`, or empty `Complete` without a provider transfer. Validate owner, capability, and closed state first; zero size cannot revive a closed resource. |
-| Copy with zero chunk size | `InvalidInput`; no read or write. |
 | Positive request, empty successful read or zero successful write | Direct facade reports `NoProgress`; complete helpers stop. No spin, invented end, or success. |
 | Short data read | Deliver bytes and continue only if a helper needs more. It is not end. |
-| Read failure with delivered bytes | Include those bytes and consumption in the failure. `read_exact` retains all previously delivered bytes. Copy does not write the failing read's bytes; its consumed total still includes them. |
+| Read failure with delivered bytes | Include those bytes and consumption in the failure. `read_exact` retains all previously delivered bytes. |
 | Partial successful write | `write_all` retries the suffix. A later failure includes total known committed progress and stops. |
 | Exception after a host transfer attempt | Preserve independently established prefix/progress; otherwise report unknown progress. Sequential cursor becomes unavailable until successful absolute `Start` seek or close if its value is unknown. Relative seek fails with `InvalidResource` in that state. |
 | Positional failure | Preserve the sequential cursor, including when transfer progress is unknown. Unknown content changes remain observable; no seek-and-transfer emulation. |
-| Count outside the submitted bounds or counter overflow | Stop with `InvalidInput` for caller input or `InvalidResource` for an invalid provider reply. Do not wrap counts or retry using a fabricated suffix. |
+| Remaining direct-facade or complete-helper count outside the submitted bounds, or counter overflow | Stop with `InvalidInput` for caller input or `InvalidResource` for an invalid provider reply. Do not wrap counts or retry using a fabricated suffix. |
 
 ### Namespace, Seek, And Mutation Transitions
 
@@ -442,8 +444,9 @@ invalidation belong to a separate buffering proposal before such helpers exist.
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) owns the remaining
 F4–F5 prototype scope, evidence, and completion conditions. It is independently
 selectable from Ready. The current provider foundation, together with the
-planned outcome, transition, and complete cleanup tables here, remains the
-design contract exercised by that work.
+implemented bounded `copy` matrix and the planned remaining outcome,
+transition, and complete cleanup tables here, remains the design contract
+exercised by that work.
 Implementing the complete production filesystem runtime is not its
 prerequisite.
 

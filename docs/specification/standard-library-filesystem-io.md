@@ -77,8 +77,8 @@ portable paths, optional network error, optional commit fact, and a message.
 `Busy`, `InvalidResource`, `Cancelled`, `NoProgress`, or `Other`. Captured
 Veln handlers can produce the individual operation outcomes. The
 bounded `copy` path produces `CopyOutcome`; `ExactOutcome` remains static only.
-The [runtime limits](#runtime-limits) exclude the complete transfer, mutation,
-cleanup, and host translation matrix.
+The [runtime limits](#runtime-limits) identify the remaining complete-transfer
+helpers, mutation, cleanup, and host-translation behavior.
 
 `fs::Read` and `fs::Mutate` separate namespace reads from mutation. Portable
 names use `path::Path`. Their facade signatures are:
@@ -420,12 +420,32 @@ ordinary lexical `perform` dispatch. Each operation returns its documented
 `InvalidResource` result shape, and the captured or lexically selected
 provider is not invoked.
 
-`io::copy` implements the bounded successful provider path. It reads through
-the source capability until `End`, writes each selected chunk through the
-destination capability, and returns the independently accumulated byte count.
-The source and destination can belong to different provider owners. F2
-establishes only the successful path. The complete partial-progress and failure
-translation matrix remains provisional until F4.
+`io::copy` requires a positive chunk size. A non-positive chunk size returns
+`InvalidInput` with known zero consumed and committed progress before either
+provider is invoked. For a positive size, it reads until `End`. A short read is
+data, not end-of-input. The source and destination can belong to different
+provider owners.
+
+Each nonempty read chunk is consumed input. `copy` writes the chunk completely
+before it reads again. If a write reports a partial success, the next write
+receives only the uncommitted suffix. An empty successful read or a zero-byte
+successful write returns `NoProgress` without retrying. Successful completion
+returns the total committed byte count.
+
+A failed read contributes its reported `Known` or `Unknown` progress to prior
+consumed input and leaves prior committed output unchanged. Bytes carried by a
+failed read are not written. A failed write reports the complete current read
+chunk as consumed and adds its `Known` or `Unknown` committed progress to prior
+output progress. Unknown progress remains unknown and stops the transfer.
+
+A read result cannot exceed the requested chunk size. Failed-read bytes cannot
+exceed its progress lower bound, and that lower bound must be nonnegative and
+cannot exceed the request. A write count or write-failure lower bound must be
+nonnegative and cannot exceed the supplied suffix. A provider reply that
+violates these bounds, or that would overflow an accumulated count, returns
+`InvalidResource`. The affected progress becomes `Unknown` with the last
+independently confirmed prefix; the other progress remains exact. The invalid
+reply is not used to fabricate a count or another suffix.
 
 Two independently registered writers owned by one active provider can share
 one provider-state cell. When child tasks reach a readiness gate and are then
@@ -492,11 +512,12 @@ source-visible cleanup-failure precedence and retry remain part of F5.
 
 This surface is not a production filesystem implementation. Runtime
 state, namespace-token allocation, registration, projection, provider-bound
-dispatch, successful cross-provider copy, serialized completed fake-provider
-writes, and the bounded owner-release lifecycle are limited to the observations
-above. The complete transfer and namespace outcome matrix, cleanup retry and
-failure-precedence matrix, host filesystem selection, and network-to-byte
-adapters remain unimplemented.
+dispatch, bounded `copy` outcomes and progress, serialized completed
+fake-provider writes, and the bounded owner-release lifecycle are limited to
+the observations above. Direct facade host translation, the remaining complete
+transfer helpers, the namespace and seek outcome matrix, cleanup retry and
+failure precedence, host filesystem selection, and network-to-byte adapters
+remain unimplemented.
 `read_exact` and `write_all` remain static prototype signatures. Type-checking
 any behavior outside the implemented slice establishes only its static
 capability and effect boundary.
@@ -505,6 +526,11 @@ capability and effect boundary.
 
 - Complete accepted static surface:
   `examples/specification/check/filesystem-io-static-api/`.
+- Bounded copy behavior with short reads and suffix-only partial-write retry,
+  including the complete outcome and progress matrix:
+  [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
+  with scripts and progress logs in
+  [`io_copy_test_support_test.veln`](../../crates/veln-stdlib/veln/io_copy_test_support_test.veln).
 - Wrong capability operands:
   `examples/specification/check/filesystem-io-capability-boundaries/`.
 - Missing read-file closer, write-file truncater, update-file positional
@@ -542,7 +568,8 @@ capability and effect boundary.
   projection behavior, two independent fake providers, shared handler-frame
   registration by two owners, nested captured dispatch, foreign-identity state
   preservation, rejection of namespace registration for a non-nearest owner
-  without consuming its slot, successful cross-provider copy, and two
+  without consuming its slot, the bounded cross-provider copy outcome matrix,
+  and two
   same-owner writers sharing one fake-provider state cell without losing or
   interleaving completed chunks:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
