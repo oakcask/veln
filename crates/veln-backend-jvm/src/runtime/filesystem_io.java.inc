@@ -462,12 +462,12 @@
         }
 
         synchronized (owner.resources) {
-            if (owner.scope.ioProviderScopeClosed
-                && (IO_PROVIDER_INVOCATION_OWNER.get() != owner
-                    || IO_PROVIDER_RELEASE_RESOURCE.get() != null)) {
-                return ioProviderInvalidResource("resource", "provider owner scope is closed");
-            }
-            if (owner.resources.containsKey(Long.valueOf(slot))) {
+            if (owner.scope.ioProviderScopeClosed) {
+                if (IO_PROVIDER_INVOCATION_OWNER.get() != owner
+                    || IO_PROVIDER_RELEASE_RESOURCE.get() != null) {
+                    return ioProviderInvalidResource("resource", "provider owner scope is closed");
+                }
+            } else if (owner.resources.containsKey(Long.valueOf(slot))) {
                 return ioProviderInvalidInput("resource", "provider slot is already registered");
             }
         }

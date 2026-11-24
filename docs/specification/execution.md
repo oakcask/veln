@@ -142,7 +142,7 @@ slot access, and publication before it invokes captured close handlers. A
 close handler receives temporary slot access only for the matching resource
 owner. A foreign owner receives `InvalidResource`, and rejected access leaves
 unrelated provider state unchanged. This boundary runs for normal return,
-propagated errors, runtime failures, and task cancellation.
+propagated errors, and task cancellation.
 
 A captured open admitted before owner closure can finish afterward. Its
 resource is rejected instead of published, released once through the captured

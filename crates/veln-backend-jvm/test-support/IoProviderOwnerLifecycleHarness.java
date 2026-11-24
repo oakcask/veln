@@ -188,18 +188,7 @@ public final class IoProviderOwnerLifecycleHarness {
         readerRef.set(VelnRuntime.adtPayload(projected.value(), 0));
         popReadFileHandlers();
 
-        try {
-            if (exitKind.equals("runtime failure")) {
-                throw new VelnRuntime.RuntimeFailure("planned owner failure");
-            }
-            if (exitKind.equals("cancellation")) {
-                throw new VelnRuntime.RuntimeFailure("task cancelled");
-            }
-        } catch (VelnRuntime.RuntimeFailure expected) {
-            // Each exit reason reaches the same owner-pop boundary.
-        } finally {
-            VelnRuntime.popHandler();
-        }
+        VelnRuntime.popHandler();
 
         require(closeCalls.get() == 1, exitKind + " exit did not release exactly once");
         require(
@@ -212,13 +201,21 @@ public final class IoProviderOwnerLifecycleHarness {
         );
     }
 
-    private static void latePublication(Object foreignOwner, boolean failRelease) throws Exception {
+    private static void latePublication(
+        Object foreignOwner,
+        boolean failRelease,
+        boolean duplicateSlot,
+        boolean throwRelease
+    ) throws Exception {
         java.util.concurrent.CountDownLatch openStarted = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.CountDownLatch finishOpen = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.atomic.AtomicInteger closeCalls = new java.util.concurrent.atomic.AtomicInteger();
         java.util.concurrent.atomic.AtomicReference<Object> ownerRef = new java.util.concurrent.atomic.AtomicReference<Object>();
         java.util.concurrent.atomic.AtomicReference<Object> publication = new java.util.concurrent.atomic.AtomicReference<Object>();
         java.util.concurrent.atomic.AtomicReference<Throwable> childFailure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        VelnRuntime.RuntimeFailure thrownRelease =
+            new VelnRuntime.RuntimeFailure("planned late release runtime failure");
+        int expectedCloseCalls = duplicateSlot ? 2 : 1;
 
         pushScope();
         Object scope = handlers().get(handlers().size() - 1);
@@ -227,7 +224,7 @@ public final class IoProviderOwnerLifecycleHarness {
         pushReadFileHandlers(
             (Object... supplied) -> VelnRuntime.adt("io::ReadOutcome::End", new Object[0]),
             (Object... supplied) -> {
-                closeCalls.incrementAndGet();
+                int closeCall = closeCalls.incrementAndGet();
                 Object closer = supplied[0];
                 require(
                     slotEquals(VelnRuntime.ioProviderCloserSlot(ownerRef.get(), closer), 61L),
@@ -237,9 +234,17 @@ public final class IoProviderOwnerLifecycleHarness {
                     isInvalidResource(VelnRuntime.ioProviderCloserSlot(foreignOwner, closer)),
                     "late release granted a foreign owner access"
                 );
+                if (closeCall != expectedCloseCalls) return closed();
+                if (throwRelease) throw thrownRelease;
                 return failRelease ? closeFailed("planned late release failure") : closed();
             }
         );
+        if (duplicateSlot) {
+            VelnRuntime.Result occupied = result(
+                VelnRuntime.ioProviderResource(releaseOwner, Long.valueOf(61L), family())
+            );
+            require(occupied.isOk(), "duplicate-slot setup registration failed");
+        }
         push("std::fs::Read", "open_read", (Object... supplied) -> {
             openStarted.countDown();
             try {
@@ -280,20 +285,29 @@ public final class IoProviderOwnerLifecycleHarness {
 
         require(childFailure.get() == null, "late publication child failed: " + childFailure.get());
         require(isInvalidResource(publication.get()), "late host resource was published");
-        require(closeCalls.get() == 1, "late host resource was not released exactly once");
+        require(
+            closeCalls.get() == expectedCloseCalls,
+            "late host resource was not released exactly once"
+        );
         require(resourceCount(releaseOwner) == 1, "late resource changed the owner registry");
         require(
-            releaseFailures(scope).size() == (failRelease ? 1 : 0),
+            releaseFailures(scope).size() == (failRelease || throwRelease ? 1 : 0),
             "late release failure retention did not match the scripted outcome"
         );
+        if (throwRelease) {
+            require(
+                releaseFailures(scope).get(0) == thrownRelease,
+                "late release did not retain the runtime failure identity"
+            );
+        }
     }
 
     public static void main(String[] args) throws Exception {
         Object foreignOwner = makeForeignOwner();
         registeredRelease(foreignOwner, "normal");
-        registeredRelease(foreignOwner, "runtime failure");
-        registeredRelease(foreignOwner, "cancellation");
-        latePublication(foreignOwner, false);
-        latePublication(foreignOwner, true);
+        latePublication(foreignOwner, false, false, false);
+        latePublication(foreignOwner, true, false, false);
+        latePublication(foreignOwner, false, false, true);
+        latePublication(foreignOwner, false, true, false);
     }
 }

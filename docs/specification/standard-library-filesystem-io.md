@@ -427,8 +427,8 @@ simultaneous runtime admission or a scheduler order.
 Owner exit first makes byte-resource projection, capability dispatch, ordinary
 slot access, and new publication unavailable. These operations return their
 `InvalidResource` failure shape without invoking a captured operation handler.
-This transition applies on normal return, propagated `Err`, runtime failure,
-and task cancellation.
+This transition applies on normal return, propagated `Err`, and task
+cancellation.
 
 The runtime then invokes each registered resource's captured close handler.
 During that invocation, the matching owner can inspect the releasing resource
