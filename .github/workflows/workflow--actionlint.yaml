@@ -1,6 +1,13 @@
 name: workflow / actionlint
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/**
+      - .github/actions/**
+      - workflow-scripts/check-github-yaml-extensions.mjs
   pull_request:
     paths:
       - .github/workflows/**
@@ -25,11 +32,27 @@ jobs:
           node-version: "26"
       - name: Validate GitHub YAML extensions
         run: node workflow-scripts/check-github-yaml-extensions.mjs
+      - name: Restore actionlint binary
+        id: actionlint-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/actionlint/actionlint
+          key: actionlint-${{ runner.os }}-${{ runner.arch }}-${{ env.ACTIONLINT_VERSION }}-${{ hashFiles('.github/workflows/workflow--actionlint.yaml') }}
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
+        if: steps.actionlint-cache.outputs.cache-hit != 'true'
         with:
           go-version: stable
           cache: false
       - name: Install actionlint
+        if: steps.actionlint-cache.outputs.cache-hit != 'true'
+        env:
+          GOBIN: ${{ github.workspace }}/.cache/actionlint
         run: go install "github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}"
+      - name: Save actionlint binary
+        if: steps.actionlint-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/actionlint/actionlint
+          key: ${{ steps.actionlint-cache.outputs.cache-primary-key }}
       - name: Validate workflows
-        run: actionlint
+        run: .cache/actionlint/actionlint

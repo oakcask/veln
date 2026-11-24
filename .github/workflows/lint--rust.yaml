@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - .github/workflows/lint--rust.yaml
+      - .github/actions/cached-cargo-tool/action.yaml
       - .github/actions/cargo-dependencies/action.yaml
       - .github/actions/clippy/action.yaml
       - .github/actions/setup-jdk/action.yaml
@@ -19,6 +20,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/lint--rust.yaml
+      - .github/actions/cached-cargo-tool/action.yaml
       - .github/actions/cargo-dependencies/action.yaml
       - .github/actions/clippy/action.yaml
       - .github/actions/setup-jdk/action.yaml
@@ -45,9 +47,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install cargo-machete
-        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2
+        uses: ./.github/actions/cached-cargo-tool
         with:
-          tool: cargo-machete@${{ env.CARGO_MACHETE_VERSION }}
+          tool: cargo-machete
+          version: ${{ env.CARGO_MACHETE_VERSION }}
       - name: Check for unused Cargo dependencies
         id: unused-dependencies
         run: cargo machete

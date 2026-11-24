@@ -32,13 +32,15 @@ runs:
     - name: Prepare Cargo dependencies
       uses: ./.github/actions/cargo-dependencies
     - name: Install cargo-nextest
-      uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2
+      uses: ./.github/actions/cached-cargo-tool
       with:
-        tool: cargo-nextest@${{ inputs.nextest-version }}
+        tool: cargo-nextest
+        version: ${{ inputs.nextest-version }}
     - name: Install cargo-llvm-cov
-      uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2
+      uses: ./.github/actions/cached-cargo-tool
       with:
-        tool: cargo-llvm-cov@${{ inputs.llvm-cov-version }}
+        tool: cargo-llvm-cov
+        version: ${{ inputs.llvm-cov-version }}
     - name: Install LLVM coverage tools
       shell: bash
       run: rustup component add llvm-tools-preview
