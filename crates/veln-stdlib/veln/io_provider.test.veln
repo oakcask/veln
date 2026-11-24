@@ -118,6 +118,8 @@ fn namespace_owner_and_duplicate_boundaries() -> Result<(), String> effects [io_
 	match readonly_filesystem(owner, 4, calls.tx)
 		Ok(filesystem) => if not is_invalid_input_mutable_filesystem(io_provider::mutable_filesystem(owner, 4)) or not no_handler_calls(calls.rx)
 			Err("duplicate namespace slot resolved handlers or replaced the first token")
+		else if not slot_matches(io_provider::filesystem_slot(owner, filesystem), 4) or not no_handler_calls(calls.rx)
+			Err("duplicate namespace slot made the first token unusable")
 		else if not is_invalid_input(complete_registration(owner, 4, calls.tx)) or not no_handler_calls(calls.rx)
 			Err("namespace slot did not exclude a byte-resource registration")
 		else if not is_invalid_resource_slot(wrong_owner_filesystem_slot(filesystem))

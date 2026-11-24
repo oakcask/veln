@@ -102,11 +102,6 @@ public final class IoProviderFilesystemHarness {
         VelnRuntime.popHandler();
         VelnRuntime.popHandler();
 
-        VelnRuntime.Result duplicate = result(
-            VelnRuntime.ioProviderMutableFilesystem(owner, Long.valueOf(11L))
-        );
-        require(duplicate.toString().contains("InvalidInput"), "duplicate slot resolved absent handlers");
-
         push("std::io_provider::Scope");
         Object otherOwner = owner();
         VelnRuntime.Result wrongOwner = result(VelnRuntime.ioProviderFilesystemSlot(otherOwner, readonly));

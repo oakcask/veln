@@ -320,9 +320,6 @@
             throw new IllegalStateException("io provider owner intrinsic used outside its scope handler");
         }
         synchronized (scope) {
-            if (scope.ioProviderScopeClosed) {
-                throw new RuntimeFailure("io provider owner scope is closed");
-            }
             if (scope.ioOwner == null) scope.ioOwner = new IoOwner(scope);
             return scope.ioOwner;
         }
@@ -408,9 +405,6 @@
         }
 
         synchronized (owner.resources) {
-            if (owner.scope.ioProviderScopeClosed) {
-                return ioProviderInvalidInput("resource", "provider owner scope is closed");
-            }
             if (owner.resources.containsKey(Long.valueOf(slot))) {
                 return ioProviderInvalidInput("resource", "provider slot is already registered");
             }

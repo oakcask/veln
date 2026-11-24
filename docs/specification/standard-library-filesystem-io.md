@@ -234,9 +234,10 @@ Both factories require the supplied owner to match the nearest active provider
 scope. They accept a nonnegative private slot that is unused by any namespace
 token or byte resource registered to that owner. An owner from another,
 inactive, or closed scope and a negative or duplicate slot return
-`io::ErrorKind::InvalidInput` before handler resolution. A missing required
-handler returns `io::ErrorKind::Unsupported` and leaves the slot available for
-a later complete factory call.
+`io::ErrorKind::InvalidInput` before handler resolution. Duplicate rejection
+leaves the existing registration unchanged. A missing required handler returns
+`io::ErrorKind::Unsupported` and leaves the slot available for a later complete
+factory call.
 
 `fs::read_only` removes mutation authority from a mutable token while retaining
 its owner, private slot, and captured read handler. This pure projection does
@@ -406,9 +407,9 @@ other declaration establishes only its static capability and effect boundary.
   [`io_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_test_support_test.veln).
 - Private JVM adapter linkage:
   [`java_helpers_and_mapping.rs`](../../crates/veln-backend-jvm/src/tests/java_helpers_and_mapping.rs).
-- JVM namespace-token captured-handler identity, duplicate-slot rejection,
-  post-close read-only projection, owner matching, and inherited closed-scope
-  factory and slot rejection:
+- JVM namespace-token captured-handler identity, post-close read-only
+  projection, owner matching, and inherited closed-scope factory and slot
+  rejection:
   [`IoProviderFilesystemHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderFilesystemHarness.java).
 - JVM-controlled single-successor admission handoff, cancelled-waiter removal,
   cancellation checkpoints, publication, queued failure release, failure
