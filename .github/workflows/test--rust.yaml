@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
+      - .github/actions/cached-cargo-tool/action.yaml
       - .github/actions/cargo-dependencies/action.yaml
       - .github/actions/cargo-workflow-scripts/action.yaml
       - .github/actions/nextest/action.yaml
@@ -30,6 +31,7 @@ on:
     paths:
       - .github/workflows/test--rust.yaml
       - .config/nextest.toml
+      - .github/actions/cached-cargo-tool/action.yaml
       - .github/actions/cargo-dependencies/action.yaml
       - .github/actions/cargo-workflow-scripts/action.yaml
       - .github/actions/nextest/action.yaml
