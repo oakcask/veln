@@ -395,8 +395,10 @@ other declaration establishes only its static capability and effect boundary.
 - Atomic state generic mismatch, invariant-cell, and pure-callback rejection:
   [`lowering_and_types.rs`](../../crates/veln-sema/src/tests/standard_library_effects/lowering_and_types.rs).
 - Atomic allocation identity, shared child identity, serialized completed
-  updates, publication, namespace-token factory behavior, and five-family
-  registration and projection behavior:
+  updates, publication, namespace-token handler capture, missing-handler slot
+  preservation, duplicate and wrong-owner rejection, closed-owner slot
+  rejection, post-close read-only projection, and five-family registration and
+  projection behavior:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with pure state transitions in
   [`io_provider_state_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_state_test_support_test.veln)
@@ -404,8 +406,9 @@ other declaration establishes only its static capability and effect boundary.
   [`io_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_test_support_test.veln).
 - Private JVM adapter linkage:
   [`java_helpers_and_mapping.rs`](../../crates/veln-backend-jvm/src/tests/java_helpers_and_mapping.rs).
-- JVM namespace-token captured-handler identity, projection, owner matching,
-  and inherited closed-scope rejection:
+- JVM namespace-token captured-handler identity, duplicate-slot rejection,
+  post-close read-only projection, owner matching, and inherited closed-scope
+  factory and slot rejection:
   [`IoProviderFilesystemHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderFilesystemHarness.java).
 - JVM-controlled single-successor admission handoff, cancelled-waiter removal,
   cancellation checkpoints, publication, queued failure release, failure

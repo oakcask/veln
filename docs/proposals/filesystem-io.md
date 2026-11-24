@@ -360,14 +360,17 @@ a second state boundary. Pure callbacks keep fake filesystem decisions in Veln
 and cannot perform nested provider IO while holding the cell. Allocation and
 updates expose only `concurrency`, not host `fs` or `net` effects.
 
-Public filesystem and byte facades invoke the resource's captured operation
-handler with its original provider context. They retain the declared nominal
-effect in static checking. Runtime routing is restricted to these standard
-resource facades; ordinary `perform` keeps lexical dispatch. Calling another
-provider's low-level operation with a foreign token fails before changing
-provider state. Nested handlers affect newly created resources, while calls on
-existing resources retain their creator. Capture does not retain a usable
-resource after its owner closes.
+The planned public filesystem and byte facades must invoke the resource's
+captured operation handler with its original provider context. They must retain
+the declared nominal effect in static checking. Runtime routing must remain
+restricted to these standard resource facades; ordinary `perform` keeps
+lexical dispatch. Calling another provider's low-level operation with a
+foreign token must fail before changing provider state. Nested handlers must
+affect only newly created resources, while calls on existing resources must
+retain their creator. Capturing a handler must not make dispatched operations
+usable after the owner closes. This lifecycle requirement does not limit the
+implemented pure `fs::read_only` projection described by the current
+specification.
 
 Publication and the owner's closing transition share an atomic admission
 boundary. A late host open is closed before returning `Closed`; cleanup failure
