@@ -1,4 +1,5 @@
 use prelude
+use fs
 use io
 use io_provider
 
@@ -35,8 +36,17 @@ fn invalid_resource_registration(result: Result<io_provider::Resource, io::Error
 	end
 end
 
-pub handler read() for io::Read
-	read(reader, maximum) => io::ReadOutcome::End
+fn count_read(current: Int, context: ()) -> {state: Int, result: ()}
+	{state: current + 1, result: ()}
+end
+
+pub handler read(plan: ReleasePlan) for io::Read effects [concurrency]
+	read(reader, maximum) => match plan
+		ReleasePlan(_, _, _, state, _, _) => begin
+			let _ = io_provider::update(state, (), count_read)
+			io::ReadOutcome::End
+		end
+	end
 end
 
 pub handler seek() for io::Seek
@@ -72,5 +82,48 @@ pub handler release(plan: ReleasePlan) for io::Close effects [concurrency]
 end
 
 pub fn register(owner: io_provider::Owner, plan: ReleasePlan) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle io_provider::resource(owner, 401, io_provider::ViewFamily::ReadFile) with read() with seek() with read_at() with release(plan)
+	handle handle handle handle io_provider::resource(owner, 401, io_provider::ViewFamily::ReadFile) with read(plan) with seek() with read_at() with release(plan)
+end
+
+pub type ClosedDispatchReport
+	pub ClosedDispatchReport(facade_rejected: Bool, lexical_rejected: Bool, state_unchanged: Bool)
+end
+
+type ClosedDispatchRequest
+	ClosedDispatchRequest(reader: io::Reader, maximum: ByteCount, state: io_provider::State<Int>, ready: Sender<()>, start: Receiver<()>)
+end
+
+fn invalid_resource_read(outcome: io::ReadOutcome) -> Bool
+	match outcome
+		io::ReadOutcome::ReadFailed(bytes, io::Progress::Known(progress), io::Error::Error(_, io::ErrorKind::InvalidResource, _, _, _, _, _)) => byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(progress) == 0
+		_ => false
+	end
+end
+
+fn closed_dispatch(request: ClosedDispatchRequest) -> ClosedDispatchReport effects [io::Read, concurrency]
+	match request
+		ClosedDispatchRequest(reader, maximum, state, ready, start) => begin
+			let _ = channel::send(ready, ())
+			let _: Option<()> = channel::recv(start)
+			let facade = io::read(reader, maximum)
+			let lexical = perform io::Read::read(reader, maximum)
+			ClosedDispatchReport(invalid_resource_read(facade), invalid_resource_read(lexical), observe_state(state) == 17)
+		end
+	end
+end
+
+fn register_and_spawn(owner: io_provider::Owner, plan: ReleasePlan, maximum: ByteCount, ready: Sender<()>, start: Receiver<()>) -> Result<Task<ClosedDispatchReport>, io::Error> effects [io::Read, concurrency]
+	match io_provider::resource(owner, 401, io_provider::ViewFamily::ReadFile)
+		Err(error) => Err(error)
+		Ok(resource) => match io_provider::read_file(resource)
+			Err(error) => Err(error)
+			Ok(fs::ReadFile(reader, _, _, _)) => Ok(task::spawn_with<ClosedDispatchReport, ClosedDispatchRequest>(closed_dispatch, ClosedDispatchRequest(reader, maximum, match plan
+					ReleasePlan(_, _, _, state, _, _) => state
+				end, ready, start)))
+		end
+	end
+end
+
+pub fn spawn_closed_dispatch(owner: io_provider::Owner, plan: ReleasePlan, maximum: ByteCount, ready: Sender<()>, start: Receiver<()>) -> Result<Task<ClosedDispatchReport>, io::Error> effects [concurrency]
+	handle handle handle handle register_and_spawn(owner, plan, maximum, ready, start) with read(plan) with seek() with read_at() with release(plan)
 end

@@ -1502,6 +1502,63 @@ fn f3_closed_foreign_owner() -> io_provider::Owner effects [concurrency]
 	handle f3_foreign_owner() with io_provider::scope()
 end
 
+fn f3_retained_resource(events: Sender<String>, state: io_provider::State<Int>, foreign_owner: io_provider::Owner) -> Result<io_provider::Resource, io::Error> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let plan = io_provider_lifecycle_test_support_test::ReleasePlan(owner, foreign_owner, 401, state, events, false)
+	io_provider_lifecycle_test_support_test::register(owner, plan)
+end
+
+fn f3_invalid_resource_projection(result: Result<fs::ReadFile, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error(_, io::ErrorKind::InvalidResource, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+test closed_owner_projection_rejects_without_provider_dispatch() -> Result<(), String> effects [concurrency]
+	let foreign_owner = f3_closed_foreign_owner()
+	let events = channel::bounded<String>(1)
+	let state = io_provider::state(17)
+	match handle f3_retained_resource(events.tx, state, foreign_owner) with io_provider::scope()
+		Err(_) => Err("closed-owner projection setup failed")
+		Ok(resource) => if f3_invalid_resource_projection(io_provider::read_file(resource)) and f3_release_event_matches(events.rx) and io_provider_lifecycle_test_support_test::observe_state(state) == 17
+			Ok(())
+		else
+			Err("closed-owner projection invoked a provider or changed unrelated state")
+		end
+	end
+end
+
+fn f3_closed_dispatch_task(events: Sender<String>, state: io_provider::State<Int>, foreign_owner: io_provider::Owner, maximum: ByteCount, ready: Sender<()>, start: Receiver<()>) -> Result<Task<io_provider_lifecycle_test_support_test::ClosedDispatchReport>, io::Error> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let plan = io_provider_lifecycle_test_support_test::ReleasePlan(owner, foreign_owner, 401, state, events, false)
+	io_provider_lifecycle_test_support_test::spawn_closed_dispatch(owner, plan, maximum, ready, start)
+end
+
+test closed_owner_facade_and_lexical_dispatch_reject_before_provider_call() -> Result<(), String> effects [concurrency]
+	let foreign_owner = f3_closed_foreign_owner()
+	let events = channel::bounded<String>(1)
+	let ready = channel::bounded<()>(1)
+	let start = channel::bounded<()>(1)
+	let state = io_provider::state(17)
+	let maximum = byte_count(1)?
+	match handle f3_closed_dispatch_task(events.tx, state, foreign_owner, maximum, ready.tx, start.rx) with io_provider::scope()
+		Err(_) => Err("closed-owner dispatch setup failed")
+		Ok(worker) => begin
+			let started: Option<()> = channel::recv(ready.rx)
+			let _ = channel::send(start.tx, ())
+			match task::join(worker)
+				Ok(io_provider_lifecycle_test_support_test::ClosedDispatchReport(facade_rejected, lexical_rejected, state_unchanged)) => if started != None and facade_rejected and lexical_rejected and state_unchanged and f3_release_event_matches(events.rx) and io_provider_lifecycle_test_support_test::observe_state(state) == 17
+					Ok(())
+				else
+					Err("closed-owner facade or lexical dispatch reached the provider or changed state")
+				end
+				Err(_) => Err("closed-owner dispatch worker failed")
+			end
+		end
+	end
+end
+
 fn f3_owner_exit(events: Sender<String>, state: io_provider::State<Int>, foreign_owner: io_provider::Owner, fail_release: Bool, fail_body: Bool) -> Result<(), String> effects [io_provider::Scope, concurrency]
 	let owner = io_provider::owner()
 	let plan = io_provider_lifecycle_test_support_test::ReleasePlan(owner, foreign_owner, 401, state, events, fail_release)

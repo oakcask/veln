@@ -138,21 +138,27 @@ and restore the operand's owner for matching slot access and byte-resource
 registration. That invocation owner does not authorize namespace-token
 registration: only the nearest lexical provider scope can register a
 filesystem token. Owner exit disables ordinary resource projection, dispatch,
-slot access, and publication before it invokes captured close handlers. A
-close handler receives temporary slot access only for the matching resource
-owner. A foreign owner receives `InvalidResource`, and rejected access leaves
-unrelated provider state unchanged. This boundary runs for normal return,
-propagated errors, and task cancellation.
+slot access, and publication before it invokes captured close handlers. Facade
+and lexical dispatch both return the operation's `InvalidResource` shape
+without invoking their provider. A close handler receives temporary slot
+access only for the matching owner and exact resource being released, including
+capabilities projected from that resource. Stale same-slot aliases and foreign
+owners receive `InvalidResource`. Ordinary dispatch, including recursive close,
+remains unavailable. Rejected access leaves unrelated provider state unchanged.
+This boundary runs for normal return, propagated errors, and task cancellation.
 
 A captured open admitted before owner closure can finish afterward. Its
 resource is rejected instead of published, released once through the captured
 close handler, and a failed close outcome or runtime failure is retained. The
+publication decision is atomic with owner closure and slot occupancy. Release
+code runs after registry admission is relinquished, so a close handler can wait
+for an inherited child's rejected registration without deadlocking. The
 deterministic
 [`IoProviderOwnerLifecycleHarness`](../../crates/veln-backend-jvm/test-support/IoProviderOwnerLifecycleHarness.java)
 gates publication across closure without host timing or filesystem state.
-Low-level lexical dispatch does not acquire an invocation owner and rejects an
-operand from a different lexical provider owner before invoking the selected
-frame, including when both owners share that frame. This bounded lifecycle is
+Low-level lexical dispatch does not acquire an invocation owner. It rejects an
+operand from a different or closed lexical provider owner before invoking the
+selected frame, including when owners share that frame. This bounded lifecycle is
 not a production filesystem and does not implement the F5 retry, release-order,
 or cleanup-failure projection matrix. The
 [standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#runtime-prototypes)

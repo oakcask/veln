@@ -354,7 +354,9 @@ or byte operand belongs to another provider, the operation returns an
 `InvalidResource` outcome before either handler runs. The prototype does not
 access the host filesystem. Leaving an `io_provider::scope()` handled body
 closes its provider owner before the scope invokes captured resource-close
-handlers. The
+handlers. Owner closure also rejects facade and lexical dispatch before their
+providers run. Cleanup permits exact-resource slot inspection but no ordinary
+effect dispatch, including recursive close. The
 [filesystem and byte IO specification](standard-library-filesystem-io.md#owner-closure-and-restricted-release)
 owns the publication, restricted release, failure-retention, and remaining
 cleanup limits of that boundary. The bare coarse `fs` effect remains the host

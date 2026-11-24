@@ -20,9 +20,11 @@ also states it.
   remaining F4 and F5 gates. F2 provider-bound dispatch, nested-provider
   identity, and cross-provider copy are implemented. F3 concurrent provider
   state, owner admission and publication, late release and failure retention,
-  and restricted matching-owner cleanup access with foreign-owner rejection
-  are also implemented. The remaining evidence covers transfer and mutation
-  outcomes and the complete cleanup matrix. The
+  facade and lexical closed-owner rejection, recursive-close non-reentry, and
+  exact-resource cleanup access are also implemented. Stale same-slot aliases
+  and foreign owners are rejected, and late release permits inherited child
+  registration to reach its rejection. The remaining evidence covers transfer
+  and mutation outcomes and the complete cleanup matrix. The
   target does not require the production filesystem API to be implemented first.
 
 ## Design In Progress

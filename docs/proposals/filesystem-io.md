@@ -35,9 +35,11 @@ atomic provider state with cooperative cancellation. Its standard facades
 dispatch namespace and byte operations to captured Veln handlers and support a
 bounded cross-provider copy. Captured dispatch can publish byte resources for
 its operand's owner, but only the nearest lexical provider scope can register
-new namespace tokens. Closed-owner resource registration is rejected before
-publication. It provides no host filesystem execution. This proposal replaces
-the minimal production boundary; retaining its source API is not required.
+new namespace tokens. Calls that start after owner closure are rejected before
+provider invocation. An open admitted earlier can finish after closure, but
+its resource is rejected at publication and released exactly once. It provides
+no host filesystem execution. This proposal replaces the minimal production
+boundary; retaining its source API is not required.
 
 The current [network API](../specification/standard-library-networking.md)
 provides a source-defined `net::IO` effect, a system handler, byte read outcomes,
@@ -211,11 +213,12 @@ storage synchronization are distinct concepts.
 An owner scope releases retained resources on normal return, propagated
 errors, runtime failure, and task cancellation within the existing
 [execution cleanup limits](../specification/execution.md#cleanup-limits).
-Explicit close releases a resource earlier. Closing or leaving its owner
-scope makes all aliases unusable; later calls cannot fall back to host IO or
-another provider. The owner stops publishing new resources when scope cleanup
-starts. A child operation completing an open after that point releases the new
-resource instead of publishing a usable handle.
+The implemented owner boundary, including ordinary-use rejection and late-open
+release, belongs to the
+[current specification](../specification/standard-library-filesystem-io.md#owner-closure-and-restricted-release).
+F5 defines explicit-close results, retry, reverse cleanup, and primary or
+related failure projection. Later calls cannot fall back to host IO or another
+provider.
 
 Child tasks inherit the creating scope's handlers and resource ownership;
 they do not extend a parent's owner lifetime merely by retaining a handle.
@@ -273,7 +276,6 @@ output. Fake tests do not establish real host behavior.
 | Partial transfer | Short reads are data; complete helpers preserve bytes and progress; partial writes retry only an uncommitted suffix; unknown progress stops retry. | Scripted Veln fake tests with independent expected contents and operation logs. |
 | Seek and positional IO | Origin arithmetic, invalid targets, beyond-end reads, independent opens, aliases, and positional cursor preservation obey the state table. | Companion tests shared by memory and supported system providers; host tests for native translation. |
 | Namespace updates | Open modes, exclusive create, directory operations, rename, and truncation obey the mutation transition table, including failure preservation. | Shared provider conformance tests and focused real-host integration cases. |
-| Ownership | Scope exit closes aliases; child tasks cannot publish into a closing owner. Cleanup runs during error and cancellation unwinding. | Veln companion tests for owner lifecycle and JVM owner-cleanup integration tests. |
 | Errors and cleanup | Stable error kinds retain operation and path context; close and cleanup transitions preserve progress and the selected primary failure. | Companion tests plus human/JSON execution coverage where runtime cleanup diagnostics apply. |
 | Real host default | A system handler reaches real files without fake selectors, while an injected fake requires no host-file setup. | Focused host integration and effect-boundary policy checks. |
 
@@ -293,7 +295,6 @@ runtime support exists.
 
 | Concern | Selected initial design | Acceptance obligation |
 | --- | --- | --- |
-| Provider lifecycle | Preserve the owner identity retained by opaque runtime tokens through task freezing and owner cleanup. Do not encode public handles as integers or host objects. | Reject wrong-owner or closed-owner publication, release late resources, and retain cleanup failures at the feasibility gate. |
 | Failure-plan state | Extend the provider-bound Veln fake state with scripted failures, resource cursors, close facts, and operation progress as ordinary Veln data. | A scripted failure changes only the selected provider instance and records the commit facts required by the operation outcome matrix. |
 | Native paths | Keep the current host-owned `Path` as the explicit native boundary; `path::Path` remains portable. Support only exactly representable names initially. | Nonrepresentable names fail with `UnrepresentablePath`; display is never used as a conversion. |
 | Links and confinement | Follow links for ordinary open; explicit follow/no-follow metadata. No confinement or link-creation capability initially. A subtree is only a namespace view. | Dangling links, cycles, unsupported no-follow, and a link outside a subtree cannot be misreported as confined access. |
@@ -329,8 +330,10 @@ The implemented provider foundation and its limits belong to the
 The implemented F3 boundary preserves owner and resource identity across task
 freezing. It rejects ordinary operations and late publication after owner
 closure, releases retained and late resources through captured close handlers,
-and retains release failures. The current `io_provider::State<T>` boundary
-provides fake state without a second state mechanism.
+and retains release failures. Facade and lexical dispatch fail before provider
+invocation, and recursive close cannot re-enter its handler. The current
+`io_provider::State<T>` boundary provides fake state without a second state
+mechanism.
 
 The foundation distinguishes namespace registration from captured invocation
 authority. A captured namespace handler can publish a byte resource for its
@@ -339,18 +342,20 @@ owner is also the nearest lexical provider scope. The current
 [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md#owner-closure-and-restricted-release)
 owns closed-owner admission, late release, and restricted cleanup access.
 
-While a registered close handler releases a resource, it can read that
-resource's or projected capability's private slot with the matching owner.
-This access remains available after owner cleanup has made ordinary resource
-use unavailable. A foreign owner receives
-`io::ErrorKind::InvalidResource`. F5 reuses this implemented boundary for the
-remaining close outcomes, retries, reverse cleanup, and cleanup-failure
-projection matrix.
+While a registered close handler releases a resource, the matching owner can
+read that exact resource's private slot and slots of capabilities projected
+from it. A stale same-owner alias that reuses the numeric slot and a foreign
+owner both receive `io::ErrorKind::InvalidResource`. This access remains
+available after owner cleanup has made ordinary resource use unavailable. F5
+reuses this implemented boundary for the remaining close outcomes, retries,
+reverse cleanup, and cleanup-failure projection matrix.
 
 Publication and the owner's closing transition share the implemented admission
 boundary. A late host open is rejected and released; a failed release is
-retained. F5 still defines how release obligations, retries, and primary or
-related failures are exposed across its complete cleanup matrix.
+retained. Release callbacks run outside registry admission, so inherited child
+registration can reach its rejection while a close handler waits. F5 still
+defines how release obligations, retries, and primary or related failures are
+exposed across its complete cleanup matrix.
 
 The Veln fake allocates a fresh state cell, installs an owner scope, and
 installs its namespace and byte handlers with that cell and owner as context.
