@@ -459,11 +459,11 @@ body `Result`; the complete F5 primary and related cleanup-failure projection
 remains unimplemented.
 
 If cancellation is first delivered at a checkpoint in a close handler, the
-runtime retains cancellation as the primary unwind. It still attempts and
-removes every resource already selected for bounded owner release. Execution
-after the handled owner scope does not continue. A later selected release can
-retain an ordinary cleanup failure alongside cancellation, but retry,
-release-order, and diagnostic projection remain part of F5.
+runtime retains cancellation as the primary unwind. It still attempts all
+already-selected release handlers. Execution after the handled owner scope
+does not continue, and unrelated provider state remains unchanged.
+Cancellation combined with a later ordinary cleanup failure, retry, release
+order, and diagnostic projection remain part of F5.
 
 A facade or accepted lexical namespace call that began while the owner was
 open can finish its provider call after owner closure. A resource produced by
@@ -545,7 +545,9 @@ capability and effect boundary.
   Closed-owner projection, facade and lexical dispatch rejection without
   provider calls, owner-exit ordering, exact-resource slot access,
   foreign-owner and cleanup-time registration rejection, cancellation cleanup,
-  and unrelated state preservation use separate scoped support in
+  cancellation first delivered during release with all selected handlers
+  attempted, post-scope non-continuation, and unrelated state preservation use
+  separate scoped support in
   [`io_provider_lifecycle_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_lifecycle_test_support_test.veln).
 - Private JVM adapter linkage:
   [`java_helpers_and_mapping.rs`](../../crates/veln-backend-jvm/src/tests/java_helpers_and_mapping.rs).
@@ -562,10 +564,10 @@ capability and effect boundary.
   [`IoProviderDispatchHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderDispatchHarness.java).
 - JVM owner closure, gated facade and lexical late publication, successful and
   failed late release, cross-owner admission during cleanup, retained release
-  failure, facade and lexical ordinary-use rejection, cancellation first
-  delivered during release, recursive-close non-reentry, exact-resource
-  identity, stale same-slot rejection, occupied-slot admission, and rejection
-  of publication attempted from a nested facade or lexical byte handler:
+  failure, facade and lexical ordinary-use rejection, recursive-close
+  non-reentry, exact-resource identity, stale same-slot rejection,
+  occupied-slot admission, and rejection of publication attempted from a
+  nested facade or lexical byte handler:
   [`IoProviderOwnerLifecycleHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderOwnerLifecycleHarness.java).
 - JVM-controlled single-successor admission handoff, cancelled-waiter removal,
   cancellation checkpoints, publication, queued failure release, failure

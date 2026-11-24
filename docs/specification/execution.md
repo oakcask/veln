@@ -167,12 +167,12 @@ admission. Registration attempted by the byte handler returns
 rejects an operand from a different or closed provider owner before invoking
 the selected frame, including when owners share that frame. If cancellation is
 first delivered by a checkpoint in a close handler, the owner still attempts
-and removes every resource selected for bounded release. The cancellation then
-resumes as the primary unwind, so execution after the handled owner scope does
-not continue.
-Ordinary release failures can still be retained alongside cancellation; the F5
-retry, release-order, and cleanup-failure projection matrix remains
-unimplemented. This bounded lifecycle is not a production filesystem. The
+all already-selected release handlers. The cancellation then resumes as the
+primary unwind, so execution after the handled owner scope does not continue
+and unrelated provider state remains unchanged. Cancellation combined with a
+later ordinary cleanup failure and the F5 retry, release-order, and
+cleanup-failure projection matrix remain unimplemented. This bounded lifecycle
+is not a production filesystem. The
 [standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#runtime-prototypes)
 owns the source-visible registration, projection, dispatch, failure, and
 runtime-limit contract.
