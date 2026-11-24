@@ -416,9 +416,8 @@ public final class IoProviderDispatchHarness {
             "path"
         );
         require(
-            isInvalidInput(closedPublication)
-                && closedPublication.toString().contains("scope is closed"),
-            "closed owner did not reject resource publication before handler resolution"
+            isInvalidResource(closedPublication),
+            "closed owner did not reject dispatch before handler invocation"
         );
         require(
             resourceCount(closedOwner.get()) == closedResourcesBefore

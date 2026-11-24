@@ -540,6 +540,8 @@
         new ThreadLocal<HandlerFrame>();
     private static final ThreadLocal<IoOwner> IO_PROVIDER_INVOCATION_OWNER =
         new ThreadLocal<IoOwner>();
+    private static final ThreadLocal<IoResource> IO_PROVIDER_RELEASE_RESOURCE =
+        new ThreadLocal<IoResource>();
 
     private static final class NetworkResourceIdentity {
         private final HandlerFrame owner;
@@ -574,6 +576,8 @@
         private long networkResourceReleaseWork;
         private volatile boolean ioProviderScopeClosed;
         private IoOwner ioOwner;
+        private final java.util.List<Object> ioProviderReleaseFailures =
+            new java.util.ArrayList<Object>();
         private final java.util.Map<NetworkResourceIdentity, Object> networkResources =
             new java.util.LinkedHashMap<NetworkResourceIdentity, Object>();
 

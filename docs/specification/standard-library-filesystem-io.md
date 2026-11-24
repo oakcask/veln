@@ -15,7 +15,10 @@ atomic provider state. It lets provider and generic IO source check
 capability-correct signatures, capture and invoke provider handlers, exercise
 five runtime resource families, transfer bytes between independently owned
 fake resources, keep immutable fake-provider state in shared cells, and retain
-completed fake-provider writes from concurrent child callers.
+completed fake-provider writes from concurrent child callers. Provider owner
+exit closes publication before release, rejects and releases a resource whose
+open finishes after that boundary, and restricts cleanup access to the matching
+resource owner and slot.
 It is not a production filesystem API.
 
 ## Imports and static surface
@@ -260,7 +263,8 @@ namespace-token kind. Wrong-owner and closed-owner slot access returns
 
 Scope exit prevents an inherited child task from allocating another namespace
 token with that owner or reading an existing token's private slot. It does not
-invalidate the pure read-only projection or perform resource cleanup.
+invalidate the pure read-only projection. It closes byte-resource publication
+before running the bounded owner-release lifecycle described below.
 
 ### File views
 
@@ -418,15 +422,40 @@ observation establishes that completed provider transitions are not lost or
 partially interleaved under concurrent callers. The gate does not establish
 simultaneous runtime admission or a scheduler order.
 
+### Owner closure and restricted release
+
+Owner exit first makes byte-resource projection, capability dispatch, ordinary
+slot access, and new publication unavailable. These operations return their
+`InvalidResource` failure shape without invoking a captured operation handler.
+This transition applies on normal return, propagated `Err`, runtime failure,
+and task cancellation.
+
+The runtime then invokes each registered resource's captured close handler.
+During that invocation, the matching owner can inspect the releasing resource
+slot and any capability slot for that resource. A foreign owner receives
+`io::ErrorKind::InvalidResource`. The temporary authority does not permit a new
+resource registration. Failed access and failed registration leave unrelated
+provider `State<T>` cells unchanged. The close handler's scripted success or
+failure does not replace an ordinary body `Result`; the complete F5 primary and
+related cleanup-failure projection remains unimplemented.
+
+Captured namespace dispatch that began while the owner was open can finish its
+host open after owner closure. A resource produced by that call is rejected
+with `io::ErrorKind::InvalidResource`, is not inserted into the owner registry,
+and is passed once to its captured close handler. A failed close outcome or a
+runtime failure from that release is retained by the owner boundary. This
+bounded retention is backend-observable; source-visible cleanup-failure
+precedence and retry remain part of F5.
+
 ## Runtime limits
 
 This surface is not a production filesystem implementation. Runtime
 state, namespace-token allocation, registration, projection, provider-bound
-dispatch, successful cross-provider copy, and serialized completed fake-provider
-writes are limited to the observations above. Host-resource publication racing
-with owner closure, release of late host resources, the complete transfer and
-namespace outcome matrix, cleanup, host filesystem selection, and
-network-to-byte adapters remain unimplemented.
+dispatch, successful cross-provider copy, serialized completed fake-provider
+writes, and the bounded owner-release lifecycle are limited to the observations
+above. The complete transfer and namespace outcome matrix, cleanup retry and
+failure-precedence matrix, host filesystem selection, and network-to-byte
+adapters remain unimplemented.
 `read_exact` and `write_all` remain static prototype signatures. Type-checking
 any behavior outside the implemented slice establishes only its static
 capability and effect boundary.
@@ -482,6 +511,10 @@ capability and effect boundary.
   [`io_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_test_support_test.veln).
   The provider-dispatch state and handlers are separate test support in
   [`filesystem_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/filesystem_provider_test_support_test.veln).
+  Owner-exit ordering, restricted matching-owner slot access, foreign-owner and
+  cleanup-time registration rejection, cancellation cleanup, and unrelated
+  state preservation use separate scoped support in
+  [`io_provider_lifecycle_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_lifecycle_test_support_test.veln).
 - Private JVM adapter linkage:
   [`java_helpers_and_mapping.rs`](../../crates/veln-backend-jvm/src/tests/java_helpers_and_mapping.rs).
 - JVM namespace-token captured-handler identity, post-close read-only
@@ -495,6 +528,10 @@ capability and effect boundary.
   authority, closed-owner resource-publication rejection, and absence of
   active host fallback:
   [`IoProviderDispatchHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderDispatchHarness.java).
+- JVM owner closure, gated late publication, successful and failed late
+  release, retained release failure, ordinary-use rejection, and restricted
+  matching-versus-foreign slot access:
+  [`IoProviderOwnerLifecycleHarness.java`](../../crates/veln-backend-jvm/test-support/IoProviderOwnerLifecycleHarness.java).
 - JVM-controlled single-successor admission handoff, cancelled-waiter removal,
   cancellation checkpoints, publication, queued failure release, failure
   identity, reentrancy, task freezing, and reusable 100,000-element list state,

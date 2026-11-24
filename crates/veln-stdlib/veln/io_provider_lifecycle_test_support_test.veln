@@ -1,0 +1,76 @@
+use prelude
+use io
+use io_provider
+
+pub type ReleasePlan
+	pub ReleasePlan(owner: io_provider::Owner, foreign_owner: io_provider::Owner, slot: Int, state: io_provider::State<Int>, events: Sender<String>, fail_release: Bool)
+end
+
+fn retain_int(current: Int, context: ()) -> {state: Int, result: Int}
+	{state: current, result: current}
+end
+
+pub fn observe_state(state: io_provider::State<Int>) -> Int effects [concurrency]
+	io_provider::update(state, (), retain_int)
+end
+
+fn slot_matches(result: Result<Int, io::Error>, expected: Int) -> Bool
+	match result
+		Ok(actual) => actual == expected
+		_ => false
+	end
+end
+
+fn invalid_resource_slot(result: Result<Int, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error(_, io::ErrorKind::InvalidResource, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn invalid_resource_registration(result: Result<io_provider::Resource, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error(_, io::ErrorKind::InvalidResource, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+pub handler read() for io::Read
+	read(reader, maximum) => io::ReadOutcome::End
+end
+
+pub handler seek() for io::Seek
+	seek(seeker, origin) => match byte_offset(0)
+		Ok(offset) => Ok(offset)
+		Err(_) => Err(io::Error::Error("seek", io::ErrorKind::Other, None, None, None, None, "could not construct zero offset"))
+	end
+end
+
+pub handler read_at() for io::ReadAt
+	read_at(reader, offset, maximum) => io::ReadOutcome::End
+end
+
+pub handler release(plan: ReleasePlan) for io::Close effects [concurrency]
+	close(closer) => match plan
+		ReleasePlan(owner, foreign_owner, slot, state, events, fail_release) => begin
+			let matching = slot_matches(io_provider::closer_slot(owner, closer), slot)
+			let foreign = invalid_resource_slot(io_provider::closer_slot(foreign_owner, closer))
+			let registration = invalid_resource_registration(io_provider::resource(owner, slot + 1, io_provider::ViewFamily::ReadFile))
+			let unchanged = observe_state(state) == 17
+			let _ = channel::send(events, if matching and foreign and registration and unchanged
+				"restricted-release"
+			else
+				"invalid-release-boundary"
+			end)
+			if fail_release
+				io::CloseOutcome::CloseFailed(io::Commit::Unknown, io::Error::Error("close", io::ErrorKind::Other, None, None, None, Some(io::Commit::Unknown), "scripted release failure"))
+			else
+				io::CloseOutcome::Closed
+			end
+		end
+	end
+end
+
+pub fn register(owner: io_provider::Owner, plan: ReleasePlan) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	handle handle handle handle io_provider::resource(owner, 401, io_provider::ViewFamily::ReadFile) with read() with seek() with read_at() with release(plan)
+end

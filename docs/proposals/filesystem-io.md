@@ -14,8 +14,9 @@ The [design decisions](#design-decisions) resolve the initial scope. The static
 source names and capability boundaries, bounded namespace-token allocation and
 projection, five-family registration, projection and compatibility, and atomic
 provider state are implemented for feasibility. Provider-bound namespace and
-resource dispatch is also implemented. The remaining lifecycle, outcome, and
-host-integration evidence is planned. Implementation selection remains blocked
+resource dispatch and the F3 owner lifecycle are also implemented. The
+remaining outcome, complete cleanup, and host-integration evidence is planned.
+Implementation selection remains blocked
 on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
@@ -325,30 +326,31 @@ outside the initial API.
 
 The implemented provider foundation and its limits belong to the
 [current filesystem and byte IO specification](../specification/standard-library-filesystem-io.md#runtime-prototypes).
-The remaining lifecycle work must preserve owner and resource identity across
-task freezing. It must reject operations and late publication after owner
-closure, release retained resources through their captured close handlers, and
-preserve cleanup failures. It must use the current `io_provider::State<T>`
-boundary for fake state rather than adding a second state mechanism.
+The implemented F3 boundary preserves owner and resource identity across task
+freezing. It rejects ordinary operations and late publication after owner
+closure, releases retained and late resources through captured close handlers,
+and retains release failures. The current `io_provider::State<T>` boundary
+provides fake state without a second state mechanism.
 
 The foundation distinguishes namespace registration from captured invocation
 authority. A captured namespace handler can publish a byte resource for its
 invoking owner, but it cannot register another namespace token unless that
-owner is also the nearest lexical provider scope. A closed invoking owner
-rejects byte-resource registration before publication. These checks do not
-complete the remaining late-host-publication, release, or cleanup obligations.
+owner is also the nearest lexical provider scope. The current
+[filesystem and byte IO specification](../specification/standard-library-filesystem-io.md#owner-closure-and-restricted-release)
+owns closed-owner admission, late release, and restricted cleanup access.
 
-While a registered close handler releases a resource, it must be able to read
-that resource's or projected capability's private slot with the matching
-owner. This access remains available after owner cleanup has made ordinary
-resource use unavailable. A foreign owner must still receive
-`io::ErrorKind::InvalidResource`. F3 owns the transition into this restricted
-release boundary. F5 owns the close outcomes, retries, reverse cleanup, and
-cleanup failures that occur within it.
+While a registered close handler releases a resource, it can read that
+resource's or projected capability's private slot with the matching owner.
+This access remains available after owner cleanup has made ordinary resource
+use unavailable. A foreign owner receives
+`io::ErrorKind::InvalidResource`. F5 reuses this implemented boundary for the
+remaining close outcomes, retries, reverse cleanup, and cleanup-failure
+projection matrix.
 
-Publication and the owner's closing transition share an atomic admission
-boundary. A late host open is closed before returning `Closed`; cleanup failure
-is retained as related context and the owner retains its release obligation.
+Publication and the owner's closing transition share the implemented admission
+boundary. A late host open is rejected and released; a failed release is
+retained. F5 still defines how release obligations, retries, and primary or
+related failures are exposed across its complete cleanup matrix.
 
 The Veln fake allocates a fresh state cell, installs an owner scope, and
 installs its namespace and byte handlers with that cell and owner as context.
@@ -489,10 +491,10 @@ invalidation belong to a separate buffering proposal before such helpers exist.
 ### Feasibility Dependency
 
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) owns the remaining
-F3–F5 prototype scope, evidence, and completion conditions. It is independently
+F4–F5 prototype scope, evidence, and completion conditions. It is independently
 selectable from Ready. The current provider foundation, together with the
-planned lifecycle, outcome, and transition tables here, remains the design
-contract exercised by that work.
+planned outcome, transition, and complete cleanup tables here, remains the
+design contract exercised by that work.
 Implementing the complete production filesystem runtime is not its
 prerequisite.
 

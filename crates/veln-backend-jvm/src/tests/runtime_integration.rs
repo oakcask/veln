@@ -133,6 +133,29 @@ fn io_provider_dispatch_uses_captured_handlers_without_active_fallback() {
 }
 
 #[test]
+fn io_provider_owner_closure_rejects_late_publication_and_restricts_release() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "io-provider-owner-lifecycle",
+        "IoProviderOwnerLifecycleHarness.java",
+        include_str!("../../test-support/IoProviderOwnerLifecycleHarness.java"),
+        &program,
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn io_provider_write_file_capabilities_retain_captured_handlers() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

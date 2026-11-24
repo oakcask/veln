@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The filesystem IO F3–F5 feasibility scope, provider adapter prototype, acceptance evidence, or completion and promotion conditions change.
+update-when: The filesystem IO F4–F5 feasibility scope, provider adapter prototype, acceptance evidence, or completion and promotion conditions change.
 ---
 
 # Filesystem IO Feasibility
@@ -8,27 +8,25 @@ update-when: The filesystem IO F3–F5 feasibility scope, provider adapter proto
 Implement a bounded source/adapter prototype that tests whether the proposed
 filesystem and shared byte IO design can preserve capabilities, provider
 identity, state, progress, and cleanup through ordinary Veln handlers.
-This Ready target owns F3–F5. Ready authorizes building the prototype, not
+This Ready target owns F4–F5. Ready authorizes building the prototype, not
 adopting the production API.
 
 ## Scope And Dependency Direction
 
-This proposal owns the remaining feasibility gates F3–F5 extracted from
+This proposal owns the remaining feasibility gates F4–F5 extracted from
 [Filesystem And Shared Byte IO](filesystem-io.md). That proposal remains in
 Design In Progress until this work completes. This work does not depend on
 its production implementation or promotion to Ready.
 
 The implemented provider foundation is specified by
 [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
-It separates nearest-scope namespace registration from the temporary owner
-authority supplied to a captured handler for byte-resource publication and
-slot access. It also rejects byte-resource registration when that invocation
-owner is closed. This bounded rejection does not demonstrate late host-resource
-release or cleanup failure retention.
-The F3 provider-state observation is also implemented: concurrent child
-callers through two same-owner writer registrations retain both completed
-transitions in one shared fake-provider state cell. The current specification
-owns the exact result, ordering, and preserved-state contract.
+It owns the completed F3 observations. Concurrent child callers through two
+same-owner writer registrations retain both completed transitions in one
+shared fake-provider state cell. Owner closure wins publication admission,
+rejects and releases a late host resource, retains a release failure, disables
+ordinary use before cleanup, and grants only the matching owner restricted
+slot access during release. The current specification owns the exact results,
+ordering, and preserved-state contracts.
 The following sections of the filesystem proposal define the remaining
 prototype obligations:
 
@@ -57,34 +55,19 @@ its positive observations and its failure or preserved-state observations.
 
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
-| F3: remaining owner lifecycle | Closing the owner rejects late host-resource publication, releases the late resource, and retains any cleanup failure. After ordinary resource use becomes unavailable, a registered close handler can still read the matching resource or capability slot while releasing it; a foreign owner receives `InvalidResource`. | Backend owner-lifecycle cases, including a host open gated across owner closure and slot access at the restricted release boundary. |
 | F4: transfer and mutation | Every outcome and transition row in the linked outcome and namespace contracts has independent expected bytes, cursor, commit, and namespace observations, including unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
-| F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table. Every cleanup attempt retains matching-owner slot access while ordinary use remains unavailable and rejects a foreign owner. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry, including matching and foreign-owner slot observations during cleanup; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
-
-The remaining F3 evidence must make owner closure, late host-resource
-publication and release, and retained cleanup failure observable at the
-applicable publication and cleanup boundaries. It must also observe
-matching-owner slot access during registered close-handler release after
-ordinary use is unavailable, with foreign-owner rejection and unchanged
-unrelated state. It must not rely on timing or an external filesystem to
-produce a rare failure.
-
-If F3 cannot be demonstrated with the implemented adapter extension, revise
-the resource design and affected acceptance contracts before continuing to
-F4–F5. Such a failure does not promote the parent proposal.
+| F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table. Every cleanup attempt reuses the implemented F3 restricted boundary: matching-owner slot access remains available while ordinary use is unavailable, and a foreign owner is rejected. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry across the restricted boundary; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
 
 ## Implementation Sequence And Evidence Placement
 
-1. Complete the remaining owner-lifecycle observations in F3. Keep fake state
-   and failure plans in Veln.
-2. Apply the outcome and transition tables to F4 and F5. Add host-boundary
-   cases only for observations that require a real host or backend integration.
+1. Apply the outcome and transition tables to F4 and F5. Keep fake state and
+   failure plans in Veln. Add host-boundary cases only for observations that
+   require a real host or backend integration.
 
 | Evidence | Placement and local verification route |
 | --- | --- |
 | Standard-library API results, progress, state, operation ordering, and scripted failure behavior | Companion `.test.veln` files under `crates/veln-stdlib/veln/`, using separate Veln test support; run `bash scripts/agent-stdlib-test`. |
 | Compiler capability and effect rejection for remaining provider calls | Focused compiler tests or checked cases under `examples/specification/check/`; run the selected cases through `bash scripts/agent-test`. |
-| Owner publication and resource release | Focused `veln-backend-jvm` tests through `bash scripts/agent-test -p veln-backend-jvm`; identify the backend invariant each case checks. |
 | Real-host semantics and human/JSON cleanup projections | Focused host integration or CLI cases under the [test placement policy](../reference/toolchain-test-harness.md#test-placement-policy); run the selected integration tests through `bash scripts/agent-test`. |
 
 When implementing handler lifetime support, follow the
@@ -95,12 +78,10 @@ No compiler or CLI wrapper substitutes for companion coverage of API behavior.
 ## Related Work And Design Basis
 
 The current [JVM execution boundary](../specification/execution.md#runtime-readiness-and-host-boundaries)
-ties system network resources to handler owners, shares those owners with
-child tasks, and rejects publication after owner closure. This is relevant
-local precedent for F3 and F5. It does not provide Veln-only allocation or the
-filesystem-provider owner lifecycle. The prototype must demonstrate those
-separately; reusing a host network handle as the fake filesystem would not
-establish them.
+and [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md#owner-closure-and-restricted-release)
+own the implemented F3 provider lifecycle. Network owner cleanup remains local
+precedent for the broader F5 failure model; a network handle does not substitute
+for filesystem-provider outcome and transition evidence.
 
 The current [cleanup rules and limits](../specification/execution.md#cleanup-limits)
 exclude implicit close and process-termination guarantees. The execution
@@ -112,10 +93,11 @@ remain rationale for its IO contracts; they do not prove Veln adapter support.
 
 ## Completion And Parent Promotion
 
-This proposal completes only when F3–F5 have checked evidence at the stated
-boundaries, with every linked outcome and transition row accounted for.
-Passing F3 alone is insufficient. A failed gate keeps the target incomplete
-until the design and its independent expectations are reconciled.
+This proposal completes only when F4–F5 have checked evidence at the stated
+boundaries, with every linked outcome and transition row accounted for. F3 is
+implemented and specified independently. A failed remaining gate keeps the
+target incomplete until the design and its independent expectations are
+reconciled.
 
 For any adapter or API behavior retained as implemented, update the smallest
 current effects, execution, or standard-library specification alongside its

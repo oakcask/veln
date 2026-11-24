@@ -4,6 +4,7 @@ use io
 use io_provider
 use io_provider_test_support_test
 use io_provider_state_test_support_test
+use io_provider_lifecycle_test_support_test
 use path
 use filesystem_provider_test_support_test
 
@@ -1491,4 +1492,100 @@ end
 
 test concurrent_registered_writers_preserve_completed_provider_transitions() -> Result<(), String> effects [concurrency]
 	handle f3_concurrent_writer_observations() with io_provider::scope()
+end
+
+fn f3_foreign_owner() -> io_provider::Owner effects [io_provider::Scope]
+	io_provider::owner()
+end
+
+fn f3_closed_foreign_owner() -> io_provider::Owner effects [concurrency]
+	handle f3_foreign_owner() with io_provider::scope()
+end
+
+fn f3_owner_exit(events: Sender<String>, state: io_provider::State<Int>, foreign_owner: io_provider::Owner, fail_release: Bool, fail_body: Bool) -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let plan = io_provider_lifecycle_test_support_test::ReleasePlan(owner, foreign_owner, 401, state, events, fail_release)
+	match io_provider_lifecycle_test_support_test::register(owner, plan)
+		Err(_) => Err("owner-lifecycle resource registration failed")
+		Ok(_) => if fail_body
+			Err("planned owner body failure")
+		else
+			Ok(())
+		end
+	end
+end
+
+fn f3_release_event_matches(events: Receiver<String>) -> Bool effects [concurrency]
+	match channel::recv(events)
+		Some(event) => event == "restricted-release"
+		None => false
+	end
+end
+
+test owner_exit_restricts_cleanup_access_and_preserves_state() -> Result<(), String> effects [concurrency]
+	let foreign_owner = f3_closed_foreign_owner()
+	let events = channel::bounded<String>(3)
+	let state = io_provider::state(17)
+	let normal = handle f3_owner_exit(events.tx, state, foreign_owner, false, false) with io_provider::scope()
+	let failed = handle f3_owner_exit(events.tx, state, foreign_owner, true, true) with io_provider::scope()
+	match normal
+		Err(_) => Err("normal owner exit changed the body result")
+		Ok(()) => match failed
+			Ok(()) => Err("owner cleanup replaced the propagated body failure")
+			Err(message) => if message != "planned owner body failure"
+				Err("owner cleanup changed the propagated body failure")
+			else if not f3_release_event_matches(events.rx) or not f3_release_event_matches(events.rx)
+				Err("normal or failed owner exit did not enforce restricted release access")
+			else if io_provider_lifecycle_test_support_test::observe_state(state) != 17
+				Err("owner cleanup changed unrelated provider state")
+			else
+				Ok(())
+			end
+		end
+	end
+end
+
+type F3CancelRequest
+	F3CancelRequest(foreign_owner: io_provider::Owner, state: io_provider::State<Int>, events: Sender<String>, ready: Sender<()>, blocked: Receiver<()>)
+end
+
+fn f3_cancellable_body(request: F3CancelRequest) -> () effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	match request
+		F3CancelRequest(foreign_owner, state, events, ready, blocked) => begin
+			let plan = io_provider_lifecycle_test_support_test::ReleasePlan(owner, foreign_owner, 401, state, events, false)
+			let _ = io_provider_lifecycle_test_support_test::register(owner, plan)
+			let _ = channel::send(ready, ())
+			let _: Option<()> = channel::recv(blocked)
+			()
+		end
+	end
+end
+
+fn f3_cancellable(request: F3CancelRequest) -> () effects [concurrency]
+	handle f3_cancellable_body(request) with io_provider::scope()
+end
+
+test cancelled_owner_exit_runs_restricted_cleanup() -> Result<(), String> effects [concurrency]
+	let foreign_owner = f3_closed_foreign_owner()
+	let events = channel::bounded<String>(1)
+	let ready = channel::bounded<()>(1)
+	let blocked = channel::bounded<()>(1)
+	let state = io_provider::state(17)
+	let request = F3CancelRequest(foreign_owner, state, events.tx, ready.tx, blocked.rx)
+	let worker = task::spawn_with<(), F3CancelRequest>(f3_cancellable, request)
+	let started: Option<()> = channel::recv(ready.rx)
+	task::cancel(worker)
+	let joined: Result<(), task::JoinError> = task::join(worker)
+	if started == None
+		Err("cancelled owner task did not reach its gate")
+	else match joined
+		Err(error) => if task::join_error_is_cancelled(error) and f3_release_event_matches(events.rx) and io_provider_lifecycle_test_support_test::observe_state(state) == 17
+			Ok(())
+		else
+			Err("cancelled owner exit did not preserve cancellation, release access, and unrelated state")
+		end
+		Ok(_) => Err("cancelled owner task completed normally")
+	end
+end
 end
