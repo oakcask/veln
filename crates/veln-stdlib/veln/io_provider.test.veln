@@ -1950,6 +1950,19 @@ test copy_rejects_write_counts_beyond_the_current_suffix() -> Result<(), String>
 	end
 end
 
+test copy_rejects_negative_write_counts() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_cons(io::ReadOutcome::End, list_nil()))
+	let writes = list_cons(io::WriteOutcome::Written(ByteCount(-1)), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil()))
+	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), Cons(input, Nil), Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0 and byte_chunk_to_visible_ascii_string(input)? == "abcd"
+			Ok(())
+		else
+			Err("negative write count fabricated provider progress or output")
+		end
+		_ => Err("negative write count did not stop after the malformed reply")
+	end
+end
+
 test copy_rejects_failed_write_progress_beyond_the_current_suffix() -> Result<(), String> effects [concurrency]
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_cons(io::ReadOutcome::End, list_nil()))
 	let failure = f4_copy_error(io::ErrorKind::Other, "oversized write failure")
@@ -1962,6 +1975,21 @@ test copy_rejects_failed_write_progress_beyond_the_current_suffix() -> Result<()
 			Err("oversized failed-write progress fabricated provider progress")
 		end
 		_ => Err("oversized current-suffix failure did not stop after the malformed reply")
+	end
+end
+
+test copy_rejects_negative_failed_write_progress() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_cons(io::ReadOutcome::End, list_nil()))
+	let failure = f4_copy_error(io::ErrorKind::Other, "negative write failure")
+	let malformed = io::WriteOutcome::WriteFailed(io::Progress::Known(ByteCount(-1)), failure)
+	let writes = list_cons(malformed, list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil()))
+	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), Cons(input, Nil), Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0 and byte_chunk_to_visible_ascii_string(input)? == "abcd"
+			Ok(())
+		else
+			Err("negative failed-write progress fabricated provider progress or output")
+		end
+		_ => Err("negative failed-write progress did not stop after the malformed reply")
 	end
 end
 

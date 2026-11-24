@@ -156,12 +156,6 @@ suffix, stops on no progress or invalid provider counts, and preserves separate
 consumed and committed progress on failure. The
 [standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#provider-bound-dispatch)
 owns the source-visible outcomes, validation rules, and remaining limits.
-On the JVM, each partial write derives the next suffix from the current suffix
-rather than rescanning the original chunk. Across a sequence of one-byte
-partial writes, suffix materialization copies no more byte elements than the
-original chunk contains. This bound prevents repeated partial writes from
-turning suffix construction into quadratic work.
-
 A facade or accepted lexical open admitted before owner closure can finish
 afterward. Its resource is rejected instead of published and released once
 through the captured close handler. A failed close outcome or a modeled Veln

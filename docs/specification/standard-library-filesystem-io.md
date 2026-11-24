@@ -439,13 +439,13 @@ chunk as consumed and adds its `Known` or `Unknown` committed progress to prior
 output progress. Unknown progress remains unknown and stops the transfer.
 
 A read result cannot exceed the requested chunk size. Failed-read bytes cannot
-exceed its progress lower bound, and that lower bound cannot exceed the
-request. A write count or write-failure lower bound cannot exceed the supplied
-suffix. A provider reply that violates these bounds, or that would overflow an
-accumulated count, returns `InvalidResource`. The affected progress becomes
-`Unknown` with the last independently confirmed prefix; the other progress
-remains exact. The invalid reply is not used to fabricate a count or another
-suffix.
+exceed its progress lower bound, and that lower bound must be nonnegative and
+cannot exceed the request. A write count or write-failure lower bound must be
+nonnegative and cannot exceed the supplied suffix. A provider reply that
+violates these bounds, or that would overflow an accumulated count, returns
+`InvalidResource`. The affected progress becomes `Unknown` with the last
+independently confirmed prefix; the other progress remains exact. The invalid
+reply is not used to fabricate a count or another suffix.
 
 Two independently registered writers owned by one active provider can share
 one provider-state cell. When child tasks reach a readiness gate and are then
@@ -531,10 +531,6 @@ capability and effect boundary.
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with scripts and progress logs in
   [`io_copy_test_support_test.veln`](../../crates/veln-stdlib/veln/io_copy_test_support_test.veln).
-- JVM suffix-materialization work for a chunk drained through one-byte writes:
-  [`io_copy_suffix_work.veln`](../../crates/veln-backend-jvm/test-support/io_copy_suffix_work.veln)
-  and
-  [`runtime_integration.rs`](../../crates/veln-backend-jvm/src/tests/runtime_integration.rs).
 - Wrong capability operands:
   `examples/specification/check/filesystem-io-capability-boundaries/`.
 - Missing read-file closer, write-file truncater, update-file positional

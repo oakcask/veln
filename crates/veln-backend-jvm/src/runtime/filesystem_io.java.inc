@@ -1003,7 +1003,9 @@
                 if (isAdt(write, "WriteOutcome::WriteFailed")) {
                     Object failureProgress = adtPayload(write, 0);
                     long knownPrefix = byteCountLong(adtPayload(failureProgress, 0));
-                    if (knownPrefix > remaining || committed > Long.MAX_VALUE - knownPrefix) {
+                    if (knownPrefix < 0L
+                        || knownPrefix > remaining
+                        || committed > Long.MAX_VALUE - knownPrefix) {
                         return ioCopyInvalidResource(
                             consumed,
                             committed,
@@ -1031,7 +1033,9 @@
                     throw new RuntimeFailure("provider write handler returned an invalid outcome");
                 }
                 long written = byteCountLong(adtPayload(write, 0));
-                if (written > remaining || committed > Long.MAX_VALUE - written) {
+                if (written < 0L
+                    || written > remaining
+                    || committed > Long.MAX_VALUE - written) {
                     return ioCopyInvalidResource(
                         consumed,
                         committed,
