@@ -7,7 +7,6 @@ on:
     paths:
       - .agents/skills/veln-language/**
       - .github/actions/cargo-dependencies/action.yaml
-      - .github/actions/cargo-workflow-scripts/action.yaml
       - .github/workflows/workflow--test-scripts.yaml
       - crates/veln-mcp/schemas/mcp/v1/*.json
       - crates/veln-project/testdata/case_folding_17_c_f.txt
@@ -31,7 +30,6 @@ on:
     paths:
       - .agents/skills/veln-language/**
       - .github/actions/cargo-dependencies/action.yaml
-      - .github/actions/cargo-workflow-scripts/action.yaml
       - .github/workflows/workflow--test-scripts.yaml
       - crates/veln-mcp/schemas/mcp/v1/*.json
       - crates/veln-project/testdata/case_folding_17_c_f.txt
@@ -71,8 +69,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Test workflow scripts
         run: node --test workflow-scripts/*.test.mjs
-      - name: Prepare Rust workflow scripts
-        id: workflow-scripts
-        uses: ./.github/actions/cargo-workflow-scripts
+      - name: Prepare Cargo dependencies
+        uses: ./.github/actions/cargo-dependencies
       - name: Test Rust workflow scripts
         run: bash scripts/ci-run cargo test --locked -p veln-repo-workflow-scripts
