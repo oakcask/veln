@@ -137,12 +137,52 @@ One frame can serve registrations for multiple owners; captured calls supply
 and restore the operand's owner for matching slot access and byte-resource
 registration. That invocation owner does not authorize namespace-token
 registration: only the nearest lexical provider scope can register a
-filesystem token. Resource registration also rejects a closed invocation
-owner before publication. Low-level lexical dispatch does not acquire an
-invocation owner and rejects an operand from a different lexical provider
-owner before invoking the selected frame, including when both owners share
-that frame. This boundary does not open host resources or implement owner
-cleanup. The
+filesystem token. Owner exit disables ordinary resource projection, dispatch,
+slot access, and publication before it invokes captured close handlers. Facade
+and lexical dispatch both return the operation's `InvalidResource` shape
+without invoking their provider. A close handler receives temporary slot
+access only for the matching owner and exact resource being released, including
+capabilities projected from that resource. Stale same-slot aliases and foreign
+owners receive `InvalidResource`. Ordinary dispatch, including recursive close,
+remains unavailable. Rejected access leaves unrelated provider state unchanged.
+This boundary runs for normal return, a returned `Err`, an abrupt contract or
+modeled runtime failure, and task cancellation. When restricted cleanup
+succeeds during an abrupt failure, the original failure remains primary and
+execution does not continue after the handled scope.
+
+A facade or accepted lexical open admitted before owner closure can finish
+afterward. Its resource is rejected instead of published and released once
+through the captured close handler. A failed close outcome or a modeled Veln
+runtime failure is retained. A fatal JVM `Error` from a close handler is not
+converted into a retained release result. For registered-resource cleanup, the
+runtime restores the current release authority, removes the current resource,
+restores the handler stack, and then lets the same error escape. The publication
+decision is atomic with owner closure and slot occupancy. One owner's active
+release does not suppress another owner's independently admitted late-resource
+release. Release code runs after registry
+admission is relinquished, so a close handler can wait for an inherited child's
+rejected registration without deadlocking. The deterministic
+[`IoProviderOwnerLifecycleHarness`](../../crates/veln-backend-jvm/test-support/IoProviderOwnerLifecycleHarness.java)
+gates publication across closure without host timing or filesystem state. It
+also checks registered release after normal and abrupt runtime exits and a
+fatal JVM `Error` from release, including throwable identity,
+non-continuation, resource removal, and release-authority and handler-stack
+restoration.
+Low-level lexical dispatch does not acquire the broader captured invocation
+authority. An accepted lexical provider open receives only its matching
+per-call publication admission identity. After owner closure, a facade or
+lexical byte operation nested in that open does not inherit its publication
+admission. Registration attempted by the byte handler returns
+`InvalidResource` and does not enter late-resource release. Lexical dispatch
+rejects an operand from a different or closed provider owner before invoking
+the selected frame, including when owners share that frame. If cancellation is
+first delivered by a checkpoint in a close handler, the owner still attempts
+all already-selected release handlers. The cancellation then resumes as the
+primary unwind, so execution after the handled owner scope does not continue
+and unrelated provider state remains unchanged. Cancellation combined with a
+later ordinary cleanup failure and the F5 retry, release-order, and
+cleanup-failure projection matrix remain unimplemented. This bounded lifecycle
+is not a production filesystem. The
 [standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#runtime-prototypes)
 owns the source-visible registration, projection, dispatch, failure, and
 runtime-limit contract.

@@ -29,6 +29,16 @@ public final class IoProviderDuplexHarness {
         VelnRuntime.pushHandler(effect, new Object[0], new Object[0], new Object[0]);
     }
 
+    private static void pushClose() {
+        VelnRuntime.pushHandler(
+            "std::io::Close",
+            new Object[] { "close" },
+            new Object[] { (VelnRuntime.Fn) (Object... supplied) ->
+                VelnRuntime.adt("io::CloseOutcome::Closed", new Object[0]) },
+            new Object[0]
+        );
+    }
+
     @SuppressWarnings("unchecked")
     private static java.util.List<Object> handlers() throws Exception {
         return (java.util.List<Object>) ((ThreadLocal<?>) HANDLERS.get(null)).get();
@@ -104,13 +114,13 @@ public final class IoProviderDuplexHarness {
         require(resources(owner).isEmpty(), "negative Duplex slot published a resource");
 
         push("std::io::Write");
-        push("std::io::Close");
+        pushClose();
         requireMissing(owner, 21L, "io::Read");
         VelnRuntime.popHandler();
         VelnRuntime.popHandler();
 
         push("std::io::Read");
-        push("std::io::Close");
+        pushClose();
         requireMissing(owner, 22L, "io::Write");
         VelnRuntime.popHandler();
         VelnRuntime.popHandler();
@@ -125,7 +135,7 @@ public final class IoProviderDuplexHarness {
         Object read = handlers().get(1);
         push("std::io::Write");
         Object write = handlers().get(2);
-        push("std::io::Close");
+        pushClose();
         Object close = handlers().get(3);
 
         VelnRuntime.Result accepted = register(owner, 31L, "Duplex");

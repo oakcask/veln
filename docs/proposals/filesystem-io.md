@@ -10,13 +10,12 @@ explicit filesystem selection, and scoped substitution through Veln effect
 handlers. The same byte-processing helpers should work with files, network
 streams, and memory.
 
-The [design decisions](#design-decisions) resolve the initial scope. The static
-source names and capability boundaries, bounded namespace-token allocation and
-projection, five-family registration, projection and compatibility, and atomic
-provider state are implemented for feasibility. Provider-bound namespace and
-resource dispatch is also implemented. The remaining lifecycle, outcome, and
-host-integration evidence is planned. Implementation selection remains blocked
-on the separate
+The [design decisions](#design-decisions) resolve the initial scope. The
+implemented static and bounded runtime prerequisites belong to the current
+[filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
+The remaining F4 outcome and mutation behavior, F5 cleanup behavior, and host
+integration evidence are planned. Implementation selection remains blocked on
+the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
 ## Current Boundary And Scope
@@ -25,18 +24,9 @@ The production [filesystem boundary](../specification/effects.md#file-system-cal
 provides host-owned `Path` values and four compiler-known operations for text
 reading, text writing, existence checks, and directory listing. The current
 [static filesystem and byte IO prototype](../specification/standard-library-filesystem-io.md)
-also declares public opaque file views, seek capabilities, and nominal
-filesystem handlers. Its bounded runtime can register and project all five
-resource families while retaining their owners and slots. Its namespace
-factories capture read and mutation handlers in opaque filesystem tokens and
-can project a mutable token to read-only authority. It also provides opaque
-atomic provider state with cooperative cancellation. Its standard facades
-dispatch namespace and byte operations to captured Veln handlers and support a
-bounded cross-provider copy. Captured dispatch can publish byte resources for
-its operand's owner, but only the nearest lexical provider scope can register
-new namespace tokens. Closed-owner resource registration is rejected before
-publication. It provides no host filesystem execution. This proposal replaces
-the minimal production boundary; retaining its source API is not required.
+owns the implemented source surface and bounded runtime foundation. It provides
+no host filesystem execution. This proposal replaces the minimal production
+boundary; retaining its source API is not required.
 
 The current [network API](../specification/standard-library-networking.md)
 provides a source-defined `net::IO` effect, a system handler, byte read outcomes,
@@ -53,7 +43,7 @@ supports lexical cleanup, but does not define automatic close or flush.
 | Read-only filesystem access | Open, metadata, directory enumeration, and byte reads work without requiring mutation capability. |
 | Filesystem updates | Explicit open modes, byte writes, directory creation, removal, rename, and truncation have defined success and failure behavior. |
 | Shared byte IO | Read, write, complete-transfer helpers, seek, and positional IO compose with explicit resources. |
-| Resource lifecycle | Close and scope exit preserve provider identity and prevent accidental access to another provider. |
+| Resource lifecycle | Explicit close and scope exit expose defined release outcomes, retry behavior, cleanup order, and failure precedence. |
 | Deterministic testing | A Veln fake implements stateful filesystem behavior and injected failures without opening host files. |
 
 Memory mapping, file watching, advisory locks, hard links, detailed ACLs,
@@ -113,11 +103,9 @@ Reading a configuration file must not require an implementation to provide
 mutation operations. A network stream need not provide seek. Memory resources
 can implement byte capabilities without filesystem access.
 
-Operations carry explicit resource operands. The active handler supplies an
-implementation, while a resource retains its creating provider and owner.
-Nesting another handler must not reinterpret an existing resource as a resource
-of the newly active provider. Distinct nominal view types enforce static
-capabilities. The implemented provider-bound dispatch contract belongs to the
+Operations carry explicit resource operands. Distinct nominal view types
+enforce static capabilities. The implemented provider identity and dispatch
+contract belongs to the
 [current specification](../specification/standard-library-filesystem-io.md#provider-bound-dispatch).
 
 The public substitutable boundaries are nominal effects implemented by ordinary
@@ -207,20 +195,14 @@ sync, including failed-operation state. A successful byte
 write or close does not itself promise crash durability. Buffered flush and
 storage synchronization are distinct concepts.
 
-An owner scope releases retained resources on normal return, propagated
-errors, runtime failure, and task cancellation within the existing
+The implemented owner lifecycle belongs to the
+[current specification](../specification/standard-library-filesystem-io.md#owner-closure-and-restricted-release).
+F5 defines explicit-close results, retry, reverse cleanup, and primary or
+related failure projection within the existing
 [execution cleanup limits](../specification/execution.md#cleanup-limits).
-Explicit close releases a resource earlier. Closing or leaving its owner
-scope makes all aliases unusable; later calls cannot fall back to host IO or
-another provider. The owner stops publishing new resources when scope cleanup
-starts. A child operation completing an open after that point releases the new
-resource instead of publishing a usable handle.
-
-Child tasks inherit the creating scope's handlers and resource ownership;
-they do not extend a parent's owner lifetime merely by retaining a handle.
-Independent executions construct independent fake state. Close and scope exit
-use the cleanup transitions below. Existing `defer` cannot discard a meaningful close
-failure and is not a substitute for specifying these outcomes.
+Independent fake executions must remain isolated. Existing `defer` cannot
+discard a meaningful close failure and is not a substitute for specifying
+these outcomes.
 
 Java's [FileChannel](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/nio/channels/FileChannel.html)
 supports exclusive creation and positional IO, but leaves append atomicity
@@ -272,7 +254,6 @@ output. Fake tests do not establish real host behavior.
 | Partial transfer | Short reads are data; complete helpers preserve bytes and progress; partial writes retry only an uncommitted suffix; unknown progress stops retry. | Scripted Veln fake tests with independent expected contents and operation logs. |
 | Seek and positional IO | Origin arithmetic, invalid targets, beyond-end reads, independent opens, aliases, and positional cursor preservation obey the state table. | Companion tests shared by memory and supported system providers; host tests for native translation. |
 | Namespace updates | Open modes, exclusive create, directory operations, rename, and truncation obey the mutation transition table, including failure preservation. | Shared provider conformance tests and focused real-host integration cases. |
-| Ownership | Scope exit closes aliases; child tasks cannot publish into a closing owner. Cleanup runs during error and cancellation unwinding. | Veln companion tests for owner lifecycle and JVM owner-cleanup integration tests. |
 | Errors and cleanup | Stable error kinds retain operation and path context; close and cleanup transitions preserve progress and the selected primary failure. | Companion tests plus human/JSON execution coverage where runtime cleanup diagnostics apply. |
 | Real host default | A system handler reaches real files without fake selectors, while an injected fake requires no host-file setup. | Focused host integration and effect-boundary policy checks. |
 
@@ -292,7 +273,6 @@ runtime support exists.
 
 | Concern | Selected initial design | Acceptance obligation |
 | --- | --- | --- |
-| Provider lifecycle | Preserve the owner identity retained by opaque runtime tokens through task freezing and owner cleanup. Do not encode public handles as integers or host objects. | Reject wrong-owner or closed-owner publication, release late resources, and retain cleanup failures at the feasibility gate. |
 | Failure-plan state | Extend the provider-bound Veln fake state with scripted failures, resource cursors, close facts, and operation progress as ordinary Veln data. | A scripted failure changes only the selected provider instance and records the commit facts required by the operation outcome matrix. |
 | Native paths | Keep the current host-owned `Path` as the explicit native boundary; `path::Path` remains portable. Support only exactly representable names initially. | Nonrepresentable names fail with `UnrepresentablePath`; display is never used as a conversion. |
 | Links and confinement | Follow links for ordinary open; explicit follow/no-follow metadata. No confinement or link-creation capability initially. A subtree is only a namespace view. | Dangling links, cycles, unsupported no-follow, and a link outside a subtree cannot be misreported as confined access. |
@@ -323,41 +303,12 @@ outside the initial API.
 
 ### Provider Lifecycle
 
-The implemented provider foundation and its limits belong to the
-[current filesystem and byte IO specification](../specification/standard-library-filesystem-io.md#runtime-prototypes).
-The remaining lifecycle work must preserve owner and resource identity across
-task freezing. It must reject operations and late publication after owner
-closure, release retained resources through their captured close handlers, and
-preserve cleanup failures. It must use the current `io_provider::State<T>`
-boundary for fake state rather than adding a second state mechanism.
-
-The foundation distinguishes namespace registration from captured invocation
-authority. A captured namespace handler can publish a byte resource for its
-invoking owner, but it cannot register another namespace token unless that
-owner is also the nearest lexical provider scope. A closed invoking owner
-rejects byte-resource registration before publication. These checks do not
-complete the remaining late-host-publication, release, or cleanup obligations.
-
-While a registered close handler releases a resource, it must be able to read
-that resource's or projected capability's private slot with the matching
-owner. This access remains available after owner cleanup has made ordinary
-resource use unavailable. A foreign owner must still receive
-`io::ErrorKind::InvalidResource`. F3 owns the transition into this restricted
-release boundary. F5 owns the close outcomes, retries, reverse cleanup, and
-cleanup failures that occur within it.
-
-Publication and the owner's closing transition share an atomic admission
-boundary. A late host open is closed before returning `Closed`; cleanup failure
-is retained as related context and the owner retains its release obligation.
-
-The Veln fake allocates a fresh state cell, installs an owner scope, and
-installs its namespace and byte handlers with that cell and owner as context.
-Every operation applies a pure state transition through `update`. File
-identity is separate from directory binding and per-open slot identity, so
-rename cannot redirect an existing handle. Scripted failures, bytes, and logs
-are ordinary Veln data. Independent executions allocate separate cells and
-owners. Checked compiler, companion, and backend evidence already establishes
-the atomic update boundary before the source fake relies on it.
+The current
+[owner closure and restricted release specification](../specification/standard-library-filesystem-io.md#owner-closure-and-restricted-release)
+owns the implemented F3 lifecycle boundary. F5 reuses that boundary for the
+remaining explicit-close outcomes, retries, reverse-publication cleanup, and
+ordered primary and related cleanup-failure projection described in
+[Concurrent Operations And Cleanup](#concurrent-operations-and-cleanup).
 
 ### Outcomes And Error Translation
 
@@ -468,7 +419,7 @@ separate calls is implicitly atomic.
 | Close fails with release `No` | Preserve the prior usable state and cleanup obligation; explicit retry is permitted. |
 | Close fails with release `Unknown` | Unavailable for transfers, retain release obligation, permit explicit close retry. Never fall back to another provider. |
 | Cancellation during an admitted host call | Preserve proven progress; interruption can close the entire open and all its views. Mark release/cursor facts unknown when unproved. No bounded interruption latency or rollback guarantee. |
-| Owner starts cleanup | Close publication first, then attempt all retained resources in reverse publication order, even after one close fails. Children retain identity but cannot publish or extend ownership. |
+| Owner cleanup within the implemented lifecycle boundary | Attempt all retained resources in reverse publication order, even after one close fails and when child tasks retain aliases. |
 | Cleanup has unsuccessful or unknown release | Raise an abrupt cleanup failure after attempting all resources. Keep failed release obligations until final owner teardown; never report successful release or transfer them to a different invocation. External termination can still leak host resources under existing cleanup limits. |
 | Successful body, ordinary `Err`, or `?` propagation plus cleanup failure | Cleanup failure is primary, matching network-handler cleanup. Prior ordinary error is retained as related context. |
 | Runtime failure, contract failure, or cancellation plus cleanup failure | Existing abrupt failure remains primary. Append cleanup failures in reverse publication order as related context. |
@@ -489,10 +440,10 @@ invalidation belong to a separate buffering proposal before such helpers exist.
 ### Feasibility Dependency
 
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) owns the remaining
-F3–F5 prototype scope, evidence, and completion conditions. It is independently
+F4–F5 prototype scope, evidence, and completion conditions. It is independently
 selectable from Ready. The current provider foundation, together with the
-planned lifecycle, outcome, and transition tables here, remains the design
-contract exercised by that work.
+planned outcome, transition, and complete cleanup tables here, remains the
+design contract exercised by that work.
 Implementing the complete production filesystem runtime is not its
 prerequisite.
 

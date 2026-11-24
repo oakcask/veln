@@ -261,13 +261,15 @@
     }
 
     private static final class IoCapability {
+        final IoResource resource;
         final IoOwner owner;
         final long slot;
         final HandlerFrame handler;
 
-        IoCapability(IoOwner owner, long slot, HandlerFrame handler) {
-            this.owner = owner;
-            this.slot = slot;
+        IoCapability(IoResource resource, HandlerFrame handler) {
+            this.resource = resource;
+            this.owner = resource.owner;
+            this.slot = resource.slot;
             this.handler = handler;
         }
     }
@@ -308,6 +310,50 @@
             || IO_PROVIDER_INVOCATION_OWNER.get() == owner;
     }
 
+    private static boolean ioProviderOrdinaryAccess(IoOwner owner) {
+        return ioProviderOwnerIsAccessible(owner) && !owner.scope.ioProviderScopeClosed;
+    }
+
+    private static boolean ioProviderReleaseAccess(IoResource resource) {
+        IoResource releasing = IO_PROVIDER_RELEASE_RESOURCE.get();
+        return releasing == resource;
+    }
+
+    private static void retainIoProviderReleaseFailure(IoOwner owner, Object failure) {
+        synchronized (owner.scope.ioProviderReleaseFailures) {
+            owner.scope.ioProviderReleaseFailures.add(failure);
+        }
+    }
+
+    private static Object releaseIoProviderResource(IoResource resource) {
+        IoResource previousResource = IO_PROVIDER_RELEASE_RESOURCE.get();
+        IoOwner previousAdmission = IO_PROVIDER_ADMISSION_OWNER.get();
+        IO_PROVIDER_RELEASE_RESOURCE.set(resource);
+        IO_PROVIDER_ADMISSION_OWNER.remove();
+        Object outcome;
+        try {
+            outcome = invokeHandler(
+                resource.close,
+                "close",
+                new Object[] { new IoCapability(resource, resource.close) }
+            );
+        } catch (TaskCancellationFailure cancelled) {
+            throw cancelled;
+        } catch (RuntimeFailure failure) {
+            retainIoProviderReleaseFailure(resource.owner, failure);
+            return failure;
+        } finally {
+            if (previousResource == null) IO_PROVIDER_RELEASE_RESOURCE.remove();
+            else IO_PROVIDER_RELEASE_RESOURCE.set(previousResource);
+            if (previousAdmission == null) IO_PROVIDER_ADMISSION_OWNER.remove();
+            else IO_PROVIDER_ADMISSION_OWNER.set(previousAdmission);
+        }
+        if (!isAdt(outcome, "CloseOutcome::Closed")) {
+            retainIoProviderReleaseFailure(resource.owner, outcome);
+        }
+        return outcome;
+    }
+
     private static void closeIoProviderScope(HandlerFrame scope) {
         if (!scope.effect.equals(IO_PROVIDER_SCOPE_EFFECT)) return;
         IoOwner owner;
@@ -318,9 +364,26 @@
                 return;
             }
         }
+        java.util.List<IoResource> resources = new java.util.ArrayList<IoResource>();
         synchronized (owner.resources) {
             scope.ioProviderScopeClosed = true;
+            for (Object registered : owner.resources.values()) {
+                if (registered instanceof IoResource) resources.add((IoResource) registered);
+            }
         }
+        TaskCancellationFailure cancellation = null;
+        for (IoResource resource : resources) {
+            try {
+                releaseIoProviderResource(resource);
+            } catch (TaskCancellationFailure cancelled) {
+                if (cancellation == null) cancellation = cancelled;
+            } finally {
+                synchronized (owner.resources) {
+                    owner.resources.remove(Long.valueOf(resource.slot), resource);
+                }
+            }
+        }
+        if (cancellation != null) throw cancellation;
     }
 
     public static Object ioProviderScopeOwner() {
@@ -415,92 +478,107 @@
 
         synchronized (owner.resources) {
             if (owner.scope.ioProviderScopeClosed) {
-                return ioProviderInvalidInput("resource", "provider owner scope is closed");
-            }
-            if (owner.resources.containsKey(Long.valueOf(slot))) {
+                if (IO_PROVIDER_ADMISSION_OWNER.get() != owner) {
+                    return ioProviderInvalidResource("resource", "provider owner scope is closed");
+                }
+            } else if (owner.resources.containsKey(Long.valueOf(slot))) {
                 return ioProviderInvalidInput("resource", "provider slot is already registered");
             }
+        }
 
-            IoResource resource;
-            if (readFile) {
-                HandlerFrame read = findHandler(IO_READ_EFFECT);
-                HandlerFrame seek = findHandler(IO_SEEK_EFFECT);
-                HandlerFrame readAt = findHandler(IO_READ_AT_EFFECT);
-                HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
-                if (read == null || seek == null || readAt == null || close == null) {
-                    return ioProviderUnsupported(
-                        "resource",
-                        "ReadFile registration requires io::Read, io::Seek, io::ReadAt, and io::Close handlers"
-                    );
-                }
-                resource = new IoResource(
-                    owner, slot, "ReadFile", read, null, seek, readAt, null, close, null, null
-                );
-            } else if (writeFile) {
-                HandlerFrame write = findHandler(IO_WRITE_EFFECT);
-                HandlerFrame seek = findHandler(IO_SEEK_EFFECT);
-                HandlerFrame writeAt = findHandler(IO_WRITE_AT_EFFECT);
-                HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
-                HandlerFrame sync = findHandler(IO_SYNC_EFFECT);
-                HandlerFrame mutate = findHandler(FS_MUTATE_EFFECT);
-                if (write == null || seek == null || writeAt == null || close == null || sync == null || mutate == null) {
-                    return ioProviderUnsupported(
-                        "resource",
-                        "WriteFile registration requires io::Write, io::Seek, io::WriteAt, io::Close, io::Sync, and fs::Mutate handlers"
-                    );
-                }
-                resource = new IoResource(
-                    owner, slot, "WriteFile", null, write, seek, null, writeAt, close, sync, mutate
-                );
-            } else if (updateFile) {
-                HandlerFrame read = findHandler(IO_READ_EFFECT);
-                HandlerFrame write = findHandler(IO_WRITE_EFFECT);
-                HandlerFrame seek = findHandler(IO_SEEK_EFFECT);
-                HandlerFrame readAt = findHandler(IO_READ_AT_EFFECT);
-                HandlerFrame writeAt = findHandler(IO_WRITE_AT_EFFECT);
-                HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
-                HandlerFrame sync = findHandler(IO_SYNC_EFFECT);
-                HandlerFrame mutate = findHandler(FS_MUTATE_EFFECT);
-                if (read == null || write == null || seek == null || readAt == null || writeAt == null
-                    || close == null || sync == null || mutate == null) {
-                    return ioProviderUnsupported(
-                        "resource",
-                        "UpdateFile registration requires io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, and fs::Mutate handlers"
-                    );
-                }
-                resource = new IoResource(
-                    owner, slot, "UpdateFile", read, write, seek, readAt, writeAt, close, sync, mutate
-                );
-            } else if (appendFile) {
-                HandlerFrame write = findHandler(IO_WRITE_EFFECT);
-                HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
-                HandlerFrame sync = findHandler(IO_SYNC_EFFECT);
-                if (write == null || close == null || sync == null) {
-                    return ioProviderUnsupported(
-                        "resource",
-                        "AppendFile registration requires io::Write, io::Close, and io::Sync handlers"
-                    );
-                }
-                resource = new IoResource(
-                    owner, slot, "AppendFile", null, write, null, null, null, close, sync, null
-                );
-            } else {
-                HandlerFrame read = findHandler(IO_READ_EFFECT);
-                HandlerFrame write = findHandler(IO_WRITE_EFFECT);
-                HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
-                if (read == null || write == null || close == null) {
-                    return ioProviderUnsupported(
-                        "resource",
-                        "Duplex registration requires io::Read, io::Write, and io::Close handlers"
-                    );
-                }
-                resource = new IoResource(
-                    owner, slot, "Duplex", read, write, null, null, null, close, null, null
+        IoResource resource;
+        if (readFile) {
+            HandlerFrame read = findHandler(IO_READ_EFFECT);
+            HandlerFrame seek = findHandler(IO_SEEK_EFFECT);
+            HandlerFrame readAt = findHandler(IO_READ_AT_EFFECT);
+            HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
+            if (read == null || seek == null || readAt == null || close == null) {
+                return ioProviderUnsupported(
+                    "resource",
+                    "ReadFile registration requires io::Read, io::Seek, io::ReadAt, and io::Close handlers"
                 );
             }
-            owner.resources.put(Long.valueOf(slot), resource);
-            return ok(resource);
+            resource = new IoResource(
+                owner, slot, "ReadFile", read, null, seek, readAt, null, close, null, null
+            );
+        } else if (writeFile) {
+            HandlerFrame write = findHandler(IO_WRITE_EFFECT);
+            HandlerFrame seek = findHandler(IO_SEEK_EFFECT);
+            HandlerFrame writeAt = findHandler(IO_WRITE_AT_EFFECT);
+            HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
+            HandlerFrame sync = findHandler(IO_SYNC_EFFECT);
+            HandlerFrame mutate = findHandler(FS_MUTATE_EFFECT);
+            if (write == null || seek == null || writeAt == null || close == null || sync == null || mutate == null) {
+                return ioProviderUnsupported(
+                    "resource",
+                    "WriteFile registration requires io::Write, io::Seek, io::WriteAt, io::Close, io::Sync, and fs::Mutate handlers"
+                );
+            }
+            resource = new IoResource(
+                owner, slot, "WriteFile", null, write, seek, null, writeAt, close, sync, mutate
+            );
+        } else if (updateFile) {
+            HandlerFrame read = findHandler(IO_READ_EFFECT);
+            HandlerFrame write = findHandler(IO_WRITE_EFFECT);
+            HandlerFrame seek = findHandler(IO_SEEK_EFFECT);
+            HandlerFrame readAt = findHandler(IO_READ_AT_EFFECT);
+            HandlerFrame writeAt = findHandler(IO_WRITE_AT_EFFECT);
+            HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
+            HandlerFrame sync = findHandler(IO_SYNC_EFFECT);
+            HandlerFrame mutate = findHandler(FS_MUTATE_EFFECT);
+            if (read == null || write == null || seek == null || readAt == null || writeAt == null
+                || close == null || sync == null || mutate == null) {
+                return ioProviderUnsupported(
+                    "resource",
+                    "UpdateFile registration requires io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, and fs::Mutate handlers"
+                );
+            }
+            resource = new IoResource(
+                owner, slot, "UpdateFile", read, write, seek, readAt, writeAt, close, sync, mutate
+            );
+        } else if (appendFile) {
+            HandlerFrame write = findHandler(IO_WRITE_EFFECT);
+            HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
+            HandlerFrame sync = findHandler(IO_SYNC_EFFECT);
+            if (write == null || close == null || sync == null) {
+                return ioProviderUnsupported(
+                    "resource",
+                    "AppendFile registration requires io::Write, io::Close, and io::Sync handlers"
+                );
+            }
+            resource = new IoResource(
+                owner, slot, "AppendFile", null, write, null, null, null, close, sync, null
+            );
+        } else {
+            HandlerFrame read = findHandler(IO_READ_EFFECT);
+            HandlerFrame write = findHandler(IO_WRITE_EFFECT);
+            HandlerFrame close = findHandler(IO_CLOSE_EFFECT);
+            if (read == null || write == null || close == null) {
+                return ioProviderUnsupported(
+                    "resource",
+                    "Duplex registration requires io::Read, io::Write, and io::Close handlers"
+                );
+            }
+            resource = new IoResource(
+                owner, slot, "Duplex", read, write, null, null, null, close, null, null
+            );
         }
+
+        boolean releaseAfterAdmission = false;
+        synchronized (owner.resources) {
+            if (owner.scope.ioProviderScopeClosed) {
+                if (IO_PROVIDER_ADMISSION_OWNER.get() == owner) {
+                    releaseAfterAdmission = true;
+                }
+            } else if (owner.resources.containsKey(Long.valueOf(slot))) {
+                return ioProviderInvalidInput("resource", "provider slot is already registered");
+            } else {
+                owner.resources.put(Long.valueOf(slot), resource);
+                return ok(resource);
+            }
+        }
+        if (releaseAfterAdmission) releaseIoProviderResource(resource);
+        return ioProviderInvalidResource("resource", "provider owner scope is closed");
     }
 
     public static Object ioProviderReadFile(Object resourceValue) {
@@ -508,16 +586,19 @@
             return ioProviderInvalidInput("read_file", "invalid provider resource");
         }
         IoResource resource = (IoResource) resourceValue;
+        if (resource.owner.scope.ioProviderScopeClosed) {
+            return ioProviderInvalidResource("read_file", "provider owner scope is closed");
+        }
         if (!resource.family.equals("ReadFile")) {
             return ioProviderUnsupported("read_file", "resource does not provide a ReadFile view");
         }
         return ok(adt(
             "fs::ReadFile::ReadFile",
             new Object[] {
-                new IoCapability(resource.owner, resource.slot, resource.read),
-                new IoCapability(resource.owner, resource.slot, resource.seek),
-                new IoCapability(resource.owner, resource.slot, resource.readAt),
-                new IoCapability(resource.owner, resource.slot, resource.close)
+                new IoCapability(resource, resource.read),
+                new IoCapability(resource, resource.seek),
+                new IoCapability(resource, resource.readAt),
+                new IoCapability(resource, resource.close)
             }
         ));
     }
@@ -527,15 +608,18 @@
             return ioProviderInvalidInput("append_file", "invalid provider resource");
         }
         IoResource resource = (IoResource) resourceValue;
+        if (resource.owner.scope.ioProviderScopeClosed) {
+            return ioProviderInvalidResource("append_file", "provider owner scope is closed");
+        }
         if (!resource.family.equals("AppendFile")) {
             return ioProviderUnsupported("append_file", "resource does not provide an AppendFile view");
         }
         return ok(adt(
             "fs::AppendFile::AppendFile",
             new Object[] {
-                new IoCapability(resource.owner, resource.slot, resource.write),
-                new IoCapability(resource.owner, resource.slot, resource.close),
-                new IoCapability(resource.owner, resource.slot, resource.sync)
+                new IoCapability(resource, resource.write),
+                new IoCapability(resource, resource.close),
+                new IoCapability(resource, resource.sync)
             }
         ));
     }
@@ -545,18 +629,21 @@
             return ioProviderInvalidInput("write_file", "invalid provider resource");
         }
         IoResource resource = (IoResource) resourceValue;
+        if (resource.owner.scope.ioProviderScopeClosed) {
+            return ioProviderInvalidResource("write_file", "provider owner scope is closed");
+        }
         if (!resource.family.equals("WriteFile")) {
             return ioProviderUnsupported("write_file", "resource does not provide a WriteFile view");
         }
         return ok(adt(
             "fs::WriteFile::WriteFile",
             new Object[] {
-                new IoCapability(resource.owner, resource.slot, resource.write),
-                new IoCapability(resource.owner, resource.slot, resource.seek),
-                new IoCapability(resource.owner, resource.slot, resource.writeAt),
-                new IoCapability(resource.owner, resource.slot, resource.close),
-                new IoCapability(resource.owner, resource.slot, resource.sync),
-                new IoCapability(resource.owner, resource.slot, resource.mutate)
+                new IoCapability(resource, resource.write),
+                new IoCapability(resource, resource.seek),
+                new IoCapability(resource, resource.writeAt),
+                new IoCapability(resource, resource.close),
+                new IoCapability(resource, resource.sync),
+                new IoCapability(resource, resource.mutate)
             }
         ));
     }
@@ -566,20 +653,23 @@
             return ioProviderInvalidInput("update_file", "invalid provider resource");
         }
         IoResource resource = (IoResource) resourceValue;
+        if (resource.owner.scope.ioProviderScopeClosed) {
+            return ioProviderInvalidResource("update_file", "provider owner scope is closed");
+        }
         if (!resource.family.equals("UpdateFile")) {
             return ioProviderUnsupported("update_file", "resource does not provide an UpdateFile view");
         }
         return ok(adt(
             "fs::UpdateFile::UpdateFile",
             new Object[] {
-                new IoCapability(resource.owner, resource.slot, resource.read),
-                new IoCapability(resource.owner, resource.slot, resource.write),
-                new IoCapability(resource.owner, resource.slot, resource.seek),
-                new IoCapability(resource.owner, resource.slot, resource.readAt),
-                new IoCapability(resource.owner, resource.slot, resource.writeAt),
-                new IoCapability(resource.owner, resource.slot, resource.close),
-                new IoCapability(resource.owner, resource.slot, resource.sync),
-                new IoCapability(resource.owner, resource.slot, resource.mutate)
+                new IoCapability(resource, resource.read),
+                new IoCapability(resource, resource.write),
+                new IoCapability(resource, resource.seek),
+                new IoCapability(resource, resource.readAt),
+                new IoCapability(resource, resource.writeAt),
+                new IoCapability(resource, resource.close),
+                new IoCapability(resource, resource.sync),
+                new IoCapability(resource, resource.mutate)
             }
         ));
     }
@@ -589,13 +679,16 @@
             return ioProviderInvalidInput("duplex", "invalid provider resource");
         }
         IoResource resource = (IoResource) resourceValue;
+        if (resource.owner.scope.ioProviderScopeClosed) {
+            return ioProviderInvalidResource("duplex", "provider owner scope is closed");
+        }
         if (!resource.family.equals("Duplex")) {
             return ioProviderUnsupported("duplex", "resource does not provide a Duplex view");
         }
         return ok(record(
-            "reader", new IoCapability(resource.owner, resource.slot, resource.read),
-            "writer", new IoCapability(resource.owner, resource.slot, resource.write),
-            "closer", new IoCapability(resource.owner, resource.slot, resource.close)
+            "reader", new IoCapability(resource, resource.read),
+            "writer", new IoCapability(resource, resource.write),
+            "closer", new IoCapability(resource, resource.close)
         ));
     }
 
@@ -604,7 +697,9 @@
             return ioProviderInvalidInput("slot", "invalid provider identity");
         }
         IoResource value = (IoResource) resource;
-        return value.owner == owner && ioProviderOwnerIsAccessible(value.owner)
+        return value.owner == owner
+            && (ioProviderOrdinaryAccess(value.owner)
+                || ioProviderReleaseAccess(value))
             ? ok(Long.valueOf(value.slot))
             : ioProviderInvalidResource("slot", "resource belongs to another provider owner");
     }
@@ -656,7 +751,9 @@
             return ioProviderInvalidInput(operation, "invalid provider capability identity");
         }
         IoCapability value = (IoCapability) capability;
-        return value.owner == owner && ioProviderOwnerIsAccessible(value.owner)
+        return value.owner == owner
+            && (ioProviderOrdinaryAccess(value.owner)
+                || ioProviderReleaseAccess(value.resource))
             ? ok(Long.valueOf(value.slot))
             : ioProviderInvalidResource(operation, "capability belongs to another provider owner");
     }
@@ -704,6 +801,14 @@
         return null;
     }
 
+    private static boolean ioProviderCanPublishResource(String effect, String operation) {
+        return (effect.equals(FS_READ_EFFECT) && operation.equals("open_read"))
+            || (effect.equals(FS_MUTATE_EFFECT)
+                && (operation.equals("open_write")
+                    || operation.equals("open_read_write")
+                    || operation.equals("open_append")));
+    }
+
     private static Object ioProviderDispatch(
         Object effectValue,
         Object operationValue,
@@ -721,16 +826,25 @@
             : operand instanceof IoFilesystem
                 ? ((IoFilesystem) operand).owner
                 : ((IoMutableFilesystem) operand).owner;
+        if (owner.scope.ioProviderScopeClosed) {
+            return ioProviderForeignFailure(effect, operation);
+        }
         Object[] args = new Object[trailing.length + 1];
         args[0] = operand;
         System.arraycopy(trailing, 0, args, 1, trailing.length);
         IoOwner previous = IO_PROVIDER_INVOCATION_OWNER.get();
+        IoOwner previousAdmission = IO_PROVIDER_ADMISSION_OWNER.get();
+        boolean admitsPublication = ioProviderCanPublishResource(effect, operation);
         IO_PROVIDER_INVOCATION_OWNER.set(owner);
+        if (admitsPublication) IO_PROVIDER_ADMISSION_OWNER.set(owner);
+        else IO_PROVIDER_ADMISSION_OWNER.remove();
         try {
             return invokeHandler(handler, operation, args);
         } finally {
             if (previous == null) IO_PROVIDER_INVOCATION_OWNER.remove();
             else IO_PROVIDER_INVOCATION_OWNER.set(previous);
+            if (previousAdmission == null) IO_PROVIDER_ADMISSION_OWNER.remove();
+            else IO_PROVIDER_ADMISSION_OWNER.set(previousAdmission);
         }
     }
 
@@ -794,9 +908,24 @@
                     ? ((IoMutableFilesystem) args[0]).owner
                     : null;
         HandlerFrame lexicalScope = findHandler(IO_PROVIDER_SCOPE_EFFECT);
-        return captured != null && (captured != selected || owner == null || owner.scope != lexicalScope)
+        return captured != null && (owner == null || owner.scope.ioProviderScopeClosed
+            || captured != selected || owner.scope != lexicalScope)
             ? ioProviderForeignFailure(effect, operation)
             : null;
+    }
+
+    private static IoOwner ioProviderLexicalAdmissionOwner(
+        String effect,
+        String operation,
+        Object[] args,
+        HandlerFrame selected
+    ) {
+        if (args.length == 0 || !ioProviderCanPublishResource(effect, operation)) return null;
+        HandlerFrame captured = ioProviderCapturedHandler(effect, args[0]);
+        if (captured == null || captured != selected) return null;
+        if (args[0] instanceof IoFilesystem) return ((IoFilesystem) args[0]).owner;
+        if (args[0] instanceof IoMutableFilesystem) return ((IoMutableFilesystem) args[0]).owner;
+        return null;
     }
 
     public static Object ioCopy(Object reader, Object writer, Object chunkSize) {

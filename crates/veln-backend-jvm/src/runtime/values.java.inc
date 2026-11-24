@@ -540,6 +540,10 @@
         new ThreadLocal<HandlerFrame>();
     private static final ThreadLocal<IoOwner> IO_PROVIDER_INVOCATION_OWNER =
         new ThreadLocal<IoOwner>();
+    private static final ThreadLocal<IoOwner> IO_PROVIDER_ADMISSION_OWNER =
+        new ThreadLocal<IoOwner>();
+    private static final ThreadLocal<IoResource> IO_PROVIDER_RELEASE_RESOURCE =
+        new ThreadLocal<IoResource>();
 
     private static final class NetworkResourceIdentity {
         private final HandlerFrame owner;
@@ -574,6 +578,8 @@
         private long networkResourceReleaseWork;
         private volatile boolean ioProviderScopeClosed;
         private IoOwner ioOwner;
+        private final java.util.List<Object> ioProviderReleaseFailures =
+            new java.util.ArrayList<Object>();
         private final java.util.Map<NetworkResourceIdentity, Object> networkResources =
             new java.util.LinkedHashMap<NetworkResourceIdentity, Object>();
 
@@ -596,9 +602,16 @@
     public static Object popHandler() {
         java.util.List<HandlerFrame> stack = HANDLERS.get();
         HandlerFrame frame = stack.get(stack.size() - 1);
-        closeIoProviderScope(frame);
-        stack.remove(stack.size() - 1);
+        TaskCancellationFailure cancellation = null;
+        try {
+            closeIoProviderScope(frame);
+        } catch (TaskCancellationFailure cancelled) {
+            cancellation = cancelled;
+        } finally {
+            stack.remove(stack.size() - 1);
+        }
         cleanupNetworkSystem(frame);
+        if (cancellation != null) throw cancellation;
         return UNIT;
     }
 
@@ -639,7 +652,16 @@
         if (providerFailure != null) return providerFailure;
         Object ownershipFailure = netSystemDispatchOwnershipFailure(effect, operation, args, frame);
         if (ownershipFailure != null) return ownershipFailure;
-        return invokeHandler(frame, operation, args);
+        IoOwner admittedOwner = ioProviderLexicalAdmissionOwner(effect, operation, args, frame);
+        IoOwner previous = IO_PROVIDER_ADMISSION_OWNER.get();
+        if (admittedOwner == null) IO_PROVIDER_ADMISSION_OWNER.remove();
+        else IO_PROVIDER_ADMISSION_OWNER.set(admittedOwner);
+        try {
+            return invokeHandler(frame, operation, args);
+        } finally {
+            if (previous == null) IO_PROVIDER_ADMISSION_OWNER.remove();
+            else IO_PROVIDER_ADMISSION_OWNER.set(previous);
+        }
     }
     public static Result ok(Object value) {
         return Result.ok(value);
