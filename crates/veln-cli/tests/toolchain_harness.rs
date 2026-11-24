@@ -92,6 +92,8 @@ mod manifest_strings;
 mod nested_json_assertions;
 #[path = "toolchain_harness/output_assertions.rs"]
 mod output_assertions;
+#[path = "toolchain_harness/package_documentation_resources.rs"]
+mod package_documentation_resources;
 #[path = "toolchain_harness/policy_guards.rs"]
 mod policy_guards;
 #[path = "toolchain_harness/project_fixture.rs"]

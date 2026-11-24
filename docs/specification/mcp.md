@@ -1233,9 +1233,13 @@ tool projections, search, and unknown or stale snapshot failures. A catalog
 content change rotates the checked snapshot URI in that transcript while
 preserving the MCP list, read, and documentation-tool contracts described
 above.
-The checked
-[`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
-transcript covers discovery and exact reads for the embedded package catalog,
+The interactive CLI test in
+[`package_documentation_resources.rs`](../../crates/veln-cli/tests/toolchain_harness/package_documentation_resources.rs)
+follows the listed index and exact module/declaration links without pinning
+snapshot digests or resource-list positions. Together with the
+`tools/veln-repo-mcp-standard-library-docs/src/tests/publication_content.rs`
+bundle publication-content tests,
+it covers discovery and exact reads for the embedded package catalog,
 including the public `net::system()`, `observe::noop()`, and
 `observe::recording(Recording)` handler declaration resources, the production
 policy and health types, the production constructor and health snapshot

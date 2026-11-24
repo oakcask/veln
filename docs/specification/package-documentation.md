@@ -369,9 +369,13 @@ adjacent input sizes for public dependency chains, independent invalid values,
 invalid-casing values, and
 callable/module-value collisions to guard linear semantic classification
 without a wall-time threshold.
-The checked
-[`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
-transcript covers the public `net::system()` handler resource, its canonical
+The interactive CLI test in
+[`package_documentation_resources.rs`](../../crates/veln-cli/tests/toolchain_harness/package_documentation_resources.rs)
+follows the listed index and exact module/declaration links without pinning
+snapshot digests or resource-list positions. Together with the
+`tools/veln-repo-mcp-standard-library-docs/src/tests/publication_content.rs`
+bundle publication-content tests,
+it covers the public `net::system()` handler resource, its canonical
 signature and visible examples, the public `observe::noop()` and
 `observe::recording(Recording)` handler resources, the production policy and
 health types, the production constructor and health snapshot functions, the
