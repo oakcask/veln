@@ -585,3 +585,26 @@ fn path_classification_does_not_recanonicalize_nested_function_annotations() {
     assert_eq!(work[0], work[1], "{work:?}");
     assert_eq!(work[1], work[2], "{work:?}");
 }
+
+#[test]
+fn path_classification_preserves_callable_shape_without_typechecking_facts() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn collect(prefix: String, values: ...Int) -> List<Int> effects [stdio]\n",
+            "  []\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let environment = TypeEnvironment::for_path_classification(&module);
+    let collect = environment.function("collect").unwrap();
+
+    assert_eq!(collect.params, vec![Type::Unknown]);
+    assert_eq!(collect.variadic, Some(Type::Unknown));
+    assert_eq!(collect.return_type, Type::Unknown);
+    assert!(collect.effects.is_empty());
+}

@@ -4,6 +4,7 @@ use veln_ast::{FunctionKind, SurfaceModule};
 
 use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::normal_use_decls;
+use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_or_unknown;
 use crate::types::private_inference::function_signature_params;
 use crate::types::signatures::{CompanionAccessTarget, EffectSignature, FunctionSignature};
@@ -63,22 +64,74 @@ struct OrdinarySignatureContext<'a> {
 }
 
 impl OrdinarySignatureContext<'_> {
-    fn canonicalize(
-        &self,
-        ty: crate::semantic_model::Type,
-        current_module: Option<&str>,
-        current_package: Option<&str>,
-    ) -> crate::semantic_model::Type {
+    fn signature_shape(&self, function: &Function) -> OrdinarySignatureShape {
+        match self.purpose {
+            FunctionSignaturePurpose::TypeChecking => self.typechecking_shape(function),
+            FunctionSignaturePurpose::PathClassification => path_classification_shape(function),
+        }
+    }
+
+    fn typechecking_shape(&self, function: &Function) -> OrdinarySignatureShape {
+        let (params, variadic) = function_signature_params(function);
+        OrdinarySignatureShape {
+            params: params
+                .into_iter()
+                .map(|ty| self.canonicalize_for_function(ty, function))
+                .collect(),
+            variadic: variadic.map(|ty| self.canonicalize_for_function(ty, function)),
+            return_type: self.canonicalize_for_function(
+                parse_type_or_unknown(function.return_type.as_deref()),
+                function,
+            ),
+            effects: canonical_declared_effects(
+                function.effects.clone().unwrap_or_default(),
+                self.uses,
+                self.quarantined_uses,
+                function.module_name.as_deref(),
+                function.package_name.as_deref(),
+                self.effects,
+                self.companion_effect_access_targets,
+            ),
+        }
+    }
+
+    fn canonicalize_for_function(&self, ty: Type, function: &Function) -> Type {
         canonicalize_type_effects_in_owner(
             ty,
             self.uses,
             self.quarantined_uses,
-            current_module,
-            current_package,
+            function.module_name.as_deref(),
+            function.package_name.as_deref(),
             self.effects,
             self.adts,
             self.companion_effect_access_targets,
         )
+    }
+}
+
+struct OrdinarySignatureShape {
+    params: Vec<Type>,
+    variadic: Option<Type>,
+    return_type: Type,
+    effects: Vec<String>,
+}
+
+fn path_classification_shape(function: &Function) -> OrdinarySignatureShape {
+    // Path roles need callable identity and arity, not annotation types.
+    OrdinarySignatureShape {
+        params: function
+            .params
+            .iter()
+            .filter(|param| !param.is_variadic)
+            .map(|_| Type::Unknown)
+            .collect(),
+        variadic: function
+            .params
+            .iter()
+            .any(|param| param.is_variadic)
+            .then_some(Type::Unknown),
+        return_type: Type::Unknown,
+        effects: Vec::new(),
     }
 }
 
@@ -91,56 +144,7 @@ fn ordinary_function_signature(
         return None;
     }
     let current_module = function.module_name.as_deref();
-    let (params, variadic, return_type, effects) = if matches!(
-        context.purpose,
-        FunctionSignaturePurpose::PathClassification
-    ) {
-        // Path roles need callable identity and arity, not annotation types.
-        let params = function
-            .params
-            .iter()
-            .filter(|param| !param.is_variadic)
-            .map(|_| crate::semantic_model::Type::Unknown)
-            .collect::<Vec<_>>();
-        let variadic = function
-            .params
-            .iter()
-            .any(|param| param.is_variadic)
-            .then_some(crate::semantic_model::Type::Unknown);
-        (
-            params,
-            variadic,
-            crate::semantic_model::Type::Unknown,
-            Vec::new(),
-        )
-    } else {
-        let (params, variadic) = function_signature_params(function);
-        (
-            params
-                .into_iter()
-                .map(|ty| {
-                    context.canonicalize(ty, current_module, function.package_name.as_deref())
-                })
-                .collect(),
-            variadic.map(|ty| {
-                context.canonicalize(ty, current_module, function.package_name.as_deref())
-            }),
-            context.canonicalize(
-                parse_type_or_unknown(function.return_type.as_deref()),
-                current_module,
-                function.package_name.as_deref(),
-            ),
-            canonical_declared_effects(
-                function.effects.clone().unwrap_or_default(),
-                context.uses,
-                context.quarantined_uses,
-                current_module,
-                function.package_name.as_deref(),
-                context.effects,
-                context.companion_effect_access_targets,
-            ),
-        )
-    };
+    let shape = context.signature_shape(function);
     Some(FunctionSignature {
         target_name: crate::standard_symbols::function_link_name(
             current_module,
@@ -152,10 +156,10 @@ fn ordinary_function_signature(
         module_name: function.module_name.clone(),
         package_name: function.package_name.clone(),
         visibility: function.visibility,
-        params: params.into(),
-        variadic,
-        return_type,
-        effects,
+        params: shape.params.into(),
+        variadic: shape.variadic,
+        return_type: shape.return_type,
+        effects: shape.effects,
         callsite: function.callsite.is_some(),
         node_id: function.node_id,
         span: function.span.clone(),
