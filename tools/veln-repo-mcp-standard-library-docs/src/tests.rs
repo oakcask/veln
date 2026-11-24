@@ -271,3 +271,5 @@ fn stale_baselines_are_reported_without_accepting_one_matching_dimension() {
     assert!(mismatch.artifact_matches);
     assert!(!mismatch.digest_matches);
 }
+
+mod publication_content;

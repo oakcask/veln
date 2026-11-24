@@ -233,6 +233,15 @@ integer `id` is `<response-id>`. The fixture fails if that response is absent or
 does not contain a string cursor. Use this directive only in MCP streams where
 every input line produces one response.
 
+The interactive CLI test in
+[`package_documentation_resources.rs`](../../crates/veln-cli/tests/toolchain_harness/package_documentation_resources.rs)
+checks embedded standard-library documentation discovery and exact reads through
+the running CLI. It selects the index by name and module/declaration links by
+label, checks link revision identity and the unlisted-resource boundary, and
+rejects a changed documentation digest. Responses and EOF shutdown have bounded
+waits; assertion failures kill and reap the child. Detailed public signatures
+and documentation content are checked in the generated-bundle package tests.
+
 Use repeatable `[[mcp_assert]]` sections to check decoded newline-delimited
 JSON-RPC responses from `veln mcp` stdout. Each nonempty stdout line must
 decode as one JSON object. Malformed JSON and non-object lines fail decoded MCP
