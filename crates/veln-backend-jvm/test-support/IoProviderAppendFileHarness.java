@@ -28,6 +28,16 @@ public final class IoProviderAppendFileHarness {
         VelnRuntime.pushHandler(effect, new Object[0], new Object[0], new Object[0]);
     }
 
+    private static void pushClose() {
+        VelnRuntime.pushHandler(
+            "std::io::Close",
+            new Object[] { "close" },
+            new Object[] { (VelnRuntime.Fn) (Object... supplied) ->
+                VelnRuntime.adt("io::CloseOutcome::Closed", new Object[0]) },
+            new Object[0]
+        );
+    }
+
     @SuppressWarnings("unchecked")
     private static java.util.List<Object> handlers() throws Exception {
         return (java.util.List<Object>) ((ThreadLocal<?>) HANDLERS.get(null)).get();
@@ -63,7 +73,7 @@ public final class IoProviderAppendFileHarness {
 
         push("std::io::Write");
         Object write = handlers().get(1);
-        push("std::io::Close");
+        pushClose();
         Object close = handlers().get(2);
         push("std::io::Sync");
         Object sync = handlers().get(3);
