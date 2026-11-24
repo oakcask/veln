@@ -223,6 +223,18 @@ pub handler mutable_filesystem(owner: io_provider::Owner, namespace_slot: Int, w
 	truncate(capability, size) => fs::MutationOutcome::MutationFailed(io::Commit::No, unsupported("truncate"))
 end
 
+pub handler namespace_registration_probe(owner: io_provider::Owner, attempted_slot: Int, cell: io_provider::State<FakeState>) for fs::Read effects [concurrency]
+	open_read(filesystem, path) => match io_provider::filesystem(owner, attempted_slot)
+		Err(error) => Err(error)
+		Ok(_) => begin
+			let _ = io_provider::update(cell, "unexpected_namespace_registration", note_open)
+			Err(unsupported("open_read"))
+		end
+	end
+	metadata(filesystem, path, follow) => Err(unsupported("metadata"))
+	entries(filesystem, path) => Err(unsupported("entries"))
+end
+
 fn shared_read_file(provider: SharedProvider) -> Result<fs::ReadFile, io::Error> effects [concurrency]
 	match provider
 		SharedProvider(owner, _, resource_slot, _) => match io_provider::resource(owner, resource_slot, io_provider::ViewFamily::ReadFile)

@@ -1273,6 +1273,60 @@ test provider_bound_dispatch_preserves_nested_identity_and_cross_provider_bytes(
 	handle f2_outer_provider_observations() with io_provider::scope()
 end
 
+fn f2_open_is_invalid_input(result: Result<fs::ReadFile, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error(_, io::ErrorKind::InvalidInput, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn f2_non_nearest_namespace_rejection(filesystem: fs::Filesystem, cell: io_provider::State<filesystem_provider_test_support_test::FakeState>) -> Result<(), String> effects [io_provider::Scope, fs::Read, concurrency]
+	let _ = io_provider::owner()
+	let before = filesystem_provider_test_support_test::snapshot(cell)
+	let rejected = fs::open_read(filesystem, path::root())
+	let after = filesystem_provider_test_support_test::snapshot(cell)
+	if not f2_open_is_invalid_input(rejected)
+		Err("captured dispatch registered a namespace for a non-nearest owner")
+	else if not f2_snapshot_matches(before, "authority", "", 0, "") or not f2_snapshot_matches(after, "authority", "", 0, "")
+		Err("non-nearest namespace rejection changed fake-provider state")
+	else
+		Ok(())
+	end
+end
+
+fn f2_namespace_registration_authority_observations() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	match byte_chunk_from_hex("617574686f72697479")
+		Err(_) => Err("could not construct registration-authority bytes")
+		Ok(bytes) => begin
+			let cell = filesystem_provider_test_support_test::state(bytes)
+			handle begin
+				match io_provider::filesystem(owner, 81)
+					Err(_) => Err("could not allocate registration-authority filesystem")
+					Ok(filesystem) => match handle f2_non_nearest_namespace_rejection(filesystem, cell) with io_provider::scope()
+						Err(message) => Err(message)
+						Ok(()) => match io_provider::filesystem(owner, 82)
+							Err(_) => Err("rejected non-nearest namespace attempt consumed its slot")
+							Ok(_) => begin
+								let final_snapshot = filesystem_provider_test_support_test::snapshot(cell)
+								if f2_snapshot_matches(final_snapshot, "authority", "", 0, "")
+									Ok(())
+								else
+									Err("registration-authority checks changed fake-provider state")
+								end
+							end
+						end
+					end
+				end
+			end with filesystem_provider_test_support_test::namespace_registration_probe(owner, 82, cell)
+		end
+	end
+end
+
+test captured_dispatch_cannot_register_namespace_for_non_nearest_owner() -> Result<(), String> effects [concurrency]
+	handle f2_namespace_registration_authority_observations() with io_provider::scope()
+end
+
 fn f2_read_matches(result: io::ReadOutcome, expected: String) -> Bool
 	match result
 		io::ReadOutcome::Data(bytes) => match byte_chunk_to_visible_ascii_string(bytes)

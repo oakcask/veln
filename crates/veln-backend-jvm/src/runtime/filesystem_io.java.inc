@@ -299,8 +299,12 @@
         return err(ioProviderError(operation, "InvalidResource", message));
     }
 
-    private static boolean ioProviderOwnerIsCurrent(IoOwner owner) {
-        return findHandler(IO_PROVIDER_SCOPE_EFFECT) == owner.scope
+    private static boolean ioProviderOwnerIsLexicallyCurrent(IoOwner owner) {
+        return findHandler(IO_PROVIDER_SCOPE_EFFECT) == owner.scope;
+    }
+
+    private static boolean ioProviderOwnerIsAccessible(IoOwner owner) {
+        return ioProviderOwnerIsLexicallyCurrent(owner)
             || IO_PROVIDER_INVOCATION_OWNER.get() == owner;
     }
 
@@ -344,7 +348,7 @@
             return ioProviderInvalidInput(operation, "provider slots must be nonnegative");
         }
         IoOwner owner = (IoOwner) ownerValue;
-        if (!ioProviderOwnerIsCurrent(owner)) {
+        if (!ioProviderOwnerIsLexicallyCurrent(owner)) {
             return ioProviderInvalidInput(operation, "provider owner is not active in this scope");
         }
         synchronized (owner.resources) {
@@ -397,7 +401,7 @@
             return ioProviderInvalidInput("resource", "provider slots must be nonnegative");
         }
         IoOwner owner = (IoOwner) ownerValue;
-        if (!ioProviderOwnerIsCurrent(owner)) {
+        if (!ioProviderOwnerIsAccessible(owner)) {
             return ioProviderInvalidInput("resource", "provider owner is not active in this scope");
         }
         boolean readFile = isAdt(familyValue, "ViewFamily::ReadFile");
@@ -410,6 +414,9 @@
         }
 
         synchronized (owner.resources) {
+            if (owner.scope.ioProviderScopeClosed) {
+                return ioProviderInvalidInput("resource", "provider owner scope is closed");
+            }
             if (owner.resources.containsKey(Long.valueOf(slot))) {
                 return ioProviderInvalidInput("resource", "provider slot is already registered");
             }
@@ -597,7 +604,7 @@
             return ioProviderInvalidInput("slot", "invalid provider identity");
         }
         IoResource value = (IoResource) resource;
-        return value.owner == owner && ioProviderOwnerIsCurrent(value.owner)
+        return value.owner == owner && ioProviderOwnerIsAccessible(value.owner)
             ? ok(Long.valueOf(value.slot))
             : ioProviderInvalidResource("slot", "resource belongs to another provider owner");
     }
@@ -612,7 +619,7 @@
             return ioProviderInvalidInput(operation, "invalid provider owner");
         }
         IoOwner owner = (IoOwner) ownerValue;
-        if (!ioProviderOwnerIsCurrent(owner)) {
+        if (!ioProviderOwnerIsAccessible(owner)) {
             return ioProviderInvalidResource(operation, "provider owner is not active in this scope");
         }
         if (owner.scope.ioProviderScopeClosed) {
@@ -649,7 +656,7 @@
             return ioProviderInvalidInput(operation, "invalid provider capability identity");
         }
         IoCapability value = (IoCapability) capability;
-        return value.owner == owner && ioProviderOwnerIsCurrent(value.owner)
+        return value.owner == owner && ioProviderOwnerIsAccessible(value.owner)
             ? ok(Long.valueOf(value.slot))
             : ioProviderInvalidResource(operation, "capability belongs to another provider owner");
     }

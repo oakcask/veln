@@ -62,6 +62,17 @@ public final class IoProviderDispatchHarness {
         return !result.isOk() && result.toString().contains("InvalidResource");
     }
 
+    private static boolean isInvalidInput(Object value) {
+        VelnRuntime.Result result = result(value);
+        return !result.isOk() && result.toString().contains("InvalidInput");
+    }
+
+    private static int resourceCount(Object owner) throws Exception {
+        java.lang.reflect.Field resources = owner.getClass().getDeclaredField("resources");
+        resources.setAccessible(true);
+        return ((java.util.Map<?, ?>) resources.get(owner)).size();
+    }
+
     public static void main(String[] args) throws Exception {
         java.util.concurrent.atomic.AtomicInteger namespaceCalls = new java.util.concurrent.atomic.AtomicInteger();
         java.util.concurrent.atomic.AtomicInteger byteCalls = new java.util.concurrent.atomic.AtomicInteger();
@@ -307,6 +318,117 @@ public final class IoProviderDispatchHarness {
         VelnRuntime.popHandler();
         VelnRuntime.popHandler();
         VelnRuntime.popHandler();
+        VelnRuntime.popHandler();
+        VelnRuntime.popHandler();
+
+        java.util.concurrent.atomic.AtomicReference<Object> registrationOwner =
+            new java.util.concurrent.atomic.AtomicReference<Object>();
+        java.util.concurrent.atomic.AtomicInteger rejectedRegistrationState =
+            new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger registrationFallbackCalls =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+        push("std::fs::Read", "open_read", (Object... supplied) -> {
+            Object attempted = VelnRuntime.ioProviderFilesystem(
+                registrationOwner.get(),
+                Long.valueOf(32L)
+            );
+            if (result(attempted).isOk()) rejectedRegistrationState.incrementAndGet();
+            return attempted;
+        });
+        pushEmpty("std::io_provider::Scope");
+        registrationOwner.set(owner());
+        VelnRuntime.Result registrationFilesystem = result(
+            VelnRuntime.ioProviderFilesystem(registrationOwner.get(), Long.valueOf(31L))
+        );
+        require(registrationFilesystem.isOk(), "registration-authority filesystem allocation failed");
+        int registrationResourcesBefore = resourceCount(registrationOwner.get());
+
+        pushEmpty("std::io_provider::Scope");
+        Object nearestOwner = owner();
+        require(nearestOwner != registrationOwner.get(), "nested provider did not create an independent owner");
+        push("std::fs::Read", "open_read", (Object... supplied) -> {
+            registrationFallbackCalls.incrementAndGet();
+            return "registration-fallback";
+        });
+        Object nonNearestRegistration = VelnRuntime.ioProviderDispatch2(
+            "std::fs::Read",
+            "open_read",
+            registrationFilesystem.value(),
+            "path"
+        );
+        require(
+            isInvalidInput(nonNearestRegistration),
+            "captured handler registered a namespace for a non-nearest owner"
+        );
+        require(
+            resourceCount(registrationOwner.get()) == registrationResourcesBefore
+                && rejectedRegistrationState.get() == 0,
+            "non-nearest namespace rejection changed owner slot or provider state"
+        );
+        require(
+            registrationFallbackCalls.get() == 0,
+            "non-nearest namespace rejection used the active fallback handler"
+        );
+        VelnRuntime.popHandler();
+        VelnRuntime.popHandler();
+
+        VelnRuntime.Result registrationRetry = result(
+            VelnRuntime.ioProviderFilesystem(registrationOwner.get(), Long.valueOf(32L))
+        );
+        require(registrationRetry.isOk(), "non-nearest namespace rejection consumed its slot");
+        VelnRuntime.popHandler();
+        VelnRuntime.popHandler();
+
+        java.util.concurrent.atomic.AtomicReference<Object> closedOwner =
+            new java.util.concurrent.atomic.AtomicReference<Object>();
+        java.util.concurrent.atomic.AtomicInteger closedPublicationState =
+            new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger closedFallbackCalls =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+        push("std::fs::Read", "open_read", (Object... supplied) -> {
+            Object attempted = VelnRuntime.ioProviderResource(
+                closedOwner.get(),
+                Long.valueOf(42L),
+                family
+            );
+            if (result(attempted).isOk()) closedPublicationState.incrementAndGet();
+            return attempted;
+        });
+        pushEmpty("std::io_provider::Scope");
+        closedOwner.set(owner());
+        VelnRuntime.Result closedFilesystem = result(
+            VelnRuntime.ioProviderFilesystem(closedOwner.get(), Long.valueOf(41L))
+        );
+        require(closedFilesystem.isOk(), "closed-owner dispatch filesystem allocation failed");
+        int closedResourcesBefore = resourceCount(closedOwner.get());
+        VelnRuntime.popHandler();
+
+        push("std::fs::Read", "open_read", (Object... supplied) -> {
+            closedFallbackCalls.incrementAndGet();
+            return "closed-owner-fallback";
+        });
+        Object closedPublication = VelnRuntime.ioProviderDispatch2(
+            "std::fs::Read",
+            "open_read",
+            closedFilesystem.value(),
+            "path"
+        );
+        require(
+            isInvalidInput(closedPublication)
+                && closedPublication.toString().contains("scope is closed"),
+            "closed owner did not reject resource publication before handler resolution"
+        );
+        require(
+            resourceCount(closedOwner.get()) == closedResourcesBefore
+                && closedPublicationState.get() == 0,
+            "closed-owner resource rejection changed owner slot or provider state"
+        );
+        require(
+            closedFallbackCalls.get() == 0,
+            "closed-owner resource rejection used the active fallback handler"
+        );
         VelnRuntime.popHandler();
         VelnRuntime.popHandler();
     }
