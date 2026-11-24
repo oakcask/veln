@@ -11,10 +11,10 @@ handlers. The same byte-processing helpers should work with files, network
 streams, and memory.
 
 The [design decisions](#design-decisions) resolve the initial scope. The static
-source names and capability boundaries plus bounded five-family registration,
-projection, compatibility, and atomic provider state are implemented for
-feasibility. Resource operation dispatch and the remaining acceptance evidence
-are planned.
+source names and capability boundaries, bounded namespace-token allocation and
+projection, five-family registration, projection and compatibility, and atomic
+provider state are implemented for feasibility. Namespace and resource
+operation dispatch and the remaining acceptance evidence are planned.
 Implementation selection remains blocked on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
@@ -26,9 +26,11 @@ reading, text writing, existence checks, and directory listing. The current
 [static filesystem and byte IO prototype](../specification/standard-library-filesystem-io.md)
 also declares public opaque file views, seek capabilities, and nominal
 filesystem handlers. Its bounded runtime can register and project all five
-resource families while retaining their owners and slots. It also provides
-opaque atomic provider state with cooperative cancellation. It provides no
-resource operation dispatch or host filesystem execution. This
+resource families while retaining their owners and slots. Its namespace
+factories capture read and mutation handlers in opaque filesystem tokens and
+can project a mutable token to read-only authority. It also provides opaque
+atomic provider state with cooperative cancellation. It provides no namespace
+or resource operation dispatch or host filesystem execution. This
 proposal
 replaces the minimal production boundary; retaining its source API is not
 required.
@@ -254,9 +256,10 @@ per-open lifecycle, synchronized state, and scripted failures.
 
 ## Acceptance Model
 
-Except for the checked static source and capability boundary, the bounded
-five-family registration, projection, and compatibility slice, and atomic
-provider state, the evidence below is planned.
+Except for the checked static source and capability boundary, bounded
+namespace-token allocation and projection, the five-family registration,
+projection, and compatibility slice, and atomic provider state, the evidence
+below is planned.
 Expected byte sequences and state transitions come from the contracts and
 decision tables in this proposal, not from copying the implementation's
 output. Fake tests do not establish real host behavior.
@@ -281,10 +284,11 @@ No broad stress or performance claim is part of this proposal.
 
 These decisions replace the former open questions. The adapter and capability
 choices are Veln design inferences, not guarantees supplied by the comparative
-sources. The static API contract and bounded five-family runtime slice are
-implemented, as is the atomic state prerequisite, where the table links to the current
-specification. The remaining runtime decisions are proposed contracts, not
-evidence that their runtime support exists.
+sources. The static API contract, bounded namespace-token allocation and
+projection, bounded five-family runtime slice, and atomic state prerequisite
+are implemented where the table links to the current specification. The
+remaining runtime decisions are proposed contracts, not evidence that their
+runtime support exists.
 
 | Concern | Selected initial design | Acceptance obligation |
 | --- | --- | --- |
@@ -329,27 +333,25 @@ portion of the adapter extension is implemented separately. Existing
 general Veln-only provider allocation API. Do not reuse their network bridge or
 invent an unimplemented trait or closure representation.
 
-The remaining `io_provider` work requires these runtime observations. The
-current five-family slice covers only the registration and projection parts
-identified in the table:
+The bounded adapter slice already creates owner-scoped read-only and mutable
+filesystem tokens, captures their namespace handlers, registers all five byte
+resource families, projects their capabilities, and validates their private
+slots. The
+[current filesystem and byte IO specification](../specification/standard-library-filesystem-io.md#runtime-prototypes)
+owns those allocation, failure, identity, and projection rules.
 
-| Entry point | Required observation |
+The remaining `io_provider` work requires these runtime observations:
+
+| Boundary | Required observation |
 | --- | --- |
-| `Owner` and `Resource` | Preserve identity across task freezing. Only the allocation functions can produce them. |
-| `owner` and `scope` | Return the owner of the nearest installed scope handler. Each handler application creates a fresh owner and releases it at handler exit. Ordinary helper returns do not close the owner. No implicit process-global scope exists. |
-| `filesystem` and `mutable_filesystem` | Publish a filesystem bound to the provider's active namespace handlers. Only the mutable factory grants mutation rights; the read-only factory needs no mutation handler. |
-| `resource` | Register one resource with exactly the operations of its declared view family and capture those active handlers, including close. Do not open a host file or socket. Use the nonnegative private slot to address provider-owned Veln state. |
-| File-view and duplex projections | Return the corresponding declared view for a compatible family. Reject incompatible families and missing handlers with `Unsupported`; do not fall back to the host. |
-| `slot` | Return the private slot only for the matching owner while usable or while its registered close handler is releasing it. Reject wrong-owner access with `InvalidResource`. Integer equality is never a public resource identity test. |
+| Namespace dispatch | Invoke the `fs::Read` or `fs::Mutate` handler captured by the filesystem token. Nested handler shadowing must not redirect an existing token. |
+| Byte-resource dispatch | Invoke exactly the operation handler retained by the projected capability. Pass the public restricted view, not the underlying `Resource`, and do not expose a view-to-resource upgrade. |
+| Byte-resource slot access | Make `io_provider::slot` and every capability slot accessor return the private slot only for the matching owner while the resource is usable or while its registered close handler is releasing it. Wrong-owner access returns `InvalidResource`. |
+| Owner and resource lifecycle | Preserve owner and resource identity across task freezing. Reject operations and late publication after owner closure, release retained resources through their captured close handlers, and preserve cleanup failures. |
 
-Registration must require every handler in the selected `ViewFamily`, grant no
-other operations, and reject missing operations before publication. The
-filesystem and mutable-filesystem slot accessors must apply the same owner
-checks as the resource slot accessor. Namespace tokens cannot be used as byte
-resource tokens. The capability slot accessors must accept only their matching
-nominal view and apply the same owner check. Operation handlers receive these
-views, not the underlying `Resource`; no public view-to-resource conversion may
-upgrade a restricted capability.
+Dispatch must not fall back to a host filesystem or network operation when a
+captured handler is missing or unusable. Integer equality is never a public
+filesystem-token or resource identity test.
 
 The same runtime extension now supplies the opaque `State<T>` API. Its generic
 signatures, serialized updates, task identity, failure preservation,
@@ -361,21 +363,21 @@ a second state boundary. Pure callbacks keep fake filesystem decisions in Veln
 and cannot perform nested provider IO while holding the cell. Allocation and
 updates expose only `concurrency`, not host `fs` or `net` effects.
 
-Public filesystem and byte facades invoke the resource's captured operation
-handler with its original provider context. They retain the declared nominal
-effect in static checking. Runtime routing is restricted to these standard
-resource facades; ordinary `perform` keeps lexical dispatch. Calling another
-provider's low-level operation with a foreign token fails before changing
-provider state. Nested handlers affect newly created resources, while calls on
-existing resources retain their creator. Capture does not retain a usable
-resource after its owner closes.
+The planned public filesystem and byte facades must invoke the resource's
+captured operation handler with its original provider context. They must retain
+the declared nominal effect in static checking. Runtime routing must remain
+restricted to these standard resource facades; ordinary `perform` keeps
+lexical dispatch. Calling another provider's low-level operation with a
+foreign token must fail before changing provider state. Nested handlers must
+affect only newly created resources, while calls on existing resources must
+retain their creator. Capturing a handler must not make dispatched operations
+usable after the owner closes. This lifecycle requirement does not limit the
+implemented pure `fs::read_only` projection described by the current
+specification.
 
-A provider can create distinct filesystem slots under one owner. Resource
-slots are unique within that owner's state; runtime allocation does not expose
-an integer-to-handle lookup or let another owner forge its tokens. Publication
-and the owner's closing transition share an atomic admission boundary. A late
-host open is closed before returning `Closed`; cleanup failure is retained as
-related context and the owner retains its release obligation.
+Publication and the owner's closing transition share an atomic admission
+boundary. A late host open is closed before returning `Closed`; cleanup failure
+is retained as related context and the owner retains its release obligation.
 
 The Veln fake allocates a fresh state cell, installs an owner scope, and
 installs its namespace and byte handlers with that cell and owner as context.
@@ -517,10 +519,11 @@ invalidation belong to a separate buffering proposal before such helpers exist.
 
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) owns F2–F5, their
 prototype scope, evidence, and completion conditions. It is independently
-selectable from Ready. The implemented static source surface and the planned
-provider extension, outcomes, and transition tables here remain the design
-contract exercised by that work; implementing the complete production
-filesystem runtime is not its prerequisite.
+selectable from Ready. The implemented static source surface and provider
+allocation slice, together with the planned provider dispatch, outcomes, and
+transition tables here, remain the design contract exercised by that work.
+Implementing the complete production filesystem runtime is not its
+prerequisite.
 
 ## Implementation Readiness And Promotion
 

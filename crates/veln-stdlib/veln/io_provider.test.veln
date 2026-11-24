@@ -5,6 +5,194 @@ use io_provider
 use io_provider_test_support_test
 use io_provider_state_test_support_test
 
+fn readonly_filesystem(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<fs::Filesystem, io::Error> effects [concurrency]
+	handle io_provider::filesystem(owner, slot) with io_provider_test_support_test::filesystem_read(calls)
+end
+
+fn mutable_filesystem(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<fs::MutableFilesystem, io::Error> effects [concurrency]
+	handle handle io_provider::mutable_filesystem(owner, slot) with io_provider_test_support_test::filesystem_read(calls) with io_provider_test_support_test::mutate(calls)
+end
+
+fn mutable_filesystem_without_mutate(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<fs::MutableFilesystem, io::Error> effects [concurrency]
+	handle io_provider::mutable_filesystem(owner, slot) with io_provider_test_support_test::filesystem_read(calls)
+end
+
+fn mutable_filesystem_without_read(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<fs::MutableFilesystem, io::Error> effects [concurrency]
+	handle io_provider::mutable_filesystem(owner, slot) with io_provider_test_support_test::mutate(calls)
+end
+
+fn readonly_namespace_observations() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let calls = channel::bounded<String>(16)
+	if not is_invalid_input_filesystem(io_provider::filesystem(owner, -1)) or not no_handler_calls(calls.rx)
+		Err("negative filesystem slot resolved a namespace handler")
+	else if not is_unsupported_filesystem(io_provider::filesystem(owner, 1)) or not no_handler_calls(calls.rx)
+		Err("missing fs::Read did not reject the filesystem factory")
+	else
+		match readonly_filesystem(owner, 1, calls.tx)
+			Ok(filesystem) => if slot_matches(io_provider::filesystem_slot(owner, filesystem), 1) and no_handler_calls(calls.rx)
+				Ok(())
+			else
+				Err("read-only filesystem did not retain owner and slot without invoking its handler")
+			end
+			Err(_) => Err("complete read-only filesystem factory failed after a missing-handler rejection")
+		end
+	end
+end
+
+fn mutable_namespace_observations() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let calls = channel::bounded<String>(16)
+	if not is_invalid_input_mutable_filesystem(io_provider::mutable_filesystem(owner, -1)) or not no_handler_calls(calls.rx)
+		Err("negative mutable filesystem slot resolved namespace handlers")
+	else if not is_unsupported_mutable_filesystem(mutable_filesystem_without_read(owner, 2, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing fs::Read did not preserve a mutable filesystem slot")
+	else if not is_unsupported_mutable_filesystem(mutable_filesystem_without_mutate(owner, 2, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("missing fs::Mutate did not preserve a mutable filesystem slot")
+	else
+		match mutable_filesystem(owner, 2, calls.tx)
+			Ok(mutable) => begin
+				let readonly = fs::read_only(mutable)
+				if slot_matches(io_provider::mutable_filesystem_slot(owner, mutable), 2) and slot_matches(io_provider::filesystem_slot(owner, readonly), 2) and no_handler_calls(calls.rx)
+					Ok(())
+				else
+					Err("mutable filesystem projection did not preserve provider identity and slot")
+				end
+			end
+			Err(_) => Err("complete mutable filesystem factory failed after a missing-handler rejection")
+		end
+	end
+end
+
+fn fresh_owner_filesystem_slot(filesystem: fs::Filesystem) -> Result<Int, io::Error> effects [io_provider::Scope, concurrency]
+	io_provider::filesystem_slot(io_provider::owner(), filesystem)
+end
+
+fn wrong_owner_filesystem_slot(filesystem: fs::Filesystem) -> Result<Int, io::Error> effects [concurrency]
+	handle fresh_owner_filesystem_slot(filesystem) with io_provider::scope()
+end
+
+fn fresh_owner_mutable_filesystem_slot(filesystem: fs::MutableFilesystem) -> Result<Int, io::Error> effects [io_provider::Scope, concurrency]
+	io_provider::mutable_filesystem_slot(io_provider::owner(), filesystem)
+end
+
+fn wrong_owner_mutable_filesystem_slot(filesystem: fs::MutableFilesystem) -> Result<Int, io::Error> effects [concurrency]
+	handle fresh_owner_mutable_filesystem_slot(filesystem) with io_provider::scope()
+end
+
+fn wrong_owner_filesystem_factory(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<fs::Filesystem, io::Error> effects [concurrency]
+	handle readonly_filesystem(owner, slot, calls) with io_provider::scope()
+end
+
+fn wrong_owner_mutable_filesystem_factory(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<fs::MutableFilesystem, io::Error> effects [concurrency]
+	handle mutable_filesystem(owner, slot, calls) with io_provider::scope()
+end
+
+fn allocate_namespace_pair(calls: Sender<String>) -> Result<{owner: io_provider::Owner, filesystem: fs::Filesystem}, io::Error> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	match readonly_filesystem(owner, 3, calls)
+		Ok(filesystem) => Ok({owner: owner, filesystem: filesystem})
+		Err(error) => Err(error)
+	end
+end
+
+fn closed_namespace_pair(calls: Sender<String>) -> Result<{owner: io_provider::Owner, filesystem: fs::Filesystem}, io::Error> effects [concurrency]
+	handle allocate_namespace_pair(calls) with io_provider::scope()
+end
+
+fn allocate_mutable_namespace_pair(calls: Sender<String>) -> Result<{owner: io_provider::Owner, filesystem: fs::MutableFilesystem}, io::Error> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	match mutable_filesystem(owner, 5, calls)
+		Ok(filesystem) => Ok({owner: owner, filesystem: filesystem})
+		Err(error) => Err(error)
+	end
+end
+
+fn closed_mutable_namespace_pair(calls: Sender<String>) -> Result<{owner: io_provider::Owner, filesystem: fs::MutableFilesystem}, io::Error> effects [concurrency]
+	handle allocate_mutable_namespace_pair(calls) with io_provider::scope()
+end
+
+fn namespace_owner_and_duplicate_boundaries() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let calls = channel::bounded<String>(16)
+	match readonly_filesystem(owner, 4, calls.tx)
+		Ok(filesystem) => if not is_invalid_input_mutable_filesystem(io_provider::mutable_filesystem(owner, 4)) or not no_handler_calls(calls.rx)
+			Err("duplicate namespace slot resolved handlers or replaced the first token")
+		else if not slot_matches(io_provider::filesystem_slot(owner, filesystem), 4) or not no_handler_calls(calls.rx)
+			Err("duplicate namespace slot made the first token unusable")
+		else if not is_invalid_input(complete_registration(owner, 4, calls.tx)) or not no_handler_calls(calls.rx)
+			Err("namespace slot did not exclude a byte-resource registration")
+		else if not is_invalid_resource_slot(wrong_owner_filesystem_slot(filesystem))
+			Err("wrong-owner filesystem slot lookup was accepted")
+		else
+			match closed_namespace_pair(calls.tx)
+				Ok(closed) => if is_invalid_resource_slot(io_provider::filesystem_slot(closed.owner, closed.filesystem)) and no_handler_calls(calls.rx)
+					Ok(())
+				else
+					Err("closed-owner filesystem slot lookup was accepted or invoked a handler")
+				end
+				Err(_) => Err("closed-owner namespace setup failed")
+			end
+		end
+		Err(_) => Err("namespace duplicate setup failed")
+	end
+end
+
+fn mutable_namespace_lifecycle_boundaries() -> Result<(), String> effects [concurrency]
+	let calls = channel::bounded<String>(16)
+	match closed_mutable_namespace_pair(calls.tx)
+		Ok(closed) => begin
+			let readonly = fs::read_only(closed.filesystem)
+			if not is_invalid_resource_slot(wrong_owner_mutable_filesystem_slot(closed.filesystem))
+				Err("wrong-owner mutable filesystem slot lookup was accepted")
+			else if not is_invalid_resource_slot(io_provider::mutable_filesystem_slot(closed.owner, closed.filesystem))
+				Err("closed-owner mutable filesystem slot lookup was accepted")
+			else if not is_invalid_resource_slot(io_provider::filesystem_slot(closed.owner, readonly)) or not no_handler_calls(calls.rx)
+				Err("closed-owner read-only projection was unusable or invoked a captured handler")
+			else
+				Ok(())
+			end
+		end
+		Err(_) => Err("closed-owner mutable namespace setup failed")
+	end
+end
+
+fn namespace_factory_rejection_boundaries() -> Result<(), String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let calls = channel::bounded<String>(16)
+	if not is_invalid_input_filesystem(wrong_owner_filesystem_factory(owner, 6, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("wrong-owner filesystem factory resolved or invoked namespace handlers")
+	else if not is_invalid_input_mutable_filesystem(wrong_owner_mutable_filesystem_factory(owner, 6, calls.tx)) or not no_handler_calls(calls.rx)
+		Err("wrong-owner mutable filesystem factory resolved or invoked namespace handlers")
+	else
+		match readonly_filesystem(owner, 6, calls.tx)
+			Ok(_) => match complete_registration(owner, 7, calls.tx)
+				Ok(_) => if not is_invalid_input_filesystem(io_provider::filesystem(owner, 7)) or not is_invalid_input_mutable_filesystem(io_provider::mutable_filesystem(owner, 7)) or not no_handler_calls(calls.rx)
+					Err("byte-resource slot did not reject namespace factories before handler resolution")
+				else
+					match closed_namespace_pair(calls.tx)
+						Ok(closed) => if not is_invalid_input_filesystem(readonly_filesystem(closed.owner, 8, calls.tx)) or not no_handler_calls(calls.rx)
+							Err("closed-owner filesystem factory was accepted or invoked its handler")
+						else
+							match closed_mutable_namespace_pair(calls.tx)
+								Ok(mutable_closed) => if is_invalid_input_mutable_filesystem(mutable_filesystem(mutable_closed.owner, 9, calls.tx)) and no_handler_calls(calls.rx)
+									Ok(())
+								else
+									Err("closed-owner mutable filesystem factory was accepted or invoked its handlers")
+								end
+								Err(_) => Err("closed-owner mutable filesystem factory setup failed")
+							end
+						end
+						Err(_) => Err("closed-owner filesystem factory setup failed")
+					end
+				end
+				Err(_) => Err("byte-resource collision setup failed")
+			end
+			Err(_) => Err("wrong-owner filesystem factory consumed the reusable slot")
+		end
+	end
+end
+
 fn complete_registration(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
 	handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::close(calls)
 end
@@ -135,6 +323,41 @@ end
 fn is_invalid_input(result: Result<io_provider::Resource, io::Error>) -> Bool
 	match result
 		Err(io::Error::Error(_, io::ErrorKind::InvalidInput, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn is_invalid_input_filesystem(result: Result<fs::Filesystem, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error(_, io::ErrorKind::InvalidInput, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn is_invalid_input_mutable_filesystem(result: Result<fs::MutableFilesystem, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error(_, io::ErrorKind::InvalidInput, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn is_unsupported_filesystem(result: Result<fs::Filesystem, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn is_unsupported_mutable_filesystem(result: Result<fs::MutableFilesystem, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error(_, io::ErrorKind::Unsupported, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn is_invalid_resource_slot(result: Result<Int, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error(_, io::ErrorKind::InvalidResource, _, _, _, _, _)) => true
 		_ => false
 	end
 end
@@ -691,6 +914,26 @@ end
 
 test read_file_registration_and_projection_retain_identity() -> Result<(), String> effects [concurrency]
 	handle registration_and_projection_observations() with io_provider::scope()
+end
+
+test read_only_filesystem_factory_captures_namespace_handler_without_invocation() -> Result<(), String> effects [concurrency]
+	handle readonly_namespace_observations() with io_provider::scope()
+end
+
+test mutable_filesystem_factory_and_read_only_projection_preserve_identity() -> Result<(), String> effects [concurrency]
+	handle mutable_namespace_observations() with io_provider::scope()
+end
+
+test namespace_factories_reject_duplicate_wrong_and_closed_owner_access() -> Result<(), String> effects [concurrency]
+	handle namespace_owner_and_duplicate_boundaries() with io_provider::scope()
+end
+
+test mutable_namespace_projection_and_slot_checks_preserve_closed_owner_boundaries() -> Result<(), String> effects [concurrency]
+	mutable_namespace_lifecycle_boundaries()
+end
+
+test namespace_factories_reject_wrong_closed_and_byte_resource_slots() -> Result<(), String> effects [concurrency]
+	handle namespace_factory_rejection_boundaries() with io_provider::scope()
 end
 
 test missing_handlers_reject_before_publication_without_poisoning_slots() -> Result<(), String> effects [concurrency]

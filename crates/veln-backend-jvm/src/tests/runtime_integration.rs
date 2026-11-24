@@ -87,6 +87,29 @@ fn io_provider_append_file_capabilities_retain_captured_handlers() {
 }
 
 #[test]
+fn io_provider_filesystem_tokens_retain_handlers_and_reject_closed_owners() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "io-provider-filesystem-identities",
+        "IoProviderFilesystemHarness.java",
+        include_str!("../../test-support/IoProviderFilesystemHarness.java"),
+        &program,
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn io_provider_write_file_capabilities_retain_captured_handlers() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

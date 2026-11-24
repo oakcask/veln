@@ -16,11 +16,13 @@ also states it.
 
 ## Ready
 
-- [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete F2, the
+- [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete F2 on the
+  implemented namespace-token and resource-allocation foundation, then the
   provider-fake and owner-lifecycle remainder of F3, F4, and F5. The remaining
-  evidence covers provider-bound dispatch, concurrent fake-provider writes,
-  transfer and mutation outcomes, owner publication, and cleanup. The target
-  does not require the production filesystem API to be implemented first.
+  evidence covers provider-bound dispatch, nested-provider identity and
+  cross-provider copy, concurrent fake-provider writes, transfer and mutation
+  outcomes, owner publication, and cleanup. The target does not require the
+  production filesystem API to be implemented first.
 
 ## Design In Progress
 

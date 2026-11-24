@@ -335,7 +335,9 @@ prototype. Those names and their capability operands are specified by
 [Standard-library filesystem and byte IO](standard-library-filesystem-io.md).
 They do not replace the compiler-known calls below. The prototype supports
 bounded five-family provider registration and projection through the required
-active operation handlers. It also exposes the `std` package's compiler-backed
+active operation handlers. Its namespace factories capture active `fs::Read`
+and, for mutable tokens, `fs::Mutate` handlers without invoking them. It also
+exposes the `std` package's compiler-backed
 `io_provider::state` and `io_provider::update`; both contribute only
 `concurrency`, and `update` requires a pure callback. Same-spelled declarations
 owned by another package remain ordinary functions with their own declared
