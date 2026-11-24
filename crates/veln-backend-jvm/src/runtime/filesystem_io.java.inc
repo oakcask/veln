@@ -797,6 +797,14 @@
         return null;
     }
 
+    private static boolean ioProviderCanPublishResource(String effect, String operation) {
+        return (effect.equals(FS_READ_EFFECT) && operation.equals("open_read"))
+            || (effect.equals(FS_MUTATE_EFFECT)
+                && (operation.equals("open_write")
+                    || operation.equals("open_read_write")
+                    || operation.equals("open_append")));
+    }
+
     private static Object ioProviderDispatch(
         Object effectValue,
         Object operationValue,
@@ -822,8 +830,10 @@
         System.arraycopy(trailing, 0, args, 1, trailing.length);
         IoOwner previous = IO_PROVIDER_INVOCATION_OWNER.get();
         IoOwner previousAdmission = IO_PROVIDER_ADMISSION_OWNER.get();
+        boolean admitsPublication = ioProviderCanPublishResource(effect, operation);
         IO_PROVIDER_INVOCATION_OWNER.set(owner);
-        IO_PROVIDER_ADMISSION_OWNER.set(owner);
+        if (admitsPublication) IO_PROVIDER_ADMISSION_OWNER.set(owner);
+        else IO_PROVIDER_ADMISSION_OWNER.remove();
         try {
             return invokeHandler(handler, operation, args);
         } finally {
@@ -906,8 +916,7 @@
         Object[] args,
         HandlerFrame selected
     ) {
-        if (args.length == 0 || !operation.startsWith("open_")) return null;
-        if (!effect.equals(FS_READ_EFFECT) && !effect.equals(FS_MUTATE_EFFECT)) return null;
+        if (args.length == 0 || !ioProviderCanPublishResource(effect, operation)) return null;
         HandlerFrame captured = ioProviderCapturedHandler(effect, args[0]);
         if (captured == null || captured != selected) return null;
         if (args[0] instanceof IoFilesystem) return ((IoFilesystem) args[0]).owner;

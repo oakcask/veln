@@ -62,6 +62,19 @@ public final class IoProviderOwnerLifecycleHarness {
         return value.toString().contains("InvalidResource");
     }
 
+    private static boolean isClosedOwnerResourceError(Object value) {
+        VelnRuntime.Result result = result(value);
+        if (result.isOk()) return false;
+        Object error = result.value();
+        return VelnRuntime.isAdt(error, "io::Error::Error")
+            && VelnRuntime.adtPayload(error, 0).equals("resource")
+            && VelnRuntime.isAdt(
+                VelnRuntime.adtPayload(error, 1),
+                "io::ErrorKind::InvalidResource"
+            )
+            && VelnRuntime.adtPayload(error, 6).equals("provider owner scope is closed");
+    }
+
     private static boolean slotEquals(Object value, long expected) {
         VelnRuntime.Result result = result(value);
         return result.isOk() && result.value().equals(Long.valueOf(expected));
@@ -503,6 +516,126 @@ public final class IoProviderOwnerLifecycleHarness {
         VelnRuntime.popHandler();
     }
 
+    private static void capturedByteOperationCannotPublishAfterClosure(
+        Object foreignOwner,
+        boolean nestedOpen,
+        boolean lexicalByte
+    ) throws Exception {
+        java.util.concurrent.CountDownLatch readStarted = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch finishRead = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicInteger readCalls = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger registeredCloseCalls = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger rejectedCloseCalls = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger unrelatedState = new java.util.concurrent.atomic.AtomicInteger(29);
+        java.util.concurrent.atomic.AtomicReference<Object> publication = new java.util.concurrent.atomic.AtomicReference<Object>();
+        java.util.concurrent.atomic.AtomicReference<Throwable> childFailure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        int foreignResources = resourceCount(foreignOwner);
+
+        pushScope();
+        Object scope = handlers().get(handlers().size() - 1);
+        Object releaseOwner = owner();
+        pushReadFileHandlers(
+            (Object... supplied) -> {
+                readCalls.incrementAndGet();
+                readStarted.countDown();
+                try {
+                    finishRead.await();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new VelnRuntime.RuntimeFailure("gated byte read interrupted");
+                }
+                push("std::io::Close", "close", (Object... closer) -> {
+                    rejectedCloseCalls.incrementAndGet();
+                    return closed();
+                });
+                try {
+                    return VelnRuntime.ioProviderResource(
+                        releaseOwner,
+                        Long.valueOf(73L),
+                        family()
+                    );
+                } finally {
+                    VelnRuntime.popHandler();
+                }
+            },
+            (Object... supplied) -> {
+                registeredCloseCalls.incrementAndGet();
+                return closed();
+            }
+        );
+        java.util.concurrent.atomic.AtomicInteger openCalls = new java.util.concurrent.atomic.AtomicInteger();
+        if (nestedOpen) {
+            push("std::fs::Read", "open_read", (Object... supplied) -> {
+                openCalls.incrementAndGet();
+                return lexicalByte
+                    ? VelnRuntime.perform(
+                        "std::io::Read", "read", new Object[] { supplied[1], Long.valueOf(1L) }
+                    )
+                    : VelnRuntime.ioProviderDispatch2(
+                        "std::io::Read", "read", supplied[1], Long.valueOf(1L)
+                    );
+            });
+        }
+        VelnRuntime.Result registered = result(
+            VelnRuntime.ioProviderResource(releaseOwner, Long.valueOf(72L), family())
+        );
+        require(registered.isOk(), "gated byte-read resource registration failed");
+        VelnRuntime.Result projected = result(VelnRuntime.ioProviderReadFile(registered.value()));
+        require(projected.isOk(), "gated byte-read resource projection failed");
+        Object reader = VelnRuntime.adtPayload(projected.value(), 0);
+        VelnRuntime.Result filesystem = nestedOpen
+            ? result(VelnRuntime.ioProviderFilesystem(releaseOwner, Long.valueOf(74L)))
+            : null;
+        if (nestedOpen) require(filesystem.isOk(), "nested-open filesystem registration failed");
+        java.util.List<Object> inherited = new java.util.ArrayList<Object>(handlers());
+        Thread child = new Thread(() -> {
+            java.util.List<Object> childHandlers = null;
+            try {
+                childHandlers = handlers();
+                childHandlers.addAll(inherited);
+                publication.set(nestedOpen
+                    ? VelnRuntime.ioProviderDispatch2(
+                        "std::fs::Read", "open_read", filesystem.value(), reader
+                    )
+                    : VelnRuntime.ioProviderDispatch2(
+                        "std::io::Read", "read", reader, Long.valueOf(1L)
+                    ));
+            } catch (Throwable failure) {
+                childFailure.set(failure);
+            } finally {
+                if (childHandlers != null) childHandlers.clear();
+            }
+        });
+        child.start();
+        readStarted.await();
+
+        if (nestedOpen) VelnRuntime.popHandler();
+        popReadFileHandlers();
+        VelnRuntime.popHandler();
+        finishRead.countDown();
+        child.join();
+
+        require(childFailure.get() == null, "gated byte read failed: " + childFailure.get());
+        require(
+            isClosedOwnerResourceError(publication.get()),
+            "gated byte read did not return the exact closed-owner resource error"
+        );
+        require(readCalls.get() == 1, "gated byte read did not invoke its captured provider once");
+        require(openCalls.get() == (nestedOpen ? 1 : 0), "gated byte read used an unexpected open path");
+        require(registeredCloseCalls.get() == 1, "owner closure did not release the registered resource once");
+        require(rejectedCloseCalls.get() == 0, "rejected byte-read publication invoked its close handler");
+        require(
+            resourceCount(releaseOwner) == (nestedOpen ? 1 : 0),
+            "rejected byte-read publication changed the owner registry"
+        );
+        require(releaseFailures(scope).isEmpty(), "rejected byte-read publication retained a release failure");
+        require(unrelatedState.get() == 29, "rejected byte-read publication changed unrelated provider state");
+        require(
+            resourceCount(foreignOwner) == foreignResources,
+            "rejected byte-read publication changed a foreign owner registry"
+        );
+    }
+
     private static void lateReleaseDoesNotHoldRegistryMonitor() throws Exception {
         java.util.concurrent.CountDownLatch openStarted = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.CountDownLatch finishOpen = new java.util.concurrent.CountDownLatch(1);
@@ -584,6 +717,9 @@ public final class IoProviderOwnerLifecycleHarness {
         latePublication(foreignOwner, false, false, true, false, true);
         crossOwnerLatePublicationDuringRelease();
         closedDispatchPaths();
+        capturedByteOperationCannotPublishAfterClosure(foreignOwner, false, false);
+        capturedByteOperationCannotPublishAfterClosure(foreignOwner, true, false);
+        capturedByteOperationCannotPublishAfterClosure(foreignOwner, true, true);
         lateReleaseDoesNotHoldRegistryMonitor();
     }
 }

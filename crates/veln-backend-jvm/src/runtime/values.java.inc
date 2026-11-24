@@ -653,9 +653,9 @@
         Object ownershipFailure = netSystemDispatchOwnershipFailure(effect, operation, args, frame);
         if (ownershipFailure != null) return ownershipFailure;
         IoOwner admittedOwner = ioProviderLexicalAdmissionOwner(effect, operation, args, frame);
-        if (admittedOwner == null) return invokeHandler(frame, operation, args);
         IoOwner previous = IO_PROVIDER_ADMISSION_OWNER.get();
-        IO_PROVIDER_ADMISSION_OWNER.set(admittedOwner);
+        if (admittedOwner == null) IO_PROVIDER_ADMISSION_OWNER.remove();
+        else IO_PROVIDER_ADMISSION_OWNER.set(admittedOwner);
         try {
             return invokeHandler(frame, operation, args);
         } finally {
