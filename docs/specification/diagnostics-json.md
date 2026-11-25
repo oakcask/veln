@@ -296,12 +296,16 @@ report `parse.empty_function_binder_list`,
 respectively. A generic test, variadic
 function, or `callsite` function reports `parse.generic_test_declaration`,
 `parse.generic_function_variadic`, or `parse.generic_function_callsite` at the
-unsupported binder, variadic parameter, or modifier. An invalid binder entry
-at the parameter-list boundary resumes parsing that function's parameter list.
-An unclosed binder list at a newline ends the malformed declaration without
-consuming the following top-level declaration. Recovery from a malformed
-binder bound also leaves a following top-level declaration available to the
-parser.
+unsupported binder, variadic parameter, or modifier. A second effect binder
+reports `parse.multiple_effect_binders` at its redundant `effect` keyword,
+including when its name is missing. An invalid binder entry at the
+parameter-list boundary resumes parsing that function's parameter list,
+signature, and body. Parentheses nested in a rejected applied binder do not
+become that boundary, while an unclosed applied binder does not consume a
+following parameter list. An unclosed binder list at a newline ends the
+malformed declaration without consuming the following top-level declaration.
+Recovery from a malformed binder bound also leaves a following top-level
+declaration available to the parser.
 The
 [function declaration binder rules](source-surface.md#function-declaration-binders)
 define the accepted forms.
