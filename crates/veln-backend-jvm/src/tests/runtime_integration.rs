@@ -1,5 +1,10 @@
 use super::*;
 
+fn jdk_is_unavailable() -> bool {
+    Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+}
+
 fn run_java_runtime_harness(
     name: &str,
     source_name: &str,
@@ -88,9 +93,7 @@ fn run_java_runtime_harness_with_sources_and_options(
 }
 
 fn run_io_provider_runtime_harness(name: &str, source_name: &str, source: &str) {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
@@ -117,9 +120,7 @@ fn run_io_provider_runtime_harness(name: &str, source_name: &str, source: &str) 
 
 #[test]
 fn generic_java_runtime_harness_does_not_stage_provider_support() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
@@ -211,9 +212,7 @@ fn io_provider_duplex_validates_before_publication_and_retains_handlers() {
 
 #[test]
 fn io_provider_atomic_state_controls_admission_cancellation_publication_and_release() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
     let ir = lower_to_ir(concat!(
@@ -252,9 +251,7 @@ fn io_provider_atomic_state_controls_admission_cancellation_publication_and_rele
 
 #[test]
 fn jvm_runtime_schema_refinement_validation_rejects_negative_offsets() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
@@ -296,9 +293,7 @@ public final class SchemaRefinementNegativeOffsetHarness {
 
 #[test]
 fn jvm_runtime_schema_refinement_validation_preserves_record_identity_on_success() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         eprintln!("skipping schema refinement identity verification because a JDK is unavailable");
         return;
     }
@@ -382,9 +377,7 @@ public final class SchemaRefinementSuccessIdentityHarness {
 
 #[test]
 fn jvm_runtime_schema_predicates_follow_source_precedence_and_contain_division_failure() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         eprintln!("skipping schema predicate verification because a JDK is unavailable");
         return;
     }
@@ -473,9 +466,7 @@ public final class SchemaPredicatePrecedenceHarness {
 
 #[test]
 fn jvm_runtime_schema_predicates_are_stack_safe_with_linear_field_work() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         eprintln!("skipping schema predicate stack verification because a JDK is unavailable");
         return;
     }
@@ -562,9 +553,7 @@ public final class SchemaPredicateStackSafetyHarness {
 
 #[test]
 fn jvm_runtime_schema_predicates_do_not_traverse_unreferenced_maps() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         eprintln!(
             "skipping schema predicate map traversal verification because a JDK is unavailable"
         );
@@ -665,9 +654,7 @@ public final class SchemaPredicateUnreferencedMapHarness {
 
 #[test]
 fn jvm_runtime_schema_refinement_rejection_leaves_input_unchanged() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         eprintln!("skipping schema refinement rejection verification because a JDK is unavailable");
         return;
     }
@@ -725,9 +712,7 @@ public final class SchemaRefinementRejectionIdentityHarness {
 
 #[test]
 fn jvm_runtime_schema_refinement_plan_traverses_standard_containers_deterministically() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         eprintln!("skipping container refinement verification because a JDK is unavailable");
         return;
     }
@@ -887,9 +872,7 @@ public final class SchemaRefinementContainersHarness {
 
 #[test]
 fn jvm_runtime_schema_refinement_list_fails_at_zero_with_bounded_heap() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         eprintln!("skipping bounded-list refinement verification because a JDK is unavailable");
         return;
     }
@@ -945,9 +928,7 @@ public final class SchemaRefinementBoundedListHarness {
 
 #[test]
 fn jvm_runtime_schema_refinement_vector_is_incremental_with_bounded_heap() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         eprintln!("skipping bounded-vector refinement verification because a JDK is unavailable");
         return;
     }
@@ -1021,9 +1002,7 @@ public final class SchemaRefinementBoundedVectorHarness {
 
 #[test]
 fn jvm_runtime_schema_refinement_plan_visits_only_actual_source_adt_payloads() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         eprintln!("skipping source ADT refinement verification because a JDK is unavailable");
         return;
     }
@@ -1170,9 +1149,7 @@ public final class SchemaRefinementSourceAdtHarness {
 
 #[test]
 fn jvm_runtime_schema_refinement_plan_traverses_deep_recursive_values_iteratively() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         eprintln!("skipping deep recursive refinement verification because a JDK is unavailable");
         return;
     }
@@ -1330,9 +1307,7 @@ public final class SchemaRefinementDeepRecursiveSourceAdtHarness {
 
 #[test]
 fn jvm_runtime_preserves_cancellation_entering_host_connect_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
@@ -1356,9 +1331,7 @@ fn jvm_runtime_preserves_cancellation_entering_host_connect_when_java_is_availab
 
 #[test]
 fn jvm_runtime_does_not_classify_runtime_failure_text_as_cancellation_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
@@ -1382,9 +1355,7 @@ fn jvm_runtime_does_not_classify_runtime_failure_text_as_cancellation_when_java_
 
 #[test]
 fn jvm_runtime_preserves_network_system_commit_and_ownership_invariants_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
     let ir = lower_network_facade_entry_to_ir("", "write_all_selected");
@@ -1412,9 +1383,7 @@ fn jvm_runtime_preserves_network_system_commit_and_ownership_invariants_when_jav
 
 #[test]
 fn jvm_runtime_concurrent_cancellation_preserves_cleanup_before_join_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
     let ir = lower_to_ir(include_str!("../../test-support/join_blocking.veln"));
@@ -1438,9 +1407,7 @@ fn jvm_runtime_concurrent_cancellation_preserves_cleanup_before_join_when_java_i
 
 #[test]
 fn jvm_runtime_cleanup_diagnostics_aggregate_nested_failures_linearly_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
@@ -1464,43 +1431,18 @@ fn jvm_runtime_cleanup_diagnostics_aggregate_nested_failures_linearly_when_java_
 
 #[test]
 fn jvm_runtime_bounds_standard_input_read_ahead_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
 
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
     let program = generate_classfiles_with_entry(&ir, "main");
-    let root = temp_dir("runtime-stdin-backpressure");
-    write_jvm_program(&root, &program);
-    fs::write(
-        root.join("RuntimeStdinBackpressureHarness.java"),
+    let output = run_java_runtime_harness(
+        "runtime-stdin-backpressure",
+        "RuntimeStdinBackpressureHarness.java",
         RUNTIME_STDIN_BACKPRESSURE_HARNESS,
-    )
-    .expect("Java harness should be written");
-
-    let javac = Command::new("javac")
-        .arg("RuntimeStdinBackpressureHarness.java")
-        .current_dir(&root)
-        .output()
-        .expect("javac should run");
-    assert!(
-        javac.status.success(),
-        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
-        javac.status.code(),
-        String::from_utf8_lossy(&javac.stdout),
-        String::from_utf8_lossy(&javac.stderr)
+        &program,
     );
-
-    let output = Command::new("java")
-        .arg("-cp")
-        .arg(&root)
-        .arg("RuntimeStdinBackpressureHarness")
-        .current_dir(&root)
-        .output()
-        .expect("java should run");
-    let _ = fs::remove_dir_all(&root);
 
     assert!(
         output.status.success(),
@@ -1516,43 +1458,18 @@ fn jvm_runtime_bounds_standard_input_read_ahead_when_java_is_available() {
 
 #[test]
 fn jvm_runtime_rechecks_partial_socket_write_deadline_and_cancellation_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
 
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
     let program = generate_classfiles_with_entry(&ir, "main");
-    let root = temp_dir("runtime-socket-partial-write");
-    write_jvm_program(&root, &program);
-    fs::write(
-        root.join("RuntimeSocketPartialWriteHarness.java"),
+    let output = run_java_runtime_harness(
+        "runtime-socket-partial-write",
+        "RuntimeSocketPartialWriteHarness.java",
         RUNTIME_SOCKET_PARTIAL_WRITE_HARNESS,
-    )
-    .expect("Java harness should be written");
-
-    let javac = Command::new("javac")
-        .arg("RuntimeSocketPartialWriteHarness.java")
-        .current_dir(&root)
-        .output()
-        .expect("javac should run");
-    assert!(
-        javac.status.success(),
-        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
-        javac.status.code(),
-        String::from_utf8_lossy(&javac.stdout),
-        String::from_utf8_lossy(&javac.stderr)
+        &program,
     );
-
-    let output = Command::new("java")
-        .arg("-cp")
-        .arg(&root)
-        .arg("RuntimeSocketPartialWriteHarness")
-        .current_dir(&root)
-        .output()
-        .expect("java should run");
-    let _ = fs::remove_dir_all(&root);
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     if stderr.contains("Operation not permitted") {
@@ -1567,40 +1484,18 @@ fn jvm_runtime_rechecks_partial_socket_write_deadline_and_cancellation_when_java
 
 #[test]
 fn jvm_runtime_preserves_path_values_across_standard_calls_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
 
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
     let program = generate_classfiles_with_entry(&ir, "main");
-    let root = temp_dir("runtime-path-values");
-    write_jvm_program(&root, &program);
-    fs::write(root.join("RuntimePathHarness.java"), RUNTIME_PATH_HARNESS)
-        .expect("Java harness should be written");
-
-    let javac = Command::new("javac")
-        .arg("RuntimePathHarness.java")
-        .current_dir(&root)
-        .output()
-        .expect("javac should run");
-    assert!(
-        javac.status.success(),
-        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
-        javac.status.code(),
-        String::from_utf8_lossy(&javac.stdout),
-        String::from_utf8_lossy(&javac.stderr)
+    let output = run_java_runtime_harness(
+        "runtime-path-values",
+        "RuntimePathHarness.java",
+        RUNTIME_PATH_HARNESS,
+        &program,
     );
-
-    let output = Command::new("java")
-        .arg("-cp")
-        .arg(&root)
-        .arg("RuntimePathHarness")
-        .current_dir(&root)
-        .output()
-        .expect("java should run");
-    let _ = fs::remove_dir_all(&root);
 
     assert!(
         output.status.success(),
@@ -1615,43 +1510,18 @@ fn jvm_runtime_preserves_path_values_across_standard_calls_when_java_is_availabl
 
 #[test]
 fn jvm_runtime_reports_receiver_list_timeout_result_outcomes_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
 
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
     let program = generate_classfiles_with_entry(&ir, "main");
-    let root = temp_dir("runtime-channel-select-many-timeout-result");
-    write_jvm_program(&root, &program);
-    fs::write(
-        root.join("RuntimeChannelSelectManyTimeoutResultHarness.java"),
+    let output = run_java_runtime_harness(
+        "runtime-channel-select-many-timeout-result",
+        "RuntimeChannelSelectManyTimeoutResultHarness.java",
         RUNTIME_CHANNEL_SELECT_MANY_TIMEOUT_RESULT_HARNESS,
-    )
-    .expect("Java harness should be written");
-
-    let javac = Command::new("javac")
-        .arg("RuntimeChannelSelectManyTimeoutResultHarness.java")
-        .current_dir(&root)
-        .output()
-        .expect("javac should run");
-    assert!(
-        javac.status.success(),
-        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
-        javac.status.code(),
-        String::from_utf8_lossy(&javac.stdout),
-        String::from_utf8_lossy(&javac.stderr)
+        &program,
     );
-
-    let output = Command::new("java")
-        .arg("-cp")
-        .arg(&root)
-        .arg("RuntimeChannelSelectManyTimeoutResultHarness")
-        .current_dir(&root)
-        .output()
-        .expect("java should run");
-    let _ = fs::remove_dir_all(&root);
 
     assert!(
         output.status.success(),
@@ -1672,40 +1542,18 @@ fn jvm_runtime_reports_receiver_list_timeout_result_outcomes_when_java_is_availa
 
 #[test]
 fn jvm_runtime_list_helpers_traverse_large_lists_iteratively_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
 
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
     let program = generate_classfiles_with_entry(&ir, "main");
-    let root = temp_dir("runtime-list-helpers");
-    write_jvm_program(&root, &program);
-    fs::write(root.join("RuntimeListHarness.java"), RUNTIME_LIST_HARNESS)
-        .expect("Java harness should be written");
-
-    let javac = Command::new("javac")
-        .arg("RuntimeListHarness.java")
-        .current_dir(&root)
-        .output()
-        .expect("javac should run");
-    assert!(
-        javac.status.success(),
-        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
-        javac.status.code(),
-        String::from_utf8_lossy(&javac.stdout),
-        String::from_utf8_lossy(&javac.stderr)
+    let output = run_java_runtime_harness(
+        "runtime-list-helpers",
+        "RuntimeListHarness.java",
+        RUNTIME_LIST_HARNESS,
+        &program,
     );
-
-    let output = Command::new("java")
-        .arg("-cp")
-        .arg(&root)
-        .arg("RuntimeListHarness")
-        .current_dir(&root)
-        .output()
-        .expect("java should run");
-    let _ = fs::remove_dir_all(&root);
 
     assert!(
         output.status.success(),
@@ -1720,43 +1568,18 @@ fn jvm_runtime_list_helpers_traverse_large_lists_iteratively_when_java_is_availa
 
 #[test]
 fn jvm_runtime_reads_and_writes_byte_views_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
 
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
     let program = generate_classfiles_with_entry(&ir, "main");
-    let root = temp_dir("runtime-byte-view");
-    write_jvm_program(&root, &program);
-    fs::write(
-        root.join("RuntimeByteViewHarness.java"),
+    let output = run_java_runtime_harness(
+        "runtime-byte-view",
+        "RuntimeByteViewHarness.java",
         RUNTIME_BYTE_VIEW_HARNESS,
-    )
-    .expect("Java harness should be written");
-
-    let javac = Command::new("javac")
-        .arg("RuntimeByteViewHarness.java")
-        .current_dir(&root)
-        .output()
-        .expect("javac should run");
-    assert!(
-        javac.status.success(),
-        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
-        javac.status.code(),
-        String::from_utf8_lossy(&javac.stdout),
-        String::from_utf8_lossy(&javac.stderr)
+        &program,
     );
-
-    let output = Command::new("java")
-        .arg("-cp")
-        .arg(&root)
-        .arg("RuntimeByteViewHarness")
-        .current_dir(&root)
-        .output()
-        .expect("java should run");
-    let _ = fs::remove_dir_all(&root);
 
     assert!(
         output.status.success(),
@@ -1811,9 +1634,7 @@ fn jvm_runtime_reads_and_writes_byte_views_when_java_is_available() {
 
 #[test]
 fn jvm_runtime_byte_chunk_slicing_has_linear_work_and_bounded_retention_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
@@ -1837,9 +1658,7 @@ fn jvm_runtime_byte_chunk_slicing_has_linear_work_and_bounded_retention_when_jav
 
 #[test]
 fn io_copy_partial_writes_materialize_suffixes_with_linear_work_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
     let ir = lower_with_standard_modules_to_ir(include_str!(
@@ -1865,9 +1684,7 @@ fn io_copy_partial_writes_materialize_suffixes_with_linear_work_when_java_is_ava
 
 #[test]
 fn bytecode_backend_public_list_helpers_traverse_large_lists_iteratively_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    if jdk_is_unavailable() {
         return;
     }
 
@@ -1907,35 +1724,12 @@ fn bytecode_backend_public_list_helpers_traverse_large_lists_iteratively_when_ja
         "end\n",
     ));
     let program = generate_classfiles_with_entry(&ir, "consume");
-    let root = temp_dir("public-list-helpers");
-    write_jvm_program(&root, &program);
-    fs::write(
-        root.join("PublicListHelperHarness.java"),
+    let output = run_java_runtime_harness(
+        "public-list-helpers",
+        "PublicListHelperHarness.java",
         PUBLIC_LIST_HELPER_HARNESS,
-    )
-    .expect("Java harness should be written");
-
-    let javac = Command::new("javac")
-        .arg("PublicListHelperHarness.java")
-        .current_dir(&root)
-        .output()
-        .expect("javac should run");
-    assert!(
-        javac.status.success(),
-        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
-        javac.status.code(),
-        String::from_utf8_lossy(&javac.stdout),
-        String::from_utf8_lossy(&javac.stderr)
+        &program,
     );
-
-    let output = Command::new("java")
-        .arg("-cp")
-        .arg(&root)
-        .arg("PublicListHelperHarness")
-        .current_dir(&root)
-        .output()
-        .expect("java should run");
-    let _ = fs::remove_dir_all(&root);
 
     assert!(
         output.status.success(),
