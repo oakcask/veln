@@ -300,10 +300,12 @@ unsupported binder, variadic parameter, or modifier. A second effect binder
 reports `parse.multiple_effect_binders` at its redundant `effect` keyword,
 including when its name is missing. An invalid binder entry at the
 parameter-list boundary resumes parsing that function's parameter list,
-signature, and body. Parentheses nested in a rejected applied binder do not
-become that boundary, while an unclosed applied binder does not consume a
-following parameter list. An unclosed binder list at a newline ends the
-malformed declaration without consuming the following top-level declaration.
+signature, and body. A rejected applied binder with a balanced closing `>`
+consumes its nested parentheses without reporting a missing binder separator
+at them. If that closing `>` is absent, a complete following parameter list is
+the recovery boundary and remains available to the function declaration. An
+unclosed binder list at a newline ends the malformed declaration without
+consuming the following top-level declaration.
 Recovery from a malformed binder bound also leaves a following top-level
 declaration available to the parser.
 The

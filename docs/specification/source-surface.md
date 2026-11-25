@@ -71,11 +71,15 @@ Malformed-list recovery retains each binder recognized before the failed
 entry. If the failure reaches the parameter-list boundary, parsing resumes at
 that function's parameters and preserves the rest of its signature and body.
 Recovery distinguishes parentheses nested in a rejected applied binder from
-the declaration's parameter list. For example, the nested unit type in
-`T<()>` remains part of the malformed binder entry, while an unclosed `T<Int`
-followed by `(value: Int) -> Int` still preserves that parameter and return
-signature. If an unclosed list reaches a newline, the malformed declaration
-ends there and the next top-level declaration remains a separate syntax item.
+the declaration's parameter list. If the applied binder has a balanced closing
+`>`, recovery consumes its nested parentheses and closing delimiter before it
+resumes at the declaration's parameters. For example, the parentheses in
+`T<Foo(Int) -> Int>` remain part of the malformed binder entry. If the applied
+binder has no balanced closing `>`, a complete following parameter list is the
+recovery boundary. Thus, an unclosed `T<Int` followed by
+`(value: Int) -> Int` still preserves that parameter and return signature. If
+an unclosed list reaches a newline, the malformed declaration ends there and
+the next top-level declaration remains a separate syntax item.
 The focused parser diagnostics for these failures are specified by
 [Check JSON And Diagnostics](diagnostics-json.md#diagnostic-families).
 
