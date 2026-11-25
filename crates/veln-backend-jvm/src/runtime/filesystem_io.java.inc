@@ -346,13 +346,11 @@
         return new HandlerFrame(effect, providers, new Object[] {});
     }
 
-    private static long reserveHostSlot(IoOwner owner) {
-        synchronized (owner.resources) {
-            while (owner.resources.containsKey(Long.valueOf(owner.nextHostSlot))) {
-                owner.nextHostSlot -= 1L;
-            }
-            return owner.nextHostSlot--;
+    private static long nextHostSlot(IoOwner owner) {
+        while (owner.resources.containsKey(Long.valueOf(owner.nextHostSlot))) {
+            owner.nextHostSlot -= 1L;
         }
+        return owner.nextHostSlot--;
     }
 
     private static String portablePathText(Object pathValue) {
@@ -532,29 +530,33 @@
             HandlerFrame close = hostHandler(IO_CLOSE_EFFECT, "close", VelnRuntime::hostClose);
             HandlerFrame writeAt = hostHandler(IO_WRITE_AT_EFFECT, null, null);
             HandlerFrame sync = hostHandler(IO_SYNC_EFFECT, null, null);
-            long slot = reserveHostSlot(filesystem.owner);
-            IoResource resource = new IoResource(
-                filesystem.owner,
-                slot,
-                "WriteFile",
-                null,
-                write,
-                seek,
-                null,
-                writeAt,
-                close,
-                sync,
-                filesystem.mutate,
-                host
-            );
             synchronized (filesystem.owner.resources) {
-                if (filesystem.owner.scope.ioProviderScopeClosed) {
-                    channel.close();
-                    return ioProviderInvalidResource("open_write", "provider owner scope is closed");
+                if (!filesystem.owner.scope.ioProviderScopeClosed) {
+                    long slot = nextHostSlot(filesystem.owner);
+                    IoResource resource = new IoResource(
+                        filesystem.owner,
+                        slot,
+                        "WriteFile",
+                        null,
+                        write,
+                        seek,
+                        null,
+                        writeAt,
+                        close,
+                        sync,
+                        filesystem.mutate,
+                        host
+                    );
+                    filesystem.owner.resources.put(Long.valueOf(slot), resource);
+                    return ioProviderWriteFile(resource);
                 }
-                filesystem.owner.resources.put(Long.valueOf(slot), resource);
             }
-            return ioProviderWriteFile(resource);
+            try {
+                channel.close();
+            } catch (java.io.IOException ignored) {
+                // The channel marks itself closed before provider-specific close work.
+            }
+            return ioProviderInvalidResource("open_write", "provider owner scope is closed");
         } catch (java.io.IOException | RuntimeException failure) {
             return hostFilesystemFailure("open_write", failure, path);
         }
@@ -576,17 +578,23 @@
         }
         IoOwner owner;
         synchronized (scope) {
+            if (scope.ioProviderScopeClosed) {
+                return ioProviderInvalidResource("system", "filesystem owner scope is unavailable");
+            }
             if (scope.ioOwner == null) scope.ioOwner = new IoOwner(scope);
             owner = scope.ioOwner;
         }
         HandlerFrame read = hostHandler(FS_READ_EFFECT, null, null);
         HandlerFrame mutate = hostHandler(FS_MUTATE_EFFECT, "open_write", VelnRuntime::hostOpenWrite);
-        long slot = reserveHostSlot(owner);
-        IoMutableFilesystem filesystem = new IoMutableFilesystem(owner, slot, read, mutate, root);
         synchronized (owner.resources) {
+            if (scope.ioProviderScopeClosed) {
+                return ioProviderInvalidResource("system", "filesystem owner scope is unavailable");
+            }
+            long slot = nextHostSlot(owner);
+            IoMutableFilesystem filesystem = new IoMutableFilesystem(owner, slot, read, mutate, root);
             owner.resources.put(Long.valueOf(slot), filesystem);
+            return ok(filesystem);
         }
-        return ok(filesystem);
     }
 
     private static boolean ioProviderOwnerIsLexicallyCurrent(IoOwner owner) {

@@ -184,6 +184,15 @@ fn io_provider_owner_closure_rejects_late_publication_and_restricts_release() {
 }
 
 #[test]
+fn host_filesystem_publication_is_atomic_with_slots_and_owner_closure() {
+    run_io_provider_runtime_harness(
+        "host-filesystem-publication",
+        "HostFilesystemPublicationHarness.java",
+        include_str!("../../test-support/HostFilesystemPublicationHarness.java"),
+    );
+}
+
+#[test]
 fn io_provider_write_file_capabilities_retain_captured_handlers() {
     run_io_provider_runtime_harness(
         "io-provider-write-file-identities",
