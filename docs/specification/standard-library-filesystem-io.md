@@ -559,11 +559,11 @@ state, namespace-token allocation, registration, projection, provider-bound
 dispatch, bounded `copy` outcomes and progress, complete-transfer helper
 outcomes, serialized completed fake-provider writes, and the bounded
 owner-release lifecycle are limited to the observations above. Direct facade
-host translation and count validation, the namespace and seek outcome matrix,
-cleanup retry and
-failure precedence, host filesystem selection, and network-to-byte adapters
-remain unimplemented. Type-checking behavior outside the implemented slice
-establishes only its static capability and effect boundary.
+empty-request bypass, provider-count validation, and host translation, the
+namespace and seek outcome matrix, cleanup retry and failure precedence, host
+filesystem selection, and network-to-byte adapters remain unimplemented.
+Type-checking behavior outside the implemented slice establishes only its
+static capability and effect boundary.
 
 ## References
 

@@ -18,12 +18,13 @@ This proposal owns the remaining feasibility gates F4–F5 extracted from
 Design In Progress until this work completes. This work does not depend on
 its production implementation or promotion to Ready.
 
-The implemented provider foundation and complete-transfer outcome matrices are
-specified by [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
-That specification owns the completed `read_exact`, `write_all`, and `copy`
-observations, F3 observations, and the restricted owner-release boundary that
-F5 must reuse. This proposal does not restate those current results, ordering
-rules, or preserved-state contracts.
+The implemented provider foundation, sequential direct-facade outcome matrix,
+and complete-transfer outcome matrices are specified by
+[Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
+That specification owns the completed direct sequential, `read_exact`,
+`write_all`, and `copy` observations, F3 observations, and the restricted
+owner-release boundary that F5 must reuse. This proposal does not restate
+those current results, ordering rules, or preserved-state contracts.
 The following sections of the filesystem proposal define the remaining
 prototype obligations:
 
@@ -54,7 +55,7 @@ its positive observations and its failure or preserved-state observations.
 
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
-| F4: remaining transfer and mutation | Direct read and write, host translation, seek and positional IO, open modes, metadata and entries, namespace mutation, truncate, append, and sync have independent expected bytes, cursor, commit, and namespace observations. This includes unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
+| F4: remaining transfer and mutation | Direct empty-request and invalid-count validation, host translation, seek and positional IO, open modes, metadata and entries, namespace mutation, truncate, append, and sync have independent expected bytes, cursor, commit, and namespace observations. This includes unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
 | F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table while reusing the implemented F3 restricted-release boundary. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry across the restricted boundary; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
 
 ## Implementation Sequence And Evidence Placement
@@ -62,7 +63,8 @@ its positive observations and its failure or preserved-state observations.
 1. Apply the unimplemented outcome and transition rows to F4 and F5. Keep fake
    state and failure plans in Veln. Add host-boundary cases only for
    observations that require a real host or backend integration. Do not repeat
-   the implemented complete-transfer matrices as proposal evidence.
+   the implemented sequential direct-facade or complete-transfer matrices as
+   proposal evidence.
 
 | Evidence | Placement and local verification route |
 | --- | --- |
