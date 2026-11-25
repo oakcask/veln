@@ -25,9 +25,13 @@ The current [type specification](../specification/types.md) defines generic
 constructor inference, variance, variant refinements, and monomorphic local
 inference. Private function inference requires concrete types and can use
 same-module call-site facts. That inference is not universal quantification.
-The current [source grammar](../specification/source-surface.md#executable-grammar)
-allows an effect binder on a function, but no ordinary type-parameter binder.
-The [effect specification](../specification/effects.md#effect-labels) already
+The current
+[source grammar](../specification/source-surface.md#function-declaration-binders)
+accepts and retains ordinary function type binders followed by an optional
+effect binder. It formats those declaration binders canonically and rejects
+unsupported declaration forms. The syntax does not yet establish a semantic
+type scheme or bind the names in signatures and bodies. The
+[effect specification](../specification/effects.md#effect-labels) already
 supports one declared effect-row parameter and call-specific substitution.
 
 At investigation base `fb433dd78`, `FunctionSignature` in
@@ -109,7 +113,7 @@ instance with `Int` cannot constrain another instance to `Int`. Explicit type
 arguments fix the declared parameters in declaration order. A complete list
 with the wrong arity, or an argument incompatible with a fixed type, is
 rejected. Partial lists, placeholders, and explicit effect-row arguments are
-not supported. See [Q1](#q1-source-surface-and-name-resolution).
+not supported. See [Q1](#q1-binder-scope-and-generic-name-resolution).
 
 Value arguments and an available expected result type constrain the same
 instance. For `empty<T>() -> Vec<T>`, whose body is `[]`, a `Vec<Int>` expected
@@ -214,7 +218,7 @@ evidence belongs to implementation and is not a prerequisite for Ready.
 | `wrap<T>` constructs `Some(value)` | Rigid `T` flows through the constructor and inferred call result. | Semantic tests for generic ADT substitution. |
 | Generic definition returns `0` as arbitrary `T`, or uses integer `+` on `T` | Definition fails even when its only caller supplies `Int`, and when it has no callers. | Definition-check and human/JSON diagnostic cases. |
 | Two generic definitions both spell a parameter `T`; consistently rename one | Separate identities; equivalent checking after renaming. | Binder and capture-avoiding substitution tests. |
-| Duplicate binder or binder outside its declaration | Reject at the failed binder or type use. | Accepted/rejected grammar and semantic fixtures. |
+| Binder shadowing a visible type, or binder use outside its declaration | Reject at the failed binder or type use. | Name-resolution and semantic fixtures. |
 | `identity<Int>(42)`, wrong explicit arity, or `identity<Int>("hello")` | Accept the first; reject the other two without changing the reusable scheme. | Source and call-check fixtures. |
 | `empty<T>() -> Vec<T>` with expected `Vec<Int>` or explicit `<Int>` | Resolve `T` and produce an empty vector of that type. | Contextual call and lowering tests. |
 | Result-only instance with no resolving context | A pending direct local initializer reports incompleteness at the binding if unused or unresolved; other unresolved calls report ambiguity at the call. | Diagnostic and later-completion cases under Q3. |
@@ -228,11 +232,11 @@ evidence belongs to implementation and is not a prerequisite for Ready.
 | Same-type recursion versus a cycle growing `T` into `Vec<T>` | Accept ordinary recursion; reject polymorphic recursion. | Recursive-group semantic tests. |
 | Imported generic function and public re-export | Retain the scheme, nominal identities, visibility, and independent instances across modules/packages. | Import and public-interface cases. |
 | Callback with concrete effects; generic function with a row binder | Retain concrete effects and rigid enclosing tails; commit or discard both substitutions together under Q5. | Effect-signature tests and boundary diagnostics. |
-| Formatter, AST, generated docs, hover, and typed hole inside a generic body | Preserve/render binders; show rigid types without exposing internal inference identifiers. | Surface round trips and focused tool output cases. |
+| Generated docs, hover, and typed hole inside a generic body | Render the retained declaration binders and show rigid types without exposing internal inference identifiers. | Focused tool output cases. |
 | Direct and indirect instances with primitive, record, nested ADT, and callback arguments | Agree on checked result and runtime representation; no cross-instance cast or linkage failure. | JVM lowering and execution boundary cases. |
 
-Use accepted/rejected fixtures for the executable source grammar and formatter
-round trips once syntax is decided. Put inference, rigidity, scheme scope,
+The current source-surface specification owns accepted and rejected declaration
+fixtures plus formatter round trips. Put inference, rigidity, scheme scope,
 substitution, and recovery assertions in focused compiler tests. Add checked
 examples under `examples/specification/` for observable compiler, diagnostics,
 public-interface, and backend contracts. Each backend case must identify the
@@ -263,49 +267,41 @@ correctness or a claim of complete Haskell compatibility.
 
 Q1–Q9 are resolved for this proposal's first delivery. Excluded extensions need
 separate proposals; their absence is not an implementation gap in this scope.
-These decisions specify future behavior, not current compiler support.
+The linked source-surface rules identify the completed declaration syntax; the
+remaining decisions specify future semantic and toolchain behavior.
 
-### Q1: Source surface and name resolution
+### Q1: Binder scope and generic name resolution
 
-Use one nonempty binder list after the function name. Ordinary type parameters
-come first. At most one `effect E` entry comes last. Permit one trailing comma.
-Type parameters have ordinary kind: `T<Int>` is invalid. The binder
-scope includes the signature, body, and executable contracts, and excludes
-other declarations. The collision rules in Declaration and body checking
+The current
+[function declaration binder syntax](../specification/source-surface.md#function-declaration-binders)
+owns the accepted list forms, syntax-tree spans, declaration-form exclusions,
+diagnostics, and canonical formatting. The existing expression grammar also
+retains the name-path and balanced-angle suffix followed by `(` rule, so a
+qualified typed call remains syntactically distinct from comparisons without
+consulting symbol types.
+
+The remaining Q1 work gives each retained ordinary binder declaration identity
+and scope over its signature, body, and executable contracts. That scope must
+exclude other declarations. A binder must not shadow a visible built-in type,
+source type, or imported type alias. These semantic collision and scope rules
 apply equally to public and private functions.
 
-Explicit instantiation uses `name<Type, ...>(arguments)` on an unqualified or
-qualified name resolving to a scheme, including a transparent alias. It fixes
-all ordinary parameters in declaration order and still infers the effect row.
-Do not add standalone `identity<Int>` function values or type application to
-arbitrary expressions. Use `let f: fn(Int) -> Int = identity` to select a
-function value. A monomorphic function value cannot receive type arguments.
+When an unqualified or qualified `name<Type, ...>(arguments)` resolves to a
+scheme, explicit instantiation fixes every ordinary parameter in declaration
+order and still infers the effect row. The same rule applies through a
+transparent alias. A monomorphic function value cannot receive type arguments.
+Standalone `identity<Int>` function values and type application to arbitrary
+expressions remain unsupported; an annotated function binding selects a
+monomorphic function value instead.
 
-Retain the existing name-path and balanced-angle suffix followed by `(` rule
-in `crates/veln-syntax/src/parser/expression_core.rs`; do not consult symbol
-types to parse the suffix. Consequently `f<T>(x)` parses as a typed call even
-when `f` later fails scheme lookup. Use parentheses to express the competing
-comparison interpretation. `x < y` remains a comparison. Qualified calls,
-nested `>>` closers, trailing commas, and formatted output must round-trip.
-The formatter writes type binders before the effect binder with comma-space
-separators and no trailing comma in a single-line list. This adapts the current
-ADT spelling and call suffix instead of introducing a second application form.
-The following are planned source-surface acceptance targets for parser,
-semantic, and formatter coverage during implementation.
-
-| Source shape | Acceptance and formatter target |
+| Remaining name-resolution boundary | Required observation |
 | --- | --- |
-| `fn f<T>(x: T) -> T` | Accept; retain `<T>`. |
-| `fn f<T, U, effect E,>(x: T, f: fn(T) -> U effects [...E]) -> U effects [...E]` | Accept; print `<T, U, effect E>`. |
-| `fn f<effect E>(...)` | Retain existing row-only syntax and behavior; `...` here abbreviates the signature. |
-| `fn f<>(...)`, `fn f<effect E, T>(...)`, `fn f<T, T>(...)`, or `fn f<T, effect T>(...)` | Reject the empty, misordered, or duplicate binder. |
-| `fn f<T: Trait>(...)` or `f<_, Int>(x)` | Reject bounds or placeholders. |
-| `module::identity<Vec<Int>>([1])` | Accept nested closers and qualified application. |
-| `f<Int,>(1)` after `let f = identity` | Accept the alias call; print `f<Int>(1)`. |
-| `let f = identity<Int>` or `factory()<Int>(1)` | Reject unsupported standalone or expression type application. |
-| `x < y` | Preserve comparison parsing. |
-| `f<T>(x)` | Parse as typed call; subsequent name/scheme checking decides validity. |
-| `(f < t) > x` | Parse both operators as comparisons. |
+| A retained binder used in its declaration's signature, body, or contract | Resolve to that declaration-owned rigid type parameter. |
+| The same binder spelling in another declaration | Resolve to a distinct identity. |
+| A binder spelling that shadows a visible type | Reject at the binder with the visible declaration as related context. |
+| A binder name used outside its declaration | Reject as an unresolved type name. |
+| A typed call whose callee resolves to a scheme | Check the complete explicit list against that scheme in declaration order. |
+| A typed call whose callee is monomorphic or whose explicit arity is wrong | Reject without changing any reusable scheme. |
 
 ### Q2: Scheme preservation without new generalization
 
@@ -484,12 +480,13 @@ the existing ABI does not establish that they already pass.
 
 ### Q7: Artifacts, tooling, and diagnostics
 
-AST output retains ordered type binders, the optional row binder, and source
-spans. Semantic schemes identify each binder by owning declaration identity,
-kind (ordinary type or effect row), and ordinal. Printed names are presentation,
-not identity. Instantiations and recovery unknowns are distinct from rigid
-binders. Core and typed IR retain schemes on declarations and each accepted
-call's substitution until the erasure boundary; JVM emission follows Q6.
+The syntax tree already retains ordered type binders, the optional row binder,
+and source spans. Semantic schemes must identify each binder by owning
+declaration identity, kind (ordinary type or effect row), and ordinal. Printed
+names are presentation, not identity. Instantiations and recovery unknowns are
+distinct from rigid binders. Core and typed IR retain schemes on declarations
+and each accepted call's substitution until the erasure boundary; JVM emission
+follows Q6.
 
 Package/interface artifacts retain ordered binders, signature structure,
 effects, and referenced nominal declaration identities. Re-exporting a function
@@ -514,7 +511,6 @@ using machine addresses or exposing transient solver identifiers as identities.
 | Incompatible argument or fixed substitution | Failed argument or explicit type argument | Relevant parameter/binder and conflicting bound. |
 | Unresolved immediate instance | Call expression | Unresolved binder and annotation/explicit-argument hint. |
 | Unresolved pending local | Omitted local binding | Initializing call and unresolved binder. |
-| Unsupported generic callable form | Variadic or `callsite` marker | Generic binder and fixed-arity ordinary-function boundary. |
 
 Choose diagnostic identifiers during implementation using the repository's
 existing registry. Human and JSON cases must establish these failure facts
@@ -524,12 +520,12 @@ that contract.
 
 ### Q8: Callable forms and executable contracts
 
-The first delivery accepts ordinary fixed-arity generic functions only. Reject
-an ordinary type binder on a variadic or `callsite` declaration at its unsupported
-marker; do not silently drop the quantifier or expose a partially generic
-signature. Existing nongeneric and row-only forms retain their current rules.
-A fixed-arity generic function may still accept a compatible monomorphic
-callback, subject to existing callback compatibility.
+The source parser already restricts ordinary type binders to ordinary
+fixed-arity functions and rejects generic `test`, variadic, and `callsite`
+declarations. Semantic analysis must not silently drop a retained quantifier or
+expose a partially generic signature. Existing nongeneric and row-only forms
+retain their current rules. A fixed-arity generic function may still accept a
+compatible monomorphic callback, subject to existing callback compatibility.
 
 Check every executable precondition and postcondition under the same rigid
 binders as the body. Calls in contracts instantiate independent helpers;
@@ -569,7 +565,7 @@ support still needs the changes and acceptance coverage described here.
 
 | Concern | Existing starting point | Planned change |
 | --- | --- | --- |
-| Source surface | Function headers already parse an effect binder, and named-call suffixes already distinguish balanced type arguments from comparisons. | Extend declaration binders under Q1, retaining spans and existing typed-call lookahead. Add parser and formatter acceptance coverage. |
+| Binder scope and calls | Function syntax retains ordinary and effect binders with spans, while named-call suffixes distinguish balanced type arguments from comparisons. | Resolve retained ordinary binders by declaration identity and connect typed calls to schemes under Q1 without changing the source grammar. |
 | Rigid definitions and independent instances | Semantic function signatures carry parameter, result, and effect information; current private inference is monomorphic. | Represent declaration-owned ordinary binders and schemes, check definitions rigidly, and create fresh substitutions at non-recursive uses. Keep recursive-group references rigid under Q9. |
 | Type and effect inference | Constructor inference already collects polarity-sensitive bounds, and effect calls already substitute one row. | Apply Q3–Q5 to generic call instances, retaining complete constraints and publishing type and row solutions together. Pending locals retain one monomorphic instance. |
 | Aliases and public interfaces | Name resolution identifies declarations and imports; function values already have monomorphic signatures. | Preserve the owning scheme for transparent aliases and exports, instantiate at monotype boundaries, and retain binder identity in versioned interfaces under Q7. |
@@ -595,10 +591,10 @@ by themselves make the design unready.
 | Combined `apply` with pure, `stdio`, and rigid enclosing-row callbacks; incompatible input or row upper bound | Produce the Q5 substitutions; publish neither tentative type nor row on failure. | Joint-solver tests and effect-boundary cases. |
 | Generic signature exported, serialized, loaded, and re-exported | Preserve owner identity, arity, visibility, and independent use; reject an unsupported schema version. | Artifact round-trip and separate consumer tests. |
 | Rigid-`T` hole with a local of `T` and an unrelated `Int` local | Render `T`; include the former candidate and exclude the latter. | Hover/hole JSON and human output cases. |
-| Generic variadic or `callsite` declaration, or a contract using an `Int` operation on `T` | Reject at the unsupported marker or failed contract operation, with binder provenance. | Negative declaration and contract diagnostic cases. |
+| A contract using an `Int` operation on `T` | Reject at the failed contract operation, with binder provenance. | Negative contract diagnostic cases. |
 
-During implementation, move supported behavior and checked acceptance examples
-into the current source-surface, type, effect, and affected tooling
+During implementation, move remaining supported behavior and checked acceptance
+examples into the current type, effect, and affected tooling
 specifications. Keep only incomplete scope here. Remove this proposal and its
 catalog entry when no active scope remains. Current specifications and root
 feature summaries must not advertise generic functions merely because this

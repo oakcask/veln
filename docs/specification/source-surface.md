@@ -32,6 +32,36 @@ end
 The sections below explain declarations and source boundaries. The grammar
 provides the production notation for these forms.
 
+### Function declaration binders
+
+An ordinary fixed-arity function may declare one or more type binders after
+its name. Ordinary type binders precede an optional final effect-row binder:
+
+```veln
+fn identity<T>(value: T) -> T
+	value
+end
+
+fn transform<T, U, effect E>(value: T, callback: fn(T) -> U effects [...E]) -> U effects [...E]
+	callback(value)
+end
+```
+
+The list is nonempty. A trailing comma is accepted. `veln fmt` writes the
+binders in their declared order with comma-space separators and omits the
+trailing comma. The syntax tree retains each ordinary binder's name and exact
+name span. It also retains the optional effect binder. An effect-only list such
+as `<effect E>` keeps its existing source behavior.
+
+Binder names must be unique across both binder kinds. An effect binder must be
+the final entry, and a declaration accepts at most one. Empty lists, ordinary
+binders after an effect binder, bounds, applied binder names, placeholders, and
+other entry forms are syntax errors. Ordinary type binders are not accepted on
+`test` declarations, variadic functions, or `callsite` functions. These rules
+define declaration parsing and formatting only; generic type schemes, body
+checking, call instantiation, lowering, and execution remain outside the
+implemented source-surface contract.
+
 An import can bind an explicit module qualifier with `as` before an optional
 package source:
 
@@ -149,7 +179,8 @@ selected finite initializer data without invoking user code.
 
 - Optional source-written `mod` headers, source path derived local module
   identity, local and external package imports, `.test.veln` test companion
-  source classification, functions with optional `<effect E>` row binders,
+  source classification, fixed-arity functions with ordinary type binders and
+  an optional final effect-row binder,
   tests, source ADT type declarations, schema declarations, nominal effect
   operation declarations, lexical handler declarations, public member
   aliases, canonical `#` comments, `##`
@@ -597,7 +628,7 @@ Item          ::= ModuleValueDecl | Function | TestDecl | EffectDecl | HandlerDe
 ModuleValueDecl ::= "pub"? "let" ModuleBindingName ":" TypeText "=" Expr DeclarationEnd
 DeclarationEnd ::= NL | EOF
 ModuleBindingName ::= ordinary identifier with ASCII lowercase initial
-Function      ::= "pub"? "fn" Name EffectBinder? "(" ParamList? ")" Return? Effects? CallsiteModifier? NL
+Function      ::= "pub"? "fn" Name FunctionBinderList? "(" ParamList? ")" Return? Effects? CallsiteModifier? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
@@ -644,7 +675,9 @@ NamedAdtBase  ::= (Name "::")* UpperName
 NamedTypeArguments ::= "<" TypeText ("," TypeText)* ","? ">"
 RefinementTypeArguments ::= "<" TypeText ("," TypeText)* ">"
 TypePath      ::= Name ("::" Name)*
-EffectBinder  ::= "<" "effect" Name ">"
+FunctionBinderList ::= "<" TypeBinder ("," TypeBinder)* ("," EffectBinder)? ","? ">" | "<" EffectBinder ","? ">"
+TypeBinder    ::= ordinary identifier
+EffectBinder  ::= "effect" Name
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
 TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
                   | "{" TypeVariantField ("," TypeVariantField)* ","? "}"

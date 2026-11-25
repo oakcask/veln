@@ -12,7 +12,7 @@ use crate::{
     Param, Pattern, PatternField, PatternKind, PredicateRemainder, PrefixOp, PublicAliasDecl,
     PublicAliasKind, RecordField, RecordFieldPath, SatisfyClause, SchemaDecl, SchemaField,
     SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SyntaxItem, SyntaxTree,
-    Token, TokenKind, TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField,
+    Token, TokenKind, TypeBinder, TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField,
     TypeVariantFieldDelimiter, UseAlias, UseDecl, UsePackage, VariantRefinementAlternative,
     VariantRefinementType, VariantRefinementTypeArgument, Visibility, lex,
 };
@@ -372,6 +372,7 @@ struct FunctionHeader {
     visibility: Visibility,
     name: Option<String>,
     name_span: Option<SourceSpan>,
+    type_binders: Vec<crate::TypeBinder>,
     effect_binder: Option<EffectBinder>,
     params: Vec<Param>,
 }

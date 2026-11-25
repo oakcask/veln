@@ -96,6 +96,28 @@ impl<'a> Parser<'a> {
         let start = self.current().range;
         let header = self.parse_function_header(kind);
         let mut return_decl = self.parse_function_return_and_effects(kind);
+        if !header.type_binders.is_empty()
+            && let Some(callsite) = return_decl.callsite.as_ref()
+        {
+            self.diagnostics.push(ParseDiagnostic {
+                id: "parse.generic_function_callsite",
+                message: "ordinary generic functions cannot use the `callsite` modifier"
+                    .to_string(),
+                span: Some(callsite.clone()),
+                parser_context: Self::function_context(kind),
+                unexpected: UnexpectedToken {
+                    kind: "callsite".to_string(),
+                    text: "callsite".to_string(),
+                },
+                expected: vec!["ordinary fixed-arity function"],
+                recovery: Recovery {
+                    strategy: RecoveryStrategy::None,
+                    anchor: Some("function declaration".to_string()),
+                    dropped_token_count: 0,
+                },
+                repair_candidates: Vec::new(),
+            });
+        }
         let diagnostic_count = self.diagnostics.len();
         self.expect_newline(Self::function_context(kind));
         if return_decl.effects.is_some() && self.diagnostics.len() > diagnostic_count {
@@ -115,6 +137,7 @@ impl<'a> Parser<'a> {
             visibility: header.visibility,
             name: header.name,
             name_span: header.name_span,
+            type_binders: header.type_binders,
             effect_binder: header.effect_binder,
             params: header.params,
             return_binding: return_decl.binding,
@@ -161,50 +184,266 @@ impl<'a> Parser<'a> {
         } else {
             self.expect_covered_name(Self::function_context(kind), "declaration name")
         };
-        let effect_binder = self.parse_effect_binder(kind);
+        let (type_binders, effect_binder) = self.parse_function_binders(kind);
         self.expect(TokenKind::LParen, Self::parameter_context(kind), vec!["("]);
         let params = self.parse_params();
         self.expect(TokenKind::RParen, Self::parameter_context(kind), vec![")"]);
+        if !type_binders.is_empty()
+            && let Some(param) = params.iter().find(|param| param.is_variadic)
+        {
+            self.diagnostics.push(ParseDiagnostic {
+                id: "parse.generic_function_variadic",
+                message: "ordinary generic functions cannot be variadic".to_string(),
+                span: Some(param.span.clone()),
+                parser_context: Self::function_context(kind),
+                unexpected: UnexpectedToken {
+                    kind: "variadic parameter".to_string(),
+                    text: param.name.clone(),
+                },
+                expected: vec!["fixed-arity parameter"],
+                recovery: Recovery {
+                    strategy: RecoveryStrategy::None,
+                    anchor: Some("function parameter".to_string()),
+                    dropped_token_count: 0,
+                },
+                repair_candidates: Vec::new(),
+            });
+        }
         FunctionHeader {
             visibility,
             name,
             name_span,
+            type_binders,
             effect_binder,
             params,
         }
     }
 
-    pub(super) fn parse_effect_binder(&mut self, kind: FunctionKind) -> Option<EffectBinder> {
+    pub(super) fn parse_function_binders(
+        &mut self,
+        kind: FunctionKind,
+    ) -> (Vec<TypeBinder>, Option<EffectBinder>) {
         if !self.at(TokenKind::Less) {
-            return None;
+            return (Vec::new(), None);
         }
         let start = self.bump().range;
-        if !self.at(TokenKind::Effect) {
+        let mut type_binders = Vec::new();
+        let mut effect_binder = None;
+        let mut names = std::collections::HashSet::new();
+        let mut saw_effect = false;
+
+        if self.at(TokenKind::Greater) {
             self.error_current(
-                "parse.effect_binder",
-                "function effect binder must use `<effect E>`",
+                "parse.empty_function_binder_list",
+                "function binder list cannot be empty",
                 Self::function_context(kind),
-                vec!["effect"],
-                RecoveryStrategy::SynchronizeToAnchor,
-                Some("("),
+                vec!["type binder", "effect"],
+                RecoveryStrategy::None,
+                Some(">"),
             );
-            while !self.at(TokenKind::LParen)
+            self.bump();
+            return (type_binders, effect_binder);
+        }
+
+        loop {
+            if self.at(TokenKind::Effect) {
+                let effect = self.bump();
+                if saw_effect {
+                    self.error_current(
+                        "parse.multiple_effect_binders",
+                        "function binder list accepts at most one effect binder",
+                        Self::function_context(kind),
+                        vec![">"],
+                        RecoveryStrategy::None,
+                        Some("function binder list"),
+                    );
+                }
+                saw_effect = true;
+                let name_token = self.current().clone();
+                let name = self.expect_ident(Self::function_context(kind), "effect row variable");
+                if let Some(name) = name {
+                    if !names.insert(name.clone()) {
+                        self.report_duplicate_function_binder(&name_token, &name, kind);
+                    }
+                    if effect_binder.is_none() {
+                        effect_binder = Some(EffectBinder {
+                            name,
+                            span: self.source.span(effect.range.cover(name_token.range)),
+                        });
+                    }
+                }
+            } else if self.at(TokenKind::Ident) {
+                let binder = self.bump();
+                if saw_effect {
+                    self.report_function_binder_error(
+                        &binder,
+                        "parse.type_binder_after_effect",
+                        "ordinary type binders must precede the effect binder",
+                        vec![">"],
+                        kind,
+                    );
+                }
+                if !names.insert(binder.text.clone()) {
+                    self.report_duplicate_function_binder(&binder, &binder.text, kind);
+                }
+                type_binders.push(TypeBinder {
+                    name: binder.text,
+                    span: self.source.span(binder.range),
+                });
+                if self.at(TokenKind::Colon) || self.at(TokenKind::Less) {
+                    let invalid = self.bump();
+                    let applied_binder = invalid.kind == TokenKind::Less;
+                    self.report_function_binder_error(
+                        &invalid,
+                        "parse.function_binder_bound",
+                        "function type binders do not accept bounds or type arguments",
+                        vec![",", ">"],
+                        kind,
+                    );
+                    if applied_binder {
+                        self.skip_applied_function_binder();
+                    } else {
+                        self.skip_invalid_function_binder_entry();
+                    }
+                }
+            } else {
+                let invalid = self.bump();
+                self.report_function_binder_error(
+                    &invalid,
+                    "parse.function_binder_entry",
+                    "function binder entry must be a type name or `effect E`",
+                    vec!["type binder", "effect"],
+                    kind,
+                );
+                self.skip_invalid_function_binder_entry();
+            }
+
+            if self.eat(TokenKind::Comma).is_some() {
+                if self.at(TokenKind::Greater) {
+                    let end = self.bump().range;
+                    if let Some(binder) = effect_binder.as_mut() {
+                        binder.span = self.source.span(start.cover(end));
+                    }
+                    break;
+                }
+                continue;
+            }
+            if self.at(TokenKind::Greater) {
+                let end = self.bump().range;
+                if let Some(binder) = effect_binder.as_mut() {
+                    binder.span = self.source.span(start.cover(end));
+                }
+                break;
+            }
+
+            self.error_current(
+                "parse.function_binder_separator",
+                "function binders must be separated by `,` and closed by `>`",
+                Self::function_context(kind),
+                vec![",", ">"],
+                RecoveryStrategy::SynchronizeToAnchor,
+                Some("function binder list"),
+            );
+            while !self.at(TokenKind::Comma)
+                && !self.at(TokenKind::Greater)
+                && !self.at(TokenKind::LParen)
                 && !self.at(TokenKind::Newline)
                 && !self.at(TokenKind::Eof)
             {
                 self.bump();
             }
-            return None;
+            if self.at(TokenKind::Comma) {
+                self.bump();
+                continue;
+            }
+            if self.at(TokenKind::Greater) {
+                self.bump();
+            }
+            break;
         }
-        self.bump();
-        let name = self.expect_ident(Self::function_context(kind), "effect row variable");
-        let end = self
-            .expect(TokenKind::Greater, Self::function_context(kind), vec![">"])
-            .range;
-        Some(EffectBinder {
-            name: name.unwrap_or_default(),
-            span: self.source.span(start.cover(end)),
-        })
+
+        if kind == FunctionKind::Test && !type_binders.is_empty() {
+            let binder = &type_binders[0];
+            self.diagnostics.push(ParseDiagnostic {
+                id: "parse.generic_test_declaration",
+                message: "test declarations cannot declare ordinary type binders".to_string(),
+                span: Some(binder.span.clone()),
+                parser_context: Self::function_context(kind),
+                unexpected: UnexpectedToken {
+                    kind: "type binder".to_string(),
+                    text: binder.name.clone(),
+                },
+                expected: vec!["nongeneric test declaration"],
+                recovery: Recovery {
+                    strategy: RecoveryStrategy::None,
+                    anchor: Some("test declaration".to_string()),
+                    dropped_token_count: 0,
+                },
+                repair_candidates: Vec::new(),
+            });
+        }
+
+        (type_binders, effect_binder)
+    }
+
+    fn skip_invalid_function_binder_entry(&mut self) {
+        while !self.at(TokenKind::Comma)
+            && !self.at(TokenKind::Greater)
+            && !self.at(TokenKind::LParen)
+            && !self.at(TokenKind::Newline)
+            && !self.at(TokenKind::Eof)
+        {
+            self.bump();
+        }
+    }
+
+    fn skip_applied_function_binder(&mut self) {
+        let mut depth = 1usize;
+        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+            if self.at(TokenKind::Less) {
+                depth += 1;
+            } else if self.at(TokenKind::Greater) {
+                depth -= 1;
+                self.bump();
+                if depth == 0 {
+                    break;
+                }
+                continue;
+            }
+            self.bump();
+        }
+    }
+
+    fn report_duplicate_function_binder(&mut self, token: &Token, name: &str, kind: FunctionKind) {
+        self.report_function_binder_error(
+            token,
+            "parse.duplicate_function_binder",
+            format!("duplicate function binder `{name}`"),
+            vec!["unique binder name"],
+            kind,
+        );
+    }
+
+    fn report_function_binder_error(
+        &mut self,
+        token: &Token,
+        id: &'static str,
+        message: impl Into<String>,
+        expected: Vec<&'static str>,
+        kind: FunctionKind,
+    ) {
+        self.error_at_token(
+            token,
+            DiagnosticRequest {
+                id,
+                message: message.into(),
+                parser_context: Self::function_context(kind),
+                expected,
+                strategy: RecoveryStrategy::None,
+                anchor: Some("function binder list"),
+                repair_candidates: Vec::new(),
+            },
+        );
     }
 
     pub(super) fn parse_function_return_and_effects(

@@ -425,9 +425,21 @@ fn format_function_signature(function: &FunctionDecl) -> String {
         signature.push_str("fn ");
     }
     signature.push_str(function.name.as_deref().unwrap_or("<missing>"));
-    if let Some(binder) = &function.effect_binder {
-        signature.push_str("<effect ");
-        signature.push_str(&binder.name);
+    if !function.type_binders.is_empty() || function.effect_binder.is_some() {
+        signature.push('<');
+        for (index, binder) in function.type_binders.iter().enumerate() {
+            if index > 0 {
+                signature.push_str(", ");
+            }
+            signature.push_str(&binder.name);
+        }
+        if let Some(binder) = &function.effect_binder {
+            if !function.type_binders.is_empty() {
+                signature.push_str(", ");
+            }
+            signature.push_str("effect ");
+            signature.push_str(&binder.name);
+        }
         signature.push('>');
     }
     signature.push('(');
