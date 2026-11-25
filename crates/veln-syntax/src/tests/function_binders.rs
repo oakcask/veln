@@ -233,6 +233,62 @@ fn unclosed_binder_list_preserves_following_function_declaration() {
 }
 
 #[test]
+fn retained_unclosed_binders_preserve_following_function_declaration() {
+    let cases = [
+        ("fn invalid<T\n", Some("T"), None),
+        ("fn invalid<effect E\n", None, Some("E")),
+    ];
+
+    for (invalid_header, expected_type_binder, expected_effect_binder) in cases {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("{invalid_header}fn valid() -> Int\n  1\nend\n"),
+        );
+        let output = parse(&source);
+
+        assert!(
+            output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.function_binder_separator"),
+            "{:#?}",
+            output.diagnostics
+        );
+        assert_eq!(output.tree.items.len(), 2);
+        let SyntaxItem::Function(invalid) = &output.tree.items[0] else {
+            panic!("expected recovered function declaration");
+        };
+        assert_eq!(invalid.name.as_deref(), Some("invalid"));
+        assert_eq!(
+            invalid
+                .type_binders
+                .first()
+                .map(|binder| binder.name.as_str()),
+            expected_type_binder
+        );
+        assert_eq!(
+            invalid
+                .effect_binder
+                .as_ref()
+                .map(|binder| binder.name.as_str()),
+            expected_effect_binder
+        );
+        assert!(invalid.params.is_empty());
+        assert!(invalid.return_type.is_none());
+        assert!(invalid.body.is_empty());
+        assert!(!invalid.end_present);
+
+        let SyntaxItem::Function(valid) = &output.tree.items[1] else {
+            panic!("expected following function declaration");
+        };
+        assert_eq!(valid.name.as_deref(), Some("valid"));
+        assert_eq!(valid.return_type.as_deref(), Some("Int"));
+        assert_eq!(valid.body.len(), 1);
+        assert!(valid.end_present);
+    }
+}
+
+#[test]
 fn invalid_binder_at_parameter_boundary_preserves_signature() {
     let source = SourceFile::new(
         "main.veln",

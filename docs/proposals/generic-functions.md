@@ -10,9 +10,10 @@ independently at each use. Preserve that polymorphism through transparent
 function aliases, and check function bodies against their declared abstraction.
 This proposal is a Ready implementation target. Q1–Q9 have first-delivery
 decisions or explicit exclusions and an identified
-[implementation approach](#implementation-approach). The examples and
-acceptance cases below specify planned behavior; they are not passing examples
-for the current Veln toolchain.
+[implementation approach](#implementation-approach). The semantic, tooling,
+artifact, and backend outcomes below remain planned. The current
+[source-surface specification](../specification/source-surface.md#function-declaration-binders)
+owns declaration parsing and formatting behavior.
 
 ## Purpose and current boundary
 
@@ -59,12 +60,14 @@ not infer universal parameters for previously monomorphic private functions.
 
 Type classes, inferred operator constraints, higher-kinded parameters,
 higher-rank callback types, and polymorphic recursion are outside the baseline.
-The [first-delivery decisions](#first-delivery-decisions) define syntax,
-inference, runtime representation, and explicit extension boundaries.
+The [first-delivery decisions](#first-delivery-decisions) cite the current
+source syntax and define planned inference, runtime representation, and
+explicit extension boundaries.
 
 ### Declaration and body checking
 
-Declaration syntax reuses the ADT type-parameter spelling:
+The current declaration syntax reuses the ADT type-parameter spelling. The
+example bodies illustrate the planned semantic checking:
 
 ```veln
 pub fn identity<T>(value: T) -> T
@@ -90,12 +93,15 @@ callers use `Int`. Checking cannot specialize an invalid source definition into
 valid instances. The same condition applies to operations in contract clauses.
 No operation acquires a new implicit type-class constraint from this proposal.
 
-The proposed binder is visible in local type annotations. It cannot escape
-through an unbound public type. Duplicate type-parameter names are invalid.
-A binder cannot shadow a visible type name, including a built-in type or an
-imported type alias. Type and effect binders in one list must have distinct
-names. Value and field names remain in their existing namespaces. Public
-generic functions retain explicit parameter, result, and effect boundaries; client calls cannot infer their exported abstraction.
+The current declaration syntax rejects duplicate binder names, including a
+name shared by an ordinary type binder and an effect binder. The remaining
+semantic work makes each retained ordinary binder visible in local type
+annotations and prevents it from escaping through an unbound public type. The
+remaining name-resolution work also rejects a binder that shadows a visible
+type name, including a built-in type or an imported type alias. Value and field
+names remain in their existing namespaces. Public generic functions retain
+explicit parameter, result, and effect boundaries; client calls cannot infer
+their exported abstraction.
 
 ### Independent instantiation and contextual inference
 
@@ -113,7 +119,7 @@ instance with `Int` cannot constrain another instance to `Int`. Explicit type
 arguments fix the declared parameters in declaration order. A complete list
 with the wrong arity, or an argument incompatible with a fixed type, is
 rejected. Partial lists, placeholders, and explicit effect-row arguments are
-not supported. See [Q1](#q1-binder-scope-and-generic-name-resolution).
+not supported. See [Q1](#q1-source-surface-and-name-resolution).
 
 Value arguments and an available expected result type constrain the same
 instance. For `empty<T>() -> Vec<T>`, whose body is `[]`, a `Vec<Int>` expected
@@ -191,10 +197,10 @@ be instantiated with expressions involving an enclosing rigid `T`.
 Type instantiation must preserve the declared function's effects and the
 effects of evaluating arguments. Type parameters cannot stand for effect rows.
 A typed callback's concrete effect set must not disappear when passed through
-a generic function. Generic type and effect-row parameters compose in one
-binder list, such as `<T, U, effect E>`.
-[Q5](#q5-type-and-effect-substitution) defines their joint instantiation and
-failure boundary.
+a generic function. The current declaration syntax accepts ordinary type
+binders followed by a final effect-row binder, such as `<T, U, effect E>`.
+[Q5](#q5-type-and-effect-substitution) defines the remaining joint
+instantiation and failure boundary.
 
 Aliases, imports, generated documentation, and tooling must preserve binder
 scope and scheme structure. Public visibility checks continue through
@@ -270,7 +276,7 @@ separate proposals; their absence is not an implementation gap in this scope.
 The linked source-surface rules identify the completed declaration syntax; the
 remaining decisions specify future semantic and toolchain behavior.
 
-### Q1: Binder scope and generic name resolution
+### Q1: Source surface and name resolution
 
 The current
 [function declaration binder syntax](../specification/source-surface.md#function-declaration-binders)
@@ -415,11 +421,12 @@ arguments remain available even when another argument fails.
 
 ### Q5: Type and effect substitution
 
-Support combined `<T, U, effect E>` declarations in the first delivery. Type
-and row variables have distinct roles and substitutions. Transparent aliases
-retain both binder lists. Expected callback monotypes constrain ordinary types
-and effect inclusion together. Recheck callback compatibility against the
-complete substitution; resolving one kind must not discard the other's facts.
+The current declaration syntax accepts combined `<T, U, effect E>` lists. The
+remaining Q5 work gives type and row variables distinct semantic roles and
+substitutions. Transparent aliases retain both binder lists. Expected callback
+monotypes constrain ordinary types and effect inclusion together. Recheck
+callback compatibility against the complete substitution; resolving one kind
+must not discard the other's facts.
 
 Use the existing
 [row solver contract](../specification/types.md#compatibility-and-limits):
@@ -506,7 +513,7 @@ using machine addresses or exposing transient solver identifiers as identities.
 | Failed fact | Primary diagnostic location | Related context |
 | --- | --- | --- |
 | Invalid body result or operation on rigid `T` | Failed expression or operand | Binder declaration and required type. |
-| Duplicate or shadowing binder | Conflicting binder token | Earlier binder or visible type declaration. |
+| Binder shadowing a visible type | Conflicting binder token | Visible type declaration. |
 | Wrong explicit type arity | Type argument list | Declared binder list and required count. |
 | Incompatible argument or fixed substitution | Failed argument or explicit type argument | Relevant parameter/binder and conflicting bound. |
 | Unresolved immediate instance | Call expression | Unresolved binder and annotation/explicit-argument hint. |
@@ -540,11 +547,14 @@ abstraction and contract-bearing callable types remain separate proposals.
 
 Exclude type classes/traits, inferred constrained signatures, higher-kinded
 parameters, higher-rank callable types, and annotated polymorphic recursion.
-Reject bounds in binder lists and quantifiers in callback, field, or element
-types rather than erasing them. Unsupported operations on unconstrained `T`
-fail at that operation; no hidden constraint is inferred. A recursive cycle
-changing a declared rigid instance fails at the changing call, even with
-explicit type arguments. These are observable first-delivery boundaries.
+The current
+[function declaration binder syntax](../specification/source-surface.md#function-declaration-binders)
+already rejects declaration-list bounds. The remaining work rejects nested
+quantifiers in callback, field, or element types rather than erasing them.
+Unsupported operations on unconstrained `T` fail at that operation; no hidden
+constraint is inferred. A recursive cycle changing a declared rigid instance
+fails at the changing call, even with explicit type arguments. These are
+observable first-delivery boundaries.
 Each extension needs its own proposal, safety argument, and acceptance model;
 none blocks the unconstrained rank-one baseline.
 
@@ -571,9 +581,10 @@ support still needs the changes and acceptance coverage described here.
 | Aliases and public interfaces | Name resolution identifies declarations and imports; function values already have monomorphic signatures. | Preserve the owning scheme for transparent aliases and exports, instantiate at monotype boundaries, and retain binder identity in versioned interfaces under Q7. |
 | JVM emission | Object method descriptors, primitive boxing, direct calls, and function-value calls already provide erased runtime boundaries. | Retain semantic substitutions through typed lowering, then emit one shared body per declaration as described in Q6. No runtime type witness or specialization mechanism is needed for the baseline. |
 
-Q1, Q4, and Q5 identify the current syntax and inference rules being extended;
-Q6 identifies the relevant backend code. This provides an implementation route
-without introducing a second parser, solver, or backend as a readiness gate.
+Q1 identifies the current declaration syntax. Q4 and Q5 identify the current
+inference and effect rules being extended, and Q6 identifies the relevant
+backend code. This provides an implementation route without introducing a
+second parser, solver, or backend as a readiness gate.
 Production integration may still reveal a design conflict. Revisit the affected
 decision if implementing an acceptance case requires changing the selected
 behavior or its scope; ordinary implementation work and missing tests do not

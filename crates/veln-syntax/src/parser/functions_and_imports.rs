@@ -14,6 +14,12 @@ impl FunctionBinderState {
     }
 }
 
+enum FunctionBinderBoundary {
+    Continue,
+    Closed,
+    Unclosed,
+}
+
 impl<'a> Parser<'a> {
     pub(super) fn parse_use_declarations(&mut self) -> Vec<UseDecl> {
         let mut uses = Vec::new();
@@ -307,7 +313,7 @@ impl<'a> Parser<'a> {
             return (type_binders, effect_binder, false);
         }
 
-        let mut abandoned_at_binder_boundary = false;
+        let mut closed = false;
         loop {
             if !self.parse_function_binder_entry(kind, &mut state) {
                 if self.at(TokenKind::Comma) {
@@ -316,19 +322,25 @@ impl<'a> Parser<'a> {
                 }
                 if self.at(TokenKind::Greater) {
                     self.close_function_binders(start, &mut state);
+                    closed = true;
                     break;
                 }
-                abandoned_at_binder_boundary =
-                    self.at(TokenKind::Newline) || self.at(TokenKind::Eof);
                 break;
             }
-            if self.finish_function_binder_entry(kind, start, &mut state) {
-                break;
+            match self.finish_function_binder_entry(kind, start, &mut state) {
+                FunctionBinderBoundary::Continue => {}
+                FunctionBinderBoundary::Closed => {
+                    closed = true;
+                    break;
+                }
+                FunctionBinderBoundary::Unclosed => break,
             }
         }
 
         self.report_generic_test_declaration(kind, &state.type_binders);
 
+        let abandoned_at_binder_boundary =
+            !closed && (self.at(TokenKind::Newline) || self.at(TokenKind::Eof));
         let (type_binders, effect_binder) = state.finish();
         (type_binders, effect_binder, abandoned_at_binder_boundary)
     }
@@ -453,28 +465,29 @@ impl<'a> Parser<'a> {
         kind: FunctionKind,
         start: TextRange,
         state: &mut FunctionBinderState,
-    ) -> bool {
+    ) -> FunctionBinderBoundary {
         if self.eat(TokenKind::Comma).is_some() {
             if self.at(TokenKind::Greater) {
                 self.close_function_binders(start, state);
-                return true;
+                return FunctionBinderBoundary::Closed;
             }
-            return false;
+            return FunctionBinderBoundary::Continue;
         }
         if self.at(TokenKind::Greater) {
             self.close_function_binders(start, state);
-            return true;
+            return FunctionBinderBoundary::Closed;
         }
 
         self.recover_function_binder_separator(kind);
         if self.at(TokenKind::Comma) {
             self.bump();
-            return false;
+            return FunctionBinderBoundary::Continue;
         }
         if self.at(TokenKind::Greater) {
-            self.bump();
+            self.close_function_binders(start, state);
+            return FunctionBinderBoundary::Closed;
         }
-        true
+        FunctionBinderBoundary::Unclosed
     }
 
     fn close_function_binders(&mut self, start: TextRange, state: &mut FunctionBinderState) {
