@@ -27,6 +27,10 @@ also states it.
 
 ## Design In Progress
 
+- [Standard-library Numeric Constants](numeric-constants.md): expose `Int`
+  bounds and `Float` finite limits, positive minima, epsilon, infinities, and
+  NaN through typed module values; requires scalar-data construction and
+  non-finite comparison feasibility evidence before Ready promotion.
 - [Typed Predicate Logic and Flow Facts](typed-predicate-facts.md): define
   typed scalar predicates, value identity, flow transfer, and bounded proof
   outcomes as the shared prerequisite for callable interfaces and static
