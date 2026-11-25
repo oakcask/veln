@@ -14,8 +14,10 @@ The [design decisions](#design-decisions) resolve the initial scope. The
 implemented static and bounded runtime prerequisites belong to the current
 [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
 The direct-facade outcome and provider-count validation matrices and
-complete-transfer helper outcome matrices are implemented. The remaining F4
-host-translation, seek, namespace, and mutation behavior, F5 cleanup behavior,
+complete-transfer helper outcome matrices are implemented, as are scoped-fake
+open-resource seek and positional-cursor observations. The remaining F4 host
+translation, host-specific failed-seek behavior, open-mode, metadata,
+namespace-mutation, truncate, append, and sync behavior, F5 cleanup behavior,
 and host integration evidence are planned.
 Implementation selection remains blocked on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.

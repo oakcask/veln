@@ -8,6 +8,7 @@ use io_provider_lifecycle_test_support_test
 use path
 use filesystem_provider_test_support_test
 use io_copy_test_support_test
+use io_seek_cursor_test_support_test
 
 fn readonly_filesystem(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<fs::Filesystem, io::Error> effects [concurrency]
 	handle io_provider::filesystem(owner, slot) with io_provider_test_support_test::filesystem_read(calls)
@@ -2035,5 +2036,153 @@ test copy_rejects_progress_accumulation_overflow() -> Result<(), String> effects
 			Err("overflowing provider progress fabricated an accumulated count")
 		end
 		_ => Err("overflowing provider progress did not return InvalidResource")
+	end
+end
+
+fn cursor_invalid_input(result: Result<ByteOffset, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error("seek", io::ErrorKind::InvalidInput, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn cursor_invalid_resource(result: Result<ByteOffset, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error("seek", io::ErrorKind::InvalidResource, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn cursor_other_error(result: Result<ByteOffset, io::Error>) -> Bool
+	match result
+		Err(io::Error::Error("seek", io::ErrorKind::Other, _, _, _, _, _)) => true
+		_ => false
+	end
+end
+
+fn cursor_offset(result: Result<ByteOffset, io::Error>, expected: Int) -> Bool
+	match result
+		Ok(offset) => byte_offset_to_int(offset) == expected
+		Err(_) => false
+	end
+end
+
+fn cursor_known(cursor: io_seek_cursor_test_support_test::CursorObservation, expected: Int) -> Bool
+	match cursor
+		io_seek_cursor_test_support_test::CursorObservation::Known(actual) => actual == expected
+		_ => false
+	end
+end
+
+fn cursor_snapshot_matches(snapshot: io_seek_cursor_test_support_test::Snapshot, bytes: String, first: Int, second: Int, operations: String, remaining: Int) -> Result<Bool, String>
+	match snapshot
+		io_seek_cursor_test_support_test::Snapshot(actual_bytes, first_cursor, second_cursor, actual_operations, actual_remaining) => Ok(byte_chunk_to_visible_ascii_string(actual_bytes)? == bytes and cursor_known(first_cursor, first) and cursor_known(second_cursor, second) and actual_operations == operations and actual_remaining == remaining)
+	end
+end
+
+fn cursor_read_data(outcome: io::ReadOutcome, expected: String) -> Result<Bool, String>
+	match outcome
+		io::ReadOutcome::Data(bytes) => Ok(byte_chunk_to_visible_ascii_string(bytes)? == expected)
+		_ => Ok(false)
+	end
+end
+
+fn cursor_read_end(outcome: io::ReadOutcome) -> Bool
+	match outcome
+		io::ReadOutcome::End => true
+		_ => false
+	end
+end
+
+fn cursor_failed_read(outcome: io::ReadOutcome, expected: String, progress: Int) -> Result<Bool, String>
+	match outcome
+		io::ReadOutcome::ReadFailed(bytes, io::Progress::Known(count), io::Error::Error(_, io::ErrorKind::Other, _, _, _, _, _)) => Ok(byte_chunk_to_visible_ascii_string(bytes)? == expected and byte_count_to_int(count) == progress)
+		_ => Ok(false)
+	end
+end
+
+fn cursor_written(outcome: io::WriteOutcome, expected: Int) -> Bool
+	match outcome
+		io::WriteOutcome::Written(count) => byte_count_to_int(count) == expected
+		_ => false
+	end
+end
+
+fn cursor_failed_write(outcome: io::WriteOutcome, progress: Int) -> Bool
+	match outcome
+		io::WriteOutcome::WriteFailed(io::Progress::Known(count), io::Error::Error(_, io::ErrorKind::Other, _, _, _, _, _)) => byte_count_to_int(count) == progress
+		_ => false
+	end
+end
+
+test scoped_cursor_fake_covers_seek_origins_bounds_and_nonextending_seek() -> Result<(), String> effects [concurrency]
+	match handle io_seek_cursor_test_support_test::execute_origins() with io_provider::scope()
+		Err(message) => Err(message)
+		Ok(io_seek_cursor_test_support_test::OriginObservation(start, current, end_before, end_after, beyond_read, negative_start, negative_current, preserved, maximum_start, overflow_current, snapshot)) => if not cursor_offset(start, 2)
+			Err("scoped cursor fake start outcome differed")
+		else if not cursor_offset(current, 4)
+			Err("scoped cursor fake current outcome differed")
+		else if not cursor_offset(end_before, 5)
+			Err("scoped cursor fake negative end outcome differed")
+		else if not cursor_offset(end_after, 8)
+			Err("scoped cursor fake positive end outcome differed")
+		else if not cursor_read_end(beyond_read)
+			Err("scoped cursor fake beyond-end read outcome differed")
+		else if not (cursor_invalid_input(negative_start) and cursor_invalid_input(negative_current))
+			Err("scoped cursor fake negative seek outcomes differed")
+		else if not cursor_snapshot_matches(preserved, "abcdef", 8, 0, "seek-start;seek-current;seek-end;seek-end;read;seek-start;seek-current;", 1)?
+			Err("scoped cursor fake preserved seek snapshot differed")
+		else if not cursor_offset(maximum_start, 9223372036854775807) or not cursor_invalid_input(overflow_current)
+			Err("scoped cursor fake overflow seek outcomes differed")
+		else if cursor_snapshot_matches(snapshot, "abcdef", 9223372036854775807, 0, "seek-start;seek-current;seek-end;seek-end;read;seek-start;seek-current;seek-start;seek-current;", 0)?
+			Ok(())
+		else
+			Err("scoped cursor fake final seek snapshot differed")
+		end
+	end
+end
+
+test scoped_cursor_fake_shares_alias_cursor_and_keeps_separate_opens_independent() -> Result<(), String> effects [concurrency]
+	match handle io_seek_cursor_test_support_test::execute_sequential() with io_provider::scope()
+		Err(message) => Err(message)
+		Ok(io_seek_cursor_test_support_test::SequentialObservation(read, alias_seek, partial_write, failed_read, failed_write, separate_read, snapshot)) => if cursor_read_data(read, "ab")? and cursor_offset(alias_seek, 3) and cursor_written(partial_write, 2) and cursor_failed_read(failed_read, "f", 1)? and cursor_failed_write(failed_write, 1) and cursor_read_data(separate_read, "a")? and cursor_snapshot_matches(snapshot, "abcXYfQhij", 7, 1, "read;seek-current;write;read;write;read;", 0)?
+			Ok(())
+		else
+			Err("sequential cursor progress, alias sharing, independent opens, bytes, or order differed")
+		end
+	end
+end
+
+test scoped_cursor_fake_positional_io_preserves_sequential_cursor_on_success_and_failure() -> Result<(), String> effects [concurrency]
+	match handle io_seek_cursor_test_support_test::execute_positional() with io_provider::scope()
+		Err(message) => Err(message)
+		Ok(io_seek_cursor_test_support_test::PositionalObservation(position, read, failed_read, write, failed_write, snapshot)) => if cursor_offset(position, 2) and cursor_read_data(read, "ef")? and cursor_failed_read(failed_read, "b", 1)? and cursor_written(write, 2) and cursor_failed_write(failed_write, 0) and cursor_snapshot_matches(snapshot, "abcXYf", 2, 0, "seek-start;read_at;read_at;write_at;write_at;", 0)?
+			Ok(())
+		else
+			Err("positional IO changed the sequential cursor or lost bytes, progress, or order")
+		end
+	end
+end
+
+test scoped_cursor_fake_rejects_relative_unknown_cursor_until_absolute_recovery() -> Result<(), String> effects [concurrency]
+	match handle io_seek_cursor_test_support_test::execute_unknown() with io_provider::scope()
+		Err(message) => Err(message)
+		Ok(io_seek_cursor_test_support_test::UnknownObservation(position, known_failure, preserved, unknown_failure, rejected_current, rejected_end, recovered, relative_after_recovery, snapshot)) => if not cursor_offset(position, 2)
+			Err("unknown cursor setup position differed")
+		else if not cursor_other_error(known_failure)
+			Err("known cursor failure outcome differed")
+		else if not cursor_snapshot_matches(preserved, "abcdef", 2, 0, "seek-start;seek-current;", 3)?
+			Err("known cursor failure changed preserved state")
+		else if not cursor_other_error(unknown_failure)
+			Err("unknown cursor scripted failure outcome differed")
+		else if not cursor_invalid_resource(rejected_current) or not cursor_invalid_resource(rejected_end)
+			Err("relative seek while unknown was not rejected")
+		else if not cursor_offset(recovered, 4) or not cursor_offset(relative_after_recovery, 5)
+			Err("absolute recovery or following relative seek differed")
+		else if cursor_snapshot_matches(snapshot, "abcdef", 5, 0, "seek-start;seek-current;seek-end;seek-current;seek-end;seek-start;seek-current;", 0)?
+			Ok(())
+		else
+			Err("unknown cursor state was not preserved, rejected, or recovered by absolute seek")
+		end
 	end
 end

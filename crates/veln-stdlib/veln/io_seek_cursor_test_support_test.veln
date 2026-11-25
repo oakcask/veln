@@ -1,0 +1,570 @@
+use prelude
+use fs
+use io
+use io_provider
+
+type CursorState
+	KnownCursor(offset: Int)
+	UnknownCursor
+end
+
+type Action
+	SeekSucceeds
+	SeekFailsKnown
+	SeekFailsUnknown
+	ReadSucceeds(delivered: Int)
+	ReadFails(delivered: Int)
+	WriteSucceeds(committed: Int)
+	WriteFails(committed: Int)
+	ReadAtSucceeds(delivered: Int)
+	ReadAtFails(delivered: Int)
+	WriteAtSucceeds(committed: Int)
+	WriteAtFails(committed: Int)
+end
+
+type State
+	State(bytes: ByteChunk, first: CursorState, second: CursorState, actions: List<Action>, operations: String)
+end
+
+pub type CursorObservation
+	Known(offset: Int)
+	Unknown
+end
+
+pub type Snapshot
+	pub Snapshot(bytes: ByteChunk, first: CursorObservation, second: CursorObservation, operations: String, remaining_actions: Int)
+end
+
+pub type OriginObservation
+	pub OriginObservation(start: Result<ByteOffset, io::Error>, current: Result<ByteOffset, io::Error>, end_before: Result<ByteOffset, io::Error>, end_after: Result<ByteOffset, io::Error>, beyond_read: io::ReadOutcome, negative_start: Result<ByteOffset, io::Error>, negative_current: Result<ByteOffset, io::Error>, preserved: Snapshot, maximum_start: Result<ByteOffset, io::Error>, overflow_current: Result<ByteOffset, io::Error>, snapshot: Snapshot)
+end
+
+pub type SequentialObservation
+	pub SequentialObservation(read: io::ReadOutcome, alias_seek: Result<ByteOffset, io::Error>, partial_write: io::WriteOutcome, failed_read: io::ReadOutcome, failed_write: io::WriteOutcome, separate_read: io::ReadOutcome, snapshot: Snapshot)
+end
+
+pub type PositionalObservation
+	pub PositionalObservation(position: Result<ByteOffset, io::Error>, read: io::ReadOutcome, failed_read: io::ReadOutcome, write: io::WriteOutcome, failed_write: io::WriteOutcome, snapshot: Snapshot)
+end
+
+pub type UnknownObservation
+	pub UnknownObservation(position: Result<ByteOffset, io::Error>, known_failure: Result<ByteOffset, io::Error>, preserved: Snapshot, unknown_failure: Result<ByteOffset, io::Error>, rejected_current: Result<ByteOffset, io::Error>, rejected_end: Result<ByteOffset, io::Error>, recovered: Result<ByteOffset, io::Error>, relative_after_recovery: Result<ByteOffset, io::Error>, snapshot: Snapshot)
+end
+
+type Views
+	Views(first: fs::UpdateFile, alias: fs::UpdateFile, second: fs::UpdateFile)
+end
+
+fn first_slot() -> Int
+	501
+end
+
+fn second_slot() -> Int
+	502
+end
+
+fn append_operation(operations: String, operation: String) -> String
+	string::concat(operations, string::concat(operation, ";"))
+end
+
+fn invalid_resource(operation: String, message: String) -> io::Error
+	io::Error::Error(operation, io::ErrorKind::InvalidResource, None, None, None, None, message)
+end
+
+fn invalid_input(operation: String, message: String) -> io::Error
+	io::Error::Error(operation, io::ErrorKind::InvalidInput, None, None, None, None, message)
+end
+
+fn scripted_failure(operation: String, message: String) -> io::Error
+	io::Error::Error(operation, io::ErrorKind::Other, None, None, None, None, message)
+end
+
+fn zero_progress() -> io::Progress
+	io::Progress::Known(byte_chunk_count(byte_chunk([])))
+end
+
+fn action_count(actions: List<Action>) -> Int
+	match actions
+		Nil => 0
+		Cons(_, tail) => 1 + action_count(tail)
+	end
+end
+
+fn observe_cursor(cursor: CursorState) -> CursorObservation
+	match cursor
+		KnownCursor(offset) => CursorObservation::Known(offset)
+		UnknownCursor => CursorObservation::Unknown
+	end
+end
+
+fn observe(state: State, context: ()) -> {state: State, result: Snapshot}
+	match state
+		State(bytes, first, second, actions, operations) => {state: state, result: Snapshot(bytes, observe_cursor(first), observe_cursor(second), operations, action_count(actions))}
+	end
+end
+
+fn cursor_for(state: State, slot: Int) -> Result<CursorState, io::Error>
+	match state
+		State(_, first, second, _, _) => if slot == first_slot()
+			Ok(first)
+		else if slot == second_slot()
+			Ok(second)
+		else
+			Err(invalid_resource("cursor", "resource slot is not part of the cursor fake"))
+		end
+	end
+end
+
+fn replace_cursor(state: State, slot: Int, cursor: CursorState, actions: List<Action>, operations: String) -> State
+	match state
+		State(bytes, first, second, _, _) => if slot == first_slot()
+			State(bytes, cursor, second, actions, operations)
+		else
+			State(bytes, first, cursor, actions, operations)
+		end
+	end
+end
+
+fn replace_bytes_and_cursor(state: State, slot: Int, bytes: ByteChunk, cursor: CursorState, actions: List<Action>, operations: String) -> State
+	match state
+		State(_, first, second, _, _) => if slot == first_slot()
+			State(bytes, cursor, second, actions, operations)
+		else
+			State(bytes, first, cursor, actions, operations)
+		end
+	end
+end
+
+fn preserve_with_log(state: State, operations: String) -> State
+	match state
+		State(bytes, first, second, actions, _) => State(bytes, first, second, actions, operations)
+	end
+end
+
+fn maximum_int() -> Int
+	9223372036854775807
+end
+
+fn minimum_int() -> Int
+	0 - 9223372036854775807 - 1
+end
+
+fn checked_target(base: Int, displacement: Int) -> Result<Int, io::Error>
+	if displacement >= 0
+		if base > maximum_int() - displacement
+			Err(invalid_input("seek", "seek target overflows Int"))
+		else
+			Ok(base + displacement)
+		end
+	else if displacement == minimum_int()
+		Err(invalid_input("seek", "seek target is negative"))
+	else begin
+		let magnitude = 0 - displacement
+		if base < magnitude
+			Err(invalid_input("seek", "seek target is negative"))
+		else
+			Ok(base - magnitude)
+		end
+	end
+	end
+end
+
+fn seek_target(state: State, slot: Int, origin: io::SeekOrigin) -> Result<Int, io::Error>
+	match cursor_for(state, slot)
+		Err(error) => Err(error)
+		Ok(cursor) => match origin
+			io::SeekOrigin::Start(offset) => begin
+				let target = byte_offset_to_int(offset)
+				if target < 0
+					Err(invalid_input("seek", "absolute seek target is negative"))
+				else
+					Ok(target)
+				end
+			end
+			io::SeekOrigin::Current(displacement) => match cursor
+				KnownCursor(base) => checked_target(base, displacement)
+				UnknownCursor => Err(invalid_resource("seek", "relative seek requires a known cursor"))
+			end
+			io::SeekOrigin::End(displacement) => match cursor
+				UnknownCursor => Err(invalid_resource("seek", "relative seek requires a known cursor"))
+				KnownCursor(_) => match state
+					State(bytes, _, _, _, _) => checked_target(byte_count_to_int(byte_chunk_count(bytes)), displacement)
+				end
+			end
+		end
+	end
+end
+
+fn seek_operation(origin: io::SeekOrigin) -> String
+	match origin
+		io::SeekOrigin::Start(_) => "seek-start"
+		io::SeekOrigin::Current(_) => "seek-current"
+		io::SeekOrigin::End(_) => "seek-end"
+	end
+end
+
+fn next_seek(state: State, context: {slot: Int, origin: io::SeekOrigin}) -> {state: State, result: Result<ByteOffset, io::Error>}
+	match state
+		State(_, _, _, actions, operations) => begin
+			let next_operations = append_operation(operations, seek_operation(context.origin))
+			match seek_target(state, context.slot, context.origin)
+				Err(error) => {state: preserve_with_log(state, next_operations), result: Err(error)}
+				Ok(target) => match actions
+					Cons(SeekSucceeds, remaining) => {state: replace_cursor(state, context.slot, KnownCursor(target), remaining, next_operations), result: Ok(ByteOffset(target))}
+					Cons(SeekFailsKnown, remaining) => match cursor_for(state, context.slot)
+						Ok(cursor) => {state: replace_cursor(state, context.slot, cursor, remaining, next_operations), result: Err(scripted_failure("seek", "scripted seek failure with known unchanged cursor"))}
+						Err(error) => {state: preserve_with_log(state, next_operations), result: Err(error)}
+					end
+					Cons(SeekFailsUnknown, remaining) => {state: replace_cursor(state, context.slot, UnknownCursor, remaining, next_operations), result: Err(scripted_failure("seek", "scripted seek failure with unknown cursor"))}
+					_ => {state: preserve_with_log(state, next_operations), result: Err(invalid_resource("seek", "seek did not match the scripted operation order"))}
+				end
+			end
+		end
+	end
+end
+
+fn bounded_count(requested: Int, planned: Int, available: Int) -> Int
+	let request_bound = if requested < planned requested else planned end
+	if request_bound < available request_bound else available end
+end
+
+fn slice(bytes: ByteChunk, offset: Int, count: Int) -> Result<ByteChunk, String>
+	let suffix = byte_drop(bytes, ByteCount(offset))?
+	byte_take(suffix, ByteCount(count))
+end
+
+fn replace(bytes: ByteChunk, offset: Int, input: ByteChunk, count: Int) -> Result<ByteChunk, String>
+	let prefix = byte_take(bytes, ByteCount(offset))?
+	let committed = byte_take(input, ByteCount(count))?
+	let suffix = byte_drop(bytes, ByteCount(offset + count))?
+	Ok(byte_append(byte_append(prefix, committed), suffix))
+end
+
+fn next_read(state: State, context: {slot: Int, maximum: ByteCount}) -> {state: State, result: io::ReadOutcome}
+	match state
+		State(bytes, _, _, actions, operations) => begin
+			let next_operations = append_operation(operations, "read")
+			match cursor_for(state, context.slot)
+				Err(error) => {state: preserve_with_log(state, next_operations), result: io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), error)}
+				Ok(UnknownCursor) => {state: preserve_with_log(state, next_operations), result: io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), invalid_resource("read", "sequential read requires a known cursor"))}
+				Ok(KnownCursor(cursor)) => match actions
+					Cons(ReadSucceeds(planned), remaining) => begin
+						let available = byte_count_to_int(byte_chunk_count(bytes)) - cursor
+						let count = if available <= 0 0 else bounded_count(byte_count_to_int(context.maximum), planned, available) end
+						if count == 0
+							{state: replace_cursor(state, context.slot, KnownCursor(cursor), remaining, next_operations), result: io::ReadOutcome::End}
+						else match slice(bytes, cursor, count)
+							Ok(delivered) => {state: replace_cursor(state, context.slot, KnownCursor(cursor + count), remaining, next_operations), result: io::ReadOutcome::Data(delivered)}
+							Err(_) => {state: preserve_with_log(state, next_operations), result: io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), invalid_resource("read", "cursor fake could not slice bytes"))}
+						end
+						end
+					end
+					Cons(ReadFails(planned), remaining) => begin
+						let available = byte_count_to_int(byte_chunk_count(bytes)) - cursor
+						let count = if available <= 0 0 else bounded_count(byte_count_to_int(context.maximum), planned, available) end
+						match slice(bytes, cursor, count)
+							Ok(delivered) => {state: replace_cursor(state, context.slot, KnownCursor(cursor + count), remaining, next_operations), result: io::ReadOutcome::ReadFailed(delivered, io::Progress::Known(ByteCount(count)), scripted_failure("read", "scripted read failure"))}
+							Err(_) => {state: preserve_with_log(state, next_operations), result: io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), invalid_resource("read", "cursor fake could not slice failed read bytes"))}
+						end
+					end
+					_ => {state: preserve_with_log(state, next_operations), result: io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), invalid_resource("read", "read did not match the scripted operation order"))}
+				end
+			end
+		end
+	end
+end
+
+fn next_write(state: State, context: {slot: Int, bytes: ByteChunk}) -> {state: State, result: io::WriteOutcome}
+	match state
+		State(current_bytes, _, _, actions, operations) => begin
+			let next_operations = append_operation(operations, "write")
+			match cursor_for(state, context.slot)
+				Err(error) => {state: preserve_with_log(state, next_operations), result: io::WriteOutcome::WriteFailed(zero_progress(), error)}
+				Ok(UnknownCursor) => {state: preserve_with_log(state, next_operations), result: io::WriteOutcome::WriteFailed(zero_progress(), invalid_resource("write", "sequential write requires a known cursor"))}
+				Ok(KnownCursor(cursor)) => match actions
+					Cons(WriteSucceeds(planned), remaining) => apply_write(state, context.slot, current_bytes, cursor, context.bytes, planned, remaining, next_operations, true)
+					Cons(WriteFails(planned), remaining) => apply_write(state, context.slot, current_bytes, cursor, context.bytes, planned, remaining, next_operations, false)
+					_ => {state: preserve_with_log(state, next_operations), result: io::WriteOutcome::WriteFailed(zero_progress(), invalid_resource("write", "write did not match the scripted operation order"))}
+				end
+			end
+		end
+	end
+end
+
+fn apply_write(state: State, slot: Int, current: ByteChunk, cursor: Int, input: ByteChunk, planned: Int, remaining: List<Action>, operations: String, success: Bool) -> {state: State, result: io::WriteOutcome}
+	let count = if planned < byte_count_to_int(byte_chunk_count(input)) planned else byte_count_to_int(byte_chunk_count(input)) end
+	match replace(current, cursor, input, count)
+		Err(_) => {state: preserve_with_log(state, operations), result: io::WriteOutcome::WriteFailed(zero_progress(), invalid_resource("write", "cursor fake write exceeded the current file"))}
+		Ok(updated) => if success
+			{state: replace_bytes_and_cursor(state, slot, updated, KnownCursor(cursor + count), remaining, operations), result: io::WriteOutcome::Written(ByteCount(count))}
+		else
+			{state: replace_bytes_and_cursor(state, slot, updated, KnownCursor(cursor + count), remaining, operations), result: io::WriteOutcome::WriteFailed(io::Progress::Known(ByteCount(count)), scripted_failure("write", "scripted write failure"))}
+		end
+	end
+end
+
+fn next_read_at(state: State, context: {offset: ByteOffset, maximum: ByteCount}) -> {state: State, result: io::ReadOutcome}
+	match state
+		State(bytes, _, _, actions, operations) => begin
+			let next_operations = append_operation(operations, "read_at")
+			let offset = byte_offset_to_int(context.offset)
+			let available = byte_count_to_int(byte_chunk_count(bytes)) - offset
+			match actions
+				Cons(ReadAtSucceeds(planned), remaining) => apply_read_at(state, bytes, offset, context.maximum, planned, remaining, next_operations, true, available)
+				Cons(ReadAtFails(planned), remaining) => apply_read_at(state, bytes, offset, context.maximum, planned, remaining, next_operations, false, available)
+				_ => {state: preserve_with_log(state, next_operations), result: io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), invalid_resource("read_at", "read_at did not match the scripted operation order"))}
+			end
+		end
+	end
+end
+
+fn apply_read_at(state: State, bytes: ByteChunk, offset: Int, maximum: ByteCount, planned: Int, remaining: List<Action>, operations: String, success: Bool, available: Int) -> {state: State, result: io::ReadOutcome}
+	let count = if available <= 0 0 else bounded_count(byte_count_to_int(maximum), planned, available) end
+	match slice(bytes, offset, count)
+		Err(_) => {state: preserve_with_log(state, operations), result: io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), invalid_resource("read_at", "cursor fake could not slice positional bytes"))}
+		Ok(delivered) => match state
+			State(current, first, second, _, _) => begin
+				let next = State(current, first, second, remaining, operations)
+				if success
+					{state: next, result: if count == 0 io::ReadOutcome::End else io::ReadOutcome::Data(delivered) end}
+				else
+					{state: next, result: io::ReadOutcome::ReadFailed(delivered, io::Progress::Known(ByteCount(count)), scripted_failure("read_at", "scripted positional read failure"))}
+				end
+			end
+		end
+	end
+end
+
+fn next_write_at(state: State, context: {offset: ByteOffset, bytes: ByteChunk}) -> {state: State, result: io::WriteOutcome}
+	match state
+		State(current, first, second, actions, operations) => begin
+			let next_operations = append_operation(operations, "write_at")
+			let offset = byte_offset_to_int(context.offset)
+			match actions
+				Cons(WriteAtSucceeds(planned), remaining) => apply_write_at(state, current, first, second, offset, context.bytes, planned, remaining, next_operations, true)
+				Cons(WriteAtFails(planned), remaining) => apply_write_at(state, current, first, second, offset, context.bytes, planned, remaining, next_operations, false)
+				_ => {state: preserve_with_log(state, next_operations), result: io::WriteOutcome::WriteFailed(zero_progress(), invalid_resource("write_at", "write_at did not match the scripted operation order"))}
+			end
+		end
+	end
+end
+
+fn apply_write_at(state: State, current: ByteChunk, first: CursorState, second: CursorState, offset: Int, input: ByteChunk, planned: Int, remaining: List<Action>, operations: String, success: Bool) -> {state: State, result: io::WriteOutcome}
+	let count = if planned < byte_count_to_int(byte_chunk_count(input)) planned else byte_count_to_int(byte_chunk_count(input)) end
+	match replace(current, offset, input, count)
+		Err(_) => {state: preserve_with_log(state, operations), result: io::WriteOutcome::WriteFailed(zero_progress(), invalid_resource("write_at", "cursor fake positional write exceeded the current file"))}
+		Ok(updated) => begin
+			let next = State(updated, first, second, remaining, operations)
+			if success
+				{state: next, result: io::WriteOutcome::Written(ByteCount(count))}
+			else
+				{state: next, result: io::WriteOutcome::WriteFailed(io::Progress::Known(ByteCount(count)), scripted_failure("write_at", "scripted positional write failure"))}
+			end
+		end
+	end
+end
+
+fn capability_slot(result: Result<Int, io::Error>) -> Result<Int, io::Error>
+	match result
+		Ok(slot) => if slot == first_slot() or slot == second_slot()
+			Ok(slot)
+		else
+			Err(invalid_resource("slot", "capability is not part of the cursor fake"))
+		end
+		Err(error) => Err(error)
+	end
+end
+
+handler reader(owner: io_provider::Owner, state: io_provider::State<State>) for io::Read effects [concurrency]
+	read(capability, maximum) => match capability_slot(io_provider::reader_slot(owner, capability))
+		Ok(slot) => io_provider::update(state, {slot: slot, maximum: maximum}, next_read)
+		Err(error) => io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), error)
+	end
+end
+
+handler writer(owner: io_provider::Owner, state: io_provider::State<State>) for io::Write effects [concurrency]
+	write(capability, bytes) => match capability_slot(io_provider::writer_slot(owner, capability))
+		Ok(slot) => io_provider::update(state, {slot: slot, bytes: bytes}, next_write)
+		Err(error) => io::WriteOutcome::WriteFailed(zero_progress(), error)
+	end
+end
+
+handler seeker(owner: io_provider::Owner, state: io_provider::State<State>) for io::Seek effects [concurrency]
+	seek(capability, origin) => match capability_slot(io_provider::seeker_slot(owner, capability))
+		Ok(slot) => io_provider::update(state, {slot: slot, origin: origin}, next_seek)
+		Err(error) => Err(error)
+	end
+end
+
+handler positional_reader(owner: io_provider::Owner, state: io_provider::State<State>) for io::ReadAt effects [concurrency]
+	read_at(capability, offset, maximum) => match capability_slot(io_provider::reader_at_slot(owner, capability))
+		Ok(_) => io_provider::update(state, {offset: offset, maximum: maximum}, next_read_at)
+		Err(error) => io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), error)
+	end
+end
+
+handler positional_writer(owner: io_provider::Owner, state: io_provider::State<State>) for io::WriteAt effects [concurrency]
+	write_at(capability, offset, bytes) => match capability_slot(io_provider::writer_at_slot(owner, capability))
+		Ok(_) => io_provider::update(state, {offset: offset, bytes: bytes}, next_write_at)
+		Err(error) => io::WriteOutcome::WriteFailed(zero_progress(), error)
+	end
+end
+
+handler closer() for io::Close
+	close(capability) => io::CloseOutcome::Closed
+end
+
+handler syncer() for io::Sync
+	sync(capability) => Ok(())
+end
+
+handler mutator() for fs::Mutate
+	open_write(filesystem, path, mode) => Err(invalid_resource("open_write", "cursor fake models already-open resources"))
+	open_read_write(filesystem, path, mode) => Err(invalid_resource("open_read_write", "cursor fake models already-open resources"))
+	open_append(filesystem, path, create) => Err(invalid_resource("open_append", "cursor fake models already-open resources"))
+	create_directory(filesystem, path) => fs::MutationOutcome::MutationFailed(io::Commit::No, invalid_resource("create_directory", "cursor fake models already-open resources"))
+	remove_file(filesystem, path) => fs::MutationOutcome::MutationFailed(io::Commit::No, invalid_resource("remove_file", "cursor fake models already-open resources"))
+	remove_directory(filesystem, path) => fs::MutationOutcome::MutationFailed(io::Commit::No, invalid_resource("remove_directory", "cursor fake models already-open resources"))
+	rename(filesystem, from_path, to_path) => fs::MutationOutcome::MutationFailed(io::Commit::No, invalid_resource("rename", "cursor fake models already-open resources"))
+	truncate(file, size) => fs::MutationOutcome::MutationFailed(io::Commit::No, invalid_resource("truncate", "cursor fake models already-open resources"))
+end
+
+fn register(owner: io_provider::Owner, slot: Int) -> Result<io_provider::Resource, io::Error> effects [concurrency]
+	io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile)
+end
+
+fn views(owner: io_provider::Owner) -> Result<Views, String> effects [concurrency]
+	match register(owner, first_slot())
+		Err(_) => Err("could not register first cursor fake resource")
+		Ok(first_resource) => match io_provider::update_file(first_resource)
+			Err(_) => Err("could not project first cursor fake resource")
+			Ok(first) => match io_provider::update_file(first_resource)
+				Err(_) => Err("could not project cursor fake alias")
+				Ok(alias) => match register(owner, second_slot())
+					Err(_) => Err("could not register second cursor fake resource")
+					Ok(second_resource) => match io_provider::update_file(second_resource)
+						Err(_) => Err("could not project second cursor fake resource")
+						Ok(second) => Ok(Views(first, alias, second))
+					end
+				end
+			end
+		end
+	end
+end
+
+fn snapshot(state: io_provider::State<State>) -> Snapshot effects [concurrency]
+	io_provider::update(state, (), observe)
+end
+
+fn origins_body(owner: io_provider::Owner, state: io_provider::State<State>) -> Result<OriginObservation, String> effects [io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, fs::Mutate, concurrency]
+	match views(owner)
+		Err(message) => Err(message)
+		Ok(Views(fs::UpdateFile(reader, _, seeker, _, _, _, _, _), _, _)) => begin
+			let start = io::seek(seeker, io::SeekOrigin::Start(ByteOffset(2)))
+			let current = io::seek(seeker, io::SeekOrigin::Current(2))
+			let end_before = io::seek(seeker, io::SeekOrigin::End(0 - 1))
+			let end_after = io::seek(seeker, io::SeekOrigin::End(2))
+			let beyond_read = io::read(reader, ByteCount(1))
+			let negative_start = io::seek(seeker, io::SeekOrigin::Start(ByteOffset(0 - 1)))
+			let negative_current = io::seek(seeker, io::SeekOrigin::Current(0 - 9))
+			let preserved = snapshot(state)
+			let maximum_start = io::seek(seeker, io::SeekOrigin::Start(ByteOffset(9223372036854775807)))
+			let overflow_current = io::seek(seeker, io::SeekOrigin::Current(1))
+			Ok(OriginObservation(start, current, end_before, end_after, beyond_read, negative_start, negative_current, preserved, maximum_start, overflow_current, snapshot(state)))
+		end
+	end
+end
+
+fn sequential_body(owner: io_provider::Owner, state: io_provider::State<State>) -> Result<SequentialObservation, String> effects [io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, fs::Mutate, concurrency]
+	match views(owner)
+		Err(message) => Err(message)
+		Ok(Views(fs::UpdateFile(reader, _, _, _, _, _, _, _), fs::UpdateFile(_, alias_writer, alias_seeker, _, _, _, _, _), fs::UpdateFile(second_reader, _, _, _, _, _, _, _))) => begin
+			let read = io::read(reader, ByteCount(2))
+			let alias_seek = io::seek(alias_seeker, io::SeekOrigin::Current(1))
+			let partial_write = io::write(alias_writer, byte_chunk_from_visible_ascii_string("XYZ")?)
+			let failed_read = io::read(reader, ByteCount(2))
+			let failed_write = io::write(alias_writer, byte_chunk_from_visible_ascii_string("QZ")?)
+			let separate_read = io::read(second_reader, ByteCount(1))
+			Ok(SequentialObservation(read, alias_seek, partial_write, failed_read, failed_write, separate_read, snapshot(state)))
+		end
+	end
+end
+
+fn positional_body(owner: io_provider::Owner, state: io_provider::State<State>) -> Result<PositionalObservation, String> effects [io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, fs::Mutate, concurrency]
+	match views(owner)
+		Err(message) => Err(message)
+		Ok(Views(fs::UpdateFile(_, _, seeker, reader_at, writer_at, _, _, _), _, _)) => begin
+			let position = io::seek(seeker, io::SeekOrigin::Start(ByteOffset(2)))
+			let read = io::read_at(reader_at, ByteOffset(4), ByteCount(2))
+			let failed_read = io::read_at(reader_at, ByteOffset(1), ByteCount(2))
+			let write = io::write_at(writer_at, ByteOffset(3), byte_chunk_from_visible_ascii_string("XYZ")?)
+			let failed_write = io::write_at(writer_at, ByteOffset(0), byte_chunk_from_visible_ascii_string("Q")?)
+			Ok(PositionalObservation(position, read, failed_read, write, failed_write, snapshot(state)))
+		end
+	end
+end
+
+fn unknown_body(owner: io_provider::Owner, state: io_provider::State<State>) -> Result<UnknownObservation, String> effects [io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, fs::Mutate, concurrency]
+	match views(owner)
+		Err(message) => Err(message)
+		Ok(Views(fs::UpdateFile(_, _, seeker, _, _, _, _, _), _, _)) => begin
+			let position = io::seek(seeker, io::SeekOrigin::Start(ByteOffset(2)))
+			let known_failure = io::seek(seeker, io::SeekOrigin::Current(1))
+			let preserved = snapshot(state)
+			let unknown_failure = io::seek(seeker, io::SeekOrigin::End(0))
+			let rejected_current = io::seek(seeker, io::SeekOrigin::Current(1))
+			let rejected_end = io::seek(seeker, io::SeekOrigin::End(0))
+			let recovered = io::seek(seeker, io::SeekOrigin::Start(ByteOffset(4)))
+			let relative_after_recovery = io::seek(seeker, io::SeekOrigin::Current(1))
+			Ok(UnknownObservation(position, known_failure, preserved, unknown_failure, rejected_current, rejected_end, recovered, relative_after_recovery, snapshot(state)))
+		end
+	end
+end
+
+fn run_origins(owner: io_provider::Owner, state: io_provider::State<State>) -> Result<OriginObservation, String> effects [concurrency]
+	handle handle handle handle handle handle handle handle origins_body(owner, state) with reader(owner, state) with writer(owner, state) with seeker(owner, state) with positional_reader(owner, state) with positional_writer(owner, state) with closer() with syncer() with mutator()
+end
+
+fn run_sequential(owner: io_provider::Owner, state: io_provider::State<State>) -> Result<SequentialObservation, String> effects [concurrency]
+	handle handle handle handle handle handle handle handle sequential_body(owner, state) with reader(owner, state) with writer(owner, state) with seeker(owner, state) with positional_reader(owner, state) with positional_writer(owner, state) with closer() with syncer() with mutator()
+end
+
+fn run_positional(owner: io_provider::Owner, state: io_provider::State<State>) -> Result<PositionalObservation, String> effects [concurrency]
+	handle handle handle handle handle handle handle handle positional_body(owner, state) with reader(owner, state) with writer(owner, state) with seeker(owner, state) with positional_reader(owner, state) with positional_writer(owner, state) with closer() with syncer() with mutator()
+end
+
+fn run_unknown(owner: io_provider::Owner, state: io_provider::State<State>) -> Result<UnknownObservation, String> effects [concurrency]
+	handle handle handle handle handle handle handle handle unknown_body(owner, state) with reader(owner, state) with writer(owner, state) with seeker(owner, state) with positional_reader(owner, state) with positional_writer(owner, state) with closer() with syncer() with mutator()
+end
+
+pub fn execute_origins() -> Result<OriginObservation, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let bytes = byte_chunk_from_visible_ascii_string("abcdef")?
+	let actions = list_cons(SeekSucceeds, list_cons(SeekSucceeds, list_cons(SeekSucceeds, list_cons(SeekSucceeds, list_cons(ReadSucceeds(1), list_cons(SeekSucceeds, list_nil()))))))
+	let state = io_provider::state(State(bytes, KnownCursor(0), KnownCursor(0), actions, ""))
+	run_origins(owner, state)
+end
+
+pub fn execute_sequential() -> Result<SequentialObservation, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let bytes = byte_chunk_from_visible_ascii_string("abcdefghij")?
+	let actions = list_cons(ReadSucceeds(2), list_cons(SeekSucceeds, list_cons(WriteSucceeds(2), list_cons(ReadFails(1), list_cons(WriteFails(1), list_cons(ReadSucceeds(1), list_nil()))))))
+	let state = io_provider::state(State(bytes, KnownCursor(0), KnownCursor(0), actions, ""))
+	run_sequential(owner, state)
+end
+
+pub fn execute_positional() -> Result<PositionalObservation, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let bytes = byte_chunk_from_visible_ascii_string("abcdef")?
+	let actions = list_cons(SeekSucceeds, list_cons(ReadAtSucceeds(2), list_cons(ReadAtFails(1), list_cons(WriteAtSucceeds(2), list_cons(WriteAtFails(0), list_nil())))))
+	let state = io_provider::state(State(bytes, KnownCursor(0), KnownCursor(0), actions, ""))
+	run_positional(owner, state)
+end
+
+pub fn execute_unknown() -> Result<UnknownObservation, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let bytes = byte_chunk_from_visible_ascii_string("abcdef")?
+	let actions = list_cons(SeekSucceeds, list_cons(SeekFailsKnown, list_cons(SeekFailsUnknown, list_cons(SeekSucceeds, list_cons(SeekSucceeds, list_nil())))))
+	let state = io_provider::state(State(bytes, KnownCursor(0), KnownCursor(0), actions, ""))
+	run_unknown(owner, state)
+end

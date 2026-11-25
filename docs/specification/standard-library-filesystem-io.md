@@ -15,7 +15,8 @@ atomic provider state. It lets provider and generic IO source check
 capability-correct signatures, capture and invoke provider handlers, exercise
 five runtime resource families, transfer bytes between independently owned
 fake resources, validate direct byte-transfer replies, complete bounded reads
-and writes, keep immutable fake-provider state in shared cells, and retain
+and writes, exercise per-open cursors and positional IO in a scoped fake, keep
+immutable fake-provider state in shared cells, and retain
 completed fake-provider writes from concurrent child callers. Provider owner
 exit closes publication before release, rejects and releases a resource whose
 provider call finishes after that boundary, and restricts cleanup access to the
@@ -450,6 +451,24 @@ committed progress. The facade does not wrap or clamp a count, retain the
 malformed provider error, or retry the provider. Zero is the only independently
 confirmed prefix after a reply contradicts the submitted bounds.
 
+A scoped Veln fake gives each registered open resource an independent
+sequential cursor. Capability aliases projected from the same resource share
+that cursor, while a separate open over the same bytes does not. Successful
+`Start`, `Current`, and `End` seeks set the cursor to the resulting nonnegative
+offset. Seeking beyond the current end changes only the cursor; it does not
+extend or otherwise change the bytes. Sequential reads and writes advance by
+the delivered or committed count, including partial failures. Positional
+reads and writes preserve the sequential cursor on success and failure; a
+partial positional write changes only its confirmed prefix.
+
+Negative and overflowing seek targets fail without changing the bytes, size,
+or prior known cursor. A scripted known-no-change seek failure has the same
+preservation rule. A scripted failure can instead make the cursor unknown;
+while it is unknown, `Current` and `End` seeks fail, and a successful absolute
+`Start` seek restores a known cursor. These observations establish stateful
+adapter behavior only for the scoped fake. They do not establish host error
+translation or the cursor state after a failed host seek.
+
 Ordinary `perform` retains lexical handler selection and does not receive the
 broader captured invocation authority. An accepted lexical provider open
 receives only a per-call admission identity for publication. It cannot use
@@ -598,9 +617,10 @@ state, namespace-token allocation, registration, projection, provider-bound
 dispatch, bounded `copy` outcomes and progress, complete-transfer helper
 outcomes, direct facade provider-count validation, serialized completed
 fake-provider writes, and the bounded owner-release lifecycle are limited to
-the observations above. Host translation, the namespace and seek outcome
-matrix, cleanup retry and failure precedence, host filesystem selection, and
-network-to-byte adapters remain unimplemented.
+the observations above. Host translation, host-specific failed-seek cursor
+behavior, the remaining open-mode, namespace, metadata, mutation, truncate,
+append, and sync outcomes, cleanup retry and failure precedence, host
+filesystem selection, and network-to-byte adapters remain unimplemented.
 Type-checking behavior outside the implemented slice establishes only its
 static capability and effect boundary.
 
@@ -623,6 +643,11 @@ static capability and effect boundary.
   [`io_complete_transfer_test_support_test.veln`](../../crates/veln-stdlib/veln/io_complete_transfer_test_support_test.veln)
   and
   [`io_direct_validation_test_support_test.veln`](../../crates/veln-stdlib/veln/io_direct_validation_test_support_test.veln).
+- Scoped-fake per-open cursor identity, seek targets, sequential progress, and
+  positional cursor preservation:
+  [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
+  with state and scripted failures in
+  [`io_seek_cursor_test_support_test.veln`](../../crates/veln-stdlib/veln/io_seek_cursor_test_support_test.veln).
 - Wrong capability operands:
   `examples/specification/check/filesystem-io-capability-boundaries/`.
 - Missing read-file closer, write-file truncater, update-file positional
