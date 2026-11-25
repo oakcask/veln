@@ -184,6 +184,15 @@ fn io_provider_owner_closure_rejects_late_publication_and_restricts_release() {
 }
 
 #[test]
+fn host_filesystem_publication_is_atomic_with_slots_and_owner_closure() {
+    run_io_provider_runtime_harness(
+        "host-filesystem-publication",
+        "HostFilesystemPublicationHarness.java",
+        include_str!("../../test-support/HostFilesystemPublicationHarness.java"),
+    );
+}
+
+#[test]
 fn io_provider_write_file_capabilities_retain_captured_handlers() {
     run_io_provider_runtime_harness(
         "io-provider-write-file-identities",
@@ -199,6 +208,96 @@ fn io_provider_update_file_validates_before_publication_and_retains_handlers() {
         "IoProviderUpdateFileHarness.java",
         include_str!("../../test-support/IoProviderUpdateFileHarness.java"),
     );
+}
+
+fn run_jvm_host_filesystem_phase(
+    root: &std::path::Path,
+    source: &str,
+    entry: &str,
+    phase_name: &str,
+) {
+    let ir = lower_project_entry_to_ir(source, entry);
+    let program = generate_classfiles_with_entry(&ir, entry);
+    write_jvm_program(root, &program);
+    let child = Command::new("java")
+        .arg("-cp")
+        .arg(root)
+        .arg("VelnEntry")
+        .current_dir(root)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("JVM host filesystem phase should run");
+    let output = wait_for_test_child(child, phase_name, std::time::Duration::from_secs(30));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn jvm_host_filesystem_extends_after_beyond_end_seek_and_preserves_failed_seek_state() {
+    if jdk_is_unavailable() {
+        return;
+    }
+
+    // Integration contract: a Veln program crosses the JVM rooted-host boundary,
+    // while the independently seeded host file supplies the expected prefix,
+    // extension length, and suffix. Java does not define the intervening gap bytes.
+    let source = include_str!("../../test-support/filesystem_host_seek_beyond_end.veln");
+    let root = temp_dir("filesystem-host-seek-beyond-end");
+    let file = root.join("sample.bin");
+    fs::write(&file, b"ABC").expect("host fixture should be seeded");
+
+    run_jvm_host_filesystem_phase(
+        &root,
+        source,
+        "seek_only_phase",
+        "filesystem-host-seek-beyond-end-only",
+    );
+    assert_eq!(
+        fs::read(&file).expect("host fixture should remain readable after seek"),
+        b"ABC",
+        "seek beyond end should not extend the host file before a write"
+    );
+
+    run_jvm_host_filesystem_phase(
+        &root,
+        source,
+        "write_phase",
+        "filesystem-host-seek-beyond-end-write",
+    );
+
+    let observed = fs::read(&file).expect("host fixture should remain readable");
+    assert_eq!(
+        observed.len(),
+        8,
+        "write should extend through the supplied suffix"
+    );
+    assert_eq!(
+        &observed[..3],
+        b"ABC",
+        "write should preserve the seeded prefix"
+    );
+    assert_eq!(
+        &observed[6..],
+        b"XY",
+        "write should retain the supplied suffix"
+    );
+
+    run_jvm_host_filesystem_phase(
+        &root,
+        source,
+        "failed_seek_phase",
+        "filesystem-host-failed-seek",
+    );
+    assert_eq!(
+        fs::read(&file).expect("host fixture should remain readable after failed seek"),
+        observed,
+        "failed seek should preserve every file byte, including host-defined gap bytes"
+    );
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]

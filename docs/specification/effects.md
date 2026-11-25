@@ -358,8 +358,12 @@ All facade calls retain their declared nominal effects for static checking,
 including calls whose request is rejected before handler dispatch. A direct
 `perform` keeps lexical handler selection. If its standard filesystem or byte
 operand belongs to another provider, the operation returns an
-`InvalidResource` outcome before either handler runs. The prototype does not
-access the host filesystem. Leaving an `io_provider::scope()` handled body
+`InvalidResource` outcome before either handler runs. Ordinary provider tokens
+do not fall back to the host filesystem. The bounded JVM `fs::system_handler()`
+path explicitly creates a rooted real-host token for the existing-file
+beyond-end sequential-write observation specified by the
+[filesystem and byte IO runtime prototype](standard-library-filesystem-io.md#provider-bound-dispatch).
+Leaving an `io_provider::scope()` handled body
 closes its provider owner before the scope invokes captured resource-close
 handlers. Owner closure also rejects facade and lexical dispatch before their
 providers run. Cleanup permits exact-resource slot inspection but no ordinary

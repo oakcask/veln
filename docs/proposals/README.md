@@ -22,15 +22,16 @@ also states it.
   checker, artifacts, tooling, and backend acceptance remain implementation
   work; a separate prototype is not required for Ready.
 - [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete the
-  remaining F4 provider positional and host seek and positional IO conformance,
-  including host seek-beyond-end writes and host-defined gap bytes. F4 also
-  covers host translation, open-mode, metadata,
+  remaining F4 provider and host positional IO conformance, uncertain
+  host-seek cursor outcomes, host translation, open-mode, metadata,
   namespace-mutation, truncate, append, and sync. F5 covers cleanup.
   Direct-facade
   outcomes and provider-count validation, empty-request bypass, `read_exact`,
   `write_all`, bounded `io::copy`, scoped-fake open-resource seek,
   provider-side seek-beyond-end sequential writes and zero-gap policy,
-  positional-cursor behavior, F2, and F3 are implemented and belong to the
+  positional-cursor behavior, the bounded JVM rooted-host seek-beyond-end
+  sequential extension and prevalidated invalid-seek preservation, rejected
+  host write-publication release, F2, and F3 are implemented and belong to the
   current [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
   The target does not require the production filesystem API to be implemented
   first.

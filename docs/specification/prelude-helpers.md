@@ -46,6 +46,11 @@ callback context, replacement, and callback result types across the public
 generic `io_provider` wrappers. The dispatch signatures preserve the facade's
 checked result type while the standard wrapper fixes the nominal effect and
 operation. All remain unavailable as bare or application-callable helpers.
+The private `fs_system_open` adapter accepts a `Path` and returns the standard
+filesystem result containing a mutable-filesystem token. It backs the
+`fs::system_handler()` clause and is not a bare or application-callable helper.
+The filesystem and byte IO specification owns its JVM runtime readiness and
+rooted-host limits.
 Public network operations are ordinary declarations in the exported
 `std::net` module, not compiler-known descriptors. The resource descriptors
 have no constructors and allow exported standard-package aliases to name host
