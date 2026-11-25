@@ -299,6 +299,132 @@ public final class HostFilesystemPublicationHarness extends IoProviderHarnessSup
         );
     }
 
+    private static void rejectsOpenedHostWriteAfterOwnerClosure(
+        java.nio.file.Path root
+    ) throws Exception {
+        java.nio.file.Path file = root.resolve("rejected-publication.bin");
+        java.nio.file.Files.write(file, new byte[] { 4, 5, 6 });
+
+        push("std::io_provider::Scope");
+        Object providerOwner = owner();
+        pushOperation("std::fs::Mutate", "unused", (Object... supplied) -> null);
+        VelnRuntime.Result system = result(
+            VelnRuntime.fsSystemOpen(VelnRuntime.fsPath(root.toString()))
+        );
+        require(system.isOk(), "rejected host write namespace setup failed: " + system);
+        java.util.Map<Long, Object> registry = resources(providerOwner);
+        java.util.Map<Long, Object> registryBefore =
+            new java.util.HashMap<Long, Object>(registry);
+        Object namespaceBefore = registry.get(Long.valueOf(Long.MAX_VALUE));
+        require(namespaceBefore == system.value(), "host namespace occupied an unexpected slot");
+
+        Object path = VelnRuntime.adt(
+            "Path::PortablePath",
+            new Object[] { "rejected-publication.bin" }
+        );
+        Object mode = VelnRuntime.adt(
+            "WriteMode::WriteMode",
+            new Object[] {
+                VelnRuntime.adt("CreateMode::Existing", new Object[0]),
+                Boolean.FALSE
+            }
+        );
+        java.util.concurrent.CountDownLatch opened =
+            new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch resume =
+            new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicReference<Object> openedHost =
+            new java.util.concurrent.atomic.AtomicReference<Object>();
+        java.util.concurrent.atomic.AtomicReference<java.nio.channels.FileChannel> openedChannel =
+            new java.util.concurrent.atomic.AtomicReference<java.nio.channels.FileChannel>();
+        java.util.concurrent.atomic.AtomicInteger rejectionReleaseActions =
+            new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicReference<Object> publication =
+            new java.util.concurrent.atomic.AtomicReference<Object>();
+        java.util.concurrent.atomic.AtomicReference<Throwable> failure =
+            new java.util.concurrent.atomic.AtomicReference<Throwable>();
+
+        VelnRuntime.setHostOpenWritePublicationHooksForTest(
+            (Object... supplied) -> {
+                java.nio.channels.FileChannel channel =
+                    (java.nio.channels.FileChannel) supplied[1];
+                require(openedHost.compareAndSet(null, supplied[0]),
+                    "host write opened more than one candidate resource");
+                require(openedChannel.compareAndSet(null, channel),
+                    "host write opened more than one candidate channel");
+                opened.countDown();
+                try {
+                    require(resume.await(5L, java.util.concurrent.TimeUnit.SECONDS),
+                        "host write publication was not resumed");
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError("host write publication barrier was interrupted");
+                }
+                return null;
+            },
+            (Object... supplied) -> {
+                require(supplied[0] == openedHost.get(),
+                    "rejection release targeted a different host resource");
+                require(supplied[1] == openedChannel.get(),
+                    "rejection release targeted a different host channel");
+                rejectionReleaseActions.incrementAndGet();
+                return null;
+            }
+        );
+
+        Thread child = new Thread(() -> {
+            try {
+                publication.set(VelnRuntime.ioProviderDispatch3(
+                    "std::fs::Mutate",
+                    "open_write",
+                    system.value(),
+                    path,
+                    mode
+                ));
+            } catch (Throwable thrown) {
+                failure.set(thrown);
+            }
+        });
+        try {
+            child.start();
+            require(opened.await(5L, java.util.concurrent.TimeUnit.SECONDS),
+                "host write did not open its candidate channel");
+            java.nio.channels.FileChannel channel = openedChannel.get();
+            require(channel != null && channel.isOpen(),
+                "host write candidate channel was not open at the publication barrier");
+
+            VelnRuntime.popHandler();
+            VelnRuntime.popHandler();
+            resume.countDown();
+            join(child, "owner-closed host write publication");
+
+            require(failure.get() == null, "rejected host write publisher failed: " + failure.get());
+            require(isInvalidResource(publication.get()),
+                "owner closure did not reject the exact open_write result");
+            require(registry.size() == registryBefore.size(),
+                "rejected host write changed the owner registry size");
+            for (java.util.Map.Entry<Long, Object> entry : registryBefore.entrySet()) {
+                require(registry.get(entry.getKey()) == entry.getValue(),
+                    "rejected host write changed a registry key or identity");
+            }
+            for (Object registered : registry.values()) {
+                if (RESOURCE_HOST_WRITE.getDeclaringClass().isInstance(registered)) {
+                    require(RESOURCE_HOST_WRITE.get(registered) != openedHost.get(),
+                        "rejected host write published its opened host resource");
+                }
+            }
+            require(registry.get(Long.valueOf(Long.MAX_VALUE)) == namespaceBefore,
+                "rejected host write replaced the namespace identity");
+            require(rejectionReleaseActions.get() == 1,
+                "rejected host write did not receive exactly one rejection-release action");
+            require(!channel.isOpen(), "rejected host write left its exact channel open");
+        } finally {
+            resume.countDown();
+            if (child.isAlive()) child.join(5000L);
+            VelnRuntime.clearHostOpenWritePublicationHooksForTest();
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         java.nio.file.Path root = java.nio.file.Files.createTempDirectory("veln-host-publication");
         try {
@@ -306,8 +432,10 @@ public final class HostFilesystemPublicationHarness extends IoProviderHarnessSup
             rejectsSystemPublicationAfterClosure(root, true);
             preservesPublicNamespaceAtHostCandidate(root);
             preservesPublicResourceAtHostCandidate(root);
+            rejectsOpenedHostWriteAfterOwnerClosure(root);
         } finally {
             java.nio.file.Files.deleteIfExists(root.resolve("publication.bin"));
+            java.nio.file.Files.deleteIfExists(root.resolve("rejected-publication.bin"));
             java.nio.file.Files.deleteIfExists(root);
         }
     }

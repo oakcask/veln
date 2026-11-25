@@ -8,6 +8,18 @@
     private static final String IO_SYNC_EFFECT = "std::io::Sync";
     private static final String FS_READ_EFFECT = "std::fs::Read";
     private static final String FS_MUTATE_EFFECT = "std::fs::Mutate";
+    private static volatile Fn hostOpenWriteOpenedHookForTest;
+    private static volatile Fn hostOpenWriteRejectedHookForTest;
+
+    static void setHostOpenWritePublicationHooksForTest(Fn opened, Fn rejected) {
+        hostOpenWriteOpenedHookForTest = opened;
+        hostOpenWriteRejectedHookForTest = rejected;
+    }
+
+    static void clearHostOpenWritePublicationHooksForTest() {
+        hostOpenWriteOpenedHookForTest = null;
+        hostOpenWriteRejectedHookForTest = null;
+    }
 
     private static final class IoState {
         Object value;
@@ -239,6 +251,15 @@
 
         HostWriteResource(java.nio.channels.FileChannel channel) {
             this.channel = channel;
+        }
+
+        void releaseRejected() throws java.io.IOException {
+            Fn rejectedHook = hostOpenWriteRejectedHookForTest;
+            try {
+                if (rejectedHook != null) rejectedHook.call(this, channel);
+            } finally {
+                channel.close();
+            }
         }
     }
 
@@ -525,6 +546,17 @@
                 java.nio.file.StandardOpenOption.WRITE
             );
             HostWriteResource host = new HostWriteResource(channel);
+            Fn openedHook = hostOpenWriteOpenedHookForTest;
+            try {
+                if (openedHook != null) openedHook.call(host, channel);
+            } catch (RuntimeException | Error failure) {
+                try {
+                    channel.close();
+                } catch (java.io.IOException closeFailure) {
+                    failure.addSuppressed(closeFailure);
+                }
+                throw failure;
+            }
             HandlerFrame write = hostHandler(IO_WRITE_EFFECT, "write", VelnRuntime::hostWrite);
             HandlerFrame seek = hostHandler(IO_SEEK_EFFECT, "seek", VelnRuntime::hostSeek);
             HandlerFrame close = hostHandler(IO_CLOSE_EFFECT, "close", VelnRuntime::hostClose);
@@ -552,7 +584,7 @@
                 }
             }
             try {
-                channel.close();
+                host.releaseRejected();
             } catch (java.io.IOException ignored) {
                 // The channel marks itself closed before provider-specific close work.
             }
