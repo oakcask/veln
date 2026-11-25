@@ -15,7 +15,8 @@ atomic provider state. It lets provider and generic IO source check
 capability-correct signatures, capture and invoke provider handlers, exercise
 five runtime resource families, transfer bytes between independently owned
 fake resources, validate direct byte-transfer replies, complete bounded reads
-and writes, exercise per-open cursors and positional IO in a scoped fake, keep
+and writes, exercise per-open cursors, seek-beyond-end sequential extension,
+and positional IO in a scoped fake, keep
 immutable fake-provider state in shared cells, and retain
 completed fake-provider writes from concurrent child callers. Provider owner
 exit closes publication before release, rejects and releases a resource whose
@@ -464,6 +465,24 @@ delivered or committed count, including partial failures. Positional reads and
 writes preserve the sequential cursor on success and failure; a partial
 positional write changes only its confirmed prefix.
 
+The fake enters its extension path only when the sequential cursor is strictly
+beyond the current end. It defines each byte between the old end and a
+committed write there as zero. A successful write extends the bytes through its
+reported committed prefix and advances the shared sequential cursor by that
+count. A scripted failed write with known zero progress preserves the bytes and
+cursor, including when the cursor is beyond the end. A scripted failed write
+with known positive progress inserts the required zero gap, commits exactly the
+reported input prefix, and advances the cursor by that count.
+
+A sequential write that starts at or before the current end remains a bounded
+replacement. If its reported committed prefix would cross the current end, the
+fake returns `WriteFailed` with `Known(0)` progress and `InvalidResource`, and
+preserves the bytes and cursor. This applies to scripted successes and
+failures, including writes that start exactly at the end. Each seek and
+nonempty write dispatched to the fake remains present in operation order even
+when the write preserves state. This zero-gap rule specifies only the scoped
+fake provider; it does not establish a host-filesystem gap policy.
+
 Negative and overflowing seek targets fail without changing the bytes, size,
 or prior known cursor. A scripted known-no-change seek failure has the same
 preservation rule. A scripted failure can instead make the cursor unknown;
@@ -621,9 +640,9 @@ state, namespace-token allocation, registration, projection, provider-bound
 dispatch, bounded `copy` outcomes and progress, complete-transfer helper
 outcomes, direct facade provider-count validation, serialized completed
 fake-provider writes, and the bounded owner-release lifecycle are limited to
-the observations above. Provider and host conformance beyond the scoped fake,
-including seek-beyond-end writes and provider-defined gap bytes, host
-translation, host-specific failed-seek cursor behavior, the remaining
+the observations above. Remaining provider positional conformance and host
+conformance, including host seek-beyond-end writes and host-defined gap bytes,
+host translation, host-specific failed-seek cursor behavior, the remaining
 open-mode, namespace, metadata, mutation, truncate, append, and sync outcomes,
 cleanup retry and failure precedence, host filesystem selection, and
 network-to-byte adapters remain unimplemented.
@@ -649,7 +668,9 @@ static capability and effect boundary.
   [`io_complete_transfer_test_support_test.veln`](../../crates/veln-stdlib/veln/io_complete_transfer_test_support_test.veln)
   and
   [`io_direct_validation_test_support_test.veln`](../../crates/veln-stdlib/veln/io_direct_validation_test_support_test.veln).
-- Scoped-fake per-open cursor identity, seek targets, sequential progress, and
+- Scoped-fake per-open cursor identity, seek targets, sequential progress,
+  zero-gap extension after a beyond-end seek, bounded EOF and crossing-EOF
+  replacement rejection, failed-write commit state and operation order, and
   positional cursor preservation:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with state and scripted failures in
