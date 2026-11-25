@@ -31,6 +31,10 @@ also states it.
 
 ## Design In Progress
 
+- [Generic Functions](generic-functions.md): add explicit rank-one type
+  parameters, independent call instantiation, and polymorphism-preserving
+  function aliases; binder syntax, generalization boundaries, type/effect
+  constraints, and JVM lowering require decisions and feasibility evidence.
 - [Literal-expression Constant Folding](constant-folding.md): fold closed
   `Int` and `Bool` executable expressions while preserving diagnostics and
   runtime failures; requires full-range constant materialization and residual
