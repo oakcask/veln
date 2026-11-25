@@ -2087,6 +2087,36 @@ fn cursor_snapshot_matches(snapshot: io_seek_cursor_test_support_test::Snapshot,
 	end
 end
 
+fn cursor_byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn cursor_bytes_equal_at(actual: ByteChunk, expected: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else if cursor_byte_at(actual, index)? == cursor_byte_at(expected, index)?
+		cursor_bytes_equal_at(actual, expected, index + 1, count)
+	else
+		Ok(false)
+	end
+end
+
+fn cursor_bytes_equal(actual: ByteChunk, expected: ByteChunk) -> Result<Bool, String>
+	let actual_count = byte_count_to_int(byte_chunk_count(actual))
+	let expected_count = byte_count_to_int(byte_chunk_count(expected))
+	if actual_count == expected_count
+		cursor_bytes_equal_at(actual, expected, 0, expected_count)
+	else
+		Ok(false)
+	end
+end
+
+fn cursor_binary_snapshot_matches(snapshot: io_seek_cursor_test_support_test::Snapshot, expected_hex: String, first: Int, second: Int, operations: String, remaining: Int) -> Result<Bool, String>
+	match snapshot
+		io_seek_cursor_test_support_test::Snapshot(actual_bytes, first_cursor, second_cursor, actual_operations, actual_remaining) => Ok(cursor_bytes_equal(actual_bytes, byte_chunk_from_hex(expected_hex)?)? and cursor_known(first_cursor, first) and cursor_known(second_cursor, second) and actual_operations == operations and actual_remaining == remaining)
+	end
+end
+
 fn cursor_unknown_snapshot_matches(snapshot: io_seek_cursor_test_support_test::Snapshot, bytes: String, second: Int, operations: String, remaining: Int) -> Result<Bool, String>
 	match snapshot
 		io_seek_cursor_test_support_test::Snapshot(actual_bytes, first_cursor, second_cursor, actual_operations, actual_remaining) => Ok(byte_chunk_to_visible_ascii_string(actual_bytes)? == bytes and cursor_unknown(first_cursor) and cursor_known(second_cursor, second) and actual_operations == operations and actual_remaining == remaining)
@@ -2153,6 +2183,23 @@ test scoped_cursor_fake_covers_seek_origins_bounds_and_nonextending_seek() -> Re
 			Ok(())
 		else
 			Err("scoped cursor fake overflow preservation differed")
+		end
+	end
+end
+
+test scoped_cursor_fake_extends_sequential_writes_with_zero_gap_and_exact_failed_progress() -> Result<(), String> effects [concurrency]
+	match handle io_seek_cursor_test_support_test::execute_beyond_end() with io_provider::scope()
+		Err(message) => Err(message)
+		Ok(io_seek_cursor_test_support_test::BeyondEndObservation(position, after_position, extended, after_extension, second_position, preserved_failure, after_preserved_failure, committed_failure, snapshot)) => if not cursor_offset(position, 6) or not cursor_binary_snapshot_matches(after_position, "616263", 6, 0, "seek-start;", 4)?
+			Err("beyond-end seek changed bytes, cursor, order, or script state")
+		else if not cursor_written(extended, 2) or not cursor_binary_snapshot_matches(after_extension, "6162630000005859", 8, 0, "seek-start;write;", 3)?
+			Err("successful beyond-end write did not zero-fill and extend by its reported progress")
+		else if not cursor_offset(second_position, 10) or not cursor_failed_write(preserved_failure, 0) or not cursor_binary_snapshot_matches(after_preserved_failure, "6162630000005859", 10, 0, "seek-start;write;seek-start;write;", 1)?
+			Err("zero-progress failed beyond-end write did not preserve bytes and cursor")
+		else if not cursor_failed_write(committed_failure, 1) or not cursor_binary_snapshot_matches(snapshot, "6162630000005859000051", 11, 0, "seek-start;write;seek-start;write;write;", 0)?
+			Err("partially committed failed beyond-end write did not match its progress")
+		else
+			Ok(())
 		end
 	end
 end

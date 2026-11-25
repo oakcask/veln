@@ -15,9 +15,9 @@ implemented static and bounded runtime prerequisites belong to the current
 [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
 The direct-facade outcome and provider-count validation matrices and
 complete-transfer helper outcome matrices are implemented, as are scoped-fake
-open-resource seek and positional-cursor observations. The remaining F4
-provider and host seek and positional IO conformance includes the
-seek-beyond-end then write transition and provider-defined gap bytes. Host
+open-resource seek, zero-gap sequential extension after a beyond-end seek, and
+positional-cursor observations. The remaining F4 provider positional and host
+seek and positional IO conformance includes host-defined gap bytes. Host
 translation, host-specific failed-seek behavior, open-mode, metadata,
 namespace-mutation, truncate, append, and sync behavior, F5 cleanup behavior,
 and host integration evidence also remain planned.
