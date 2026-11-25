@@ -201,6 +201,32 @@ fn io_provider_update_file_validates_before_publication_and_retains_handlers() {
     );
 }
 
+fn run_jvm_host_filesystem_phase(
+    root: &std::path::Path,
+    source: &str,
+    entry: &str,
+    phase_name: &str,
+) {
+    let ir = lower_project_entry_to_ir(source, entry);
+    let program = generate_classfiles_with_entry(&ir, entry);
+    write_jvm_program(root, &program);
+    let child = Command::new("java")
+        .arg("-cp")
+        .arg(root)
+        .arg("VelnEntry")
+        .current_dir(root)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("JVM host filesystem phase should run");
+    let output = wait_for_test_child(child, phase_name, std::time::Duration::from_secs(30));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 #[test]
 fn jvm_host_filesystem_extends_after_beyond_end_seek_and_preserves_failed_seek_state() {
     if jdk_is_unavailable() {
@@ -215,27 +241,11 @@ fn jvm_host_filesystem_extends_after_beyond_end_seek_and_preserves_failed_seek_s
     let file = root.join("sample.bin");
     fs::write(&file, b"ABC").expect("host fixture should be seeded");
 
-    let run_phase = |name: &str| {
-        let child = Command::new("java")
-            .arg("-cp")
-            .arg(&root)
-            .arg("VelnEntry")
-            .current_dir(&root)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .expect("JVM host filesystem phase should run");
-        wait_for_test_child(child, name, std::time::Duration::from_secs(30))
-    };
-
-    let seek_only_ir = lower_project_entry_to_ir(source, "seek_only_phase");
-    let seek_only_program = generate_classfiles_with_entry(&seek_only_ir, "seek_only_phase");
-    write_jvm_program(&root, &seek_only_program);
-    let seek_only_output = run_phase("filesystem-host-seek-beyond-end-only");
-    assert!(
-        seek_only_output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&seek_only_output.stderr)
+    run_jvm_host_filesystem_phase(
+        &root,
+        source,
+        "seek_only_phase",
+        "filesystem-host-seek-beyond-end-only",
     );
     assert_eq!(
         fs::read(&file).expect("host fixture should remain readable after seek"),
@@ -243,14 +253,11 @@ fn jvm_host_filesystem_extends_after_beyond_end_seek_and_preserves_failed_seek_s
         "seek beyond end should not extend the host file before a write"
     );
 
-    let write_ir = lower_project_entry_to_ir(source, "write_phase");
-    let write_program = generate_classfiles_with_entry(&write_ir, "write_phase");
-    write_jvm_program(&root, &write_program);
-    let write_output = run_phase("filesystem-host-seek-beyond-end-write");
-    assert!(
-        write_output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&write_output.stderr)
+    run_jvm_host_filesystem_phase(
+        &root,
+        source,
+        "write_phase",
+        "filesystem-host-seek-beyond-end-write",
     );
 
     let observed = fs::read(&file).expect("host fixture should remain readable");
@@ -270,14 +277,11 @@ fn jvm_host_filesystem_extends_after_beyond_end_seek_and_preserves_failed_seek_s
         "write should retain the supplied suffix"
     );
 
-    let failed_seek_ir = lower_project_entry_to_ir(source, "failed_seek_phase");
-    let failed_seek_program = generate_classfiles_with_entry(&failed_seek_ir, "failed_seek_phase");
-    write_jvm_program(&root, &failed_seek_program);
-    let failed_seek_output = run_phase("filesystem-host-failed-seek");
-    assert!(
-        failed_seek_output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&failed_seek_output.stderr)
+    run_jvm_host_filesystem_phase(
+        &root,
+        source,
+        "failed_seek_phase",
+        "filesystem-host-failed-seek",
     );
     assert_eq!(
         fs::read(&file).expect("host fixture should remain readable after failed seek"),
