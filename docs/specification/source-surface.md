@@ -67,6 +67,16 @@ declaration parsing and formatting only; generic type schemes, body checking,
 call instantiation, lowering, and execution remain outside the implemented
 source-surface contract.
 
+Malformed-list recovery retains each binder recognized before the failed
+entry. If the failure reaches the parameter-list boundary, parsing resumes at
+that function's parameters and preserves the rest of its signature. If an
+unclosed list reaches a newline, the malformed declaration ends there and the
+next top-level declaration remains a separate syntax item. The focused parser
+diagnostics for these failures are specified by
+[Check JSON And Diagnostics](diagnostics-json.md#diagnostic-families).
+
+### Import alias preservation and formatting
+
 An import can bind an explicit module qualifier with `as` before an optional
 package source:
 
@@ -81,8 +91,6 @@ The contextual spellings `callsite`, `handler`, and `handle` are valid explicit
 aliases. When one of those spellings is followed by `::`, the parser retains a
 qualified name path. In particular, `handle::member()` is a call path rather
 than the start of a `handle ... with ...` expression.
-
-### Import alias preservation and formatting
 
 A valid explicit import retains the written target, the explicit alias and its
 span, and the optional target package source. The lowered AST also retains the
