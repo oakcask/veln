@@ -27,6 +27,10 @@ also states it.
 
 ## Design In Progress
 
+- [Literal-expression Constant Folding](constant-folding.md): fold closed
+  `Int` and `Bool` executable expressions while preserving diagnostics and
+  runtime failures; requires full-range constant materialization and residual
+  failure-span feasibility evidence before Ready promotion.
 - [Standard-library Numeric Constants](numeric-constants.md): expose `Int`
   bounds and `Float` finite limits, positive minima, epsilon, infinities, and
   NaN through typed module values; requires scalar-data construction and
