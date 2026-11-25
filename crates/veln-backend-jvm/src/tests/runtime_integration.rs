@@ -27,13 +27,32 @@ fn run_java_runtime_harness_with_options(
     env: &[(&str, &str)],
     jvm_args: &[&str],
 ) -> std::process::Output {
+    run_java_runtime_harness_with_sources_and_options(
+        name,
+        source_name,
+        source,
+        program,
+        &[],
+        env,
+        jvm_args,
+    )
+}
+
+fn run_java_runtime_harness_with_sources_and_options(
+    name: &str,
+    source_name: &str,
+    source: &str,
+    program: &JvmProgram,
+    additional_sources: &[(&str, &str)],
+    env: &[(&str, &str)],
+    jvm_args: &[&str],
+) -> std::process::Output {
     let root = temp_dir(name);
     write_jvm_program(&root, program);
-    fs::write(
-        root.join("IoProviderHarnessSupport.java"),
-        include_str!("../../test-support/IoProviderHarnessSupport.java"),
-    )
-    .expect("IO provider harness support should be written");
+    for (additional_name, additional_source) in additional_sources {
+        fs::write(root.join(additional_name), additional_source)
+            .expect("additional Java harness source should be written");
+    }
     fs::write(root.join(source_name), source).expect("Java harness should be written");
     let compiled = Command::new("javac")
         .arg(source_name)
@@ -68,8 +87,36 @@ fn run_java_runtime_harness_with_options(
     output
 }
 
+fn run_io_provider_runtime_harness(name: &str, source_name: &str, source: &str) {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness_with_sources_and_options(
+        name,
+        source_name,
+        source,
+        &program,
+        &[(
+            "IoProviderHarnessSupport.java",
+            include_str!("../../test-support/IoProviderHarnessSupport.java"),
+        )],
+        &[],
+        &[],
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 #[test]
-fn io_provider_append_file_capabilities_retain_captured_handlers() {
+fn generic_java_runtime_harness_does_not_stage_provider_support() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()
     {
@@ -78,9 +125,17 @@ fn io_provider_append_file_capabilities_retain_captured_handlers() {
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
     let program = generate_classfiles_with_entry(&ir, "main");
     let output = run_java_runtime_harness(
-        "io-provider-append-file-identities",
-        "IoProviderAppendFileHarness.java",
-        include_str!("../../test-support/IoProviderAppendFileHarness.java"),
+        "generic-harness-without-provider-support",
+        "GenericHarness.java",
+        concat!(
+            "public final class GenericHarness {\n",
+            "  public static void main(String[] args) {\n",
+            "    if (java.nio.file.Files.exists(java.nio.file.Path.of(\"IoProviderHarnessSupport.java\"))) {\n",
+            "      throw new AssertionError(\"generic harness staged provider support\");\n",
+            "    }\n",
+            "  }\n",
+            "}\n",
+        ),
         &program,
     );
 
@@ -88,144 +143,69 @@ fn io_provider_append_file_capabilities_retain_captured_handlers() {
         output.status.success(),
         "{}",
         String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn io_provider_append_file_capabilities_retain_captured_handlers() {
+    run_io_provider_runtime_harness(
+        "io-provider-append-file-identities",
+        "IoProviderAppendFileHarness.java",
+        include_str!("../../test-support/IoProviderAppendFileHarness.java"),
     );
 }
 
 #[test]
 fn io_provider_filesystem_tokens_retain_handlers_and_reject_closed_owners() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
-        return;
-    }
-    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
-    let program = generate_classfiles_with_entry(&ir, "main");
-    let output = run_java_runtime_harness(
+    run_io_provider_runtime_harness(
         "io-provider-filesystem-identities",
         "IoProviderFilesystemHarness.java",
         include_str!("../../test-support/IoProviderFilesystemHarness.java"),
-        &program,
-    );
-
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
     );
 }
 
 #[test]
 fn io_provider_dispatch_uses_captured_handlers_without_active_fallback() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
-        return;
-    }
-    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
-    let program = generate_classfiles_with_entry(&ir, "main");
-    let output = run_java_runtime_harness(
+    run_io_provider_runtime_harness(
         "io-provider-captured-dispatch",
         "IoProviderDispatchHarness.java",
         include_str!("../../test-support/IoProviderDispatchHarness.java"),
-        &program,
-    );
-
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
     );
 }
 
 #[test]
 fn io_provider_owner_closure_rejects_late_publication_and_restricts_release() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
-        return;
-    }
-    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
-    let program = generate_classfiles_with_entry(&ir, "main");
-    let output = run_java_runtime_harness(
+    run_io_provider_runtime_harness(
         "io-provider-owner-lifecycle",
         "IoProviderOwnerLifecycleHarness.java",
         include_str!("../../test-support/IoProviderOwnerLifecycleHarness.java"),
-        &program,
-    );
-
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
     );
 }
 
 #[test]
 fn io_provider_write_file_capabilities_retain_captured_handlers() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
-        return;
-    }
-    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
-    let program = generate_classfiles_with_entry(&ir, "main");
-    let output = run_java_runtime_harness(
+    run_io_provider_runtime_harness(
         "io-provider-write-file-identities",
         "IoProviderWriteFileHarness.java",
         include_str!("../../test-support/IoProviderWriteFileHarness.java"),
-        &program,
-    );
-
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
     );
 }
 
 #[test]
 fn io_provider_update_file_validates_before_publication_and_retains_handlers() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
-        return;
-    }
-    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
-    let program = generate_classfiles_with_entry(&ir, "main");
-    let output = run_java_runtime_harness(
+    run_io_provider_runtime_harness(
         "io-provider-update-file-identities",
         "IoProviderUpdateFileHarness.java",
         include_str!("../../test-support/IoProviderUpdateFileHarness.java"),
-        &program,
-    );
-
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
     );
 }
 
 #[test]
 fn io_provider_duplex_validates_before_publication_and_retains_handlers() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
-        return;
-    }
-    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
-    let program = generate_classfiles_with_entry(&ir, "main");
-    let output = run_java_runtime_harness(
+    run_io_provider_runtime_harness(
         "io-provider-duplex-identities",
         "IoProviderDuplexHarness.java",
         include_str!("../../test-support/IoProviderDuplexHarness.java"),
-        &program,
-    );
-
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
     );
 }
 
