@@ -183,6 +183,7 @@
         final HandlerFrame scope;
         final java.util.Map<Long, Object> resources =
             new java.util.LinkedHashMap<Long, Object>();
+        long nextHostSlot = Long.MAX_VALUE;
 
         IoOwner(HandlerFrame scope) {
             this.scope = scope;
@@ -206,6 +207,7 @@
         final long slot;
         final HandlerFrame read;
         final HandlerFrame mutate;
+        final java.nio.file.Path hostRoot;
 
         IoMutableFilesystem(
             IoOwner owner,
@@ -213,10 +215,30 @@
             HandlerFrame read,
             HandlerFrame mutate
         ) {
+            this(owner, slot, read, mutate, null);
+        }
+
+        IoMutableFilesystem(
+            IoOwner owner,
+            long slot,
+            HandlerFrame read,
+            HandlerFrame mutate,
+            java.nio.file.Path hostRoot
+        ) {
             this.owner = owner;
             this.slot = slot;
             this.read = read;
             this.mutate = mutate;
+            this.hostRoot = hostRoot;
+        }
+    }
+
+    private static final class HostWriteResource {
+        final java.nio.channels.FileChannel channel;
+        boolean closed;
+
+        HostWriteResource(java.nio.channels.FileChannel channel) {
+            this.channel = channel;
         }
     }
 
@@ -232,6 +254,7 @@
         final HandlerFrame close;
         final HandlerFrame sync;
         final HandlerFrame mutate;
+        final HostWriteResource hostWrite;
 
         IoResource(
             IoOwner owner,
@@ -246,6 +269,25 @@
             HandlerFrame sync,
             HandlerFrame mutate
         ) {
+            this(
+                owner, slot, family, read, write, seek, readAt, writeAt, close, sync, mutate, null
+            );
+        }
+
+        IoResource(
+            IoOwner owner,
+            long slot,
+            String family,
+            HandlerFrame read,
+            HandlerFrame write,
+            HandlerFrame seek,
+            HandlerFrame readAt,
+            HandlerFrame writeAt,
+            HandlerFrame close,
+            HandlerFrame sync,
+            HandlerFrame mutate,
+            HostWriteResource hostWrite
+        ) {
             this.owner = owner;
             this.slot = slot;
             this.family = family;
@@ -257,6 +299,7 @@
             this.close = close;
             this.sync = sync;
             this.mutate = mutate;
+            this.hostWrite = hostWrite;
         }
     }
 
@@ -295,6 +338,255 @@
 
     private static Result ioProviderInvalidResource(String operation, String message) {
         return err(ioProviderError(operation, "InvalidResource", message));
+    }
+
+    private static HandlerFrame hostHandler(String effect, String operation, Fn provider) {
+        java.util.Map<String, Fn> providers = new java.util.HashMap<String, Fn>();
+        if (operation != null) providers.put(operation, provider);
+        return new HandlerFrame(effect, providers, new Object[] {});
+    }
+
+    private static long reserveHostSlot(IoOwner owner) {
+        synchronized (owner.resources) {
+            while (owner.resources.containsKey(Long.valueOf(owner.nextHostSlot))) {
+                owner.nextHostSlot -= 1L;
+            }
+            return owner.nextHostSlot--;
+        }
+    }
+
+    private static String portablePathText(Object pathValue) {
+        if (!isAdt(pathValue, "Path::PortablePath")) {
+            throw new IllegalArgumentException("invalid portable path");
+        }
+        return asString(((Adt) pathValue).payloads[0]);
+    }
+
+    private static java.nio.file.Path resolveHostPath(
+        IoMutableFilesystem filesystem,
+        Object pathValue
+    ) {
+        String spelling = portablePathText(pathValue);
+        java.nio.file.Path resolved = spelling.equals(".")
+            ? filesystem.hostRoot
+            : filesystem.hostRoot.resolve(spelling).normalize();
+        if (!resolved.startsWith(filesystem.hostRoot)) {
+            throw new IllegalArgumentException("portable path left the selected filesystem root");
+        }
+        return resolved;
+    }
+
+    private static Result hostFilesystemFailure(
+        String operation,
+        Throwable failure,
+        java.nio.file.Path path
+    ) {
+        String kind;
+        if (failure instanceof java.nio.file.NoSuchFileException) kind = "NotFound";
+        else if (failure instanceof java.nio.file.FileAlreadyExistsException) kind = "AlreadyExists";
+        else if (failure instanceof java.nio.file.AccessDeniedException
+            || failure instanceof SecurityException) kind = "PermissionDenied";
+        else if (failure instanceof java.nio.file.FileSystemLoopException) kind = "LinkLoop";
+        else if (failure instanceof IllegalArgumentException) kind = "InvalidInput";
+        else if (path != null && java.nio.file.Files.isDirectory(path)) kind = "IsDirectory";
+        else kind = "Other";
+        String message = failure.getMessage() == null
+            ? failure.getClass().getSimpleName()
+            : failure.getMessage();
+        return err(ioProviderError(operation, kind, message));
+    }
+
+    private static HostWriteResource hostWriteResource(Object capabilityValue) {
+        if (!(capabilityValue instanceof IoCapability)) {
+            throw new RuntimeFailure("invalid host file capability");
+        }
+        IoResource resource = ((IoCapability) capabilityValue).resource;
+        if (resource.hostWrite == null) {
+            throw new RuntimeFailure("capability is not backed by a host file");
+        }
+        return resource.hostWrite;
+    }
+
+    private static Object hostWrite(Object[] args) {
+        HostWriteResource resource = hostWriteResource(args[0]);
+        if (resource.closed || !resource.channel.isOpen()) {
+            Object error = ioProviderError("write", "Closed", "host file is closed");
+            return adt(
+                "io::WriteOutcome::WriteFailed",
+                new Object[] {
+                    adt("io::Progress::Known", new Object[] { byteCountObject(0L) }),
+                    error
+                }
+            );
+        }
+        java.util.List<Object> values = byteChunkBytes(args[1]);
+        byte[] bytes = new byte[values.size()];
+        for (int index = 0; index < values.size(); index += 1) {
+            bytes[index] = (byte) byteValueLong(values.get(index));
+        }
+        try {
+            int written = resource.channel.write(java.nio.ByteBuffer.wrap(bytes));
+            return adt(
+                "io::WriteOutcome::Written",
+                new Object[] { byteCountObject((long) written) }
+            );
+        } catch (java.io.IOException failure) {
+            Object error = ioProviderError("write", "Other", failure.toString());
+            return adt(
+                "io::WriteOutcome::WriteFailed",
+                new Object[] {
+                    adt("io::Progress::Unknown", new Object[] { byteCountObject(0L) }),
+                    error
+                }
+            );
+        }
+    }
+
+    private static Object hostSeek(Object[] args) {
+        HostWriteResource resource = hostWriteResource(args[0]);
+        if (resource.closed || !resource.channel.isOpen()) {
+            return ioProviderInvalidResource("seek", "host file is closed");
+        }
+        Object origin = args[1];
+        try {
+            long target;
+            if (isAdt(origin, "SeekOrigin::Start")) {
+                target = byteOffsetLong(((Adt) origin).payloads[0]);
+            } else if (isAdt(origin, "SeekOrigin::Current")) {
+                target = Math.addExact(
+                    resource.channel.position(),
+                    asLong(((Adt) origin).payloads[0])
+                );
+            } else if (isAdt(origin, "SeekOrigin::End")) {
+                target = Math.addExact(
+                    resource.channel.size(),
+                    asLong(((Adt) origin).payloads[0])
+                );
+            } else {
+                return ioProviderInvalidInput("seek", "invalid seek origin");
+            }
+            if (target < 0L) {
+                return ioProviderInvalidInput("seek", "seek target must be nonnegative");
+            }
+            resource.channel.position(target);
+            return ok(byteOffsetObject(target));
+        } catch (ArithmeticException | IllegalArgumentException failure) {
+            return ioProviderInvalidInput("seek", "seek target is outside the supported range");
+        } catch (java.nio.channels.ClosedChannelException failure) {
+            return err(ioProviderError("seek", "Closed", "host file is closed"));
+        } catch (java.io.IOException failure) {
+            return err(ioProviderError("seek", "Other", failure.toString()));
+        }
+    }
+
+    private static Object hostClose(Object[] args) {
+        HostWriteResource resource = hostWriteResource(args[0]);
+        if (resource.closed) return adt("io::CloseOutcome::Closed", new Object[] {});
+        try {
+            resource.channel.close();
+            resource.closed = true;
+            return adt("io::CloseOutcome::Closed", new Object[] {});
+        } catch (java.io.IOException failure) {
+            Object error = ioProviderError("close", "Other", failure.toString());
+            return adt(
+                "io::CloseOutcome::CloseFailed",
+                new Object[] { adt("io::Commit::Unknown", new Object[] {}), error }
+            );
+        }
+    }
+
+    private static Object hostOpenWrite(Object[] args) {
+        if (!(args[0] instanceof IoMutableFilesystem)) {
+            return ioProviderInvalidInput("open_write", "invalid mutable filesystem");
+        }
+        IoMutableFilesystem filesystem = (IoMutableFilesystem) args[0];
+        if (filesystem.hostRoot == null) {
+            return ioProviderInvalidInput("open_write", "filesystem is not a host filesystem");
+        }
+        Object mode = args[2];
+        if (!isAdt(mode, "WriteMode::WriteMode")) {
+            return ioProviderInvalidInput("open_write", "invalid write mode");
+        }
+        Adt writeMode = (Adt) mode;
+        if (!isAdt(writeMode.payloads[0], "CreateMode::Existing")
+            || asBool(writeMode.payloads[1])) {
+            return ioProviderUnsupported(
+                "open_write",
+                "the bounded JVM host prototype supports only Existing without truncate"
+            );
+        }
+        java.nio.file.Path path;
+        try {
+            path = resolveHostPath(filesystem, args[1]);
+        } catch (RuntimeException failure) {
+            return hostFilesystemFailure("open_write", failure, null);
+        }
+        try {
+            java.nio.channels.FileChannel channel = java.nio.channels.FileChannel.open(
+                path,
+                java.nio.file.StandardOpenOption.WRITE
+            );
+            HostWriteResource host = new HostWriteResource(channel);
+            HandlerFrame write = hostHandler(IO_WRITE_EFFECT, "write", VelnRuntime::hostWrite);
+            HandlerFrame seek = hostHandler(IO_SEEK_EFFECT, "seek", VelnRuntime::hostSeek);
+            HandlerFrame close = hostHandler(IO_CLOSE_EFFECT, "close", VelnRuntime::hostClose);
+            HandlerFrame writeAt = hostHandler(IO_WRITE_AT_EFFECT, null, null);
+            HandlerFrame sync = hostHandler(IO_SYNC_EFFECT, null, null);
+            long slot = reserveHostSlot(filesystem.owner);
+            IoResource resource = new IoResource(
+                filesystem.owner,
+                slot,
+                "WriteFile",
+                null,
+                write,
+                seek,
+                null,
+                writeAt,
+                close,
+                sync,
+                filesystem.mutate,
+                host
+            );
+            synchronized (filesystem.owner.resources) {
+                if (filesystem.owner.scope.ioProviderScopeClosed) {
+                    channel.close();
+                    return ioProviderInvalidResource("open_write", "provider owner scope is closed");
+                }
+                filesystem.owner.resources.put(Long.valueOf(slot), resource);
+            }
+            return ioProviderWriteFile(resource);
+        } catch (java.io.IOException | RuntimeException failure) {
+            return hostFilesystemFailure("open_write", failure, path);
+        }
+    }
+
+    public static Object fsSystemOpen(Object rootValue) {
+        HandlerFrame scope = findHandler(IO_PROVIDER_SCOPE_EFFECT);
+        if (scope == null || scope.ioProviderScopeClosed) {
+            return ioProviderInvalidResource("system", "filesystem owner scope is unavailable");
+        }
+        java.nio.file.Path root;
+        try {
+            root = asPath(rootValue).toAbsolutePath().normalize();
+            if (!java.nio.file.Files.isDirectory(root)) {
+                return err(ioProviderError("system", "NotDirectory", "filesystem root is not a directory"));
+            }
+        } catch (RuntimeException failure) {
+            return hostFilesystemFailure("system", failure, null);
+        }
+        IoOwner owner;
+        synchronized (scope) {
+            if (scope.ioOwner == null) scope.ioOwner = new IoOwner(scope);
+            owner = scope.ioOwner;
+        }
+        HandlerFrame read = hostHandler(FS_READ_EFFECT, null, null);
+        HandlerFrame mutate = hostHandler(FS_MUTATE_EFFECT, "open_write", VelnRuntime::hostOpenWrite);
+        long slot = reserveHostSlot(owner);
+        IoMutableFilesystem filesystem = new IoMutableFilesystem(owner, slot, read, mutate, root);
+        synchronized (owner.resources) {
+            owner.resources.put(Long.valueOf(slot), filesystem);
+        }
+        return ok(filesystem);
     }
 
     private static boolean ioProviderOwnerIsLexicallyCurrent(IoOwner owner) {

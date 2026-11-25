@@ -202,6 +202,77 @@ fn io_provider_update_file_validates_before_publication_and_retains_handlers() {
 }
 
 #[test]
+fn jvm_host_filesystem_extends_after_beyond_end_seek_and_preserves_failed_seek_state() {
+    if jdk_is_unavailable() {
+        return;
+    }
+
+    // Integration contract: a Veln program crosses the JVM rooted-host boundary,
+    // while the independently seeded host file supplies the expected prefix,
+    // extension length, and suffix. Java does not define the intervening gap bytes.
+    let source = include_str!("../../test-support/filesystem_host_seek_beyond_end.veln");
+    let root = temp_dir("filesystem-host-seek-beyond-end");
+    let file = root.join("sample.bin");
+    fs::write(&file, b"ABC").expect("host fixture should be seeded");
+
+    let run_phase = |name: &str| {
+        let child = Command::new("java")
+            .arg("-cp")
+            .arg(&root)
+            .arg("VelnEntry")
+            .current_dir(&root)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("JVM host filesystem phase should run");
+        wait_for_test_child(child, name, std::time::Duration::from_secs(30))
+    };
+
+    let write_ir = lower_project_entry_to_ir(source, "write_phase");
+    let write_program = generate_classfiles_with_entry(&write_ir, "write_phase");
+    write_jvm_program(&root, &write_program);
+    let write_output = run_phase("filesystem-host-seek-beyond-end-write");
+    assert!(
+        write_output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&write_output.stderr)
+    );
+
+    let observed = fs::read(&file).expect("host fixture should remain readable");
+    assert_eq!(
+        observed.len(),
+        8,
+        "write should extend through the supplied suffix"
+    );
+    assert_eq!(
+        &observed[..3],
+        b"ABC",
+        "write should preserve the seeded prefix"
+    );
+    assert_eq!(
+        &observed[6..],
+        b"XY",
+        "write should retain the supplied suffix"
+    );
+
+    let failed_seek_ir = lower_project_entry_to_ir(source, "failed_seek_phase");
+    let failed_seek_program = generate_classfiles_with_entry(&failed_seek_ir, "failed_seek_phase");
+    write_jvm_program(&root, &failed_seek_program);
+    let failed_seek_output = run_phase("filesystem-host-failed-seek");
+    assert!(
+        failed_seek_output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&failed_seek_output.stderr)
+    );
+    assert_eq!(
+        fs::read(&file).expect("host fixture should remain readable after failed seek"),
+        observed,
+        "failed seek should preserve every file byte, including host-defined gap bytes"
+    );
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn io_provider_duplex_validates_before_publication_and_retains_handlers() {
     run_io_provider_runtime_harness(
         "io-provider-duplex-identities",

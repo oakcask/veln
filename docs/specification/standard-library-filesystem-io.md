@@ -16,7 +16,8 @@ capability-correct signatures, capture and invoke provider handlers, exercise
 five runtime resource families, transfer bytes between independently owned
 fake resources, validate direct byte-transfer replies, complete bounded reads
 and writes, exercise per-open cursors, seek-beyond-end sequential extension,
-and positional IO in a scoped fake, keep
+and positional IO in a scoped fake, exercise a bounded JVM rooted-host
+write after seeking beyond end, keep
 immutable fake-provider state in shared cells, and retain
 completed fake-provider writes from concurrent child callers. Provider owner
 exit closes publication before release, rejects and releases a resource whose
@@ -405,8 +406,9 @@ Nested handlers affect newly allocated tokens and capabilities. They do not
 reinterpret an older value. A facade call that requires provider invocation
 selects the older value's creating handler even after that handler's dynamic
 scope exits, provided its provider owner remains usable. Dispatch never selects
-the currently active same-effect handler as a fallback and does not perform
-host filesystem or network IO.
+the currently active same-effect handler as a fallback. Provider-created
+tokens do not perform host filesystem or network fallback. The bounded JVM
+system token described below explicitly captures real-host handlers instead.
 
 Direct `io::read` with a zero `ByteCount` validates the reader capability and
 that its provider-owner scope remains open, then returns empty `Data` without
@@ -491,6 +493,25 @@ while it is unknown, `Current` and `End` seeks fail, and a successful absolute
 stateful test adapter behavior only for this scoped fake. They do not make the
 fake a production filesystem implementation, establish host error translation,
 or establish the cursor state after a failed host seek.
+
+The JVM `fs::system_handler()` has one bounded real-host path for feasibility
+evidence. Within an active provider scope, `fs::system(root)` captures the
+selected directory as an absolute rooted token. `fs::open_write` accepts only
+an existing portable child path with `WriteMode(Existing, false)`. The returned
+`WriteFile` supports sequential write, seek, and close; its positional write,
+sync, truncate, other open modes, and other namespace operations are outside
+this path.
+
+For that host file, a valid absolute seek beyond end changes the sequential
+cursor without extending the file. A later successful sequential write starts
+at that cursor, extends the file through the committed suffix, and advances the
+cursor by the committed count. Bytes before the old end and the written suffix
+remain observable, but bytes in the intervening gap follow the JVM host
+contract and have no portable value requirement. A negative or arithmetically
+overflowing target is rejected as `InvalidInput` before changing the host
+position, so the known cursor, file bytes, and length are preserved. This
+preservation rule does not cover an arbitrary host exception after a seek is
+attempted; uncertain host cursor failures remain unimplemented.
 
 Ordinary `perform` retains lexical handler selection and does not receive the
 broader captured invocation authority. An accepted lexical provider open
@@ -640,12 +661,11 @@ state, namespace-token allocation, registration, projection, provider-bound
 dispatch, bounded `copy` outcomes and progress, complete-transfer helper
 outcomes, direct facade provider-count validation, serialized completed
 fake-provider writes, and the bounded owner-release lifecycle are limited to
-the observations above. Remaining provider positional conformance and host
-conformance, including host seek-beyond-end writes and host-defined gap bytes,
-host translation, host-specific failed-seek cursor behavior, the remaining
-open-mode, namespace, metadata, mutation, truncate, append, and sync outcomes,
-cleanup retry and failure precedence, host filesystem selection, and
-network-to-byte adapters remain unimplemented.
+the observations above. Remaining provider positional conformance, host
+positional conformance, host translation, uncertain host-seek cursor behavior,
+the remaining open-mode, namespace, metadata, mutation, truncate, append, and
+sync outcomes, cleanup retry and failure precedence, general host filesystem
+selection, and network-to-byte adapters remain unimplemented.
 Type-checking behavior outside the implemented slice establishes only its
 static capability and effect boundary.
 
@@ -675,6 +695,12 @@ static capability and effect boundary.
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with state and scripted failures in
   [`io_seek_cursor_test_support_test.veln`](../../crates/veln-stdlib/veln/io_seek_cursor_test_support_test.veln).
+- Bounded JVM rooted-host writable open, beyond-end seek and sequential
+  extension, host-defined gap treatment, and prevalidated failed-seek cursor
+  preservation:
+  [`filesystem_host_seek_beyond_end.veln`](../../crates/veln-backend-jvm/test-support/filesystem_host_seek_beyond_end.veln),
+  exercised by the focused runtime integration test in
+  [`runtime_integration.rs`](../../crates/veln-backend-jvm/src/tests/runtime_integration.rs).
 - Wrong capability operands:
   `examples/specification/check/filesystem-io-capability-boundaries/`.
 - Missing read-file closer, write-file truncater, update-file positional

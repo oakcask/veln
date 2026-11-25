@@ -38,6 +38,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("io_provider_scope_owner", "ioProviderScopeOwner"),
         ("io_provider_state", "ioProviderState"),
         ("io_provider_state_update", "ioProviderStateUpdate"),
+        ("fs_system_open", "fsSystemOpen"),
         ("fs_read_only", "fsReadOnly"),
         ("io_provider_filesystem", "ioProviderFilesystem"),
         (

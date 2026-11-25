@@ -1,0 +1,91 @@
+use fs from "std"
+use io from "std"
+use io_provider from "std"
+use path as portable from "std"
+
+fn expect_cursor(result: Result<ByteOffset, io::Error>, expected: Int, message: String) -> Result<(), String>
+	match result
+		Ok(cursor) => if byte_offset_to_int(cursor) == expected
+			Ok(())
+		else
+			Err(message)
+		end
+		Err(_) => Err(message)
+	end
+end
+
+fn expect_written(outcome: io::WriteOutcome, expected: Int) -> Result<(), String>
+	match outcome
+		io::WriteOutcome::Written(count) => if byte_count_to_int(count) == expected
+			Ok(())
+		else
+			Err("host sequential write reported the wrong count")
+		end
+		io::WriteOutcome::WriteFailed(_, _) => Err("host sequential write failed")
+	end
+end
+
+fn expect_invalid_seek(result: Result<ByteOffset, io::Error>) -> Result<(), String>
+	match result
+		Err(io::Error::Error("seek", io::ErrorKind::InvalidInput, _, _, _, _, _)) => Ok(())
+		_ => Err("negative host seek did not return InvalidInput")
+	end
+end
+
+fn expect_closed(outcome: io::CloseOutcome) -> Result<(), String>
+	match outcome
+		io::CloseOutcome::Closed => Ok(())
+		io::CloseOutcome::CloseFailed(_, _) => Err("host close failed")
+	end
+end
+
+fn write_file(filesystem: fs::MutableFilesystem) -> Result<(), String> effects [fs::Mutate, io::Write, io::Seek, io::Close]
+	match portable::parse("sample.bin")
+		Err(_) => Err("host fixture name was not portable")
+		Ok(name) => match fs::open_write(filesystem, name, fs::WriteMode::WriteMode(fs::CreateMode::Existing, false))
+			Err(_) => Err("host writable open failed")
+			Ok(fs::WriteFile(writer, seeker, _, closer, _, _)) => begin
+				let _ = expect_cursor(io::seek(seeker, io::SeekOrigin::Start(ByteOffset(6))), 6, "host beyond-end seek failed")?
+				let _ = expect_written(io::write_all(writer, byte_chunk_from_visible_ascii_string("XY")?), 2)?
+				expect_closed(io::close(closer))
+			end
+		end
+	end
+end
+
+fn failed_seek_file(filesystem: fs::MutableFilesystem) -> Result<(), String> effects [fs::Mutate, io::Seek, io::Close]
+	match portable::parse("sample.bin")
+		Err(_) => Err("host fixture name was not portable")
+		Ok(name) => match fs::open_write(filesystem, name, fs::WriteMode::WriteMode(fs::CreateMode::Existing, false))
+			Err(_) => Err("host writable reopen failed")
+			Ok(fs::WriteFile(_, seeker, _, closer, _, _)) => begin
+				let _ = expect_cursor(io::seek(seeker, io::SeekOrigin::Start(ByteOffset(8))), 8, "host cursor setup failed")?
+				let _ = expect_invalid_seek(io::seek(seeker, io::SeekOrigin::Start(ByteOffset(0 - 1))))?
+				let _ = expect_cursor(io::seek(seeker, io::SeekOrigin::Current(0)), 8, "failed host seek changed the known cursor")?
+				expect_closed(io::close(closer))
+			end
+		end
+	end
+end
+
+fn write_root(root: Path) -> Result<(), String> effects [fs::Host, io_provider::Scope, fs::Mutate, io::Write, io::Seek, io::Close]
+	match fs::system(root)
+		Err(_) => Err("host filesystem selection failed")
+		Ok(filesystem) => write_file(filesystem)
+	end
+end
+
+fn failed_seek_root(root: Path) -> Result<(), String> effects [fs::Host, io_provider::Scope, fs::Mutate, io::Seek, io::Close]
+	match fs::system(root)
+		Err(_) => Err("host filesystem selection failed")
+		Ok(filesystem) => failed_seek_file(filesystem)
+	end
+end
+
+pub fn write_phase() -> Result<(), String> effects [fs, concurrency, fs::Mutate, io::Write, io::Seek, io::Close]
+	handle handle write_root(fs::path(".")) with fs::system_handler() with io_provider::scope()
+end
+
+pub fn failed_seek_phase() -> Result<(), String> effects [fs, concurrency, fs::Mutate, io::Seek, io::Close]
+	handle handle failed_seek_root(fs::path(".")) with fs::system_handler() with io_provider::scope()
+end

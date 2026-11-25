@@ -165,6 +165,18 @@ progress, or invalid provider counts and preserve their independently confirmed
 bytes or progress. The
 [standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#provider-bound-dispatch)
 owns the source-visible outcomes, validation rules, and remaining limits.
+The JVM adapter also gives `fs::system_handler()` a bounded rooted-host path.
+Within an active provider scope it captures an absolute directory, opens only
+an existing non-truncated writable child, and publishes sequential writer,
+seeker, and closer capabilities backed by one host file channel. A
+beyond-end seek followed by a successful write extends that file without
+normalizing or asserting the intervening gap bytes. Negative and overflowing
+targets fail before the channel position changes, which preserves the known
+cursor and file state. Other open modes, positional operations, sync,
+truncate, namespace mutation, and uncertain host failures remain outside this
+execution path; the
+[filesystem and byte IO specification](standard-library-filesystem-io.md#provider-bound-dispatch)
+owns its source-visible contract and evidence.
 A facade or accepted lexical open admitted before owner closure can finish
 afterward. Its resource is rejected instead of published and released once
 through the captured close handler. A failed close outcome or a modeled Veln

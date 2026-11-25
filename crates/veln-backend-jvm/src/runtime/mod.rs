@@ -56,6 +56,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "io_provider_scope_owner" => "ioProviderScopeOwner",
     "io_provider_state" => "ioProviderState",
     "io_provider_state_update" => "ioProviderStateUpdate",
+    "fs_system_open" => "fsSystemOpen",
     "fs_read_only" => "fsReadOnly",
     "io_provider_filesystem" => "ioProviderFilesystem",
     "io_provider_mutable_filesystem" => "ioProviderMutableFilesystem",

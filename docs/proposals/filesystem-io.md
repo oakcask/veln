@@ -16,11 +16,13 @@ implemented static and bounded runtime prerequisites belong to the current
 The direct-facade outcome and provider-count validation matrices and
 complete-transfer helper outcome matrices are implemented, as are scoped-fake
 open-resource seek, zero-gap sequential extension after a beyond-end seek, and
-positional-cursor observations. The remaining F4 provider positional and host
-seek and positional IO conformance includes host-defined gap bytes. Host
-translation, host-specific failed-seek behavior, open-mode, metadata,
+positional-cursor observations. A bounded JVM rooted-host case also establishes
+seek-beyond-end sequential extension without imposing a gap-byte value and
+prevalidated invalid-seek preservation. The remaining F4 provider and host
+positional IO conformance, host translation, uncertain host-seek behavior,
+open-mode, metadata,
 namespace-mutation, truncate, append, and sync behavior, F5 cleanup behavior,
-and host integration evidence also remain planned.
+and the remaining host integration evidence remain planned.
 Implementation selection remains blocked on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
@@ -32,7 +34,9 @@ reading, text writing, existence checks, and directory listing. The current
 [filesystem and byte IO prototype](../specification/standard-library-filesystem-io.md)
 owns the implemented source surface and bounded runtime foundation, including
 complete-transfer helpers. It provides
-no host filesystem execution. This proposal replaces the minimal production
+a bounded rooted-host writable-open, seek, sequential-write, and close path for
+the current feasibility evidence, not production filesystem execution. This
+proposal replaces the minimal production
 boundary; retaining its source API is not required.
 
 The current [network API](../specification/standard-library-networking.md)
@@ -271,7 +275,7 @@ output. Fake tests do not establish real host behavior.
 | --- | --- | --- |
 | Host conversion | An unrepresentable name fails without selecting another entry; native and portable types cannot be interchanged implicitly. | Companion tests plus focused host-conversion and compiler type-boundary tests. |
 | Host transfer translation | Host adapters preserve established prefixes and report unknown progress when a transfer may have occurred but its exact progress cannot be established. | Focused host-adapter tests for established and uncertain host progress. |
-| Remaining seek and positional IO | Provider positional operations and host seek and positional operations satisfy the remaining state-table outcomes. Host beyond-end writes expose the host's gap-byte policy, and host seek failures preserve or invalidate the cursor only as independently established. | Shared provider conformance tests for the remaining positional transitions; host tests for beyond-end writes, native translation, and uncertain host cursor state. |
+| Remaining seek and positional IO | Provider and host positional operations satisfy the remaining state-table outcomes, and uncertain host seek failures preserve or invalidate the cursor only as independently established. | Shared provider conformance tests for the remaining positional transitions; host tests for native translation and uncertain host cursor state. |
 | Namespace updates | Open modes, exclusive create, directory operations, rename, and truncation obey the mutation transition table, including failure preservation. | Shared provider conformance tests and focused real-host integration cases. |
 | Errors and cleanup | Stable error kinds retain operation and path context; close and cleanup transitions preserve progress and the selected primary failure. | Companion tests plus human/JSON execution coverage where runtime cleanup diagnostics apply. |
 | Real host default | A system handler reaches real files without fake selectors, while an injected fake requires no host-file setup. | Focused host integration and effect-boundary policy checks. |

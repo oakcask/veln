@@ -26,8 +26,9 @@ That specification owns the completed direct sequential and positional count
 validation, `read_exact`, `write_all`, and `copy` observations, F3
 observations, the scoped-fake open-resource seek and positional-cursor
 observations, the provider-side seek-beyond-end sequential-write transition
-and zero-gap policy, and the restricted owner-release boundary that F5 must
-reuse.
+and zero-gap policy, the bounded JVM rooted-host seek-beyond-end sequential
+extension and prevalidated failed-seek preservation, and the restricted
+owner-release boundary that F5 must reuse.
 This proposal does not restate those current results, ordering rules, or
 preserved-state contracts.
 The following sections of the filesystem proposal define the remaining
@@ -36,7 +37,7 @@ prototype obligations:
 | Design input | Prototype obligation |
 | --- | --- |
 | [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Complete host-error translation and progress preservation beyond the implemented direct-facade and complete-transfer validation matrices. |
-| [Namespace, seek, and mutation transitions](filesystem-io.md#namespace-seek-and-mutation-transitions) | Observe the remaining provider positional and host seek and positional IO conformance, including host seek-beyond-end writes and the host-defined gap-byte policy. Observe open-mode, metadata, namespace-mutation, truncate, append, and sync operations through bytes, cursors, bindings, and commit facts. |
+| [Namespace, seek, and mutation transitions](filesystem-io.md#namespace-seek-and-mutation-transitions) | Observe the remaining provider positional and host positional IO conformance, uncertain host-seek cursor outcomes, and open-mode, metadata, namespace-mutation, truncate, append, and sync operations through bytes, cursors, bindings, and commit facts. |
 | [Concurrent operations and cleanup](filesystem-io.md#concurrent-operations-and-cleanup) | Preserve per-open admission, release obligations, aliases, and failure precedence. |
 
 Implement only the adapter and source/provider support needed to demonstrate
@@ -47,7 +48,9 @@ no-progress normalization, provider-count validation, and the implemented
 work. Scoped-fake open-resource cursor identity, seek targets, sequential
 progress, seek-beyond-end sequential extension with zero gap bytes, scripted
 failed-write commit state, and positional cursor preservation are also no
-longer proposal work.
+longer proposal work. The bounded JVM rooted-host extension after a beyond-end
+seek, host-defined gap treatment, and prevalidated invalid-seek preservation
+are current evidence rather than remaining F4 work.
 Scripted failures belong in separate scoped Veln test support. Focused host
 adapters establish host-specific behavior that a fake cannot prove.
 
@@ -64,7 +67,7 @@ its positive observations and its failure or preserved-state observations.
 
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
-| F4: remaining transfer and mutation | Remaining provider positional and host seek and positional IO conformance includes observing host file extension after a successful write following a seek beyond end. When the host defines its gap bytes, conformance checks them against that policy; otherwise it does not infer zero fill. Host translation, host-specific failed-seek and unknown-progress behavior, open modes, metadata and entries, namespace mutation, truncate, append, and sync have independent expected bytes, cursor, commit, and namespace observations. This includes unsupported rename. | Shared companion conformance cases for the remaining fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
+| F4: remaining transfer and mutation | Remaining provider positional and host positional IO conformance, host translation, host-specific uncertain-seek and unknown-progress behavior, open modes, metadata and entries, namespace mutation, truncate, append, and sync have independent expected bytes, cursor, commit, and namespace observations. This includes unsupported rename. | Shared companion conformance cases for the remaining fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
 | F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table while reusing the implemented F3 restricted-release boundary. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry across the restricted boundary; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
 
 ## Implementation Sequence And Evidence Placement
@@ -107,7 +110,9 @@ remain rationale for its IO contracts; they do not prove Veln adapter support.
 This proposal completes only when the remaining F4 rows and F5 have checked
 evidence at the stated boundaries. Bounded `copy`, scoped-fake open-resource
 seek, provider-side seek-beyond-end sequential writes, positional-cursor
-behavior, and F3 are implemented and specified independently. A failed
+behavior, the bounded JVM rooted-host seek-beyond-end sequential extension and
+prevalidated invalid-seek preservation, and F3 are implemented and specified
+independently. A failed
 remaining gate keeps the target incomplete
 until the design and its independent expectations are reconciled.
 
