@@ -1,0 +1,192 @@
+use prelude
+use fs
+use io
+use io_provider
+use io_provider_test_support_test
+
+type State
+	State(reads: List<io::ReadOutcome>, writes: List<io::WriteOutcome>, reads_at: List<io::ReadOutcome>, writes_at: List<io::WriteOutcome>, operations: List<String>)
+end
+
+pub type Snapshot
+	pub Snapshot(operations: List<String>, remaining_reads: List<io::ReadOutcome>, remaining_writes: List<io::WriteOutcome>, remaining_reads_at: List<io::ReadOutcome>, remaining_writes_at: List<io::WriteOutcome>)
+end
+
+pub type ReadObservation
+	pub ReadObservation(outcome: io::ReadOutcome, snapshot: Snapshot)
+end
+
+pub type WriteObservation
+	pub WriteObservation(outcome: io::WriteOutcome, snapshot: Snapshot)
+end
+
+fn invalid_resource(operation: String) -> io::Error
+	io::Error::Error(operation, io::ErrorKind::InvalidResource, None, None, None, None, "capability belongs to another scripted provider")
+end
+
+fn zero_progress() -> io::Progress
+	io::Progress::Known(byte_chunk_count(byte_chunk([])))
+end
+
+fn slot_matches(actual: Result<Int, io::Error>, expected: Int) -> Bool
+	match actual
+		Ok(slot) => slot == expected
+		Err(_) => false
+	end
+end
+
+fn next_read(current: State, operation: String) -> {state: State, result: io::ReadOutcome}
+	match current
+		State(reads, writes, reads_at, writes_at, operations) => match reads
+			Cons(next, remaining) => {state: State(remaining, writes, reads_at, writes_at, Cons(operation, operations)), result: next}
+			Nil => {state: State(Nil, writes, reads_at, writes_at, Cons(operation, operations)), result: io::ReadOutcome::End}
+		end
+	end
+end
+
+fn next_write(current: State, context: {operation: String, bytes: ByteChunk}) -> {state: State, result: io::WriteOutcome}
+	match current
+		State(reads, writes, reads_at, writes_at, operations) => match writes
+			Cons(next, remaining) => {state: State(reads, remaining, reads_at, writes_at, Cons(context.operation, operations)), result: next}
+			Nil => {state: State(reads, Nil, reads_at, writes_at, Cons(context.operation, operations)), result: io::WriteOutcome::Written(byte_chunk_count(context.bytes))}
+		end
+	end
+end
+
+fn next_read_at(current: State, operation: String) -> {state: State, result: io::ReadOutcome}
+	match current
+		State(reads, writes, reads_at, writes_at, operations) => match reads_at
+			Cons(next, remaining) => {state: State(reads, writes, remaining, writes_at, Cons(operation, operations)), result: next}
+			Nil => {state: State(reads, writes, Nil, writes_at, Cons(operation, operations)), result: io::ReadOutcome::End}
+		end
+	end
+end
+
+fn next_write_at(current: State, context: {operation: String, bytes: ByteChunk}) -> {state: State, result: io::WriteOutcome}
+	match current
+		State(reads, writes, reads_at, writes_at, operations) => match writes_at
+			Cons(next, remaining) => {state: State(reads, writes, reads_at, remaining, Cons(context.operation, operations)), result: next}
+			Nil => {state: State(reads, writes, reads_at, Nil, Cons(context.operation, operations)), result: io::WriteOutcome::Written(byte_chunk_count(context.bytes))}
+		end
+	end
+end
+
+fn observe(current: State, context: ()) -> {state: State, result: Snapshot}
+	match current
+		State(reads, writes, reads_at, writes_at, operations) => {state: current, result: Snapshot(operations, reads, writes, reads_at, writes_at)}
+	end
+end
+
+handler scripted_read(owner: io_provider::Owner, slot: Int, state: io_provider::State<State>) for io::Read effects [concurrency]
+	read(reader, maximum) => if slot_matches(io_provider::reader_slot(owner, reader), slot)
+		io_provider::update(state, "read", next_read)
+	else
+		io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), invalid_resource("read"))
+	end
+end
+
+handler scripted_write(owner: io_provider::Owner, slot: Int, state: io_provider::State<State>) for io::Write effects [concurrency]
+	write(writer, bytes) => if slot_matches(io_provider::writer_slot(owner, writer), slot)
+		io_provider::update(state, {operation: "write", bytes: bytes}, next_write)
+	else
+		io::WriteOutcome::WriteFailed(zero_progress(), invalid_resource("write"))
+	end
+end
+
+handler scripted_read_at(owner: io_provider::Owner, slot: Int, state: io_provider::State<State>) for io::ReadAt effects [concurrency]
+	read_at(reader, offset, maximum) => if slot_matches(io_provider::reader_at_slot(owner, reader), slot)
+		io_provider::update(state, "read_at", next_read_at)
+	else
+		io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), invalid_resource("read_at"))
+	end
+end
+
+handler scripted_write_at(owner: io_provider::Owner, slot: Int, state: io_provider::State<State>) for io::WriteAt effects [concurrency]
+	write_at(writer, offset, bytes) => if slot_matches(io_provider::writer_at_slot(owner, writer), slot)
+		io_provider::update(state, {operation: "write_at", bytes: bytes}, next_write_at)
+	else
+		io::WriteOutcome::WriteFailed(zero_progress(), invalid_resource("write_at"))
+	end
+end
+
+fn registered_view(owner: io_provider::Owner, slot: Int) -> Result<fs::UpdateFile, String> effects [concurrency]
+	match io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile)
+		Err(_) => Err("could not register direct-validation resource")
+		Ok(resource) => match io_provider::update_file(resource)
+			Err(_) => Err("could not project direct-validation resource")
+			Ok(view) => Ok(view)
+		end
+	end
+end
+
+fn read_body(owner: io_provider::Owner, slot: Int, state: io_provider::State<State>, maximum: ByteCount) -> Result<ReadObservation, String> effects [io::Read, concurrency]
+	match registered_view(owner, slot)
+		Err(message) => Err(message)
+		Ok(fs::UpdateFile::UpdateFile(reader, _, _, _, _, _, _, _)) => begin
+			let outcome = io::read(reader, maximum)
+			Ok(ReadObservation(outcome, io_provider::update(state, (), observe)))
+		end
+	end
+end
+
+fn write_body(owner: io_provider::Owner, slot: Int, state: io_provider::State<State>, bytes: ByteChunk) -> Result<WriteObservation, String> effects [io::Write, concurrency]
+	match registered_view(owner, slot)
+		Err(message) => Err(message)
+		Ok(fs::UpdateFile::UpdateFile(_, writer, _, _, _, _, _, _)) => begin
+			let outcome = io::write(writer, bytes)
+			Ok(WriteObservation(outcome, io_provider::update(state, (), observe)))
+		end
+	end
+end
+
+fn read_at_body(owner: io_provider::Owner, slot: Int, state: io_provider::State<State>, offset: ByteOffset, maximum: ByteCount) -> Result<ReadObservation, String> effects [io::ReadAt, concurrency]
+	match registered_view(owner, slot)
+		Err(message) => Err(message)
+		Ok(fs::UpdateFile::UpdateFile(_, _, _, reader, _, _, _, _)) => begin
+			let outcome = io::read_at(reader, offset, maximum)
+			Ok(ReadObservation(outcome, io_provider::update(state, (), observe)))
+		end
+	end
+end
+
+fn write_at_body(owner: io_provider::Owner, slot: Int, state: io_provider::State<State>, offset: ByteOffset, bytes: ByteChunk) -> Result<WriteObservation, String> effects [io::WriteAt, concurrency]
+	match registered_view(owner, slot)
+		Err(message) => Err(message)
+		Ok(fs::UpdateFile::UpdateFile(_, _, _, _, writer, _, _, _)) => begin
+			let outcome = io::write_at(writer, offset, bytes)
+			Ok(WriteObservation(outcome, io_provider::update(state, (), observe)))
+		end
+	end
+end
+
+fn initial(reads: List<io::ReadOutcome>, writes: List<io::WriteOutcome>, reads_at: List<io::ReadOutcome>, writes_at: List<io::WriteOutcome>) -> State
+	State(reads, writes, reads_at, writes_at, list_nil())
+end
+
+pub fn execute_read(replies: List<io::ReadOutcome>, maximum: ByteCount) -> Result<ReadObservation, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let state = io_provider::state(initial(replies, list_nil(), list_nil(), list_nil()))
+	let calls = channel::bounded<String>(16)
+	handle handle handle handle handle handle handle handle read_body(owner, 920, state, maximum) with scripted_read(owner, 920, state) with scripted_write(owner, 920, state) with io_provider_test_support_test::seek(calls.tx) with scripted_read_at(owner, 920, state) with scripted_write_at(owner, 920, state) with io_provider_test_support_test::close(calls.tx) with io_provider_test_support_test::sync(calls.tx) with io_provider_test_support_test::mutate(calls.tx)
+end
+
+pub fn execute_write(replies: List<io::WriteOutcome>, bytes: ByteChunk) -> Result<WriteObservation, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let state = io_provider::state(initial(list_nil(), replies, list_nil(), list_nil()))
+	let calls = channel::bounded<String>(16)
+	handle handle handle handle handle handle handle handle write_body(owner, 921, state, bytes) with scripted_read(owner, 921, state) with scripted_write(owner, 921, state) with io_provider_test_support_test::seek(calls.tx) with scripted_read_at(owner, 921, state) with scripted_write_at(owner, 921, state) with io_provider_test_support_test::close(calls.tx) with io_provider_test_support_test::sync(calls.tx) with io_provider_test_support_test::mutate(calls.tx)
+end
+
+pub fn execute_read_at(replies: List<io::ReadOutcome>, maximum: ByteCount) -> Result<ReadObservation, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let state = io_provider::state(initial(list_nil(), list_nil(), replies, list_nil()))
+	let calls = channel::bounded<String>(16)
+	handle handle handle handle handle handle handle handle read_at_body(owner, 922, state, ByteOffset(7), maximum) with scripted_read(owner, 922, state) with scripted_write(owner, 922, state) with io_provider_test_support_test::seek(calls.tx) with scripted_read_at(owner, 922, state) with scripted_write_at(owner, 922, state) with io_provider_test_support_test::close(calls.tx) with io_provider_test_support_test::sync(calls.tx) with io_provider_test_support_test::mutate(calls.tx)
+end
+
+pub fn execute_write_at(replies: List<io::WriteOutcome>, bytes: ByteChunk) -> Result<WriteObservation, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let state = io_provider::state(initial(list_nil(), list_nil(), list_nil(), replies))
+	let calls = channel::bounded<String>(16)
+	handle handle handle handle handle handle handle handle write_at_body(owner, 923, state, ByteOffset(7), bytes) with scripted_read(owner, 923, state) with scripted_write(owner, 923, state) with io_provider_test_support_test::seek(calls.tx) with scripted_read_at(owner, 923, state) with scripted_write_at(owner, 923, state) with io_provider_test_support_test::close(calls.tx) with io_provider_test_support_test::sync(calls.tx) with io_provider_test_support_test::mutate(calls.tx)
+end

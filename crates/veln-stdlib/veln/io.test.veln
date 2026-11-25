@@ -2,6 +2,7 @@ use prelude
 use io
 use io_provider
 use io_complete_transfer_test_support_test
+use io_direct_validation_test_support_test
 
 fn provider_error(message: String) -> io::Error
 	io::Error::Error("scripted", io::ErrorKind::Other, None, None, None, None, message)
@@ -21,6 +22,22 @@ end
 
 fn direct_write(writes: List<io::WriteOutcome>, bytes: ByteChunk) -> Result<io_complete_transfer_test_support_test::DirectWriteObservation, String> effects [concurrency]
 	handle io_complete_transfer_test_support_test::execute_direct_write(writes, bytes) with io_provider::scope()
+end
+
+fn validated_read(reads: List<io::ReadOutcome>, maximum: ByteCount) -> Result<io_direct_validation_test_support_test::ReadObservation, String> effects [concurrency]
+	handle io_direct_validation_test_support_test::execute_read(reads, maximum) with io_provider::scope()
+end
+
+fn validated_write(writes: List<io::WriteOutcome>, bytes: ByteChunk) -> Result<io_direct_validation_test_support_test::WriteObservation, String> effects [concurrency]
+	handle io_direct_validation_test_support_test::execute_write(writes, bytes) with io_provider::scope()
+end
+
+fn validated_read_at(reads: List<io::ReadOutcome>, maximum: ByteCount) -> Result<io_direct_validation_test_support_test::ReadObservation, String> effects [concurrency]
+	handle io_direct_validation_test_support_test::execute_read_at(reads, maximum) with io_provider::scope()
+end
+
+fn validated_write_at(writes: List<io::WriteOutcome>, bytes: ByteChunk) -> Result<io_direct_validation_test_support_test::WriteObservation, String> effects [concurrency]
+	handle io_direct_validation_test_support_test::execute_write_at(writes, bytes) with io_provider::scope()
 end
 
 fn chunk_is(bytes: ByteChunk, expected: String) -> Bool
@@ -147,6 +164,217 @@ test direct_write_preserves_partial_success_and_provider_failure() -> Result<(),
 			Err("direct write changed positive partial progress")
 		end
 		_ => Err("direct write changed positive partial success")
+	end
+end
+
+test direct_reads_reject_negative_maximum_before_provider_dispatch() -> Result<(), String> effects [concurrency]
+	let reply = io::ReadOutcome::End
+	let sequential = validated_read(list_cons(reply, list_nil()), ByteCount(-1))?
+	let positional = validated_read_at(list_cons(reply, list_nil()), ByteCount(-1))?
+	match sequential
+		io_direct_validation_test_support_test::ReadObservation(io::ReadOutcome::ReadFailed(bytes, io::Progress::Known(progress), io::Error::Error("read", io::ErrorKind::InvalidInput, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Nil, Cons(io::ReadOutcome::End, Nil), Nil, Nil, Nil)) => if byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(progress) == 0
+			match positional
+				io_direct_validation_test_support_test::ReadObservation(io::ReadOutcome::ReadFailed(positional_bytes, io::Progress::Known(positional_progress), io::Error::Error("read_at", io::ErrorKind::InvalidInput, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Nil, Nil, Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(byte_chunk_count(positional_bytes)) == 0 and byte_count_to_int(positional_progress) == 0
+					Ok(())
+				else
+					Err("negative positional read fabricated bytes or progress")
+				end
+				_ => Err("negative positional read reached its provider or returned the wrong failure")
+			end
+		else
+			Err("negative sequential read fabricated bytes or progress")
+		end
+		_ => Err("negative sequential read reached its provider or returned the wrong failure")
+	end
+end
+
+test direct_facades_preserve_success_at_submitted_bounds() -> Result<(), String> effects [concurrency]
+	let bytes = byte_chunk_from_visible_ascii_string("ab")?
+	let sequential_read = validated_read(list_cons(io::ReadOutcome::Data(bytes), list_nil()), byte_count(2)?)?
+	let positional_read = validated_read_at(list_cons(io::ReadOutcome::Data(bytes), list_nil()), byte_count(2)?)?
+	let sequential_write = validated_write(list_cons(io::WriteOutcome::Written(byte_count(2)?), list_nil()), bytes)?
+	let positional_write = validated_write_at(list_cons(io::WriteOutcome::Written(byte_count(2)?), list_nil()), bytes)?
+	match sequential_read
+		io_direct_validation_test_support_test::ReadObservation(io::ReadOutcome::Data(read_bytes), io_direct_validation_test_support_test::Snapshot(Cons("read", Nil), Nil, Nil, Nil, Nil)) => if chunk_is(read_bytes, "ab")
+			match positional_read
+				io_direct_validation_test_support_test::ReadObservation(io::ReadOutcome::Data(read_at_bytes), io_direct_validation_test_support_test::Snapshot(Cons("read_at", Nil), Nil, Nil, Nil, Nil)) => if chunk_is(read_at_bytes, "ab")
+					match sequential_write
+						io_direct_validation_test_support_test::WriteObservation(io::WriteOutcome::Written(written), io_direct_validation_test_support_test::Snapshot(Cons("write", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(written) == 2
+							match positional_write
+								io_direct_validation_test_support_test::WriteObservation(io::WriteOutcome::Written(written_at), io_direct_validation_test_support_test::Snapshot(Cons("write_at", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(written_at) == 2
+									Ok(())
+								else
+									Err("boundary write_at changed its count")
+								end
+								_ => Err("boundary write_at was not dispatched exactly once")
+							end
+						else
+							Err("boundary write changed its count")
+						end
+						_ => Err("boundary write was not dispatched exactly once")
+					end
+				else
+					Err("boundary read_at changed its bytes")
+				end
+				_ => Err("boundary read_at was not dispatched exactly once")
+			end
+		else
+			Err("boundary read changed its bytes")
+		end
+		_ => Err("boundary read was not dispatched exactly once")
+	end
+end
+
+test direct_facades_reject_malformed_success_without_retry() -> Result<(), String> effects [concurrency]
+	let oversized = byte_chunk_from_visible_ascii_string("abc")?
+	let input = byte_chunk_from_visible_ascii_string("ab")?
+	let sequential_read = validated_read(list_cons(io::ReadOutcome::Data(oversized), list_cons(io::ReadOutcome::End, list_nil())), byte_count(2)?)?
+	let positional_read = validated_read_at(list_cons(io::ReadOutcome::Data(oversized), list_cons(io::ReadOutcome::End, list_nil())), byte_count(2)?)?
+	let sequential_write = validated_write(list_cons(io::WriteOutcome::Written(ByteCount(-1)), list_cons(io::WriteOutcome::Written(byte_count(2)?), list_nil())), input)?
+	let positional_write = validated_write_at(list_cons(io::WriteOutcome::Written(byte_count(3)?), list_cons(io::WriteOutcome::Written(byte_count(2)?), list_nil())), input)?
+	match sequential_read
+		io_direct_validation_test_support_test::ReadObservation(io::ReadOutcome::ReadFailed(bytes, io::Progress::Unknown(progress), io::Error::Error("read", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Cons("read", Nil), Cons(io::ReadOutcome::End, Nil), Nil, Nil, Nil)) => if byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(progress) == 0
+			match positional_read
+				io_direct_validation_test_support_test::ReadObservation(io::ReadOutcome::ReadFailed(read_at_bytes, io::Progress::Unknown(read_at_progress), io::Error::Error("read_at", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Cons("read_at", Nil), Nil, Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(byte_chunk_count(read_at_bytes)) == 0 and byte_count_to_int(read_at_progress) == 0
+					match sequential_write
+						io_direct_validation_test_support_test::WriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Unknown(written), io::Error::Error("write", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Cons("write", Nil), Nil, Cons(io::WriteOutcome::Written(_), Nil), Nil, Nil)) => if byte_count_to_int(written) == 0
+							match positional_write
+								io_direct_validation_test_support_test::WriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Unknown(written_at), io::Error::Error("write_at", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Cons("write_at", Nil), Nil, Nil, Nil, Cons(io::WriteOutcome::Written(_), Nil))) => if byte_count_to_int(written_at) == 0
+									Ok(())
+								else
+									Err("malformed write_at fabricated progress")
+								end
+								_ => Err("malformed write_at was trusted or retried")
+							end
+						else
+							Err("malformed write fabricated progress")
+						end
+						_ => Err("malformed write was trusted or retried")
+					end
+				else
+					Err("malformed read_at fabricated bytes or progress")
+				end
+				_ => Err("malformed read_at was trusted or retried")
+			end
+		else
+			Err("malformed read fabricated bytes or progress")
+		end
+		_ => Err("malformed read was trusted or retried")
+	end
+end
+
+test direct_facades_reject_malformed_known_failures() -> Result<(), String> effects [concurrency]
+	let input = byte_chunk_from_visible_ascii_string("ab")?
+	let failure = provider_error("malformed known failure")
+	let sequential_read = validated_read(list_cons(io::ReadOutcome::ReadFailed(input, io::Progress::Known(byte_count(1)?), failure), list_nil()), byte_count(2)?)?
+	let positional_read = validated_read_at(list_cons(io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("a")?, io::Progress::Known(byte_count(3)?), failure), list_nil()), byte_count(2)?)?
+	let sequential_write = validated_write(list_cons(io::WriteOutcome::WriteFailed(io::Progress::Known(ByteCount(-1)), failure), list_nil()), input)?
+	let positional_write = validated_write_at(list_cons(io::WriteOutcome::WriteFailed(io::Progress::Known(byte_count(3)?), failure), list_nil()), input)?
+	match sequential_read
+		io_direct_validation_test_support_test::ReadObservation(io::ReadOutcome::ReadFailed(bytes, io::Progress::Unknown(progress), io::Error::Error("read", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Cons("read", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(progress) == 0
+			match positional_read
+				io_direct_validation_test_support_test::ReadObservation(io::ReadOutcome::ReadFailed(_, io::Progress::Unknown(read_at_progress), io::Error::Error("read_at", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Cons("read_at", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(read_at_progress) == 0
+					match sequential_write
+						io_direct_validation_test_support_test::WriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Unknown(written), io::Error::Error("write", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Cons("write", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(written) == 0
+							match positional_write
+								io_direct_validation_test_support_test::WriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Unknown(written_at), io::Error::Error("write_at", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Cons("write_at", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(written_at) == 0
+									Ok(())
+								else
+									Err("malformed known write_at fabricated progress")
+								end
+								_ => Err("malformed known write_at retained its provider failure")
+							end
+						else
+							Err("malformed known write fabricated progress")
+						end
+						_ => Err("malformed known write retained its provider failure")
+					end
+				else
+					Err("malformed known read_at fabricated progress")
+				end
+				_ => Err("malformed known read_at retained its provider failure")
+			end
+		else
+			Err("malformed known read fabricated bytes or progress")
+		end
+		_ => Err("malformed known read retained its provider failure")
+	end
+end
+
+test direct_facades_reject_malformed_unknown_failures() -> Result<(), String> effects [concurrency]
+	let input = byte_chunk_from_visible_ascii_string("ab")?
+	let failure = provider_error("malformed unknown failure")
+	let sequential_read = validated_read(list_cons(io::ReadOutcome::ReadFailed(input, io::Progress::Unknown(byte_count(1)?), failure), list_nil()), byte_count(2)?)?
+	let positional_read = validated_read_at(list_cons(io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("a")?, io::Progress::Unknown(byte_count(3)?), failure), list_nil()), byte_count(2)?)?
+	let sequential_write = validated_write(list_cons(io::WriteOutcome::WriteFailed(io::Progress::Unknown(ByteCount(-1)), failure), list_nil()), input)?
+	let positional_write = validated_write_at(list_cons(io::WriteOutcome::WriteFailed(io::Progress::Unknown(byte_count(3)?), failure), list_nil()), input)?
+	match sequential_read
+		io_direct_validation_test_support_test::ReadObservation(io::ReadOutcome::ReadFailed(_, io::Progress::Unknown(progress), io::Error::Error("read", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Cons("read", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(progress) == 0
+			match positional_read
+				io_direct_validation_test_support_test::ReadObservation(io::ReadOutcome::ReadFailed(_, io::Progress::Unknown(read_at_progress), io::Error::Error("read_at", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Cons("read_at", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(read_at_progress) == 0
+					match sequential_write
+						io_direct_validation_test_support_test::WriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Unknown(written), io::Error::Error("write", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Cons("write", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(written) == 0
+							match positional_write
+								io_direct_validation_test_support_test::WriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Unknown(written_at), io::Error::Error("write_at", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_direct_validation_test_support_test::Snapshot(Cons("write_at", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(written_at) == 0
+									Ok(())
+								else
+									Err("malformed unknown write_at fabricated progress")
+								end
+								_ => Err("malformed unknown write_at retained its provider failure")
+							end
+						else
+							Err("malformed unknown write fabricated progress")
+						end
+						_ => Err("malformed unknown write retained its provider failure")
+					end
+				else
+					Err("malformed unknown read_at fabricated progress")
+				end
+				_ => Err("malformed unknown read_at retained its provider failure")
+			end
+		else
+			Err("malformed unknown read fabricated progress")
+		end
+		_ => Err("malformed unknown read retained its provider failure")
+	end
+end
+
+test direct_facades_preserve_valid_failure_boundaries() -> Result<(), String> effects [concurrency]
+	let input = byte_chunk_from_visible_ascii_string("ab")?
+	let delivered = byte_chunk_from_visible_ascii_string("a")?
+	let failure = provider_error("valid boundary failure")
+	let sequential_read = validated_read(list_cons(io::ReadOutcome::ReadFailed(delivered, io::Progress::Known(byte_count(2)?), failure), list_nil()), byte_count(2)?)?
+	let positional_read = validated_read_at(list_cons(io::ReadOutcome::ReadFailed(delivered, io::Progress::Unknown(byte_count(2)?), failure), list_nil()), byte_count(2)?)?
+	let sequential_write = validated_write(list_cons(io::WriteOutcome::WriteFailed(io::Progress::Known(byte_count(2)?), failure), list_nil()), input)?
+	let positional_write = validated_write_at(list_cons(io::WriteOutcome::WriteFailed(io::Progress::Unknown(byte_count(2)?), failure), list_nil()), input)?
+	match sequential_read
+		io_direct_validation_test_support_test::ReadObservation(io::ReadOutcome::ReadFailed(bytes, io::Progress::Known(progress), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "valid boundary failure")), io_direct_validation_test_support_test::Snapshot(Cons("read", Nil), Nil, Nil, Nil, Nil)) => if chunk_is(bytes, "a") and byte_count_to_int(progress) == 2
+			match positional_read
+				io_direct_validation_test_support_test::ReadObservation(io::ReadOutcome::ReadFailed(read_at_bytes, io::Progress::Unknown(read_at_progress), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "valid boundary failure")), io_direct_validation_test_support_test::Snapshot(Cons("read_at", Nil), Nil, Nil, Nil, Nil)) => if chunk_is(read_at_bytes, "a") and byte_count_to_int(read_at_progress) == 2
+					match sequential_write
+						io_direct_validation_test_support_test::WriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Known(written), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "valid boundary failure")), io_direct_validation_test_support_test::Snapshot(Cons("write", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(written) == 2
+							match positional_write
+								io_direct_validation_test_support_test::WriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Unknown(written_at), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "valid boundary failure")), io_direct_validation_test_support_test::Snapshot(Cons("write_at", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(written_at) == 2
+									Ok(())
+								else
+									Err("valid write_at failure changed its progress")
+								end
+								_ => Err("valid write_at failure changed its provider error or dispatch count")
+							end
+						else
+							Err("valid write failure changed its progress")
+						end
+						_ => Err("valid write failure changed its provider error or dispatch count")
+					end
+				else
+					Err("valid read_at failure changed bytes or progress")
+				end
+				_ => Err("valid read_at failure changed its provider error or dispatch count")
+			end
+		else
+			Err("valid read failure changed bytes or progress")
+		end
+		_ => Err("valid read failure changed its provider error or dispatch count")
 	end
 end
 

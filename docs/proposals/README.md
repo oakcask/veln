@@ -17,8 +17,8 @@ also states it.
 ## Ready
 
 - [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete the
-  remaining F4 direct count validation, host-translation, seek, namespace, and
-  mutation rows and the F5 cleanup gate. Sequential direct-facade outcomes,
+  remaining F4 host-translation, seek, namespace, and mutation rows and the F5
+  cleanup gate. Direct-facade outcomes and provider-count validation,
   empty-request bypass, `read_exact`, `write_all`, bounded `io::copy`, F2, and
   F3 are implemented and belong to the current
   [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).

@@ -112,20 +112,95 @@ fn no_progress(operation: String) -> Error
 	Error::Error(operation, ErrorKind::NoProgress, None, None, None, None, "provider made no progress")
 end
 
-pub fn read(reader: Reader, maximum: ByteCount) -> ReadOutcome effects [Read]
-	let outcome: ReadOutcome = prelude_builtin::io_provider_dispatch2("std::io::Read", "read", reader, maximum)
+fn transfer_error(operation: String, kind: ErrorKind, message: String) -> Error
+	Error::Error(operation, kind, None, None, None, None, message)
+end
+
+fn zero_count() -> ByteCount
+	byte_chunk_count(byte_chunk([]))
+end
+
+fn invalid_read_request(operation: String) -> ReadOutcome
+	ReadFailed(byte_chunk([]), Progress::Known(zero_count()), transfer_error(operation, ErrorKind::InvalidInput, "read maximum must be nonnegative"))
+end
+
+fn invalid_read_reply(operation: String) -> ReadOutcome
+	ReadFailed(byte_chunk([]), Progress::Unknown(zero_count()), transfer_error(operation, ErrorKind::InvalidResource, "provider reply exceeds the submitted read bounds"))
+end
+
+fn invalid_write_reply(operation: String) -> WriteOutcome
+	WriteFailed(Progress::Unknown(zero_count()), transfer_error(operation, ErrorKind::InvalidResource, "provider reply exceeds the submitted write bounds"))
+end
+
+fn progress_count(progress: Progress) -> ByteCount
+	match progress
+		Progress::Known(count) => count
+		Progress::Unknown(prefix) => prefix
+	end
+end
+
+fn validate_read_reply(operation: String, maximum: ByteCount, outcome: ReadOutcome) -> ReadOutcome
+	let bound = byte_count_to_int(maximum)
 	match outcome
-		ReadOutcome::Data(bytes) => if byte_count_to_int(maximum) > 0 and byte_count_to_int(byte_chunk_count(bytes)) == 0
-			ReadOutcome::ReadFailed(bytes, Progress::Known(byte_chunk_count(bytes)), no_progress("read"))
+		Data(bytes) => if byte_count_to_int(byte_chunk_count(bytes)) > bound
+			invalid_read_reply(operation)
 		else
 			outcome
 		end
-		_ => outcome
+		End => outcome
+		ReadFailed(bytes, consumed, _) => begin
+			let delivered = byte_count_to_int(byte_chunk_count(bytes))
+			let prefix = byte_count_to_int(progress_count(consumed))
+			if delivered > bound or prefix < delivered or prefix > bound
+				invalid_read_reply(operation)
+			else
+				outcome
+			end
+		end
+	end
+end
+
+fn validate_write_reply(operation: String, bytes: ByteChunk, outcome: WriteOutcome) -> WriteOutcome
+	let bound = byte_count_to_int(byte_chunk_count(bytes))
+	match outcome
+		Written(count) => begin
+			let written = byte_count_to_int(count)
+			if written < 0 or written > bound
+				invalid_write_reply(operation)
+			else
+				outcome
+			end
+		end
+		WriteFailed(committed, _) => begin
+			let prefix = byte_count_to_int(progress_count(committed))
+			if prefix < 0 or prefix > bound
+				invalid_write_reply(operation)
+			else
+				outcome
+			end
+		end
+	end
+end
+
+pub fn read(reader: Reader, maximum: ByteCount) -> ReadOutcome effects [Read]
+	if byte_count_to_int(maximum) < 0
+		invalid_read_request("read")
+	else begin
+		let outcome: ReadOutcome = validate_read_reply("read", maximum, prelude_builtin::io_provider_dispatch2("std::io::Read", "read", reader, maximum))
+		match outcome
+			ReadOutcome::Data(bytes) => if byte_count_to_int(maximum) > 0 and byte_count_to_int(byte_chunk_count(bytes)) == 0
+				ReadOutcome::ReadFailed(bytes, Progress::Known(byte_chunk_count(bytes)), no_progress("read"))
+			else
+				outcome
+			end
+			_ => outcome
+		end
+	end
 	end
 end
 
 pub fn write(writer: Writer, bytes: ByteChunk) -> WriteOutcome effects [Write]
-	let outcome: WriteOutcome = prelude_builtin::io_provider_dispatch2("std::io::Write", "write", writer, bytes)
+	let outcome: WriteOutcome = validate_write_reply("write", bytes, prelude_builtin::io_provider_dispatch2("std::io::Write", "write", writer, bytes))
 	match outcome
 		Written(count) => if byte_count_to_int(byte_chunk_count(bytes)) > 0 and byte_count_to_int(count) == 0
 			WriteFailed(Progress::Known(count), no_progress("write"))
@@ -141,11 +216,15 @@ pub fn seek(seeker: Seeker, origin: SeekOrigin) -> Result<ByteOffset, Error> eff
 end
 
 pub fn read_at(reader: ReaderAt, offset: ByteOffset, maximum: ByteCount) -> ReadOutcome effects [ReadAt]
-	prelude_builtin::io_provider_dispatch3("std::io::ReadAt", "read_at", reader, offset, maximum)
+	if byte_count_to_int(maximum) < 0
+		invalid_read_request("read_at")
+	else
+		validate_read_reply("read_at", maximum, prelude_builtin::io_provider_dispatch3("std::io::ReadAt", "read_at", reader, offset, maximum))
+	end
 end
 
 pub fn write_at(writer: WriterAt, offset: ByteOffset, bytes: ByteChunk) -> WriteOutcome effects [WriteAt]
-	prelude_builtin::io_provider_dispatch3("std::io::WriteAt", "write_at", writer, offset, bytes)
+	validate_write_reply("write_at", bytes, prelude_builtin::io_provider_dispatch3("std::io::WriteAt", "write_at", writer, offset, bytes))
 end
 
 pub fn close(closer: Closer) -> CloseOutcome effects [Close]

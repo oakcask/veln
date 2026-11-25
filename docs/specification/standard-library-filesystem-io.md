@@ -14,8 +14,8 @@ projection prototypes, provider-bound filesystem namespace tokens, and opaque
 atomic provider state. It lets provider and generic IO source check
 capability-correct signatures, capture and invoke provider handlers, exercise
 five runtime resource families, transfer bytes between independently owned
-fake resources, complete bounded reads and writes, keep immutable fake-provider
-state in shared cells, and retain
+fake resources, validate direct byte-transfer replies, complete bounded reads
+and writes, keep immutable fake-provider state in shared cells, and retain
 completed fake-provider writes from concurrent child callers. Provider owner
 exit closes publication before release, rejects and releases a resource whose
 provider call finishes after that boundary, and restricts cleanup access to the
@@ -79,8 +79,8 @@ portable paths, optional network error, optional commit fact, and a message.
 Veln handlers can produce the individual operation outcomes. `read_exact`,
 `write_all`, and bounded `copy` execute through captured provider handlers and
 preserve their documented partial outcomes. The
-[runtime limits](#runtime-limits) identify the remaining direct facade,
-mutation, cleanup, and host-translation behavior.
+[runtime limits](#runtime-limits) identify the remaining mutation, cleanup,
+and host-translation behavior.
 
 `fs::Read` and `fs::Mutate` separate namespace reads from mutation. Portable
 names use `path::Path`. Their facade signatures are:
@@ -421,6 +421,28 @@ result to `ReadFailed` with empty bytes, known zero consumed progress, and
 `End`, nonempty short reads, positive partial writes, and provider-returned
 failures remain unchanged.
 
+Direct `io::read` and `io::read_at` reject a negative maximum before provider
+dispatch. The result is `ReadFailed` with empty bytes, known zero progress, and
+`InvalidInput`. Each accepted request to `read`, `write`, `read_at`, or
+`write_at` invokes its provider at most once. The positional facades do not add
+sequential no-progress normalization.
+
+Every direct facade validates its provider reply against the submitted
+maximum or chunk length. Successful read bytes and successful write counts can
+equal but cannot exceed that bound. A failed read is valid only when its bytes
+fit within the request and its known count or unknown lower bound is between
+the delivered-byte length and the request bound. A failed write is valid only
+when its known count or unknown lower bound is nonnegative and does not exceed
+the submitted chunk length. Valid boundary replies, including original errors
+and `Known` or `Unknown` progress, remain unchanged.
+
+An out-of-bounds success or failure reply becomes the operation's
+`InvalidResource` failure. A malformed read reply carries empty bytes and
+`Unknown(0)` consumed progress. A malformed write reply carries `Unknown(0)`
+committed progress. The facade does not wrap or clamp a count, retain the
+malformed provider error, or retry the provider. Zero is the only independently
+confirmed prefix after a reply contradicts the submitted bounds.
+
 Ordinary `perform` retains lexical handler selection and does not receive the
 broader captured invocation authority. An accepted lexical provider open
 receives only a per-call admission identity for publication. It cannot use
@@ -567,9 +589,9 @@ source-visible cleanup-failure precedence and retry remain part of F5.
 This surface is not a production filesystem implementation. Runtime
 state, namespace-token allocation, registration, projection, provider-bound
 dispatch, bounded `copy` outcomes and progress, complete-transfer helper
-outcomes, serialized completed fake-provider writes, and the bounded
-owner-release lifecycle are limited to the observations above. Direct facade
-provider-count validation and host translation, the namespace and seek outcome
+outcomes, direct facade provider-count validation, serialized completed
+fake-provider writes, and the bounded owner-release lifecycle are limited to
+the observations above. Host translation, the namespace and seek outcome
 matrix, cleanup retry and failure precedence, host filesystem selection, and
 network-to-byte adapters remain unimplemented.
 Type-checking behavior outside the implemented slice establishes only its
@@ -587,10 +609,13 @@ static capability and effect boundary.
 - Complete read and write behavior, including supported caller-count bounds,
   zero-size validation, partial progress, provider failures, malformed replies,
   and overflow, plus direct empty-request bypass, closed-provider-owner
-  rejection, no-progress normalization, and single dispatch:
+  rejection, no-progress normalization, all four direct-facade provider-reply
+  bounds, and single dispatch:
   [`io.test.veln`](../../crates/veln-stdlib/veln/io.test.veln), with scoped
   scripted providers in
-  [`io_complete_transfer_test_support_test.veln`](../../crates/veln-stdlib/veln/io_complete_transfer_test_support_test.veln).
+  [`io_complete_transfer_test_support_test.veln`](../../crates/veln-stdlib/veln/io_complete_transfer_test_support_test.veln)
+  and
+  [`io_direct_validation_test_support_test.veln`](../../crates/veln-stdlib/veln/io_direct_validation_test_support_test.veln).
 - Wrong capability operands:
   `examples/specification/check/filesystem-io-capability-boundaries/`.
 - Missing read-file closer, write-file truncater, update-file positional
