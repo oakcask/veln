@@ -17,11 +17,15 @@ also states it.
 ## Ready
 
 - [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete the
-  remaining F4 host-translation, seek, namespace, and mutation rows and the F5
-  cleanup gate. Direct-facade outcomes and provider-count validation,
-  empty-request bypass, `read_exact`, `write_all`, bounded `io::copy`, F2, and
-  F3 are implemented and belong to the current
-  [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
+  remaining F4 provider and host seek and positional IO conformance, including
+  the seek-beyond-end then write transition and its provider-defined gap-byte
+  policy. F4 also covers host translation, open-mode, metadata,
+  namespace-mutation, truncate, append, and sync. F5 covers cleanup.
+  Direct-facade
+  outcomes and provider-count validation, empty-request bypass, `read_exact`,
+  `write_all`, bounded `io::copy`, scoped-fake open-resource seek and
+  positional-cursor behavior, F2, and F3 are implemented and belong to the
+  current [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
   The target does not require the production filesystem API to be implemented
   first.
 

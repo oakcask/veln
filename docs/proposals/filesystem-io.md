@@ -14,9 +14,13 @@ The [design decisions](#design-decisions) resolve the initial scope. The
 implemented static and bounded runtime prerequisites belong to the current
 [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
 The direct-facade outcome and provider-count validation matrices and
-complete-transfer helper outcome matrices are implemented. The remaining F4
-host-translation, seek, namespace, and mutation behavior, F5 cleanup behavior,
-and host integration evidence are planned.
+complete-transfer helper outcome matrices are implemented, as are scoped-fake
+open-resource seek and positional-cursor observations. The remaining F4
+provider and host seek and positional IO conformance includes the
+seek-beyond-end then write transition and provider-defined gap bytes. Host
+translation, host-specific failed-seek behavior, open-mode, metadata,
+namespace-mutation, truncate, append, and sync behavior, F5 cleanup behavior,
+and host integration evidence also remain planned.
 Implementation selection remains blocked on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
@@ -127,11 +131,12 @@ and network adapters retain domain context when translating failures. The
 [implemented source surface and transfer behavior](../specification/standard-library-filesystem-io.md)
 fix the current type boundaries, sequential direct-facade outcomes, and
 complete-transfer outcomes. The current specification also owns direct
-provider-reply count validation for sequential and positional byte operations.
-The remaining rows below define planned runtime semantics for positional state
-and host adapters.
+provider-reply count validation for sequential and positional byte operations,
+plus the checked scoped-fake cursor and positional-state observations. The rows
+below remain requirements for production and host adapters; the fake evidence
+does not establish those adapters.
 
-| Operation family | Observable contract |
+| Operation family | Remaining production contract |
 | --- | --- |
 | Bounded sequential read | Returns at most the requested byte count, advances by the bytes delivered, and distinguishes data, clean end, and failure. A short read alone is not end-of-input. |
 | Sequential write | Reports the committed prefix of the input and advances according to committed bytes. Failure does not imply rollback. |
@@ -161,7 +166,12 @@ Seek uses a typed origin: start with a non-negative absolute offset, current
 with a signed displacement, or end with a signed displacement. It returns the
 resulting absolute offset. Offsets count bytes, not characters.
 
-| State and operation | Proposed result and state |
+The current specification owns the open-resource cursor, valid and invalid
+seek, and positional results for the scoped fake. The table retains the
+corresponding production contract plus the capability, closed-state, and host
+boundaries that the fake does not establish.
+
+| State and operation | Remaining production result and state |
 | --- | --- |
 | Open seekable resource; valid target within the file | Success; cursor becomes the target. Contents and size are unchanged. |
 | Open seekable resource; valid target beyond end | Success; cursor becomes the target. Seeking alone does not extend the file. A positive-size read there returns clean end. |
@@ -250,8 +260,8 @@ per-open lifecycle, synchronized state, and scripted failures.
 The checked feasibility foundation belongs to the
 [current specification](../specification/standard-library-filesystem-io.md).
 The evidence below is planned for the remaining behavior. The implemented
-direct-facade validation and complete-transfer matrices and their checked
-evidence belong to the
+direct-facade validation, complete-transfer matrices, and scoped-fake cursor
+and positional observations and their checked evidence belong to the
 [current specification](../specification/standard-library-filesystem-io.md#references).
 Expected byte sequences and state transitions come from the contracts and
 decision tables in this proposal, not from copying the implementation's
@@ -261,7 +271,7 @@ output. Fake tests do not establish real host behavior.
 | --- | --- | --- |
 | Host conversion | An unrepresentable name fails without selecting another entry; native and portable types cannot be interchanged implicitly. | Companion tests plus focused host-conversion and compiler type-boundary tests. |
 | Host transfer translation | Host adapters preserve established prefixes and report unknown progress when a transfer may have occurred but its exact progress cannot be established. | Focused host-adapter tests for established and uncertain host progress. |
-| Seek and positional IO | Origin arithmetic, invalid targets, beyond-end reads, independent opens, aliases, and positional cursor preservation obey the state table. | Companion tests shared by memory and supported system providers; host tests for native translation. |
+| Remaining seek and positional IO | Memory and system providers extend the current scoped-fake cursor contract with the outstanding gap-write and host-specific failed-seek outcomes in the state table. | Shared provider conformance tests for the remaining transitions; host tests for native translation and uncertain host cursor state. |
 | Namespace updates | Open modes, exclusive create, directory operations, rename, and truncation obey the mutation transition table, including failure preservation. | Shared provider conformance tests and focused real-host integration cases. |
 | Errors and cleanup | Stable error kinds retain operation and path context; close and cleanup transitions preserve progress and the selected primary failure. | Companion tests plus human/JSON execution coverage where runtime cleanup diagnostics apply. |
 | Real host default | A system handler reaches real files without fake selectors, while an injected fake requires no host-file setup. | Focused host integration and effect-boundary policy checks. |
@@ -282,7 +292,7 @@ runtime support exists.
 
 | Concern | Selected initial design | Acceptance obligation |
 | --- | --- | --- |
-| Failure-plan state | Extend the provider-bound Veln fake state with scripted failures, resource cursors, close facts, and operation progress as ordinary Veln data. | A scripted failure changes only the selected provider instance and records the commit facts required by the operation outcome matrix. |
+| Failure-plan state | Extend the provider-bound Veln fake state with the outstanding scripted close facts and operation progress as ordinary Veln data; the current scoped fake owns open-resource cursor state. | A scripted failure changes only the selected provider instance and records the commit facts required by the operation outcome matrix. |
 | Native paths | Keep the current host-owned `Path` as the explicit native boundary; `path::Path` remains portable. Support only exactly representable names initially. | Nonrepresentable names fail with `UnrepresentablePath`; display is never used as a conversion. |
 | Links and confinement | Follow links for ordinary open; explicit follow/no-follow metadata. No confinement or link-creation capability initially. A subtree is only a namespace view. | Dangling links, cycles, unsupported no-follow, and a link outside a subtree cannot be misreported as confined access. |
 | Remaining IO outcomes | Preserve delivered bytes, exact or unknown progress, and typed errors in host adapters. The current specification owns empty-request, direct provider-count validation, sequential direct-facade, and complete-transfer helper outcomes. | Host partial-failure and unknown-progress cases below, excluding the implemented direct and helper matrices. |
