@@ -155,10 +155,10 @@ modeled runtime failure, and task cancellation. When restricted cleanup
 succeeds during an abrupt failure, the original failure remains primary and
 execution does not continue after the handled scope.
 
-The direct byte facades validate sequential and positional provider replies
-against the submitted request without retrying an invalid reply. The same
-private adapter implements `io::read_exact`, `io::write_all`, and bounded
-`io::copy` by dispatching through the retained capabilities.
+The four direct byte-transfer facades validate sequential and positional
+provider replies against the submitted request without retrying an invalid
+reply. The same private adapter implements `io::read_exact`, `io::write_all`,
+and bounded `io::copy` by dispatching through the retained capabilities.
 `read_exact` accumulates short reads, while `write_all` and `copy` retry only
 the uncommitted write suffix. The helpers stop on provider failure, no
 progress, or invalid provider counts and preserve their independently confirmed

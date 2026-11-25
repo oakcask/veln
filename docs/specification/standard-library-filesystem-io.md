@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#imports-and-static-surface; behavior=#runtime-prototypes; limits=#runtime-limits
-update-when: The exported io, fs, or io_provider static source API, opaque capability identities, atomic provider-state typing or runtime behavior, provider-bound dispatch or owner-lifecycle behavior, checked filesystem IO evidence, file-view declarations, or filesystem IO runtime readiness changes.
+update-when: The exported io, fs, or io_provider static source API, direct byte-transfer request or reply outcomes, opaque capability identities, atomic provider-state typing or runtime behavior, provider-bound dispatch or owner-lifecycle behavior, checked filesystem IO evidence, file-view declarations, or filesystem IO runtime readiness changes.
 ---
 
 # Standard-library filesystem and byte IO
@@ -410,27 +410,29 @@ Direct `io::read` with a zero `ByteCount` validates the reader capability and
 that its provider-owner scope remains open, then returns empty `Data` without
 invoking the provider. Direct `io::write` with an empty `ByteChunk` performs the
 corresponding validation and returns `Written(0)` without invoking the provider.
-For every call that reaches owner validation, a capability whose provider-owner
-scope is closed returns the operation's `InvalidResource` outcome with known
-zero progress, and its provider is not invoked. This owner rejection does not
-override the earlier negative-maximum rejection.
+For every byte-transfer facade call that reaches owner validation, a capability
+whose provider-owner scope is closed returns the matching read or write
+`InvalidResource` failure with known zero progress, and its provider is not
+invoked. This owner rejection does not override the earlier negative-maximum
+rejection.
 
-Once the owner is usable, every other accepted request invokes the selected
-provider exactly once. This includes `read_at` and `write_at` requests with a
-zero maximum or empty chunk. A direct facade never retries its provider. A
-negative read maximum returns `ReadFailed` with empty bytes, known zero
-progress, and `InvalidInput` through the earlier pre-validation path.
+Once the owner is usable, every other accepted byte-transfer request invokes
+the selected provider exactly once. This includes `read_at` and `write_at`
+requests with a zero maximum or empty chunk. None of the four byte-transfer
+facades retries its provider. A negative read maximum returns `ReadFailed` with
+empty bytes, known zero progress, and `InvalidInput` through the earlier
+pre-validation path.
 
-Every direct facade validates its provider reply against the submitted
-maximum or chunk length. A structurally valid `Data` success contains from zero
-through the requested maximum bytes. A structurally valid `Written` success
-reports a count in the inclusive range from zero through the submitted chunk
-length. A failed read is valid only when its bytes fit within the request and
-its known count or unknown lower bound is between the delivered-byte length and
-the request bound. A failed write is valid only when its known count or unknown
-lower bound is nonnegative and does not exceed the submitted chunk length.
-Valid provider failures remain unchanged, including their original errors and
-`Known` or `Unknown` progress.
+Each of `io::read`, `io::write`, `io::read_at`, and `io::write_at` validates its
+provider reply against the submitted maximum or chunk length. A structurally
+valid `Data` success contains from zero through the requested maximum bytes. A
+structurally valid `Written` success reports a count in the inclusive range
+from zero through the submitted chunk length. A failed read is valid only when
+its bytes fit within the request and its known count or unknown lower bound is
+between the delivered-byte length and the request bound. A failed write is
+valid only when its known count or unknown lower bound is nonnegative and does
+not exceed the submitted chunk length. Valid provider failures remain
+unchanged, including their original errors and `Known` or `Unknown` progress.
 
 After validation, only sequential positive requests apply no-progress
 normalization. Direct `io::read` converts empty provider `Data` to `ReadFailed`
