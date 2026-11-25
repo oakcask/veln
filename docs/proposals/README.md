@@ -33,8 +33,10 @@ also states it.
 
 - [Generic Functions](generic-functions.md): add explicit rank-one type
   parameters, independent call instantiation, and polymorphism-preserving
-  function aliases; binder syntax, generalization boundaries, type/effect
-  constraints, and JVM lowering require decisions and feasibility evidence.
+  function aliases. First-delivery syntax, bounded type/effect inference,
+  monomorphic local completion, and shared erased JVM lowering are decided;
+  reviewed constraint/alias and source-surface/JVM prototype evidence remain
+  required before Ready promotion.
 - [Literal-expression Constant Folding](constant-folding.md): fold closed
   `Int` and `Bool` executable expressions while preserving diagnostics and
   runtime failures; requires full-range constant materialization and residual
