@@ -416,6 +416,18 @@ fn format_function(out: &mut String, comments: &LineComments, function: &Functio
 
 fn format_function_signature(function: &FunctionDecl) -> String {
     let mut signature = String::new();
+    format_function_signature_start(&mut signature, function);
+    format_function_binders(&mut signature, function);
+    format_function_parameters(&mut signature, function);
+    format_function_return(&mut signature, function);
+    format_function_effects(&mut signature, function);
+    if function.callsite.is_some() {
+        signature.push_str(" callsite");
+    }
+    signature
+}
+
+fn format_function_signature_start(signature: &mut String, function: &FunctionDecl) {
     if function.kind == FunctionKind::Test {
         signature.push_str("test ");
     } else {
@@ -425,6 +437,9 @@ fn format_function_signature(function: &FunctionDecl) -> String {
         signature.push_str("fn ");
     }
     signature.push_str(function.name.as_deref().unwrap_or("<missing>"));
+}
+
+fn format_function_binders(signature: &mut String, function: &FunctionDecl) {
     if !function.type_binders.is_empty() || function.effect_binder.is_some() {
         signature.push('<');
         for (index, binder) in function.type_binders.iter().enumerate() {
@@ -442,6 +457,9 @@ fn format_function_signature(function: &FunctionDecl) -> String {
         }
         signature.push('>');
     }
+}
+
+fn format_function_parameters(signature: &mut String, function: &FunctionDecl) {
     signature.push('(');
     for (index, param) in function.params.iter().enumerate() {
         if index > 0 {
@@ -457,6 +475,9 @@ fn format_function_signature(function: &FunctionDecl) -> String {
         }
     }
     signature.push(')');
+}
+
+fn format_function_return(signature: &mut String, function: &FunctionDecl) {
     if let Some(return_type) = &function.return_type {
         signature.push_str(" -> ");
         if let Some(result_binding) = &function.return_binding {
@@ -465,6 +486,9 @@ fn format_function_signature(function: &FunctionDecl) -> String {
         }
         signature.push_str(&canonical_type_text(return_type));
     }
+}
+
+fn format_function_effects(signature: &mut String, function: &FunctionDecl) {
     if let Some(effects) = &function.effects {
         signature.push_str(" effects [");
         for (index, effect) in effects.iter().enumerate() {
@@ -475,10 +499,6 @@ fn format_function_signature(function: &FunctionDecl) -> String {
         }
         signature.push(']');
     }
-    if function.callsite.is_some() {
-        signature.push_str(" callsite");
-    }
-    signature
 }
 
 fn format_function_contracts(out: &mut String, comments: &LineComments, function: &FunctionDecl) {

@@ -121,8 +121,10 @@ grammar_line(50, "Item          ::= ModuleValueDecl | Function | TestDecl | Effe
 grammar_line(55, "ModuleValueDecl ::= \"pub\"? \"let\" ModuleBindingName \":\" TypeText \"=\" Expr DeclarationEnd").
 grammar_line(55, "DeclarationEnd ::= NL | EOF").
 grammar_line(56, "ModuleBindingName ::= ordinary identifier with ASCII lowercase initial").
-grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name FunctionBinderList? \"(\" ParamList? \")\" Return? Effects? CallsiteModifier? NL").
+grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name FunctionSignature NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
+grammar_line(71, "FunctionSignature ::= \"(\" ParamList? \")\" Return? Effects? CallsiteModifier?").
+grammar_line(72, "                    | FunctionBinderList \"(\" FixedParamList? \")\" Return? Effects?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant* \"end\" NL?").
@@ -177,6 +179,8 @@ grammar_line(140, "                  | \"{\" TypeVariantField (\",\" TypeVariant
 grammar_line(145, "TypeVariantField ::= Name \":\" TypeText | TypeText").
 grammar_line(150, "ParamList     ::= Param (\",\" Param)* \",\"?").
 grammar_line(160, "Param         ::= Name (\":\" (VariadicMarker TypeText? | TypeText))?").
+grammar_line(162, "FixedParamList ::= FixedParam (\",\" FixedParam)* \",\"?").
+grammar_line(163, "FixedParam    ::= Name (\":\" TypeText)?").
 grammar_line(165, "VariadicMarker ::= \"...\"").
 grammar_line(170, "Return        ::= \"->\" ResultBinding? TypeText").
 grammar_line(180, "ResultBinding ::= Name \":\"").

@@ -37,6 +37,13 @@ fn retains_and_canonically_formats_function_binders() {
             .map(|binder| binder.name.as_str()),
         Some("E")
     );
+    assert_eq!(
+        function
+            .effect_binder
+            .as_ref()
+            .map(|binder| { &source.text()[binder.span.start.offset..binder.span.end.offset] }),
+        Some("<T,U,effect E,>")
+    );
     let formatted = concat!(
         "pub fn transform<T, U, effect E>(value: T, callback: fn(T) -> U effects [...E]) -> U effects [...E]\n",
         "\tcallback(value)\n",
@@ -186,6 +193,35 @@ fn invalid_binders_recover_before_following_functions() {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.id == "parse.function_binder_bound")
+    );
+    assert_eq!(output.tree.items.len(), 2);
+    let SyntaxItem::Function(function) = &output.tree.items[1] else {
+        panic!("expected following function declaration");
+    };
+    assert_eq!(function.name.as_deref(), Some("valid"));
+}
+
+#[test]
+fn missing_binder_separator_reports_the_unexpected_entry_and_recovers() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn invalid<T U>(value: T) -> T\n  value\nend\n",
+            "fn valid() -> Int\n  1\nend\n",
+        ),
+    );
+    let output = parse(&source);
+
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.function_binder_separator")
+        .expect("expected a binder separator diagnostic");
+    let span = diagnostic.span.as_ref().expect("expected a primary span");
+    assert_eq!(&source.text()[span.start.offset..span.end.offset], "U");
+    assert_eq!(
+        diagnostic.recovery.strategy,
+        RecoveryStrategy::SynchronizeToAnchor
     );
     assert_eq!(output.tree.items.len(), 2);
     let SyntaxItem::Function(function) = &output.tree.items[1] else {

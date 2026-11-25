@@ -50,8 +50,10 @@ end
 The list is nonempty. A trailing comma is accepted. `veln fmt` writes the
 binders in their declared order with comma-space separators and omits the
 trailing comma. The syntax tree retains each ordinary binder's name and exact
-name span. It also retains the optional effect binder. An effect-only list such
-as `<effect E>` keeps its existing source behavior.
+name span. It also retains the optional effect binder and uses the complete
+binder-list span for that binder. This preserves the source behavior of an
+effect-only list such as `<effect E>` and applies it to a final effect binder in
+a mixed list.
 
 Binder names must be unique across both binder kinds. An effect binder must be
 the final entry, and a declaration accepts at most one. Empty lists, ordinary
@@ -628,8 +630,10 @@ Item          ::= ModuleValueDecl | Function | TestDecl | EffectDecl | HandlerDe
 ModuleValueDecl ::= "pub"? "let" ModuleBindingName ":" TypeText "=" Expr DeclarationEnd
 DeclarationEnd ::= NL | EOF
 ModuleBindingName ::= ordinary identifier with ASCII lowercase initial
-Function      ::= "pub"? "fn" Name FunctionBinderList? "(" ParamList? ")" Return? Effects? CallsiteModifier? NL
+Function      ::= "pub"? "fn" Name FunctionSignature NL
                   Contract* Body "end" NL?
+FunctionSignature ::= "(" ParamList? ")" Return? Effects? CallsiteModifier?
+                    | FunctionBinderList "(" FixedParamList? ")" Return? Effects?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant* "end" NL?
@@ -684,6 +688,8 @@ TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
 TypeVariantField ::= Name ":" TypeText | TypeText
 ParamList     ::= Param ("," Param)* ","?
 Param         ::= Name (":" (VariadicMarker TypeText? | TypeText))?
+FixedParamList ::= FixedParam ("," FixedParam)* ","?
+FixedParam    ::= Name (":" TypeText)?
 VariadicMarker ::= "..."
 Return        ::= "->" ResultBinding? TypeText
 ResultBinding ::= Name ":"
