@@ -1081,8 +1081,16 @@
             );
         }
 
-        long committed = 0L;
-        int remaining = (int) requested;
+        return ioWriteCompletely(writer, bytes, 0L, "write_all");
+    }
+
+    private static Object ioWriteCompletely(
+        Object writer,
+        Object bytes,
+        long committed,
+        String operation
+    ) {
+        int remaining = byteChunkBytes(bytes).size();
         Object suffix = bytes;
         while (remaining > 0) {
             Object write = ioProviderDispatch2(IO_WRITE_EFFECT, "write", writer, suffix);
@@ -1092,7 +1100,8 @@
                 if (knownPrefix < 0L
                     || knownPrefix > remaining
                     || committed > Long.MAX_VALUE - knownPrefix) {
-                    return ioWriteAllInvalidResource(
+                    return ioCompleteWriteInvalidResource(
+                        operation,
                         committed,
                         "provider write returned invalid progress"
                     );
@@ -1115,14 +1124,15 @@
             if (written < 0L
                 || written > remaining
                 || committed > Long.MAX_VALUE - written) {
-                return ioWriteAllInvalidResource(
+                return ioCompleteWriteInvalidResource(
+                    operation,
                     committed,
                     "provider write returned invalid progress"
                 );
             }
             if (written == 0L) {
                 Object error = ioProviderError(
-                    "write_all",
+                    operation,
                     "NoProgress",
                     "provider write returned zero progress"
                 );
@@ -1147,8 +1157,12 @@
         );
     }
 
-    private static Object ioWriteAllInvalidResource(long committed, String message) {
-        Object error = ioProviderError("write_all", "InvalidResource", message);
+    private static Object ioCompleteWriteInvalidResource(
+        String operation,
+        long committed,
+        String message
+    ) {
+        Object error = ioProviderError(operation, "InvalidResource", message);
         Object progress = adt(
             "io::Progress::Unknown",
             new Object[] { byteCountObject(committed) }
@@ -1183,8 +1197,6 @@
                     return ioCopyInvalidResource(
                         consumed,
                         committed,
-                        true,
-                        false,
                         "provider read returned invalid progress"
                     );
                 }
@@ -1212,8 +1224,6 @@
                 return ioCopyInvalidResource(
                     consumed,
                     committed,
-                    true,
-                    false,
                     "provider read returned more bytes than requested"
                 );
             }
@@ -1227,95 +1237,38 @@
                 return ioCopyInvalidResource(
                     consumed,
                     committed,
-                    true,
-                    false,
                     "provider read progress overflowed"
                 );
             }
             consumed += count;
 
-            int remaining = (int) count;
-            Object suffix = bytes;
-            while (remaining > 0) {
-                Object write = ioProviderDispatch2(IO_WRITE_EFFECT, "write", writer, suffix);
-                if (isAdt(write, "WriteOutcome::WriteFailed")) {
-                    Object failureProgress = adtPayload(write, 0);
-                    long knownPrefix = byteCountLong(adtPayload(failureProgress, 0));
-                    if (knownPrefix < 0L
-                        || knownPrefix > remaining
-                        || committed > Long.MAX_VALUE - knownPrefix) {
-                        return ioCopyInvalidResource(
-                            consumed,
-                            committed,
-                            false,
-                            true,
-                            "provider write returned invalid progress"
-                        );
+            Object write = ioWriteCompletely(writer, bytes, committed, "copy");
+            if (isAdt(write, "WriteOutcome::WriteFailed")) {
+                return adt(
+                    "io::CopyOutcome::CopyFailed",
+                    new Object[] {
+                        adt("io::Progress::Known", new Object[] { byteCountObject(consumed) }),
+                        adtPayload(write, 0),
+                        adtPayload(write, 1)
                     }
-                    Object accumulated = adt(
-                        isAdt(failureProgress, "Progress::Unknown")
-                            ? "io::Progress::Unknown"
-                            : "io::Progress::Known",
-                        new Object[] { byteCountObject(committed + knownPrefix) }
-                    );
-                    return adt(
-                        "io::CopyOutcome::CopyFailed",
-                        new Object[] {
-                            adt("io::Progress::Known", new Object[] { byteCountObject(consumed) }),
-                            accumulated,
-                            adtPayload(write, 1)
-                        }
-                    );
-                }
-                if (!isAdt(write, "WriteOutcome::Written")) {
-                    throw new RuntimeFailure("provider write handler returned an invalid outcome");
-                }
-                long written = byteCountLong(adtPayload(write, 0));
-                if (written < 0L
-                    || written > remaining
-                    || committed > Long.MAX_VALUE - written) {
-                    return ioCopyInvalidResource(
-                        consumed,
-                        committed,
-                        false,
-                        true,
-                        "provider write returned invalid progress"
-                    );
-                }
-                if (written == 0L) {
-                    Object error = ioProviderError("copy", "NoProgress", "provider write returned zero progress");
-                    return adt(
-                        "io::CopyOutcome::CopyFailed",
-                        new Object[] {
-                            adt("io::Progress::Known", new Object[] { byteCountObject(consumed) }),
-                            adt("io::Progress::Known", new Object[] { byteCountObject(committed) }),
-                            error
-                        }
-                    );
-                }
-                committed += written;
-                remaining -= (int) written;
-                if (remaining > 0) {
-                    suffix = byteChunkDerivedObject(suffix, (int) written, remaining);
-                }
+                );
             }
+            committed = byteCountLong(adtPayload(write, 0));
         }
     }
 
     private static Object ioCopyInvalidResource(
         long consumed,
         long committed,
-        boolean consumedUnknown,
-        boolean committedUnknown,
         String message
     ) {
         Object error = ioProviderError("copy", "InvalidResource", message);
         Object consumedProgress = adt(
-            consumedUnknown ? "io::Progress::Unknown" : "io::Progress::Known",
+            "io::Progress::Unknown",
             new Object[] { byteCountObject(consumed) }
         );
         Object committedProgress = adt(
-            committedUnknown ? "io::Progress::Unknown" : "io::Progress::Known",
+            "io::Progress::Known",
             new Object[] { byteCountObject(committed) }
         );
         return adt(

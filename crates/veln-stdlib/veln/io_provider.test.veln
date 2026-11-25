@@ -1893,6 +1893,21 @@ test copy_propagates_unknown_write_failure_progress() -> Result<(), String> effe
 	end
 end
 
+test copy_accumulates_unknown_write_failure_across_read_chunks() -> Result<(), String> effects [concurrency]
+	let failure = f4_copy_error(io::ErrorKind::Other, "later unknown write failure")
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("ab")?), list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("cde")?), list_nil()))
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(2)?), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::WriteFailed(io::Progress::Unknown(byte_count(1)?), failure), list_nil())))
+	let script = io_copy_test_support_test::Script(reads, writes)
+	match f4_copy(script, byte_count(3)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "later unknown write failure")), snapshot) => if byte_count_to_int(consumed) == 5 and byte_count_to_int(committed) == 4 and f4_snapshot_output(snapshot, "abcd")
+			Ok(())
+		else
+			Err("unknown write failure lost progress from an earlier read chunk")
+		end
+		_ => Err("later unknown write failure did not preserve accumulated progress")
+	end
+end
+
 test copy_rejects_data_beyond_the_requested_maximum() -> Result<(), String> effects [concurrency]
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcde")?), list_cons(io::ReadOutcome::End, list_nil()))
 	let writes = list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil())
