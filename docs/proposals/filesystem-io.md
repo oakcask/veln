@@ -277,7 +277,7 @@ runtime support exists.
 | Failure-plan state | Extend the provider-bound Veln fake state with scripted failures, resource cursors, close facts, and operation progress as ordinary Veln data. | A scripted failure changes only the selected provider instance and records the commit facts required by the operation outcome matrix. |
 | Native paths | Keep the current host-owned `Path` as the explicit native boundary; `path::Path` remains portable. Support only exactly representable names initially. | Nonrepresentable names fail with `UnrepresentablePath`; display is never used as a conversion. |
 | Links and confinement | Follow links for ordinary open; explicit follow/no-follow metadata. No confinement or link-creation capability initially. A subtree is only a namespace view. | Dangling links, cycles, unsupported no-follow, and a link outside a subtree cannot be misreported as confined access. |
-| Remaining IO outcomes | Preserve delivered bytes, exact or unknown progress, and typed errors for the direct facade and host adapters. The current specification owns complete-transfer helper outcomes. | Scripted partial-failure, empty-request, no-progress, and unknown-progress cases below, excluding the implemented helper matrices. |
+| Remaining IO outcomes | Preserve delivered bytes, exact or unknown progress, and typed errors for the remaining direct-facade validation and host adapters. The current specification owns sequential no-progress normalization and complete-transfer helper outcomes. | Scripted partial-failure, empty-request, and unknown-progress cases below, excluding the implemented sequential no-progress and helper matrices. |
 | Seek and mutation | Absolute logical cursor, host-defined gap bytes, append-only writer views, no-replacement atomic rename where supported, and explicit mutation commit facts. | Shared transition cases plus host tests for unsupported and unknown host outcomes. |
 | Concurrency and cancellation | Nonblocking per-open admission returns `Busy` for overlapping transfers, seek, truncate, or sync. Close can invalidate an in-flight operation. No bounded host cancellation promise. | Gated overlap, close/interruption races, and reconciliation after unknown cursor or close state. |
 | Cleanup and durability | Reverse-publication cleanup, continue after failures, network-compatible close commit facts and abrupt cleanup precedence. No automatic sync. | Known-false, known-true, and unknown close failures, retries, and body-failure precedence. |
@@ -340,7 +340,6 @@ independent of error category and namespace/ownership commit facts.
 | Input or outcome | Required state and helper behavior |
 | --- | --- |
 | Zero-size direct read or write on a live permitted view | Return empty `Data` or `Written(0)` without a provider transfer. Validate owner, capability, and closed state first; zero size cannot revive a closed resource. |
-| Positive request, empty successful read or zero successful write | Direct facade reports `NoProgress`. No invented end or success. |
 | Short data read | Deliver the returned bytes. It is not end. |
 | Read failure with delivered bytes | Include those bytes and consumption in the failure. |
 | Partial successful direct write | Report the committed prefix without implying completion of the submitted chunk. |

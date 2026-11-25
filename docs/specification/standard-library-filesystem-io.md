@@ -403,6 +403,14 @@ provider owner remains usable. Dispatch never selects the currently active
 same-effect handler as a fallback and does not perform host filesystem or
 network IO.
 
+For a positive maximum, direct `io::read` normalizes an empty provider
+`Data` result to `ReadFailed` with empty bytes, known zero consumed progress,
+and `NoProgress`. For nonempty input, direct `io::write` normalizes provider
+`Written(0)` to `WriteFailed` with known zero committed progress and
+`NoProgress`. Each facade dispatches once and does not retry. `End`, nonempty
+short reads, positive partial writes, and provider-returned failures remain
+unchanged.
+
 Ordinary `perform` retains lexical handler selection and does not receive the
 broader captured invocation authority. An accepted lexical provider open
 receives only a per-call admission identity for publication. It cannot use
@@ -551,7 +559,8 @@ state, namespace-token allocation, registration, projection, provider-bound
 dispatch, bounded `copy` outcomes and progress, complete-transfer helper
 outcomes, serialized completed fake-provider writes, and the bounded
 owner-release lifecycle are limited to the observations above. Direct facade
-host translation, the namespace and seek outcome matrix, cleanup retry and
+host translation and count validation, the namespace and seek outcome matrix,
+cleanup retry and
 failure precedence, host filesystem selection, and network-to-byte adapters
 remain unimplemented. Type-checking behavior outside the implemented slice
 establishes only its static capability and effect boundary.
@@ -567,7 +576,7 @@ establishes only its static capability and effect boundary.
   [`io_copy_test_support_test.veln`](../../crates/veln-stdlib/veln/io_copy_test_support_test.veln).
 - Complete read and write behavior, including supported caller-count bounds,
   zero-size validation, partial progress, provider failures, malformed replies,
-  and overflow:
+  and overflow, plus direct no-progress normalization and single dispatch:
   [`io.test.veln`](../../crates/veln-stdlib/veln/io.test.veln), with scoped
   scripted providers in
   [`io_complete_transfer_test_support_test.veln`](../../crates/veln-stdlib/veln/io_complete_transfer_test_support_test.veln).

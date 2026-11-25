@@ -153,3 +153,95 @@ pub fn closed_zero_write() -> Result<io::WriteOutcome, String> effects [io::Writ
 		Ok(view) => Ok(io::write_all(view.writer, byte_chunk([])))
 	end
 end
+
+type DirectState
+	DirectState(reads: List<io::ReadOutcome>, writes: List<io::WriteOutcome>, operations: List<String>, maximums: List<Int>, inputs: List<ByteChunk>)
+end
+
+pub type DirectSnapshot
+	pub DirectSnapshot(operations: List<String>, maximums: List<Int>, inputs: List<ByteChunk>, remaining_reads: List<io::ReadOutcome>, remaining_writes: List<io::WriteOutcome>)
+end
+
+pub type DirectReadObservation
+	pub DirectReadObservation(outcome: io::ReadOutcome, snapshot: DirectSnapshot)
+end
+
+pub type DirectWriteObservation
+	pub DirectWriteObservation(outcome: io::WriteOutcome, snapshot: DirectSnapshot)
+end
+
+fn direct_next_read(current: DirectState, maximum: ByteCount) -> {state: DirectState, result: io::ReadOutcome}
+	match current
+		DirectState(reads, writes, operations, maximums, inputs) => match reads
+			Cons(next, remaining) => {state: DirectState(remaining, writes, Cons("read", operations), Cons(byte_count_to_int(maximum), maximums), inputs), result: next}
+			Nil => {state: DirectState(Nil, writes, Cons("read", operations), Cons(byte_count_to_int(maximum), maximums), inputs), result: io::ReadOutcome::End}
+		end
+	end
+end
+
+fn direct_next_write(current: DirectState, bytes: ByteChunk) -> {state: DirectState, result: io::WriteOutcome}
+	match current
+		DirectState(reads, writes, operations, maximums, inputs) => match writes
+			Cons(next, remaining) => {state: DirectState(reads, remaining, Cons("write", operations), maximums, Cons(bytes, inputs)), result: next}
+			Nil => {state: DirectState(reads, Nil, Cons("write", operations), maximums, Cons(bytes, inputs)), result: io::WriteOutcome::Written(byte_chunk_count(bytes))}
+		end
+	end
+end
+
+fn direct_observe(current: DirectState, context: ()) -> {state: DirectState, result: DirectSnapshot}
+	match current
+		DirectState(reads, writes, operations, maximums, inputs) => {state: current, result: DirectSnapshot(operations, maximums, inputs, reads, writes)}
+	end
+end
+
+handler direct_scripted_read(owner: io_provider::Owner, slot: Int, state: io_provider::State<DirectState>) for io::Read effects [concurrency]
+	read(reader, maximum) => if slot_matches(io_provider::reader_slot(owner, reader), slot)
+		io_provider::update(state, maximum, direct_next_read)
+	else
+		io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), error("direct reader belongs to another provider"))
+	end
+end
+
+handler direct_scripted_write(owner: io_provider::Owner, slot: Int, state: io_provider::State<DirectState>) for io::Write effects [concurrency]
+	write(writer, bytes) => if slot_matches(io_provider::writer_slot(owner, writer), slot)
+		io_provider::update(state, bytes, direct_next_write)
+	else
+		io::WriteOutcome::WriteFailed(zero_progress(), error("direct writer belongs to another provider"))
+	end
+end
+
+fn direct_read_body(owner: io_provider::Owner, slot: Int, cell: io_provider::State<DirectState>, maximum: ByteCount) -> Result<DirectReadObservation, String> effects [io::Read, io::Write, concurrency]
+	match registered_view(owner, slot)
+		Err(message) => Err(message)
+		Ok(view) => begin
+			let outcome = io::read(view.reader, maximum)
+			let snapshot = io_provider::update(cell, (), direct_observe)
+			Ok(DirectReadObservation(outcome, snapshot))
+		end
+	end
+end
+
+fn direct_write_body(owner: io_provider::Owner, slot: Int, cell: io_provider::State<DirectState>, bytes: ByteChunk) -> Result<DirectWriteObservation, String> effects [io::Read, io::Write, concurrency]
+	match registered_view(owner, slot)
+		Err(message) => Err(message)
+		Ok(view) => begin
+			let outcome = io::write(view.writer, bytes)
+			let snapshot = io_provider::update(cell, (), direct_observe)
+			Ok(DirectWriteObservation(outcome, snapshot))
+		end
+	end
+end
+
+pub fn execute_direct_read(reads: List<io::ReadOutcome>, maximum: ByteCount) -> Result<DirectReadObservation, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 908
+	let cell = io_provider::state(DirectState(reads, list_nil(), list_nil(), list_nil(), list_nil()))
+	handle handle handle direct_read_body(owner, slot, cell, maximum) with direct_scripted_read(owner, slot, cell) with direct_scripted_write(owner, slot, cell) with scripted_close()
+end
+
+pub fn execute_direct_write(writes: List<io::WriteOutcome>, bytes: ByteChunk) -> Result<DirectWriteObservation, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 909
+	let cell = io_provider::state(DirectState(list_nil(), writes, list_nil(), list_nil(), list_nil()))
+	handle handle handle direct_write_body(owner, slot, cell, bytes) with direct_scripted_read(owner, slot, cell) with direct_scripted_write(owner, slot, cell) with scripted_close()
+end

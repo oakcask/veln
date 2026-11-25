@@ -15,6 +15,14 @@ fn write(script: io_complete_transfer_test_support_test::Script, bytes: ByteChun
 	handle io_complete_transfer_test_support_test::execute_write(script, bytes) with io_provider::scope()
 end
 
+fn direct_read(reads: List<io::ReadOutcome>, maximum: ByteCount) -> Result<io_complete_transfer_test_support_test::DirectReadObservation, String> effects [concurrency]
+	handle io_complete_transfer_test_support_test::execute_direct_read(reads, maximum) with io_provider::scope()
+end
+
+fn direct_write(writes: List<io::WriteOutcome>, bytes: ByteChunk) -> Result<io_complete_transfer_test_support_test::DirectWriteObservation, String> effects [concurrency]
+	handle io_complete_transfer_test_support_test::execute_direct_write(writes, bytes) with io_provider::scope()
+end
+
 fn chunk_is(bytes: ByteChunk, expected: String) -> Bool
 	match byte_chunk_to_visible_ascii_string(bytes)
 		Ok(actual) => actual == expected
@@ -33,6 +41,72 @@ fn inputs_are_two(inputs: List<ByteChunk>, first: String, second: String) -> Boo
 	match inputs
 		Cons(first_bytes, Cons(second_bytes, Nil)) => chunk_is(first_bytes, first) and chunk_is(second_bytes, second)
 		_ => false
+	end
+end
+
+test direct_read_normalizes_empty_success_without_retry() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk([])), list_cons(io::ReadOutcome::End, list_nil()))
+	match direct_read(reads, byte_count(4)?)?
+		io_complete_transfer_test_support_test::DirectReadObservation(io::ReadOutcome::ReadFailed(bytes, io::Progress::Known(consumed), io::Error::Error("read", io::ErrorKind::NoProgress, None, None, None, None, _)), io_complete_transfer_test_support_test::DirectSnapshot(Cons("read", Nil), Cons(4, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(consumed) == 0
+			Ok(())
+		else
+			Err("direct empty read fabricated bytes or progress")
+		end
+		_ => Err("direct empty read did not return NoProgress after one provider dispatch")
+	end
+end
+
+test direct_write_normalizes_zero_success_without_retry() -> Result<(), String> effects [concurrency]
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(0)?), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil()))
+	match direct_write(writes, byte_chunk_from_visible_ascii_string("abc")?)?
+		io_complete_transfer_test_support_test::DirectWriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Known(committed), io::Error::Error("write", io::ErrorKind::NoProgress, None, None, None, None, _)), io_complete_transfer_test_support_test::DirectSnapshot(Cons("write", Nil), Nil, Cons(input, Nil), Nil, Cons(io::WriteOutcome::Written(remaining), Nil))) => if byte_count_to_int(committed) == 0 and byte_count_to_int(remaining) == 1 and chunk_is(input, "abc")
+			Ok(())
+		else
+			Err("direct zero write changed the input, remaining script, or progress")
+		end
+		_ => Err("direct zero write did not return NoProgress after one provider dispatch")
+	end
+end
+
+test direct_read_preserves_end_short_data_and_provider_failure() -> Result<(), String> effects [concurrency]
+	let end_result = direct_read(list_cons(io::ReadOutcome::End, list_nil()), byte_count(3)?)?
+	let data_result = direct_read(list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("ab")?), list_nil()), byte_count(3)?)?
+	let failure = provider_error("direct read failure")
+	let failed_result = direct_read(list_cons(io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("x")?, io::Progress::Unknown(byte_count(1)?), failure), list_nil()), byte_count(3)?)?
+	match end_result
+		io_complete_transfer_test_support_test::DirectReadObservation(io::ReadOutcome::End, _) => match data_result
+			io_complete_transfer_test_support_test::DirectReadObservation(io::ReadOutcome::Data(bytes), _) => match failed_result
+				io_complete_transfer_test_support_test::DirectReadObservation(io::ReadOutcome::ReadFailed(failed_bytes, io::Progress::Unknown(consumed), io::Error::Error("scripted", io::ErrorKind::Other, None, None, None, None, "direct read failure")), _) => if chunk_is(bytes, "ab") and chunk_is(failed_bytes, "x") and byte_count_to_int(consumed) == 1
+					Ok(())
+				else
+					Err("direct read changed short data or typed failure details")
+				end
+				_ => Err("direct read changed the provider failure shape")
+			end
+			_ => Err("direct read changed nonempty short data")
+		end
+		_ => Err("direct read changed End")
+	end
+end
+
+test direct_write_preserves_partial_success_and_provider_failure() -> Result<(), String> effects [concurrency]
+	let partial_result = direct_write(list_cons(io::WriteOutcome::Written(byte_count(2)?), list_nil()), byte_chunk_from_visible_ascii_string("abc")?)?
+	let failure = provider_error("direct write failure")
+	let failed_result = direct_write(list_cons(io::WriteOutcome::WriteFailed(io::Progress::Unknown(byte_count(1)?), failure), list_nil()), byte_chunk_from_visible_ascii_string("abc")?)?
+	match partial_result
+		io_complete_transfer_test_support_test::DirectWriteObservation(io::WriteOutcome::Written(count), _) => if byte_count_to_int(count) == 2
+			match failed_result
+				io_complete_transfer_test_support_test::DirectWriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Unknown(committed), io::Error::Error("scripted", io::ErrorKind::Other, None, None, None, None, "direct write failure")), _) => if byte_count_to_int(committed) == 1
+					Ok(())
+				else
+					Err("direct write changed provider failure progress")
+				end
+				_ => Err("direct write changed the provider failure shape")
+			end
+		else
+			Err("direct write changed positive partial progress")
+		end
+		_ => Err("direct write changed positive partial success")
 	end
 end
 

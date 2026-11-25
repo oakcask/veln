@@ -1,3 +1,4 @@
+use prelude
 use net
 use path as portable
 
@@ -107,12 +108,32 @@ pub effect Sync
 	sync(syncer: Syncer) -> Result<(), Error>
 end
 
+fn no_progress(operation: String) -> Error
+	Error::Error(operation, ErrorKind::NoProgress, None, None, None, None, "provider made no progress")
+end
+
 pub fn read(reader: Reader, maximum: ByteCount) -> ReadOutcome effects [Read]
-	prelude_builtin::io_provider_dispatch2("std::io::Read", "read", reader, maximum)
+	let outcome: ReadOutcome = prelude_builtin::io_provider_dispatch2("std::io::Read", "read", reader, maximum)
+	match outcome
+		ReadOutcome::Data(bytes) => if byte_count_to_int(maximum) > 0 and byte_count_to_int(byte_chunk_count(bytes)) == 0
+			ReadOutcome::ReadFailed(bytes, Progress::Known(byte_chunk_count(bytes)), no_progress("read"))
+		else
+			outcome
+		end
+		_ => outcome
+	end
 end
 
 pub fn write(writer: Writer, bytes: ByteChunk) -> WriteOutcome effects [Write]
-	prelude_builtin::io_provider_dispatch2("std::io::Write", "write", writer, bytes)
+	let outcome: WriteOutcome = prelude_builtin::io_provider_dispatch2("std::io::Write", "write", writer, bytes)
+	match outcome
+		Written(count) => if byte_count_to_int(byte_chunk_count(bytes)) > 0 and byte_count_to_int(count) == 0
+			WriteFailed(Progress::Known(count), no_progress("write"))
+		else
+			outcome
+		end
+		_ => outcome
+	end
 end
 
 pub fn seek(seeker: Seeker, origin: SeekOrigin) -> Result<ByteOffset, Error> effects [Seek]
