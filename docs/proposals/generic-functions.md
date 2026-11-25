@@ -9,10 +9,10 @@ Support explicitly declared generic functions whose type arguments are inferred
 independently at each use. Preserve that polymorphism through transparent
 function aliases, and check function bodies against their declared abstraction.
 This proposal is a Ready implementation target. Q1–Q9 have first-delivery
-decisions or explicit exclusions, supported by the bounded
-[feasibility experiment](#feasibility-evidence-and-limits). The examples and
-acceptance cases below specify planned production behavior; they are not
-passing examples for the current Veln toolchain.
+decisions or explicit exclusions and an identified
+[implementation approach](#implementation-approach). The examples and
+acceptance cases below specify planned behavior; they are not passing examples
+for the current Veln toolchain.
 
 ## Purpose and current boundary
 
@@ -35,8 +35,8 @@ At investigation base `fb433dd78`, `FunctionSignature` in
 effect information but no ordinary quantified type-parameter list. `Type` in
 `crates/veln-sema/src/semantic_model.rs` distinguishes unknown, named,
 refinement, record, and function types, without an explicit ordinary type
-variable or universal scheme variant. These observations identify feasibility
-work; they do not prescribe the replacement representation.
+variable or universal scheme variant. These observations identify the
+implementation changes; they do not prescribe the replacement representation.
 
 ## Proposed baseline
 
@@ -205,8 +205,8 @@ or verified callable contracts.
 
 The table is an acceptance model for future implementation, not a claim that
 the current toolchain accepts these programs. The decisions below fix the
-expected outcomes. The feasibility experiment checks a bounded subset;
-production acceptance evidence remains implementation work.
+expected outcomes and verification destinations. Executable acceptance
+evidence belongs to implementation and is not a prerequisite for Ready.
 
 | Input or boundary | Required observation | Planned verification |
 | --- | --- | --- |
@@ -290,9 +290,8 @@ nested `>>` closers, trailing commas, and formatted output must round-trip.
 The formatter writes type binders before the effect binder with comma-space
 separators and no trailing comma in a single-line list. This adapts the current
 ADT spelling and call suffix instead of introducing a second application form.
-The following are production source-surface acceptance targets. The prototype
-checks binder lists and typed-call lookahead separately; it does not establish
-production parser or formatter conformance.
+The following are planned source-surface acceptance targets for parser,
+semantic, and formatter coverage during implementation.
 
 | Source shape | Acceptance and formatter target |
 | --- | --- |
@@ -473,13 +472,15 @@ without generating an expanding family of methods. No generation cutoff acts
 as a typing rule. Defer monomorphization and hybrid specialization until a
 separate performance case justifies their complexity.
 
-The feasibility experiment executes generated identity, wrapping, callback,
-and same-type-recursive bodies from a separately compiled consumer. It checks
-aliases, the representation matrix, and one body per declaration. The type/row
-model separately checks effect retention; the Java consumer checks that a
-callback runs once. Production module resolution, effect dispatch, and backend
-integration still need the acceptance coverage above. The current Object ABI
-alone cannot establish those outcomes.
+The implementation approach is to check generic bodies once with rigid
+parameters, retain scheme and call-substitution information through typed
+lowering, and emit the existing Object call boundary without runtime type
+arguments. Aliases and imported references select the owning declaration's
+shared body; callbacks use the existing function-value call boundary. This
+explains how the baseline can be implemented. Ready does not require a separate
+JVM prototype. The representation matrix, shared-body checks, and effect
+preservation cases above remain acceptance requirements for implementation;
+the existing ABI does not establish that they already pass.
 
 ### Q7: Artifacts, tooling, and diagnostics
 
@@ -553,56 +554,34 @@ none blocks the unconstrained rank-one baseline.
 
 ## Readiness and lifecycle
 
-The baseline is ready for implementation: Q1–Q9 select its behavior, and the
-experiment below supplies source-surface, constraint/alias, and JVM feasibility
-evidence. Readiness accepts the design and its bounded feasibility; it does
-not claim production conformance. Excluded extensions do not block this
-baseline. The following cases remain production acceptance requirements,
-including boundaries not represented in the experiment.
+The baseline is ready for implementation because Q1–Q9 resolve the design
+choices and the implementation approach below identifies how they connect to
+the existing compiler. Readiness requires a sufficiently clear way to implement
+the selected behavior, not a separate prototype or passing implementation
+tests. The acceptance tables specify what implementation must verify.
+Excluded extensions do not block the baseline.
 
-### Feasibility evidence and limits
+### Implementation approach
 
-Run the retained experiment from the repository root with Python 3.10 or newer
-and a JDK providing `javac` and `java` (17 or newer):
+This is implementation guidance, not an additional observable language
+contract. The existing mechanisms provide starting points; generic-function
+support still needs the changes and acceptance coverage described here.
 
-```sh
-bash scripts/agent-run python3 -B tools/prototypes/generic-functions/run.py
-```
-
-The runner checks the independent model, checks and lowers the bounded source
-fixture, compiles the generated provider, compiles its consumer against the
-class files separately, and executes it with JVM verification enabled. Build
-output lives in a temporary directory and is removed when the run ends.
-The experiment is a local feasibility gate; it is not wired into CI and is not
-part of the installed compiler or executable language specification.
-
-| Design concern | Retained evidence and observation | Boundary of that evidence |
+| Concern | Existing starting point | Planned change |
 | --- | --- | --- |
-| Q1 binder and application syntax | `surface.py` and `test_model.py` in `tools/prototypes/generic-functions/` check ordinary/combined/row-only lists, trailing-comma normalization, invalid lists, qualified nested type arguments, and comparison lookahead. | A separate subset parser, not the production grammar or formatter. It rejects expression type application within its subset; production may parse a comparison and reject during checking. |
-| Q2 independent schemes and Q3 local completion | The immutable scheme model in `model.py` preserves alias owner identity in both call orders, selects annotated monotypes, rejects nontransparent scheme uses, and publishes pending-local solutions only after validation. Tests reject an incompatible completion and then accept a valid one with retained bounds. | Import/re-export lookup is modeled by name-to-scheme bindings. Source binding classification, pending-instance creation/escape checks, and evaluation-once enforcement require production integration. |
-| Q4 bounded constraints | The model checks contextual widening, fixed arguments, lower/upper/equality constraints, nested polarity, invariant nesting, nominal shape rejection, record width, irrelevant positions, and permutations of complete contributions. A function-bound case has an unresolved two-contribution prefix but resolves with the third. | The model uses a finite type vocabulary and explicit variance metadata; it does not compute ADT variance or replace the current bounded solver. |
-| Q5 joint type/effect failure boundary | Tests retain pure, concrete, and rigid-tail callback effects, default an unconstrained call row to empty, and reject input or row-upper-bound conflicts without changing the scheme or pending binding. | One call-bound row and set inclusion model the proposed solver boundary. These checks do not implement host effects, effect handlers, or nested contextual scheduling. |
-| Definition rigidity and recursion | `functions.veln` is checked before emission. Negative cases reject a concrete result or integer operation on rigid `T`, including a definition whose only caller supplies `Int`. Same-type recursion passes; explicit and inferred type-growing self-recursion fail. | The subset checker has no caller-fact input. Mutual recursive-group detection, contracts, visibility, and diagnostics are production acceptance work. |
-| Q6 runtime representation | The separately compiled `Consumer.java` exercises five generated shared bodies with boxed `Int`, `Float`, `Bool`, `String`, records, nested ADTs, and callable payloads in both orders. Reflection checks exactly one Object-only method per declaration and no runtime type parameters. A persistent alias alternates representations; an effectful callback runs once. | Java is the prototype emission format and consumer language. This checks JVM erasure feasibility, not the Veln backend's bytecode writer, package loader, runtime dispatch, or production closure adapters. |
+| Source surface | Function headers already parse an effect binder, and named-call suffixes already distinguish balanced type arguments from comparisons. | Extend declaration binders under Q1, retaining spans and existing typed-call lookahead. Add parser and formatter acceptance coverage. |
+| Rigid definitions and independent instances | Semantic function signatures carry parameter, result, and effect information; current private inference is monomorphic. | Represent declaration-owned ordinary binders and schemes, check definitions rigidly, and create fresh substitutions at non-recursive uses. Keep recursive-group references rigid under Q9. |
+| Type and effect inference | Constructor inference already collects polarity-sensitive bounds, and effect calls already substitute one row. | Apply Q3–Q5 to generic call instances, retaining complete constraints and publishing type and row solutions together. Pending locals retain one monomorphic instance. |
+| Aliases and public interfaces | Name resolution identifies declarations and imports; function values already have monomorphic signatures. | Preserve the owning scheme for transparent aliases and exports, instantiate at monotype boundaries, and retain binder identity in versioned interfaces under Q7. |
+| JVM emission | Object method descriptors, primitive boxing, direct calls, and function-value calls already provide erased runtime boundaries. | Retain semantic substitutions through typed lowering, then emit one shared body per declaration as described in Q6. No runtime type witness or specialization mechanism is needed for the baseline. |
 
-The local run passes 19 model/surface tests and 112 JVM assertions. Those
-assertions use the proposal's decision tables as their oracle; they are not
-independent proof of the whole type system. Review of the retained model checks
-that invariant nesting requires equality, complete contributions survive an
-unresolved prefix, fixed and contextual substitutions validate every bound,
-and rejected solutions cannot mutate schemes or pending state. The separate
-source-to-JVM path checks that valid rigid bodies have a shared erased
-implementation without runtime type witnesses. Together these observations
-remove the identified feasibility blockers for the baseline.
-
-Artifact round trips and version rejection, real import/re-export resolution,
-full parser/formatter round trips, source alias binding, recursive groups,
-contracts, tooling, and human/JSON diagnostics remain planned implementation
-acceptance. Re-run the experiment when its inputs or modeled rules change;
-revisit Ready status if it cannot reproduce the selected boundary, or if
-production integration reveals that the baseline needs a new design choice.
-Retire each prototype component once production tests cover its concern,
-and remove the experiment when no feasibility-only scope remains.
+Q1, Q4, and Q5 identify the current syntax and inference rules being extended;
+Q6 identifies the relevant backend code. This provides an implementation route
+without introducing a second parser, solver, or backend as a readiness gate.
+Production integration may still reveal a design conflict. Revisit the affected
+decision if implementing an acceptance case requires changing the selected
+behavior or its scope; ordinary implementation work and missing tests do not
+by themselves make the design unready.
 
 ### Production acceptance still required
 
