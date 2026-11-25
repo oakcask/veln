@@ -383,10 +383,12 @@ returns `InvalidResource` as described below.
 
 The exported `fs` namespace facades invoke the `fs::Read` or `fs::Mutate`
 handler captured by their filesystem token. The exported `io` byte facades
-invoke the operation handler captured by their projected capability. Dispatch
-passes the public token or restricted capability to the handler; it does not
-expose the underlying `io_provider::Resource`. A handler can use the matching
-slot accessor with its owner while a nested provider scope is active.
+invoke the operation handler captured by their projected capability for a
+nonempty sequential `io::read` or `io::write` call. Empty sequential calls take
+the validated bypass described below. Dispatch passes the public token or
+restricted capability to the handler; it does not expose the underlying
+`io_provider::Resource`. A handler can use the matching slot accessor with its
+owner while a nested provider scope is active.
 
 One captured handler frame can serve registrations for more than one active
 provider owner. Each token, resource, and capability retains its own owner.
@@ -397,19 +399,27 @@ restore the preceding owner after normal return, a returned failure, or a
 runtime failure.
 
 Nested handlers affect newly allocated tokens and capabilities. They do not
-reinterpret an older value. A facade call on an older value selects its
-creating handler even after that handler's dynamic scope exits, provided its
-provider owner remains usable. Dispatch never selects the currently active
-same-effect handler as a fallback and does not perform host filesystem or
-network IO.
+reinterpret an older value. A facade call that requires provider invocation
+selects the older value's creating handler even after that handler's dynamic
+scope exits, provided its provider owner remains usable. Dispatch never selects
+the currently active same-effect handler as a fallback and does not perform
+host filesystem or network IO.
 
-For a positive maximum, direct `io::read` normalizes an empty provider
-`Data` result to `ReadFailed` with empty bytes, known zero consumed progress,
-and `NoProgress`. For nonempty input, direct `io::write` normalizes provider
+Direct `io::read` with a zero `ByteCount` validates the reader capability and
+that its provider-owner scope remains open, then returns empty `Data` without
+invoking the provider. Direct `io::write` with an empty `ByteChunk` performs the
+corresponding validation and returns `Written(0)` without invoking the provider.
+A reader or writer whose provider-owner scope is closed returns the operation's
+`InvalidResource` outcome with known zero progress, and its provider is not
+invoked.
+
+For a positive maximum, direct `io::read` normalizes an empty provider `Data`
+result to `ReadFailed` with empty bytes, known zero consumed progress, and
+`NoProgress`. For nonempty input, direct `io::write` normalizes provider
 `Written(0)` to `WriteFailed` with known zero committed progress and
-`NoProgress`. Each facade dispatches once and does not retry. `End`, nonempty
-short reads, positive partial writes, and provider-returned failures remain
-unchanged.
+`NoProgress`. Each nonempty facade request dispatches once and does not retry.
+`End`, nonempty short reads, positive partial writes, and provider-returned
+failures remain unchanged.
 
 Ordinary `perform` retains lexical handler selection and does not receive the
 broader captured invocation authority. An accepted lexical provider open
@@ -559,9 +569,9 @@ state, namespace-token allocation, registration, projection, provider-bound
 dispatch, bounded `copy` outcomes and progress, complete-transfer helper
 outcomes, serialized completed fake-provider writes, and the bounded
 owner-release lifecycle are limited to the observations above. Direct facade
-empty-request bypass, provider-count validation, and host translation, the
-namespace and seek outcome matrix, cleanup retry and failure precedence, host
-filesystem selection, and network-to-byte adapters remain unimplemented.
+provider-count validation and host translation, the namespace and seek outcome
+matrix, cleanup retry and failure precedence, host filesystem selection, and
+network-to-byte adapters remain unimplemented.
 Type-checking behavior outside the implemented slice establishes only its
 static capability and effect boundary.
 
@@ -576,7 +586,8 @@ static capability and effect boundary.
   [`io_copy_test_support_test.veln`](../../crates/veln-stdlib/veln/io_copy_test_support_test.veln).
 - Complete read and write behavior, including supported caller-count bounds,
   zero-size validation, partial progress, provider failures, malformed replies,
-  and overflow, plus direct no-progress normalization and single dispatch:
+  and overflow, plus direct empty-request bypass, closed-provider-owner
+  rejection, no-progress normalization, and single dispatch:
   [`io.test.veln`](../../crates/veln-stdlib/veln/io.test.veln), with scoped
   scripted providers in
   [`io_complete_transfer_test_support_test.veln`](../../crates/veln-stdlib/veln/io_complete_transfer_test_support_test.veln).

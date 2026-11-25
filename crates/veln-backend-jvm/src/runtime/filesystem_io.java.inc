@@ -834,6 +834,24 @@
         if (owner.scope.ioProviderScopeClosed) {
             return ioProviderForeignFailure(effect, operation);
         }
+        if (trailing.length == 1) {
+            if (effect.equals(IO_READ_EFFECT)
+                && operation.equals("read")
+                && byteCountLong(trailing[0]) == 0L) {
+                return adt(
+                    "io::ReadOutcome::Data",
+                    new Object[] { byteChunkFromByteArray(new byte[] {}, 0) }
+                );
+            }
+            if (effect.equals(IO_WRITE_EFFECT)
+                && operation.equals("write")
+                && byteChunkBytes(trailing[0]).isEmpty()) {
+                return adt(
+                    "io::WriteOutcome::Written",
+                    new Object[] { byteCountObject(0L) }
+                );
+            }
+        }
         Object[] args = new Object[trailing.length + 1];
         args[0] = operand;
         System.arraycopy(trailing, 0, args, 1, trailing.length);

@@ -53,6 +53,10 @@ public final class IoProviderOwnerLifecycleHarness {
         return (VelnRuntime.Result) value;
     }
 
+    private static Object byteCount(long value) {
+        return VelnRuntime.adt("ByteCount", new Object[] { Long.valueOf(value) });
+    }
+
     private static boolean isInvalidResource(Object value) {
         VelnRuntime.Result result = result(value);
         return !result.isOk() && result.toString().contains("InvalidResource");
@@ -178,7 +182,7 @@ public final class IoProviderOwnerLifecycleHarness {
                 Object closer = supplied[0];
                 require(
                     hasInvalidResource(VelnRuntime.ioProviderDispatch2(
-                        "std::io::Read", "read", readerRef.get(), Long.valueOf(1L)
+                        "std::io::Read", "read", readerRef.get(), byteCount(1L)
                     )),
                     exitKind + " cleanup allowed ordinary resource use"
                 );
@@ -600,13 +604,13 @@ public final class IoProviderOwnerLifecycleHarness {
 
         require(
             hasInvalidResource(VelnRuntime.ioProviderDispatch2(
-                "std::io::Read", "read", reader, Long.valueOf(1L)
+                "std::io::Read", "read", reader, byteCount(1L)
             )),
             "closed owner facade dispatch reached its provider"
         );
         require(
             hasInvalidResource(VelnRuntime.perform(
-                "std::io::Read", "read", new Object[] { reader, Long.valueOf(1L) }
+                "std::io::Read", "read", new Object[] { reader, byteCount(1L) }
             )),
             "closed owner lexical dispatch reached its provider"
         );
@@ -667,10 +671,10 @@ public final class IoProviderOwnerLifecycleHarness {
                 openCalls.incrementAndGet();
                 return lexicalByte
                     ? VelnRuntime.perform(
-                        "std::io::Read", "read", new Object[] { supplied[1], Long.valueOf(1L) }
+                        "std::io::Read", "read", new Object[] { supplied[1], byteCount(1L) }
                     )
                     : VelnRuntime.ioProviderDispatch2(
-                        "std::io::Read", "read", supplied[1], Long.valueOf(1L)
+                        "std::io::Read", "read", supplied[1], byteCount(1L)
                     );
             });
         }
@@ -696,7 +700,7 @@ public final class IoProviderOwnerLifecycleHarness {
                         "std::fs::Read", "open_read", filesystem.value(), reader
                     )
                     : VelnRuntime.ioProviderDispatch2(
-                        "std::io::Read", "read", reader, Long.valueOf(1L)
+                        "std::io::Read", "read", reader, byteCount(1L)
                     ));
             } catch (Throwable failure) {
                 childFailure.set(failure);

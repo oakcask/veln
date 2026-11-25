@@ -346,9 +346,13 @@ standard callback remain active. A `state` call in a nominal handler operation
 clause preserves the same concrete initializer and `State<T>` types through
 checked core and typed IR as a call in an ordinary function body. The
 [type rules](types.md#inference-rules) own the join, variance, and compatibility
-contract. The standard `fs` and `io` facades dispatch namespace and byte
-operations to the handlers captured by their opaque token or capability. The
-facade calls retain their declared nominal effects for static checking. A
+contract. The standard `fs` facades and nonempty sequential `io::read` and
+`io::write` calls dispatch operations to the handlers captured by their opaque
+token or capability. An empty sequential `io::read` or `io::write` call
+validates the capability and provider-owner state, then returns its empty
+success without invoking the captured handler, as specified by the
+[provider-bound dispatch contract](standard-library-filesystem-io.md#provider-bound-dispatch).
+All facade calls retain their declared nominal effects for static checking. A
 direct `perform` keeps lexical handler selection. If its standard filesystem
 or byte operand belongs to another provider, the operation returns an
 `InvalidResource` outcome before either handler runs. The prototype does not

@@ -19,7 +19,7 @@ Design In Progress until this work completes. This work does not depend on
 its production implementation or promotion to Ready.
 
 The implemented provider foundation, sequential direct-facade outcome matrix,
-and complete-transfer outcome matrices are specified by
+empty-request bypass, and complete-transfer outcome matrices are specified by
 [Standard-library filesystem and byte IO](../specification/standard-library-filesystem-io.md).
 That specification owns the completed direct sequential, `read_exact`,
 `write_all`, and `copy` observations, F3 observations, and the restricted
@@ -30,15 +30,15 @@ prototype obligations:
 
 | Design input | Prototype obligation |
 | --- | --- |
-| [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Complete the remaining direct-facade validation and host-translation rows not covered by implemented sequential no-progress normalization and complete-transfer helpers. |
+| [Outcomes and error translation](filesystem-io.md#outcomes-and-error-translation) | Complete the remaining direct-facade count validation and host-translation rows not covered by implemented empty-request bypass, sequential no-progress normalization, and complete-transfer helpers. |
 | [Namespace, seek, and mutation transitions](filesystem-io.md#namespace-seek-and-mutation-transitions) | Observe successful and failed operations through bytes, cursors, bindings, and commit facts. |
 | [Concurrent operations and cleanup](filesystem-io.md#concurrent-operations-and-cleanup) | Preserve per-open admission, release obligations, aliases, and failure precedence. |
 
 Implement only the adapter and source/provider support needed to demonstrate
 these remaining contracts. F4 retains every unimplemented outcome and
-transition row in the linked contracts; sequential direct-facade no-progress
-normalization and the implemented `read_exact`, `write_all`, and bounded
-`copy` matrices are no longer proposal work.
+transition row in the linked contracts; direct-facade empty-request bypass and
+no-progress normalization and the implemented `read_exact`, `write_all`, and
+bounded `copy` matrices are no longer proposal work.
 Scripted failures belong in separate scoped Veln test support. Focused host
 adapters establish host-specific behavior that a fake cannot prove.
 
@@ -55,7 +55,7 @@ its positive observations and its failure or preserved-state observations.
 
 | Gate | Required observation | Evidence and status |
 | --- | --- | --- |
-| F4: remaining transfer and mutation | Direct empty-request and invalid-count validation, host translation, seek and positional IO, open modes, metadata and entries, namespace mutation, truncate, append, and sync have independent expected bytes, cursor, commit, and namespace observations. This includes unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
+| F4: remaining transfer and mutation | Direct invalid-count validation, host translation, seek and positional IO, open modes, metadata and entries, namespace mutation, truncate, append, and sync have independent expected bytes, cursor, commit, and namespace observations. This includes unsupported rename and unknown host progress. | Shared companion conformance cases for fake and supported system behavior, with scripted failures and progress logs; focused real-host cases for native translation, unsupported atomic operations, and uncertain host outcomes. |
 | F5: cleanup | Close failure facts, retry, reverse cleanup, primary/related failures, and owner exit with retained child aliases obey the linked cleanup table while reusing the implemented F3 restricted-release boundary. | Companion tests for `No`, `Yes`, and `Unknown` release facts and retry across the restricted boundary; backend owner-exit and cancellation cases; human and JSON projections for primary failure and ordered related cleanup failures. |
 
 ## Implementation Sequence And Evidence Placement
@@ -63,8 +63,8 @@ its positive observations and its failure or preserved-state observations.
 1. Apply the unimplemented outcome and transition rows to F4 and F5. Keep fake
    state and failure plans in Veln. Add host-boundary cases only for
    observations that require a real host or backend integration. Do not repeat
-   the implemented sequential direct-facade or complete-transfer matrices as
-   proposal evidence.
+   the implemented empty-request, sequential direct-facade, or complete-transfer
+   matrices as proposal evidence.
 
 | Evidence | Placement and local verification route |
 | --- | --- |
