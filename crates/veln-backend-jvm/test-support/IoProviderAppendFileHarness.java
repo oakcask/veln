@@ -92,6 +92,7 @@ public final class IoProviderAppendFileHarness {
         VelnRuntime.Result projected = (VelnRuntime.Result) VelnRuntime.ioProviderAppendFile(resource);
         require(projected.isOk(), "AppendFile projection failed before handler identity check");
         Object[] payloads = (Object[]) ADT_PAYLOADS.get(projected.value());
+        require(payloads.length == 3, "AppendFile projection returned the wrong capability count");
         requireCapability(payloads[0], write, "writer");
         requireCapability(payloads[1], close, "closer");
         requireCapability(payloads[2], sync, "syncer");
