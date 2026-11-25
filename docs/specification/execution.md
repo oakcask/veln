@@ -131,11 +131,13 @@ not require an active owner. The adapters can also register `ReadFile`,
 `WriteFile`, `UpdateFile`, `AppendFile`, and `Duplex` resources against their
 required active operation handler frames. They retain the provider owner and
 private slot in each resource and its projected capabilities. Standard `fs`
-facade calls and nonempty sequential `io::read` and `io::write` calls invoke the
-retained frame with the restricted token or capability, even while another
-handler for the same nominal effect is active. An empty sequential `io::read`
-or `io::write` call validates the retained capability and provider-owner state,
-then returns its empty success without invoking the retained frame.
+facade calls invoke the retained frame with the restricted token or capability,
+even while another handler for the same nominal effect is active. Sequential
+and positional byte IO calls do the same with two request exceptions. A
+negative `io::read` or `io::read_at` maximum fails before provider dispatch. An
+empty sequential `io::read` or `io::write` call validates the retained
+capability and provider-owner state, then returns its empty success without
+invoking the retained frame.
 One frame can serve registrations for multiple owners; captured calls supply
 and restore the operand's owner for matching slot access and byte-resource
 registration. That invocation owner does not authorize namespace-token
@@ -153,8 +155,10 @@ modeled runtime failure, and task cancellation. When restricted cleanup
 succeeds during an abrupt failure, the original failure remains primary and
 execution does not continue after the handled scope.
 
-The same private adapter implements `io::read_exact`, `io::write_all`, and
-bounded `io::copy` by dispatching through the retained capabilities.
+The direct byte facades validate sequential and positional provider replies
+against the submitted request without retrying an invalid reply. The same
+private adapter implements `io::read_exact`, `io::write_all`, and bounded
+`io::copy` by dispatching through the retained capabilities.
 `read_exact` accumulates short reads, while `write_all` and `copy` retry only
 the uncommitted write suffix. The helpers stop on provider failure, no
 progress, or invalid provider counts and preserve their independently confirmed

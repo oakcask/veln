@@ -383,12 +383,12 @@ returns `InvalidResource` as described below.
 
 The exported `fs` namespace facades invoke the `fs::Read` or `fs::Mutate`
 handler captured by their filesystem token. The exported `io` byte facades
-invoke the operation handler captured by their projected capability for a
-nonempty sequential `io::read` or `io::write` call. Empty sequential calls take
-the validated bypass described below. Dispatch passes the public token or
-restricted capability to the handler; it does not expose the underlying
-`io_provider::Resource`. A handler can use the matching slot accessor with its
-owner while a nested provider scope is active.
+invoke the operation handler captured by their projected capability after the
+request checks described below. A negative `io::read` or `io::read_at` maximum
+fails before dispatch. Empty sequential calls take the validated bypass.
+Dispatch passes the public token or restricted capability to the handler; it
+does not expose the underlying `io_provider::Resource`. A handler can use the
+matching slot accessor with its owner while a nested provider scope is active.
 
 One captured handler frame can serve registrations for more than one active
 provider owner. Each token, resource, and capability retains its own owner.
