@@ -28,7 +28,7 @@ end
 fn expect_invalid_seek(result: Result<ByteOffset, io::Error>) -> Result<(), String>
 	match result
 		Err(io::Error::Error("seek", io::ErrorKind::InvalidInput, _, _, _, _, _)) => Ok(())
-		_ => Err("negative host seek did not return InvalidInput")
+		_ => Err("invalid host seek did not return InvalidInput")
 	end
 end
 
@@ -53,6 +53,19 @@ fn write_file(filesystem: fs::MutableFilesystem) -> Result<(), String> effects [
 	end
 end
 
+fn seek_only_file(filesystem: fs::MutableFilesystem) -> Result<(), String> effects [fs::Mutate, io::Seek, io::Close]
+	match portable::parse("sample.bin")
+		Err(_) => Err("host fixture name was not portable")
+		Ok(name) => match fs::open_write(filesystem, name, fs::WriteMode::WriteMode(fs::CreateMode::Existing, false))
+			Err(_) => Err("host writable open failed")
+			Ok(fs::WriteFile(_, seeker, _, closer, _, _)) => begin
+				let _ = expect_cursor(io::seek(seeker, io::SeekOrigin::Start(ByteOffset(6))), 6, "host beyond-end seek failed")?
+				expect_closed(io::close(closer))
+			end
+		end
+	end
+end
+
 fn failed_seek_file(filesystem: fs::MutableFilesystem) -> Result<(), String> effects [fs::Mutate, io::Seek, io::Close]
 	match portable::parse("sample.bin")
 		Err(_) => Err("host fixture name was not portable")
@@ -61,10 +74,19 @@ fn failed_seek_file(filesystem: fs::MutableFilesystem) -> Result<(), String> eff
 			Ok(fs::WriteFile(_, seeker, _, closer, _, _)) => begin
 				let _ = expect_cursor(io::seek(seeker, io::SeekOrigin::Start(ByteOffset(8))), 8, "host cursor setup failed")?
 				let _ = expect_invalid_seek(io::seek(seeker, io::SeekOrigin::Start(ByteOffset(0 - 1))))?
-				let _ = expect_cursor(io::seek(seeker, io::SeekOrigin::Current(0)), 8, "failed host seek changed the known cursor")?
+				let _ = expect_cursor(io::seek(seeker, io::SeekOrigin::Current(0)), 8, "negative host seek changed the known cursor")?
+				let _ = expect_invalid_seek(io::seek(seeker, io::SeekOrigin::Current(9223372036854775807)))?
+				let _ = expect_cursor(io::seek(seeker, io::SeekOrigin::Current(0)), 8, "overflowing host seek changed the known cursor")?
 				expect_closed(io::close(closer))
 			end
 		end
+	end
+end
+
+fn seek_only_root(root: Path) -> Result<(), String> effects [fs::Host, io_provider::Scope, fs::Mutate, io::Seek, io::Close]
+	match fs::system(root)
+		Err(_) => Err("host filesystem selection failed")
+		Ok(filesystem) => seek_only_file(filesystem)
 	end
 end
 
@@ -84,6 +106,10 @@ end
 
 pub fn write_phase() -> Result<(), String> effects [fs, concurrency, fs::Mutate, io::Write, io::Seek, io::Close]
 	handle handle write_root(fs::path(".")) with fs::system_handler() with io_provider::scope()
+end
+
+pub fn seek_only_phase() -> Result<(), String> effects [fs, concurrency, fs::Mutate, io::Seek, io::Close]
+	handle handle seek_only_root(fs::path(".")) with fs::system_handler() with io_provider::scope()
 end
 
 pub fn failed_seek_phase() -> Result<(), String> effects [fs, concurrency, fs::Mutate, io::Seek, io::Close]

@@ -228,6 +228,21 @@ fn jvm_host_filesystem_extends_after_beyond_end_seek_and_preserves_failed_seek_s
         wait_for_test_child(child, name, std::time::Duration::from_secs(30))
     };
 
+    let seek_only_ir = lower_project_entry_to_ir(source, "seek_only_phase");
+    let seek_only_program = generate_classfiles_with_entry(&seek_only_ir, "seek_only_phase");
+    write_jvm_program(&root, &seek_only_program);
+    let seek_only_output = run_phase("filesystem-host-seek-beyond-end-only");
+    assert!(
+        seek_only_output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&seek_only_output.stderr)
+    );
+    assert_eq!(
+        fs::read(&file).expect("host fixture should remain readable after seek"),
+        b"ABC",
+        "seek beyond end should not extend the host file before a write"
+    );
+
     let write_ir = lower_project_entry_to_ir(source, "write_phase");
     let write_program = generate_classfiles_with_entry(&write_ir, "write_phase");
     write_jvm_program(&root, &write_program);
