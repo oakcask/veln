@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#imports-and-static-surface; behavior=#runtime-prototypes; limits=#runtime-limits
-update-when: The exported io, fs, or io_provider static source API, opaque capability identities, atomic provider-state typing or runtime behavior, provider-bound dispatch or owner-lifecycle behavior, checked filesystem IO evidence, file-view declarations, or filesystem IO runtime readiness changes.
+update-when: The exported io, fs, or io_provider static source API, direct byte-transfer request or reply outcomes, opaque capability identities, atomic provider-state typing or runtime behavior, provider-bound dispatch or owner-lifecycle behavior, checked filesystem IO evidence, file-view declarations, or filesystem IO runtime readiness changes.
 ---
 
 # Standard-library filesystem and byte IO
@@ -14,8 +14,8 @@ projection prototypes, provider-bound filesystem namespace tokens, and opaque
 atomic provider state. It lets provider and generic IO source check
 capability-correct signatures, capture and invoke provider handlers, exercise
 five runtime resource families, transfer bytes between independently owned
-fake resources, complete bounded reads and writes, keep immutable fake-provider
-state in shared cells, and retain
+fake resources, validate direct byte-transfer replies, complete bounded reads
+and writes, keep immutable fake-provider state in shared cells, and retain
 completed fake-provider writes from concurrent child callers. Provider owner
 exit closes publication before release, rejects and releases a resource whose
 provider call finishes after that boundary, and restricts cleanup access to the
@@ -79,8 +79,8 @@ portable paths, optional network error, optional commit fact, and a message.
 Veln handlers can produce the individual operation outcomes. `read_exact`,
 `write_all`, and bounded `copy` execute through captured provider handlers and
 preserve their documented partial outcomes. The
-[runtime limits](#runtime-limits) identify the remaining direct facade,
-mutation, cleanup, and host-translation behavior.
+[runtime limits](#runtime-limits) identify the remaining mutation, cleanup,
+and host-translation behavior.
 
 `fs::Read` and `fs::Mutate` separate namespace reads from mutation. Portable
 names use `path::Path`. Their facade signatures are:
@@ -383,12 +383,13 @@ returns `InvalidResource` as described below.
 
 The exported `fs` namespace facades invoke the `fs::Read` or `fs::Mutate`
 handler captured by their filesystem token. The exported `io` byte facades
-invoke the operation handler captured by their projected capability for a
-nonempty sequential `io::read` or `io::write` call. Empty sequential calls take
-the validated bypass described below. Dispatch passes the public token or
-restricted capability to the handler; it does not expose the underlying
-`io_provider::Resource`. A handler can use the matching slot accessor with its
-owner while a nested provider scope is active.
+invoke the operation handler captured by their projected capability after the
+request checks described below. A negative `io::read` or `io::read_at` maximum
+fails before capability or owner validation and before provider dispatch.
+Empty sequential calls take the validated bypass.
+Dispatch passes the public token or restricted capability to the handler; it
+does not expose the underlying `io_provider::Resource`. A handler can use the
+matching slot accessor with its owner while a nested provider scope is active.
 
 One captured handler frame can serve registrations for more than one active
 provider owner. Each token, resource, and capability retains its own owner.
@@ -409,17 +410,45 @@ Direct `io::read` with a zero `ByteCount` validates the reader capability and
 that its provider-owner scope remains open, then returns empty `Data` without
 invoking the provider. Direct `io::write` with an empty `ByteChunk` performs the
 corresponding validation and returns `Written(0)` without invoking the provider.
-A reader or writer whose provider-owner scope is closed returns the operation's
-`InvalidResource` outcome with known zero progress, and its provider is not
-invoked.
+For every byte-transfer facade call that reaches owner validation, a capability
+whose provider-owner scope is closed returns the matching read or write
+`InvalidResource` failure with known zero progress, and its provider is not
+invoked. This owner rejection does not override the earlier negative-maximum
+rejection.
 
-For a positive maximum, direct `io::read` normalizes an empty provider `Data`
-result to `ReadFailed` with empty bytes, known zero consumed progress, and
-`NoProgress`. For nonempty input, direct `io::write` normalizes provider
-`Written(0)` to `WriteFailed` with known zero committed progress and
-`NoProgress`. Each nonempty facade request dispatches once and does not retry.
-`End`, nonempty short reads, positive partial writes, and provider-returned
-failures remain unchanged.
+Once the owner is usable, every other accepted byte-transfer request invokes
+the selected provider exactly once. This includes `read_at` and `write_at`
+requests with a zero maximum or empty chunk. None of the four byte-transfer
+facades retries its provider. A negative read maximum returns `ReadFailed` with
+empty bytes, known zero progress, and `InvalidInput` through the earlier
+pre-validation path.
+
+Each of `io::read`, `io::write`, `io::read_at`, and `io::write_at` validates its
+provider reply against the submitted maximum or chunk length. A structurally
+valid `Data` success contains from zero through the requested maximum bytes. A
+structurally valid `Written` success reports a count in the inclusive range
+from zero through the submitted chunk length. A failed read is valid only when
+its bytes fit within the request and its known count or unknown lower bound is
+between the delivered-byte length and the request bound. A failed write is
+valid only when its known count or unknown lower bound is nonnegative and does
+not exceed the submitted chunk length. Valid provider failures remain
+unchanged, including their original errors and `Known` or `Unknown` progress.
+
+After validation, only sequential positive requests apply no-progress
+normalization. Direct `io::read` converts empty provider `Data` to `ReadFailed`
+with empty bytes, known zero consumed progress, and `NoProgress`. Direct
+`io::write` converts provider `Written(0)` to `WriteFailed` with known zero
+committed progress and `NoProgress`. Positional `read_at` preserves empty
+`Data`, and positional `write_at` preserves `Written(0)`, including for positive
+requests. `End`, nonempty short reads, and positive partial writes remain
+unchanged.
+
+An out-of-bounds success or failure reply becomes the operation's
+`InvalidResource` failure. A malformed read reply carries empty bytes and
+`Unknown(0)` consumed progress. A malformed write reply carries `Unknown(0)`
+committed progress. The facade does not wrap or clamp a count, retain the
+malformed provider error, or retry the provider. Zero is the only independently
+confirmed prefix after a reply contradicts the submitted bounds.
 
 Ordinary `perform` retains lexical handler selection and does not receive the
 broader captured invocation authority. An accepted lexical provider open
@@ -435,10 +464,10 @@ when the owners share a handler frame and when different frames captured the
 operand. Wrong-owner resource and capability slot access also returns
 `InvalidResource`. These failures do not change either provider's `State<T>`.
 
-Owner closure applies the same rejection before both facade dispatch and
-ordinary lexical `perform` dispatch. Each operation returns its documented
-`InvalidResource` result shape, and the captured or lexically selected
-provider is not invoked.
+Owner closure applies the same rejection to facade calls that reach owner
+validation and before ordinary lexical `perform` dispatch. Each such operation
+returns its documented `InvalidResource` result shape, and the captured or
+lexically selected provider is not invoked.
 
 `io::copy` requires a positive chunk size. A non-positive chunk size returns
 `InvalidInput` with known zero consumed and committed progress before either
@@ -567,9 +596,9 @@ source-visible cleanup-failure precedence and retry remain part of F5.
 This surface is not a production filesystem implementation. Runtime
 state, namespace-token allocation, registration, projection, provider-bound
 dispatch, bounded `copy` outcomes and progress, complete-transfer helper
-outcomes, serialized completed fake-provider writes, and the bounded
-owner-release lifecycle are limited to the observations above. Direct facade
-provider-count validation and host translation, the namespace and seek outcome
+outcomes, direct facade provider-count validation, serialized completed
+fake-provider writes, and the bounded owner-release lifecycle are limited to
+the observations above. Host translation, the namespace and seek outcome
 matrix, cleanup retry and failure precedence, host filesystem selection, and
 network-to-byte adapters remain unimplemented.
 Type-checking behavior outside the implemented slice establishes only its
@@ -587,10 +616,13 @@ static capability and effect boundary.
 - Complete read and write behavior, including supported caller-count bounds,
   zero-size validation, partial progress, provider failures, malformed replies,
   and overflow, plus direct empty-request bypass, closed-provider-owner
-  rejection, no-progress normalization, and single dispatch:
+  rejection, no-progress normalization, all four direct-facade provider-reply
+  bounds, and single dispatch:
   [`io.test.veln`](../../crates/veln-stdlib/veln/io.test.veln), with scoped
   scripted providers in
-  [`io_complete_transfer_test_support_test.veln`](../../crates/veln-stdlib/veln/io_complete_transfer_test_support_test.veln).
+  [`io_complete_transfer_test_support_test.veln`](../../crates/veln-stdlib/veln/io_complete_transfer_test_support_test.veln)
+  and
+  [`io_direct_validation_test_support_test.veln`](../../crates/veln-stdlib/veln/io_direct_validation_test_support_test.veln).
 - Wrong capability operands:
   `examples/specification/check/filesystem-io-capability-boundaries/`.
 - Missing read-file closer, write-file truncater, update-file positional
