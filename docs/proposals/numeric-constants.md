@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The proposed std::num integer or floating-point constants, scalar module-value representation, non-finite value semantics, or numeric-constant acceptance gates change.
+update-when: The proposed std::num constants, literal construction dependency, scalar module-value representation, or numeric acceptance gates change.
 ---
 
 # Standard-library Numeric Constants
@@ -126,6 +126,15 @@ NaN under the scalar comparison contract above. Text formatting, parsing,
 serialization, total ordering, and non-finite arithmetic policy are separate
 contracts; publishing constants must not silently redefine them.
 
+## Literal policy
+
+[Floating-point Exponent Literals](floating-point-literals.md) recommends
+an independently deliverable decimal and hexadecimal exponent extension and
+defers NaN and infinity tokens. Named standard-library values remain the public special-value
+surface. Exponent literals are not a prerequisite for this constants API;
+when available, they make finite constant definitions and boundary fixtures
+clearer. Neither decision solves construction of the signed integer lower bound.
+
 ## Construction and implementation boundary
 
 Keep public values as ordinary source declarations with explicit annotations.
@@ -135,11 +144,14 @@ user code at startup. Admit ordinary floating-point literals and literal
 negation in data initializers as part of that extension. Preserve the existing
 reference identity, dependency, and cycle rules for aliases and nested data.
 
-The recommended construction bridge is a fixed set of compiler-known scalar
-data leaves for the standard package, referenced by private bindings in the
-two source modules. The bridge must represent the full `Int` lower bound and
-each required binary64 value directly. It must not depend on out-of-range
-literal text, decimal overflow, division by zero, general constant evaluation,
+When the exponent-literal extension is implemented, prefer its exact source
+literals for finite float constants. Until then, a library delivery may use
+the same internal scalar-data bridge as the special values. The recommended
+bridge is a fixed set of compiler-known scalar data leaves for the standard
+package, referenced by private bindings in the two source modules. It must
+represent the full `Int` lower bound and required special float values directly,
+and finite values when the literal route is unavailable. It must not depend
+on out-of-range literal text, decimal overflow, division by zero, general constant evaluation,
 or runtime host calls. It must use trusted standard-package identity; a
 same-spelled local package or module cannot acquire compiler privileges.
 Bridge spellings are internal and are not alternative supported public names.
@@ -159,9 +171,8 @@ meet the same public contract rather than substitute its host's native limits.
 
 ## Related work and alternatives
 
-The following primary documentation was inspected directly after finding no
-local bibliography cache. It supports the design rationale; it does not prove
-Veln conformance.
+The following inspected primary documentation supports the design rationale;
+it does not prove Veln conformance.
 
 - [Rust primitive `f64` constants](https://doc.rust-lang.org/std/primitive.f64.html#associatedconstant.MIN)
   define `MIN` as the most negative finite value, `MIN_POSITIVE` as the least
@@ -233,6 +244,7 @@ Before moving this proposal to Ready:
 3. Fix runnable companion-test and backend-bit-inspection routes and add their
    commands with the feasibility evidence. Confirm the source modules remain
    discoverable through normal standard-package loading and documentation.
+
 
 Implementation is complete only when every acceptance row has checked
 evidence, and the source-surface, types, execution, and relevant standard-library

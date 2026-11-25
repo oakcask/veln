@@ -31,6 +31,10 @@ also states it.
   bounds and `Float` finite limits, positive minima, epsilon, infinities, and
   NaN through typed module values; requires scalar-data construction and
   non-finite comparison feasibility evidence before Ready promotion.
+- [Floating-point Exponent Literals](floating-point-literals.md): add
+  decimal and hexadecimal float exponent notation with explicit rounding and
+  range errors; defer special-value tokens in favor of named constants. Independent of the
+  constants API delivery.
 - [Typed Predicate Logic and Flow Facts](typed-predicate-facts.md): define
   typed scalar predicates, value identity, flow transfer, and bounded proof
   outcomes as the shared prerequisite for callable interfaces and static
