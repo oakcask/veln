@@ -17,7 +17,9 @@ five runtime resource families, transfer bytes between independently owned
 fake resources, validate direct byte-transfer replies, complete bounded reads
 and writes, exercise per-open cursors, seek-beyond-end sequential extension,
 and positional IO in a scoped fake, exercise a bounded JVM rooted-host
-write after seeking beyond end, keep
+write after seeking beyond end, publish its rooted namespace token and
+host-backed write resource without replacing concurrent provider
+registrations, keep
 immutable fake-provider state in shared cells, and retain
 completed fake-provider writes from concurrent child callers. Provider owner
 exit closes publication before release, rejects and releases a resource whose
@@ -502,6 +504,17 @@ an existing portable child path with `WriteMode(Existing, false)`. The returned
 sync, truncate, other open modes, and other namespace operations are outside
 this path.
 
+Publication of the rooted namespace token is atomic with owner closure and
+selection of an unoccupied provider slot. If another provider registration
+occupies the next host candidate, namespace or `WriteFile` publication
+preserves that identity and selects the next free slot. `fs::system(root)`
+that reaches publication after owner closure returns `InvalidResource`; it
+does not create or replace the closed scope's owner or change an existing
+registry. The host-backed `WriteFile` is also rejected when its owner has
+closed. Its opened channel is then closed instead of being returned or
+registered. Scope exit closes each successfully published host file through
+its captured close handler.
+
 For that host file, a valid absolute seek beyond end changes the sequential
 cursor without extending the file. A later successful sequential write starts
 at that cursor, extends the file through the committed suffix, and advances the
@@ -699,6 +712,12 @@ static capability and effect boundary.
   extension, host-defined gap treatment, and prevalidated failed-seek cursor
   preservation:
   [`filesystem_host_seek_beyond_end.veln`](../../crates/veln-backend-jvm/test-support/filesystem_host_seek_beyond_end.veln),
+  exercised by the focused runtime integration test in
+  [`runtime_integration.rs`](../../crates/veln-backend-jvm/src/tests/runtime_integration.rs).
+- Rooted-host namespace publication under owner closure, namespace and
+  write-resource publication under provider-slot contention, and release of
+  the successfully published host channel:
+  [`HostFilesystemPublicationHarness.java`](../../crates/veln-backend-jvm/test-support/HostFilesystemPublicationHarness.java),
   exercised by the focused runtime integration test in
   [`runtime_integration.rs`](../../crates/veln-backend-jvm/src/tests/runtime_integration.rs).
 - Wrong capability operands:

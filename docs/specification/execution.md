@@ -174,7 +174,10 @@ normalizing or asserting the intervening gap bytes. Negative and overflowing
 targets fail before the channel position changes, which preserves the known
 cursor and file state. Other open modes, positional operations, sync,
 truncate, namespace mutation, and uncertain host failures remain outside this
-execution path; the
+execution path. Rooted namespace publication is serialized with provider-owner
+closure and occupied-slot selection. Host-backed write-resource publication
+also rejects a closed owner and selects an unoccupied slot, so neither path
+replaces a concurrent provider registration. The
 [filesystem and byte IO specification](standard-library-filesystem-io.md#provider-bound-dispatch)
 owns its source-visible contract and evidence.
 A facade or accepted lexical open admitted before owner closure can finish

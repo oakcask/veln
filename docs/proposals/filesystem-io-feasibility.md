@@ -27,8 +27,9 @@ validation, `read_exact`, `write_all`, and `copy` observations, F3
 observations, the scoped-fake open-resource seek and positional-cursor
 observations, the provider-side seek-beyond-end sequential-write transition
 and zero-gap policy, the bounded JVM rooted-host seek-beyond-end sequential
-extension and prevalidated failed-seek preservation, and the restricted
-owner-release boundary that F5 must reuse.
+extension and prevalidated failed-seek preservation, atomic rooted namespace
+publication under owner closure, collision-safe host write-resource
+publication, and the restricted owner-release boundary that F5 must reuse.
 This proposal does not restate those current results, ordering rules, or
 preserved-state contracts.
 The following sections of the filesystem proposal define the remaining
@@ -111,7 +112,8 @@ This proposal completes only when the remaining F4 rows and F5 have checked
 evidence at the stated boundaries. Bounded `copy`, scoped-fake open-resource
 seek, provider-side seek-beyond-end sequential writes, positional-cursor
 behavior, the bounded JVM rooted-host seek-beyond-end sequential extension and
-prevalidated invalid-seek preservation, and F3 are implemented and specified
+prevalidated invalid-seek preservation, rooted namespace and host
+write-resource publication, and F3 are implemented and specified
 independently. A failed
 remaining gate keeps the target incomplete
 until the design and its independent expectations are reconciled.
