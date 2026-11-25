@@ -457,10 +457,11 @@ projected from the same resource share that cursor, while a separate resource
 over the same bytes does not. Successful
 `Start`, `Current`, and `End` seeks set the cursor to the resulting nonnegative
 offset. Seeking beyond the current end changes only the cursor; it does not
-extend or otherwise change the bytes. Sequential reads and writes advance by
-the delivered or committed count, including partial failures. Positional
-reads and writes preserve the sequential cursor on success and failure; a
-partial positional write changes only its confirmed prefix.
+extend or otherwise change the bytes. For the bounded in-file transfers in
+this fake, sequential reads and writes advance by the delivered or committed
+count, including partial failures. Positional reads and writes preserve the
+sequential cursor on success and failure; a partial positional write changes
+only its confirmed prefix.
 
 Negative and overflowing seek targets fail without changing the bytes, size,
 or prior known cursor. A scripted known-no-change seek failure has the same

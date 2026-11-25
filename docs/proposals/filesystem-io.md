@@ -257,8 +257,8 @@ per-open lifecycle, synchronized state, and scripted failures.
 The checked feasibility foundation belongs to the
 [current specification](../specification/standard-library-filesystem-io.md).
 The evidence below is planned for the remaining behavior. The implemented
-direct-facade validation and complete-transfer matrices and their checked
-evidence belong to the
+direct-facade validation, complete-transfer matrices, and scoped-fake cursor
+and positional observations and their checked evidence belong to the
 [current specification](../specification/standard-library-filesystem-io.md#references).
 Expected byte sequences and state transitions come from the contracts and
 decision tables in this proposal, not from copying the implementation's
@@ -268,7 +268,7 @@ output. Fake tests do not establish real host behavior.
 | --- | --- | --- |
 | Host conversion | An unrepresentable name fails without selecting another entry; native and portable types cannot be interchanged implicitly. | Companion tests plus focused host-conversion and compiler type-boundary tests. |
 | Host transfer translation | Host adapters preserve established prefixes and report unknown progress when a transfer may have occurred but its exact progress cannot be established. | Focused host-adapter tests for established and uncertain host progress. |
-| Seek and positional IO | Origin arithmetic, invalid targets, beyond-end reads, independent opens, aliases, and positional cursor preservation obey the state table. | Companion tests shared by memory and supported system providers; host tests for native translation. |
+| Remaining seek and positional IO | Memory and system providers extend the current scoped-fake cursor contract with the outstanding gap-write and host-specific failed-seek outcomes in the state table. | Shared provider conformance tests for the remaining transitions; host tests for native translation and uncertain host cursor state. |
 | Namespace updates | Open modes, exclusive create, directory operations, rename, and truncation obey the mutation transition table, including failure preservation. | Shared provider conformance tests and focused real-host integration cases. |
 | Errors and cleanup | Stable error kinds retain operation and path context; close and cleanup transitions preserve progress and the selected primary failure. | Companion tests plus human/JSON execution coverage where runtime cleanup diagnostics apply. |
 | Real host default | A system handler reaches real files without fake selectors, while an injected fake requires no host-file setup. | Focused host integration and effect-boundary policy checks. |
@@ -289,7 +289,7 @@ runtime support exists.
 
 | Concern | Selected initial design | Acceptance obligation |
 | --- | --- | --- |
-| Failure-plan state | Extend the provider-bound Veln fake state with scripted failures, resource cursors, close facts, and operation progress as ordinary Veln data. | A scripted failure changes only the selected provider instance and records the commit facts required by the operation outcome matrix. |
+| Failure-plan state | Extend the provider-bound Veln fake state with the outstanding scripted close facts and operation progress as ordinary Veln data; the current scoped fake owns open-resource cursor state. | A scripted failure changes only the selected provider instance and records the commit facts required by the operation outcome matrix. |
 | Native paths | Keep the current host-owned `Path` as the explicit native boundary; `path::Path` remains portable. Support only exactly representable names initially. | Nonrepresentable names fail with `UnrepresentablePath`; display is never used as a conversion. |
 | Links and confinement | Follow links for ordinary open; explicit follow/no-follow metadata. No confinement or link-creation capability initially. A subtree is only a namespace view. | Dangling links, cycles, unsupported no-follow, and a link outside a subtree cannot be misreported as confined access. |
 | Remaining IO outcomes | Preserve delivered bytes, exact or unknown progress, and typed errors in host adapters. The current specification owns empty-request, direct provider-count validation, sequential direct-facade, and complete-transfer helper outcomes. | Host partial-failure and unknown-progress cases below, excluding the implemented direct and helper matrices. |

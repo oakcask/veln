@@ -2074,9 +2074,22 @@ fn cursor_known(cursor: io_seek_cursor_test_support_test::CursorObservation, exp
 	end
 end
 
+fn cursor_unknown(cursor: io_seek_cursor_test_support_test::CursorObservation) -> Bool
+	match cursor
+		io_seek_cursor_test_support_test::CursorObservation::Unknown => true
+		_ => false
+	end
+end
+
 fn cursor_snapshot_matches(snapshot: io_seek_cursor_test_support_test::Snapshot, bytes: String, first: Int, second: Int, operations: String, remaining: Int) -> Result<Bool, String>
 	match snapshot
 		io_seek_cursor_test_support_test::Snapshot(actual_bytes, first_cursor, second_cursor, actual_operations, actual_remaining) => Ok(byte_chunk_to_visible_ascii_string(actual_bytes)? == bytes and cursor_known(first_cursor, first) and cursor_known(second_cursor, second) and actual_operations == operations and actual_remaining == remaining)
+	end
+end
+
+fn cursor_unknown_snapshot_matches(snapshot: io_seek_cursor_test_support_test::Snapshot, bytes: String, second: Int, operations: String, remaining: Int) -> Result<Bool, String>
+	match snapshot
+		io_seek_cursor_test_support_test::Snapshot(actual_bytes, first_cursor, second_cursor, actual_operations, actual_remaining) => Ok(byte_chunk_to_visible_ascii_string(actual_bytes)? == bytes and cursor_unknown(first_cursor) and cursor_known(second_cursor, second) and actual_operations == operations and actual_remaining == remaining)
 	end
 end
 
@@ -2156,7 +2169,7 @@ end
 test scoped_cursor_fake_positional_io_preserves_sequential_cursor_on_success_and_failure() -> Result<(), String> effects [concurrency]
 	match handle io_seek_cursor_test_support_test::execute_positional() with io_provider::scope()
 		Err(message) => Err(message)
-		Ok(io_seek_cursor_test_support_test::PositionalObservation(position, read, failed_read, write, failed_write, snapshot)) => if cursor_offset(position, 2) and cursor_read_data(read, "ef")? and cursor_failed_read(failed_read, "b", 1)? and cursor_written(write, 2) and cursor_failed_write(failed_write, 0) and cursor_snapshot_matches(snapshot, "abcXYf", 2, 0, "seek-start;read_at;read_at;write_at;write_at;", 0)?
+		Ok(io_seek_cursor_test_support_test::PositionalObservation(position, positioned, read, after_read, failed_read, after_failed_read, write, after_write, failed_write, snapshot)) => if cursor_offset(position, 2) and cursor_snapshot_matches(positioned, "abcdef", 2, 0, "seek-start;", 4)? and cursor_read_data(read, "ef")? and cursor_snapshot_matches(after_read, "abcdef", 2, 0, "seek-start;read_at;", 3)? and cursor_failed_read(failed_read, "b", 1)? and cursor_snapshot_matches(after_failed_read, "abcdef", 2, 0, "seek-start;read_at;read_at;", 2)? and cursor_written(write, 2) and cursor_snapshot_matches(after_write, "abcXYf", 2, 0, "seek-start;read_at;read_at;write_at;", 1)? and cursor_failed_write(failed_write, 1) and cursor_snapshot_matches(snapshot, "QbcXYf", 2, 0, "seek-start;read_at;read_at;write_at;write_at;", 0)?
 			Ok(())
 		else
 			Err("positional IO changed the sequential cursor or lost bytes, progress, or order")
@@ -2167,7 +2180,7 @@ end
 test scoped_cursor_fake_rejects_relative_unknown_cursor_until_absolute_recovery() -> Result<(), String> effects [concurrency]
 	match handle io_seek_cursor_test_support_test::execute_unknown() with io_provider::scope()
 		Err(message) => Err(message)
-		Ok(io_seek_cursor_test_support_test::UnknownObservation(position, known_failure, preserved, unknown_failure, rejected_current, rejected_end, recovered, relative_after_recovery, snapshot)) => if not cursor_offset(position, 2)
+		Ok(io_seek_cursor_test_support_test::UnknownObservation(position, known_failure, preserved, unknown_failure, unknown, rejected_current, after_rejected_current, rejected_end, after_rejected_end, recovered, relative_after_recovery, snapshot)) => if not cursor_offset(position, 2)
 			Err("unknown cursor setup position differed")
 		else if not cursor_other_error(known_failure)
 			Err("known cursor failure outcome differed")
@@ -2175,8 +2188,12 @@ test scoped_cursor_fake_rejects_relative_unknown_cursor_until_absolute_recovery(
 			Err("known cursor failure changed preserved state")
 		else if not cursor_other_error(unknown_failure)
 			Err("unknown cursor scripted failure outcome differed")
+		else if not cursor_unknown_snapshot_matches(unknown, "abcdef", 0, "seek-start;seek-current;seek-end;", 2)?
+			Err("scripted unknown failure did not make the cursor unknown")
 		else if not cursor_invalid_resource(rejected_current) or not cursor_invalid_resource(rejected_end)
 			Err("relative seek while unknown was not rejected")
+		else if not cursor_unknown_snapshot_matches(after_rejected_current, "abcdef", 0, "seek-start;seek-current;seek-end;seek-current;", 2)? or not cursor_unknown_snapshot_matches(after_rejected_end, "abcdef", 0, "seek-start;seek-current;seek-end;seek-current;seek-end;", 2)?
+			Err("relative seek rejection changed unknown cursor state")
 		else if not cursor_offset(recovered, 4) or not cursor_offset(relative_after_recovery, 5)
 			Err("absolute recovery or following relative seek differed")
 		else if cursor_snapshot_matches(snapshot, "abcdef", 5, 0, "seek-start;seek-current;seek-end;seek-current;seek-end;seek-start;seek-current;", 0)?

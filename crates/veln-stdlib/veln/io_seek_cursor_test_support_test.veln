@@ -44,11 +44,11 @@ pub type SequentialObservation
 end
 
 pub type PositionalObservation
-	pub PositionalObservation(position: Result<ByteOffset, io::Error>, read: io::ReadOutcome, failed_read: io::ReadOutcome, write: io::WriteOutcome, failed_write: io::WriteOutcome, snapshot: Snapshot)
+	pub PositionalObservation(position: Result<ByteOffset, io::Error>, positioned: Snapshot, read: io::ReadOutcome, after_read: Snapshot, failed_read: io::ReadOutcome, after_failed_read: Snapshot, write: io::WriteOutcome, after_write: Snapshot, failed_write: io::WriteOutcome, snapshot: Snapshot)
 end
 
 pub type UnknownObservation
-	pub UnknownObservation(position: Result<ByteOffset, io::Error>, known_failure: Result<ByteOffset, io::Error>, preserved: Snapshot, unknown_failure: Result<ByteOffset, io::Error>, rejected_current: Result<ByteOffset, io::Error>, rejected_end: Result<ByteOffset, io::Error>, recovered: Result<ByteOffset, io::Error>, relative_after_recovery: Result<ByteOffset, io::Error>, snapshot: Snapshot)
+	pub UnknownObservation(position: Result<ByteOffset, io::Error>, known_failure: Result<ByteOffset, io::Error>, preserved: Snapshot, unknown_failure: Result<ByteOffset, io::Error>, unknown: Snapshot, rejected_current: Result<ByteOffset, io::Error>, after_rejected_current: Snapshot, rejected_end: Result<ByteOffset, io::Error>, after_rejected_end: Snapshot, recovered: Result<ByteOffset, io::Error>, relative_after_recovery: Result<ByteOffset, io::Error>, snapshot: Snapshot)
 end
 
 type Views
@@ -229,8 +229,14 @@ fn bounded_count(requested: Int, planned: Int, available: Int) -> Int
 end
 
 fn slice(bytes: ByteChunk, offset: Int, count: Int) -> Result<ByteChunk, String>
-	let suffix = byte_drop(bytes, ByteCount(offset))?
-	byte_take(suffix, ByteCount(count))
+	if count == 0
+		Ok(byte_chunk([]))
+	else
+		begin
+			let suffix = byte_drop(bytes, ByteCount(offset))?
+			byte_take(suffix, ByteCount(count))
+		end
+	end
 end
 
 fn replace(bytes: ByteChunk, offset: Int, input: ByteChunk, count: Int) -> Result<ByteChunk, String>
@@ -495,11 +501,15 @@ fn positional_body(owner: io_provider::Owner, state: io_provider::State<State>) 
 		Err(message) => Err(message)
 		Ok(Views(fs::UpdateFile(_, _, seeker, reader_at, writer_at, _, _, _), _, _)) => begin
 			let position = io::seek(seeker, io::SeekOrigin::Start(ByteOffset(2)))
+			let positioned = snapshot(state)
 			let read = io::read_at(reader_at, ByteOffset(4), ByteCount(2))
+			let after_read = snapshot(state)
 			let failed_read = io::read_at(reader_at, ByteOffset(1), ByteCount(2))
+			let after_failed_read = snapshot(state)
 			let write = io::write_at(writer_at, ByteOffset(3), byte_chunk_from_visible_ascii_string("XYZ")?)
+			let after_write = snapshot(state)
 			let failed_write = io::write_at(writer_at, ByteOffset(0), byte_chunk_from_visible_ascii_string("Q")?)
-			Ok(PositionalObservation(position, read, failed_read, write, failed_write, snapshot(state)))
+			Ok(PositionalObservation(position, positioned, read, after_read, failed_read, after_failed_read, write, after_write, failed_write, snapshot(state)))
 		end
 	end
 end
@@ -512,11 +522,14 @@ fn unknown_body(owner: io_provider::Owner, state: io_provider::State<State>) -> 
 			let known_failure = io::seek(seeker, io::SeekOrigin::Current(1))
 			let preserved = snapshot(state)
 			let unknown_failure = io::seek(seeker, io::SeekOrigin::End(0))
+			let unknown = snapshot(state)
 			let rejected_current = io::seek(seeker, io::SeekOrigin::Current(1))
+			let after_rejected_current = snapshot(state)
 			let rejected_end = io::seek(seeker, io::SeekOrigin::End(0))
+			let after_rejected_end = snapshot(state)
 			let recovered = io::seek(seeker, io::SeekOrigin::Start(ByteOffset(4)))
 			let relative_after_recovery = io::seek(seeker, io::SeekOrigin::Current(1))
-			Ok(UnknownObservation(position, known_failure, preserved, unknown_failure, rejected_current, rejected_end, recovered, relative_after_recovery, snapshot(state)))
+			Ok(UnknownObservation(position, known_failure, preserved, unknown_failure, unknown, rejected_current, after_rejected_current, rejected_end, after_rejected_end, recovered, relative_after_recovery, snapshot(state)))
 		end
 	end
 end
@@ -556,7 +569,7 @@ end
 pub fn execute_positional() -> Result<PositionalObservation, String> effects [io_provider::Scope, concurrency]
 	let owner = io_provider::owner()
 	let bytes = byte_chunk_from_visible_ascii_string("abcdef")?
-	let actions = list_cons(SeekSucceeds, list_cons(ReadAtSucceeds(2), list_cons(ReadAtFails(1), list_cons(WriteAtSucceeds(2), list_cons(WriteAtFails(0), list_nil())))))
+	let actions = list_cons(SeekSucceeds, list_cons(ReadAtSucceeds(2), list_cons(ReadAtFails(1), list_cons(WriteAtSucceeds(2), list_cons(WriteAtFails(1), list_nil())))))
 	let state = io_provider::state(State(bytes, KnownCursor(0), KnownCursor(0), actions, ""))
 	run_positional(owner, state)
 end
