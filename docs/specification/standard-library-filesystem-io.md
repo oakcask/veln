@@ -465,16 +465,23 @@ delivered or committed count, including partial failures. Positional reads and
 writes preserve the sequential cursor on success and failure; a partial
 positional write changes only its confirmed prefix.
 
-The fake defines each byte between the old end and a committed beyond-end
-sequential write as zero. A successful write extends the bytes through its
+The fake enters its extension path only when the sequential cursor is strictly
+beyond the current end. It defines each byte between the old end and a
+committed write there as zero. A successful write extends the bytes through its
 reported committed prefix and advances the shared sequential cursor by that
 count. A scripted failed write with known zero progress preserves the bytes and
 cursor, including when the cursor is beyond the end. A scripted failed write
 with known positive progress inserts the required zero gap, commits exactly the
-reported input prefix, and advances the cursor by that count. Each seek and
+reported input prefix, and advances the cursor by that count.
+
+A sequential write that starts at or before the current end remains a bounded
+replacement. If its reported committed prefix would cross the current end, the
+fake returns `WriteFailed` with `Known(0)` progress and `InvalidResource`, and
+preserves the bytes and cursor. This applies to scripted successes and
+failures, including writes that start exactly at the end. Each seek and
 nonempty write dispatched to the fake remains present in operation order even
-when the failed write preserves state. This zero-gap rule specifies only the
-scoped fake provider; it does not establish a host-filesystem gap policy.
+when the write preserves state. This zero-gap rule specifies only the scoped
+fake provider; it does not establish a host-filesystem gap policy.
 
 Negative and overflowing seek targets fail without changing the bytes, size,
 or prior known cursor. A scripted known-no-change seek failure has the same
@@ -662,8 +669,9 @@ static capability and effect boundary.
   and
   [`io_direct_validation_test_support_test.veln`](../../crates/veln-stdlib/veln/io_direct_validation_test_support_test.veln).
 - Scoped-fake per-open cursor identity, seek targets, sequential progress,
-  zero-gap extension after a beyond-end seek, failed-write commit state and
-  operation order, and positional cursor preservation:
+  zero-gap extension after a beyond-end seek, bounded EOF and crossing-EOF
+  replacement rejection, failed-write commit state and operation order, and
+  positional cursor preservation:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with state and scripted failures in
   [`io_seek_cursor_test_support_test.veln`](../../crates/veln-stdlib/veln/io_seek_cursor_test_support_test.veln).
