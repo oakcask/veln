@@ -471,10 +471,10 @@ reported committed prefix and advances the shared sequential cursor by that
 count. A scripted failed write with known zero progress preserves the bytes and
 cursor, including when the cursor is beyond the end. A scripted failed write
 with known positive progress inserts the required zero gap, commits exactly the
-reported input prefix, and advances the cursor by that count. Each attempted
-seek and write remains present in operation order even when the failed write
-preserves state. This zero-gap rule specifies only the scoped fake provider; it
-does not establish a host-filesystem gap policy.
+reported input prefix, and advances the cursor by that count. Each seek and
+nonempty write dispatched to the fake remains present in operation order even
+when the failed write preserves state. This zero-gap rule specifies only the
+scoped fake provider; it does not establish a host-filesystem gap policy.
 
 Negative and overflowing seek targets fail without changing the bytes, size,
 or prior known cursor. A scripted known-no-change seek failure has the same
