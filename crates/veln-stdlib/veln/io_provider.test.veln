@@ -1936,6 +1936,21 @@ test copy_rejects_failed_read_bytes_beyond_the_progress_lower_bound() -> Result<
 	end
 end
 
+test copy_rejects_unknown_failed_read_bytes_beyond_the_progress_lower_bound() -> Result<(), String> effects [concurrency]
+	let failure = f4_copy_error(io::ErrorKind::Other, "malformed unknown read bytes")
+	let malformed = io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("ab")?, io::Progress::Unknown(byte_count(1)?), failure)
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("x")?), list_cons(malformed, list_cons(io::ReadOutcome::End, list_nil())))
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil())
+	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Cons(4, Nil)), Cons(input, Nil), Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(consumed) == 1 and byte_count_to_int(committed) == 1 and byte_chunk_to_visible_ascii_string(output)? == "x" and byte_chunk_to_visible_ascii_string(input)? == "x"
+			Ok(())
+		else
+			Err("malformed unknown failed-read bytes changed confirmed progress or output")
+		end
+		_ => Err("malformed unknown failed-read bytes did not stop after one malformed reply")
+	end
+end
+
 test copy_rejects_failed_read_progress_beyond_the_request() -> Result<(), String> effects [concurrency]
 	let failure = f4_copy_error(io::ErrorKind::Other, "malformed read progress")
 	let malformed = io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("a")?, io::Progress::Known(byte_count(5)?), failure)
