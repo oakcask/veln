@@ -36,7 +36,7 @@ pub type Snapshot
 end
 
 pub type OriginObservation
-	pub OriginObservation(start: Result<ByteOffset, io::Error>, current: Result<ByteOffset, io::Error>, end_before: Result<ByteOffset, io::Error>, end_after: Result<ByteOffset, io::Error>, beyond_read: io::ReadOutcome, negative_start: Result<ByteOffset, io::Error>, negative_current: Result<ByteOffset, io::Error>, preserved: Snapshot, maximum_start: Result<ByteOffset, io::Error>, overflow_current: Result<ByteOffset, io::Error>, snapshot: Snapshot)
+	pub OriginObservation(start: Result<ByteOffset, io::Error>, after_start: Snapshot, current: Result<ByteOffset, io::Error>, after_current: Snapshot, end_before: Result<ByteOffset, io::Error>, after_end_before: Snapshot, end_after: Result<ByteOffset, io::Error>, after_end_after: Snapshot, beyond_read: io::ReadOutcome, negative_start: Result<ByteOffset, io::Error>, after_negative_start: Snapshot, negative_current: Result<ByteOffset, io::Error>, after_negative_current: Snapshot, maximum_start: Result<ByteOffset, io::Error>, after_maximum_start: Snapshot, overflow_current: Result<ByteOffset, io::Error>, after_overflow_current: Snapshot)
 end
 
 pub type SequentialObservation
@@ -467,16 +467,23 @@ fn origins_body(owner: io_provider::Owner, state: io_provider::State<State>) -> 
 		Err(message) => Err(message)
 		Ok(Views(fs::UpdateFile(reader, _, seeker, _, _, _, _, _), _, _)) => begin
 			let start = io::seek(seeker, io::SeekOrigin::Start(ByteOffset(2)))
+			let after_start = snapshot(state)
 			let current = io::seek(seeker, io::SeekOrigin::Current(2))
+			let after_current = snapshot(state)
 			let end_before = io::seek(seeker, io::SeekOrigin::End(0 - 1))
+			let after_end_before = snapshot(state)
 			let end_after = io::seek(seeker, io::SeekOrigin::End(2))
+			let after_end_after = snapshot(state)
 			let beyond_read = io::read(reader, ByteCount(1))
 			let negative_start = io::seek(seeker, io::SeekOrigin::Start(ByteOffset(0 - 1)))
+			let after_negative_start = snapshot(state)
 			let negative_current = io::seek(seeker, io::SeekOrigin::Current(0 - 9))
-			let preserved = snapshot(state)
+			let after_negative_current = snapshot(state)
 			let maximum_start = io::seek(seeker, io::SeekOrigin::Start(ByteOffset(9223372036854775807)))
+			let after_maximum_start = snapshot(state)
 			let overflow_current = io::seek(seeker, io::SeekOrigin::Current(1))
-			Ok(OriginObservation(start, current, end_before, end_after, beyond_read, negative_start, negative_current, preserved, maximum_start, overflow_current, snapshot(state)))
+			let after_overflow_current = snapshot(state)
+			Ok(OriginObservation(start, after_start, current, after_current, end_before, after_end_before, end_after, after_end_after, beyond_read, negative_start, after_negative_start, negative_current, after_negative_current, maximum_start, after_maximum_start, overflow_current, after_overflow_current))
 		end
 	end
 end
@@ -485,12 +492,12 @@ fn sequential_body(owner: io_provider::Owner, state: io_provider::State<State>) 
 	match views(owner)
 		Err(message) => Err(message)
 		Ok(Views(fs::UpdateFile(reader, _, _, _, _, _, _, _), fs::UpdateFile(_, alias_writer, alias_seeker, _, _, _, _, _), fs::UpdateFile(second_reader, _, _, _, _, _, _, _))) => begin
-			let read = io::read(reader, ByteCount(2))
+			let read = io::read(reader, ByteCount(4))
 			let alias_seek = io::seek(alias_seeker, io::SeekOrigin::Current(1))
 			let partial_write = io::write(alias_writer, byte_chunk_from_visible_ascii_string("XYZ")?)
 			let failed_read = io::read(reader, ByteCount(2))
 			let failed_write = io::write(alias_writer, byte_chunk_from_visible_ascii_string("QZ")?)
-			let separate_read = io::read(second_reader, ByteCount(1))
+			let separate_read = io::read(second_reader, ByteCount(3))
 			Ok(SequentialObservation(read, alias_seek, partial_write, failed_read, failed_write, separate_read, snapshot(state)))
 		end
 	end
@@ -508,7 +515,7 @@ fn positional_body(owner: io_provider::Owner, state: io_provider::State<State>) 
 			let after_failed_read = snapshot(state)
 			let write = io::write_at(writer_at, ByteOffset(3), byte_chunk_from_visible_ascii_string("XYZ")?)
 			let after_write = snapshot(state)
-			let failed_write = io::write_at(writer_at, ByteOffset(0), byte_chunk_from_visible_ascii_string("Q")?)
+			let failed_write = io::write_at(writer_at, ByteOffset(0), byte_chunk_from_visible_ascii_string("QZ")?)
 			Ok(PositionalObservation(position, positioned, read, after_read, failed_read, after_failed_read, write, after_write, failed_write, snapshot(state)))
 		end
 	end

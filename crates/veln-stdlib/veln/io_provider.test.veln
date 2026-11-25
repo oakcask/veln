@@ -2131,26 +2131,28 @@ end
 test scoped_cursor_fake_covers_seek_origins_bounds_and_nonextending_seek() -> Result<(), String> effects [concurrency]
 	match handle io_seek_cursor_test_support_test::execute_origins() with io_provider::scope()
 		Err(message) => Err(message)
-		Ok(io_seek_cursor_test_support_test::OriginObservation(start, current, end_before, end_after, beyond_read, negative_start, negative_current, preserved, maximum_start, overflow_current, snapshot)) => if not cursor_offset(start, 2)
+		Ok(io_seek_cursor_test_support_test::OriginObservation(start, after_start, current, after_current, end_before, after_end_before, end_after, after_end_after, beyond_read, negative_start, after_negative_start, negative_current, after_negative_current, maximum_start, after_maximum_start, overflow_current, after_overflow_current)) => if not cursor_offset(start, 2) or not cursor_snapshot_matches(after_start, "abcdef", 2, 0, "seek-start;", 5)?
 			Err("scoped cursor fake start outcome differed")
-		else if not cursor_offset(current, 4)
+		else if not cursor_offset(current, 4) or not cursor_snapshot_matches(after_current, "abcdef", 4, 0, "seek-start;seek-current;", 4)?
 			Err("scoped cursor fake current outcome differed")
-		else if not cursor_offset(end_before, 5)
+		else if not cursor_offset(end_before, 5) or not cursor_snapshot_matches(after_end_before, "abcdef", 5, 0, "seek-start;seek-current;seek-end;", 3)?
 			Err("scoped cursor fake negative end outcome differed")
-		else if not cursor_offset(end_after, 8)
+		else if not cursor_offset(end_after, 8) or not cursor_snapshot_matches(after_end_after, "abcdef", 8, 0, "seek-start;seek-current;seek-end;seek-end;", 2)?
 			Err("scoped cursor fake positive end outcome differed")
 		else if not cursor_read_end(beyond_read)
 			Err("scoped cursor fake beyond-end read outcome differed")
-		else if not (cursor_invalid_input(negative_start) and cursor_invalid_input(negative_current))
+		else if not cursor_invalid_input(negative_start) or not cursor_snapshot_matches(after_negative_start, "abcdef", 8, 0, "seek-start;seek-current;seek-end;seek-end;read;seek-start;", 1)?
+			Err("scoped cursor fake negative start preservation differed")
+		else if not cursor_invalid_input(negative_current) or not cursor_snapshot_matches(after_negative_current, "abcdef", 8, 0, "seek-start;seek-current;seek-end;seek-end;read;seek-start;seek-current;", 1)?
 			Err("scoped cursor fake negative seek outcomes differed")
-		else if not cursor_snapshot_matches(preserved, "abcdef", 8, 0, "seek-start;seek-current;seek-end;seek-end;read;seek-start;seek-current;", 1)?
-			Err("scoped cursor fake preserved seek snapshot differed")
-		else if not cursor_offset(maximum_start, 9223372036854775807) or not cursor_invalid_input(overflow_current)
-			Err("scoped cursor fake overflow seek outcomes differed")
-		else if cursor_snapshot_matches(snapshot, "abcdef", 9223372036854775807, 0, "seek-start;seek-current;seek-end;seek-end;read;seek-start;seek-current;seek-start;seek-current;", 0)?
+		else if not cursor_offset(maximum_start, 9223372036854775807) or not cursor_snapshot_matches(after_maximum_start, "abcdef", 9223372036854775807, 0, "seek-start;seek-current;seek-end;seek-end;read;seek-start;seek-current;seek-start;", 0)?
+			Err("scoped cursor fake maximum start transition differed")
+		else if not cursor_invalid_input(overflow_current)
+			Err("scoped cursor fake overflow seek outcome differed")
+		else if cursor_snapshot_matches(after_overflow_current, "abcdef", 9223372036854775807, 0, "seek-start;seek-current;seek-end;seek-end;read;seek-start;seek-current;seek-start;seek-current;", 0)?
 			Ok(())
 		else
-			Err("scoped cursor fake final seek snapshot differed")
+			Err("scoped cursor fake overflow preservation differed")
 		end
 	end
 end
