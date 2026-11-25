@@ -451,9 +451,10 @@ committed progress. The facade does not wrap or clamp a count, retain the
 malformed provider error, or retry the provider. Zero is the only independently
 confirmed prefix after a reply contradicts the submitted bounds.
 
-A scoped Veln fake gives each registered open resource an independent
-sequential cursor. Capability aliases projected from the same resource share
-that cursor, while a separate open over the same bytes does not. Successful
+A scoped Veln fake used by the companion tests gives each registered,
+already-open resource an independent sequential cursor. Capability aliases
+projected from the same resource share that cursor, while a separate resource
+over the same bytes does not. Successful
 `Start`, `Current`, and `End` seeks set the cursor to the resulting nonnegative
 offset. Seeking beyond the current end changes only the cursor; it does not
 extend or otherwise change the bytes. Sequential reads and writes advance by
@@ -465,9 +466,10 @@ Negative and overflowing seek targets fail without changing the bytes, size,
 or prior known cursor. A scripted known-no-change seek failure has the same
 preservation rule. A scripted failure can instead make the cursor unknown;
 while it is unknown, `Current` and `End` seeks fail, and a successful absolute
-`Start` seek restores a known cursor. These observations establish stateful
-adapter behavior only for the scoped fake. They do not establish host error
-translation or the cursor state after a failed host seek.
+`Start` seek restores a known cursor. These observations establish the
+stateful test adapter behavior only for this scoped fake. They do not make the
+fake a production filesystem implementation, establish host error translation,
+or establish the cursor state after a failed host seek.
 
 Ordinary `perform` retains lexical handler selection and does not receive the
 broader captured invocation authority. An accepted lexical provider open

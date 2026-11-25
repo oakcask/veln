@@ -129,11 +129,12 @@ and network adapters retain domain context when translating failures. The
 [implemented source surface and transfer behavior](../specification/standard-library-filesystem-io.md)
 fix the current type boundaries, sequential direct-facade outcomes, and
 complete-transfer outcomes. The current specification also owns direct
-provider-reply count validation for sequential and positional byte operations.
-The remaining rows below define planned runtime semantics for positional state
-and host adapters.
+provider-reply count validation for sequential and positional byte operations,
+plus the checked scoped-fake cursor and positional-state observations. The rows
+below remain requirements for production and host adapters; the fake evidence
+does not establish those adapters.
 
-| Operation family | Observable contract |
+| Operation family | Remaining production contract |
 | --- | --- |
 | Bounded sequential read | Returns at most the requested byte count, advances by the bytes delivered, and distinguishes data, clean end, and failure. A short read alone is not end-of-input. |
 | Sequential write | Reports the committed prefix of the input and advances according to committed bytes. Failure does not imply rollback. |
@@ -163,7 +164,11 @@ Seek uses a typed origin: start with a non-negative absolute offset, current
 with a signed displacement, or end with a signed displacement. It returns the
 resulting absolute offset. Offsets count bytes, not characters.
 
-| State and operation | Proposed result and state |
+The current specification owns these results for the scoped fake. The table
+retains the corresponding production contract and the capability, closed-state,
+and host boundaries that the fake does not establish.
+
+| State and operation | Remaining production result and state |
 | --- | --- |
 | Open seekable resource; valid target within the file | Success; cursor becomes the target. Contents and size are unchanged. |
 | Open seekable resource; valid target beyond end | Success; cursor becomes the target. Seeking alone does not extend the file. A positive-size read there returns clean end. |
