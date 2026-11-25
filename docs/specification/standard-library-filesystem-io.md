@@ -513,9 +513,11 @@ preserves that identity and selects the next free slot. `fs::system(root)`
 that reaches publication after owner closure returns `InvalidResource`; it
 does not create or replace the closed scope's owner or change an existing
 registry. The host-backed `WriteFile` is also rejected when its owner has
-closed. Its opened channel is then closed instead of being returned or
-registered. Scope exit closes each successfully published host file through
-its captured close handler.
+closed. If the owner closes after the host channel opens but before
+publication, the exact candidate resource is not registered, every preceding
+registry identity is preserved, and that channel is closed once. Scope exit
+closes each successfully published host file through its captured close
+handler.
 
 For that host file, a valid absolute seek beyond end changes the sequential
 cursor without extending the file. A later successful sequential write starts
@@ -656,12 +658,12 @@ Cancellation combined with a later ordinary cleanup failure, retry, release
 order, and diagnostic projection remain part of F5.
 
 A facade or accepted lexical namespace call that began while the owner was
-open can finish its provider call after owner closure. A resource produced by
-that call is rejected with `io::ErrorKind::InvalidResource`, is not inserted
-into the owner registry, and is passed once to its captured close handler. A
-failed close outcome or a modeled Veln runtime failure from that release is
-retained by the owner boundary. This admission decision is atomic with owner
-closure and
+open can finish its provider call after owner closure. If that provider call
+returns a registration candidate, the resource is rejected with
+`io::ErrorKind::InvalidResource`, is not inserted into the owner registry, and
+is passed once to its captured close handler. A failed close outcome or a
+modeled Veln runtime failure from that release is retained by the owner
+boundary. This admission decision is atomic with owner closure and
 existing-slot validation. An active release for one owner does not change the
 release obligation of another owner's independently admitted late resource.
 The runtime leaves registry admission before it invokes the close handler, so
@@ -717,8 +719,10 @@ static capability and effect boundary.
   exercised by the focused runtime integration test in
   [`runtime_integration.rs`](../../crates/veln-backend-jvm/src/tests/runtime_integration.rs).
 - Rooted-host namespace publication under owner closure, namespace and
-  write-resource publication under provider-slot contention, and release of
-  the successfully published host channel:
+  write-resource publication under provider-slot contention, rejection after
+  owner closure with preservation of preceding registry identities and one
+  release of the exact opened channel, and release of the successfully
+  published host channel:
   [`HostFilesystemPublicationHarness.java`](../../crates/veln-backend-jvm/test-support/HostFilesystemPublicationHarness.java),
   exercised by the focused runtime integration test in
   [`runtime_integration.rs`](../../crates/veln-backend-jvm/src/tests/runtime_integration.rs).

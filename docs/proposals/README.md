@@ -30,8 +30,8 @@ also states it.
   `write_all`, bounded `io::copy`, scoped-fake open-resource seek,
   provider-side seek-beyond-end sequential writes and zero-gap policy,
   positional-cursor behavior, the bounded JVM rooted-host seek-beyond-end
-  sequential extension and prevalidated invalid-seek preservation, F2, and F3
-  are implemented and belong to the
+  sequential extension and prevalidated invalid-seek preservation, rejected
+  host write-publication release, F2, and F3 are implemented and belong to the
   current [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
   The target does not require the production filesystem API to be implemented
   first.

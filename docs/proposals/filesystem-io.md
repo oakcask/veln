@@ -333,8 +333,9 @@ remaining explicit-close outcomes, retries, reverse-publication cleanup, and
 ordered primary and related cleanup-failure projection described in
 [Concurrent Operations And Cleanup](#concurrent-operations-and-cleanup).
 The implemented F3 boundary includes atomic rooted namespace publication under
-owner closure and collision-safe host write-resource publication; those
-observations are no longer proposal work.
+owner closure, collision-safe host write-resource publication, and exact host
+channel release when closure rejects publication; those observations are no
+longer proposal work.
 
 ### Outcomes And Error Translation
 

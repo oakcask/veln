@@ -177,14 +177,17 @@ truncate, namespace mutation, and uncertain host failures remain outside this
 execution path. Rooted namespace publication is serialized with provider-owner
 closure and occupied-slot selection. Host-backed write-resource publication
 also rejects a closed owner and selects an unoccupied slot, so neither path
-replaces a concurrent provider registration. The
+replaces a concurrent provider registration. If the owner closes after the
+host channel opens but before publication, the adapter leaves the registry
+unchanged and closes that exact channel once. The
 [filesystem and byte IO specification](standard-library-filesystem-io.md#provider-bound-dispatch)
 owns its source-visible contract and evidence.
-A facade or accepted lexical open admitted before owner closure can finish
-afterward. Its resource is rejected instead of published and released once
-through the captured close handler. A failed close outcome or a modeled Veln
-runtime failure is retained. A fatal JVM `Error` from a close handler is not
-converted into a retained release result. For registered-resource cleanup, the
+A facade or accepted lexical provider open admitted before owner closure can
+finish afterward. If its provider returns a registration candidate, that
+resource is rejected instead of published and released once through the
+captured close handler. A failed close outcome or a modeled Veln runtime
+failure is retained. A fatal JVM `Error` from a close handler is not converted
+into a retained release result. For registered-resource cleanup, the
 runtime restores the current release authority, removes the current resource,
 restores the handler stack, and then lets the same error escape. The publication
 decision is atomic with owner closure and slot occupancy. One owner's active
