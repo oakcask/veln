@@ -213,6 +213,10 @@ repair.
 
 A `veln run` entry cannot carry the modifier because it has no Veln call
 expression from which to obtain a location.
+An ordinary type binder and the `callsite` modifier cannot occur on the same
+declaration. The parser reports `parse.generic_function_callsite` at the
+modifier and does not treat the declaration as a supported generic call-site
+function.
 Runtime-required contract predicates in ordinary functions do not construct
 call-site context. Execution rejects a direct call from such a predicate to a
 call-site-aware function because the enclosing function has no hidden context

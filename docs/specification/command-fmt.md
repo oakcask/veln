@@ -41,6 +41,13 @@ parameter classifications do not add declaration modifiers or replace the
 written type name. Function input and result types retain the same `fn(...) ->
 ...` presentation regardless of the variance used during type checking.
 
+For a function declaration binder list, the formatter preserves the declared
+ordinary type-binder order and an optional final effect-row binder. It writes
+one space after each comma, removes a trailing comma, and does not add spaces
+inside the angle brackets. An effect-only list uses the same rules. The
+[source-surface specification](source-surface.md#function-declaration-binders)
+defines which binder lists the parser accepts.
+
 A handler header places `for` between its formatted parameter list and nominal
 effect path, followed by any retained-effect list. Reformatting that output is
 idempotent and preserves the same effect path and retained effects.
@@ -94,4 +101,7 @@ precedence, comments, schema spellings, multi-file atomicity, and other
 idempotence boundaries. The checked
 [`variance-presentation`](../../examples/specification/fmt/variance-presentation/)
 case covers stable generic ADT and function type presentation for all four
-inferred parameter classifications.
+inferred parameter classifications. The checked
+[`generic-function-declaration-binders`](../../examples/specification/fmt/generic-function-declaration-binders/)
+case covers ordinary and effect declaration binders, trailing-comma removal,
+and idempotence.

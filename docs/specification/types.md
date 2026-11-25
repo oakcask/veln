@@ -1029,6 +1029,13 @@ diagnostic cases, and the
 
 ## Compatibility and limits
 
+The parser retains ordinary type binders written on a fixed-arity function
+declaration, but the type checker does not yet bind those names or construct a
+generic function scheme. A retained binder therefore does not make its name a
+valid signature or body type, and calls do not instantiate it. The
+[source-surface specification](source-surface.md#function-declaration-binders)
+owns the implemented declaration syntax and its parser limits.
+
 The type checker resolves a structurally valid `A<T>::V` annotation to the
 singleton variant type for `V` of the finite ADT `A<T>`. A union of alternatives
 for the same ADT identity and generic arguments denotes their finite variant

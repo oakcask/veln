@@ -80,6 +80,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
             ],
             body: &[
                 "The descriptor selects the executable item productions for source declarations.",
+                "An ordinary fixed-arity function may declare one or more ordinary type binders followed by an optional effect-row binder. The declaration parser retains binder names and spans, diagnoses unsupported list and declaration forms, and the formatter emits the canonical list. Generic name binding, type schemes, and call instantiation are not yet implemented.",
                 "A typed module `let` declaration has the form `[pub] let name: Type = initializer`. Parsing, formatting, syntax trees, and lowered ASTs preserve it. Semantic analysis checks the written annotation, finite-data initializer, same-module and imported references, package-aware visibility, and dependency cycles across package sources. Checked core and typed IR preserve accepted declarations, finite initializer trees, and package-aware reference identities. Functions can read accepted values at runtime; the JVM backend materializes their finite data without invoking user code.",
                 "The selected example exercises public member alias re-exports in a checked case.",
                 "The formatter example exercises accepted private and public typed module `let` declarations.",
@@ -92,6 +93,9 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
             grammar: &[
                 "ModuleValueDecl",
                 "Function",
+                "FunctionBinderList",
+                "TypeBinder",
+                "EffectBinder",
                 "TestDecl",
                 "TypeDecl",
                 "EffectDecl",
