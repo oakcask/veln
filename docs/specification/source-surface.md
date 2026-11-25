@@ -59,10 +59,13 @@ Binder names must be unique across both binder kinds. An effect binder must be
 the final entry, and a declaration accepts at most one. Empty lists, ordinary
 binders after an effect binder, bounds, applied binder names, placeholders, and
 other entry forms are syntax errors. Ordinary type binders are not accepted on
-`test` declarations, variadic functions, or `callsite` functions. These rules
-define declaration parsing and formatting only; generic type schemes, body
-checking, call instantiation, lowering, and execution remain outside the
-implemented source-surface contract.
+`test` declarations, variadic functions, or `callsite` functions. An
+effect-only binder list does not impose those ordinary-generic restrictions:
+an effect-only function may retain a variadic parameter or the `callsite`
+modifier under the corresponding existing function rules. These rules define
+declaration parsing and formatting only; generic type schemes, body checking,
+call instantiation, lowering, and execution remain outside the implemented
+source-surface contract.
 
 An import can bind an explicit module qualifier with `as` before an optional
 package source:
@@ -633,7 +636,8 @@ ModuleBindingName ::= ordinary identifier with ASCII lowercase initial
 Function      ::= "pub"? "fn" Name FunctionSignature NL
                   Contract* Body "end" NL?
 FunctionSignature ::= "(" ParamList? ")" Return? Effects? CallsiteModifier?
-                    | FunctionBinderList "(" FixedParamList? ")" Return? Effects?
+                    | EffectOnlyBinderList "(" ParamList? ")" Return? Effects? CallsiteModifier?
+                    | OrdinaryBinderList "(" FixedParamList? ")" Return? Effects?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant* "end" NL?
@@ -679,7 +683,8 @@ NamedAdtBase  ::= (Name "::")* UpperName
 NamedTypeArguments ::= "<" TypeText ("," TypeText)* ","? ">"
 RefinementTypeArguments ::= "<" TypeText ("," TypeText)* ">"
 TypePath      ::= Name ("::" Name)*
-FunctionBinderList ::= "<" TypeBinder ("," TypeBinder)* ("," EffectBinder)? ","? ">" | "<" EffectBinder ","? ">"
+OrdinaryBinderList ::= "<" TypeBinder ("," TypeBinder)* ("," EffectBinder)? ","? ">"
+EffectOnlyBinderList ::= "<" EffectBinder ","? ">"
 TypeBinder    ::= ordinary identifier
 EffectBinder  ::= "effect" Name
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL

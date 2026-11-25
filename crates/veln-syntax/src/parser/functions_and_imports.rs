@@ -109,6 +109,32 @@ impl<'a> Parser<'a> {
     pub(super) fn parse_function_like(&mut self, kind: FunctionKind) -> FunctionDecl {
         let start = self.current().range;
         let header = self.parse_function_header(kind);
+        if header.abandoned_at_binder_boundary {
+            let end = self.previous().map_or(start, |token| token.range);
+            self.eat(TokenKind::Newline);
+            return FunctionDecl {
+                kind,
+                visibility: header.visibility,
+                name: header.name,
+                name_span: header.name_span,
+                type_binders: header.type_binders,
+                effect_binder: header.effect_binder,
+                params: header.params,
+                return_binding: None,
+                return_type: None,
+                return_type_span: None,
+                return_type_paths: Vec::new(),
+                return_type_refinements: Vec::new(),
+                effects: None,
+                effect_spans: None,
+                effects_recovered: false,
+                callsite: None,
+                contracts: Vec::new(),
+                body: Vec::new(),
+                span: self.source.span(start.cover(end)),
+                end_present: false,
+            };
+        }
         let mut return_decl = self.parse_function_return_and_effects(kind);
         if !header.type_binders.is_empty()
             && let Some(callsite) = return_decl.callsite.as_ref()
@@ -198,7 +224,19 @@ impl<'a> Parser<'a> {
         } else {
             self.expect_covered_name(Self::function_context(kind), "declaration name")
         };
-        let (type_binders, effect_binder) = self.parse_function_binders(kind);
+        let (type_binders, effect_binder, abandoned_at_binder_boundary) =
+            self.parse_function_binders(kind);
+        if abandoned_at_binder_boundary {
+            return FunctionHeader {
+                visibility,
+                name,
+                name_span,
+                type_binders,
+                effect_binder,
+                params: Vec::new(),
+                abandoned_at_binder_boundary,
+            };
+        }
         self.expect(TokenKind::LParen, Self::parameter_context(kind), vec!["("]);
         let params = self.parse_params();
         self.expect(TokenKind::RParen, Self::parameter_context(kind), vec![")"]);
@@ -210,6 +248,7 @@ impl<'a> Parser<'a> {
             type_binders,
             effect_binder,
             params,
+            abandoned_at_binder_boundary,
         }
     }
 
@@ -247,9 +286,9 @@ impl<'a> Parser<'a> {
     pub(super) fn parse_function_binders(
         &mut self,
         kind: FunctionKind,
-    ) -> (Vec<TypeBinder>, Option<EffectBinder>) {
+    ) -> (Vec<TypeBinder>, Option<EffectBinder>, bool) {
         if !self.at(TokenKind::Less) {
-            return (Vec::new(), None);
+            return (Vec::new(), None, false);
         }
         let start = self.bump().range;
         let mut state = FunctionBinderState::default();
@@ -264,11 +303,25 @@ impl<'a> Parser<'a> {
                 Some(">"),
             );
             self.bump();
-            return state.finish();
+            let (type_binders, effect_binder) = state.finish();
+            return (type_binders, effect_binder, false);
         }
 
+        let mut abandoned_at_binder_boundary = false;
         loop {
-            self.parse_function_binder_entry(kind, &mut state);
+            if !self.parse_function_binder_entry(kind, &mut state) {
+                if self.at(TokenKind::Comma) {
+                    self.bump();
+                    continue;
+                }
+                if self.at(TokenKind::Greater) {
+                    self.close_function_binders(start, &mut state);
+                    break;
+                }
+                abandoned_at_binder_boundary =
+                    self.at(TokenKind::Newline) || self.at(TokenKind::Eof);
+                break;
+            }
             if self.finish_function_binder_entry(kind, start, &mut state) {
                 break;
             }
@@ -276,15 +329,31 @@ impl<'a> Parser<'a> {
 
         self.report_generic_test_declaration(kind, &state.type_binders);
 
-        state.finish()
+        let (type_binders, effect_binder) = state.finish();
+        (type_binders, effect_binder, abandoned_at_binder_boundary)
     }
 
-    fn parse_function_binder_entry(&mut self, kind: FunctionKind, state: &mut FunctionBinderState) {
+    fn parse_function_binder_entry(
+        &mut self,
+        kind: FunctionKind,
+        state: &mut FunctionBinderState,
+    ) -> bool {
         if self.at(TokenKind::Effect) {
             self.parse_function_effect_binder(kind, state);
         } else if self.at(TokenKind::Ident) {
             self.parse_function_type_binder(kind, state);
         } else {
+            if self.at_function_binder_synchronization_anchor() {
+                let invalid = self.current().clone();
+                self.report_function_binder_error(
+                    &invalid,
+                    "parse.function_binder_entry",
+                    "function binder entry must be a type name or `effect E`",
+                    vec!["type binder", "effect"],
+                    kind,
+                );
+                return false;
+            }
             let invalid = self.bump();
             self.report_function_binder_error(
                 &invalid,
@@ -295,6 +364,15 @@ impl<'a> Parser<'a> {
             );
             self.skip_invalid_function_binder_entry();
         }
+        true
+    }
+
+    fn at_function_binder_synchronization_anchor(&self) -> bool {
+        self.at(TokenKind::Comma)
+            || self.at(TokenKind::Greater)
+            || self.at(TokenKind::LParen)
+            || self.at(TokenKind::Newline)
+            || self.at(TokenKind::Eof)
     }
 
     fn parse_function_effect_binder(
@@ -415,12 +493,7 @@ impl<'a> Parser<'a> {
             RecoveryStrategy::SynchronizeToAnchor,
             Some("function binder list"),
         );
-        while !self.at(TokenKind::Comma)
-            && !self.at(TokenKind::Greater)
-            && !self.at(TokenKind::LParen)
-            && !self.at(TokenKind::Newline)
-            && !self.at(TokenKind::Eof)
-        {
+        while !self.at_function_binder_synchronization_anchor() {
             self.bump();
         }
     }
@@ -450,12 +523,7 @@ impl<'a> Parser<'a> {
     }
 
     fn skip_invalid_function_binder_entry(&mut self) {
-        while !self.at(TokenKind::Comma)
-            && !self.at(TokenKind::Greater)
-            && !self.at(TokenKind::LParen)
-            && !self.at(TokenKind::Newline)
-            && !self.at(TokenKind::Eof)
-        {
+        while !self.at_function_binder_synchronization_anchor() {
             self.bump();
         }
     }

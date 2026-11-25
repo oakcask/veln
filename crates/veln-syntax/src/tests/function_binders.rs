@@ -202,6 +202,62 @@ fn invalid_binders_recover_before_following_functions() {
 }
 
 #[test]
+fn unclosed_binder_list_preserves_following_function_declaration() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!("fn invalid<\n", "fn valid() -> Int\n  1\nend\n",),
+    );
+    let output = parse(&source);
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.function_binder_entry"),
+        "{:#?}",
+        output.diagnostics
+    );
+    assert_eq!(output.tree.items.len(), 2);
+    let SyntaxItem::Function(invalid) = &output.tree.items[0] else {
+        panic!("expected recovered function declaration");
+    };
+    assert_eq!(invalid.name.as_deref(), Some("invalid"));
+    assert!(invalid.params.is_empty());
+    assert!(invalid.body.is_empty());
+    let SyntaxItem::Function(valid) = &output.tree.items[1] else {
+        panic!("expected following function declaration");
+    };
+    assert_eq!(valid.name.as_deref(), Some("valid"));
+    assert_eq!(valid.return_type.as_deref(), Some("Int"));
+    assert!(valid.end_present);
+}
+
+#[test]
+fn invalid_binder_at_parameter_boundary_preserves_signature() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn invalid<T,(value: Int) -> Int\n  value\nend\n",
+    );
+    let output = parse(&source);
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.function_binder_entry"),
+        "{:#?}",
+        output.diagnostics
+    );
+    let function = first_function(&output);
+    assert_eq!(function.type_binders.len(), 1);
+    assert_eq!(function.params.len(), 1);
+    assert_eq!(function.params[0].name, "value");
+    assert_eq!(function.params[0].ty.as_deref(), Some("Int"));
+    assert_eq!(function.return_type.as_deref(), Some("Int"));
+    assert!(function.end_present);
+}
+
+#[test]
 fn missing_binder_separator_reports_the_unexpected_entry_and_recovers() {
     let source = SourceFile::new(
         "main.veln",

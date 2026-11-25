@@ -375,6 +375,7 @@ struct FunctionHeader {
     type_binders: Vec<crate::TypeBinder>,
     effect_binder: Option<EffectBinder>,
     params: Vec<Param>,
+    abandoned_at_binder_boundary: bool,
 }
 
 struct FunctionReturn {

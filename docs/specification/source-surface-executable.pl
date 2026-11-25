@@ -124,7 +124,8 @@ grammar_line(56, "ModuleBindingName ::= ordinary identifier with ASCII lowercase
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name FunctionSignature NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(71, "FunctionSignature ::= \"(\" ParamList? \")\" Return? Effects? CallsiteModifier?").
-grammar_line(72, "                    | FunctionBinderList \"(\" FixedParamList? \")\" Return? Effects?").
+grammar_line(72, "                    | EffectOnlyBinderList \"(\" ParamList? \")\" Return? Effects? CallsiteModifier?").
+grammar_line(73, "                    | OrdinaryBinderList \"(\" FixedParamList? \")\" Return? Effects?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant* \"end\" NL?").
@@ -170,7 +171,8 @@ grammar_line(111, "NamedAdtBase  ::= (Name \"::\")* UpperName").
 grammar_line(111, "NamedTypeArguments ::= \"<\" TypeText (\",\" TypeText)* \",\"? \">\"").
 grammar_line(111, "RefinementTypeArguments ::= \"<\" TypeText (\",\" TypeText)* \">\"").
 grammar_line(111, "TypePath      ::= Name (\"::\" Name)*").
-grammar_line(112, "FunctionBinderList ::= \"<\" TypeBinder (\",\" TypeBinder)* (\",\" EffectBinder)? \",\"? \">\" | \"<\" EffectBinder \",\"? \">\"").
+grammar_line(112, "OrdinaryBinderList ::= \"<\" TypeBinder (\",\" TypeBinder)* (\",\" EffectBinder)? \",\"? \">\"").
+grammar_line(112, "EffectOnlyBinderList ::= \"<\" EffectBinder \",\"? \">\"").
 grammar_line(113, "TypeBinder    ::= ordinary identifier").
 grammar_line(114, "EffectBinder  ::= \"effect\" Name").
 grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
@@ -487,8 +489,9 @@ function_binders_opt(no_types) --> [].
 function_binder_list(has_types) -->
     tok(less),
     ordinary_identifier_text(Name),
-    function_type_binder_rest([Name], Names),
+    function_type_binder_rest([Name], ReversedNames),
     tok(greater),
+    { reverse(ReversedNames, Names) },
     { all_unique(Names) }.
 function_binder_list(no_types) -->
     tok(less),
@@ -496,19 +499,18 @@ function_binder_list(no_types) -->
     identifier_text(_),
     trailing_comma_opt,
     tok(greater).
-function_type_binder_rest(Seen, Names) -->
+function_type_binder_rest(ReversedNames, Names) -->
     tok(comma),
     tok(effect),
     identifier_text(EffectName),
     trailing_comma_opt,
-    { append(Seen, [EffectName], Names) },
+    { Names = [EffectName | ReversedNames] },
     !.
-function_type_binder_rest(Seen, Names) -->
+function_type_binder_rest(ReversedNames, Names) -->
     tok(comma),
     ordinary_identifier_text(Name),
     !,
-    { append(Seen, [Name], Next) },
-    function_type_binder_rest(Next, Names).
+    function_type_binder_rest([Name | ReversedNames], Names).
 function_type_binder_rest(Names, Names) --> tok(comma), !.
 function_type_binder_rest(Names, Names) --> [].
 

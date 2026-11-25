@@ -13,3 +13,11 @@ end
 fn apply<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]
 	callback()
 end
+
+fn collect<effect E>(values: ...Int) -> () effects [...E]
+	()
+end
+
+fn locate<effect E>() -> () effects [...E] callsite
+	()
+end
