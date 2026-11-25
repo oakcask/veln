@@ -15,10 +15,12 @@ implemented static and bounded runtime prerequisites belong to the current
 [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
 The direct-facade outcome and provider-count validation matrices and
 complete-transfer helper outcome matrices are implemented, as are scoped-fake
-open-resource seek and positional-cursor observations. The remaining F4 host
+open-resource seek and positional-cursor observations. The remaining F4
+provider and host seek and positional IO conformance includes the
+seek-beyond-end then write transition and provider-defined gap bytes. Host
 translation, host-specific failed-seek behavior, open-mode, metadata,
 namespace-mutation, truncate, append, and sync behavior, F5 cleanup behavior,
-and host integration evidence are planned.
+and host integration evidence also remain planned.
 Implementation selection remains blocked on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
@@ -164,9 +166,10 @@ Seek uses a typed origin: start with a non-negative absolute offset, current
 with a signed displacement, or end with a signed displacement. It returns the
 resulting absolute offset. Offsets count bytes, not characters.
 
-The current specification owns these results for the scoped fake. The table
-retains the corresponding production contract and the capability, closed-state,
-and host boundaries that the fake does not establish.
+The current specification owns the open-resource cursor, valid and invalid
+seek, and positional results for the scoped fake. The table retains the
+corresponding production contract plus the capability, closed-state, and host
+boundaries that the fake does not establish.
 
 | State and operation | Remaining production result and state |
 | --- | --- |

@@ -457,11 +457,12 @@ projected from the same resource share that cursor, while a separate resource
 over the same bytes does not. Successful
 `Start`, `Current`, and `End` seeks set the cursor to the resulting nonnegative
 offset. Seeking beyond the current end changes only the cursor; it does not
-extend or otherwise change the bytes. For the bounded in-file transfers in
-this fake, sequential reads and writes advance by the delivered or committed
-count, including partial failures. Positional reads and writes preserve the
-sequential cursor on success and failure; a partial positional write changes
-only its confirmed prefix.
+extend or otherwise change the bytes. A positive-size sequential read there
+returns `End` and leaves the cursor at the beyond-end target. For the bounded
+in-file transfers in this fake, sequential reads and writes advance by the
+delivered or committed count, including partial failures. Positional reads and
+writes preserve the sequential cursor on success and failure; a partial
+positional write changes only its confirmed prefix.
 
 Negative and overflowing seek targets fail without changing the bytes, size,
 or prior known cursor. A scripted known-no-change seek failure has the same
@@ -620,10 +621,12 @@ state, namespace-token allocation, registration, projection, provider-bound
 dispatch, bounded `copy` outcomes and progress, complete-transfer helper
 outcomes, direct facade provider-count validation, serialized completed
 fake-provider writes, and the bounded owner-release lifecycle are limited to
-the observations above. Host translation, host-specific failed-seek cursor
-behavior, the remaining open-mode, namespace, metadata, mutation, truncate,
-append, and sync outcomes, cleanup retry and failure precedence, host
-filesystem selection, and network-to-byte adapters remain unimplemented.
+the observations above. Provider and host conformance beyond the scoped fake,
+including seek-beyond-end writes and provider-defined gap bytes, host
+translation, host-specific failed-seek cursor behavior, the remaining
+open-mode, namespace, metadata, mutation, truncate, append, and sync outcomes,
+cleanup retry and failure precedence, host filesystem selection, and
+network-to-byte adapters remain unimplemented.
 Type-checking behavior outside the implemented slice establishes only its
 static capability and effect boundary.
 
