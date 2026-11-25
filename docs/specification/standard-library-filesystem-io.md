@@ -449,12 +449,13 @@ violates these bounds, or that would overflow an accumulated count, returns
 independently confirmed prefix; the other progress remains exact. The invalid
 reply is not used to fabricate a count or another suffix.
 
-`io::read_exact` accepts a nonnegative requested count. A negative count
-returns `InvalidInput` with empty bytes and known zero progress before provider
-dispatch. A zero count first validates that the reader and its provider owner
-remain usable. A valid reader returns empty `Complete` without a read; an
-invalid reader returns `InvalidResource` with empty bytes and known zero
-progress.
+`io::read_exact` accepts requested counts from zero through `2147483647`, the
+largest count representable by its returned `ByteChunk`. A count outside that
+range returns `InvalidInput` with empty bytes and known zero progress before
+provider dispatch. A zero count first validates that the reader and its
+provider owner remain usable. A valid reader returns empty `Complete` without
+a read; an invalid reader returns `InvalidResource` with empty bytes and known
+zero progress.
 
 For a positive count, `read_exact` requests only the unfilled remainder. It
 accumulates short `Data` results until it has the requested bytes. `End`

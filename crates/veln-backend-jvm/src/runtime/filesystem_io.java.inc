@@ -930,11 +930,11 @@
     public static Object ioReadExact(Object reader, Object countValue) {
         long requested = byteCountLong(countValue);
         java.util.ArrayList<Object> accumulated = new java.util.ArrayList<Object>();
-        if (requested < 0L) {
+        if (requested < 0L || requested > Integer.MAX_VALUE) {
             Object error = ioProviderError(
                 "read_exact",
                 "InvalidInput",
-                "exact read count must be nonnegative"
+                "exact read count must be between zero and 2147483647"
             );
             return adt(
                 "io::ExactOutcome::ExactFailed",

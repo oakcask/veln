@@ -143,6 +143,32 @@ test read_exact_rejects_negative_count_without_provider_transfer() -> Result<(),
 	end
 end
 
+test read_exact_accepts_largest_representable_count() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::End, list_nil())
+	let script = io_complete_transfer_test_support_test::Script(reads, list_nil())
+	match exact(script, ByteCount(2147483647))?
+		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::Short(bytes), io_complete_transfer_test_support_test::Snapshot(Cons(2147483647, Nil), Nil, Nil, Nil)) => if byte_count_to_int(byte_chunk_count(bytes)) == 0
+			Ok(())
+		else
+			Err("largest representable read_exact count fabricated bytes")
+		end
+		_ => Err("largest representable read_exact count was not dispatched once")
+	end
+end
+
+test read_exact_rejects_unrepresentable_count_without_provider_transfer() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::End, list_nil())
+	let script = io_complete_transfer_test_support_test::Script(reads, list_nil())
+	match exact(script, ByteCount(2147483648))?
+		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::ExactFailed(bytes, io::Progress::Known(consumed), io::Error::Error("read_exact", io::ErrorKind::InvalidInput, _, _, _, _, _)), io_complete_transfer_test_support_test::Snapshot(Nil, Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(consumed) == 0
+			Ok(())
+		else
+			Err("unrepresentable read_exact count fabricated bytes or progress")
+		end
+		_ => Err("unrepresentable read_exact count invoked its provider or returned the wrong error")
+	end
+end
+
 test read_exact_rejects_malformed_provider_bounds() -> Result<(), String> effects [concurrency]
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("a")?), list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("bc")?), list_cons(io::ReadOutcome::End, list_nil())))
 	let script = io_complete_transfer_test_support_test::Script(reads, list_nil())
@@ -173,8 +199,8 @@ test read_exact_rejects_overflowing_provider_progress_without_wrapping() -> Resu
 	let maximum = byte_count(9223372036854775807)?
 	let malformed = io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(maximum), provider_error("overflowing failure"))
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("a")?), list_cons(malformed, list_cons(io::ReadOutcome::End, list_nil())))
-	match exact(io_complete_transfer_test_support_test::Script(reads, list_nil()), maximum)?
-		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::ExactFailed(bytes, io::Progress::Unknown(consumed), io::Error::Error("read_exact", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_complete_transfer_test_support_test::Snapshot(Cons(9223372036854775806, Cons(9223372036854775807, Nil)), Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if chunk_is(bytes, "a") and byte_count_to_int(consumed) == 1
+	match exact(io_complete_transfer_test_support_test::Script(reads, list_nil()), byte_count(3)?)?
+		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::ExactFailed(bytes, io::Progress::Unknown(consumed), io::Error::Error("read_exact", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_complete_transfer_test_support_test::Snapshot(Cons(2, Cons(3, Nil)), Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if chunk_is(bytes, "a") and byte_count_to_int(consumed) == 1
 			Ok(())
 		else
 			Err("overflowing progress wrapped or changed the confirmed prefix")

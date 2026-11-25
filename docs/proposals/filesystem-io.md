@@ -252,7 +252,7 @@ output. Fake tests do not establish real host behavior.
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
 | Host conversion | An unrepresentable name fails without selecting another entry; native and portable types cannot be interchanged implicitly. | Companion tests plus focused host-conversion and compiler type-boundary tests. |
-| Remaining partial transfer | Direct operations and complete helpers preserve bytes and progress; partial writes retry only an uncommitted suffix; unknown progress stops retry. | Scripted Veln fake tests with independent expected contents and operation logs. |
+| Remaining partial transfer | Direct operations preserve delivered bytes or committed prefixes and typed progress. Host adapters report unknown progress when a transfer may have occurred but its exact progress cannot be established. | Scripted Veln fake tests for direct-operation contents and progress; focused host-adapter tests for uncertain host progress. |
 | Seek and positional IO | Origin arithmetic, invalid targets, beyond-end reads, independent opens, aliases, and positional cursor preservation obey the state table. | Companion tests shared by memory and supported system providers; host tests for native translation. |
 | Namespace updates | Open modes, exclusive create, directory operations, rename, and truncation obey the mutation transition table, including failure preservation. | Shared provider conformance tests and focused real-host integration cases. |
 | Errors and cleanup | Stable error kinds retain operation and path context; close and cleanup transitions preserve progress and the selected primary failure. | Companion tests plus human/JSON execution coverage where runtime cleanup diagnostics apply. |
