@@ -290,27 +290,54 @@ fn retained_unclosed_binders_preserve_following_function_declaration() {
 
 #[test]
 fn invalid_binder_at_parameter_boundary_preserves_signature() {
+    let cases = [
+        (
+            "fn invalid<T,(value: Int) -> Int\n  value\nend\n",
+            "parse.function_binder_entry",
+        ),
+        (
+            "fn invalid<T<Int(value: Int) -> Int\n  value\nend\n",
+            "parse.function_binder_bound",
+        ),
+    ];
+
+    for (text, expected_id) in cases {
+        let source = SourceFile::new("main.veln", text);
+        let output = parse(&source);
+
+        assert!(
+            output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == expected_id),
+            "{:#?}",
+            output.diagnostics
+        );
+        let function = first_function(&output);
+        assert_eq!(function.type_binders.len(), 1);
+        assert_eq!(function.params.len(), 1);
+        assert_eq!(function.params[0].name, "value");
+        assert_eq!(function.params[0].ty.as_deref(), Some("Int"));
+        assert_eq!(function.return_type.as_deref(), Some("Int"));
+        assert!(function.end_present);
+    }
+}
+
+#[test]
+fn multiple_effect_binder_diagnostic_marks_redundant_keyword() {
     let source = SourceFile::new(
         "main.veln",
-        "fn invalid<T,(value: Int) -> Int\n  value\nend\n",
+        "fn rows<effect E, effect>() -> ()\n  ()\nend\n",
     );
     let output = parse(&source);
 
-    assert!(
-        output
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "parse.function_binder_entry"),
-        "{:#?}",
-        output.diagnostics
-    );
-    let function = first_function(&output);
-    assert_eq!(function.type_binders.len(), 1);
-    assert_eq!(function.params.len(), 1);
-    assert_eq!(function.params[0].name, "value");
-    assert_eq!(function.params[0].ty.as_deref(), Some("Int"));
-    assert_eq!(function.return_type.as_deref(), Some("Int"));
-    assert!(function.end_present);
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.multiple_effect_binders")
+        .expect("expected a multiple effect binder diagnostic");
+    let span = diagnostic.span.as_ref().expect("expected a primary span");
+    assert_eq!(&source.text()[span.start.offset..span.end.offset], "effect");
 }
 
 #[test]
