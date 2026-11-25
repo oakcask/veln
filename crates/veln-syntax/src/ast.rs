@@ -219,6 +219,7 @@ pub struct FunctionDecl {
     pub visibility: Visibility,
     pub name: Option<String>,
     pub name_span: Option<SourceSpan>,
+    pub type_binders: Vec<TypeBinder>,
     pub effect_binder: Option<EffectBinder>,
     pub params: Vec<Param>,
     pub return_binding: Option<ResultBinding>,
@@ -234,6 +235,12 @@ pub struct FunctionDecl {
     pub body: Vec<BodyLine>,
     pub span: SourceSpan,
     pub end_present: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct TypeBinder {
+    pub name: String,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug)]

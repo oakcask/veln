@@ -1,0 +1,23 @@
+fn identity<T>(value: T) -> T
+	value
+end
+
+fn choose<T, U>(left: T, right: U) -> T
+	left
+end
+
+fn transform<T, U, effect E,>(value: T, callback: fn(T) -> U effects [...E]) -> U effects [...E]
+	callback(value)
+end
+
+fn apply<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]
+	callback()
+end
+
+fn collect<effect E>(values: ...Int) -> () effects [...E]
+	()
+end
+
+fn locate<effect E>() -> () effects [...E] callsite
+	()
+end

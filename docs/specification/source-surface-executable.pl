@@ -121,8 +121,11 @@ grammar_line(50, "Item          ::= ModuleValueDecl | Function | TestDecl | Effe
 grammar_line(55, "ModuleValueDecl ::= \"pub\"? \"let\" ModuleBindingName \":\" TypeText \"=\" Expr DeclarationEnd").
 grammar_line(55, "DeclarationEnd ::= NL | EOF").
 grammar_line(56, "ModuleBindingName ::= ordinary identifier with ASCII lowercase initial").
-grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name EffectBinder? \"(\" ParamList? \")\" Return? Effects? CallsiteModifier? NL").
+grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name FunctionSignature NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
+grammar_line(71, "FunctionSignature ::= \"(\" ParamList? \")\" Return? Effects? CallsiteModifier?").
+grammar_line(72, "                    | EffectOnlyBinderList \"(\" ParamList? \")\" Return? Effects? CallsiteModifier?").
+grammar_line(73, "                    | OrdinaryBinderList \"(\" FixedParamList? \")\" Return? Effects?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant* \"end\" NL?").
@@ -168,13 +171,18 @@ grammar_line(111, "NamedAdtBase  ::= (Name \"::\")* UpperName").
 grammar_line(111, "NamedTypeArguments ::= \"<\" TypeText (\",\" TypeText)* \",\"? \">\"").
 grammar_line(111, "RefinementTypeArguments ::= \"<\" TypeText (\",\" TypeText)* \">\"").
 grammar_line(111, "TypePath      ::= Name (\"::\" Name)*").
-grammar_line(112, "EffectBinder  ::= \"<\" \"effect\" Name \">\"").
+grammar_line(112, "OrdinaryBinderList ::= \"<\" TypeBinder (\",\" TypeBinder)* (\",\" EffectBinder)? \",\"? \">\"").
+grammar_line(112, "EffectOnlyBinderList ::= \"<\" EffectBinder \",\"? \">\"").
+grammar_line(113, "TypeBinder    ::= ordinary identifier").
+grammar_line(114, "EffectBinder  ::= \"effect\" Name").
 grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
 grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVariantField)* \",\"? \")\"").
 grammar_line(140, "                  | \"{\" TypeVariantField (\",\" TypeVariantField)* \",\"? \"}\"").
 grammar_line(145, "TypeVariantField ::= Name \":\" TypeText | TypeText").
 grammar_line(150, "ParamList     ::= Param (\",\" Param)* \",\"?").
 grammar_line(160, "Param         ::= Name (\":\" (VariadicMarker TypeText? | TypeText))?").
+grammar_line(162, "FixedParamList ::= FixedParam (\",\" FixedParam)* \",\"?").
+grammar_line(163, "FixedParam    ::= Name (\":\" TypeText)?").
 grammar_line(165, "VariadicMarker ::= \"...\"").
 grammar_line(170, "Return        ::= \"->\" ResultBinding? TypeText").
 grammar_line(180, "ResultBinding ::= Name \":\"").
@@ -463,21 +471,53 @@ function_decl -->
     visibility,
     tok(fn),
     ident,
-    effect_binder_opt,
+    function_binders_opt(Generic),
     tok(lparen),
-    params_opt,
+    function_params_opt(Generic),
     tok(rparen),
     return_opt,
     effects_opt,
-    callsite_modifier_opt,
+    function_callsite_modifier_opt(Generic),
     nl,
     contracts,
     body,
     tok(end),
     newline_opt.
 
-effect_binder_opt --> tok(less), tok(effect), ident, tok(greater), !.
-effect_binder_opt --> [].
+function_binders_opt(Generic) --> function_binder_list(Generic), !.
+function_binders_opt(no_types) --> [].
+function_binder_list(has_types) -->
+    tok(less),
+    ordinary_identifier_text(Name),
+    function_type_binder_rest([Name], ReversedNames),
+    tok(greater),
+    { reverse(ReversedNames, Names) },
+    { all_unique(Names) }.
+function_binder_list(no_types) -->
+    tok(less),
+    tok(effect),
+    identifier_text(_),
+    trailing_comma_opt,
+    tok(greater).
+function_type_binder_rest(ReversedNames, Names) -->
+    tok(comma),
+    tok(effect),
+    identifier_text(EffectName),
+    trailing_comma_opt,
+    { Names = [EffectName | ReversedNames] },
+    !.
+function_type_binder_rest(ReversedNames, Names) -->
+    tok(comma),
+    ordinary_identifier_text(Name),
+    !,
+    function_type_binder_rest([Name | ReversedNames], Names).
+function_type_binder_rest(Names, Names) --> tok(comma), !.
+function_type_binder_rest(Names, Names) --> [].
+
+all_unique(Names) :-
+    sort(Names, Unique),
+    length(Names, Count),
+    length(Unique, Count).
 
 test_decl -->
     tok(test),
@@ -651,6 +691,15 @@ visibility --> [].
 
 params_opt --> param, params_tail, trailing_comma_opt, !.
 params_opt --> [].
+function_params_opt(has_types) --> fixed_params_opt.
+function_params_opt(no_types) --> params_opt.
+fixed_params_opt --> fixed_param, fixed_params_tail, trailing_comma_opt, !.
+fixed_params_opt --> [].
+fixed_params_tail --> tok(comma), fixed_param, !, fixed_params_tail.
+fixed_params_tail --> [].
+fixed_param --> ident, fixed_annotation_opt.
+fixed_annotation_opt --> tok(colon), type_text_until([comma, rparen]), !.
+fixed_annotation_opt --> [].
 params_tail --> tok(comma), param, !, params_tail.
 params_tail --> [].
 trailing_comma_opt --> tok(comma), !.
@@ -676,6 +725,8 @@ effects_opt --> [].
 effects_clause --> tok(effects), tok(lbracket), effects_names_opt, tok(rbracket).
 callsite_modifier_opt --> tok(callsite), !.
 callsite_modifier_opt --> [].
+function_callsite_modifier_opt(has_types) --> [].
+function_callsite_modifier_opt(no_types) --> callsite_modifier_opt.
 effects_names_opt --> effect_entry, effects_names_tail, trailing_comma_opt, !.
 effects_names_opt --> [].
 effects_names_tail --> tok(comma), effect_entry, !, effects_names_tail.
@@ -1303,6 +1354,7 @@ identifier_text(Text) --> [t(ident, Text)].
 identifier_text(Text) --> [t(callsite, Text)].
 identifier_text(Text) --> [t(handle, Text)].
 identifier_text(Text) --> [t(handler, Text)].
+ordinary_identifier_text(Text) --> [t(ident, Text)].
 path_segment --> ident.
 path_segment --> tok(decode).
 path_segment --> tok(encode).

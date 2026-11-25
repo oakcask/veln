@@ -56,13 +56,17 @@ unknown effect label. The checker currently infers `stdio`, `fs`,
 other labels are reserved coarse-grained public boundary labels for source
 compatibility.
 
-One user-defined function declaration may bind one effect row with
-`<effect E>`. The bound row may appear as the final `...E` entry in that
-function's declared effect set and in nested function type effect sets inside
-the function signature. An unbound row tail, more than one row tail in one
-effect set, or a row tail before a later effect entry is rejected. When a
-row-polymorphic function is called, argument compatibility determines one
-substitution for `E` across all nested occurrences in the call signature. The
+One user-defined function declaration may bind one effect row. An effect-only
+declaration uses `<effect E>`. When ordinary type binders are present, the
+effect binder is the final entry, as in `<T, effect E>`. The
+[source-surface specification](source-surface.md#function-declaration-binders)
+owns the accepted declaration-list forms. The bound row may appear as the final
+`...E` entry in that function's declared effect set and in nested function type
+effect sets inside the function signature. An unbound row tail, more than one
+row tail in one effect set, or a row tail before a later effect entry is
+rejected. When a row-polymorphic function is called, argument compatibility
+determines one substitution for `E` across all nested occurrences in the call
+signature. The
 [type compatibility rules](types.md#compatibility-and-limits) define the
 structural constraint directions, least-set solution, retained rigid enclosing
 row tails, and rejected bounds. A call with no lower bound uses an empty

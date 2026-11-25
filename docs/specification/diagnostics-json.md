@@ -285,6 +285,27 @@ ordinary identifier `handles` or a qualified path beginning with `handles::`.
 Both recoveries retain the optional retained-effect list and the boundary of a
 following declaration.
 
+Malformed function declaration binder lists use focused parse diagnostics.
+Empty lists, duplicate names, an ordinary binder after an effect binder,
+multiple effect binders, a bound or applied binder, another invalid entry, and
+a missing separator
+report `parse.empty_function_binder_list`,
+`parse.duplicate_function_binder`, `parse.type_binder_after_effect`,
+`parse.multiple_effect_binders`, `parse.function_binder_bound`,
+`parse.function_binder_entry`, or `parse.function_binder_separator`,
+respectively. A generic test, variadic
+function, or `callsite` function reports `parse.generic_test_declaration`,
+`parse.generic_function_variadic`, or `parse.generic_function_callsite` at the
+unsupported binder, variadic parameter, or modifier. An invalid binder entry
+at the parameter-list boundary resumes parsing that function's parameter list.
+An unclosed binder list at a newline ends the malformed declaration without
+consuming the following top-level declaration. Recovery from a malformed
+binder bound also leaves a following top-level declaration available to the
+parser.
+The
+[function declaration binder rules](source-surface.md#function-declaration-binders)
+define the accepted forms.
+
 Malformed integer literals use `parse.integer_literal` with the complete
 numeric candidate, parser context, accepted form, and non-cascading recovery;
 related notes may identify the accepted digit set or prefix. Invalid literal

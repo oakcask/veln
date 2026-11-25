@@ -18,9 +18,10 @@ also states it.
 
 - [Generic Functions](generic-functions.md): implement explicit rank-one type
   parameters, independent call instantiation, and scheme-preserving aliases.
-  The baseline decisions and implementation approach are resolved. Parser,
-  checker, artifacts, tooling, and backend acceptance remain implementation
-  work; a separate prototype is not required for Ready.
+  Declaration binder parsing, syntax retention, diagnostics, and canonical
+  formatting are implemented. Binder name resolution, checker schemes,
+  artifacts, tooling, and backend acceptance remain implementation work; a
+  separate prototype is not required for Ready.
 - [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete the
   remaining F4 provider and host positional IO conformance, uncertain
   host-seek cursor outcomes, host translation, open-mode, metadata,

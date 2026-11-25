@@ -1,0 +1,3 @@
+fn invalid<E, effect E>() -> () effects [...E]
+	()
+end

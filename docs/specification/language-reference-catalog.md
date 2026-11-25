@@ -49,12 +49,16 @@ name-resolution specifications.
 The `declarations-aliases` topic projects `TypeDecl` with zero or more
 `TypeVariant` entries, so the published grammar admits a named type declaration
 with no constructors. It also projects typed module `let` declarations and
-states their finite-data initializer checking, same-module and imported lookup,
-package-aware visibility, dependency-cycle validation across package sources,
-checked-core and typed-IR identity preservation, and runtime materialization of
-finite data without invoking user code. The selected formatter example
-demonstrates the accepted private and public source forms. The execution
-specification and its checked run case own runtime observations.
+function declaration binder lists. Ordinary function type binders precede an
+optional final effect-row binder. The topic states that parsing retains binder
+names and spans and that formatting emits the canonical list, while generic
+name binding, schemes, and call instantiation remain unimplemented. It also
+states typed module-value finite-data initializer checking, same-module and
+imported lookup, package-aware visibility, dependency-cycle validation across
+package sources, checked-core and typed-IR identity preservation, and runtime
+materialization of finite data without invoking user code. The selected
+formatter example demonstrates the accepted private and public source forms.
+The execution specification and its checked run case own runtime observations.
 The `types-inference-constructors` topic includes the executable productions
 for variant-refinement type text. Every alternative requires an uppercase
 final segment. A non-generic alternative also requires an uppercase base leaf.

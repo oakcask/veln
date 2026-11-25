@@ -32,6 +32,51 @@ end
 The sections below explain declarations and source boundaries. The grammar
 provides the production notation for these forms.
 
+### Function declaration binders
+
+An ordinary fixed-arity function may declare one or more type binders after
+its name. Ordinary type binders precede an optional final effect-row binder:
+
+```veln
+fn identity<T>(value: T) -> T
+	value
+end
+
+fn transform<T, U, effect E>(value: T, callback: fn(T) -> U effects [...E]) -> U effects [...E]
+	callback(value)
+end
+```
+
+The list is nonempty. A trailing comma is accepted. `veln fmt` writes the
+binders in their declared order with comma-space separators and omits the
+trailing comma. The syntax tree retains each ordinary binder's name and exact
+name span. It also retains the optional effect binder and uses the complete
+binder-list span for that binder. This preserves the source behavior of an
+effect-only list such as `<effect E>` and applies it to a final effect binder in
+a mixed list.
+
+Binder names must be unique across both binder kinds. An effect binder must be
+the final entry, and a declaration accepts at most one. Empty lists, ordinary
+binders after an effect binder, bounds, applied binder names, placeholders, and
+other entry forms are syntax errors. Ordinary type binders are not accepted on
+`test` declarations, variadic functions, or `callsite` functions. An
+effect-only binder list does not impose those ordinary-generic restrictions:
+an effect-only function may retain a variadic parameter or the `callsite`
+modifier under the corresponding existing function rules. These rules define
+declaration parsing and formatting only; generic type schemes, body checking,
+call instantiation, lowering, and execution remain outside the implemented
+source-surface contract.
+
+Malformed-list recovery retains each binder recognized before the failed
+entry. If the failure reaches the parameter-list boundary, parsing resumes at
+that function's parameters and preserves the rest of its signature. If an
+unclosed list reaches a newline, the malformed declaration ends there and the
+next top-level declaration remains a separate syntax item. The focused parser
+diagnostics for these failures are specified by
+[Check JSON And Diagnostics](diagnostics-json.md#diagnostic-families).
+
+### Import alias preservation and formatting
+
 An import can bind an explicit module qualifier with `as` before an optional
 package source:
 
@@ -46,8 +91,6 @@ The contextual spellings `callsite`, `handler`, and `handle` are valid explicit
 aliases. When one of those spellings is followed by `::`, the parser retains a
 qualified name path. In particular, `handle::member()` is a call path rather
 than the start of a `handle ... with ...` expression.
-
-### Import alias preservation and formatting
 
 A valid explicit import retains the written target, the explicit alias and its
 span, and the optional target package source. The lowered AST also retains the
@@ -149,7 +192,8 @@ selected finite initializer data without invoking user code.
 
 - Optional source-written `mod` headers, source path derived local module
   identity, local and external package imports, `.test.veln` test companion
-  source classification, functions with optional `<effect E>` row binders,
+  source classification, fixed-arity functions with ordinary type binders and
+  an optional final effect-row binder,
   tests, source ADT type declarations, schema declarations, nominal effect
   operation declarations, lexical handler declarations, public member
   aliases, canonical `#` comments, `##`
@@ -597,8 +641,11 @@ Item          ::= ModuleValueDecl | Function | TestDecl | EffectDecl | HandlerDe
 ModuleValueDecl ::= "pub"? "let" ModuleBindingName ":" TypeText "=" Expr DeclarationEnd
 DeclarationEnd ::= NL | EOF
 ModuleBindingName ::= ordinary identifier with ASCII lowercase initial
-Function      ::= "pub"? "fn" Name EffectBinder? "(" ParamList? ")" Return? Effects? CallsiteModifier? NL
+Function      ::= "pub"? "fn" Name FunctionSignature NL
                   Contract* Body "end" NL?
+FunctionSignature ::= "(" ParamList? ")" Return? Effects? CallsiteModifier?
+                    | EffectOnlyBinderList "(" ParamList? ")" Return? Effects? CallsiteModifier?
+                    | OrdinaryBinderList "(" FixedParamList? ")" Return? Effects?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant* "end" NL?
@@ -644,13 +691,18 @@ NamedAdtBase  ::= (Name "::")* UpperName
 NamedTypeArguments ::= "<" TypeText ("," TypeText)* ","? ">"
 RefinementTypeArguments ::= "<" TypeText ("," TypeText)* ">"
 TypePath      ::= Name ("::" Name)*
-EffectBinder  ::= "<" "effect" Name ">"
+OrdinaryBinderList ::= "<" TypeBinder ("," TypeBinder)* ("," EffectBinder)? ","? ">"
+EffectOnlyBinderList ::= "<" EffectBinder ","? ">"
+TypeBinder    ::= ordinary identifier
+EffectBinder  ::= "effect" Name
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
 TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
                   | "{" TypeVariantField ("," TypeVariantField)* ","? "}"
 TypeVariantField ::= Name ":" TypeText | TypeText
 ParamList     ::= Param ("," Param)* ","?
 Param         ::= Name (":" (VariadicMarker TypeText? | TypeText))?
+FixedParamList ::= FixedParam ("," FixedParam)* ","?
+FixedParam    ::= Name (":" TypeText)?
 VariadicMarker ::= "..."
 Return        ::= "->" ResultBinding? TypeText
 ResultBinding ::= Name ":"
