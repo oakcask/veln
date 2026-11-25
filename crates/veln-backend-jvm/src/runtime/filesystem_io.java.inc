@@ -804,6 +804,12 @@
         return null;
     }
 
+    private static boolean ioProviderOperandIsAvailable(String effect, Object operand) {
+        HandlerFrame handler = ioProviderCapturedHandler(effect, operand);
+        IoOwner owner = ioProviderOperandOwner(operand);
+        return handler != null && owner != null && !owner.scope.ioProviderScopeClosed;
+    }
+
     private static boolean ioProviderCanPublishResource(String effect, String operation) {
         return (effect.equals(FS_READ_EFFECT) && operation.equals("open_read"))
             || (effect.equals(FS_MUTATE_EFFECT)
@@ -919,6 +925,238 @@
         if (args[0] instanceof IoFilesystem) return ((IoFilesystem) args[0]).owner;
         if (args[0] instanceof IoMutableFilesystem) return ((IoMutableFilesystem) args[0]).owner;
         return null;
+    }
+
+    public static Object ioReadExact(Object reader, Object countValue) {
+        long requested = byteCountLong(countValue);
+        java.util.ArrayList<Object> accumulated = new java.util.ArrayList<Object>();
+        if (requested < 0L) {
+            Object error = ioProviderError(
+                "read_exact",
+                "InvalidInput",
+                "exact read count must be nonnegative"
+            );
+            return adt(
+                "io::ExactOutcome::ExactFailed",
+                new Object[] {
+                    byteChunkObject(accumulated),
+                    adt("io::Progress::Known", new Object[] { byteCountObject(0L) }),
+                    error
+                }
+            );
+        }
+        if (requested == 0L) {
+            if (!ioProviderOperandIsAvailable(IO_READ_EFFECT, reader)) {
+                Object error = ioProviderError(
+                    "read_exact",
+                    "InvalidResource",
+                    "reader is not available"
+                );
+                return adt(
+                    "io::ExactOutcome::ExactFailed",
+                    new Object[] {
+                        byteChunkObject(accumulated),
+                        adt("io::Progress::Known", new Object[] { byteCountObject(0L) }),
+                        error
+                    }
+                );
+            }
+            return adt(
+                "io::ExactOutcome::Complete",
+                new Object[] { byteChunkObject(accumulated) }
+            );
+        }
+
+        long delivered = 0L;
+        while (delivered < requested) {
+            long remaining = requested - delivered;
+            Object read = ioProviderDispatch2(
+                IO_READ_EFFECT,
+                "read",
+                reader,
+                byteCountObject(remaining)
+            );
+            if (isAdt(read, "ReadOutcome::End")) {
+                return adt(
+                    "io::ExactOutcome::Short",
+                    new Object[] { byteChunkObject(accumulated) }
+                );
+            }
+            if (isAdt(read, "ReadOutcome::ReadFailed")) {
+                Object failureBytes = adtPayload(read, 0);
+                Object failureProgress = adtPayload(read, 1);
+                long byteCount = byteChunkBytes(failureBytes).size();
+                long knownPrefix = byteCountLong(adtPayload(failureProgress, 0));
+                if (knownPrefix < 0L
+                    || byteCount > knownPrefix
+                    || knownPrefix > remaining
+                    || delivered > Long.MAX_VALUE - knownPrefix) {
+                    return ioReadExactInvalidResource(
+                        accumulated,
+                        delivered,
+                        "provider read returned invalid progress"
+                    );
+                }
+                accumulated.addAll(byteChunkBytes(failureBytes));
+                Object progress = adt(
+                    isAdt(failureProgress, "Progress::Unknown")
+                        ? "io::Progress::Unknown"
+                        : "io::Progress::Known",
+                    new Object[] { byteCountObject(delivered + knownPrefix) }
+                );
+                return adt(
+                    "io::ExactOutcome::ExactFailed",
+                    new Object[] { byteChunkObject(accumulated), progress, adtPayload(read, 2) }
+                );
+            }
+            if (!isAdt(read, "ReadOutcome::Data")) {
+                throw new RuntimeFailure("provider read handler returned an invalid outcome");
+            }
+            Object bytes = adtPayload(read, 0);
+            long byteCount = byteChunkBytes(bytes).size();
+            if (byteCount > remaining || delivered > Long.MAX_VALUE - byteCount) {
+                return ioReadExactInvalidResource(
+                    accumulated,
+                    delivered,
+                    "provider read returned more bytes than requested"
+                );
+            }
+            if (byteCount == 0L) {
+                Object error = ioProviderError(
+                    "read_exact",
+                    "NoProgress",
+                    "provider read returned an empty data chunk"
+                );
+                return adt(
+                    "io::ExactOutcome::ExactFailed",
+                    new Object[] {
+                        byteChunkObject(accumulated),
+                        adt("io::Progress::Known", new Object[] { byteCountObject(delivered) }),
+                        error
+                    }
+                );
+            }
+            accumulated.addAll(byteChunkBytes(bytes));
+            delivered += byteCount;
+        }
+        return adt(
+            "io::ExactOutcome::Complete",
+            new Object[] { byteChunkObject(accumulated) }
+        );
+    }
+
+    private static Object ioReadExactInvalidResource(
+        java.util.ArrayList<Object> accumulated,
+        long delivered,
+        String message
+    ) {
+        Object error = ioProviderError("read_exact", "InvalidResource", message);
+        Object progress = adt(
+            "io::Progress::Unknown",
+            new Object[] { byteCountObject(delivered) }
+        );
+        return adt(
+            "io::ExactOutcome::ExactFailed",
+            new Object[] { byteChunkObject(accumulated), progress, error }
+        );
+    }
+
+    public static Object ioWriteAll(Object writer, Object bytes) {
+        long requested = byteChunkBytes(bytes).size();
+        if (requested == 0L) {
+            if (!ioProviderOperandIsAvailable(IO_WRITE_EFFECT, writer)) {
+                Object error = ioProviderError("write_all", "InvalidResource", "writer is not available");
+                Object progress = adt(
+                    "io::Progress::Known",
+                    new Object[] { byteCountObject(0L) }
+                );
+                return adt(
+                    "io::WriteOutcome::WriteFailed",
+                    new Object[] { progress, error }
+                );
+            }
+            return adt(
+                "io::WriteOutcome::Written",
+                new Object[] { byteCountObject(0L) }
+            );
+        }
+
+        long committed = 0L;
+        int remaining = (int) requested;
+        Object suffix = bytes;
+        while (remaining > 0) {
+            Object write = ioProviderDispatch2(IO_WRITE_EFFECT, "write", writer, suffix);
+            if (isAdt(write, "WriteOutcome::WriteFailed")) {
+                Object failureProgress = adtPayload(write, 0);
+                long knownPrefix = byteCountLong(adtPayload(failureProgress, 0));
+                if (knownPrefix < 0L
+                    || knownPrefix > remaining
+                    || committed > Long.MAX_VALUE - knownPrefix) {
+                    return ioWriteAllInvalidResource(
+                        committed,
+                        "provider write returned invalid progress"
+                    );
+                }
+                Object progress = adt(
+                    isAdt(failureProgress, "Progress::Unknown")
+                        ? "io::Progress::Unknown"
+                        : "io::Progress::Known",
+                    new Object[] { byteCountObject(committed + knownPrefix) }
+                );
+                return adt(
+                    "io::WriteOutcome::WriteFailed",
+                    new Object[] { progress, adtPayload(write, 1) }
+                );
+            }
+            if (!isAdt(write, "WriteOutcome::Written")) {
+                throw new RuntimeFailure("provider write handler returned an invalid outcome");
+            }
+            long written = byteCountLong(adtPayload(write, 0));
+            if (written < 0L
+                || written > remaining
+                || committed > Long.MAX_VALUE - written) {
+                return ioWriteAllInvalidResource(
+                    committed,
+                    "provider write returned invalid progress"
+                );
+            }
+            if (written == 0L) {
+                Object error = ioProviderError(
+                    "write_all",
+                    "NoProgress",
+                    "provider write returned zero progress"
+                );
+                Object progress = adt(
+                    "io::Progress::Known",
+                    new Object[] { byteCountObject(committed) }
+                );
+                return adt(
+                    "io::WriteOutcome::WriteFailed",
+                    new Object[] { progress, error }
+                );
+            }
+            committed += written;
+            remaining -= (int) written;
+            if (remaining > 0) {
+                suffix = byteChunkDerivedObject(suffix, (int) written, remaining);
+            }
+        }
+        return adt(
+            "io::WriteOutcome::Written",
+            new Object[] { byteCountObject(committed) }
+        );
+    }
+
+    private static Object ioWriteAllInvalidResource(long committed, String message) {
+        Object error = ioProviderError("write_all", "InvalidResource", message);
+        Object progress = adt(
+            "io::Progress::Unknown",
+            new Object[] { byteCountObject(committed) }
+        );
+        return adt(
+            "io::WriteOutcome::WriteFailed",
+            new Object[] { progress, error }
+        );
     }
 
     public static Object ioCopy(Object reader, Object writer, Object chunkSize) {

@@ -135,14 +135,14 @@ pub fn sync(syncer: Syncer) -> Result<(), Error> effects [Sync]
 	prelude_builtin::io_provider_dispatch1("std::io::Sync", "sync", syncer)
 end
 
-## Static prototype signature. Runtime transfer behavior remains gated by the
-## filesystem IO feasibility proposal.
+## Reads until count bytes arrive, clean end stops the transfer, or one provider
+## failure occurs. Partial bytes and consumed progress remain observable.
 pub fn read_exact(reader: Reader, count: ByteCount) -> ExactOutcome effects [Read]
 	prelude_builtin::io_read_exact(reader, count)
 end
 
-## Static prototype signature. Runtime transfer behavior remains gated by the
-## filesystem IO feasibility proposal.
+## Writes the complete chunk by retrying only the uncommitted suffix. A failure
+## stops the transfer and retains total committed progress.
 pub fn write_all(writer: Writer, bytes: ByteChunk) -> WriteOutcome effects [Write]
 	prelude_builtin::io_write_all(writer, bytes)
 end

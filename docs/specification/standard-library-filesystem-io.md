@@ -14,7 +14,8 @@ projection prototypes, provider-bound filesystem namespace tokens, and opaque
 atomic provider state. It lets provider and generic IO source check
 capability-correct signatures, capture and invoke provider handlers, exercise
 five runtime resource families, transfer bytes between independently owned
-fake resources, keep immutable fake-provider state in shared cells, and retain
+fake resources, complete bounded reads and writes, keep immutable fake-provider
+state in shared cells, and retain
 completed fake-provider writes from concurrent child callers. Provider owner
 exit closes publication before release, rejects and releases a resource whose
 provider call finishes after that boundary, and restricts cleanup access to the
@@ -75,10 +76,11 @@ portable paths, optional network error, optional commit fact, and a message.
 `PermissionDenied`, `NotDirectory`, `IsDirectory`, `DirectoryNotEmpty`,
 `LinkLoop`, `UnrepresentablePath`, `CrossFilesystem`, `Unsupported`, `Closed`,
 `Busy`, `InvalidResource`, `Cancelled`, `NoProgress`, or `Other`. Captured
-Veln handlers can produce the individual operation outcomes. The
-bounded `copy` path produces `CopyOutcome`; `ExactOutcome` remains static only.
-The [runtime limits](#runtime-limits) identify the remaining complete-transfer
-helpers, mutation, cleanup, and host-translation behavior.
+Veln handlers can produce the individual operation outcomes. `read_exact`,
+`write_all`, and bounded `copy` execute through captured provider handlers and
+preserve their documented partial outcomes. The
+[runtime limits](#runtime-limits) identify the remaining direct facade,
+mutation, cleanup, and host-translation behavior.
 
 `fs::Read` and `fs::Mutate` separate namespace reads from mutation. Portable
 names use `path::Path`. Their facade signatures are:
@@ -447,6 +449,39 @@ violates these bounds, or that would overflow an accumulated count, returns
 independently confirmed prefix; the other progress remains exact. The invalid
 reply is not used to fabricate a count or another suffix.
 
+`io::read_exact` accepts a nonnegative requested count. A negative count
+returns `InvalidInput` with empty bytes and known zero progress before provider
+dispatch. A zero count first validates that the reader and its provider owner
+remain usable. A valid reader returns empty `Complete` without a read; an
+invalid reader returns `InvalidResource` with empty bytes and known zero
+progress.
+
+For a positive count, `read_exact` requests only the unfilled remainder. It
+accumulates short `Data` results until it has the requested bytes. `End`
+returns `Short` with every accumulated byte. An empty `Data` result returns
+`NoProgress` with the accumulated bytes and known consumed count. A
+`ReadFailed` result returns `ExactFailed` with the bytes accumulated before the
+call followed by the failure-delivered bytes. Its consumed progress adds the
+previously delivered count to the provider's `Known` or `Unknown` lower bound,
+and the helper does not retry the failure.
+
+`io::write_all` first validates an empty write's writer and provider owner. A
+valid writer returns `Written(0)` without a write; an invalid writer returns
+`InvalidResource` with known zero progress. For a nonempty chunk, each partial
+`Written` result causes the next provider call to receive only the uncommitted
+suffix. Completion returns the total committed count. A zero count from a
+nonempty provider write returns `NoProgress` with the known committed prefix.
+A `WriteFailed` result adds its `Known` or `Unknown` lower bound to the
+previously committed count and stops without retry.
+
+For both helpers, provider counts must be nonnegative and remain within the
+submitted remainder or suffix. Failure-delivered read bytes cannot exceed the
+failure progress lower bound. A reply outside those bounds, or a count whose
+accumulation would overflow, returns `InvalidResource`. The affected progress
+becomes `Unknown` with the last independently confirmed prefix. The helper
+does not use the malformed reply to append bytes, invent progress, select a
+suffix, or make another provider call.
+
 Two independently registered writers owned by one active provider can share
 one provider-state cell. When child tasks reach a readiness gate and are then
 released to write distinct chunks, each completed call reports the byte count
@@ -512,15 +547,13 @@ source-visible cleanup-failure precedence and retry remain part of F5.
 
 This surface is not a production filesystem implementation. Runtime
 state, namespace-token allocation, registration, projection, provider-bound
-dispatch, bounded `copy` outcomes and progress, serialized completed
-fake-provider writes, and the bounded owner-release lifecycle are limited to
-the observations above. Direct facade host translation, the remaining complete
-transfer helpers, the namespace and seek outcome matrix, cleanup retry and
+dispatch, bounded `copy` outcomes and progress, complete-transfer helper
+outcomes, serialized completed fake-provider writes, and the bounded
+owner-release lifecycle are limited to the observations above. Direct facade
+host translation, the namespace and seek outcome matrix, cleanup retry and
 failure precedence, host filesystem selection, and network-to-byte adapters
-remain unimplemented.
-`read_exact` and `write_all` remain static prototype signatures. Type-checking
-any behavior outside the implemented slice establishes only its static
-capability and effect boundary.
+remain unimplemented. Type-checking behavior outside the implemented slice
+establishes only its static capability and effect boundary.
 
 ## References
 
@@ -531,6 +564,11 @@ capability and effect boundary.
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with scripts and progress logs in
   [`io_copy_test_support_test.veln`](../../crates/veln-stdlib/veln/io_copy_test_support_test.veln).
+- Complete read and write behavior, including zero-size validation, partial
+  progress, provider failures, malformed replies, and overflow:
+  [`io.test.veln`](../../crates/veln-stdlib/veln/io.test.veln), with scoped
+  scripted providers in
+  [`io_complete_transfer_test_support_test.veln`](../../crates/veln-stdlib/veln/io_complete_transfer_test_support_test.veln).
 - Wrong capability operands:
   `examples/specification/check/filesystem-io-capability-boundaries/`.
 - Missing read-file closer, write-file truncater, update-file positional

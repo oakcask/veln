@@ -1,0 +1,275 @@
+use prelude
+use io
+use io_provider
+use io_complete_transfer_test_support_test
+
+fn provider_error(message: String) -> io::Error
+	io::Error::Error("scripted", io::ErrorKind::Other, None, None, None, None, message)
+end
+
+fn exact(script: io_complete_transfer_test_support_test::Script, count: ByteCount) -> Result<io_complete_transfer_test_support_test::ExactObservation, String> effects [concurrency]
+	handle io_complete_transfer_test_support_test::execute_exact(script, count) with io_provider::scope()
+end
+
+fn write(script: io_complete_transfer_test_support_test::Script, bytes: ByteChunk) -> Result<io_complete_transfer_test_support_test::WriteObservation, String> effects [concurrency]
+	handle io_complete_transfer_test_support_test::execute_write(script, bytes) with io_provider::scope()
+end
+
+fn chunk_is(bytes: ByteChunk, expected: String) -> Bool
+	match byte_chunk_to_visible_ascii_string(bytes)
+		Ok(actual) => actual == expected
+		Err(_) => false
+	end
+end
+
+fn inputs_are_three(inputs: List<ByteChunk>, first: String, second: String, third: String) -> Bool
+	match inputs
+		Cons(first_bytes, Cons(second_bytes, Cons(third_bytes, Nil))) => chunk_is(first_bytes, first) and chunk_is(second_bytes, second) and chunk_is(third_bytes, third)
+		_ => false
+	end
+end
+
+fn inputs_are_two(inputs: List<ByteChunk>, first: String, second: String) -> Bool
+	match inputs
+		Cons(first_bytes, Cons(second_bytes, Nil)) => chunk_is(first_bytes, first) and chunk_is(second_bytes, second)
+		_ => false
+	end
+end
+
+test read_exact_accumulates_short_reads_to_completion() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("ab")?), list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("cde")?), list_cons(io::ReadOutcome::End, list_nil())))
+	let script = io_complete_transfer_test_support_test::Script(reads, list_nil())
+	match exact(script, byte_count(5)?)?
+		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::Complete(bytes), io_complete_transfer_test_support_test::Snapshot(Cons(3, Cons(5, Nil)), Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if chunk_is(bytes, "abcde")
+			Ok(())
+		else
+			Err("read_exact completion changed the accumulated bytes")
+		end
+		_ => Err("read_exact did not request only the remaining count across short reads")
+	end
+end
+
+test read_exact_returns_short_on_clean_end() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("ab")?), list_cons(io::ReadOutcome::End, list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("x")?), list_nil())))
+	let script = io_complete_transfer_test_support_test::Script(reads, list_nil())
+	match exact(script, byte_count(5)?)?
+		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::Short(bytes), io_complete_transfer_test_support_test::Snapshot(Cons(3, Cons(5, Nil)), Nil, Cons(io::ReadOutcome::Data(remaining), Nil), Nil)) => if chunk_is(bytes, "ab") and chunk_is(remaining, "x")
+			Ok(())
+		else
+			Err("clean end changed accumulated or remaining bytes")
+		end
+		_ => Err("read_exact did not stop with Short at clean end")
+	end
+end
+
+test read_exact_preserves_failure_bytes_and_known_progress() -> Result<(), String> effects [concurrency]
+	let failure = provider_error("known read failure")
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("ab")?), list_cons(io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("x")?, io::Progress::Known(byte_count(1)?), failure), list_cons(io::ReadOutcome::End, list_nil())))
+	let script = io_complete_transfer_test_support_test::Script(reads, list_nil())
+	match exact(script, byte_count(5)?)?
+		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::ExactFailed(bytes, io::Progress::Known(consumed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "known read failure")), io_complete_transfer_test_support_test::Snapshot(Cons(3, Cons(5, Nil)), Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if chunk_is(bytes, "abx") and byte_count_to_int(consumed) == 3
+			Ok(())
+		else
+			Err("known read failure lost bytes or accumulated progress")
+		end
+		_ => Err("read_exact did not preserve the known provider failure")
+	end
+end
+
+test read_exact_preserves_failure_bytes_and_unknown_progress_without_retry() -> Result<(), String> effects [concurrency]
+	let failure = provider_error("unknown read failure")
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("a")?), list_cons(io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("x")?, io::Progress::Unknown(byte_count(2)?), failure), list_cons(io::ReadOutcome::End, list_nil())))
+	let script = io_complete_transfer_test_support_test::Script(reads, list_nil())
+	match exact(script, byte_count(5)?)?
+		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::ExactFailed(bytes, io::Progress::Unknown(consumed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "unknown read failure")), io_complete_transfer_test_support_test::Snapshot(Cons(4, Cons(5, Nil)), Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if chunk_is(bytes, "ax") and byte_count_to_int(consumed) == 3
+			Ok(())
+		else
+			Err("unknown read failure lost bytes or its lower bound")
+		end
+		_ => Err("read_exact retried or changed unknown progress")
+	end
+end
+
+test read_exact_zero_validates_without_provider_transfer() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::End, list_nil())
+	let script = io_complete_transfer_test_support_test::Script(reads, list_nil())
+	match exact(script, byte_count(0)?)?
+		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::Complete(bytes), io_complete_transfer_test_support_test::Snapshot(Nil, Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(byte_chunk_count(bytes)) == 0
+			Ok(())
+		else
+			Err("zero read_exact returned nonempty bytes")
+		end
+		_ => Err("zero read_exact invoked its provider")
+	end
+end
+
+test zero_complete_transfers_reject_closed_resources() -> Result<(), String> effects [io::Read, io::Write, concurrency]
+	match io_complete_transfer_test_support_test::closed_zero_read()?
+		io::ExactOutcome::ExactFailed(bytes, io::Progress::Known(consumed), io::Error::Error("read_exact", io::ErrorKind::InvalidResource, _, _, _, _, _)) => match io_complete_transfer_test_support_test::closed_zero_write()?
+			io::WriteOutcome::WriteFailed(io::Progress::Known(committed), io::Error::Error("write_all", io::ErrorKind::InvalidResource, _, _, _, _, _)) => if byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0
+				Ok(())
+			else
+				Err("closed zero-size helper fabricated progress")
+			end
+			_ => Err("zero write_all did not validate the closed writer")
+		end
+		_ => Err("zero read_exact did not validate the closed reader")
+	end
+end
+
+test read_exact_stops_on_empty_data_after_progress() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("a")?), list_cons(io::ReadOutcome::Data(byte_chunk([])), list_cons(io::ReadOutcome::End, list_nil())))
+	let script = io_complete_transfer_test_support_test::Script(reads, list_nil())
+	match exact(script, byte_count(3)?)?
+		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::ExactFailed(bytes, io::Progress::Known(consumed), io::Error::Error("read_exact", io::ErrorKind::NoProgress, _, _, _, _, _)), io_complete_transfer_test_support_test::Snapshot(Cons(2, Cons(3, Nil)), Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if chunk_is(bytes, "a") and byte_count_to_int(consumed) == 1
+			Ok(())
+		else
+			Err("empty read did not preserve prior progress")
+		end
+		_ => Err("empty read did not stop read_exact with NoProgress")
+	end
+end
+
+test read_exact_rejects_negative_count_without_provider_transfer() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::End, list_nil())
+	let script = io_complete_transfer_test_support_test::Script(reads, list_nil())
+	match exact(script, ByteCount(-1))?
+		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::ExactFailed(bytes, io::Progress::Known(consumed), io::Error::Error("read_exact", io::ErrorKind::InvalidInput, _, _, _, _, _)), io_complete_transfer_test_support_test::Snapshot(Nil, Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(consumed) == 0
+			Ok(())
+		else
+			Err("negative read_exact fabricated bytes or progress")
+		end
+		_ => Err("negative read_exact invoked its provider or returned the wrong error")
+	end
+end
+
+test read_exact_rejects_malformed_provider_bounds() -> Result<(), String> effects [concurrency]
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("a")?), list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("bc")?), list_cons(io::ReadOutcome::End, list_nil())))
+	let script = io_complete_transfer_test_support_test::Script(reads, list_nil())
+	match exact(script, byte_count(2)?)?
+		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::ExactFailed(bytes, io::Progress::Unknown(consumed), io::Error::Error("read_exact", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_complete_transfer_test_support_test::Snapshot(Cons(1, Cons(2, Nil)), Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if chunk_is(bytes, "a") and byte_count_to_int(consumed) == 1
+			Ok(())
+		else
+			Err("oversized read reply fabricated bytes or progress")
+		end
+		_ => Err("read_exact accepted a reply beyond the submitted remainder")
+	end
+end
+
+test read_exact_rejects_failure_bytes_beyond_progress() -> Result<(), String> effects [concurrency]
+	let malformed = io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("ab")?, io::Progress::Known(byte_count(1)?), provider_error("malformed failure"))
+	let reads = list_cons(malformed, list_cons(io::ReadOutcome::End, list_nil()))
+	match exact(io_complete_transfer_test_support_test::Script(reads, list_nil()), byte_count(4)?)?
+		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::ExactFailed(bytes, io::Progress::Unknown(consumed), io::Error::Error("read_exact", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_complete_transfer_test_support_test::Snapshot(Cons(4, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(consumed) == 0
+			Ok(())
+		else
+			Err("malformed failed read fabricated bytes or progress")
+		end
+		_ => Err("read_exact accepted failure bytes beyond their lower bound")
+	end
+end
+
+test read_exact_rejects_overflowing_provider_progress_without_wrapping() -> Result<(), String> effects [concurrency]
+	let maximum = byte_count(9223372036854775807)?
+	let malformed = io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(maximum), provider_error("overflowing failure"))
+	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("a")?), list_cons(malformed, list_cons(io::ReadOutcome::End, list_nil())))
+	match exact(io_complete_transfer_test_support_test::Script(reads, list_nil()), maximum)?
+		io_complete_transfer_test_support_test::ExactObservation(io::ExactOutcome::ExactFailed(bytes, io::Progress::Unknown(consumed), io::Error::Error("read_exact", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_complete_transfer_test_support_test::Snapshot(Cons(9223372036854775806, Cons(9223372036854775807, Nil)), Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if chunk_is(bytes, "a") and byte_count_to_int(consumed) == 1
+			Ok(())
+		else
+			Err("overflowing progress wrapped or changed the confirmed prefix")
+		end
+		_ => Err("read_exact did not stop on overflowing provider progress")
+	end
+end
+
+test write_all_retries_only_the_uncommitted_suffix() -> Result<(), String> effects [concurrency]
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::Written(byte_count(2)?), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil())))
+	let script = io_complete_transfer_test_support_test::Script(list_nil(), writes)
+	match write(script, byte_chunk_from_visible_ascii_string("abcd")?)?
+		io_complete_transfer_test_support_test::WriteObservation(io::WriteOutcome::Written(count), io_complete_transfer_test_support_test::Snapshot(Nil, inputs, Nil, Nil)) => if byte_count_to_int(count) == 4 and inputs_are_three(inputs, "d", "bcd", "abcd")
+			Ok(())
+		else
+			Err("write_all changed total progress or a retried suffix")
+		end
+		_ => Err("write_all did not complete partial writes")
+	end
+end
+
+test write_all_preserves_later_known_failure_progress() -> Result<(), String> effects [concurrency]
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::WriteFailed(io::Progress::Known(byte_count(1)?), provider_error("known write failure")), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil())))
+	let script = io_complete_transfer_test_support_test::Script(list_nil(), writes)
+	match write(script, byte_chunk_from_visible_ascii_string("abcd")?)?
+		io_complete_transfer_test_support_test::WriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Known(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "known write failure")), io_complete_transfer_test_support_test::Snapshot(Nil, inputs, Nil, Cons(io::WriteOutcome::Written(_), Nil))) => if byte_count_to_int(committed) == 2 and inputs_are_two(inputs, "bcd", "abcd")
+			Ok(())
+		else
+			Err("known write failure lost progress or suffix inputs")
+		end
+		_ => Err("write_all did not preserve the known provider failure")
+	end
+end
+
+test write_all_preserves_unknown_progress_without_retry() -> Result<(), String> effects [concurrency]
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::WriteFailed(io::Progress::Unknown(byte_count(1)?), provider_error("unknown write failure")), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil())))
+	let script = io_complete_transfer_test_support_test::Script(list_nil(), writes)
+	match write(script, byte_chunk_from_visible_ascii_string("abcd")?)?
+		io_complete_transfer_test_support_test::WriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Unknown(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "unknown write failure")), io_complete_transfer_test_support_test::Snapshot(Nil, inputs, Nil, Cons(io::WriteOutcome::Written(_), Nil))) => if byte_count_to_int(committed) == 2 and inputs_are_two(inputs, "bcd", "abcd")
+			Ok(())
+		else
+			Err("unknown write failure lost its total lower bound")
+		end
+		_ => Err("write_all retried or changed unknown progress")
+	end
+end
+
+test write_all_zero_validates_without_provider_transfer() -> Result<(), String> effects [concurrency]
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil())
+	let script = io_complete_transfer_test_support_test::Script(list_nil(), writes)
+	match write(script, byte_chunk([]))?
+		io_complete_transfer_test_support_test::WriteObservation(io::WriteOutcome::Written(count), io_complete_transfer_test_support_test::Snapshot(Nil, Nil, Nil, Cons(io::WriteOutcome::Written(_), Nil))) => if byte_count_to_int(count) == 0
+			Ok(())
+		else
+			Err("zero write_all fabricated committed progress")
+		end
+		_ => Err("zero write_all invoked its provider")
+	end
+end
+
+test write_all_stops_on_zero_progress_after_partial_success() -> Result<(), String> effects [concurrency]
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::Written(byte_count(0)?), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil())))
+	let script = io_complete_transfer_test_support_test::Script(list_nil(), writes)
+	match write(script, byte_chunk_from_visible_ascii_string("abc")?)?
+		io_complete_transfer_test_support_test::WriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Known(committed), io::Error::Error("write_all", io::ErrorKind::NoProgress, _, _, _, _, _)), io_complete_transfer_test_support_test::Snapshot(Nil, inputs, Nil, Cons(io::WriteOutcome::Written(_), Nil))) => if byte_count_to_int(committed) == 1 and inputs_are_two(inputs, "bc", "abc")
+			Ok(())
+		else
+			Err("zero write lost prior progress or retried the wrong suffix")
+		end
+		_ => Err("zero write did not stop write_all with NoProgress")
+	end
+end
+
+test write_all_rejects_malformed_provider_counts_without_retry() -> Result<(), String> effects [concurrency]
+	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::Written(byte_count(3)?), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil())))
+	let script = io_complete_transfer_test_support_test::Script(list_nil(), writes)
+	match write(script, byte_chunk_from_visible_ascii_string("abc")?)?
+		io_complete_transfer_test_support_test::WriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Unknown(committed), io::Error::Error("write_all", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_complete_transfer_test_support_test::Snapshot(Nil, inputs, Nil, Cons(io::WriteOutcome::Written(_), Nil))) => if byte_count_to_int(committed) == 1 and inputs_are_two(inputs, "bc", "abc")
+			Ok(())
+		else
+			Err("oversized write count fabricated or retried progress")
+		end
+		_ => Err("write_all accepted a count beyond the submitted suffix")
+	end
+end
+
+test write_all_rejects_malformed_failure_progress_without_retry() -> Result<(), String> effects [concurrency]
+	let malformed = io::WriteOutcome::WriteFailed(io::Progress::Unknown(ByteCount(-1)), provider_error("negative failure"))
+	let writes = list_cons(malformed, list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil()))
+	match write(io_complete_transfer_test_support_test::Script(list_nil(), writes), byte_chunk_from_visible_ascii_string("ab")?)?
+		io_complete_transfer_test_support_test::WriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Unknown(committed), io::Error::Error("write_all", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_complete_transfer_test_support_test::Snapshot(Nil, Cons(input, Nil), Nil, Cons(io::WriteOutcome::Written(_), Nil))) => if byte_count_to_int(committed) == 0 and chunk_is(input, "ab")
+			Ok(())
+		else
+			Err("negative write failure progress fabricated a prefix")
+		end
+		_ => Err("write_all accepted malformed failure progress or retried it")
+	end
+end
