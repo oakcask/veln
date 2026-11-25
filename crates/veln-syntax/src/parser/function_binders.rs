@@ -335,11 +335,15 @@ impl<'a> Parser<'a> {
     }
 
     fn skip_applied_function_binder(&mut self) {
+        let has_balanced_close = self.applied_function_binder_has_balanced_close();
         let mut depth = 1usize;
         let mut parenthesis_depth = 0usize;
         while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
             if self.at(TokenKind::LParen) {
-                if parenthesis_depth == 0 && self.at_function_parameter_list_boundary() {
+                if !has_balanced_close
+                    && parenthesis_depth == 0
+                    && self.at_function_parameter_list_boundary()
+                {
                     break;
                 }
                 parenthesis_depth += 1;
@@ -357,6 +361,27 @@ impl<'a> Parser<'a> {
             }
             self.bump();
         }
+    }
+
+    fn applied_function_binder_has_balanced_close(&self) -> bool {
+        let mut angle_depth = 1usize;
+        let mut parenthesis_depth = 0usize;
+        for token in &self.tokens[self.cursor..] {
+            match token.kind {
+                TokenKind::LParen => parenthesis_depth += 1,
+                TokenKind::RParen if parenthesis_depth > 0 => parenthesis_depth -= 1,
+                TokenKind::Less if parenthesis_depth == 0 => angle_depth += 1,
+                TokenKind::Greater if parenthesis_depth == 0 => {
+                    angle_depth -= 1;
+                    if angle_depth == 0 {
+                        return true;
+                    }
+                }
+                TokenKind::Newline | TokenKind::Eof => return false,
+                _ => {}
+            }
+        }
+        false
     }
 
     fn at_function_parameter_list_boundary(&self) -> bool {

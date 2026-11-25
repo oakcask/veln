@@ -308,25 +308,43 @@ fn invalid_binder_at_parameter_boundary_preserves_signature() {
 }
 
 #[test]
-fn unclosed_applied_binder_recovers_at_parameter_list() {
-    let source = SourceFile::new(
-        "main.veln",
-        "fn invalid<T<Int(value: Int) -> Int\n  value\nend\n",
-    );
-    let output = parse(&source);
+fn applied_binder_recovery_prefers_a_balanced_close_over_nested_parentheses() {
+    let cases = [
+        (
+            "fn invalid<T<Int(value: Int) -> Int\n  value\nend\n",
+            vec![
+                ("parse.function_binder_bound", "<"),
+                ("parse.function_binder_separator", "("),
+            ],
+        ),
+        (
+            "fn invalid<T<Foo(Int) -> Int> >(value: Int) -> Int\n  value\nend\n",
+            vec![("parse.function_binder_bound", "<")],
+        ),
+    ];
 
-    assert_eq!(
-        output
-            .diagnostics
-            .iter()
-            .map(|diagnostic| diagnostic.id)
-            .collect::<Vec<_>>(),
-        vec![
-            "parse.function_binder_bound",
-            "parse.function_binder_separator",
-        ]
-    );
-    assert_recovered_invalid_signature(&output);
+    for (text, expected_diagnostics) in cases {
+        let source = SourceFile::new("main.veln", text);
+        let output = parse(&source);
+
+        assert_eq!(
+            output
+                .diagnostics
+                .iter()
+                .map(|diagnostic| {
+                    let span = diagnostic.span.as_ref().expect("expected a primary span");
+                    (
+                        diagnostic.id,
+                        &source.text()[span.start.offset..span.end.offset],
+                    )
+                })
+                .collect::<Vec<_>>(),
+            expected_diagnostics,
+            "{:#?}",
+            output.diagnostics
+        );
+        assert_recovered_invalid_signature(&output);
+    }
 }
 
 #[test]
@@ -351,6 +369,7 @@ fn applied_binder_with_nested_unit_type_recovers_at_parameter_list() {
 fn assert_recovered_invalid_signature(output: &ParseOutput) {
     let function = first_function(output);
     assert_eq!(function.type_binders.len(), 1);
+    assert_eq!(function.type_binders[0].name, "T");
     assert_eq!(function.params.len(), 1);
     assert_eq!(function.params[0].name, "value");
     assert_eq!(function.params[0].ty.as_deref(), Some("Int"));
