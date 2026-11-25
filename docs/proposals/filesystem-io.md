@@ -139,7 +139,8 @@ and host adapters.
 
 The current specification defines direct empty-request bypass, no-progress
 normalization, preservation of clean end, short success, partial success, and
-provider failure outcomes, and rejection of malformed direct provider counts.
+valid provider failure outcomes, and rejection of malformed direct provider
+counts.
 It also defines complete-transfer handling for positive, zero-size, failed,
 and malformed provider outcomes. The remaining common outcome design must
 preserve data or progress when a host operation also fails.
@@ -348,7 +349,7 @@ independent of error category and namespace/ownership commit facts.
 | --- | --- |
 | Exception after a host transfer attempt | Preserve independently established prefix/progress; otherwise report unknown progress. Sequential cursor becomes unavailable until successful absolute `Start` seek or close if its value is unknown. Relative seek fails with `InvalidResource` in that state. |
 | Positional failure | Preserve the sequential cursor, including when transfer progress is unknown. Unknown content changes remain observable; no seek-and-transfer emulation. |
-| Direct-facade count outside the submitted bounds, or counter overflow | Stop with `InvalidInput` for caller input or `InvalidResource` for an invalid provider reply. Do not wrap counts. |
+| Host-adapter counter overflow while translating or accumulating a host result | Return a host operation outcome with `InvalidResource` and do not wrap the count. Preserve any independently established prefix in the outcome; otherwise report unknown progress from a zero known prefix. |
 
 ### Namespace, Seek, And Mutation Transitions
 

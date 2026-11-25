@@ -246,6 +246,28 @@ test direct_positional_facades_preserve_zero_success_at_submitted_bounds() -> Re
 	end
 end
 
+test direct_positional_facades_preserve_zero_success_for_positive_requests() -> Result<(), String> effects [concurrency]
+	let empty = byte_chunk([])
+	let input = byte_chunk_from_visible_ascii_string("ab")?
+	let positional_read = validated_read_at(list_cons(io::ReadOutcome::Data(empty), list_nil()), byte_count(2)?)?
+	let positional_write = validated_write_at(list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil()), input)?
+	match positional_read
+		io_direct_validation_test_support_test::ReadObservation(io::ReadOutcome::Data(read_bytes), io_direct_validation_test_support_test::Snapshot(Cons("read_at", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(byte_chunk_count(read_bytes)) == 0
+			match positional_write
+				io_direct_validation_test_support_test::WriteObservation(io::WriteOutcome::Written(written), io_direct_validation_test_support_test::Snapshot(Cons("write_at", Nil), Nil, Nil, Nil, Nil)) => if byte_count_to_int(written) == 0
+					Ok(())
+				else
+					Err("positive-request write_at changed its zero count")
+				end
+				_ => Err("positive-request write_at normalized zero success or did not dispatch exactly once")
+			end
+		else
+			Err("positive-request read_at changed its empty bytes")
+		end
+		_ => Err("positive-request read_at normalized empty success or did not dispatch exactly once")
+	end
+end
+
 test direct_reads_reject_failure_payloads_beyond_submitted_bound() -> Result<(), String> effects [concurrency]
 	let oversized = byte_chunk_from_visible_ascii_string("abc")?
 	let failure = provider_error("oversized failure payload")

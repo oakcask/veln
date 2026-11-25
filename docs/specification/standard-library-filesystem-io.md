@@ -385,7 +385,8 @@ The exported `fs` namespace facades invoke the `fs::Read` or `fs::Mutate`
 handler captured by their filesystem token. The exported `io` byte facades
 invoke the operation handler captured by their projected capability after the
 request checks described below. A negative `io::read` or `io::read_at` maximum
-fails before dispatch. Empty sequential calls take the validated bypass.
+fails before capability or owner validation and before provider dispatch.
+Empty sequential calls take the validated bypass.
 Dispatch passes the public token or restricted capability to the handler; it
 does not expose the underlying `io_provider::Resource`. A handler can use the
 matching slot accessor with its owner while a nested provider scope is active.
@@ -409,32 +410,36 @@ Direct `io::read` with a zero `ByteCount` validates the reader capability and
 that its provider-owner scope remains open, then returns empty `Data` without
 invoking the provider. Direct `io::write` with an empty `ByteChunk` performs the
 corresponding validation and returns `Written(0)` without invoking the provider.
-A reader or writer whose provider-owner scope is closed returns the operation's
-`InvalidResource` outcome with known zero progress, and its provider is not
-invoked.
+For every call that reaches owner validation, a capability whose provider-owner
+scope is closed returns the operation's `InvalidResource` outcome with known
+zero progress, and its provider is not invoked. This owner rejection does not
+override the earlier negative-maximum rejection.
 
-For a positive maximum, direct `io::read` normalizes an empty provider `Data`
-result to `ReadFailed` with empty bytes, known zero consumed progress, and
-`NoProgress`. For nonempty input, direct `io::write` normalizes provider
-`Written(0)` to `WriteFailed` with known zero committed progress and
-`NoProgress`. Each nonempty facade request dispatches once and does not retry.
-`End`, nonempty short reads, positive partial writes, and provider-returned
-failures remain unchanged.
-
-Direct `io::read` and `io::read_at` reject a negative maximum before provider
-dispatch. The result is `ReadFailed` with empty bytes, known zero progress, and
-`InvalidInput`. Each accepted request to `read`, `write`, `read_at`, or
-`write_at` invokes its provider at most once. The positional facades do not add
-sequential no-progress normalization.
+Once the owner is usable, every other accepted request invokes the selected
+provider exactly once. This includes `read_at` and `write_at` requests with a
+zero maximum or empty chunk. A direct facade never retries its provider. A
+negative read maximum returns `ReadFailed` with empty bytes, known zero
+progress, and `InvalidInput` through the earlier pre-validation path.
 
 Every direct facade validates its provider reply against the submitted
-maximum or chunk length. Successful read bytes and successful write counts can
-equal but cannot exceed that bound. A failed read is valid only when its bytes
-fit within the request and its known count or unknown lower bound is between
-the delivered-byte length and the request bound. A failed write is valid only
-when its known count or unknown lower bound is nonnegative and does not exceed
-the submitted chunk length. Valid boundary replies, including original errors
-and `Known` or `Unknown` progress, remain unchanged.
+maximum or chunk length. A structurally valid `Data` success contains from zero
+through the requested maximum bytes. A structurally valid `Written` success
+reports a count in the inclusive range from zero through the submitted chunk
+length. A failed read is valid only when its bytes fit within the request and
+its known count or unknown lower bound is between the delivered-byte length and
+the request bound. A failed write is valid only when its known count or unknown
+lower bound is nonnegative and does not exceed the submitted chunk length.
+Valid provider failures remain unchanged, including their original errors and
+`Known` or `Unknown` progress.
+
+After validation, only sequential positive requests apply no-progress
+normalization. Direct `io::read` converts empty provider `Data` to `ReadFailed`
+with empty bytes, known zero consumed progress, and `NoProgress`. Direct
+`io::write` converts provider `Written(0)` to `WriteFailed` with known zero
+committed progress and `NoProgress`. Positional `read_at` preserves empty
+`Data`, and positional `write_at` preserves `Written(0)`, including for positive
+requests. `End`, nonempty short reads, and positive partial writes remain
+unchanged.
 
 An out-of-bounds success or failure reply becomes the operation's
 `InvalidResource` failure. A malformed read reply carries empty bytes and
@@ -457,10 +462,10 @@ when the owners share a handler frame and when different frames captured the
 operand. Wrong-owner resource and capability slot access also returns
 `InvalidResource`. These failures do not change either provider's `State<T>`.
 
-Owner closure applies the same rejection before both facade dispatch and
-ordinary lexical `perform` dispatch. Each operation returns its documented
-`InvalidResource` result shape, and the captured or lexically selected
-provider is not invoked.
+Owner closure applies the same rejection to facade calls that reach owner
+validation and before ordinary lexical `perform` dispatch. Each such operation
+returns its documented `InvalidResource` result shape, and the captured or
+lexically selected provider is not invoked.
 
 `io::copy` requires a positive chunk size. A non-positive chunk size returns
 `InvalidInput` with known zero consumed and committed progress before either
