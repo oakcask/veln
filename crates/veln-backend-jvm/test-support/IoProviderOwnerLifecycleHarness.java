@@ -1,50 +1,10 @@
-public final class IoProviderOwnerLifecycleHarness {
-    private static final java.lang.reflect.Field HANDLERS;
-    private static final java.lang.reflect.Field INVOKED_HANDLER;
-
-    static {
-        try {
-            HANDLERS = VelnRuntime.class.getDeclaredField("HANDLERS");
-            INVOKED_HANDLER = VelnRuntime.class.getDeclaredField("INVOKED_HANDLER");
-            HANDLERS.setAccessible(true);
-            INVOKED_HANDLER.setAccessible(true);
-        } catch (ReflectiveOperationException error) {
-            throw new ExceptionInInitializerError(error);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static java.util.List<Object> handlers() throws Exception {
-        return (java.util.List<Object>) ((ThreadLocal<?>) HANDLERS.get(null)).get();
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Object owner() throws Exception {
-        java.util.List<Object> frames = handlers();
-        Object scope = frames.get(frames.size() - 1);
-        ThreadLocal<Object> invoked = (ThreadLocal<Object>) INVOKED_HANDLER.get(null);
-        invoked.set(scope);
-        try {
-            return VelnRuntime.ioProviderScopeOwner();
-        } finally {
-            invoked.remove();
-        }
-    }
+public final class IoProviderOwnerLifecycleHarness extends IoProviderHarnessSupport {
 
     private static void push(String effect, String operation, VelnRuntime.Fn provider) {
         VelnRuntime.pushHandler(
             effect,
             new Object[] { operation },
             new Object[] { provider },
-            new Object[0]
-        );
-    }
-
-    private static void pushScope() {
-        VelnRuntime.pushHandler(
-            "std::io_provider::Scope",
-            new Object[0],
-            new Object[0],
             new Object[0]
         );
     }
@@ -84,10 +44,6 @@ public final class IoProviderOwnerLifecycleHarness {
         return result.isOk() && result.value().equals(Long.valueOf(expected));
     }
 
-    private static void require(boolean condition, String message) {
-        if (!condition) throw new AssertionError(message);
-    }
-
     private static Object family() {
         return VelnRuntime.adt("io_provider::ViewFamily::ReadFile", new Object[0]);
     }
@@ -116,9 +72,7 @@ public final class IoProviderOwnerLifecycleHarness {
     }
 
     private static int resourceCount(Object owner) throws Exception {
-        java.lang.reflect.Field resources = owner.getClass().getDeclaredField("resources");
-        resources.setAccessible(true);
-        return ((java.util.Map<?, ?>) resources.get(owner)).size();
+        return resources(owner).size();
     }
 
     private static java.util.List<?> releaseFailures(Object scope) throws Exception {
@@ -128,7 +82,7 @@ public final class IoProviderOwnerLifecycleHarness {
     }
 
     private static Object makeForeignOwner() throws Exception {
-        pushScope();
+        push("std::io_provider::Scope");
         Object foreign = owner();
         VelnRuntime.popHandler();
         return foreign;
@@ -168,7 +122,7 @@ public final class IoProviderOwnerLifecycleHarness {
         java.util.concurrent.atomic.AtomicReference<Object> resourceRef = new java.util.concurrent.atomic.AtomicReference<Object>();
         java.util.concurrent.atomic.AtomicReference<Object> readerRef = new java.util.concurrent.atomic.AtomicReference<Object>();
 
-        pushScope();
+        push("std::io_provider::Scope");
         Object scope = handlers().get(handlers().size() - 1);
         Object releaseOwner = owner();
         ownerRef.set(releaseOwner);
@@ -262,7 +216,7 @@ public final class IoProviderOwnerLifecycleHarness {
         java.util.concurrent.atomic.AtomicReference<Object> closerRef = new java.util.concurrent.atomic.AtomicReference<Object>();
         Error fatal = new Error("planned fatal release error");
 
-        pushScope();
+        push("std::io_provider::Scope");
         Object scope = handlers().get(handlers().size() - 1);
         Object releaseOwner = owner();
         ownerRef.set(releaseOwner);
@@ -338,7 +292,7 @@ public final class IoProviderOwnerLifecycleHarness {
         Object failedOutcome = closeFailed("planned late release failure");
         int expectedCloseCalls = duplicateSlot ? 2 : 1;
 
-        pushScope();
+        push("std::io_provider::Scope");
         Object scope = handlers().get(handlers().size() - 1);
         Object releaseOwner = owner();
         ownerRef.set(releaseOwner);
@@ -472,7 +426,7 @@ public final class IoProviderOwnerLifecycleHarness {
         java.util.concurrent.atomic.AtomicReference<Throwable> childFailure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
         Object ownerBFailure = closeFailed("planned cross-owner late release failure");
 
-        pushScope();
+        push("std::io_provider::Scope");
         Object ownerAScope = handlers().get(handlers().size() - 1);
         Object ownerA = owner();
         java.util.concurrent.atomic.AtomicReference<Thread> publicationThread =
@@ -518,7 +472,7 @@ public final class IoProviderOwnerLifecycleHarness {
         require(ownerAResource.isOk(), "owner A resource registration failed");
         popReadFileHandlers();
 
-        pushScope();
+        push("std::io_provider::Scope");
         Object ownerBScope = handlers().get(handlers().size() - 1);
         Object ownerB = owner();
         ownerBRef.set(ownerB);
@@ -584,7 +538,7 @@ public final class IoProviderOwnerLifecycleHarness {
             readCalls.incrementAndGet();
             return VelnRuntime.adt("io::ReadOutcome::End", new Object[0]);
         });
-        pushScope();
+        push("std::io_provider::Scope");
         Object releaseOwner = owner();
         push("std::io::Seek", "seek", (Object... supplied) -> VelnRuntime.ok(Long.valueOf(0L)));
         push("std::io::ReadAt", "read_at", (Object... supplied) ->
@@ -633,7 +587,7 @@ public final class IoProviderOwnerLifecycleHarness {
         java.util.concurrent.atomic.AtomicReference<Throwable> childFailure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
         int foreignResources = resourceCount(foreignOwner);
 
-        pushScope();
+        push("std::io_provider::Scope");
         Object scope = handlers().get(handlers().size() - 1);
         Object releaseOwner = owner();
         pushReadFileHandlers(
@@ -744,7 +698,7 @@ public final class IoProviderOwnerLifecycleHarness {
         java.util.concurrent.atomic.AtomicReference<Object> publication = new java.util.concurrent.atomic.AtomicReference<Object>();
         java.util.concurrent.atomic.AtomicReference<Throwable> childFailure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
 
-        pushScope();
+        push("std::io_provider::Scope");
         Object scope = handlers().get(handlers().size() - 1);
         Object releaseOwner = owner();
         pushReadFileHandlers(

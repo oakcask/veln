@@ -1,35 +1,4 @@
-public final class IoProviderDispatchHarness {
-    private static final java.lang.reflect.Field HANDLERS;
-    private static final java.lang.reflect.Field INVOKED_HANDLER;
-
-    static {
-        try {
-            HANDLERS = VelnRuntime.class.getDeclaredField("HANDLERS");
-            INVOKED_HANDLER = VelnRuntime.class.getDeclaredField("INVOKED_HANDLER");
-            HANDLERS.setAccessible(true);
-            INVOKED_HANDLER.setAccessible(true);
-        } catch (ReflectiveOperationException error) {
-            throw new ExceptionInInitializerError(error);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static java.util.List<Object> handlers() throws Exception {
-        return (java.util.List<Object>) ((ThreadLocal<?>) HANDLERS.get(null)).get();
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Object owner() throws Exception {
-        java.util.List<Object> frames = handlers();
-        Object scope = frames.get(frames.size() - 1);
-        ThreadLocal<Object> invoked = (ThreadLocal<Object>) INVOKED_HANDLER.get(null);
-        invoked.set(scope);
-        try {
-            return VelnRuntime.ioProviderScopeOwner();
-        } finally {
-            invoked.remove();
-        }
-    }
+public final class IoProviderDispatchHarness extends IoProviderHarnessSupport {
 
     private static void push(String effect, String operation, VelnRuntime.Fn provider) {
         VelnRuntime.pushHandler(
@@ -40,20 +9,12 @@ public final class IoProviderDispatchHarness {
         );
     }
 
-    private static void pushEmpty(String effect) {
-        VelnRuntime.pushHandler(effect, new Object[0], new Object[0], new Object[0]);
-    }
-
     private static VelnRuntime.Result result(Object value) {
         return (VelnRuntime.Result) value;
     }
 
     private static Object byteCount(long value) {
         return VelnRuntime.adt("ByteCount", new Object[] { Long.valueOf(value) });
-    }
-
-    private static void require(boolean condition, String message) {
-        if (!condition) throw new AssertionError(message);
     }
 
     private static boolean slotEquals(Object value, long expected) {
@@ -72,9 +33,7 @@ public final class IoProviderDispatchHarness {
     }
 
     private static int resourceCount(Object owner) throws Exception {
-        java.lang.reflect.Field resources = owner.getClass().getDeclaredField("resources");
-        resources.setAccessible(true);
-        return ((java.util.Map<?, ?>) resources.get(owner)).size();
+        return resources(owner).size();
     }
 
     public static void main(String[] args) throws Exception {
@@ -82,7 +41,7 @@ public final class IoProviderDispatchHarness {
         java.util.concurrent.atomic.AtomicInteger byteCalls = new java.util.concurrent.atomic.AtomicInteger();
         java.util.concurrent.atomic.AtomicInteger fallbackCalls = new java.util.concurrent.atomic.AtomicInteger();
 
-        pushEmpty("std::io_provider::Scope");
+        push("std::io_provider::Scope");
         Object owner = owner();
 
         push("std::fs::Read", "open_read", (Object... supplied) -> {
@@ -251,7 +210,7 @@ public final class IoProviderDispatchHarness {
         push("std::io::ReadAt", "read_at", (Object... supplied) -> "read-at");
         push("std::io::Close", "close", (Object... supplied) -> "close");
 
-        pushEmpty("std::io_provider::Scope");
+        push("std::io_provider::Scope");
         ownerA.set(owner());
         VelnRuntime.Result sharedFilesystemA = result(
             VelnRuntime.ioProviderFilesystem(ownerA.get(), Long.valueOf(11L))
@@ -264,7 +223,7 @@ public final class IoProviderDispatchHarness {
         require(sharedResourceA.isOk(), "owner A could not register through the shared byte handlers");
         readerA.set(VelnRuntime.adtPayload(result(VelnRuntime.ioProviderReadFile(sharedResourceA.value())).value(), 0));
 
-        pushEmpty("std::io_provider::Scope");
+        push("std::io_provider::Scope");
         ownerB.set(owner());
         VelnRuntime.Result sharedFilesystemB = result(
             VelnRuntime.ioProviderFilesystem(ownerB.get(), Long.valueOf(21L))
@@ -340,7 +299,7 @@ public final class IoProviderDispatchHarness {
             if (result(attempted).isOk()) rejectedRegistrationState.incrementAndGet();
             return attempted;
         });
-        pushEmpty("std::io_provider::Scope");
+        push("std::io_provider::Scope");
         registrationOwner.set(owner());
         VelnRuntime.Result registrationFilesystem = result(
             VelnRuntime.ioProviderFilesystem(registrationOwner.get(), Long.valueOf(31L))
@@ -348,7 +307,7 @@ public final class IoProviderDispatchHarness {
         require(registrationFilesystem.isOk(), "registration-authority filesystem allocation failed");
         int registrationResourcesBefore = resourceCount(registrationOwner.get());
 
-        pushEmpty("std::io_provider::Scope");
+        push("std::io_provider::Scope");
         Object nearestOwner = owner();
         require(nearestOwner != registrationOwner.get(), "nested provider did not create an independent owner");
         push("std::fs::Read", "open_read", (Object... supplied) -> {
@@ -400,7 +359,7 @@ public final class IoProviderDispatchHarness {
             if (result(attempted).isOk()) closedPublicationState.incrementAndGet();
             return attempted;
         });
-        pushEmpty("std::io_provider::Scope");
+        push("std::io_provider::Scope");
         closedOwner.set(owner());
         VelnRuntime.Result closedFilesystem = result(
             VelnRuntime.ioProviderFilesystem(closedOwner.get(), Long.valueOf(41L))

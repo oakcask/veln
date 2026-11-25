@@ -1,6 +1,4 @@
-public final class IoProviderFilesystemHarness {
-    private static final java.lang.reflect.Field HANDLERS;
-    private static final java.lang.reflect.Field INVOKED_HANDLER;
+public final class IoProviderFilesystemHarness extends IoProviderHarnessSupport {
     private static final java.lang.reflect.Field READONLY_OWNER;
     private static final java.lang.reflect.Field READONLY_SLOT;
     private static final java.lang.reflect.Field READONLY_READ;
@@ -13,8 +11,6 @@ public final class IoProviderFilesystemHarness {
         try {
             Class<?> readonly = Class.forName("VelnRuntime$IoFilesystem");
             Class<?> mutable = Class.forName("VelnRuntime$IoMutableFilesystem");
-            HANDLERS = VelnRuntime.class.getDeclaredField("HANDLERS");
-            INVOKED_HANDLER = VelnRuntime.class.getDeclaredField("INVOKED_HANDLER");
             READONLY_OWNER = readonly.getDeclaredField("owner");
             READONLY_SLOT = readonly.getDeclaredField("slot");
             READONLY_READ = readonly.getDeclaredField("read");
@@ -23,8 +19,6 @@ public final class IoProviderFilesystemHarness {
             MUTABLE_READ = mutable.getDeclaredField("read");
             MUTABLE_MUTATE = mutable.getDeclaredField("mutate");
             for (java.lang.reflect.AccessibleObject member : new java.lang.reflect.AccessibleObject[] {
-                HANDLERS,
-                INVOKED_HANDLER,
                 READONLY_OWNER,
                 READONLY_SLOT,
                 READONLY_READ,
@@ -38,32 +32,6 @@ public final class IoProviderFilesystemHarness {
         } catch (ReflectiveOperationException error) {
             throw new ExceptionInInitializerError(error);
         }
-    }
-
-    private static void push(String effect) {
-        VelnRuntime.pushHandler(effect, new Object[0], new Object[0], new Object[0]);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static java.util.List<Object> handlers() throws Exception {
-        return (java.util.List<Object>) ((ThreadLocal<?>) HANDLERS.get(null)).get();
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Object owner() throws Exception {
-        java.util.List<Object> frames = handlers();
-        Object scope = frames.get(frames.size() - 1);
-        ThreadLocal<Object> invoked = (ThreadLocal<Object>) INVOKED_HANDLER.get(null);
-        invoked.set(scope);
-        try {
-            return VelnRuntime.ioProviderScopeOwner();
-        } finally {
-            invoked.remove();
-        }
-    }
-
-    private static void require(boolean condition, String message) {
-        if (!condition) throw new AssertionError(message);
     }
 
     private static VelnRuntime.Result result(Object value) {
@@ -104,6 +72,7 @@ public final class IoProviderFilesystemHarness {
 
         push("std::io_provider::Scope");
         Object otherOwner = owner();
+        require(otherOwner != owner, "nested provider scope reused the outer owner");
         VelnRuntime.Result wrongOwner = result(VelnRuntime.ioProviderFilesystemSlot(otherOwner, readonly));
         require(wrongOwner.toString().contains("InvalidResource"), "wrong owner accessed a filesystem slot");
         VelnRuntime.popHandler();

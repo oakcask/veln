@@ -50,7 +50,8 @@ class IoProviderHarnessSupport {
     }
 
     static Object owner() throws ReflectiveOperationException {
-        Object scope = handlers().get(0);
+        java.util.List<Object> frames = handlers();
+        Object scope = frames.get(frames.size() - 1);
         @SuppressWarnings("unchecked")
         ThreadLocal<Object> invoked = (ThreadLocal<Object>) INVOKED_HANDLER.get(null);
         invoked.set(scope);
