@@ -55,6 +55,10 @@ pub type BeyondEndObservation
 	pub BeyondEndObservation(position: Result<ByteOffset, io::Error>, after_position: Snapshot, extended: io::WriteOutcome, after_extension: Snapshot, second_position: Result<ByteOffset, io::Error>, preserved_failure: io::WriteOutcome, after_preserved_failure: Snapshot, committed_failure: io::WriteOutcome, snapshot: Snapshot)
 end
 
+pub type BoundaryWriteObservation
+	pub BoundaryWriteObservation(position: Result<ByteOffset, io::Error>, outcome: io::WriteOutcome, snapshot: Snapshot)
+end
+
 type Views
 	Views(first: fs::UpdateFile, alias: fs::UpdateFile, second: fs::UpdateFile)
 end
@@ -338,8 +342,10 @@ end
 
 fn apply_write(state: State, slot: Int, current: ByteChunk, cursor: Int, input: ByteChunk, planned: Int, remaining: List<Action>, operations: String, success: Bool) -> {state: State, result: io::WriteOutcome}
 	let count = if planned < byte_count_to_int(byte_chunk_count(input)) planned else byte_count_to_int(byte_chunk_count(input)) end
-	match replace_or_extend(current, cursor, input, count)
-		Err(_) => {state: preserve_with_log(state, operations), result: io::WriteOutcome::WriteFailed(zero_progress(), invalid_resource("write", "cursor fake could not apply the sequential write"))}
+	let size = byte_count_to_int(byte_chunk_count(current))
+	let update = if cursor > size replace_or_extend(current, cursor, input, count) else replace(current, cursor, input, count) end
+	match update
+		Err(_) => {state: preserve_with_log(state, operations), result: io::WriteOutcome::WriteFailed(zero_progress(), invalid_resource("write", "cursor fake write exceeded the current file"))}
 		Ok(updated) => if success
 			{state: replace_bytes_and_cursor(state, slot, updated, KnownCursor(cursor + count), remaining, operations), result: io::WriteOutcome::Written(ByteCount(count))}
 		else
@@ -597,6 +603,17 @@ fn beyond_end_body(owner: io_provider::Owner, state: io_provider::State<State>) 
 	end
 end
 
+fn boundary_write_body(owner: io_provider::Owner, state: io_provider::State<State>, target: Int) -> Result<BoundaryWriteObservation, String> effects [io::Read, io::Write, io::Seek, io::ReadAt, io::WriteAt, io::Close, io::Sync, fs::Mutate, concurrency]
+	match views(owner)
+		Err(message) => Err(message)
+		Ok(Views(fs::UpdateFile(_, writer, seeker, _, _, _, _, _), _, _)) => begin
+			let position = io::seek(seeker, io::SeekOrigin::Start(ByteOffset(target)))
+			let outcome = io::write(writer, byte_chunk_from_visible_ascii_string("XY")?)
+			Ok(BoundaryWriteObservation(position, outcome, snapshot(state)))
+		end
+	end
+end
+
 fn run_origins(owner: io_provider::Owner, state: io_provider::State<State>) -> Result<OriginObservation, String> effects [concurrency]
 	handle handle handle handle handle handle handle handle origins_body(owner, state) with reader(owner, state) with writer(owner, state) with seeker(owner, state) with positional_reader(owner, state) with positional_writer(owner, state) with closer() with syncer() with mutator()
 end
@@ -615,6 +632,10 @@ end
 
 fn run_beyond_end(owner: io_provider::Owner, state: io_provider::State<State>) -> Result<BeyondEndObservation, String> effects [concurrency]
 	handle handle handle handle handle handle handle handle beyond_end_body(owner, state) with reader(owner, state) with writer(owner, state) with seeker(owner, state) with positional_reader(owner, state) with positional_writer(owner, state) with closer() with syncer() with mutator()
+end
+
+fn run_boundary_write(owner: io_provider::Owner, state: io_provider::State<State>, target: Int) -> Result<BoundaryWriteObservation, String> effects [concurrency]
+	handle handle handle handle handle handle handle handle boundary_write_body(owner, state, target) with reader(owner, state) with writer(owner, state) with seeker(owner, state) with positional_reader(owner, state) with positional_writer(owner, state) with closer() with syncer() with mutator()
 end
 
 pub fn execute_origins() -> Result<OriginObservation, String> effects [io_provider::Scope, concurrency]
@@ -655,4 +676,28 @@ pub fn execute_beyond_end() -> Result<BeyondEndObservation, String> effects [io_
 	let actions = list_cons(SeekSucceeds, list_cons(WriteSucceeds(2), list_cons(SeekSucceeds, list_cons(WriteFails(0), list_cons(WriteFails(1), list_nil())))))
 	let state = io_provider::state(State(bytes, KnownCursor(0), KnownCursor(0), actions, ""))
 	run_beyond_end(owner, state)
+end
+
+fn execute_boundary_write(target: Int, action: Action) -> Result<BoundaryWriteObservation, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let bytes = byte_chunk_from_visible_ascii_string("abc")?
+	let actions = list_cons(SeekSucceeds, list_cons(action, list_nil()))
+	let state = io_provider::state(State(bytes, KnownCursor(0), KnownCursor(0), actions, ""))
+	run_boundary_write(owner, state, target)
+end
+
+pub fn execute_at_end_success() -> Result<BoundaryWriteObservation, String> effects [io_provider::Scope, concurrency]
+	execute_boundary_write(3, WriteSucceeds(2))
+end
+
+pub fn execute_at_end_failure() -> Result<BoundaryWriteObservation, String> effects [io_provider::Scope, concurrency]
+	execute_boundary_write(3, WriteFails(2))
+end
+
+pub fn execute_crossing_end_success() -> Result<BoundaryWriteObservation, String> effects [io_provider::Scope, concurrency]
+	execute_boundary_write(2, WriteSucceeds(2))
+end
+
+pub fn execute_crossing_end_failure() -> Result<BoundaryWriteObservation, String> effects [io_provider::Scope, concurrency]
+	execute_boundary_write(2, WriteFails(2))
 end

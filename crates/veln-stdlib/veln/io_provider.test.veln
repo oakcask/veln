@@ -2158,6 +2158,19 @@ fn cursor_failed_write(outcome: io::WriteOutcome, progress: Int) -> Bool
 	end
 end
 
+fn cursor_rejected_bounded_write(outcome: io::WriteOutcome) -> Bool
+	match outcome
+		io::WriteOutcome::WriteFailed(io::Progress::Known(count), io::Error::Error("write", io::ErrorKind::InvalidResource, _, _, _, _, "cursor fake write exceeded the current file")) => byte_count_to_int(count) == 0
+		_ => false
+	end
+end
+
+fn cursor_boundary_write_preserved(observation: io_seek_cursor_test_support_test::BoundaryWriteObservation, cursor: Int) -> Result<Bool, String>
+	match observation
+		io_seek_cursor_test_support_test::BoundaryWriteObservation(position, outcome, snapshot) => Ok(cursor_offset(position, cursor) and cursor_rejected_bounded_write(outcome) and cursor_snapshot_matches(snapshot, "abc", cursor, 0, "seek-start;write;", 1)?)
+	end
+end
+
 test scoped_cursor_fake_covers_seek_origins_bounds_and_nonextending_seek() -> Result<(), String> effects [concurrency]
 	match handle io_seek_cursor_test_support_test::execute_origins() with io_provider::scope()
 		Err(message) => Err(message)
@@ -2200,6 +2213,30 @@ test scoped_cursor_fake_extends_sequential_writes_with_zero_gap_and_exact_failed
 			Err("partially committed failed beyond-end write did not match its progress")
 		else
 			Ok(())
+		end
+	end
+end
+
+test scoped_cursor_fake_keeps_eof_and_crossing_writes_bounded() -> Result<(), String> effects [concurrency]
+	let at_end_success = handle io_seek_cursor_test_support_test::execute_at_end_success() with io_provider::scope()
+	let at_end_failure = handle io_seek_cursor_test_support_test::execute_at_end_failure() with io_provider::scope()
+	let crossing_success = handle io_seek_cursor_test_support_test::execute_crossing_end_success() with io_provider::scope()
+	let crossing_failure = handle io_seek_cursor_test_support_test::execute_crossing_end_failure() with io_provider::scope()
+	match at_end_success
+		Err(message) => Err(message)
+		Ok(at_end_success_observation) => match at_end_failure
+			Err(message) => Err(message)
+			Ok(at_end_failure_observation) => match crossing_success
+				Err(message) => Err(message)
+				Ok(crossing_success_observation) => match crossing_failure
+					Err(message) => Err(message)
+					Ok(crossing_failure_observation) => if cursor_boundary_write_preserved(at_end_success_observation, 3)? and cursor_boundary_write_preserved(at_end_failure_observation, 3)? and cursor_boundary_write_preserved(crossing_success_observation, 2)? and cursor_boundary_write_preserved(crossing_failure_observation, 2)?
+						Ok(())
+					else
+						Err("EOF-start or crossing-EOF write changed bounded replacement behavior")
+					end
+				end
+			end
 		end
 	end
 end
