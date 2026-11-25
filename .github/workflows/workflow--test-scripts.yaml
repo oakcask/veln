@@ -18,10 +18,6 @@ on:
       - examples/specification/run/observability-json-lines-host-boundary/case-text/health.jsonl
       - scripts/agent-test
       - scripts/ci-run
-      - Cargo.lock
-      - Cargo.toml
-      - rust-toolchain.toml
-      - tools/veln-repo-workflow-scripts/**
       - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.json
       - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.sha256
       - workflow-scripts/fixtures/veln-language/**
@@ -41,10 +37,6 @@ on:
       - examples/specification/run/observability-json-lines-host-boundary/case-text/health.jsonl
       - scripts/agent-test
       - scripts/ci-run
-      - Cargo.lock
-      - Cargo.toml
-      - rust-toolchain.toml
-      - tools/veln-repo-workflow-scripts/**
       - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.json
       - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.sha256
       - workflow-scripts/fixtures/veln-language/**
@@ -69,7 +61,3 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Test workflow scripts
         run: node --test workflow-scripts/*.test.mjs
-      - name: Prepare Cargo dependencies
-        uses: ./.github/actions/cargo-dependencies
-      - name: Test Rust workflow scripts
-        run: bash scripts/ci-run cargo test --locked -p veln-repo-workflow-scripts
