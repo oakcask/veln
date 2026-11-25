@@ -47,6 +47,7 @@ fn write_file(filesystem: fs::MutableFilesystem) -> Result<(), String> effects [
 			Ok(fs::WriteFile(writer, seeker, _, closer, _, _)) => begin
 				let _ = expect_cursor(io::seek(seeker, io::SeekOrigin::Start(ByteOffset(6))), 6, "host beyond-end seek failed")?
 				let _ = expect_written(io::write_all(writer, byte_chunk_from_visible_ascii_string("XY")?), 2)?
+				let _ = expect_cursor(io::seek(seeker, io::SeekOrigin::Current(0)), 8, "host sequential write did not advance the cursor")?
 				expect_closed(io::close(closer))
 			end
 		end

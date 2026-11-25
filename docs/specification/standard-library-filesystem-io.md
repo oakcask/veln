@@ -502,7 +502,9 @@ selected directory as an absolute rooted token. `fs::open_write` accepts only
 an existing portable child path with `WriteMode(Existing, false)`. The returned
 `WriteFile` supports sequential write, seek, and close; its positional write,
 sync, truncate, other open modes, and other namespace operations are outside
-this path.
+this path. The root check is lexical and does not provide filesystem
+confinement: a followed symbolic link in the selected child path can resolve
+outside the selected directory.
 
 Publication of the rooted namespace token is atomic with owner closure and
 selection of an unoccupied provider slot. If another provider registration
