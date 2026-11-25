@@ -48,6 +48,10 @@ public final class IoProviderDispatchHarness {
         return (VelnRuntime.Result) value;
     }
 
+    private static Object byteCount(long value) {
+        return VelnRuntime.adt("ByteCount", new Object[] { Long.valueOf(value) });
+    }
+
     private static void require(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
     }
@@ -156,7 +160,7 @@ public final class IoProviderDispatchHarness {
         Object foreignReader = VelnRuntime.perform(
             "std::io::Read",
             "read",
-            new Object[] { reader, Long.valueOf(1L) }
+            new Object[] { reader, byteCount(1L) }
         );
         require(
             foreignReader.toString().contains("InvalidResource"),
@@ -167,7 +171,7 @@ public final class IoProviderDispatchHarness {
             "std::io::Read",
             "read",
             reader,
-            Long.valueOf(1L)
+            byteCount(1L)
         );
         require(byteResult.equals("captured-read"), "byte dispatch did not select the captured handler");
         require(byteCalls.get() == 1 && fallbackCalls.get() == 0, "byte dispatch used the active host fallback sentinel");
@@ -291,8 +295,8 @@ public final class IoProviderDispatchHarness {
             "captured namespace dispatch leaked owner A into ordinary lexical execution"
         );
         require(
-            VelnRuntime.ioProviderDispatch2("std::io::Read", "read", readerA.get(), Long.valueOf(1L)).equals("reader-a")
-                && VelnRuntime.ioProviderDispatch2("std::io::Read", "read", readerB.get(), Long.valueOf(1L)).equals("reader-b"),
+            VelnRuntime.ioProviderDispatch2("std::io::Read", "read", readerA.get(), byteCount(1L)).equals("reader-a")
+                && VelnRuntime.ioProviderDispatch2("std::io::Read", "read", readerB.get(), byteCount(1L)).equals("reader-b"),
             "shared byte handler did not dispatch both owners"
         );
 
@@ -304,7 +308,7 @@ public final class IoProviderDispatchHarness {
             "shared-frame foreign namespace token was not rejected"
         );
         require(
-            VelnRuntime.perform("std::io::Read", "read", new Object[] { readerA.get(), Long.valueOf(1L) })
+            VelnRuntime.perform("std::io::Read", "read", new Object[] { readerA.get(), byteCount(1L) })
                 .toString().contains("InvalidResource"),
             "shared-frame foreign byte capability was not rejected"
         );
