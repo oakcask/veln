@@ -290,37 +290,78 @@ fn retained_unclosed_binders_preserve_following_function_declaration() {
 
 #[test]
 fn invalid_binder_at_parameter_boundary_preserves_signature() {
-    let cases = [
-        (
-            "fn invalid<T,(value: Int) -> Int\n  value\nend\n",
-            "parse.function_binder_entry",
-        ),
-        (
-            "fn invalid<T<Int(value: Int) -> Int\n  value\nend\n",
+    let source = SourceFile::new(
+        "main.veln",
+        "fn invalid<T,(value: Int) -> Int\n  value\nend\n",
+    );
+    let output = parse(&source);
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.function_binder_entry"),
+        "{:#?}",
+        output.diagnostics
+    );
+    assert_recovered_invalid_signature(&output);
+}
+
+#[test]
+fn unclosed_applied_binder_recovers_at_parameter_list() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn invalid<T<Int(value: Int) -> Int\n  value\nend\n",
+    );
+    let output = parse(&source);
+
+    assert_eq!(
+        output
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id)
+            .collect::<Vec<_>>(),
+        vec![
             "parse.function_binder_bound",
-        ),
-    ];
+            "parse.function_binder_separator",
+        ]
+    );
+    assert_recovered_invalid_signature(&output);
+}
 
-    for (text, expected_id) in cases {
-        let source = SourceFile::new("main.veln", text);
-        let output = parse(&source);
+#[test]
+fn applied_binder_with_nested_unit_type_recovers_at_parameter_list() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn invalid<T<()> >(value: Int) -> Int\n  value\nend\n",
+    );
+    let output = parse(&source);
 
-        assert!(
-            output
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.id == expected_id),
-            "{:#?}",
-            output.diagnostics
-        );
-        let function = first_function(&output);
-        assert_eq!(function.type_binders.len(), 1);
-        assert_eq!(function.params.len(), 1);
-        assert_eq!(function.params[0].name, "value");
-        assert_eq!(function.params[0].ty.as_deref(), Some("Int"));
-        assert_eq!(function.return_type.as_deref(), Some("Int"));
-        assert!(function.end_present);
-    }
+    assert_eq!(
+        output
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id)
+            .collect::<Vec<_>>(),
+        vec!["parse.function_binder_bound"]
+    );
+    assert_recovered_invalid_signature(&output);
+}
+
+fn assert_recovered_invalid_signature(output: &ParseOutput) {
+    let function = first_function(output);
+    assert_eq!(function.type_binders.len(), 1);
+    assert_eq!(function.params.len(), 1);
+    assert_eq!(function.params[0].name, "value");
+    assert_eq!(function.params[0].ty.as_deref(), Some("Int"));
+    assert_eq!(function.return_type.as_deref(), Some("Int"));
+    assert_eq!(function.body.len(), 1);
+    assert!(matches!(
+        &function.body[0],
+        BodyLine::Expr { expr, .. }
+            if matches!(&expr.kind, ExprKind::NamePath { segments, .. } if segments == &vec!["value".to_string()])
+    ));
+    assert!(function.end_present);
 }
 
 #[test]

@@ -336,13 +336,18 @@ impl<'a> Parser<'a> {
 
     fn skip_applied_function_binder(&mut self) {
         let mut depth = 1usize;
-        while !self.at(TokenKind::LParen)
-            && !self.at(TokenKind::Newline)
-            && !self.at(TokenKind::Eof)
-        {
-            if self.at(TokenKind::Less) {
+        let mut parenthesis_depth = 0usize;
+        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+            if self.at(TokenKind::LParen) {
+                if parenthesis_depth == 0 && self.at_function_parameter_list_boundary() {
+                    break;
+                }
+                parenthesis_depth += 1;
+            } else if self.at(TokenKind::RParen) && parenthesis_depth > 0 {
+                parenthesis_depth -= 1;
+            } else if parenthesis_depth == 0 && self.at(TokenKind::Less) {
                 depth += 1;
-            } else if self.at(TokenKind::Greater) {
+            } else if parenthesis_depth == 0 && self.at(TokenKind::Greater) {
                 depth -= 1;
                 self.bump();
                 if depth == 0 {
@@ -352,6 +357,42 @@ impl<'a> Parser<'a> {
             }
             self.bump();
         }
+    }
+
+    fn at_function_parameter_list_boundary(&self) -> bool {
+        if !self.at(TokenKind::LParen)
+            || self
+                .previous()
+                .is_some_and(|token| token.kind == TokenKind::Fn)
+        {
+            return false;
+        }
+
+        let mut depth = 0usize;
+        for (offset, token) in self.tokens[self.cursor..].iter().enumerate() {
+            match token.kind {
+                TokenKind::LParen => depth += 1,
+                TokenKind::RParen => {
+                    depth -= 1;
+                    if depth == 0 {
+                        let following = self.tokens.get(self.cursor + offset + 1);
+                        return following.is_some_and(|token| {
+                            matches!(
+                                token.kind,
+                                TokenKind::Arrow
+                                    | TokenKind::Effects
+                                    | TokenKind::Callsite
+                                    | TokenKind::Newline
+                                    | TokenKind::Eof
+                            )
+                        });
+                    }
+                }
+                TokenKind::Newline | TokenKind::Eof => return false,
+                _ => {}
+            }
+        }
+        false
     }
 
     fn report_duplicate_function_binder(&mut self, token: &Token, name: &str, kind: FunctionKind) {
