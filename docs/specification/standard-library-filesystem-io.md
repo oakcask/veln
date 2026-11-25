@@ -565,8 +565,9 @@ establishes only its static capability and effect boundary.
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with scripts and progress logs in
   [`io_copy_test_support_test.veln`](../../crates/veln-stdlib/veln/io_copy_test_support_test.veln).
-- Complete read and write behavior, including zero-size validation, partial
-  progress, provider failures, malformed replies, and overflow:
+- Complete read and write behavior, including supported caller-count bounds,
+  zero-size validation, partial progress, provider failures, malformed replies,
+  and overflow:
   [`io.test.veln`](../../crates/veln-stdlib/veln/io.test.veln), with scoped
   scripted providers in
   [`io_complete_transfer_test_support_test.veln`](../../crates/veln-stdlib/veln/io_complete_transfer_test_support_test.veln).
