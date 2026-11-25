@@ -67,6 +67,8 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("io_provider_dispatch1", "ioProviderDispatch1"),
         ("io_provider_dispatch2", "ioProviderDispatch2"),
         ("io_provider_dispatch3", "ioProviderDispatch3"),
+        ("io_read_exact", "ioReadExact"),
+        ("io_write_all", "ioWriteAll"),
         ("io_copy", "ioCopy"),
         ("byte_to_int", "byteToInt"),
         ("byte_chunk", "byteChunk"),

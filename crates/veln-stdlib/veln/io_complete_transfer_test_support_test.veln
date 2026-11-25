@@ -1,0 +1,155 @@
+use prelude
+use io
+use io_provider
+
+pub type Script
+	pub Script(reads: List<io::ReadOutcome>, writes: List<io::WriteOutcome>)
+end
+
+type State
+	State(reads: List<io::ReadOutcome>, writes: List<io::WriteOutcome>, read_maximums: List<Int>, write_inputs: List<ByteChunk>)
+end
+
+pub type Snapshot
+	pub Snapshot(read_maximums: List<Int>, write_inputs: List<ByteChunk>, remaining_reads: List<io::ReadOutcome>, remaining_writes: List<io::WriteOutcome>)
+end
+
+pub type ExactObservation
+	pub ExactObservation(outcome: io::ExactOutcome, snapshot: Snapshot)
+end
+
+pub type WriteObservation
+	pub WriteObservation(outcome: io::WriteOutcome, snapshot: Snapshot)
+end
+
+fn error(message: String) -> io::Error
+	io::Error::Error("complete-transfer-test", io::ErrorKind::InvalidResource, None, None, None, None, message)
+end
+
+fn zero_progress() -> io::Progress
+	io::Progress::Known(byte_chunk_count(byte_chunk([])))
+end
+
+fn slot_matches(actual: Result<Int, io::Error>, expected: Int) -> Bool
+	match actual
+		Ok(slot) => slot == expected
+		Err(_) => false
+	end
+end
+
+fn next_read(current: State, maximum: ByteCount) -> {state: State, result: io::ReadOutcome}
+	match current
+		State(reads, writes, maximums, inputs) => match reads
+			Cons(next, remaining) => {state: State(remaining, writes, Cons(byte_count_to_int(maximum), maximums), inputs), result: next}
+			Nil => {state: State(Nil, writes, Cons(byte_count_to_int(maximum), maximums), inputs), result: io::ReadOutcome::End}
+		end
+	end
+end
+
+fn next_write(current: State, bytes: ByteChunk) -> {state: State, result: io::WriteOutcome}
+	match current
+		State(reads, writes, maximums, inputs) => match writes
+			Cons(next, remaining) => {state: State(reads, remaining, maximums, Cons(bytes, inputs)), result: next}
+			Nil => {state: State(reads, Nil, maximums, Cons(bytes, inputs)), result: io::WriteOutcome::Written(byte_chunk_count(bytes))}
+		end
+	end
+end
+
+fn observe(current: State, context: ()) -> {state: State, result: Snapshot}
+	match current
+		State(reads, writes, maximums, inputs) => {state: current, result: Snapshot(maximums, inputs, reads, writes)}
+	end
+end
+
+handler scripted_read(owner: io_provider::Owner, slot: Int, state: io_provider::State<State>) for io::Read effects [concurrency]
+	read(reader, maximum) => if slot_matches(io_provider::reader_slot(owner, reader), slot)
+		io_provider::update(state, maximum, next_read)
+	else
+		io::ReadOutcome::ReadFailed(byte_chunk([]), zero_progress(), error("reader belongs to another provider"))
+	end
+end
+
+handler scripted_write(owner: io_provider::Owner, slot: Int, state: io_provider::State<State>) for io::Write effects [concurrency]
+	write(writer, bytes) => if slot_matches(io_provider::writer_slot(owner, writer), slot)
+		io_provider::update(state, bytes, next_write)
+	else
+		io::WriteOutcome::WriteFailed(zero_progress(), error("writer belongs to another provider"))
+	end
+end
+
+handler scripted_close() for io::Close
+	close(closer) => io::CloseOutcome::Closed
+end
+
+fn registered_view(owner: io_provider::Owner, slot: Int) -> Result<{reader: io::Reader, writer: io::Writer, closer: io::Closer}, String> effects [io::Read, io::Write]
+	match io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex)
+		Err(_) => Err("could not register complete-transfer resource")
+		Ok(resource) => match io_provider::duplex(resource)
+			Err(_) => Err("could not project complete-transfer resource")
+			Ok(view) => Ok(view)
+		end
+	end
+end
+
+fn exact_body(owner: io_provider::Owner, slot: Int, cell: io_provider::State<State>, count: ByteCount) -> Result<ExactObservation, String> effects [io::Read, io::Write, concurrency]
+	match registered_view(owner, slot)
+		Err(message) => Err(message)
+		Ok(view) => begin
+			let outcome = io::read_exact(view.reader, count)
+			let snapshot = io_provider::update(cell, (), observe)
+			Ok(ExactObservation(outcome, snapshot))
+		end
+	end
+end
+
+fn write_body(owner: io_provider::Owner, slot: Int, cell: io_provider::State<State>, bytes: ByteChunk) -> Result<WriteObservation, String> effects [io::Read, io::Write, concurrency]
+	match registered_view(owner, slot)
+		Err(message) => Err(message)
+		Ok(view) => begin
+			let outcome = io::write_all(view.writer, bytes)
+			let snapshot = io_provider::update(cell, (), observe)
+			Ok(WriteObservation(outcome, snapshot))
+		end
+	end
+end
+
+pub fn execute_exact(script: Script, count: ByteCount) -> Result<ExactObservation, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 905
+	let cell = match script
+		Script(reads, writes) => io_provider::state(State(reads, writes, list_nil(), list_nil()))
+	end
+	handle handle handle exact_body(owner, slot, cell, count) with scripted_read(owner, slot, cell) with scripted_write(owner, slot, cell) with scripted_close()
+end
+
+pub fn execute_write(script: Script, bytes: ByteChunk) -> Result<WriteObservation, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 906
+	let cell = match script
+		Script(reads, writes) => io_provider::state(State(reads, writes, list_nil(), list_nil()))
+	end
+	handle handle handle write_body(owner, slot, cell, bytes) with scripted_read(owner, slot, cell) with scripted_write(owner, slot, cell) with scripted_close()
+end
+
+fn allocate_closed_view() -> Result<{reader: io::Reader, writer: io::Writer}, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let cell = io_provider::state(State(list_nil(), list_nil(), list_nil(), list_nil()))
+	match handle handle handle registered_view(owner, 907) with scripted_read(owner, 907, cell) with scripted_write(owner, 907, cell) with scripted_close()
+		Err(message) => Err(message)
+		Ok(view) => Ok({reader: view.reader, writer: view.writer})
+	end
+end
+
+pub fn closed_zero_read() -> Result<io::ExactOutcome, String> effects [io::Read, concurrency]
+	match handle allocate_closed_view() with io_provider::scope()
+		Err(message) => Err(message)
+		Ok(view) => Ok(io::read_exact(view.reader, byte_count(0)?))
+	end
+end
+
+pub fn closed_zero_write() -> Result<io::WriteOutcome, String> effects [io::Write, concurrency]
+	match handle allocate_closed_view() with io_provider::scope()
+		Err(message) => Err(message)
+		Ok(view) => Ok(io::write_all(view.writer, byte_chunk([])))
+	end
+end

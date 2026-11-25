@@ -150,10 +150,12 @@ modeled runtime failure, and task cancellation. When restricted cleanup
 succeeds during an abrupt failure, the original failure remains primary and
 execution does not continue after the handled scope.
 
-The same private adapter implements bounded `io::copy` by dispatching through
-the source and destination capabilities. It retries only the uncommitted write
-suffix, stops on no progress or invalid provider counts, and preserves separate
-consumed and committed progress on failure. The
+The same private adapter implements `io::read_exact`, `io::write_all`, and
+bounded `io::copy` by dispatching through the retained capabilities.
+`read_exact` accumulates short reads, while `write_all` and `copy` retry only
+the uncommitted write suffix. The helpers stop on provider failure, no
+progress, or invalid provider counts and preserve their independently confirmed
+bytes or progress. The
 [standard-library filesystem and byte IO specification](standard-library-filesystem-io.md#provider-bound-dispatch)
 owns the source-visible outcomes, validation rules, and remaining limits.
 A facade or accepted lexical open admitted before owner closure can finish

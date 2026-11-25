@@ -79,6 +79,8 @@ runtime_method_table!(prelude_method, "vecLen", {
     "io_provider_dispatch1" => "ioProviderDispatch1",
     "io_provider_dispatch2" => "ioProviderDispatch2",
     "io_provider_dispatch3" => "ioProviderDispatch3",
+    "io_read_exact" => "ioReadExact",
+    "io_write_all" => "ioWriteAll",
     "io_copy" => "ioCopy",
     "float_negate" => "floatNegate",
     "float_add" => "floatAdd",
