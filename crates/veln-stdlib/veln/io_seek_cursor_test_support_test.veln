@@ -253,8 +253,18 @@ end
 fn zero_gap(count: Int) -> ByteChunk
 	if count <= 0
 		byte_chunk([])
-	else
-		byte_append(zero_gap(count - 1), byte_chunk([Byte(0)]))
+	else if count == 1
+		byte_chunk([Byte(0)])
+	else begin
+		let half_count = count / 2
+		let half = zero_gap(half_count)
+		let doubled = byte_append(half, half)
+		if half_count * 2 == count
+			doubled
+		else
+			byte_append(doubled, byte_chunk([Byte(0)]))
+		end
+	end
 	end
 end
 
