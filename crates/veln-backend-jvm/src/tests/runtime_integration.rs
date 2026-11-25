@@ -29,6 +29,11 @@ fn run_java_runtime_harness_with_options(
 ) -> std::process::Output {
     let root = temp_dir(name);
     write_jvm_program(&root, program);
+    fs::write(
+        root.join("IoProviderHarnessSupport.java"),
+        include_str!("../../test-support/IoProviderHarnessSupport.java"),
+    )
+    .expect("IO provider harness support should be written");
     fs::write(root.join(source_name), source).expect("Java harness should be written");
     let compiled = Command::new("javac")
         .arg(source_name)

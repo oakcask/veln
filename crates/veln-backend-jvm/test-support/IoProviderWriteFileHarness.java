@@ -1,89 +1,4 @@
-public final class IoProviderWriteFileHarness {
-    private static final java.lang.reflect.Field HANDLERS;
-    private static final java.lang.reflect.Field INVOKED_HANDLER;
-    private static final java.lang.reflect.Field OWNER_RESOURCES;
-    private static final java.lang.reflect.Field ADT_PAYLOADS;
-    private static final java.lang.reflect.Field CAPABILITY_HANDLER;
-
-    static {
-        try {
-            Class<?> capability = Class.forName("VelnRuntime$IoCapability");
-            Class<?> owner = Class.forName("VelnRuntime$IoOwner");
-            HANDLERS = VelnRuntime.class.getDeclaredField("HANDLERS");
-            INVOKED_HANDLER = VelnRuntime.class.getDeclaredField("INVOKED_HANDLER");
-            OWNER_RESOURCES = owner.getDeclaredField("resources");
-            ADT_PAYLOADS = VelnRuntime.Adt.class.getDeclaredField("payloads");
-            CAPABILITY_HANDLER = capability.getDeclaredField("handler");
-            for (java.lang.reflect.AccessibleObject member : new java.lang.reflect.AccessibleObject[] {
-                HANDLERS,
-                INVOKED_HANDLER,
-                OWNER_RESOURCES,
-                ADT_PAYLOADS,
-                CAPABILITY_HANDLER
-            }) {
-                member.setAccessible(true);
-            }
-        } catch (ReflectiveOperationException error) {
-            throw new ExceptionInInitializerError(error);
-        }
-    }
-
-    private static void push(String effect) {
-        VelnRuntime.pushHandler(effect, new Object[0], new Object[0], new Object[0]);
-    }
-
-    private static void pushClose() {
-        VelnRuntime.pushHandler(
-            "std::io::Close",
-            new Object[] { "close" },
-            new Object[] { (VelnRuntime.Fn) (Object... supplied) ->
-                VelnRuntime.adt("io::CloseOutcome::Closed", new Object[0]) },
-            new Object[0]
-        );
-    }
-
-    @SuppressWarnings("unchecked")
-    private static java.util.List<Object> handlers() throws Exception {
-        return (java.util.List<Object>) ((ThreadLocal<?>) HANDLERS.get(null)).get();
-    }
-
-    private static Object owner() throws Exception {
-        Object scope = handlers().get(0);
-        ThreadLocal<Object> invoked = (ThreadLocal<Object>) INVOKED_HANDLER.get(null);
-        invoked.set(scope);
-        try {
-            return VelnRuntime.ioProviderScopeOwner();
-        } finally {
-            invoked.remove();
-        }
-    }
-
-    private static void require(boolean condition, String message) {
-        if (!condition) throw new AssertionError(message);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static java.util.Map<Long, Object> resources(Object owner) throws Exception {
-        return (java.util.Map<Long, Object>) OWNER_RESOURCES.get(owner);
-    }
-
-    private static void requireRegisteredIdentity(
-        Object owner,
-        long slot,
-        Object expected,
-        String label
-    ) throws Exception {
-        require(
-            resources(owner).get(Long.valueOf(slot)) == expected,
-            label + " registration changed the live registry entry"
-        );
-    }
-
-    private static void requireCapability(Object capability, Object handler, String label)
-        throws Exception {
-        require(CAPABILITY_HANDLER.get(capability) == handler, label + " handler was not retained");
-    }
-
+public final class IoProviderWriteFileHarness extends IoProviderHarnessSupport {
     public static void main(String[] args) throws Exception {
         push("std::io_provider::Scope");
         Object owner = owner();
@@ -133,7 +48,7 @@ public final class IoProviderWriteFileHarness {
 
         VelnRuntime.Result projected = (VelnRuntime.Result) VelnRuntime.ioProviderWriteFile(resource);
         require(projected.isOk(), "WriteFile projection failed before handler identity check");
-        Object[] payloads = (Object[]) ADT_PAYLOADS.get(projected.value());
+        Object[] payloads = payloads(projected.value());
         requireCapability(payloads[0], write, "writer");
         requireCapability(payloads[1], seek, "seeker");
         requireCapability(payloads[2], writeAt, "positional writer");
