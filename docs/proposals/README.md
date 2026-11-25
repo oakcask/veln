@@ -17,10 +17,10 @@ also states it.
 ## Ready
 
 - [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete the
-  remaining F4 direct validation, host-translation, seek, namespace, and
+  remaining F4 direct count validation, host-translation, seek, namespace, and
   mutation rows and the F5 cleanup gate. Sequential direct-facade outcomes,
-  `read_exact`, `write_all`, bounded `io::copy`, F2, and F3 are implemented
-  and belong to the current
+  empty-request bypass, `read_exact`, `write_all`, bounded `io::copy`, F2, and
+  F3 are implemented and belong to the current
   [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
   The target does not require the production filesystem API to be implemented
   first.

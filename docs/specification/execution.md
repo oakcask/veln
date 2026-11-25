@@ -131,8 +131,11 @@ not require an active owner. The adapters can also register `ReadFile`,
 `WriteFile`, `UpdateFile`, `AppendFile`, and `Duplex` resources against their
 required active operation handler frames. They retain the provider owner and
 private slot in each resource and its projected capabilities. Standard `fs`
-and `io` facade calls invoke the retained frame with the restricted token or
-capability, even while another handler for the same nominal effect is active.
+facade calls and nonempty direct `io` transfers invoke the retained frame with
+the restricted token or capability, even while another handler for the same
+nominal effect is active. An empty direct read or write validates the retained
+capability and owner state, then returns its empty success without invoking the
+retained frame.
 One frame can serve registrations for multiple owners; captured calls supply
 and restore the operand's owner for matching slot access and byte-resource
 registration. That invocation owner does not authorize namespace-token

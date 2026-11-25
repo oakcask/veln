@@ -13,10 +13,10 @@ streams, and memory.
 The [design decisions](#design-decisions) resolve the initial scope. The
 implemented static and bounded runtime prerequisites belong to the current
 [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
-The direct-facade sequential outcome matrix and complete-transfer helper
-outcome matrices are implemented. The remaining F4 direct validation,
-host-translation, seek, namespace, and mutation behavior, F5 cleanup behavior,
-and host integration evidence are planned.
+The direct-facade empty-request and sequential outcome matrices and
+complete-transfer helper outcome matrices are implemented. The remaining F4
+direct count validation, host-translation, seek, namespace, and mutation
+behavior, F5 cleanup behavior, and host integration evidence are planned.
 Implementation selection remains blocked on the separate
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
 
@@ -136,12 +136,12 @@ adapters.
 | Sequential write | Reports the committed prefix of the input and advances according to committed bytes. Failure does not imply rollback. |
 | Positional read/write | Uses an explicit absolute byte offset without changing the sequential cursor. Lack of support is explicit, not an unsynchronized seek-and-transfer emulation. |
 
-The current specification defines direct no-progress normalization and
-preservation of clean end, short success, partial success, and provider
-failure outcomes. It also defines complete-transfer handling for positive,
-zero-size, failed, and malformed provider outcomes. The remaining common
-outcome design must bypass providers for empty direct requests, reject invalid
-direct counts, and preserve data or progress when a host operation also fails.
+The current specification defines direct empty-request bypass, no-progress
+normalization, and preservation of clean end, short success, partial success,
+and provider failure outcomes. It also defines complete-transfer handling for
+positive, zero-size, failed, and malformed provider outcomes. The remaining
+common outcome design must reject invalid direct counts and preserve data or
+progress when a host operation also fails.
 Unknown host progress is represented explicitly, never fabricated as zero or
 as a known exact count. The outcome table below fixes the remaining direct
 validation and host behavior.
@@ -258,7 +258,7 @@ output. Fake tests do not establish real host behavior.
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
 | Host conversion | An unrepresentable name fails without selecting another entry; native and portable types cannot be interchanged implicitly. | Companion tests plus focused host-conversion and compiler type-boundary tests. |
-| Remaining transfer validation | Empty direct requests validate the resource without invoking its provider, and invalid direct counts fail without wrapping. Host adapters preserve established prefixes and report unknown progress when a transfer may have occurred but its exact progress cannot be established. | Scripted Veln fake tests for empty requests and invalid provider counts; focused host-adapter tests for established and uncertain host progress. |
+| Remaining transfer validation | Invalid direct counts fail without wrapping. Host adapters preserve established prefixes and report unknown progress when a transfer may have occurred but its exact progress cannot be established. | Scripted Veln fake tests for invalid provider counts; focused host-adapter tests for established and uncertain host progress. |
 | Seek and positional IO | Origin arithmetic, invalid targets, beyond-end reads, independent opens, aliases, and positional cursor preservation obey the state table. | Companion tests shared by memory and supported system providers; host tests for native translation. |
 | Namespace updates | Open modes, exclusive create, directory operations, rename, and truncation obey the mutation transition table, including failure preservation. | Shared provider conformance tests and focused real-host integration cases. |
 | Errors and cleanup | Stable error kinds retain operation and path context; close and cleanup transitions preserve progress and the selected primary failure. | Companion tests plus human/JSON execution coverage where runtime cleanup diagnostics apply. |
@@ -283,7 +283,7 @@ runtime support exists.
 | Failure-plan state | Extend the provider-bound Veln fake state with scripted failures, resource cursors, close facts, and operation progress as ordinary Veln data. | A scripted failure changes only the selected provider instance and records the commit facts required by the operation outcome matrix. |
 | Native paths | Keep the current host-owned `Path` as the explicit native boundary; `path::Path` remains portable. Support only exactly representable names initially. | Nonrepresentable names fail with `UnrepresentablePath`; display is never used as a conversion. |
 | Links and confinement | Follow links for ordinary open; explicit follow/no-follow metadata. No confinement or link-creation capability initially. A subtree is only a namespace view. | Dangling links, cycles, unsupported no-follow, and a link outside a subtree cannot be misreported as confined access. |
-| Remaining IO outcomes | Validate empty requests and provider counts at the direct facade, and preserve delivered bytes, exact or unknown progress, and typed errors in host adapters. The current specification owns sequential direct-facade and complete-transfer helper outcomes. | Scripted empty-request and invalid-count cases plus host partial-failure and unknown-progress cases below, excluding the implemented sequential and helper matrices. |
+| Remaining IO outcomes | Validate provider counts at the direct facade, and preserve delivered bytes, exact or unknown progress, and typed errors in host adapters. The current specification owns empty-request, sequential direct-facade, and complete-transfer helper outcomes. | Scripted invalid-count cases plus host partial-failure and unknown-progress cases below, excluding the implemented empty-request, sequential, and helper matrices. |
 | Seek and mutation | Absolute logical cursor, host-defined gap bytes, append-only writer views, no-replacement atomic rename where supported, and explicit mutation commit facts. | Shared transition cases plus host tests for unsupported and unknown host outcomes. |
 | Concurrency and cancellation | Nonblocking per-open admission returns `Busy` for overlapping transfers, seek, truncate, or sync. Close can invalidate an in-flight operation. No bounded host cancellation promise. | Gated overlap, close/interruption races, and reconciliation after unknown cursor or close state. |
 | Cleanup and durability | Reverse-publication cleanup, continue after failures, network-compatible close commit facts and abrupt cleanup precedence. No automatic sync. | Known-false, known-true, and unknown close failures, retries, and body-failure precedence. |
@@ -345,7 +345,6 @@ independent of error category and namespace/ownership commit facts.
 
 | Input or outcome | Required state and helper behavior |
 | --- | --- |
-| Zero-size direct read or write on a live permitted view | Return empty `Data` or `Written(0)` without a provider transfer. Validate owner, capability, and closed state first; zero size cannot revive a closed resource. |
 | Exception after a host transfer attempt | Preserve independently established prefix/progress; otherwise report unknown progress. Sequential cursor becomes unavailable until successful absolute `Start` seek or close if its value is unknown. Relative seek fails with `InvalidResource` in that state. |
 | Positional failure | Preserve the sequential cursor, including when transfer progress is unknown. Unknown content changes remain observable; no seek-and-transfer emulation. |
 | Direct-facade count outside the submitted bounds, or counter overflow | Stop with `InvalidInput` for caller input or `InvalidResource` for an invalid provider reply. Do not wrap counts. |
@@ -443,9 +442,9 @@ invalidation belong to a separate buffering proposal before such helpers exist.
 [Filesystem IO Feasibility](filesystem-io-feasibility.md) owns the remaining
 F4–F5 prototype scope, evidence, and completion conditions. It is independently
 selectable from Ready. The current provider foundation, together with the
-implemented sequential direct-facade and complete-transfer matrices and the
-planned remaining outcome, transition, and complete cleanup tables here,
-remains the design contract exercised by that work.
+implemented empty-request, sequential direct-facade, and complete-transfer
+matrices and the planned remaining outcome, transition, and complete cleanup
+tables here, remains the design contract exercised by that work.
 Implementing the complete production filesystem runtime is not its
 prerequisite.
 

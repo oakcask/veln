@@ -245,3 +245,35 @@ pub fn execute_direct_write(writes: List<io::WriteOutcome>, bytes: ByteChunk) ->
 	let cell = io_provider::state(DirectState(list_nil(), writes, list_nil(), list_nil(), list_nil()))
 	handle handle handle direct_write_body(owner, slot, cell, bytes) with direct_scripted_read(owner, slot, cell) with direct_scripted_write(owner, slot, cell) with scripted_close()
 end
+
+fn allocate_closed_direct_view() -> Result<{reader: io::Reader, writer: io::Writer, state: io_provider::State<DirectState>}, String> effects [io_provider::Scope, concurrency]
+	let owner = io_provider::owner()
+	let slot = 910
+	let cell = io_provider::state(DirectState(list_nil(), list_nil(), list_nil(), list_nil(), list_nil()))
+	match handle handle handle registered_view(owner, slot) with direct_scripted_read(owner, slot, cell) with direct_scripted_write(owner, slot, cell) with scripted_close()
+		Err(message) => Err(message)
+		Ok(view) => Ok({reader: view.reader, writer: view.writer, state: cell})
+	end
+end
+
+pub fn closed_direct_read() -> Result<DirectReadObservation, String> effects [io::Read, concurrency]
+	match handle allocate_closed_direct_view() with io_provider::scope()
+		Err(message) => Err(message)
+		Ok(view) => begin
+			let outcome = io::read(view.reader, byte_count(0)?)
+			let snapshot = io_provider::update(view.state, (), direct_observe)
+			Ok(DirectReadObservation(outcome, snapshot))
+		end
+	end
+end
+
+pub fn closed_direct_write() -> Result<DirectWriteObservation, String> effects [io::Write, concurrency]
+	match handle allocate_closed_direct_view() with io_provider::scope()
+		Err(message) => Err(message)
+		Ok(view) => begin
+			let outcome = io::write(view.writer, byte_chunk([]))
+			let snapshot = io_provider::update(view.state, (), direct_observe)
+			Ok(DirectWriteObservation(outcome, snapshot))
+		end
+	end
+end

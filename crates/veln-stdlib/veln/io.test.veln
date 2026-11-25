@@ -44,6 +44,46 @@ fn inputs_are_two(inputs: List<ByteChunk>, first: String, second: String) -> Boo
 	end
 end
 
+test direct_empty_requests_validate_and_bypass_live_provider() -> Result<(), String> effects [concurrency]
+	let read_result = direct_read(list_cons(io::ReadOutcome::End, list_nil()), byte_count(0)?)?
+	let write_result = direct_write(list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil()), byte_chunk([]))?
+	match read_result
+		io_complete_transfer_test_support_test::DirectReadObservation(io::ReadOutcome::Data(bytes), io_complete_transfer_test_support_test::DirectSnapshot(Nil, Nil, Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(byte_chunk_count(bytes)) == 0
+			match write_result
+				io_complete_transfer_test_support_test::DirectWriteObservation(io::WriteOutcome::Written(count), io_complete_transfer_test_support_test::DirectSnapshot(Nil, Nil, Nil, Nil, Cons(io::WriteOutcome::Written(remaining), Nil))) => if byte_count_to_int(count) == 0 and byte_count_to_int(remaining) == 1
+					Ok(())
+				else
+					Err("empty direct write changed progress or its provider script")
+				end
+				_ => Err("empty direct write invoked its provider")
+			end
+		else
+			Err("empty direct read returned nonempty data")
+		end
+		_ => Err("empty direct read invoked its provider")
+	end
+end
+
+test direct_empty_requests_reject_closed_resources_without_provider_invocation() -> Result<(), String> effects [io::Read, io::Write, concurrency]
+	let read_result = io_complete_transfer_test_support_test::closed_direct_read()?
+	let write_result = io_complete_transfer_test_support_test::closed_direct_write()?
+	match read_result
+		io_complete_transfer_test_support_test::DirectReadObservation(io::ReadOutcome::ReadFailed(bytes, io::Progress::Known(consumed), io::Error::Error("read", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_complete_transfer_test_support_test::DirectSnapshot(Nil, Nil, Nil, Nil, Nil)) => if byte_count_to_int(byte_chunk_count(bytes)) == 0 and byte_count_to_int(consumed) == 0
+			match write_result
+				io_complete_transfer_test_support_test::DirectWriteObservation(io::WriteOutcome::WriteFailed(io::Progress::Known(committed), io::Error::Error("write", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_complete_transfer_test_support_test::DirectSnapshot(Nil, Nil, Nil, Nil, Nil)) => if byte_count_to_int(committed) == 0
+					Ok(())
+				else
+					Err("closed empty direct write fabricated progress")
+				end
+				_ => Err("closed empty direct write invoked its provider or returned the wrong error")
+			end
+		else
+			Err("closed empty direct read fabricated bytes or progress")
+		end
+		_ => Err("closed empty direct read invoked its provider or returned the wrong error")
+	end
+end
+
 test direct_read_normalizes_empty_success_without_retry() -> Result<(), String> effects [concurrency]
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk([])), list_cons(io::ReadOutcome::End, list_nil()))
 	match direct_read(reads, byte_count(4)?)?

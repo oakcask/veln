@@ -403,13 +403,20 @@ provider owner remains usable. Dispatch never selects the currently active
 same-effect handler as a fallback and does not perform host filesystem or
 network IO.
 
-For a positive maximum, direct `io::read` normalizes an empty provider
-`Data` result to `ReadFailed` with empty bytes, known zero consumed progress,
-and `NoProgress`. For nonempty input, direct `io::write` normalizes provider
+Direct `io::read(reader, 0)` validates the reader, its provider owner, and its
+closed state, then returns empty `Data` without invoking the provider. Direct
+`io::write(writer, empty_chunk)` performs the corresponding validation and
+returns `Written(0)` without invoking the provider. An unavailable reader or
+writer returns the operation's `InvalidResource` outcome with known zero
+progress, and its provider is not invoked.
+
+For a positive maximum, direct `io::read` normalizes an empty provider `Data`
+result to `ReadFailed` with empty bytes, known zero consumed progress, and
+`NoProgress`. For nonempty input, direct `io::write` normalizes provider
 `Written(0)` to `WriteFailed` with known zero committed progress and
-`NoProgress`. Each facade dispatches once and does not retry. `End`, nonempty
-short reads, positive partial writes, and provider-returned failures remain
-unchanged.
+`NoProgress`. Each nonempty facade request dispatches once and does not retry.
+`End`, nonempty short reads, positive partial writes, and provider-returned
+failures remain unchanged.
 
 Ordinary `perform` retains lexical handler selection and does not receive the
 broader captured invocation authority. An accepted lexical provider open
@@ -559,9 +566,9 @@ state, namespace-token allocation, registration, projection, provider-bound
 dispatch, bounded `copy` outcomes and progress, complete-transfer helper
 outcomes, serialized completed fake-provider writes, and the bounded
 owner-release lifecycle are limited to the observations above. Direct facade
-empty-request bypass, provider-count validation, and host translation, the
-namespace and seek outcome matrix, cleanup retry and failure precedence, host
-filesystem selection, and network-to-byte adapters remain unimplemented.
+provider-count validation and host translation, the namespace and seek outcome
+matrix, cleanup retry and failure precedence, host filesystem selection, and
+network-to-byte adapters remain unimplemented.
 Type-checking behavior outside the implemented slice establishes only its
 static capability and effect boundary.
 
