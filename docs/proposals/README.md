@@ -16,6 +16,11 @@ also states it.
 
 ## Ready
 
+- [Generic Functions](generic-functions.md): implement explicit rank-one type
+  parameters, independent call instantiation, and scheme-preserving aliases.
+  The bounded constraint/alias model and source-to-erased-JVM prototype provide
+  feasibility evidence for the decided baseline. Production parser, checker,
+  artifacts, tooling, and backend acceptance remain implementation work.
 - [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete the
   remaining F4 provider and host seek and positional IO conformance, including
   the seek-beyond-end then write transition and its provider-defined gap-byte
@@ -31,12 +36,6 @@ also states it.
 
 ## Design In Progress
 
-- [Generic Functions](generic-functions.md): add explicit rank-one type
-  parameters, independent call instantiation, and polymorphism-preserving
-  function aliases. First-delivery syntax, bounded type/effect inference,
-  monomorphic local completion, and shared erased JVM lowering are decided;
-  reviewed constraint/alias and source-surface/JVM prototype evidence remain
-  required before Ready promotion.
 - [Literal-expression Constant Folding](constant-folding.md): fold closed
   `Int` and `Bool` executable expressions while preserving diagnostics and
   runtime failures; requires full-range constant materialization and residual
