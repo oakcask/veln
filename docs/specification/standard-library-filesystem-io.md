@@ -383,10 +383,12 @@ returns `InvalidResource` as described below.
 
 The exported `fs` namespace facades invoke the `fs::Read` or `fs::Mutate`
 handler captured by their filesystem token. The exported `io` byte facades
-invoke the operation handler captured by their projected capability. Dispatch
-passes the public token or restricted capability to the handler; it does not
-expose the underlying `io_provider::Resource`. A handler can use the matching
-slot accessor with its owner while a nested provider scope is active.
+invoke the operation handler captured by their projected capability for a
+nonempty sequential `io::read` or `io::write` call. Empty sequential calls take
+the validated bypass described below. Dispatch passes the public token or
+restricted capability to the handler; it does not expose the underlying
+`io_provider::Resource`. A handler can use the matching slot accessor with its
+owner while a nested provider scope is active.
 
 One captured handler frame can serve registrations for more than one active
 provider owner. Each token, resource, and capability retains its own owner.
@@ -397,18 +399,19 @@ restore the preceding owner after normal return, a returned failure, or a
 runtime failure.
 
 Nested handlers affect newly allocated tokens and capabilities. They do not
-reinterpret an older value. A facade call on an older value selects its
-creating handler even after that handler's dynamic scope exits, provided its
-provider owner remains usable. Dispatch never selects the currently active
-same-effect handler as a fallback and does not perform host filesystem or
-network IO.
+reinterpret an older value. A facade call that requires provider invocation
+selects the older value's creating handler even after that handler's dynamic
+scope exits, provided its provider owner remains usable. Dispatch never selects
+the currently active same-effect handler as a fallback and does not perform
+host filesystem or network IO.
 
-Direct `io::read(reader, 0)` validates the reader, its provider owner, and its
-closed state, then returns empty `Data` without invoking the provider. Direct
-`io::write(writer, empty_chunk)` performs the corresponding validation and
-returns `Written(0)` without invoking the provider. An unavailable reader or
-writer returns the operation's `InvalidResource` outcome with known zero
-progress, and its provider is not invoked.
+Direct `io::read` with a zero `ByteCount` validates the reader capability and
+that its provider-owner scope remains open, then returns empty `Data` without
+invoking the provider. Direct `io::write` with an empty `ByteChunk` performs the
+corresponding validation and returns `Written(0)` without invoking the provider.
+A reader or writer whose provider-owner scope is closed returns the operation's
+`InvalidResource` outcome with known zero progress, and its provider is not
+invoked.
 
 For a positive maximum, direct `io::read` normalizes an empty provider `Data`
 result to `ReadFailed` with empty bytes, known zero consumed progress, and
@@ -583,7 +586,8 @@ static capability and effect boundary.
   [`io_copy_test_support_test.veln`](../../crates/veln-stdlib/veln/io_copy_test_support_test.veln).
 - Complete read and write behavior, including supported caller-count bounds,
   zero-size validation, partial progress, provider failures, malformed replies,
-  and overflow, plus direct no-progress normalization and single dispatch:
+  and overflow, plus direct empty-request bypass, closed-provider-owner
+  rejection, no-progress normalization, and single dispatch:
   [`io.test.veln`](../../crates/veln-stdlib/veln/io.test.veln), with scoped
   scripted providers in
   [`io_complete_transfer_test_support_test.veln`](../../crates/veln-stdlib/veln/io_complete_transfer_test_support_test.veln).
