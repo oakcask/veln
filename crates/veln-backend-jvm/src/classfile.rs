@@ -365,6 +365,20 @@ fn emit_module_value_initializer(
     helper_classes: &mut Vec<JvmClassFile>,
 ) -> Result<MethodCode, JvmBackendError> {
     let mut initializer_code = MethodCode::new(Rc::clone(&class.constant_pool));
+    // Bounded leaves need neither a construction stack nor a helper class.
+    // Keep compound values and potentially large strings on the split path.
+    if matches!(
+        initializer.kind,
+        IrExprKind::ModuleValue(_)
+            | IrExprKind::BoolLiteral(_)
+            | IrExprKind::IntLiteral(_)
+            | IrExprKind::Unit
+            | IrExprKind::OptionNone
+            | IrExprKind::ListNil
+    ) {
+        emitter.emit_expr(&mut initializer_code, initializer);
+        return Ok(initializer_code);
+    }
     initializer_code.invokestatic(
         &emitter.program.options.runtime_class,
         "moduleValueBuilder",

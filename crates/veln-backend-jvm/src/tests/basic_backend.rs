@@ -595,6 +595,15 @@ fn bytecode_backend_executes_deep_module_value_dependencies_with_a_bounded_jvm_s
 
     let ir = lower_to_ir(&source);
     let program = generate_classfiles_with_entry(&ir, "main");
+    let storage_classes = program
+        .classes
+        .iter()
+        .filter(|class| class.path.contains("$ModuleValues"))
+        .count();
+    assert!(
+        storage_classes < DECLARATION_COUNT / 100,
+        "scalar module values must share storage classes instead of loading one helper class per value: {storage_classes} classes for {DECLARATION_COUNT} values"
+    );
     let Some(output) = run_jvm_program_with_java_args_when_java_is_available(
         "module-value-deep-dependencies",
         &program,
@@ -628,6 +637,15 @@ fn bytecode_backend_loads_module_values_above_one_class_constant_pool_capacity()
 
     let ir = lower_to_ir(&source);
     let program = generate_classfiles_with_entry(&ir, "main");
+    let storage_classes = program
+        .classes
+        .iter()
+        .filter(|class| class.path.contains("$ModuleValues"))
+        .count();
+    assert!(
+        storage_classes < DECLARATION_COUNT / 100,
+        "scalar module values must share storage classes instead of loading one helper class per value: {storage_classes} classes for {DECLARATION_COUNT} values"
+    );
     let Some(output) = run_jvm_program_when_java_is_available(
         "module-value-constant-pool-capacity",
         &program,
