@@ -336,8 +336,14 @@ fn source_function_publication_key(function: &Function) -> FunctionPublicationKe
     )
 }
 
+#[cfg(test)]
+thread_local! {
+    static TYPE_PARAMETER_INDEX_ENTRIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 pub(crate) struct TypeParameterIdentityContext<'a> {
-    positions: HashMap<&'a str, usize>,
+    type_parameters: &'a [String],
+    positions: std::cell::OnceCell<HashMap<String, usize>>,
     lookups: Option<std::cell::Cell<usize>>,
 }
 
@@ -352,11 +358,8 @@ impl<'a> TypeParameterIdentityContext<'a> {
 
     fn with_lookup_recording(type_parameters: &'a [String], record_lookups: bool) -> Self {
         Self {
-            positions: type_parameters
-                .iter()
-                .enumerate()
-                .map(|(index, parameter)| (parameter.as_str(), index))
-                .collect(),
+            type_parameters,
+            positions: std::cell::OnceCell::new(),
             lookups: record_lookups.then(|| std::cell::Cell::new(0)),
         }
     }
@@ -365,7 +368,22 @@ impl<'a> TypeParameterIdentityContext<'a> {
         if let Some(lookups) = &self.lookups {
             lookups.set(lookups.get() + 1);
         }
-        self.positions.get(name).copied()
+        self.positions().get(name).copied()
+    }
+
+    fn positions(&self) -> &HashMap<String, usize> {
+        // Most payload annotations never inspect a type-parameter identity.
+        // Building the full index for each such field makes wide ADTs quadratic.
+        self.positions.get_or_init(|| {
+            #[cfg(test)]
+            TYPE_PARAMETER_INDEX_ENTRIES
+                .set(TYPE_PARAMETER_INDEX_ENTRIES.get() + self.type_parameters.len());
+            self.type_parameters
+                .iter()
+                .enumerate()
+                .map(|(index, parameter)| (parameter.clone(), index))
+                .collect()
+        })
     }
 
     pub(crate) fn identity(&self, name: &str) -> Option<String> {
@@ -378,11 +396,21 @@ impl<'a> TypeParameterIdentityContext<'a> {
     }
 
     pub(crate) fn name_count(&self) -> usize {
-        self.positions.len()
+        self.positions().len()
     }
 
     pub(crate) fn lookup_count(&self) -> usize {
         self.lookups.as_ref().map_or(0, std::cell::Cell::get)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn reset_index_entries() {
+        TYPE_PARAMETER_INDEX_ENTRIES.set(0);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn take_index_entries() -> usize {
+        TYPE_PARAMETER_INDEX_ENTRIES.replace(0)
     }
 }
 

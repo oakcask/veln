@@ -314,15 +314,19 @@ fn aggregate_join_work_grows_linearly_through_all_inference_paths() {
         crate::aggregate_type_join::reset_work();
         crate::types::reset_variant_canonicalization_lookups();
         let started = std::time::Instant::now();
-        let diagnostics = analyze_surface_module(&module);
+        let environment = TypeEnvironment::from_module(&module);
+        let environment_elapsed = started.elapsed();
+        let diagnostics = crate::pipeline::analyze_surface_module_with_environment_for_test(
+            &module,
+            &environment,
+        );
         eprintln!(
-            "{variant_count}-variant aggregate analysis: {:?}",
+            "{variant_count}-variant aggregate: environment={environment_elapsed:?}, total={:?}",
             started.elapsed()
         );
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
         let variant_canonicalization_lookups =
             crate::types::take_variant_canonicalization_lookups();
-        let environment = TypeEnvironment::from_module(&module);
         assert_eq!(
             environment.function("vector").unwrap().return_type.render(),
             "Vec<State>"
