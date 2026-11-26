@@ -69,10 +69,42 @@ source-surface contract.
 
 Malformed-list recovery retains each binder recognized before the failed
 entry. If the failure reaches the parameter-list boundary, parsing resumes at
-that function's parameters and preserves the rest of its signature. If an
-unclosed list reaches a newline, the malformed declaration ends there and the
-next top-level declaration remains a separate syntax item. The focused parser
-diagnostics for these failures are specified by
+that function's parameters and preserves the rest of its signature, its body,
+and its closing `end`. Recovery distinguishes parentheses nested in a rejected
+bound from the declaration's parameter list.
+
+For a rejected colon bound, recovery consumes nested angle-bracket and
+parenthesized text but leaves the closing angle owned by the outer declaration
+binder list available to close that list. Adjacent `>>` and `>>>` spellings
+have the same ownership as separate `>` tokens. Thus, recovery from
+`T: Foo<Bar>>` consumes the angle that closes `Foo<Bar>` and retains the angle
+that closes the binder list. The parentheses in `T: fn(Int) -> Int>` belong to
+the rejected bound rather than the declaration's parameters.
+
+For a rejected applied binder with balanced closing angles, recovery consumes
+its nested parentheses and only the closing angles owned by that applied
+binder before it resumes at the declaration's parameters. A closing angle that
+belongs to the outer declaration binder list remains available to close that
+list. For example, the parentheses in `T<Foo(Int) -> Int>` remain part of the
+malformed binder entry.
+
+If the applied binder has no balanced closing angle, recovery considers each
+complete parenthesized sequence encountered at parenthesis depth zero in the
+malformed applied-binder text. It excludes a sequence whose opening `(`
+immediately follows `fn`, because that sequence is a function-type parameter
+list. Recovery uses the first remaining sequence followed by `->`, `effects`,
+`callsite`, a newline, or the end of the file as the declaration's
+parameter-list boundary. Nested parenthesized sequences are not candidates.
+Thus, an unclosed `T<Int` followed by `(value: Int) -> Int` still preserves
+that parameter and return signature. In `T<fn(Int) -> Int(value: Int) -> Int`,
+the `(Int)` sequence is excluded and `(value: Int)` is retained as the
+declaration's parameter list. This recovery is intentionally bounded rather
+than an interpretation of arbitrary malformed type text. If an earlier
+eligible outermost sequence satisfies the boundary shape, it is selected and
+a later intended parameter list is not retained. If an unclosed list reaches a
+newline, the malformed declaration ends there and the next top-level
+declaration remains a separate syntax item.
+The focused parser diagnostics for these failures are specified by
 [Check JSON And Diagnostics](diagnostics-json.md#diagnostic-families).
 
 ### Import alias preservation and formatting

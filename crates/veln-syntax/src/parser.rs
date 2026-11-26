@@ -28,6 +28,7 @@ mod expression_core;
 mod expression_names;
 mod expression_patterns;
 mod expression_primaries;
+mod function_binders;
 mod functions_and_imports;
 mod generic_type_syntax;
 mod integer_literal_diagnostics;

@@ -1,0 +1,19 @@
+fn packed<T<Foo(Int) -> Int>>(value: Int) -> Int
+	value
+end
+
+fn packed_nested<T<Foo<Bar(Int) -> Int>>>(value: Int) -> Int
+	value
+end
+
+fn ambiguous<T<fn(Int) -> Int(value: Int) -> Int
+	value
+end
+
+fn colon_applied<T: Foo<Bar>>(value: Int) -> Int
+	value
+end
+
+fn colon_function<T: fn(Int) -> Int>(value: Int) -> Int
+	value
+end

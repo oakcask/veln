@@ -1,0 +1,85 @@
+# This case covers CLI JSON rendering and state preservation for malformed generic function binders.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 6
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "parse.function_binder_bound"
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "parse.function_binder_separator"
+
+[[diagnostics]]
+id = "parse.function_binder_bound"
+kind = "parse"
+message = "function type binders do not accept bounds or type arguments"
+
+[diagnostics.span]
+file = "main.veln"
+line = 1
+column = 12
+
+[[diagnostics]]
+id = "parse.function_binder_bound"
+kind = "parse"
+message = "function type binders do not accept bounds or type arguments"
+
+[diagnostics.span]
+file = "main.veln"
+line = 5
+column = 19
+
+[[diagnostics]]
+id = "parse.function_binder_bound"
+kind = "parse"
+message = "function type binders do not accept bounds or type arguments"
+
+[diagnostics.span]
+file = "main.veln"
+line = 9
+column = 15
+
+[[diagnostics]]
+id = "parse.function_binder_separator"
+kind = "parse"
+message = "function binders must be separated by `,` and closed by `>`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 9
+column = 30
+
+[[diagnostics]]
+id = "parse.function_binder_bound"
+kind = "parse"
+message = "function type binders do not accept bounds or type arguments"
+
+[diagnostics.span]
+file = "main.veln"
+line = 13
+column = 19
+
+[[diagnostics]]
+id = "parse.function_binder_bound"
+kind = "parse"
+message = "function type binders do not accept bounds or type arguments"
+
+[diagnostics.span]
+file = "main.veln"
+line = 17
+column = 20
