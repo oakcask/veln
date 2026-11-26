@@ -69,15 +69,24 @@ source-surface contract.
 
 Malformed-list recovery retains each binder recognized before the failed
 entry. If the failure reaches the parameter-list boundary, parsing resumes at
-that function's parameters and preserves the rest of its signature and body.
-Recovery distinguishes parentheses nested in a rejected applied binder from
-the declaration's parameter list. If the applied binder has balanced closing
-angles, recovery consumes its nested parentheses and only the closing angles
-owned by that applied binder before it resumes at the declaration's
-parameters. Adjacent `>>` and `>>>` spellings have the same ownership as
-separate `>` tokens. A closing angle that belongs to the outer declaration
-binder list remains available to close that list. For example, the parentheses
-in `T<Foo(Int) -> Int>` remain part of the malformed binder entry.
+that function's parameters and preserves the rest of its signature, its body,
+and its closing `end`. Recovery distinguishes parentheses nested in a rejected
+bound from the declaration's parameter list.
+
+For a rejected colon bound, recovery consumes nested angle-bracket and
+parenthesized text but leaves the closing angle owned by the outer declaration
+binder list available to close that list. Adjacent `>>` and `>>>` spellings
+have the same ownership as separate `>` tokens. Thus, recovery from
+`T: Foo<Bar>>` consumes the angle that closes `Foo<Bar>` and retains the angle
+that closes the binder list. The parentheses in `T: fn(Int) -> Int>` belong to
+the rejected bound rather than the declaration's parameters.
+
+For a rejected applied binder with balanced closing angles, recovery consumes
+its nested parentheses and only the closing angles owned by that applied
+binder before it resumes at the declaration's parameters. A closing angle that
+belongs to the outer declaration binder list remains available to close that
+list. For example, the parentheses in `T<Foo(Int) -> Int>` remain part of the
+malformed binder entry.
 
 If the applied binder has no balanced closing angle, recovery considers each
 complete parenthesized sequence encountered at parenthesis depth zero in the

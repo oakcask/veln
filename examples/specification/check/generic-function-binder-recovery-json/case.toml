@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 4
+equals = 6
 
 [[diagnostics]]
 id = "parse.function_binder_bound"
@@ -55,3 +55,23 @@ message = "function binders must be separated by `,` and closed by `>`"
 file = "main.veln"
 line = 9
 column = 30
+
+[[diagnostics]]
+id = "parse.function_binder_bound"
+kind = "parse"
+message = "function type binders do not accept bounds or type arguments"
+
+[diagnostics.span]
+file = "main.veln"
+line = 13
+column = 19
+
+[[diagnostics]]
+id = "parse.function_binder_bound"
+kind = "parse"
+message = "function type binders do not accept bounds or type arguments"
+
+[diagnostics.span]
+file = "main.veln"
+line = 17
+column = 20

@@ -249,7 +249,7 @@ impl<'a> Parser<'a> {
         if applied_binder {
             self.skip_applied_function_binder();
         } else {
-            self.skip_invalid_function_binder_entry();
+            self.skip_colon_function_binder_bound();
         }
     }
 
@@ -367,6 +367,46 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn skip_colon_function_binder_bound(&mut self) {
+        let has_outer_close = self.colon_function_binder_has_outer_close();
+        let mut angle_depth = 0usize;
+        let mut parenthesis_depth = 0usize;
+        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+            if parenthesis_depth == 0
+                && angle_depth == 0
+                && (self.at(TokenKind::Comma) || self.at_function_binder_closer())
+            {
+                break;
+            }
+            if self.at(TokenKind::LParen) {
+                if !has_outer_close
+                    && parenthesis_depth == 0
+                    && angle_depth == 0
+                    && self.at_function_parameter_list_boundary()
+                {
+                    break;
+                }
+                parenthesis_depth += 1;
+            } else if self.at(TokenKind::RParen) && parenthesis_depth > 0 {
+                parenthesis_depth -= 1;
+            } else if parenthesis_depth == 0 && self.at(TokenKind::Less) {
+                angle_depth += 1;
+            } else if parenthesis_depth == 0 {
+                let close_count = closing_angle_count(self.current().kind);
+                if close_count > angle_depth {
+                    if angle_depth > 0 {
+                        self.consume_function_binder_closers(angle_depth);
+                    }
+                    break;
+                }
+                if close_count > 0 {
+                    angle_depth -= close_count;
+                }
+            }
+            self.bump();
+        }
+    }
+
     fn at_function_binder_closer(&self) -> bool {
         closing_angle_count(self.current().kind) > 0
     }
@@ -407,6 +447,28 @@ impl<'a> Parser<'a> {
                     }
                     angle_depth -= close_count;
                 }
+                TokenKind::Newline | TokenKind::Eof => return false,
+                _ => {}
+            }
+        }
+        false
+    }
+
+    fn colon_function_binder_has_outer_close(&self) -> bool {
+        let mut angle_depth = 0usize;
+        let mut parenthesis_depth = 0usize;
+        for token in &self.tokens[self.cursor..] {
+            match token.kind {
+                TokenKind::LParen => parenthesis_depth += 1,
+                TokenKind::RParen if parenthesis_depth > 0 => parenthesis_depth -= 1,
+                TokenKind::Less if parenthesis_depth == 0 => angle_depth += 1,
+                kind if parenthesis_depth == 0 && closing_angle_count(kind) > angle_depth => {
+                    return true;
+                }
+                kind if parenthesis_depth == 0 && closing_angle_count(kind) > 0 => {
+                    angle_depth -= closing_angle_count(kind);
+                }
+                TokenKind::Comma if parenthesis_depth == 0 && angle_depth == 0 => return false,
                 TokenKind::Newline | TokenKind::Eof => return false,
                 _ => {}
             }

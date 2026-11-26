@@ -298,31 +298,16 @@ function, or `callsite` function reports `parse.generic_test_declaration`,
 `parse.generic_function_variadic`, or `parse.generic_function_callsite` at the
 unsupported binder, variadic parameter, or modifier. A second effect binder
 reports `parse.multiple_effect_binders` at its redundant `effect` keyword,
-including when its name is missing. An invalid binder entry at the
-parameter-list boundary resumes parsing that function's parameter list,
-signature, and body. A rejected applied binder with balanced closing angles
-consumes its nested parentheses and its owned closing angles without reporting
-a missing binder separator at them. Packed `>>` and `>>>` tokens leave any
-closing angle owned by the outer declaration binder list available to that
-list. If a balanced close is absent, recovery considers complete
-parenthesized sequences encountered at parenthesis depth zero. It excludes a
-sequence whose opening `(` immediately follows `fn`, and it does not consider
-sequences nested inside another parenthesized sequence. The first remaining
-sequence followed by a function-header continuation token is the recovery
-boundary and remains available to the function declaration. An earlier
-eligible sequence inside malformed type text can therefore be selected instead
-of a later intended parameter list. An unclosed binder list at a newline ends
-the malformed declaration without consuming the following top-level
-declaration.
-Recovery from a malformed binder bound also leaves a following top-level
-declaration available to the parser.
+including when its name is missing. `parse.function_binder_bound` marks the
+rejected `:` or `<`. If the same malformed list also requires
+`parse.function_binder_separator`, that diagnostic follows the bound diagnostic
+and marks the token where a separator or closing angle was required. The
+[function declaration binder rules](source-surface.md#function-declaration-binders)
+own delimiter ownership, parameter-boundary selection, and syntax-tree
+recovery.
 The checked
 [`generic function binder recovery`](../../examples/specification/check/generic-function-binder-recovery-json/)
-case covers packed closing-angle ownership, function-type candidate exclusion,
-the resulting diagnostic order, and primary spans.
-The
-[function declaration binder rules](source-surface.md#function-declaration-binders)
-define the accepted forms.
+case covers the resulting diagnostic order and primary spans.
 
 Malformed integer literals use `parse.integer_literal` with the complete
 numeric candidate, parser context, accepted form, and non-cascading recovery;

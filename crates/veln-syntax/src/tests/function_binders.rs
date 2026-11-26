@@ -379,6 +379,38 @@ fn applied_binder_recovery_consumes_packed_closers_by_owner() {
 }
 
 #[test]
+fn colon_bound_recovery_consumes_only_nested_delimiters() {
+    let cases = [
+        "fn invalid<T: Foo<Bar>>(value: Int) -> Int\n  value\nend\n",
+        "fn invalid<T: Foo<Bar<Baz>>>(value: Int) -> Int\n  value\nend\n",
+        "fn invalid<T: fn(Int) -> Int>(value: Int) -> Int\n  value\nend\n",
+    ];
+
+    for text in cases {
+        let source = SourceFile::new("main.veln", text);
+        let output = parse(&source);
+
+        assert_eq!(
+            output
+                .diagnostics
+                .iter()
+                .map(|diagnostic| {
+                    let span = diagnostic.span.as_ref().expect("expected a primary span");
+                    (
+                        diagnostic.id,
+                        &source.text()[span.start.offset..span.end.offset],
+                    )
+                })
+                .collect::<Vec<_>>(),
+            vec![("parse.function_binder_bound", ":")],
+            "{:#?}",
+            output.diagnostics
+        );
+        assert_recovered_invalid_signature(&output);
+    }
+}
+
+#[test]
 fn unclosed_applied_binder_skips_function_type_and_nested_parameter_candidates() {
     let cases = [
         "fn invalid<T<fn(Int) -> Int(value: Int) -> Int\n  value\nend\n",
