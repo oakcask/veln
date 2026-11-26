@@ -148,7 +148,9 @@ not by its spelling. Its name resolves in the declaration's parameter and
 return annotations, local body annotations, and executable contracts. The same
 spelling in another function denotes a different rigid parameter. Outside the
 owning declaration, that spelling is an unresolved type name unless another
-visible type declaration defines it.
+visible type declaration defines it. A binder with the same spelling in an
+inaccessible declaration or another analyzed source does not make the name
+visible and does not suppress the unresolved-name failure.
 
 A function type binder cannot shadow a visible built-in type, source type, or
 imported type alias. The checker reports `name.type_parameter_shadow` at the

@@ -69,7 +69,9 @@ When source context exists, `related` contains a
 and
 [`JSON`](../../examples/specification/check/generic-function-semantic-binders-json/)
 cases fix the rendered and structured forms, including an unbound binder name
-outside its owning declaration remaining `name.unresolved`.
+outside its owning declaration remaining `name.unresolved`. The result is
+unchanged when another analyzed source contains an inaccessible generic
+declaration whose binder has the same spelling.
 
 A cyclic dependency component formed by selected same-module or imported
 module-value references reports one `value.module_initializer_cycle` at the

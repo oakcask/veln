@@ -38,8 +38,9 @@ malformed-list parsing and syntax-tree recovery. The current
 owns the observable diagnostic identifiers, ordering, and primary spans.
 The current [type specification](../specification/types.md#usage-and-annotations)
 owns declaration-local rigid binder identity, scope through signatures, body
-annotations, and executable contracts, and visible-type shadow rejection.
-These outcomes do not yet establish an independently instantiable type scheme.
+annotations, and executable contracts, unresolved-name isolation from
+inaccessible declarations, and visible-type shadow rejection. These outcomes
+do not yet establish an independently instantiable type scheme.
 The
 [effect specification](../specification/effects.md#effect-labels) already
 supports one declared effect-row parameter and call-specific substitution.

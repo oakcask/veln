@@ -61,9 +61,11 @@ owning declaration. Its unqualified name resolves in that function's parameter
 and result annotations, local annotations, and executable contracts. The same
 spelling in another function selects a distinct parameter, and a use outside
 the owning declaration remains unresolved unless a visible type declaration
-provides that name. A binder that would shadow a visible built-in type, source
-type, or imported type alias is rejected at the binder; a source declaration is
-reported as related context. The [type rules](types.md#usage-and-annotations)
+provides that name. An inaccessible declaration in the same analysis cannot
+lend its binder to another declaration or suppress that unresolved result. A
+binder that would shadow a visible built-in type, source type, or imported type
+alias is rejected at the binder; a source declaration is reported as related
+context. The [type rules](types.md#usage-and-annotations)
 define the rigid identity and checking behavior, and the
 [diagnostic contract](diagnostics-json.md#diagnostic-families) defines the
 observable failure records.
