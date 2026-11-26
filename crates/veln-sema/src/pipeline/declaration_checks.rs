@@ -148,42 +148,64 @@ fn check_unresolved_function_type_names(
     paths
         .into_iter()
         .filter_map(|path| {
-            let name = path.segments.join("::");
-            if !declaration_binder_names.contains(name.as_str()) {
-                return None;
-            }
-            if !name.contains("::")
-                && path.type_argument_count == 0
-                && type_parameters.contains(name.as_str())
-            {
-                return None;
-            }
-            if environment.annotation_type_path_is_resolved_in_owner(
-                &name,
-                path.type_argument_count,
-                function.module_name.as_deref(),
-                function.package_name.as_deref(),
-            ) {
-                return None;
-            }
-            let span = path.segment_spans.first()?.clone();
-            Some(Diagnostic::new(
-                "name.unresolved",
-                Severity::Error,
-                DiagnosticKind::Name,
-                format!("unresolved type `{name}`"),
-                Some(span),
-                JsonValue::object([
-                    ("phase", JsonValue::string("name")),
-                    ("node_id", JsonValue::Null),
-                    ("symbol", JsonValue::string(name)),
-                    ("namespace", JsonValue::string("type")),
-                    ("resolution_status", JsonValue::string("unresolved")),
-                    ("candidates", JsonValue::array([])),
-                ]),
-            ))
+            unresolved_function_type_diagnostic(
+                path,
+                declaration_binder_names,
+                &type_parameters,
+                function,
+                environment,
+            )
         })
         .collect()
+}
+
+fn unresolved_function_type_diagnostic(
+    path: &veln_ast::TypePathSegments,
+    declaration_binder_names: &HashSet<&str>,
+    type_parameters: &HashSet<&str>,
+    function: &veln_ast::Function,
+    environment: &TypeEnvironment,
+) -> Option<Diagnostic> {
+    let name = path.segments.join("::");
+    if !declaration_binder_names.contains(name.as_str())
+        || is_function_type_parameter_use(&name, path.type_argument_count, type_parameters)
+        || environment.annotation_type_path_is_resolved_in_owner(
+            &name,
+            path.type_argument_count,
+            function.module_name.as_deref(),
+            function.package_name.as_deref(),
+        )
+    {
+        return None;
+    }
+    let span = path.segment_spans.first()?.clone();
+    Some(unresolved_type_diagnostic(name, span))
+}
+
+fn is_function_type_parameter_use(
+    name: &str,
+    type_argument_count: usize,
+    type_parameters: &HashSet<&str>,
+) -> bool {
+    !name.contains("::") && type_argument_count == 0 && type_parameters.contains(name)
+}
+
+fn unresolved_type_diagnostic(name: String, span: veln_source::SourceSpan) -> Diagnostic {
+    Diagnostic::new(
+        "name.unresolved",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!("unresolved type `{name}`"),
+        Some(span),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("node_id", JsonValue::Null),
+            ("symbol", JsonValue::string(name)),
+            ("namespace", JsonValue::string("type")),
+            ("resolution_status", JsonValue::string("unresolved")),
+            ("candidates", JsonValue::array([])),
+        ]),
+    )
 }
 
 fn collect_body_annotation_paths<'a>(
@@ -230,68 +252,91 @@ fn check_function_type_parameter_shadowing(
         .iter()
         .enumerate()
         .filter_map(|(ordinal, binder)| {
-            let builtin = crate::type_syntax::builtin_type_syntax_arity(&binder.name).is_some();
-            let descriptor = if builtin {
-                None
-            } else {
-                environment
-                    .adts
-                    .unique_descriptor_for_type_path_any_arity_in_owner(
-                        &binder.name,
-                        function.module_name.as_deref(),
-                        function.package_name.as_deref(),
-                        &environment.uses,
-                    )
-            };
-            if !builtin && descriptor.is_none() {
-                return None;
-            }
-
-            let mut diagnostic = Diagnostic::new(
-                "name.type_parameter_shadow",
-                Severity::Error,
-                DiagnosticKind::Name,
-                format!(
-                    "function type parameter `{}` shadows a visible type",
-                    binder.name
-                ),
-                Some(binder.span.clone()),
-                JsonValue::object([
-                    ("phase", JsonValue::string("name_resolution")),
-                    ("boundary", JsonValue::string("function_type_parameter")),
-                    ("name", JsonValue::string(binder.name.clone())),
-                    ("ordinal", JsonValue::Number(ordinal as i64)),
-                    (
-                        "shadowed_kind",
-                        JsonValue::string(if builtin {
-                            "builtin_type"
-                        } else {
-                            "visible_type"
-                        }),
-                    ),
-                ]),
-            );
-            if let Some(descriptor) = descriptor {
-                let related = environment
-                    .adts
-                    .type_alias_exposure_path(descriptor)
-                    .and_then(|path| path.declarations().next().map(|decl| decl.span.clone()))
-                    .or_else(|| environment.adts.declaration_span(descriptor).cloned());
-                if let Some(span) = related {
-                    diagnostic.related.push(JsonValue::object([
-                        ("kind", JsonValue::string("shadowed_type_declaration")),
-                        (
-                            "message",
-                            JsonValue::string(format!(
-                                "Visible type `{}` is declared here.",
-                                binder.name
-                            )),
-                        ),
-                        ("span", crate::diagnostics::span_json(&span)),
-                    ]));
-                }
-            }
-            Some(diagnostic)
+            function_type_parameter_shadow_diagnostic(ordinal, binder, function, environment)
         })
         .collect()
+}
+
+fn function_type_parameter_shadow_diagnostic(
+    ordinal: usize,
+    binder: &veln_ast::TypeBinder,
+    function: &veln_ast::Function,
+    environment: &TypeEnvironment,
+) -> Option<Diagnostic> {
+    let builtin = crate::type_syntax::builtin_type_syntax_arity(&binder.name).is_some();
+    let descriptor = if builtin {
+        None
+    } else {
+        environment
+            .adts
+            .unique_descriptor_for_type_path_any_arity_in_owner(
+                &binder.name,
+                function.module_name.as_deref(),
+                function.package_name.as_deref(),
+                &environment.uses,
+            )
+    };
+    if !builtin && descriptor.is_none() {
+        return None;
+    }
+
+    let mut diagnostic = type_parameter_shadow_diagnostic(ordinal, binder, builtin);
+    if let Some(descriptor) = descriptor {
+        append_shadowed_type_declaration(&mut diagnostic, binder, descriptor, environment);
+    }
+    Some(diagnostic)
+}
+
+fn type_parameter_shadow_diagnostic(
+    ordinal: usize,
+    binder: &veln_ast::TypeBinder,
+    builtin: bool,
+) -> Diagnostic {
+    Diagnostic::new(
+        "name.type_parameter_shadow",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!(
+            "function type parameter `{}` shadows a visible type",
+            binder.name
+        ),
+        Some(binder.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("name_resolution")),
+            ("boundary", JsonValue::string("function_type_parameter")),
+            ("name", JsonValue::string(binder.name.clone())),
+            ("ordinal", JsonValue::Number(ordinal as i64)),
+            (
+                "shadowed_kind",
+                JsonValue::string(if builtin {
+                    "builtin_type"
+                } else {
+                    "visible_type"
+                }),
+            ),
+        ]),
+    )
+}
+
+fn append_shadowed_type_declaration(
+    diagnostic: &mut Diagnostic,
+    binder: &veln_ast::TypeBinder,
+    descriptor: &crate::adt::descriptors::AdtDescriptor,
+    environment: &TypeEnvironment,
+) {
+    let related = environment
+        .adts
+        .type_alias_exposure_path(descriptor)
+        .and_then(|path| path.declarations().next().map(|decl| decl.span.clone()))
+        .or_else(|| environment.adts.declaration_span(descriptor).cloned());
+    if let Some(span) = related {
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("shadowed_type_declaration")),
+            (
+                "message",
+                JsonValue::string(format!("Visible type `{}` is declared here.", binder.name)),
+            ),
+            ("span", crate::diagnostics::span_json(&span)),
+        ]));
+    }
 }

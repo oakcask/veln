@@ -65,8 +65,56 @@ path = "diagnostics.1.related.0.kind"
 equals = "shadowed_type_declaration"
 
 [[json_assert]]
+path = "diagnostics.0.details.boundary"
+equals = "function_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "Int"
+
+[[json_assert]]
+path = "diagnostics.0.details.ordinal"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.0.details.shadowed_kind"
+equals = "builtin_type"
+
+[[json_assert]]
+path = "diagnostics.1.details.boundary"
+equals = "function_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.1.details.name"
+equals = "Item"
+
+[[json_assert]]
+path = "diagnostics.1.details.ordinal"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.1.details.shadowed_kind"
+equals = "visible_type"
+
+[[json_assert]]
 path = "diagnostics.1.related.0.span.start.line"
 equals = 3
+
+[[json_assert]]
+path = "diagnostics.2.details.boundary"
+equals = "function_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.2.details.name"
+equals = "Alias"
+
+[[json_assert]]
+path = "diagnostics.2.details.ordinal"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.2.details.shadowed_kind"
+equals = "visible_type"
 
 [[json_assert]]
 path = "diagnostics.2.related.0.span.file"
