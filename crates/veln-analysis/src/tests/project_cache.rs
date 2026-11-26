@@ -3,7 +3,15 @@ use super::*;
 #[test]
 fn standard_library_analysis_produces_reusable_ir() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../veln-stdlib/veln");
-    let project = Project::discover(root, &[]).expect("standard library should be discoverable");
+    // Reusable library IR covers the distributed package, not its companion test
+    // suite and private test helpers, which are checked by the stdlib test runner.
+    let inputs = veln_stdlib::package_bundle()
+        .files
+        .iter()
+        .map(|file| PathBuf::from(file.path))
+        .collect::<Vec<_>>();
+    let project =
+        Project::discover(root, &inputs).expect("standard library should be discoverable");
     let analysis = analyze_project(project, DoctestMode::Exclude);
 
     assert!(
