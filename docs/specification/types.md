@@ -175,7 +175,7 @@ diagnostic evidence is in
 and
 [`generic-function-semantic-binders-json`](../../examples/specification/check/generic-function-semantic-binders-json/).
 The corrected nested-refinement, schema-namespace precedence, ADT payload
-scope, qualifier-first lookup, opaque built-in classification,
+scope, qualifier-first lookup, compiler-owned descriptor classification,
 consistent-alias, and complete-signature boundaries are checked by
 [`generic-function-semantic-gap-human`](../../examples/specification/check/generic-function-semantic-gap-human/)
 and
@@ -200,16 +200,18 @@ set instead of these compatibility names. An undeclared compatibility name in
 that function remains unresolved. The compatibility names do not become
 visible in another standard package function.
 
-A function type binder cannot shadow a visible built-in type, source type, or
-imported type alias. Multiple bare imported aliases are visible for this rule
+A function type binder cannot shadow a compiler-owned type descriptor, source
+type, or imported type alias. Compiler-owned descriptors include opaque
+resource types and non-opaque standard ADTs from the complete compiler
+descriptor registry. Multiple bare imported aliases are visible for this rule
 when they resolve to one terminal type identity. The checker reports
 `name.type_parameter_shadow` at the binder. When the visible type has a source
 declaration, the diagnostic includes that declaration as related context. An
 import is visible only to declarations in its owning package and module; a
 same-spelled module in another package does not contribute a shadow target.
-When a binder shadows both a compiler-known built-in and a visible source
-declaration, the diagnostic retains the built-in classification and the source
-declaration's related context. The
+When a binder shadows both a compiler-owned descriptor and a visible source
+declaration, the diagnostic retains the `builtin_type` classification and the
+source declaration's related context. The
 [name-resolution rules](name-resolution.md#namespaces-and-use-roles) define the
 deterministic operation-count bounds for owner-scoped annotation indexes and
 the same-terminal imported-alias selection rule. The

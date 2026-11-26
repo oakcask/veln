@@ -71,7 +71,7 @@ their declaration or source-discovery order does not change the declaration
 selected for that related entry. Only imports owned by the binder declaration's
 package and module participate; a same-spelled module in another package does
 not produce this diagnostic. When the binder spelling names both a
-compiler-known built-in and a visible source declaration, `shadowed_kind`
+compiler-owned descriptor and a visible source declaration, `shadowed_kind`
 remains `builtin_type` and the source declaration remains in `related`. The
 checked [`human`](../../examples/specification/check/generic-function-semantic-binders-human/)
 and
@@ -1538,7 +1538,7 @@ and
 cases fix the missing generic-signature projections and the related alias
 source selected when multiple bare aliases expose one terminal type identity.
 They also fix binder precedence over the schema namespace, ADT payload scope,
-unresolved binder and unknown qualifiers, and opaque built-in shadow
+unresolved binder and unknown qualifiers, and compiler-owned descriptor shadow
 classification described above.
 
 Deferred-block restriction diagnostics use kind `type`,

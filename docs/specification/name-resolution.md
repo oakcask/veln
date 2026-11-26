@@ -68,17 +68,20 @@ unresolved type path even inside the declaration that owns `T`. A binder also
 has arity zero, so `T<Int>` is an invalid type application rather than a
 resolution of the unqualified binder.
 
-A binder that would shadow a visible built-in type, source type, or imported
-type alias is rejected at the binder; a source declaration is reported as
-related context. Multiple unqualified imported aliases with the binder's
+A binder that would shadow a compiler-owned type descriptor, source type, or
+imported type alias is rejected at the binder; a source declaration is
+reported as related context. Compiler-owned descriptors include opaque
+resource types and non-opaque standard ADTs from the complete compiler
+descriptor registry. Multiple unqualified imported aliases with the binder's
 spelling count as one visible type when every alias chain terminates at the
 same canonical type identity. Aliases that terminate at different identities
 remain ambiguous and do not supply an arbitrary shadow target. For this rule,
 an import must belong to the binder declaration's owning package and module.
 An import attached to a same-spelled module in another package does not expose
-its bare types to that declaration. When a spelling names both a compiler-known
-built-in and a visible source type, the diagnostic classifies the shadowed type
-as built-in and still reports the source declaration as related context. The
+its bare types to that declaration. When a spelling names both a compiler-owned
+descriptor and a visible source type, the diagnostic classifies the shadowed
+type as `builtin_type` and still reports the source declaration as related
+context. The
 [type rules](types.md#usage-and-annotations)
 define the rigid identity and checking behavior, and the
 [diagnostic contract](diagnostics-json.md#diagnostic-families) defines the
