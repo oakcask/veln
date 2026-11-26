@@ -5,12 +5,18 @@ slow-timeout = { period = "3s" }
 fail-fast = false
 
 [[profile.ci.overrides]]
-filter = 'binary(=toolchain_harness) & test(generated_toolchain_cases::)'
+# Saved-adapter conformance runs LSP and MCP child processes concurrently.
+filter = 'binary(=toolchain_harness) & (test(generated_toolchain_cases::) | test(saved_navigation_conformance::))'
 threads-required = 2
 
 [[profile.ci.overrides]]
 # Java harnesses launch a multithreaded compiler and VM in child processes.
 filter = 'package(=veln-backend-jvm) & (test(tests::runtime_integration::) | test(tests::effect_injection::) | test(tests::result_diagnostic_harness::))'
+threads-required = 2
+
+[[profile.ci.overrides]]
+# Full-package checks retain substantially larger working sets than fixture checks.
+filter = 'test(standard_library_analysis_produces_reusable_ir) | test(standard_package_sources_are_embedded_and_checkable)'
 threads-required = 2
 
 [profile.ci.junit]
