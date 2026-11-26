@@ -315,9 +315,10 @@ successful resource reference for a fake handler.
 
 `transport::net::net_stream(stream)` handles the canonical
 `std::transport::DuplexStream` effect through the active `net::IO` handler.
-The standard package exports the adapter only as `transport::net`. Importing
-the adapter under any other spelling from `std` fails with
-`module.unexported_import`.
+The standard package exports the adapter only at the `transport::net` module
+path. A source may assign that path a local import alias. The standard package
+does not export an alternative adapter module path; in particular,
+`use transport::network from "std"` fails with `module.unexported_import`.
 After `use transport`, source may spell that same effect as
 `transport::DuplexStream`; the shorter spelling does not create another
 nominal identity. The caller retains ownership of `stream`.
