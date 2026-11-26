@@ -562,7 +562,7 @@ by themselves make the design unready.
 | Combined `apply` with pure, `stdio`, and rigid enclosing-row callbacks; incompatible input or row upper bound | Produce the Q5 substitutions; publish neither tentative type nor row on failure. | Joint-solver tests and effect-boundary cases. |
 | Generic signature exported, serialized, loaded, and re-exported | Preserve owner identity, arity, visibility, and independent use; reject an unsupported schema version. | Artifact round-trip and separate consumer tests. |
 | Rigid-`T` hole with a local of `T` and an unrelated `Int` local | Render `T`; include the former candidate and exclude the latter. | Hover/hole JSON and human output cases. |
-| A contract using an `Int` operation on `T` | Reject at the failed contract operation, with binder provenance. | Negative contract diagnostic cases. |
+| A rejected concrete-only contract operation on rigid `T` | Add binder provenance to the existing operation-local type mismatch. | Human and JSON contract diagnostic cases with related binder context. |
 
 During implementation, move remaining supported behavior and checked acceptance
 examples into the current type, effect, and affected tooling
