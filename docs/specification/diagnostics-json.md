@@ -316,6 +316,10 @@ the malformed declaration without consuming the following top-level
 declaration.
 Recovery from a malformed binder bound also leaves a following top-level
 declaration available to the parser.
+The checked
+[`generic function binder recovery`](../../examples/specification/check/generic-function-binder-recovery-json/)
+case covers packed closing-angle ownership, function-type candidate exclusion,
+the resulting diagnostic order, and primary spans.
 The
 [function declaration binder rules](source-surface.md#function-declaration-binders)
 define the accepted forms.
