@@ -41,6 +41,11 @@ the procedure for applying them.
 
 ## Review Procedure
 
+- For a proposal that adds or changes language syntax, apply the authoring
+  policy's `Proposal Canonical Form` section before finalizing the design.
+  Review the input/output examples, migration decisions, preservation rules,
+  and planned acceptance evidence against that section. Flag missing decisions
+  rather than leaving them for implementation or a later review.
 - For proposal authoring or substantive revision, apply the authoring policy's
   `Proposal Related Work` section. Use `$bibliography-fetch` when discovering
   references or looking up citations. Inspect relevant source material and

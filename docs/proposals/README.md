@@ -1,6 +1,6 @@
 ---
 role: routing
-update-when: A proposal is added, split, reclassified, completed, removed, or its scope, implementation dependencies, or readiness changes.
+update-when: A proposal is added, split, reclassified, completed, removed, its scope, implementation dependencies, or readiness changes, or proposal authoring-policy routes change.
 ---
 
 # Proposals
@@ -103,6 +103,9 @@ sequence. Such work needs a concrete new capability.
 For authoring and review, follow
 [Proposal Related Work](../reference/documentation-authoring.md#proposal-related-work)
 to connect source evidence with design choices and alternatives.
+
+For proposals that add or change language syntax, also follow
+[Proposal Canonical Form](../reference/documentation-authoring.md#proposal-canonical-form).
 
 Express observable targets as structured acceptance cases, decision tables,
 state-transition tables, executable models, or another directly verifiable

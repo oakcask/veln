@@ -214,6 +214,42 @@ versions, digests, compatibility values, or expected outputs when no
 independent authority can establish them. Specify the evidence that must
 produce the value or keep the work explicitly incomplete.
 
+### Proposal Canonical Form
+
+A proposal that adds or changes language syntax must define its canonical
+source form and the intended `veln fmt` behavior in the proposal itself. This
+lets reviewers assess accepted syntax and the source users will maintain
+together. Do not defer these decisions to implementation or later review.
+
+Cover the following outcomes for the syntax in scope:
+
+- **Canonical output:** identify the preferred spelling and layout with
+  representative input/output examples. Distinguish accepted input forms from
+  canonical output, including materially different single-item, multi-item,
+  nested, and multiline forms where applicable.
+- **Convergence and migration:** state which equivalent spellings converge to
+  the same output. For affected existing spellings, decide whether ordinary
+  formatting rewrites them automatically, conversion needs an explicit action,
+  or they remain unchanged, and explain why. Define the eligibility and
+  boundaries of any rewrite; accepting an old spelling does not by itself
+  decide its formatter behavior.
+- **Preservation and stability:** define the semantic invariants and comment
+  attachments that formatting must preserve, and what happens when a rewrite
+  cannot preserve them. Require identical output on a second format. Identify
+  intentional exceptions to convergence and their observable conditions.
+- **Acceptance evidence:** map representative before/after pairs, convergence,
+  idempotence, preservation, and rewrite boundaries to planned formatter
+  fixtures or checked CLI cases. Use semantic checks where formatting rewrites
+  syntax in ways that can affect evaluation or scope. Keep planned checks
+  distinct from evidence that already exists.
+
+Apply these requirements only to affected forms. If a dimension is unaffected
+or inapplicable, state why and link to the existing rule when one governs it.
+Review the actual examples and rules for completeness and consistency with the
+proposed grammar and semantics; a canonical-form heading or an idempotence
+claim alone is insufficient. This is a semantic review requirement, not a
+prescribed section layout.
+
 ### Proposal Related Work
 
 When creating or substantively revising a proposal, include related work that
