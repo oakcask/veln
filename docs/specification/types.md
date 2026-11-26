@@ -202,25 +202,13 @@ set instead of these compatibility names. An undeclared compatibility name in
 that function remains unresolved. The compatibility names do not become
 visible in another standard package function.
 
-A function type binder cannot shadow a compiler-owned type descriptor, source
-type, or imported type alias. Compiler-owned descriptors include opaque
-resource types and non-opaque standard ADTs from the complete compiler
-descriptor registry. Multiple bare imported aliases are visible for this rule
-when they resolve to one terminal type identity. The checker reports
-`name.type_parameter_shadow` at the binder. When the visible type has a source
-declaration, the diagnostic includes that declaration as related context. An
-import is visible only to declarations in its owning package and module; a
-same-spelled module in another package does not contribute a shadow target.
-When a binder shadows both a compiler-owned descriptor and a visible source
-declaration, the diagnostic retains the `builtin_type` classification and the
-source declaration's related context. The
-[name-resolution rules](name-resolution.md#namespaces-and-use-roles) define the
-deterministic operation-count bounds for owner-scoped annotation indexes and
-the same-terminal imported-alias selection rule. The
-checked human and JSON evidence is in
-[`generic-function-semantic-binders-human`](../../examples/specification/check/generic-function-semantic-binders-human/)
-and
-[`generic-function-semantic-binders-json`](../../examples/specification/check/generic-function-semantic-binders-json/).
+A function type binder is rejected when it would shadow a visible type. The
+[name-resolution rules](name-resolution.md#namespaces-and-use-roles) define
+which compiler-owned, source, and imported types participate in that selection,
+including ownership, ambiguity, classification, and deterministic scaling
+boundaries. The
+[diagnostic contract](diagnostics-json.md#diagnostic-families) defines the
+observable failure record and related source context.
 
 Test declarations must use an empty parameter list and annotate the return type
 as `()` or `Result<(), E>`. Their effect clause must cover directly inferred
