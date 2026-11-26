@@ -53,6 +53,52 @@ fn evicted_analysis_scope_remains_rejected_and_nonpublishing() {
 }
 
 #[test]
+fn accepted_navigation_reuse_excludes_unanalyzed_workspace_overlays() {
+    let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
+    let scope = DependencyAnalysisScope::Project("project".to_string());
+    let accepted = vec![SourceFile::new(
+        "main.veln",
+        "fn first() -> Int\n  1\nend\n",
+    )];
+    let changed = vec![SourceFile::new(
+        "main.veln",
+        "fn second() -> Int\n  2\nend\n",
+    )];
+    resources
+        .admit_analyzed_dependencies(scope.clone(), accepted.clone(), &[])
+        .unwrap();
+    let first = resources
+        .navigation_snapshot(accepted, &[], scope.clone(), json!("first"))
+        .unwrap();
+    let overlay = resources.read_only_navigation_snapshot(
+        changed.clone(),
+        &[],
+        scope.clone(),
+        json!("overlay"),
+    );
+    assert!(!Arc::ptr_eq(&first, &overlay));
+    assert!(
+        resources
+            .read_only_workspace_navigation
+            .as_ref()
+            .unwrap()
+            .accepted_identity
+            .is_none()
+    );
+
+    resources
+        .admit_analyzed_dependencies(scope.clone(), changed.clone(), &[])
+        .unwrap();
+    let second = resources
+        .navigation_snapshot(changed.clone(), &[], scope.clone(), json!("second"))
+        .unwrap();
+    assert!(!Arc::ptr_eq(&first, &second));
+    let read_only =
+        resources.read_only_navigation_snapshot(changed, &[], scope, json!("second-read-only"));
+    assert!(Arc::ptr_eq(&second, &read_only));
+}
+
+#[test]
 fn successful_analysis_replaces_a_rejected_scope() {
     let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
     let scope = DependencyAnalysisScope::Project("first".to_string());
