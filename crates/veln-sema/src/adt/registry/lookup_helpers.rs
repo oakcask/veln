@@ -105,19 +105,33 @@ impl AdtRegistry {
         name: &str,
         args_len: usize,
         current_module: Option<&str>,
+        current_package: Option<&str>,
         uses: &[UseDecl],
     ) -> bool {
-        self.consistent_imported_type_path_descriptor(name, Some(args_len), current_module, uses)
-            .is_some()
+        self.consistent_imported_type_path_descriptor(
+            name,
+            Some(args_len),
+            current_module,
+            current_package,
+            uses,
+        )
+        .is_some()
     }
 
     pub(crate) fn consistent_imported_type_path_descriptor_any_arity(
         &self,
         name: &str,
         current_module: Option<&str>,
+        current_package: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
-        self.consistent_imported_type_path_descriptor(name, None, current_module, uses)
+        self.consistent_imported_type_path_descriptor(
+            name,
+            None,
+            current_module,
+            current_package,
+            uses,
+        )
     }
 
     fn consistent_imported_type_path_descriptor(
@@ -125,11 +139,17 @@ impl AdtRegistry {
         name: &str,
         args_len: Option<usize>,
         current_module: Option<&str>,
+        current_package: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
         let mut descriptors = self.descriptors_named(name).filter(|descriptor| {
             Self::descriptor_matches_arity(descriptor, args_len)
-                && Self::descriptor_is_unqualified_import(descriptor, current_module, uses)
+                && Self::descriptor_is_unqualified_import_in_owner(
+                    descriptor,
+                    current_module,
+                    current_package,
+                    uses,
+                )
         });
         let first = descriptors.next()?;
         let identity = self
@@ -152,6 +172,25 @@ impl AdtRegistry {
             }
         }
         Some(representative)
+    }
+
+    fn descriptor_is_unqualified_import_in_owner(
+        descriptor: &AdtDescriptor,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        uses: &[UseDecl],
+    ) -> bool {
+        descriptor.visibility == Visibility::Public
+            && descriptor.module_name.as_ref().is_some_and(|module| {
+                uses.iter().any(|use_decl| {
+                    crate::adt::lookup_validation::record_import_path_comparison();
+                    crate::name_recovery::use_decl_contributes_bare_exports(use_decl)
+                        && use_decl.module_name.as_deref() == current_module
+                        && use_decl.importing_package.as_deref() == current_package
+                        && use_decl.resolved_target().module == *module
+                        && descriptor.package_name == use_decl.resolved_target().package
+                })
+            })
     }
 
     pub(super) fn descriptor_is_unqualified_import(

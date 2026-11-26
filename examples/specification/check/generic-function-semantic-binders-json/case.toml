@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 12
+equals = 13
 
 [[diagnostics]]
 id = "name.type_parameter_shadow"
@@ -48,6 +48,17 @@ message = "function type parameter `Alias` shadows a visible type"
 file = "main.veln"
 line = 25
 column = 18
+
+[[diagnostics]]
+id = "name.type_parameter_shadow"
+severity = "error"
+kind = "name"
+message = "function type parameter `WallTime` shadows a visible type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 63
+column = 34
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -211,6 +222,34 @@ equals = "api.veln"
 [[json_assert]]
 path = "diagnostics.2.related.0.span.start.line"
 equals = 5
+
+[[json_assert]]
+path = "diagnostics.11.details.boundary"
+equals = "function_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.11.details.name"
+equals = "WallTime"
+
+[[json_assert]]
+path = "diagnostics.11.details.ordinal"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.11.details.shadowed_kind"
+equals = "builtin_type"
+
+[[json_assert]]
+path = "diagnostics.11.related.0.kind"
+equals = "shadowed_type_declaration"
+
+[[json_assert]]
+path = "diagnostics.11.related.0.span.file"
+equals = "main.veln"
+
+[[json_assert]]
+path = "diagnostics.11.related.0.span.start.line"
+equals = 59
 
 [[json_assert]]
 path = "diagnostics.9.details.symbol"

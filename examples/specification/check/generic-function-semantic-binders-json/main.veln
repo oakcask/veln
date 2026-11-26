@@ -55,3 +55,11 @@ end
 fn private_qualified(value: api::Private) -> ()
   ()
 end
+
+type WallTime
+  WallTime
+end
+
+fn shadows_compiler_known_source<WallTime>(value: WallTime) -> WallTime
+  value
+end

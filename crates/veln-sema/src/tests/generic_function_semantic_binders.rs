@@ -825,4 +825,38 @@ fn standard_signature_compatibility_is_limited_to_known_functions() {
         ["unresolved type `A`", "unresolved type `A`"],
         "{diagnostics:#?}"
     );
+
+    let retained_binder_source = SourceFile::new(
+        "retained_binder.veln",
+        "fn vec_len<T>(value: A) -> A\n  value\nend\n",
+    );
+    let mut retained_binder_module = lower_standard_package_callables(&retained_binder_source);
+    for function in &mut retained_binder_module.functions {
+        function.module_name = Some("std::prelude".to_string());
+    }
+    let retained_binder_diagnostics = analyze_surface_module(&retained_binder_module);
+    let unresolved = retained_binder_diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.unresolved")
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        unresolved,
+        ["unresolved type `A`", "unresolved type `A`"],
+        "{retained_binder_diagnostics:#?}"
+    );
+
+    let declared_binder_source = SourceFile::new(
+        "declared_binder.veln",
+        "fn vec_len<A>(value: A) -> A\n  value\nend\n",
+    );
+    let mut declared_binder_module = lower_standard_package_callables(&declared_binder_source);
+    for function in &mut declared_binder_module.functions {
+        function.module_name = Some("std::prelude".to_string());
+    }
+    let declared_binder_diagnostics = analyze_surface_module(&declared_binder_module);
+    assert!(
+        declared_binder_diagnostics.is_empty(),
+        "{declared_binder_diagnostics:#?}"
+    );
 }

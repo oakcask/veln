@@ -41,6 +41,7 @@ impl TypeEnvironment {
                     name,
                     args_len,
                     current_module,
+                    current_package,
                     &self.uses,
                 )
             || !name.contains("::")

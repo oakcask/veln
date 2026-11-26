@@ -413,7 +413,10 @@ fn is_compiler_known_standard_signature_type_parameter(
     name: &str,
     function: &veln_ast::Function,
 ) -> bool {
-    if name.contains("::") || function.package_name.as_deref() != Some(veln_stdlib::PACKAGE_NAME) {
+    if name.contains("::")
+        || !function.type_binders.is_empty()
+        || function.package_name.as_deref() != Some(veln_stdlib::PACKAGE_NAME)
+    {
         return false;
     }
     let function_name = function.name.as_deref().unwrap_or_default();
@@ -612,27 +615,24 @@ fn function_type_parameter_shadow_diagnostic(
     environment: &TypeEnvironment,
 ) -> Option<Diagnostic> {
     let builtin = crate::type_syntax::compiler_known_type_annotation_arity(&binder.name).is_some();
-    let descriptor = if builtin {
-        None
-    } else {
-        environment
-            .adts
-            .unique_descriptor_for_type_path_any_arity_in_owner(
-                &binder.name,
-                function.module_name.as_deref(),
-                function.package_name.as_deref(),
-                &environment.uses,
-            )
-            .or_else(|| {
-                environment
-                    .adts
-                    .consistent_imported_type_path_descriptor_any_arity(
-                        &binder.name,
-                        function.module_name.as_deref(),
-                        &environment.uses,
-                    )
-            })
-    };
+    let descriptor = environment
+        .adts
+        .unique_descriptor_for_type_path_any_arity_in_owner(
+            &binder.name,
+            function.module_name.as_deref(),
+            function.package_name.as_deref(),
+            &environment.uses,
+        )
+        .or_else(|| {
+            environment
+                .adts
+                .consistent_imported_type_path_descriptor_any_arity(
+                    &binder.name,
+                    function.module_name.as_deref(),
+                    function.package_name.as_deref(),
+                    &environment.uses,
+                )
+        });
     if !builtin && descriptor.is_none() {
         return None;
     }

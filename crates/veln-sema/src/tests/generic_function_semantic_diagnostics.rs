@@ -215,6 +215,46 @@ fn binders_cannot_shadow_builtin_or_source_types() {
 }
 
 #[test]
+fn compiler_known_binder_shadow_keeps_visible_source_declaration_context() {
+    let (_, diagnostics) = analyze(concat!(
+        "type WallTime\n",
+        "  WallTime\n",
+        "end\n",
+        "fn shadow<WallTime>(value: WallTime) -> WallTime\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    let shadows = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.type_parameter_shadow")
+        .collect::<Vec<_>>();
+    assert_eq!(shadows.len(), 1, "{diagnostics:#?}");
+    let shadow = shadows[0];
+    assert_eq!(
+        shadow
+            .span
+            .as_ref()
+            .map(|span| (span.start.line, span.start.column)),
+        Some((4, 11))
+    );
+    assert!(
+        shadow
+            .details
+            .to_json()
+            .contains("\"shadowed_kind\":\"builtin_type\""),
+        "{shadow:#?}"
+    );
+    assert!(
+        shadow.related.iter().any(|related| {
+            let json = related.to_json();
+            json.contains("\"kind\":\"shadowed_type_declaration\"") && json.contains("\"line\":1")
+        }),
+        "{shadow:#?}"
+    );
+}
+
+#[test]
 fn binder_cannot_shadow_an_imported_type_alias() {
     let module = merged_modules_with_identities(vec![
         (
@@ -356,5 +396,123 @@ fn binder_shadowing_keeps_distinct_imported_terminal_identities_ambiguous() {
             .iter()
             .all(|diagnostic| diagnostic.id != "name.type_parameter_shadow"),
         "distinct terminal identities must remain ambiguous rather than visible: {diagnostics:#?}"
+    );
+}
+
+#[test]
+fn imported_type_lookup_does_not_cross_same_spelled_modules_in_other_packages() {
+    fn package_module(path: &str, source_text: &str, package: &str, module: &str) -> SurfaceModule {
+        let source = SourceFile::new(path, source_text);
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let mut lowered = veln_ast::lower_surface_ast_with_package_module_identity(
+            &parsed.tree,
+            package.to_string(),
+            module.to_string(),
+            source.span(veln_source::TextRange::new(0, 0)),
+        );
+        for use_decl in &mut lowered.uses {
+            use_decl.module_name = Some(module.to_string());
+        }
+        for alias in &mut lowered.aliases {
+            alias.module_name = Some(module.to_string());
+        }
+        for effect in &mut lowered.effects {
+            effect.module_name = Some(module.to_string());
+        }
+        for handler in &mut lowered.handlers {
+            handler.module_name = Some(module.to_string());
+        }
+        for schema in &mut lowered.schemas {
+            schema.module_name = Some(module.to_string());
+        }
+        for type_decl in &mut lowered.types {
+            type_decl.module_name = Some(module.to_string());
+        }
+        for value in &mut lowered.module_values {
+            value.module_name = Some(module.to_string());
+        }
+        for function in &mut lowered.functions {
+            function.module_name = Some(module.to_string());
+        }
+        lowered
+    }
+
+    fn extend(module: &mut SurfaceModule, other: SurfaceModule) {
+        module.uses.extend(other.uses);
+        module.aliases.extend(other.aliases);
+        module.effects.extend(other.effects);
+        module.handlers.extend(other.handlers);
+        module.schemas.extend(other.schemas);
+        module.types.extend(other.types);
+        module.module_values.extend(other.module_values);
+        module.functions.extend(other.functions);
+        module.invalid_names.extend(other.invalid_names);
+    }
+
+    let mut project = package_module(
+        "importing.veln",
+        concat!(
+            "use types from \"types/pkg\"\n",
+            "fn imported_shadow<Shared>(value: Shared) -> Shared\n",
+            "  value\n",
+            "end\n",
+        ),
+        "importing/pkg",
+        "app",
+    );
+    project.uses[0].name = "types".to_string();
+    extend(
+        &mut project,
+        package_module(
+            "missing.veln",
+            concat!(
+                "fn local_binder<Shared>(value: Shared) -> Shared\n",
+                "  value\n",
+                "end\n",
+                "fn unresolved_annotation(value: Shared) -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+            "missing/pkg",
+            "app",
+        ),
+    );
+    extend(
+        &mut project,
+        package_module(
+            "types.veln",
+            "pub type Shared\n  pub Value\nend\n",
+            "types/pkg",
+            "types",
+        ),
+    );
+
+    let diagnostics = analyze_surface_module(&project);
+    let shadows = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.type_parameter_shadow")
+        .collect::<Vec<_>>();
+    assert_eq!(shadows.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        shadows[0].span.as_ref().map(|span| span.file.as_str()),
+        Some("importing.veln"),
+        "only the package that owns the import can see `Shared`: {diagnostics:#?}"
+    );
+
+    let unresolved = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.file.as_str() == "missing.veln")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(unresolved.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        unresolved[0].span.as_ref().map(|span| span.start.line),
+        Some(4)
     );
 }
