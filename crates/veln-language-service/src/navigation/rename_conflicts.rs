@@ -539,7 +539,7 @@ impl SymbolIndex {
             end_offset: selected.scope_end,
         };
         let affected_spans = self.affected_spans(result);
-        let clause_bindings = handler_operation_clause_bindings(file, &file.tokens);
+        let clause_bindings = handler_operation_clause_bindings(file);
         self.lexical_declaration_conflict(file, selected, requested_name, &scope)
             .or_else(|| {
                 self.clause_binding_scope_conflict(&clause_bindings, selected, requested_name, &scope)

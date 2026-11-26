@@ -692,6 +692,7 @@ impl SymbolIndex {
         symbol: &FunctionSymbol,
     ) -> Vec<SourceSpan> {
         let tokens = &file.tokens;
+        let scopes = OnceLock::new();
         tokens
             .iter()
             .enumerate()
@@ -704,7 +705,13 @@ impl SymbolIndex {
                             && (file.token_has_classified_role(token, NameClass::ValueBinding)
                                 || is_bare_function_value_token(tokens, *index))))
                     && self
-                        .symbol_for_bare_call(file, tokens, *index, &token.text)
+                        .symbol_for_bare_call(
+                            file,
+                            tokens,
+                            *index,
+                            &token.text,
+                            Some(scopes.get_or_init(|| function_scopes(tokens))),
+                        )
                         .is_some_and(|candidate| {
                             matches!(candidate, Symbol::Function(candidate) if same_function(&candidate, symbol))
                         })

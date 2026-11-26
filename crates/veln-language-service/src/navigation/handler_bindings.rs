@@ -5,8 +5,10 @@ fn handler_operation_clause_symbol(
     name: &str,
     selection: &SourceSpan,
 ) -> Option<LocalSymbol> {
-    handler_operation_clause_bindings(file, tokens)
-        .into_iter()
+    let bindings = recovered_clause_bindings(file);
+    bindings.by_name.get(name)?
+        .iter()
+        .map(|index| &bindings.bindings[*index])
         .find(|binding| {
             let token_offset = tokens[token_index].range.start;
             binding.name == name
@@ -26,19 +28,36 @@ fn handler_operation_clause_symbol(
                         )))
         })
         .map(|binding| LocalSymbol {
-            name: binding.name,
-            declaration: binding.declaration,
+            name: binding.name.clone(),
+            declaration: binding.declaration.clone(),
             scope_file: file.source.path().as_str().to_string(),
             scope_start: binding.start,
             scope_end: binding.end,
             declaration_scope_start: binding.start,
             declaration_scope_end: binding.end,
-            kind: binding.kind,
+            kind: binding.kind.clone(),
         })
 }
 
-fn handler_operation_clause_bindings(file: &IndexedFile, tokens: &[Token]) -> Vec<ClauseBinding> {
-    handler_operation_clause_bindings_for_source(&file.source, tokens)
+#[derive(Clone, Debug)]
+struct RecoveredClauseBindings {
+    bindings: Vec<ClauseBinding>,
+    by_name: HashMap<String, Vec<usize>>,
+}
+
+fn recovered_clause_bindings(file: &IndexedFile) -> &RecoveredClauseBindings {
+    file.recovered_clause_bindings.get_or_init(|| {
+        let bindings = handler_operation_clause_bindings_for_source(&file.source, &file.tokens);
+        let mut by_name = HashMap::<String, Vec<usize>>::new();
+        for (index, binding) in bindings.iter().enumerate() {
+            by_name.entry(binding.name.clone()).or_default().push(index);
+        }
+        RecoveredClauseBindings { bindings, by_name }
+    })
+}
+
+fn handler_operation_clause_bindings(file: &IndexedFile) -> Vec<ClauseBinding> {
+    recovered_clause_bindings(file).bindings.clone()
 }
 
 fn handler_operation_clause_bindings_for_source(

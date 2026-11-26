@@ -185,6 +185,7 @@ fn indexed_workspace_file(
         handler_operation_clause_references: syntax.handler_operation_clause_references,
         handler_operation_clause_body_ranges: syntax.handler_operation_clause_body_ranges,
         handler_clause_bindings_by_name: syntax.handler_clause_bindings_by_name,
+        recovered_clause_bindings: OnceLock::new(),
         schema_operation_leaf_ranges: syntax.schema_operation_leaf_ranges,
         schema_composition_leaf_spans: syntax.schema_composition_leaf_spans,
         effect_reference_ranges: syntax.effects.reference_ranges,

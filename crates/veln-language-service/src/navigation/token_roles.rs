@@ -222,12 +222,15 @@ fn is_schema_operation_path_leaf_candidate_token(tokens: &[Token], index: usize)
 }
 
 fn is_schema_composition_path_leaf_token(tokens: &[Token], index: usize) -> bool {
-    if tokens[index].kind != TokenKind::Ident || !inside_schema_declaration(tokens, index) {
+    if tokens[index].kind != TokenKind::Ident {
         return false;
     }
     let Some(field_type) = schema_composition_field_type(tokens, index) else {
         return false;
     };
+    if !inside_schema_declaration(tokens, index) {
+        return false;
+    }
     schema_path_leaf_in(&field_type, tokens) == Some(index)
         || is_repeat_schema_path_leaf(&field_type, tokens, index)
         || is_array_schema_path_leaf(&field_type, tokens, index)

@@ -256,21 +256,33 @@
 
     #[test]
     fn invalid_function_recovery_reference_lookup_prepares_scopes_once() {
-        let linked_calls = 800;
-        let mut source_text = String::from("fn Bad() -> Int\n");
-        for _ in 0..linked_calls {
-            source_text.push_str("  Bad()\n");
-        }
-        source_text.push_str("end\n");
-        let snapshot =
-            EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
-        reset_function_scope_collections();
+        let work = [200, 400, 800].map(|linked_calls| {
+            let mut source_text = String::from("fn Bad() -> Int\n");
+            for _ in 0..linked_calls {
+                source_text.push_str("  Bad()\n");
+            }
+            source_text.push_str("end\n");
+            let snapshot =
+                EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_function_scope_collections();
+            reset_handler_clause_binding_token_visits();
+            reset_handler_clause_scope_token_visits();
+            let started = std::time::Instant::now();
 
-        let result = query_snapshot(&snapshot, "main.veln", 1, 4).unwrap();
+            let result = query_snapshot(&snapshot, "main.veln", 1, 4).unwrap();
 
-        assert!(result.is_recovery);
-        assert_eq!(result.references.len(), linked_calls);
-        assert_eq!(function_scope_collections(), 1);
+            assert!(result.is_recovery);
+            assert_eq!(result.references.len(), linked_calls);
+            assert_eq!(function_scope_collections(), 1);
+            let work = handler_clause_binding_token_visits() + handler_clause_scope_token_visits();
+            eprintln!("recovery references: calls={linked_calls} elapsed={:?} scope_and_binding_visits={work}", started.elapsed());
+            work
+        });
+        assert!(work[0] > 0);
+        assert!(
+            work[1] <= work[0] * 2 + 64 && work[2] <= work[1] * 2 + 64,
+            "reference lookup must reuse prepared scopes and handler bindings: {work:?}"
+        );
     }
 
     #[test]
@@ -1069,7 +1081,12 @@
                 result.selected_symbol.kind,
                 SymbolKind::HandlerOperationClauseParameter
             );
-            handler_clause_binding_token_visits()
+            let visits = handler_clause_binding_token_visits();
+            let repeated = query_snapshot(&snapshot, "main.veln", 6, 20).unwrap();
+            assert_eq!(repeated.definition, result.definition);
+            assert_eq!(repeated.references, result.references);
+            assert_eq!(handler_clause_binding_token_visits(), visits);
+            visits
         }
 
         let smaller = token_visits(128);
