@@ -160,6 +160,7 @@ operation valid. A type parameter is an ordinary type: `T::Leaf` is an
 unresolved type path, and `T<Int>` fails because a parameter accepts no type
 arguments. The checked semantic and diagnostic evidence is in
 [`generic_function_semantic_binders.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_binders.rs),
+[`generic_function_semantic_diagnostics.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs),
 [`generic-function-semantic-binders-human`](../../examples/specification/check/generic-function-semantic-binders-human/),
 and
 [`generic-function-semantic-binders-json`](../../examples/specification/check/generic-function-semantic-binders-json/).
