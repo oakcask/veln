@@ -228,6 +228,66 @@ fn qualified_and_applied_binder_paths_fail_in_signatures_and_body_annotations() 
 }
 
 #[test]
+fn refinement_type_arguments_keep_owner_aware_name_and_arity_checks() {
+    let (_, diagnostics) = analyze(concat!(
+        "fn outside_signature(value: Option<T>::Some) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn outside_body(value: Option<Int>::Some) -> ()\n",
+        "  let local: Option<T>::Some = value\n",
+        "  ()\n",
+        "end\n",
+        "fn applied<T>(value: Option<T<Int>>::Some) -> ()\n",
+        "  let local: Option<T<Int>>::Some = value\n",
+        "  ()\n",
+        "end\n",
+        "fn valid<T>(value: Option<T>::Some) -> Option<T>::Some\n",
+        "  let local: Option<T>::Some = value\n",
+        "  local\n",
+        "end\n",
+    ));
+
+    let unresolved = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved type `T`"
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(unresolved.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        unresolved
+            .iter()
+            .map(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.line))
+            .collect::<Vec<_>>(),
+        [Some(1), Some(5)]
+    );
+
+    let invalid_applied = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "type.invalid_annotation"
+                && diagnostic
+                    .message
+                    .contains("`T` expects 0 type argument(s), found 1")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(invalid_applied.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic
+                .span
+                .as_ref()
+                .is_none_or(|span| span.start.line < 13)
+                || !matches!(
+                    diagnostic.id.as_str(),
+                    "name.unresolved" | "type.invalid_annotation"
+                )
+        }),
+        "the owning declaration must not gain a name or arity diagnostic: {diagnostics:#?}"
+    );
+}
+
+#[test]
 fn rigid_callers_do_not_publish_type_parameters_into_private_signatures() {
     for (source, owner_call_line) in [
         (
@@ -295,17 +355,92 @@ fn rigid_callers_do_not_publish_type_parameters_into_private_signatures() {
 }
 
 #[test]
-fn private_inference_keeps_the_target_declarations_own_rigid_parameters() {
-    let (module, diagnostics) =
-        analyze(concat!("fn owner<T>(value) -> T\n", "  value\n", "end\n",));
+fn binder_bearing_functions_require_complete_signatures_before_private_inference() {
+    let (module, diagnostics) = analyze(concat!(
+        "fn missing_parameter<T>(value) -> T\n",
+        "  value\n",
+        "end\n",
+        "fn missing_return<T>(value: T)\n",
+        "  value\n",
+        "end\n",
+        "pub fn public_missing<T>(value)\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    let generic_missing = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.generic_signature_missing")
+        .collect::<Vec<_>>();
+    assert_eq!(generic_missing.len(), 2, "{diagnostics:#?}");
+    assert!(generic_missing.iter().any(|diagnostic| {
+        diagnostic.message == "generic parameter `value` has no type annotation"
+            && diagnostic
+                .span
+                .as_ref()
+                .is_some_and(|span| span.start.line == 1)
+    }));
+    assert!(generic_missing.iter().any(|diagnostic| {
+        diagnostic.message == "generic function has no return type annotation"
+            && diagnostic
+                .span
+                .as_ref()
+                .is_some_and(|span| span.start.line == 4)
+    }));
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.public_signature_missing")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.private_inference_incomplete")
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    let missing_parameter = environment
+        .function("missing_parameter")
+        .expect("missing-parameter signature");
+    assert_eq!(missing_parameter.params, [Type::Unknown]);
+    let missing_return = environment
+        .function("missing_return")
+        .expect("missing-return signature");
+    assert_eq!(missing_return.return_type, Type::Unknown);
+}
+
+#[test]
+fn functions_without_ordinary_binders_keep_private_signature_inference() {
+    let (module, diagnostics) = analyze(concat!(
+        "fn ordinary(value)\n",
+        "  value\n",
+        "end\n",
+        "fn effect_only<effect E>(value) effects [...E]\n",
+        "  value\n",
+        "end\n",
+        "fn use_ordinary() -> Int\n",
+        "  ordinary(1)\n",
+        "end\n",
+        "fn use_effect_only() -> String\n",
+        "  effect_only(\"ok\")\n",
+        "end\n",
+    ));
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 
     let environment = TypeEnvironment::from_module(&module);
-    let owner = environment.function("owner").expect("owner signature");
-    assert_eq!(
-        named_identity(&owner.params[0]),
-        owner.type_parameters[0].identity
-    );
+    let ordinary = environment
+        .function("ordinary")
+        .expect("ordinary signature");
+    assert_eq!(ordinary.params, [Type::int()]);
+    assert_eq!(ordinary.return_type, Type::int());
+    let effect_only = environment
+        .function("effect_only")
+        .expect("effect-only signature");
+    assert_eq!(effect_only.params, [Type::string()]);
+    assert_eq!(effect_only.return_type, Type::string());
 }
 
 #[test]

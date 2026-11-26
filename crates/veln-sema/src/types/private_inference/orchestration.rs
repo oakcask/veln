@@ -200,6 +200,7 @@ pub(crate) fn omitted_private_slots_that_can_change(
         .filter(|function| {
             function.kind == FunctionKind::Function
                 && function.visibility == Visibility::Private
+                && function.type_binders.is_empty()
                 && function.name.is_some()
                 && (function.return_type.is_none()
                     || function.params.iter().any(parameter_annotation_is_omitted))
@@ -274,6 +275,7 @@ pub(crate) fn omitted_private_return_functions(
     module.functions.iter().filter(|function| {
         function.kind == FunctionKind::Function
             && function.visibility == Visibility::Private
+            && function.type_binders.is_empty()
             && function.return_type.is_none()
     })
 }

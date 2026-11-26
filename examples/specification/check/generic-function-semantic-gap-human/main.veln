@@ -1,0 +1,18 @@
+use alpha
+use beta
+
+fn accepts(value: Shared) -> Shared
+  value
+end
+
+fn shadow<Shared>(value: Shared) -> Shared
+  value
+end
+
+fn missing_parameter<T>(value) -> T
+  value
+end
+
+fn missing_return<T>(value: T)
+  value
+end

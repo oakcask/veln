@@ -1,0 +1,66 @@
+# This case covers corrected generic binder signature and shadow JSON diagnostics.
+command = ["check", "--json", "main.veln", "base.veln", "alpha.veln", "beta.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "name.type_parameter_shadow"
+severity = "error"
+kind = "name"
+message = "function type parameter `Shared` shadows a visible type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 8
+column = 11
+
+[[diagnostics]]
+id = "type.generic_signature_missing"
+severity = "error"
+kind = "type"
+message = "generic parameter `value` has no type annotation"
+
+[diagnostics.span]
+file = "main.veln"
+line = 12
+column = 25
+
+[[diagnostics]]
+id = "type.generic_signature_missing"
+severity = "error"
+kind = "type"
+message = "generic function has no return type annotation"
+
+[diagnostics.span]
+file = "main.veln"
+line = 16
+column = 1
+
+[[json_assert]]
+path = "diagnostics.0.details.boundary"
+equals = "function_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "shadowed_type_declaration"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.file"
+equals = "alpha.veln"
+
+[[json_assert]]
+path = "diagnostics.1.details.expected_type_source"
+equals = "declared_parameter"
+
+[[json_assert]]
+path = "diagnostics.2.details.expected_type_source"
+equals = "declared_return"

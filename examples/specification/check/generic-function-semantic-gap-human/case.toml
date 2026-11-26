@@ -1,0 +1,15 @@
+# This case covers corrected generic binder signature and shadow diagnostics.
+command = ["check", "main.veln", "base.veln", "alpha.veln", "beta.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "error[name.type_parameter_shadow]: function type parameter `Shared` shadows a visible type",
+  "note: alpha.veln:2:1: Visible type `Shared` is declared here.",
+  "error[type.generic_signature_missing]: generic parameter `value` has no type annotation",
+  "error[type.generic_signature_missing]: generic function has no return type annotation",
+]
+
+[stderr]
+format = "empty"

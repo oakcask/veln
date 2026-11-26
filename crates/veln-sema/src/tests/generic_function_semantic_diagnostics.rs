@@ -42,6 +42,7 @@ fn annotation_path_classification_work_has_a_linear_bound() {
         ("valid", "Option<Int>"),
         ("unresolved", "Missing"),
         ("refinement", "Option<Int>::Some"),
+        ("refinement argument", "Option<Missing>::Some"),
     ] {
         let (small, small_diagnostics) = work(SMALL, annotation);
         let (large, large_diagnostics) = work(LARGE, annotation);
@@ -65,7 +66,7 @@ fn annotation_path_classification_work_has_a_linear_bound() {
             .iter()
             .filter(|diagnostic| diagnostic.id == "name.unresolved")
             .count();
-        if label == "unresolved" {
+        if matches!(label, "unresolved" | "refinement argument") {
             assert_eq!((small_unresolved, large_unresolved), (SMALL, LARGE));
         } else {
             assert_eq!((small_unresolved, large_unresolved), (0, 0));
@@ -257,4 +258,103 @@ fn binder_cannot_shadow_an_imported_type_alias() {
             && json.contains("\"file\":\"api.veln\"")
             && json.contains("\"line\":4")
     }));
+}
+
+#[test]
+fn binder_shadowing_accepts_consistent_imported_alias_identity_as_visible() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "base",
+            SourceFile::new("base.veln", "pub type Root\n  pub Value\nend\n"),
+        ),
+        (
+            "alpha",
+            SourceFile::new("alpha.veln", "use base\npub type Shared = base::Root\n"),
+        ),
+        (
+            "beta",
+            SourceFile::new("beta.veln", "use base\npub type Shared = base::Root\n"),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use alpha\n",
+                    "use beta\n",
+                    "fn accepts(value: Shared) -> Shared\n",
+                    "  value\n",
+                    "end\n",
+                    "fn shadow<Shared>(value: Shared) -> Shared\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.unresolved"
+                || diagnostic
+                    .span
+                    .as_ref()
+                    .is_none_or(|span| span.file.as_str() != "app.veln")
+        }),
+        "ordinary annotations must keep resolving the consistent identity: {diagnostics:#?}"
+    );
+    let shadows = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.type_parameter_shadow")
+        .collect::<Vec<_>>();
+    assert_eq!(shadows.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        shadows[0]
+            .span
+            .as_ref()
+            .map(|span| (span.file.as_str(), span.start.line)),
+        Some(("app.veln", 6))
+    );
+    assert!(shadows[0].related.iter().any(|related| {
+        let json = related.to_json();
+        json.contains("\"kind\":\"shadowed_type_declaration\"")
+            && json.contains("\"file\":\"alpha.veln\"")
+            && json.contains("\"line\":2")
+    }));
+}
+
+#[test]
+fn binder_shadowing_keeps_distinct_imported_terminal_identities_ambiguous() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "alpha",
+            SourceFile::new("alpha.veln", "pub type Shared\n  pub Alpha\nend\n"),
+        ),
+        (
+            "beta",
+            SourceFile::new("beta.veln", "pub type Shared\n  pub Beta\nend\n"),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use alpha\n",
+                    "use beta\n",
+                    "fn shadow<Shared>(value: Shared) -> Shared\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.type_parameter_shadow"),
+        "distinct terminal identities must remain ambiguous rather than visible: {diagnostics:#?}"
+    );
 }

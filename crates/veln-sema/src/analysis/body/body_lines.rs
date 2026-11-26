@@ -544,6 +544,7 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn check_private_inference_complete(&mut self) {
         if self.function.visibility == Visibility::Public
             || self.function.kind != FunctionKind::Function
+            || !self.function.type_binders.is_empty()
         {
             return;
         }

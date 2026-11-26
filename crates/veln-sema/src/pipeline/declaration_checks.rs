@@ -101,6 +101,7 @@ pub(super) fn check_function_declaration_and_body(
         function,
         environment,
     ));
+    diagnostics.extend(check_function_type_parameter_signature(function));
     diagnostics.extend(check_unresolved_function_type_names(function, environment));
     diagnostics.extend(check_declared_effect_labels(function, environment));
     let mut visibility_diagnostics = Vec::new();
@@ -189,8 +190,11 @@ fn collect_non_refinement_annotation_paths<'a>(
         (path_work + paths.len(), refinement_work + refinements.len())
     });
 
-    // Lowering retains both collections in source order, so one refinement
-    // cursor classifies the annotation without comparing every path and span.
+    // The flattened annotation paths omit some applied paths inside refinement
+    // arguments. Keep the established span classifier for refinement bases,
+    // restore argument paths from the refinement tree, then merge the two
+    // source-ordered streams. Refinement nesting has a parser-owned bound, so
+    // each path is visited only a bounded number of times.
     debug_assert!(paths.windows(2).all(|pair| {
         pair[0].application_span.file != pair[1].application_span.file
             || pair[0].application_span.start.offset <= pair[1].application_span.start.offset
@@ -199,6 +203,7 @@ fn collect_non_refinement_annotation_paths<'a>(
         pair[0].span.file != pair[1].span.file
             || pair[0].span.start.offset <= pair[1].span.start.offset
     }));
+    let mut direct = Vec::new();
     let mut refinement_index = 0;
     let mut furthest_refinement_end = 0;
     for path in paths {
@@ -215,9 +220,78 @@ fn collect_non_refinement_annotation_paths<'a>(
         if path.application_span.end.offset > furthest_refinement_end
             || qualified_function_type_parameter
         {
-            output.push(path);
+            direct.push(path);
         }
     }
+    let mut nested = Vec::new();
+    collect_variant_refinement_argument_paths(refinements, type_parameters, &mut nested);
+    merge_annotation_paths(&direct, &nested, output);
+}
+
+fn collect_variant_refinement_argument_paths<'a>(
+    refinements: &'a [veln_ast::VariantRefinementType],
+    type_parameters: &HashSet<&str>,
+    output: &mut Vec<&'a veln_ast::TypePathSegments>,
+) {
+    for refinement in refinements {
+        for alternative in &refinement.alternatives {
+            for argument in &alternative.type_arguments {
+                collect_non_refinement_annotation_paths(
+                    &argument.ty_paths,
+                    &argument.ty_refinements,
+                    type_parameters,
+                    output,
+                );
+            }
+        }
+    }
+}
+
+fn merge_annotation_paths<'a>(
+    direct: &[&'a veln_ast::TypePathSegments],
+    nested: &[&'a veln_ast::TypePathSegments],
+    output: &mut Vec<&'a veln_ast::TypePathSegments>,
+) {
+    let mut direct_index = 0;
+    let mut nested_index = 0;
+    while direct_index < direct.len() || nested_index < nested.len() {
+        let direct_path = direct.get(direct_index).copied();
+        let nested_path = nested.get(nested_index).copied();
+        let selected = match (direct_path, nested_path) {
+            (Some(direct_path), Some(nested_path)) => {
+                let direct_key = annotation_path_span_key(direct_path);
+                let nested_key = annotation_path_span_key(nested_path);
+                if direct_key <= nested_key {
+                    direct_index += 1;
+                    if direct_key == nested_key {
+                        nested_index += 1;
+                    }
+                    direct_path
+                } else {
+                    nested_index += 1;
+                    nested_path
+                }
+            }
+            (Some(direct_path), None) => {
+                direct_index += 1;
+                direct_path
+            }
+            (None, Some(nested_path)) => {
+                nested_index += 1;
+                nested_path
+            }
+            (None, None) => break,
+        };
+        output.push(selected);
+    }
+}
+
+fn annotation_path_span_key(path: &veln_ast::TypePathSegments) -> (&str, usize, usize) {
+    (
+        path.application_span.file.as_str(),
+        path.application_span.start.offset,
+        path.application_span.end.offset,
+    )
 }
 
 fn unresolved_function_type_diagnostic(
@@ -477,6 +551,60 @@ fn check_function_type_parameter_shadowing(
         .collect()
 }
 
+fn check_function_type_parameter_signature(function: &veln_ast::Function) -> Vec<Diagnostic> {
+    if function.visibility == Visibility::Public || function.type_binders.is_empty() {
+        return Vec::new();
+    }
+
+    let mut diagnostics = function
+        .params
+        .iter()
+        .filter(|param| {
+            param
+                .ty
+                .as_deref()
+                .is_none_or(|annotation| param.is_variadic && annotation.is_empty())
+        })
+        .map(|param| {
+            Diagnostic::new(
+                "type.generic_signature_missing",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!("generic parameter `{}` has no type annotation", param.name),
+                Some(param.span.clone()),
+                crate::diagnostics::type_details(
+                    param.node_id.display("param"),
+                    "explicit",
+                    "missing",
+                    "declared_parameter",
+                    "source",
+                    "assignable",
+                    [function.node_id.display("fn")],
+                ),
+            )
+        })
+        .collect::<Vec<_>>();
+    if function.return_type.is_none() {
+        diagnostics.push(Diagnostic::new(
+            "type.generic_signature_missing",
+            Severity::Error,
+            DiagnosticKind::Type,
+            "generic function has no return type annotation",
+            Some(function.span.clone()),
+            crate::diagnostics::type_details(
+                function.node_id.display("fn"),
+                "explicit",
+                "missing",
+                "declared_return",
+                "source",
+                "return_value",
+                [function.node_id.display("fn")],
+            ),
+        ));
+    }
+    diagnostics
+}
+
 fn function_type_parameter_shadow_diagnostic(
     ordinal: usize,
     binder: &veln_ast::TypeBinder,
@@ -495,6 +623,15 @@ fn function_type_parameter_shadow_diagnostic(
                 function.package_name.as_deref(),
                 &environment.uses,
             )
+            .or_else(|| {
+                environment
+                    .adts
+                    .consistent_imported_type_path_descriptor_any_arity(
+                        &binder.name,
+                        function.module_name.as_deref(),
+                        &environment.uses,
+                    )
+            })
     };
     if !builtin && descriptor.is_none() {
         return None;

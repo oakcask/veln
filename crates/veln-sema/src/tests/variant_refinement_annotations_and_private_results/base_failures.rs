@@ -748,16 +748,21 @@ fn invalid_generic_argument_preserves_a_later_sibling_union_base_failure() {
             .iter()
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<Vec<_>>(),
-        ["type.invalid_annotation", "type.variant_union_base"],
+        [
+            "name.unresolved",
+            "type.invalid_annotation",
+            "type.variant_union_base"
+        ],
         "{diagnostics:#?}"
     );
+    assert_eq!(diagnostics[0].message, "unresolved type `Missing`");
     assert!(
-        diagnostics[0]
+        diagnostics[1]
             .message
             .contains("`Pair` expects 1 type argument(s), found 2"),
         "{diagnostics:#?}"
     );
-    let union_base = &diagnostics[1];
+    let union_base = &diagnostics[2];
     assert_eq!(union_base.span.as_ref().unwrap().start.line, 10);
     assert_eq!(union_base.span.as_ref().unwrap().start.column, 42);
     assert_eq!(union_base.span.as_ref().unwrap().end.line, 10);

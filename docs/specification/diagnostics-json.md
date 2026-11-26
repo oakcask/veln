@@ -1484,12 +1484,23 @@ Type inference diagnostics include:
 - `type.private_inference_incomplete`: `boundary: "private_function"`,
   `slot_kind: "private_parameter"` with `parameter`, or
   `slot_kind: "private_return"`, plus `missing_fact` and `inferred_type`.
+- `type.generic_signature_missing`: a private function with an ordinary type
+  binder omitted a parameter or return annotation. Parameter failures use the
+  parameter span and `expected_type_source: "declared_parameter"`. Return
+  failures use the function span and `expected_type_source: "declared_return"`.
 - `type.inference_ambiguous`: `slot_kind` is `constructor_type`,
   `empty_collection`, or `match_scrutinee`. Constructor ambiguity adds
   `constructor`, `inferred_type`, and `constraint: "constructor_type_context"`;
   empty collection ambiguity adds `collection`, `inferred_type`, and
   `constraint: "empty_collection_type_context"`; match scrutinee ambiguity
   adds `candidates` and `constraint: "match_constructor_pattern_domain"`.
+
+The checked
+[`generic-function-semantic-gap-human`](../../examples/specification/check/generic-function-semantic-gap-human/)
+and
+[`generic-function-semantic-gap-json`](../../examples/specification/check/generic-function-semantic-gap-json/)
+cases fix the missing generic-signature projections and the related alias
+source selected when multiple bare aliases expose one terminal type identity.
 
 Deferred-block restriction diagnostics use kind `type`,
 `phase: "type_check"`, `boundary: "deferred_block"`, and one of these stable

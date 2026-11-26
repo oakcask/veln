@@ -107,21 +107,51 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> bool {
-        let mut identities = self
-            .descriptors_named(name)
-            .filter(|descriptor| {
-                Self::descriptor_matches_arity(descriptor, Some(args_len))
-                    && Self::descriptor_is_unqualified_import(descriptor, current_module, uses)
-            })
-            .map(|descriptor| {
-                self.terminal_descriptor_for_alias(descriptor)
-                    .unwrap_or_else(|| self.canonical_descriptor_for(descriptor))
-                    .identity()
-            });
-        let Some(first) = identities.next() else {
-            return false;
-        };
-        identities.all(|identity| identity == first)
+        self.consistent_imported_type_path_descriptor(name, Some(args_len), current_module, uses)
+            .is_some()
+    }
+
+    pub(crate) fn consistent_imported_type_path_descriptor_any_arity(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        self.consistent_imported_type_path_descriptor(name, None, current_module, uses)
+    }
+
+    fn consistent_imported_type_path_descriptor(
+        &self,
+        name: &str,
+        args_len: Option<usize>,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        let mut descriptors = self.descriptors_named(name).filter(|descriptor| {
+            Self::descriptor_matches_arity(descriptor, args_len)
+                && Self::descriptor_is_unqualified_import(descriptor, current_module, uses)
+        });
+        let first = descriptors.next()?;
+        let identity = self
+            .terminal_descriptor_for_alias(first)
+            .unwrap_or_else(|| self.canonical_descriptor_for(first))
+            .identity();
+        let mut representative = first;
+        for descriptor in descriptors {
+            let candidate_identity = self
+                .terminal_descriptor_for_alias(descriptor)
+                .unwrap_or_else(|| self.canonical_descriptor_for(descriptor))
+                .identity();
+            if candidate_identity != identity {
+                return None;
+            }
+            if descriptor_stable_source_key(descriptor)
+                < descriptor_stable_source_key(representative)
+            {
+                representative = descriptor;
+            }
+        }
+        Some(representative)
     }
 
     pub(super) fn descriptor_is_unqualified_import(
@@ -140,4 +170,12 @@ impl AdtRegistry {
                 })
             })
     }
+}
+
+fn descriptor_stable_source_key(descriptor: &AdtDescriptor) -> (Option<&str>, Option<&str>, &str) {
+    (
+        descriptor.package_name.as_deref(),
+        descriptor.module_name.as_deref(),
+        descriptor.type_name.as_str(),
+    )
 }
