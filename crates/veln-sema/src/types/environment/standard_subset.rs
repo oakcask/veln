@@ -2,44 +2,22 @@ use super::*;
 
 impl TypeEnvironment {
     pub(in crate::types) fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {
-        let functions = selected_standard_facts(&self.functions, module_names, |signature| {
-            signature.module_name.as_deref()
-        });
-        let functions_by_name = facts::function_name_index(&functions);
+        let selected = self.standard_subset_declarations(module_names);
+        let functions_by_name = facts::function_name_index(&selected.functions);
         let recoveries = self.standard_subset_recoveries(module_names);
         let access_targets = self.standard_subset_access_targets(module_names);
         let (module_values, module_values_by_identity) =
             self.standard_subset_module_values(module_names);
-        let uses = selected_standard_facts(&self.uses, module_names, |use_decl| {
-            use_decl.module_name.as_deref()
-        });
-        let uses: Arc<[UseDecl]> = uses.into();
-        let mut adts = self.adts.standard_subset(module_names);
-        adts.bind_import_owner_scope(uses.clone());
         let bare_indexes = facts::bare_module_value_indexes(
             &module_values,
-            &functions,
-            &self.unpublished_functions,
-            &uses,
+            &selected.functions,
+            &selected.unpublished_functions,
+            &selected.uses,
         );
-        let blocked_exact_module_value_imports = self
-            .blocked_exact_module_value_imports
-            .iter()
-            .filter(|(owner, _)| {
-                owner
-                    .module
-                    .as_ref()
-                    .is_none_or(|module| module_names.contains(module))
-            })
-            .cloned()
-            .collect();
         let public_module_value_identities = facts::public_module_value_identities(&module_values);
-        let exact_module_value_imports = facts::exact_module_value_import_paths(&uses);
-        let qualified_module_value_imports = facts::qualified_module_value_import_index(&uses);
-        let type_symbols = selected_standard_facts(&self.type_symbols, module_names, |symbol| {
-            symbol.module_name.as_deref()
-        });
-        let type_symbol_index = named_type_symbol_index(&type_symbols);
+        let exact_module_value_imports = facts::exact_module_value_import_paths(&selected.uses);
+        let qualified_module_value_imports =
+            facts::qualified_module_value_import_index(&selected.uses);
         Self {
             resolution_use_index: Arc::default(),
             module_values,
@@ -52,15 +30,62 @@ impl TypeEnvironment {
             bare_module_value_cache: Arc::new(std::sync::RwLock::new(HashMap::new())),
             qualified_module_value_imports,
             exact_module_value_imports,
-            blocked_exact_module_value_imports,
+            blocked_exact_module_value_imports: selected.blocked_exact_module_value_imports,
             public_module_value_identities,
-            functions,
+            functions: selected.functions,
             functions_by_name,
-            unpublished_functions: self.unpublished_functions.clone(),
+            unpublished_functions: selected.unpublished_functions,
             function_recovery_signatures: recoveries.function_signatures,
             function_recoveries: recoveries.functions,
             constructor_recoveries: recoveries.constructors,
             import_constructor_recoveries: recoveries.import_constructors,
+            effects: selected.effects,
+            handlers: selected.handlers,
+            schema_symbols: selected.schema_symbols,
+            type_symbols: selected.type_symbols,
+            type_symbol_index: selected.type_symbol_index,
+            uses: selected.uses,
+            quarantined_uses: selected.quarantined_uses,
+            invalid_names: selected.invalid_names,
+            adts: Arc::new(selected.adts),
+            companion_function_access_targets: access_targets.functions,
+            companion_module_value_access_targets: access_targets.module_values,
+            companion_schema_access_targets: access_targets.schemas,
+            companion_effect_access_targets: access_targets.effects,
+        }
+    }
+
+    fn standard_subset_declarations(
+        &self,
+        module_names: &BTreeSet<String>,
+    ) -> StandardSubsetDeclarations {
+        let functions = selected_standard_facts(&self.functions, module_names, |signature| {
+            signature.module_name.as_deref()
+        });
+        let uses = selected_standard_facts(&self.uses, module_names, |use_decl| {
+            use_decl.module_name.as_deref()
+        });
+        let uses: Arc<[UseDecl]> = uses.into();
+        let mut adts = self.adts.standard_subset(module_names);
+        adts.bind_import_owner_scope(uses.clone());
+        let blocked_exact_module_value_imports = self
+            .blocked_exact_module_value_imports
+            .iter()
+            .filter(|(owner, _)| {
+                owner
+                    .module
+                    .as_ref()
+                    .is_none_or(|module| module_names.contains(module))
+            })
+            .cloned()
+            .collect();
+        let type_symbols = selected_standard_facts(&self.type_symbols, module_names, |symbol| {
+            symbol.module_name.as_deref()
+        });
+        let type_symbol_index = named_type_symbol_index(&type_symbols);
+        StandardSubsetDeclarations {
+            functions,
+            unpublished_functions: self.unpublished_functions.clone(),
             effects: selected_standard_facts(&self.effects, module_names, |signature| {
                 signature.module_name.as_deref()
             }),
@@ -77,11 +102,8 @@ impl TypeEnvironment {
                 |use_decl| use_decl.module_name.as_deref(),
             ),
             invalid_names: self.invalid_names.clone(),
-            adts: Arc::new(adts),
-            companion_function_access_targets: access_targets.functions,
-            companion_module_value_access_targets: access_targets.module_values,
-            companion_schema_access_targets: access_targets.schemas,
-            companion_effect_access_targets: access_targets.effects,
+            adts,
+            blocked_exact_module_value_imports,
         }
     }
 
@@ -189,6 +211,21 @@ struct StandardSubsetRecoveries {
     functions: BTreeMap<FunctionRecoveryKey, usize>,
     constructors: BTreeMap<ConstructorRecoveryKey, usize>,
     import_constructors: BTreeMap<ImportConstructorRecoveryKey, usize>,
+}
+
+struct StandardSubsetDeclarations {
+    functions: Vec<FunctionSignature>,
+    unpublished_functions: HashSet<FunctionPublicationKey>,
+    effects: Vec<EffectSignature>,
+    handlers: Vec<HandlerSignature>,
+    schema_symbols: SchemaSymbolTable,
+    type_symbols: Vec<NamedSymbol>,
+    type_symbol_index: HashMap<NamedTypeSymbolKey, NamedTypeSymbolVisibility>,
+    uses: Arc<[UseDecl]>,
+    quarantined_uses: Vec<UseDecl>,
+    invalid_names: Vec<InvalidName>,
+    adts: AdtRegistry,
+    blocked_exact_module_value_imports: HashSet<QualifiedModuleValueKey>,
 }
 
 struct StandardSubsetAccessTargets {
