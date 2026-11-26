@@ -43,6 +43,17 @@ impl TypeEnvironment {
                     current_module,
                     &self.uses,
                 )
+            || !name.contains("::")
+                && self.type_symbols.iter().any(|symbol| {
+                    symbol.name == name
+                        && symbol.module_name.as_deref() == current_module
+                        && symbol.package_name.as_deref() == current_package
+                        && self.symbol_is_visible(
+                            symbol,
+                            symbol.module_name.as_deref(),
+                            current_module,
+                        )
+                })
             || name.rsplit_once("::").is_some_and(|(base, variant)| {
                 self.visible_annotation_type_descriptor_in_owner(
                     base,

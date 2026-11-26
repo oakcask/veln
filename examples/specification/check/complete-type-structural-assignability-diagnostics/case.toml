@@ -32,12 +32,11 @@ contains = [
   "expected `Result<Int, State>`, but found `Result<Int, String>`",
   "expected `List<State>`, but found `List<String>`",
   "expected `Dict<State, Int>`, but found `Table<String, Int>`",
-  "expected `Vec<State>`, but found `source_vec::Vec<State>`",
-  "expected `Option<State>`, but found `source_vec::Option<State>`",
-  "expected `Result<State, String>`, but found `source_vec::Result<State, String>`",
-  "expected `List<State>`, but found `source_vec::List<State>`",
-  "expected `Dict<String, State>`, but found `source_vec::Dict<String, State>`",
-  "expected `source_vec::Table<String, State>`, but found `source_vec::Table<String, State::Ready>`",
+  "expected `Vec<State>`, but found `SourceVec<State>`",
+  "expected `Option<State>`, but found `SourceOption<State>`",
+  "expected `Result<State, String>`, but found `SourceResult<State, String>`",
+  "expected `List<State>`, but found `SourceList<State>`",
+  "expected `Dict<String, State>`, but found `SourceDict<String, State>`",
 ]
 
 [stderr]
@@ -49,7 +48,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 34
+equals = 33
 
 [[json_assert]]
 path = "diagnostics.0.id"
