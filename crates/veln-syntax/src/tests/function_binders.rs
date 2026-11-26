@@ -348,6 +348,86 @@ fn applied_binder_recovery_prefers_a_balanced_close_over_nested_parentheses() {
 }
 
 #[test]
+fn applied_binder_recovery_consumes_packed_closers_by_owner() {
+    let cases = [
+        "fn invalid<T<Foo(Int) -> Int>>(value: Int) -> Int\n  value\nend\n",
+        "fn invalid<T<Foo<Bar(Int) -> Int>>>(value: Int) -> Int\n  value\nend\n",
+    ];
+
+    for text in cases {
+        let source = SourceFile::new("main.veln", text);
+        let output = parse(&source);
+
+        assert_eq!(
+            output
+                .diagnostics
+                .iter()
+                .map(|diagnostic| {
+                    let span = diagnostic.span.as_ref().expect("expected a primary span");
+                    (
+                        diagnostic.id,
+                        &source.text()[span.start.offset..span.end.offset],
+                    )
+                })
+                .collect::<Vec<_>>(),
+            vec![("parse.function_binder_bound", "<")],
+            "{:#?}",
+            output.diagnostics
+        );
+        assert_recovered_invalid_signature(&output);
+    }
+}
+
+#[test]
+fn unclosed_applied_binder_skips_function_type_and_nested_parameter_candidates() {
+    let cases = [
+        "fn invalid<T<fn(Int) -> Int(value: Int) -> Int\n  value\nend\n",
+        "fn invalid<T<Foo((Int) -> Int)(value: Int) -> Int\n  value\nend\n",
+    ];
+
+    for text in cases {
+        let source = SourceFile::new("main.veln", text);
+        let output = parse(&source);
+
+        assert_eq!(
+            output
+                .diagnostics
+                .iter()
+                .map(|diagnostic| {
+                    let span = diagnostic.span.as_ref().expect("expected a primary span");
+                    (
+                        diagnostic.id,
+                        &source.text()[span.start.offset..span.end.offset],
+                    )
+                })
+                .collect::<Vec<_>>(),
+            vec![
+                ("parse.function_binder_bound", "<"),
+                ("parse.function_binder_separator", "("),
+            ],
+            "{:#?}",
+            output.diagnostics
+        );
+        let separator = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "parse.function_binder_separator")
+            .expect("expected a binder separator diagnostic");
+        assert_eq!(
+            separator
+                .span
+                .as_ref()
+                .expect("expected a primary span")
+                .start
+                .offset,
+            text.find("(value: Int)")
+                .expect("expected the retained parameter list")
+        );
+        assert_recovered_invalid_signature(&output);
+    }
+}
+
+#[test]
 fn applied_binder_with_nested_unit_type_recovers_at_parameter_list() {
     let source = SourceFile::new(
         "main.veln",

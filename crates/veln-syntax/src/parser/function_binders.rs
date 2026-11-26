@@ -93,7 +93,7 @@ impl<'a> Parser<'a> {
         let start = self.bump().range;
         let mut state = FunctionBinderState::default();
 
-        if self.at(TokenKind::Greater) {
+        if self.at_function_binder_closer() {
             self.error_current(
                 "parse.empty_function_binder_list",
                 "function binder list cannot be empty",
@@ -102,7 +102,7 @@ impl<'a> Parser<'a> {
                 RecoveryStrategy::None,
                 Some(">"),
             );
-            self.bump();
+            self.consume_function_binder_closers(1);
             let (type_binders, effect_binder) = state.finish();
             return (type_binders, effect_binder, false);
         }
@@ -114,7 +114,7 @@ impl<'a> Parser<'a> {
                     self.bump();
                     continue;
                 }
-                if self.at(TokenKind::Greater) {
+                if self.at_function_binder_closer() {
                     self.close_function_binders(start, &mut state);
                     closed = true;
                     break;
@@ -175,7 +175,7 @@ impl<'a> Parser<'a> {
 
     fn at_function_binder_synchronization_anchor(&self) -> bool {
         self.at(TokenKind::Comma)
-            || self.at(TokenKind::Greater)
+            || self.at_function_binder_closer()
             || self.at(TokenKind::LParen)
             || self.at(TokenKind::Newline)
             || self.at(TokenKind::Eof)
@@ -260,13 +260,13 @@ impl<'a> Parser<'a> {
         state: &mut FunctionBinderState,
     ) -> FunctionBinderBoundary {
         if self.eat(TokenKind::Comma).is_some() {
-            if self.at(TokenKind::Greater) {
+            if self.at_function_binder_closer() {
                 self.close_function_binders(start, state);
                 return FunctionBinderBoundary::Closed;
             }
             return FunctionBinderBoundary::Continue;
         }
-        if self.at(TokenKind::Greater) {
+        if self.at_function_binder_closer() {
             self.close_function_binders(start, state);
             return FunctionBinderBoundary::Closed;
         }
@@ -276,7 +276,7 @@ impl<'a> Parser<'a> {
             self.bump();
             return FunctionBinderBoundary::Continue;
         }
-        if self.at(TokenKind::Greater) {
+        if self.at_function_binder_closer() {
             self.close_function_binders(start, state);
             return FunctionBinderBoundary::Closed;
         }
@@ -284,7 +284,7 @@ impl<'a> Parser<'a> {
     }
 
     fn close_function_binders(&mut self, start: TextRange, state: &mut FunctionBinderState) {
-        let end = self.bump().range;
+        let end = self.consume_function_binder_closers(1);
         if let Some(binder) = state.effect_binder.as_mut() {
             binder.span = self.source.span(start.cover(end));
         }
@@ -351,16 +351,45 @@ impl<'a> Parser<'a> {
                 parenthesis_depth -= 1;
             } else if parenthesis_depth == 0 && self.at(TokenKind::Less) {
                 depth += 1;
-            } else if parenthesis_depth == 0 && self.at(TokenKind::Greater) {
-                depth -= 1;
-                self.bump();
-                if depth == 0 {
-                    break;
+            } else if parenthesis_depth == 0 {
+                let close_count = closing_angle_count(self.current().kind);
+                if close_count > 0 {
+                    if close_count >= depth {
+                        self.consume_function_binder_closers(depth);
+                        break;
+                    }
+                    depth -= close_count;
+                    self.bump();
+                    continue;
                 }
-                continue;
             }
             self.bump();
         }
+    }
+
+    fn at_function_binder_closer(&self) -> bool {
+        closing_angle_count(self.current().kind) > 0
+    }
+
+    fn consume_function_binder_closers(&mut self, owned: usize) -> TextRange {
+        let token = self.current().clone();
+        let surplus = closing_angle_count(token.kind) - owned;
+        let consumed = TextRange::new(token.range.start, token.range.start + owned);
+        if surplus == 0 {
+            self.bump();
+            return consumed;
+        }
+
+        self.tokens[self.cursor] = Token {
+            kind: match surplus {
+                1 => TokenKind::Greater,
+                2 => TokenKind::ShiftRight,
+                _ => TokenKind::ShiftRightLogical,
+            },
+            text: ">".repeat(surplus),
+            range: TextRange::new(token.range.start + owned, token.range.end),
+        };
+        consumed
     }
 
     fn applied_function_binder_has_balanced_close(&self) -> bool {
@@ -371,11 +400,12 @@ impl<'a> Parser<'a> {
                 TokenKind::LParen => parenthesis_depth += 1,
                 TokenKind::RParen if parenthesis_depth > 0 => parenthesis_depth -= 1,
                 TokenKind::Less if parenthesis_depth == 0 => angle_depth += 1,
-                TokenKind::Greater if parenthesis_depth == 0 => {
-                    angle_depth -= 1;
-                    if angle_depth == 0 {
+                kind if parenthesis_depth == 0 && closing_angle_count(kind) > 0 => {
+                    let close_count = closing_angle_count(kind);
+                    if close_count >= angle_depth {
                         return true;
                     }
+                    angle_depth -= close_count;
                 }
                 TokenKind::Newline | TokenKind::Eof => return false,
                 _ => {}
