@@ -32,9 +32,18 @@ end
 For an ordinary generic function, predicate validation resolves parameter and
 named-result annotations with the same declaration-owned rigid type parameters
 as the function body. Binder uses in a contract remain local to the owning
-declaration. The [type specification](types.md#usage-and-annotations) defines
-binder scope and rigid checking; contract grammar, purity, and runtime timing
-are unchanged.
+declaration. A predicate that compares two values of the same rigid type can
+validate without choosing a concrete instance. A concrete-only predicate
+operation, such as integer remainder on `T`, reports a type mismatch at the
+rigid operand. Concrete callers cannot specialize the enclosing declaration
+to make that contract valid, and a binder does not grant capabilities beyond
+the operations that already accept its rigid operand. The
+[type specification](types.md#usage-and-annotations) defines binder scope and
+the current lack of independently instantiable calls. Contract grammar,
+purity, and runtime timing are unchanged. Checked human and JSON evidence is in
+[`generic-function-semantic-binders-human`](../../examples/specification/check/generic-function-semantic-binders-human/)
+and
+[`generic-function-semantic-binders-json`](../../examples/specification/check/generic-function-semantic-binders-json/).
 
 Pure calls returning numbers may occur inside comparisons, and pure calls
 returning records may feed field access. A numeric expression alone is not a

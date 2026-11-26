@@ -26,6 +26,19 @@ fn shadows_alias<Alias>(value: Alias) -> Alias
   value
 end
 
+fn invalid_body<T>(value: T) -> T
+  value + 1
+end
+
+fn invalid_contract<T>(value: T) -> result: T
+ensure result % 2 == 0
+  value
+end
+
+fn concrete_caller() -> Int
+  invalid_body(1)
+end
+
 fn accepts_qualified(value: api::Present, alias: api::Alias) -> ()
   ()
 end

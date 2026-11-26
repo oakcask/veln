@@ -69,44 +69,6 @@ The [first-delivery decisions](#first-delivery-decisions) cite the current
 source syntax and define planned inference, runtime representation, and
 explicit extension boundaries.
 
-### Declaration and body checking
-
-The current declaration syntax reuses the ADT type-parameter spelling. The
-example bodies illustrate the implemented rigid definition checking; call
-instantiation remains planned:
-
-```veln
-pub fn identity<T>(value: T) -> T
-	value
-end
-
-pub fn wrap<T>(value: T) -> Option<T>
-	Some(value)
-end
-```
-
-`T` denotes one rigid type throughout its declaration's signature, body, and
-contract annotations. Its identity belongs to the declaration, not its printed
-name. Renaming a binder consistently preserves meaning. Equal binder spelling
-in another declaration does not share a type. A type parameter denotes an
-ordinary type, not a constructor that can itself receive arguments.
-
-The body must be valid for every admitted substitution. Returning the input,
-placing it in `Option<T>`, and passing it to another compatible generic
-function are valid. Returning `0` as an arbitrary `T`, treating `T` as `Int`,
-or applying integer addition to arbitrary `T` is invalid, even if all observed
-callers use `Int`. Checking cannot specialize an invalid source definition into
-valid instances. The same condition applies to operations in contract clauses.
-No operation acquires a new implicit type-class constraint from this proposal.
-
-The current declaration syntax rejects duplicate binder names, including a
-name shared by an ordinary type binder and an effect binder. The current type
-rules give retained ordinary binders declaration-owned identities, resolve
-them in local annotations and executable contracts, and reject visible-type
-shadowing. Value and field names remain in their existing namespaces. Public
-generic functions retain explicit parameter, result, and effect boundaries;
-client calls cannot yet infer their exported abstraction.
-
 ### Independent instantiation and contextual inference
 
 ```veln
@@ -226,7 +188,6 @@ evidence belongs to implementation and is not a prerequisite for Ready.
 | --- | --- | --- |
 | `identity<T>(value: T) -> T` used with `Int` and `String`, in either order | Both uses succeed independently and return the matching values. | Semantic type tests and a compiler-instantiation/backend case. |
 | `wrap<T>` constructs `Some(value)` | Rigid `T` flows through the constructor and inferred call result. | Semantic tests for generic ADT substitution. |
-| A generic definition applies integer `+` or another concrete-only operation to arbitrary `T`, including in an executable contract, with or without concrete callers | Reject the definition without specializing its rigid parameter from observed calls. | Definition-check tests plus human and JSON diagnostic cases. |
 | `identity<Int>(42)`, wrong explicit arity, or `identity<Int>("hello")` | Accept the first; reject the other two without changing the reusable scheme. | Source and call-check fixtures. |
 | `empty<T>() -> Vec<T>` with expected `Vec<Int>` or explicit `<Int>` | Resolve `T` and produce an empty vector of that type. | Contextual call and lowering tests. |
 | Result-only instance with no resolving context | A pending direct local initializer reports incompleteness at the binding if unused or unresolved; other unresolved calls report ambiguity at the call. | Diagnostic and later-completion cases under Q3. |
@@ -538,11 +499,9 @@ executable contracts. Existing nongeneric and row-only forms retain their
 current rules.
 
 The remaining scheme implementation must not expose a partially generic
-signature. Calls in contracts instantiate independent helpers; contracts
-cannot specialize an enclosing `T` from callers. A fixed-arity generic
-function may accept a compatible monomorphic callback, subject to existing
-callback compatibility. No new equality, ordering, schema, or proof capability
-is granted merely by writing a binder. Generic static proof abstraction and
+signature. Calls in contracts instantiate independent helpers. A fixed-arity
+generic function may accept a compatible monomorphic callback, subject to
+existing callback compatibility. Generic static proof abstraction and
 contract-bearing callable types remain separate proposals.
 
 ### Q9: Larger polymorphism
@@ -553,10 +512,9 @@ The current
 [function declaration binder syntax](../specification/source-surface.md#function-declaration-binders)
 already rejects declaration-list bounds. The remaining work rejects nested
 quantifiers in callback, field, or element types rather than erasing them.
-Unsupported operations on unconstrained `T` fail at that operation; no hidden
-constraint is inferred. A recursive cycle changing a declared rigid instance
-fails at the changing call, even with explicit type arguments. These are
-observable first-delivery boundaries.
+A recursive cycle changing a declared rigid instance fails at the changing
+call, even with explicit type arguments. This is an observable first-delivery
+boundary.
 Each extension needs its own proposal, safety argument, and acceptance model;
 none blocks the unconstrained rank-one baseline.
 

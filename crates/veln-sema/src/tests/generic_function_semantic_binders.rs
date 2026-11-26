@@ -133,6 +133,101 @@ fn function_binders_are_retained_with_declaration_owned_rigid_identities() {
 }
 
 #[test]
+fn function_binders_retain_declaration_order_in_signature_annotations() {
+    let (module, diagnostics) = analyze(concat!(
+        "fn ordered<First, Second>(first: First, second: Second) -> Second\n",
+        "  second\n",
+        "end\n",
+    ));
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    let ordered = environment.function("ordered").expect("ordered signature");
+    assert_eq!(ordered.type_parameters.len(), 2);
+    assert_eq!(ordered.type_parameters[0].name, "First");
+    assert_eq!(ordered.type_parameters[0].ordinal, 0);
+    assert_eq!(ordered.type_parameters[1].name, "Second");
+    assert_eq!(ordered.type_parameters[1].ordinal, 1);
+    assert_ne!(
+        ordered.type_parameters[0].identity,
+        ordered.type_parameters[1].identity
+    );
+    assert_eq!(
+        ordered.type_parameters[0].identity,
+        named_identity(&ordered.params[0])
+    );
+    assert_eq!(
+        ordered.type_parameters[1].identity,
+        named_identity(&ordered.params[1])
+    );
+    assert_eq!(
+        ordered.type_parameters[1].identity,
+        named_identity(&ordered.return_type)
+    );
+}
+
+#[test]
+fn qualified_and_applied_binder_paths_fail_in_signatures_and_body_annotations() {
+    let (_, diagnostics) = analyze(concat!(
+        "fn qualified_parameter<T>(value: T::Leaf) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn qualified_return<T>() -> T::Leaf\n",
+        "  ()\n",
+        "end\n",
+        "fn applied_parameter<T>(value: T<Int>) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn applied_return<T>() -> T<Int>\n",
+        "  ()\n",
+        "end\n",
+        "fn invalid_locals<T>(value: T) -> ()\n",
+        "  let local_qualified: T::Leaf = value\n",
+        "  let local_applied: T<Int> = value\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let unresolved = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved type `T::Leaf`"
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(unresolved.len(), 3, "{diagnostics:#?}");
+    assert_eq!(
+        unresolved
+            .iter()
+            .map(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.line))
+            .collect::<Vec<_>>(),
+        [Some(1), Some(4), Some(14)]
+    );
+
+    let invalid_applied = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "type.invalid_annotation"
+                && diagnostic
+                    .message
+                    .contains("`T` expects 0 type argument(s), found 1")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(invalid_applied.len(), 3, "{diagnostics:#?}");
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.unresolved" || diagnostic.message != "unresolved type `T`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"),
+        "invalid annotations must not report success through recovery: {diagnostics:#?}"
+    );
+}
+
+#[test]
 fn rigid_callers_do_not_publish_type_parameters_into_private_signatures() {
     for (source, owner_call_line) in [
         (
@@ -701,6 +796,50 @@ fn rigid_binder_rejects_a_concrete_body_result() {
                 && diagnostic.message.contains("found `Int`")
         }),
         "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rigid_body_and_contract_operations_are_not_specialized_by_concrete_callers() {
+    let (_, diagnostics) = analyze(concat!(
+        "fn invalid_body<T>(value: T) -> T\n",
+        "  value + 1\n",
+        "end\n",
+        "fn invalid_contract<T>(value: T) -> result: T\n",
+        "ensure result % 2 == 0\n",
+        "  value\n",
+        "end\n",
+        "fn concrete_caller() -> Int\n",
+        "  invalid_body(1)\n",
+        "end\n",
+    ));
+
+    let rigid_operand_mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic.message == "expected `Int`, but found `T`"
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains("\"constraint\":\"operator_operand\"")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(rigid_operand_mismatches.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        rigid_operand_mismatches
+            .iter()
+            .map(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.line))
+            .collect::<Vec<_>>(),
+        [Some(2), Some(5)]
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic.span.as_ref().map(|span| span.start.line) == Some(9)
+                && diagnostic.message == "expected `T`, but found `Int`"
+        }),
+        "the still-unsupported generic call must not specialize the definition: {diagnostics:#?}"
     );
 }
 

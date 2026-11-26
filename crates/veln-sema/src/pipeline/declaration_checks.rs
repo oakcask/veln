@@ -1,6 +1,7 @@
 use super::*;
 use crate::analysis::check_function_body_with_facts;
 use crate::semantic_model::Type;
+use crate::types::TypeParameterIdentityContext;
 use veln_diagnostics::{DiagnosticKind, JsonValue};
 
 pub(super) struct SurfaceAnalysis {
@@ -133,17 +134,30 @@ fn check_unresolved_function_type_names(
     collect_non_refinement_annotation_paths(
         &function.return_type_paths,
         &function.return_type_refinements,
+        &type_parameters,
         &mut paths,
     );
     for param in &function.params {
-        collect_non_refinement_annotation_paths(&param.ty_paths, &param.ty_refinements, &mut paths);
+        collect_non_refinement_annotation_paths(
+            &param.ty_paths,
+            &param.ty_refinements,
+            &type_parameters,
+            &mut paths,
+        );
     }
-    collect_body_annotation_paths(&function.body, &mut paths);
+    collect_body_annotation_paths(&function.body, &type_parameters, &mut paths);
+    let type_parameter_context = TypeParameterIdentityContext::for_function(function);
 
     paths
         .into_iter()
         .filter_map(|path| {
-            unresolved_function_type_diagnostic(path, &type_parameters, function, environment)
+            unresolved_function_type_diagnostic(
+                path,
+                &type_parameters,
+                &type_parameter_context,
+                function,
+                environment,
+            )
         })
         .collect()
 }
@@ -167,6 +181,7 @@ pub(crate) fn take_annotation_path_classification_work() -> (usize, usize) {
 fn collect_non_refinement_annotation_paths<'a>(
     paths: &'a [veln_ast::TypePathSegments],
     refinements: &'a [veln_ast::VariantRefinementType],
+    type_parameters: &HashSet<&str>,
     output: &mut Vec<&'a veln_ast::TypePathSegments>,
 ) {
     #[cfg(test)]
@@ -195,7 +210,11 @@ fn collect_non_refinement_annotation_paths<'a>(
                 furthest_refinement_end.max(refinements[refinement_index].span.end.offset);
             refinement_index += 1;
         }
-        if path.application_span.end.offset > furthest_refinement_end {
+        let qualified_function_type_parameter =
+            path.segments.len() > 1 && type_parameters.contains(path.segments[0].as_str());
+        if path.application_span.end.offset > furthest_refinement_end
+            || qualified_function_type_parameter
+        {
             output.push(path);
         }
     }
@@ -204,16 +223,31 @@ fn collect_non_refinement_annotation_paths<'a>(
 fn unresolved_function_type_diagnostic(
     path: &veln_ast::TypePathSegments,
     type_parameters: &HashSet<&str>,
+    type_parameter_context: &TypeParameterIdentityContext<'_>,
     function: &veln_ast::Function,
     environment: &TypeEnvironment,
 ) -> Option<Diagnostic> {
     let name = path.segments.join("::");
+    let unqualified_function_type_parameter =
+        path.segments.len() == 1 && type_parameters.contains(path.segments[0].as_str());
+    if unqualified_function_type_parameter
+        && let Some(error) = environment.type_path_arity_error_with_context(
+            &name,
+            path.type_argument_count,
+            function.module_name.as_deref(),
+            type_parameter_context,
+        )
+    {
+        return Some(invalid_function_type_parameter_application_diagnostic(
+            path, function, error,
+        ));
+    }
     if path.segments.last().is_some_and(|segment| {
         segment
             .chars()
             .next()
             .is_some_and(|initial| initial.is_ascii_lowercase())
-    }) || is_function_type_parameter_name(&name, type_parameters)
+    }) || is_function_type_parameter_path(path, type_parameters)
         || is_compiler_known_standard_signature_type_parameter(&name, function)
         || environment.annotation_type_path_is_resolved_in_owner(
             &name,
@@ -239,6 +273,29 @@ fn unresolved_function_type_diagnostic(
         path.segment_spans.first()?.clone()
     };
     Some(unresolved_type_diagnostic(name, span))
+}
+
+fn invalid_function_type_parameter_application_diagnostic(
+    path: &veln_ast::TypePathSegments,
+    function: &veln_ast::Function,
+    error: String,
+) -> Diagnostic {
+    Diagnostic::new(
+        "type.invalid_annotation",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!("invalid type annotation `{}`: {error}", path.written),
+        Some(path.application_span.clone()),
+        crate::diagnostics::type_details(
+            function.node_id.display("fn"),
+            "valid_type",
+            path.written.clone(),
+            "source",
+            "source",
+            "assignable",
+            [function.node_id.display("fn")],
+        ),
+    )
 }
 
 fn is_compiler_known_standard_signature_type_parameter(
@@ -298,9 +355,13 @@ fn is_compiler_known_standard_signature_type_parameter(
     allowed.contains(&name)
 }
 
-fn is_function_type_parameter_name(name: &str, type_parameters: &HashSet<&str>) -> bool {
-    let base = name.split_once("::").map_or(name, |(base, _)| base);
-    type_parameters.contains(base)
+fn is_function_type_parameter_path(
+    path: &veln_ast::TypePathSegments,
+    type_parameters: &HashSet<&str>,
+) -> bool {
+    path.segments.len() == 1
+        && path.type_argument_count == 0
+        && type_parameters.contains(path.segments[0].as_str())
 }
 
 fn unresolved_type_diagnostic(name: String, span: veln_source::SourceSpan) -> Diagnostic {
@@ -323,6 +384,7 @@ fn unresolved_type_diagnostic(name: String, span: veln_source::SourceSpan) -> Di
 
 fn collect_body_annotation_paths<'a>(
     body: &'a [veln_ast::BodyLine],
+    type_parameters: &HashSet<&str>,
     paths: &mut Vec<&'a veln_ast::TypePathSegments>,
 ) {
     for line in body {
@@ -335,15 +397,16 @@ fn collect_body_annotation_paths<'a>(
                 collect_non_refinement_annotation_paths(
                     &annotation_structure.paths,
                     &annotation_structure.variant_refinements,
+                    type_parameters,
                     paths,
                 );
-                collect_expr_annotation_paths(expr, paths);
+                collect_expr_annotation_paths(expr, type_parameters, paths);
             }
             veln_ast::BodyLineKind::Expr { expr } => {
-                collect_expr_annotation_paths(expr, paths);
+                collect_expr_annotation_paths(expr, type_parameters, paths);
             }
             veln_ast::BodyLineKind::Defer { body, .. } => {
-                collect_body_annotation_paths(body, paths);
+                collect_body_annotation_paths(body, type_parameters, paths);
             }
         }
     }
@@ -351,12 +414,15 @@ fn collect_body_annotation_paths<'a>(
 
 fn collect_expr_annotation_paths<'a>(
     expr: &'a veln_ast::Expr,
+    type_parameters: &HashSet<&str>,
     paths: &mut Vec<&'a veln_ast::TypePathSegments>,
 ) {
     if let veln_ast::ExprKind::Begin { body, .. } = &expr.kind {
-        collect_body_annotation_paths(body, paths);
+        collect_body_annotation_paths(body, type_parameters, paths);
     } else {
-        expr.for_each_child(&mut |child| collect_expr_annotation_paths(child, paths));
+        expr.for_each_child(&mut |child| {
+            collect_expr_annotation_paths(child, type_parameters, paths)
+        });
     }
 }
 

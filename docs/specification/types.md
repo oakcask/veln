@@ -152,6 +152,18 @@ visible type declaration defines it. A binder with the same spelling in an
 inaccessible declaration or another analyzed source does not make the name
 visible and does not suppress the unresolved-name failure.
 
+The checker validates a generic declaration once with those rigid parameters.
+Returning a value of `T` as `T` succeeds. A concrete-only operation such as
+integer addition on `T`, or returning a concrete `Int` as `T`, fails at the
+definition. Concrete callers do not specialize the declaration or make the
+operation valid. A type parameter is an ordinary type: `T::Leaf` is an
+unresolved type path, and `T<Int>` fails because a parameter accepts no type
+arguments. The checked semantic and diagnostic evidence is in
+[`generic_function_semantic_binders.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_binders.rs),
+[`generic-function-semantic-binders-human`](../../examples/specification/check/generic-function-semantic-binders-human/),
+and
+[`generic-function-semantic-binders-json`](../../examples/specification/check/generic-function-semantic-binders-json/).
+
 Every other named type in a function annotation resolves from the function's
 owning package and module. A qualified annotation selects its import before it
 selects the final type. The selected module must expose a type or type alias of

@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 6
+equals = 11
 
 [[diagnostics]]
 id = "name.type_parameter_shadow"
@@ -50,6 +50,61 @@ line = 25
 column = 18
 
 [[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `T`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 30
+column = 3
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `T`, but found `Int`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 30
+column = 3
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `T`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 34
+column = 8
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `T`, but found `Int`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 39
+column = 16
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `T`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 39
+column = 3
+
+[[diagnostics]]
 id = "name.unresolved"
 severity = "error"
 kind = "name"
@@ -57,7 +112,7 @@ message = "unresolved type `api::Missing`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 33
+line = 46
 column = 34
 
 [[diagnostics]]
@@ -68,7 +123,7 @@ message = "unresolved type `api::Private`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 37
+line = 50
 column = 34
 
 [[diagnostics]]
@@ -147,9 +202,21 @@ path = "diagnostics.2.related.0.span.start.line"
 equals = 5
 
 [[json_assert]]
-path = "diagnostics.3.details.symbol"
+path = "diagnostics.8.details.symbol"
 equals = "api::Missing"
 
 [[json_assert]]
-path = "diagnostics.4.details.symbol"
+path = "diagnostics.9.details.symbol"
 equals = "api::Private"
+
+[[json_assert]]
+path = "diagnostics.3.details.constraint"
+equals = "operator_operand"
+
+[[json_assert]]
+path = "diagnostics.5.details.constraint"
+equals = "operator_operand"
+
+[[json_assert]]
+path = "diagnostics.6.details.constraint"
+equals = "call_argument"
