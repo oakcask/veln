@@ -411,6 +411,61 @@ fn colon_bound_recovery_consumes_only_nested_delimiters() {
 }
 
 #[test]
+fn colon_bound_recovery_prefers_an_outer_close_over_parameter_shaped_parentheses() {
+    let cases = [
+        "fn invalid<T: Foo(value: Int) -> Int>(actual: Int) -> Int\n  actual\nend\n",
+        "fn invalid<T: Foo(value: Int) -> Int<Bar>>(actual: Int) -> Int\n  actual\nend\n",
+    ];
+
+    for text in cases {
+        let source = SourceFile::new("main.veln", text);
+        let output = parse(&source);
+
+        assert_eq!(
+            output
+                .diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.id)
+                .collect::<Vec<_>>(),
+            vec!["parse.function_binder_bound"]
+        );
+        let function = first_function(&output);
+        assert_eq!(function.params.len(), 1);
+        assert_eq!(function.params[0].name, "actual");
+        assert_eq!(function.params[0].ty.as_deref(), Some("Int"));
+        assert_eq!(function.return_type.as_deref(), Some("Int"));
+        assert_eq!(function.body.len(), 1);
+        assert!(function.end_present);
+    }
+}
+
+#[test]
+fn unclosed_bound_recovery_preserves_a_parameter_list_at_end_of_input() {
+    let cases = [
+        "fn invalid<T<Int(value: Int)",
+        "fn invalid<T: Foo(value: Int)",
+    ];
+
+    for text in cases {
+        let source = SourceFile::new("main.veln", text);
+        let output = parse(&source);
+
+        assert!(
+            output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.function_binder_bound"),
+            "{:#?}",
+            output.diagnostics
+        );
+        let function = first_function(&output);
+        assert_eq!(function.params.len(), 1);
+        assert_eq!(function.params[0].name, "value");
+        assert_eq!(function.params[0].ty.as_deref(), Some("Int"));
+    }
+}
+
+#[test]
 fn unclosed_applied_binder_skips_function_type_and_nested_parameter_candidates() {
     let cases = [
         "fn invalid<T<fn(Int) -> Int(value: Int) -> Int\n  value\nend\n",

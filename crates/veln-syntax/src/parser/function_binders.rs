@@ -20,6 +20,17 @@ enum FunctionBinderBoundary {
     Unclosed,
 }
 
+#[derive(Clone, Copy)]
+enum RejectedFunctionBinderBound {
+    Applied,
+    Colon,
+}
+
+struct FunctionBinderRecoveryPlan {
+    stop: usize,
+    owned_closers: usize,
+}
+
 impl<'a> Parser<'a> {
     pub(super) fn report_generic_function_callsite(
         &mut self,
@@ -238,7 +249,11 @@ impl<'a> Parser<'a> {
 
     fn reject_function_binder_bound(&mut self, kind: FunctionKind) {
         let invalid = self.bump();
-        let applied_binder = invalid.kind == TokenKind::Less;
+        let bound = if invalid.kind == TokenKind::Less {
+            RejectedFunctionBinderBound::Applied
+        } else {
+            RejectedFunctionBinderBound::Colon
+        };
         self.report_function_binder_error(
             &invalid,
             "parse.function_binder_bound",
@@ -246,11 +261,7 @@ impl<'a> Parser<'a> {
             vec![",", ">"],
             kind,
         );
-        if applied_binder {
-            self.skip_applied_function_binder();
-        } else {
-            self.skip_colon_function_binder_bound();
-        }
+        self.skip_function_binder_bound(bound);
     }
 
     fn finish_function_binder_entry(
@@ -334,77 +345,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn skip_applied_function_binder(&mut self) {
-        let has_balanced_close = self.applied_function_binder_has_balanced_close();
-        let mut depth = 1usize;
-        let mut parenthesis_depth = 0usize;
-        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
-            if self.at(TokenKind::LParen) {
-                if !has_balanced_close
-                    && parenthesis_depth == 0
-                    && self.at_function_parameter_list_boundary()
-                {
-                    break;
-                }
-                parenthesis_depth += 1;
-            } else if self.at(TokenKind::RParen) && parenthesis_depth > 0 {
-                parenthesis_depth -= 1;
-            } else if parenthesis_depth == 0 && self.at(TokenKind::Less) {
-                depth += 1;
-            } else if parenthesis_depth == 0 {
-                let close_count = closing_angle_count(self.current().kind);
-                if close_count > 0 {
-                    if close_count >= depth {
-                        self.consume_function_binder_closers(depth);
-                        break;
-                    }
-                    depth -= close_count;
-                    self.bump();
-                    continue;
-                }
-            }
-            self.bump();
-        }
-    }
-
-    fn skip_colon_function_binder_bound(&mut self) {
-        let has_outer_close = self.colon_function_binder_has_outer_close();
-        let mut angle_depth = 0usize;
-        let mut parenthesis_depth = 0usize;
-        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
-            if parenthesis_depth == 0
-                && angle_depth == 0
-                && (self.at(TokenKind::Comma) || self.at_function_binder_closer())
-            {
-                break;
-            }
-            if self.at(TokenKind::LParen) {
-                if !has_outer_close
-                    && parenthesis_depth == 0
-                    && angle_depth == 0
-                    && self.at_function_parameter_list_boundary()
-                {
-                    break;
-                }
-                parenthesis_depth += 1;
-            } else if self.at(TokenKind::RParen) && parenthesis_depth > 0 {
-                parenthesis_depth -= 1;
-            } else if parenthesis_depth == 0 && self.at(TokenKind::Less) {
-                angle_depth += 1;
-            } else if parenthesis_depth == 0 {
-                let close_count = closing_angle_count(self.current().kind);
-                if close_count > angle_depth {
-                    if angle_depth > 0 {
-                        self.consume_function_binder_closers(angle_depth);
-                    }
-                    break;
-                }
-                if close_count > 0 {
-                    angle_depth -= close_count;
-                }
-            }
-            self.bump();
-        }
+    fn skip_function_binder_bound(&mut self, bound: RejectedFunctionBinderBound) {
+        self.apply_function_binder_recovery_plan(self.function_binder_recovery_plan(bound));
     }
 
     fn at_function_binder_closer(&self) -> bool {
@@ -432,67 +374,103 @@ impl<'a> Parser<'a> {
         consumed
     }
 
-    fn applied_function_binder_has_balanced_close(&self) -> bool {
-        let mut angle_depth = 1usize;
+    fn function_binder_recovery_plan(
+        &self,
+        bound: RejectedFunctionBinderBound,
+    ) -> FunctionBinderRecoveryPlan {
+        let mut angle_depth = match bound {
+            RejectedFunctionBinderBound::Applied => 1,
+            RejectedFunctionBinderBound::Colon => 0,
+        };
         let mut parenthesis_depth = 0usize;
-        for token in &self.tokens[self.cursor..] {
-            match token.kind {
-                TokenKind::LParen => parenthesis_depth += 1,
-                TokenKind::RParen if parenthesis_depth > 0 => parenthesis_depth -= 1,
-                TokenKind::Less if parenthesis_depth == 0 => angle_depth += 1,
-                kind if parenthesis_depth == 0 && closing_angle_count(kind) > 0 => {
-                    let close_count = closing_angle_count(kind);
-                    if close_count >= angle_depth {
-                        return true;
+        let mut parameter_boundary = None;
+
+        for cursor in self.cursor..self.tokens.len() {
+            let kind = self.tokens[cursor].kind;
+            if matches!(kind, TokenKind::Newline | TokenKind::Eof) {
+                return FunctionBinderRecoveryPlan {
+                    stop: parameter_boundary.unwrap_or(cursor),
+                    owned_closers: 0,
+                };
+            }
+
+            if parenthesis_depth == 0 {
+                if matches!(bound, RejectedFunctionBinderBound::Colon)
+                    && angle_depth == 0
+                    && kind == TokenKind::Comma
+                {
+                    return FunctionBinderRecoveryPlan {
+                        stop: parameter_boundary.unwrap_or(cursor),
+                        owned_closers: 0,
+                    };
+                }
+
+                let close_count = closing_angle_count(kind);
+                let closes_bound = match bound {
+                    RejectedFunctionBinderBound::Applied => close_count >= angle_depth,
+                    RejectedFunctionBinderBound::Colon => close_count > angle_depth,
+                };
+                if close_count > 0 && closes_bound {
+                    return FunctionBinderRecoveryPlan {
+                        stop: cursor,
+                        owned_closers: angle_depth,
+                    };
+                }
+
+                if kind == TokenKind::LParen {
+                    if parameter_boundary.is_none()
+                        && (matches!(bound, RejectedFunctionBinderBound::Applied)
+                            || angle_depth == 0)
+                        && self.function_parameter_list_boundary_at(cursor)
+                    {
+                        parameter_boundary = Some(cursor);
                     }
+                    parenthesis_depth += 1;
+                } else if kind == TokenKind::Less {
+                    angle_depth += 1;
+                } else if close_count > 0 {
                     angle_depth -= close_count;
                 }
-                TokenKind::Newline | TokenKind::Eof => return false,
-                _ => {}
+            } else if kind == TokenKind::LParen {
+                parenthesis_depth += 1;
+            } else if kind == TokenKind::RParen {
+                parenthesis_depth -= 1;
             }
         }
-        false
-    }
 
-    fn colon_function_binder_has_outer_close(&self) -> bool {
-        let mut angle_depth = 0usize;
-        let mut parenthesis_depth = 0usize;
-        for token in &self.tokens[self.cursor..] {
-            match token.kind {
-                TokenKind::LParen => parenthesis_depth += 1,
-                TokenKind::RParen if parenthesis_depth > 0 => parenthesis_depth -= 1,
-                TokenKind::Less if parenthesis_depth == 0 => angle_depth += 1,
-                kind if parenthesis_depth == 0 && closing_angle_count(kind) > angle_depth => {
-                    return true;
-                }
-                kind if parenthesis_depth == 0 && closing_angle_count(kind) > 0 => {
-                    angle_depth -= closing_angle_count(kind);
-                }
-                TokenKind::Comma if parenthesis_depth == 0 && angle_depth == 0 => return false,
-                TokenKind::Newline | TokenKind::Eof => return false,
-                _ => {}
-            }
+        FunctionBinderRecoveryPlan {
+            stop: parameter_boundary.unwrap_or(self.tokens.len()),
+            owned_closers: 0,
         }
-        false
     }
 
-    fn at_function_parameter_list_boundary(&self) -> bool {
-        if !self.at(TokenKind::LParen)
-            || self
-                .previous()
+    fn apply_function_binder_recovery_plan(&mut self, plan: FunctionBinderRecoveryPlan) {
+        while self.cursor < plan.stop {
+            self.bump();
+        }
+        if plan.owned_closers > 0 {
+            self.consume_function_binder_closers(plan.owned_closers);
+        }
+    }
+
+    fn function_parameter_list_boundary_at(&self, cursor: usize) -> bool {
+        if self.tokens[cursor].kind != TokenKind::LParen
+            || cursor
+                .checked_sub(1)
+                .and_then(|previous| self.tokens.get(previous))
                 .is_some_and(|token| token.kind == TokenKind::Fn)
         {
             return false;
         }
 
         let mut depth = 0usize;
-        for (offset, token) in self.tokens[self.cursor..].iter().enumerate() {
+        for (offset, token) in self.tokens[cursor..].iter().enumerate() {
             match token.kind {
                 TokenKind::LParen => depth += 1,
                 TokenKind::RParen => {
                     depth -= 1;
                     if depth == 0 {
-                        let following = self.tokens.get(self.cursor + offset + 1);
+                        let following = self.tokens.get(cursor + offset + 1);
                         return following.is_some_and(|token| {
                             matches!(
                                 token.kind,
