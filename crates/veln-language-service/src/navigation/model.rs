@@ -955,7 +955,7 @@ enum LocalSymbolKind {
 #[derive(Clone, Debug)]
 struct IndexedFile {
     source: SourceFile,
-    tokens: Vec<Token>,
+    tokens: Arc<[Token]>,
     module: String,
     companion_target_module: Option<String>,
     uses: Arc<BTreeSet<String>>,
