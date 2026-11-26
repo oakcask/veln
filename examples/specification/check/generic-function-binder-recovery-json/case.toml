@@ -16,6 +16,14 @@ equals = "error"
 path = "summary.diagnostic_count"
 equals = 6
 
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "parse.function_binder_bound"
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "parse.function_binder_separator"
+
 [[diagnostics]]
 id = "parse.function_binder_bound"
 kind = "parse"
