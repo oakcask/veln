@@ -37,6 +37,7 @@ impl TypeEnvironment {
         let exact_module_value_imports = facts::exact_module_value_import_paths(&uses);
         let qualified_module_value_imports = facts::qualified_module_value_import_index(&uses);
         Self {
+            resolution_use_index: Arc::default(),
             module_values,
             module_values_by_identity,
             bare_module_value_exports: bare_indexes.module_values,

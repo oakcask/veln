@@ -17,15 +17,10 @@ pub(super) fn check_admitted_expr(
     expected: Option<&Type>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let resolution_uses = environment
-        .uses
-        .iter()
-        .filter(|use_decl| {
-            use_decl.module_name.as_deref() == declaration.module_name.as_deref()
-                && use_decl.importing_package.as_deref() == declaration.package_name.as_deref()
-        })
-        .cloned()
-        .collect();
+    let resolution_uses = environment.resolution_uses_in_owner(
+        declaration.module_name.as_deref(),
+        declaration.package_name.as_deref(),
+    );
     let scope = AdmissionScope {
         declaration,
         environment,
@@ -160,7 +155,7 @@ fn check_admitted_call(
 struct AdmissionScope<'a> {
     declaration: &'a veln_ast::ModuleValueDecl,
     environment: &'a TypeEnvironment,
-    resolution_uses: Vec<veln_ast::UseDecl>,
+    resolution_uses: std::sync::Arc<[veln_ast::UseDecl]>,
 }
 
 fn check_constructor_arguments(
