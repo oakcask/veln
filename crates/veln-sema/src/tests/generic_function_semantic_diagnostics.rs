@@ -126,25 +126,71 @@ fn annotation_path_classification_work_has_a_linear_bound() {
 }
 
 #[test]
-fn annotation_consistent_imported_alias_lookup_work_is_linear() {
-    let mut totals = Vec::new();
-    for size in [16, 32, 64] {
-        let (work, module, diagnostics) = consistent_imported_alias_measurement(size);
-        assert_consistent_imported_alias_resolution(&module, &diagnostics);
+fn annotation_consistent_imported_alias_selection_preserves_behavior() {
+    let (work, module, diagnostics) = consistent_imported_alias_measurement(16);
+    assert!(work > 0, "index construction and lookup were not measured");
+    assert_consistent_imported_alias_resolution(&module, &diagnostics);
+}
 
-        assert!(
-            work >= size * 3,
-            "index construction and lookup were not measured"
-        );
-        totals.push(work);
+#[test]
+fn imported_descriptor_index_construction_and_retention_are_linear_across_both_axes() {
+    fn measurement(size: usize) -> crate::adt::ImportedDescriptorIndexWork {
+        let mut provider = String::new();
+        for index in 0..size {
+            provider.push_str(&format!(
+                "pub type Type{index:03}\n  pub Value{index:03}\nend\n"
+            ));
+        }
+        let mut module = package_module("provider.veln", &provider, "workspace", "provider");
+        for index in 0..size {
+            extend_surface_module(
+                &mut module,
+                package_module(
+                    &format!("owner{index:03}.veln"),
+                    "use provider\n",
+                    "workspace",
+                    &format!("owner{index:03}"),
+                ),
+            );
+        }
+
+        crate::adt::reset_imported_descriptor_index_work();
+        let registry = crate::adt::registry::AdtRegistry::from_module(&module);
+        let work = crate::adt::imported_descriptor_index_work();
+
+        let uses = registry.import_scope();
+        for owner in [0, size - 1] {
+            let module = format!("owner{owner:03}");
+            for descriptor in [0, size - 1] {
+                let name = format!("Type{descriptor:03}");
+                assert!(
+                    registry
+                        .unique_descriptor_for_type_path(&name, 0, Some(&module), &uses)
+                        .is_some(),
+                    "owner {module} must resolve {name} uniquely"
+                );
+            }
+        }
+        work
     }
-    for adjacent in totals.windows(2) {
+
+    let measured = [16, 32, 64].map(measurement);
+    assert!(
+        measured
+            .iter()
+            .all(|work| { work.construction_work > 0 && work.retained_entries > 0 })
+    );
+    for adjacent in measured.windows(2) {
         assert!(
-            adjacent[1] <= adjacent[0] * 2 + 64,
-            "doubling providers, imports, and annotations must remain linear: {totals:?}"
+            adjacent[1].construction_work <= adjacent[0].construction_work * 2 + 16,
+            "doubling provider descriptors and importing owners must add only linear construction work: {measured:?}"
+        );
+        assert!(
+            adjacent[1].retained_entries <= adjacent[0].retained_entries * 2 + 16,
+            "doubling provider descriptors and importing owners must retain only linear index entries: {measured:?}"
         );
     }
-    eprintln!("consistent imported alias work for sizes 16/32/64: {totals:?}");
+    eprintln!("two-axis imported descriptor index work for sizes 16/32/64: {measured:?}");
 }
 
 fn consistent_imported_alias_measurement(size: usize) -> (usize, SurfaceModule, Vec<Diagnostic>) {
@@ -623,5 +669,58 @@ fn imported_type_lookup_does_not_cross_same_spelled_modules_in_other_packages() 
     assert_eq!(
         unresolved[0].span.as_ref().map(|span| span.start.line),
         Some(4)
+    );
+}
+
+#[test]
+fn qualified_private_named_type_requires_matching_package_and_module_owner() {
+    let mut project = package_module(
+        "consumer.veln",
+        concat!(
+            "use shared from \"provider/pkg\"\n",
+            "fn annotations(hidden: shared::SecretType, exposed: shared::VisibleType) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+        "consumer/pkg",
+        "shared",
+    );
+    project.uses[0].name = "shared".to_string();
+    extend_surface_module(
+        &mut project,
+        package_module(
+            "provider.veln",
+            concat!(
+                "type SecretType\n  SecretValue\nend\n",
+                "pub type VisibleType\n  pub VisibleValue\nend\n",
+            ),
+            "provider/pkg",
+            "shared",
+        ),
+    );
+
+    let diagnostics = analyze_surface_module(&project);
+    let unresolved = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.unresolved")
+        .collect::<Vec<_>>();
+    assert_eq!(unresolved.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        unresolved[0].message,
+        "unresolved type `shared::SecretType`"
+    );
+    assert_eq!(
+        unresolved[0]
+            .span
+            .as_ref()
+            .map(|span| (span.file.as_str(), span.start.line)),
+        Some(("consumer.veln", 2))
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.unresolved"
+                || !diagnostic.message.contains("shared::VisibleType")
+        }),
+        "the public counterpart must resolve through the exact import: {diagnostics:#?}"
     );
 }

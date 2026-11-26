@@ -50,6 +50,7 @@ impl TypeEnvironment {
                     current_module.map(str::to_string),
                     current_package.map(str::to_string),
                     current_module,
+                    current_package,
                 )
             || name.rsplit_once("::").is_some_and(|(base, variant)| {
                 self.visible_annotation_type_descriptor_in_owner(
@@ -177,6 +178,7 @@ impl TypeEnvironment {
                     module_name,
                     package_name,
                     current_module,
+                    current_package,
                 )
             })
     }
@@ -187,14 +189,14 @@ impl TypeEnvironment {
         module_name: Option<String>,
         package_name: Option<String>,
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> bool {
         record_annotation_named_symbol_index_lookup();
+        let same_owner =
+            package_name.as_deref() == current_package && module_name.as_deref() == current_module;
         self.type_symbol_index
             .get(&(package_name, module_name.clone(), name))
-            .is_some_and(|visibility| {
-                visibility.present
-                    && (module_name.as_deref() == current_module || visibility.public)
-            })
+            .is_some_and(|visibility| visibility.present && (same_owner || visibility.public))
     }
 
     fn annotation_type_path_has_visible_adt_in_owner(

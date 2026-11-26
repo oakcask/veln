@@ -81,15 +81,7 @@ impl AdtRegistry {
         if self.source_import_indexes_ready {
             crate::adt::lookup_validation::record_import_path_comparison();
             let owner = self.import_owner_for_module(uses, current_module)?;
-            let index = if let Some(args_len) = args_len {
-                self.imported_descriptors_by_type_arity
-                    .get(&(owner, name.to_string(), args_len))
-            } else {
-                self.imported_descriptors_by_type
-                    .get(&(owner, name.to_string()))
-            }
-            .copied()
-            .flatten()?;
+            let index = self.unique_indexed_imported_descriptor(name, args_len, &owner)?;
             return Some(self.descriptor_lookup_candidate(index));
         }
         let mut imported = self.descriptors_named(name).filter(|descriptor| {
@@ -148,18 +140,7 @@ impl AdtRegistry {
                 package: current_package.map(str::to_string),
                 module: current_module.map(str::to_string),
             };
-            let index = if let Some(args_len) = args_len {
-                self.consistent_imported_descriptors_by_type_arity.get(&(
-                    owner,
-                    name.to_string(),
-                    args_len,
-                ))
-            } else {
-                self.consistent_imported_descriptors_by_type
-                    .get(&(owner, name.to_string()))
-            }
-            .copied()
-            .flatten()?;
+            let index = self.consistent_indexed_imported_descriptor(name, args_len, &owner)?;
             return Some(self.descriptor_lookup_candidate(index));
         }
         let mut descriptors = self.descriptors_named(name).filter(|descriptor| {
@@ -192,6 +173,110 @@ impl AdtRegistry {
             }
         }
         Some(representative)
+    }
+
+    pub(super) fn unique_indexed_imported_descriptor(
+        &self,
+        name: &str,
+        args_len: Option<usize>,
+        owner: &ResolvedImportOwner,
+    ) -> Option<usize> {
+        let owner_targets = self.bare_import_targets_by_owner.get(owner)?;
+        let targets = if let Some(args_len) = args_len {
+            self.imported_descriptor_targets_by_type_arity
+                .get(&(name.to_string(), args_len))?
+        } else {
+            self.imported_descriptor_targets_by_type.get(name)?
+        };
+        let mut selected = None;
+        for (package, module) in targets {
+            if !owner_targets.contains(&(package.clone(), module.clone())) {
+                continue;
+            }
+            crate::adt::lookup_validation::record_import_path_comparison();
+            let candidate = if let Some(args_len) = args_len {
+                self.imported_descriptors_by_type_arity.get(&(
+                    package.clone(),
+                    module.clone(),
+                    name.to_string(),
+                    args_len,
+                ))
+            } else {
+                self.imported_descriptors_by_type.get(&(
+                    package.clone(),
+                    module.clone(),
+                    name.to_string(),
+                ))
+            };
+            let Some(candidate) = candidate else {
+                continue;
+            };
+            let candidate = (*candidate)?;
+            if selected.replace(candidate).is_some() {
+                return None;
+            }
+        }
+        selected
+    }
+
+    pub(super) fn consistent_indexed_imported_descriptor(
+        &self,
+        name: &str,
+        args_len: Option<usize>,
+        owner: &ResolvedImportOwner,
+    ) -> Option<usize> {
+        let owner_targets = self.bare_import_targets_by_owner.get(owner)?;
+        let targets = if let Some(args_len) = args_len {
+            self.imported_descriptor_targets_by_type_arity
+                .get(&(name.to_string(), args_len))?
+        } else {
+            self.imported_descriptor_targets_by_type.get(name)?
+        };
+        let mut selected = None;
+        let mut terminal_identity = None;
+        for (package, module) in targets {
+            if !owner_targets.contains(&(package.clone(), module.clone())) {
+                continue;
+            }
+            crate::adt::lookup_validation::record_import_path_comparison();
+            let candidate = if let Some(args_len) = args_len {
+                self.consistent_imported_descriptors_by_type_arity.get(&(
+                    package.clone(),
+                    module.clone(),
+                    name.to_string(),
+                    args_len,
+                ))
+            } else {
+                self.consistent_imported_descriptors_by_type.get(&(
+                    package.clone(),
+                    module.clone(),
+                    name.to_string(),
+                ))
+            };
+            let Some(candidate) = candidate else {
+                continue;
+            };
+            let candidate = (*candidate)?;
+            let descriptor = self.descriptor_lookup_candidate(candidate);
+            let candidate_identity = self
+                .terminal_descriptor_for_alias(descriptor)
+                .unwrap_or_else(|| self.canonical_descriptor_for(descriptor))
+                .identity();
+            if terminal_identity
+                .as_ref()
+                .is_some_and(|identity| identity != &candidate_identity)
+            {
+                return None;
+            }
+            terminal_identity = Some(candidate_identity);
+            if selected.is_none_or(|selected| {
+                descriptor_stable_source_key(descriptor)
+                    < descriptor_stable_source_key(self.descriptor_lookup_candidate(selected))
+            }) {
+                selected = Some(candidate);
+            }
+        }
+        selected
     }
 
     fn descriptor_is_unqualified_import_in_owner(

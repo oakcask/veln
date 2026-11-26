@@ -270,18 +270,7 @@ impl AdtRegistry {
         {
             return Some(descriptor);
         }
-        let index = if let Some(args_len) = args_len {
-            self.imported_descriptors_by_type_arity.get(&(
-                owner.clone(),
-                name.to_string(),
-                args_len,
-            ))
-        } else {
-            self.imported_descriptors_by_type
-                .get(&(owner.clone(), name.to_string()))
-        }
-        .copied()
-        .flatten();
+        let index = self.unique_indexed_imported_descriptor(name, args_len, owner);
         index.map(|index| self.descriptor_lookup_candidate(index))
     }
 

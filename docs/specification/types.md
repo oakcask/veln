@@ -210,8 +210,8 @@ When a binder shadows both a compiler-known built-in and a visible source
 declaration, the diagnostic retains the built-in classification and the source
 declaration's related context. The
 [name-resolution rules](name-resolution.md#namespaces-and-use-roles) define the
-deterministic operation-count bounds for owner-scoped annotation lookup and
-same-terminal imported-alias selection. The
+deterministic operation-count bounds for owner-scoped annotation indexes and
+the same-terminal imported-alias selection rule. The
 checked human and JSON evidence is in
 [`generic-function-semantic-binders-human`](../../examples/specification/check/generic-function-semantic-binders-human/)
 and

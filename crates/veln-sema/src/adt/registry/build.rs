@@ -141,11 +141,14 @@ impl AdtRegistry {
                 Some((descriptor_identity(descriptor), ty))
             })
             .collect();
-        Self::from_parts_with_annotation_types(
+        let mut registry = Self::from_parts_with_annotation_types(
             descriptors,
             companion_access_targets,
             annotation_types,
-        )
+        );
+        registry.rebuild_shared_imported_descriptor_indexes();
+        registry.mark_declarations_reusable();
+        registry
     }
 
     fn from_parts_with_annotation_types(
@@ -169,6 +172,12 @@ impl AdtRegistry {
             descriptors_by_type_name,
             descriptors_by_source_identity,
             descriptors_by_identity,
+            imported_descriptors_by_type: HashMap::new(),
+            imported_descriptors_by_type_arity: HashMap::new(),
+            consistent_imported_descriptors_by_type: HashMap::new(),
+            consistent_imported_descriptors_by_type_arity: HashMap::new(),
+            imported_descriptor_targets_by_type: HashMap::new(),
+            imported_descriptor_targets_by_type_arity: HashMap::new(),
             parameter_variances_by_identity: HashMap::new(),
             variants_by_name,
             variants_by_descriptor,
@@ -197,10 +206,7 @@ impl AdtRegistry {
             companion_access_targets,
             qualified_import_modules: HashMap::new(),
             qualified_import_recovery_modules: HashMap::new(),
-            imported_descriptors_by_type: HashMap::new(),
-            imported_descriptors_by_type_arity: HashMap::new(),
-            consistent_imported_descriptors_by_type: HashMap::new(),
-            consistent_imported_descriptors_by_type_arity: HashMap::new(),
+            bare_import_targets_by_owner: HashMap::new(),
             source_import_indexes_ready: false,
             source_import_count: 0,
             import_owner_scope: Arc::from([]),
@@ -270,6 +276,7 @@ impl AdtRegistry {
         );
         registry.declarations_mut().type_alias_exposure_segments = type_alias_exposure_segments;
         registry.declarations_mut().type_alias_exposure_paths = type_alias_exposure_paths;
+        registry.rebuild_shared_imported_descriptor_indexes();
         registry.finish_source_registry(
             base,
             module,
@@ -364,14 +371,23 @@ impl AdtRegistry {
 
     pub(super) fn rebuild_imported_descriptor_indexes(&mut self) {
         let uses = Arc::clone(&self.import_owner_scope);
-        let imported_descriptors = self.imported_descriptor_candidates(&uses);
-        self.imported_descriptors_by_type = imported_descriptors.any_arity;
-        self.imported_descriptors_by_type_arity = imported_descriptors.exact_arity;
-        self.consistent_imported_descriptors_by_type = imported_descriptors.consistent_any_arity;
-        self.consistent_imported_descriptors_by_type_arity =
-            imported_descriptors.consistent_exact_arity;
+        self.bare_import_targets_by_owner = bare_import_targets_by_owner(&uses);
+        record_imported_descriptor_index_retained(self.imported_descriptor_retained_entries());
         self.source_import_indexes_ready = true;
         self.source_import_count = uses.len();
+    }
+
+    pub(super) fn rebuild_shared_imported_descriptor_indexes(&mut self) {
+        let candidates = self.imported_descriptor_candidates();
+        let declarations = self.declarations_mut();
+        declarations.imported_descriptors_by_type = candidates.any_arity;
+        declarations.imported_descriptors_by_type_arity = candidates.exact_arity;
+        declarations.consistent_imported_descriptors_by_type = candidates.consistent_any_arity;
+        declarations.consistent_imported_descriptors_by_type_arity =
+            candidates.consistent_exact_arity;
+        declarations.imported_descriptor_targets_by_type = candidates.targets_by_type;
+        declarations.imported_descriptor_targets_by_type_arity = candidates.targets_by_type_arity;
+        record_imported_descriptor_index_retained(self.imported_descriptor_retained_entries());
     }
 
     fn resolved_source_constructor_uses(
@@ -528,6 +544,7 @@ impl AdtRegistry {
             retained_variant_declaration_spans(source, self);
         self.declarations_mut().quarantined_type_identities =
             source.quarantined_type_identities.clone();
+        self.rebuild_shared_imported_descriptor_indexes();
         self.rebuild_parameter_variance_index();
     }
 
@@ -961,9 +978,10 @@ fn normalized_qualified_path(path: &str) -> String {
 }
 
 impl AdtRegistry {
-    fn imported_descriptor_candidates(&self, uses: &[UseDecl]) -> ImportedDescriptorCandidates {
-        let owners_by_imported_module = imported_module_owners(uses);
+    fn imported_descriptor_candidates(&self) -> ImportedDescriptorCandidates {
         let mut candidates = ImportedDescriptorCandidateIndexes::default();
+        let mut targets_by_type = HashMap::<String, HashSet<_>>::new();
+        let mut targets_by_type_arity = HashMap::<(String, usize), HashSet<_>>::new();
         for (index, descriptor) in self.descriptors.iter().enumerate() {
             let Some(module_name) = descriptor.module_name.as_ref() else {
                 continue;
@@ -971,12 +989,22 @@ impl AdtRegistry {
             if descriptor.visibility != Visibility::Public {
                 continue;
             }
+            record_imported_descriptor_index_construction(1);
             crate::adt::lookup_validation::record_import_path_comparison();
             let target = (descriptor.package_name.clone(), module_name.clone());
-            let Some(owners) = owners_by_imported_module.get(&target) else {
-                continue;
-            };
-            self.record_imported_descriptor_candidates(index, descriptor, owners, &mut candidates);
+            record_imported_descriptor_index_construction(2);
+            targets_by_type
+                .entry(descriptor.type_name.clone())
+                .or_default()
+                .insert(target.clone());
+            targets_by_type_arity
+                .entry((
+                    descriptor.type_name.clone(),
+                    descriptor.type_parameters.len(),
+                ))
+                .or_default()
+                .insert(target.clone());
+            self.record_imported_descriptor_candidates(index, descriptor, &target, &mut candidates);
         }
         ImportedDescriptorCandidates {
             any_arity: candidates.any_arity,
@@ -987,6 +1015,8 @@ impl AdtRegistry {
             consistent_exact_arity: finish_consistent_imported_candidates(
                 candidates.consistent_exact_arity,
             ),
+            targets_by_type,
+            targets_by_type_arity,
         }
     }
 
@@ -994,57 +1024,130 @@ impl AdtRegistry {
         &self,
         index: usize,
         descriptor: &AdtDescriptor,
-        owners: &HashSet<ResolvedImportOwner>,
+        target: &(Option<String>, String),
         candidates: &mut ImportedDescriptorCandidateIndexes,
     ) {
         let terminal_identity = self
             .terminal_descriptor_for_alias(descriptor)
             .unwrap_or_else(|| self.canonical_descriptor_for(descriptor))
             .identity();
-        for owner in owners {
-            crate::adt::lookup_validation::record_import_path_comparison();
-            let any_arity_key = (owner.clone(), descriptor.type_name.clone());
-            let exact_arity_key = (
-                owner.clone(),
-                descriptor.type_name.clone(),
-                descriptor.type_parameters.len(),
-            );
-            record_imported_candidate(&mut candidates.any_arity, any_arity_key.clone(), index);
-            record_imported_candidate(&mut candidates.exact_arity, exact_arity_key.clone(), index);
-            record_consistent_imported_candidate(
-                &mut candidates.consistent_any_arity,
-                any_arity_key,
-                index,
-                terminal_identity.clone(),
-                &self.descriptors,
-            );
-            record_consistent_imported_candidate(
-                &mut candidates.consistent_exact_arity,
-                exact_arity_key,
-                index,
-                terminal_identity.clone(),
-                &self.descriptors,
-            );
-        }
+        crate::adt::lookup_validation::record_import_path_comparison();
+        record_imported_descriptor_index_construction(4);
+        let any_arity_key = (
+            target.0.clone(),
+            target.1.clone(),
+            descriptor.type_name.clone(),
+        );
+        let exact_arity_key = (
+            target.0.clone(),
+            target.1.clone(),
+            descriptor.type_name.clone(),
+            descriptor.type_parameters.len(),
+        );
+        record_imported_candidate(&mut candidates.any_arity, any_arity_key.clone(), index);
+        record_imported_candidate(&mut candidates.exact_arity, exact_arity_key.clone(), index);
+        record_consistent_imported_candidate(
+            &mut candidates.consistent_any_arity,
+            any_arity_key,
+            index,
+            terminal_identity.clone(),
+            &self.descriptors,
+        );
+        record_consistent_imported_candidate(
+            &mut candidates.consistent_exact_arity,
+            exact_arity_key,
+            index,
+            terminal_identity,
+            &self.descriptors,
+        );
     }
 }
 
-fn imported_module_owners(
+fn bare_import_targets_by_owner(
     uses: &[UseDecl],
-) -> HashMap<(Option<String>, String), HashSet<ResolvedImportOwner>> {
-    let mut owners = HashMap::new();
+) -> HashMap<ResolvedImportOwner, HashSet<(Option<String>, String)>> {
+    let mut targets = HashMap::new();
     for use_decl in uses {
         if !crate::name_recovery::use_decl_contributes_bare_exports(use_decl) {
             continue;
         }
+        record_imported_descriptor_index_construction(1);
         crate::adt::lookup_validation::record_import_path_comparison();
         let target = use_decl.resolved_target();
-        owners
-            .entry((target.package, target.module))
+        targets
+            .entry(use_decl.resolved_owner())
             .or_insert_with(HashSet::new)
-            .insert(use_decl.resolved_owner());
+            .insert((target.package, target.module));
     }
-    owners
+    targets
+}
+
+impl AdtRegistry {
+    fn imported_descriptor_retained_entries(&self) -> usize {
+        self.bare_import_targets_by_owner
+            .values()
+            .map(HashSet::len)
+            .sum::<usize>()
+            + self.imported_descriptors_by_type.len()
+            + self.imported_descriptors_by_type_arity.len()
+            + self.consistent_imported_descriptors_by_type.len()
+            + self.consistent_imported_descriptors_by_type_arity.len()
+            + self
+                .imported_descriptor_targets_by_type
+                .values()
+                .map(HashSet::len)
+                .sum::<usize>()
+            + self
+                .imported_descriptor_targets_by_type_arity
+                .values()
+                .map(HashSet::len)
+                .sum::<usize>()
+    }
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct ImportedDescriptorIndexWork {
+    pub(crate) construction_work: usize,
+    pub(crate) retained_entries: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static IMPORTED_DESCRIPTOR_INDEX_WORK: std::cell::Cell<ImportedDescriptorIndexWork> =
+        const { std::cell::Cell::new(ImportedDescriptorIndexWork { construction_work: 0, retained_entries: 0 }) };
+}
+
+#[cfg(test)]
+fn record_imported_descriptor_index_construction(units: usize) {
+    IMPORTED_DESCRIPTOR_INDEX_WORK.set(ImportedDescriptorIndexWork {
+        construction_work: IMPORTED_DESCRIPTOR_INDEX_WORK.get().construction_work + units,
+        retained_entries: IMPORTED_DESCRIPTOR_INDEX_WORK.get().retained_entries,
+    });
+}
+
+#[cfg(not(test))]
+fn record_imported_descriptor_index_construction(_units: usize) {}
+
+#[cfg(test)]
+fn record_imported_descriptor_index_retained(entries: usize) {
+    IMPORTED_DESCRIPTOR_INDEX_WORK.set(ImportedDescriptorIndexWork {
+        construction_work: IMPORTED_DESCRIPTOR_INDEX_WORK.get().construction_work,
+        retained_entries: entries,
+    });
+}
+
+#[cfg(not(test))]
+fn record_imported_descriptor_index_retained(_entries: usize) {}
+
+#[cfg(test)]
+pub(crate) fn reset_imported_descriptor_index_work() {
+    IMPORTED_DESCRIPTOR_INDEX_WORK.set(ImportedDescriptorIndexWork::default());
+}
+
+#[cfg(test)]
+pub(crate) fn imported_descriptor_index_work() -> ImportedDescriptorIndexWork {
+    IMPORTED_DESCRIPTOR_INDEX_WORK.get()
 }
 
 fn record_consistent_imported_candidate<K: std::hash::Hash + Eq>(

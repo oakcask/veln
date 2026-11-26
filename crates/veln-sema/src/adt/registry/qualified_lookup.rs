@@ -98,10 +98,7 @@ impl AdtRegistry {
             crate::adt::lookup_validation::record_import_path_comparison();
             let owner = self.import_owner_for_module(uses, current_module)?;
             return Some(
-                self.imported_descriptors_by_type
-                    .get(&(owner, name.to_string()))
-                    .copied()
-                    .flatten()
+                self.unique_indexed_imported_descriptor(name, None, &owner)
                     .map(|index| self.descriptor_lookup_candidate(index)),
             );
         }

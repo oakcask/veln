@@ -88,11 +88,11 @@ Owner-scoped annotation lookup has deterministic scaling checks. One workload
 defines `N` public schemas, `N` aliases, and `N` unresolved local annotations
 for `N = 32`, `64`, and `128`. Its work metric counts schema and alias index
 entries and lookups. For adjacent sizes, the larger total must not exceed twice
-the smaller total plus 32 operations. A second workload imports `N` public
-aliases with one terminal type identity, uses that alias in `N` local
-annotations, and declares one same-spelled function type parameter for
-`N = 16`, `32`, and `64`. Its import-path comparison count must not exceed
-twice the preceding count plus 64 operations. Both checks use operation counts
+the smaller total plus 32 operations. A second workload gives one provider `N`
+public types and gives `N` owner modules a bare import of that provider for
+`N = 16`, `32`, and `64`. Separate counters cover index-construction work and
+retained entries. For either counter, the larger adjacent size must not exceed
+twice the smaller value plus 16 operations. These checks use operation counts
 instead of elapsed time, so runner timing noise does not affect the bounds.
 
 ### Explicit import aliases
@@ -1083,7 +1083,8 @@ not become fallback targets.
   `annotation_schema_symbol_lookup_work_is_linear_in_symbols_and_occurrences`
   in
   `crates/veln-sema/src/tests/generic_function_semantic_binders.rs` and
-  `annotation_consistent_imported_alias_lookup_work_is_linear` in
+  `imported_descriptor_index_construction_and_retention_are_linear_across_both_axes`
+  in
   `crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs`.
 - Explicit-import-alias behavior evidence:
 
