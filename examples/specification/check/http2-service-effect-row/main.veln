@@ -2,7 +2,7 @@ use http2::connection from "std"
 use http2::core from "std"
 use http2::hpack from "std"
 use transport from "std"
-use transport::network from "std"
+use transport::net from "std"
 use net from "std"
 
 fn pure_callback() -> Int
@@ -66,7 +66,7 @@ pub fn compatible_effectful_callback() -> Int effects [stdio]
 end
 
 pub fn handled_transport_preserves_row(stream: net::Stream) -> Int effects [net::IO]
-	handle connection_boundary(db_callback) with transport::network::net_stream(stream)
+	handle connection_boundary(db_callback) with transport::net::net_stream(stream)
 end
 
 pub fn public_service_connection_missing_transport() -> Result<(), Http2ServiceFailure>

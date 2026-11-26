@@ -2,7 +2,7 @@ use http2::connection from "std"
 use http2::core from "std"
 use http2::hpack from "std"
 use transport from "std"
-use transport::network from "std"
+use transport::net from "std"
 use net from "std"
 
 fn pure_job() -> Int
@@ -43,7 +43,7 @@ fn connection_body() -> Int effects [transport::DuplexStream, db]
 end
 
 fn connection_job(context: {stream: NetStream}) -> Int effects [net::IO, db]
-	handle connection_body() with transport::network::net_stream(context.stream)
+	handle connection_body() with transport::net::net_stream(context.stream)
 end
 
 pub fn pure_spawn_missing_concurrency() -> Task<Int>

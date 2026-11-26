@@ -271,9 +271,6 @@ that performs a duplex-stream operation without a handler must declare the
 duplex-stream effect. A public function that wraps that body with the
 `net_stream` handler must declare `net::IO` and does not retain the handled
 duplex-stream effect.
-The equivalent `transport::network::net_stream` spelling avoids the `net`
-import-alias collision when one source file also imports `net` from `std` to
-name `net::Stream`, `net::NetError`, or `net::IO`.
 `http2::connection::drive_server` and `http2::connection::drive_client` expose
 only `std::transport::DuplexStream`; handling either driver with `net_stream`
 therefore replaces that nominal effect with `std::net::IO` and does not expose
@@ -291,7 +288,7 @@ callback effects such as `db` on the handled expression.
 stream, and task ownership. Its public effect set is
 `[std::net::IO, concurrency, ...E]`. Each spawned connection task inherits the
 caller's active `std::net::IO` handler. Its internal
-`transport::network::net_stream` handler removes only
+`transport::net::net_stream` handler removes only
 `std::transport::DuplexStream`; it does not remove the inherited network
 effect or a callback effect. The [HTTP/2 specification](http2.md#connection-drivers-and-services)
 defines the service result and cleanup behavior.
@@ -299,7 +296,7 @@ defines the service result and cleanup behavior.
 `http2::connection::request_endpoint_sequence<effect E>` has the same public
 effect set, `[std::net::IO, concurrency, ...E]`, for the TCP client. Its
 spawned request tasks inherit the active `std::net::IO` handler. Their
-`transport::network::net_stream` handlers adapt owned streams without
+`transport::net::net_stream` handlers adapt owned streams without
 installing a host provider or consuming callback effects.
 `http2::connection::request_endpoint_sequence_tcp<effect E>` installs
 `net::system()` around that service. Its public effect set is

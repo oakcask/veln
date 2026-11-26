@@ -45,6 +45,49 @@ fn private_standard_diagnostic_module_cannot_be_imported() {
 }
 
 #[test]
+fn canonical_standard_transport_adapter_can_be_imported() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![SourceFile::new(
+            "main.veln",
+            concat!(
+                "use transport::net from \"std\"\n",
+                "pub fn main() -> Int\n",
+                "  0\n",
+                "end\n",
+            ),
+        )],
+        manifest: None,
+    };
+
+    let (_, diagnostics) = load_surface_module(&project);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn removed_standard_transport_network_adapter_cannot_be_imported() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![SourceFile::new(
+            "main.veln",
+            concat!(
+                "use transport::network from \"std\"\n",
+                "pub fn main() -> Int\n",
+                "  0\n",
+                "end\n",
+            ),
+        )],
+        manifest: None,
+    };
+
+    let (_, diagnostics) = load_surface_module(&project);
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "module.unexported_import"
+            && diagnostic.message.contains("transport::network")
+    }));
+}
+
+#[test]
 fn toolchain_standard_project_is_not_loaded_twice() {
     let (module, diagnostics, runtime_standard_parse_lowers, expected_runtime_sources) =
         loaded_toolchain_standard_fixture();

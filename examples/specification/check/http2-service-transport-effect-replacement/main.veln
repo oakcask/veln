@@ -2,7 +2,7 @@ use http2::connection from "std"
 use http2::core from "std"
 use http2::hpack from "std"
 use transport from "std"
-use transport::network from "std"
+use transport::net from "std"
 use net from "std"
 
 fn ascii_header(name: String, value: String) -> Result<http2::hpack::HeaderField, String>
@@ -38,11 +38,11 @@ pub fn db_service_requires_transport_and_db() -> Result<(), Http2ServiceFailure>
 end
 
 pub fn tcp_driver_requires_db(stream: net::Stream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net::IO]
-	handle http2::connection::drive_server_application(state, db_handler) with transport::network::net_stream(stream)
+	handle http2::connection::drive_server_application(state, db_handler) with transport::net::net_stream(stream)
 end
 
 pub fn tcp_service_requires_db(stream: net::Stream) -> Result<(), Http2ServiceFailure> effects [net::IO]
-	handle http2::connection::serve_connection(db_handler) with transport::network::net_stream(stream)
+	handle http2::connection::serve_connection(db_handler) with transport::net::net_stream(stream)
 end
 
 pub fn declared_db_driver(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [transport::DuplexStream, db]
@@ -54,9 +54,9 @@ pub fn declared_db_service() -> Result<(), Http2ServiceFailure> effects [transpo
 end
 
 pub fn declared_tcp_driver(stream: net::Stream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net::IO, db]
-	handle http2::connection::drive_server_application(state, db_handler) with transport::network::net_stream(stream)
+	handle http2::connection::drive_server_application(state, db_handler) with transport::net::net_stream(stream)
 end
 
 pub fn declared_tcp_service(stream: net::Stream) -> Result<(), Http2ServiceFailure> effects [net::IO, db]
-	handle http2::connection::serve_connection(db_handler) with transport::network::net_stream(stream)
+	handle http2::connection::serve_connection(db_handler) with transport::net::net_stream(stream)
 end

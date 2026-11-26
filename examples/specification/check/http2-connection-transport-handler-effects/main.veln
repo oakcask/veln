@@ -1,5 +1,5 @@
 use transport from "std"
-use transport::network from "std"
+use transport::net from "std"
 use net from "std"
 
 fn read_one() -> Result<Option<ByteChunk>, net::NetError> effects [transport::DuplexStream]
@@ -11,9 +11,9 @@ pub fn unhandled_requires_duplex_stream() -> Result<Option<ByteChunk>, net::NetE
 end
 
 pub fn handled_requires_net(stream: net::Stream) -> Result<Option<ByteChunk>, net::NetError>
-	handle read_one() with transport::network::net_stream(stream)
+	handle read_one() with transport::net::net_stream(stream)
 end
 
 pub fn handled_effect_boundary(stream: net::Stream) -> Result<Option<ByteChunk>, net::NetError> effects [net::IO]
-	handle read_one() with transport::network::net_stream(stream)
+	handle read_one() with transport::net::net_stream(stream)
 end

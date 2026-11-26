@@ -299,7 +299,7 @@ effects [...E]`, and the driver has the public effect boundary
 `[std::transport::DuplexStream, ...E]`. A pure callback therefore leaves only
 the duplex-stream effect on the driver expression. An effectful callback adds
 its row to the driver expression. Handling the driver with
-`transport::network::net_stream` (or its `transport::net` equivalent)
+`transport::net::net_stream`
 replaces only the duplex-stream effect with
 `std::net::IO`; callback effects remain declared by the caller.
 The driver drains core application events exactly once. In this bounded slice
@@ -346,7 +346,7 @@ state and drives one caller-owned duplex stream through
 `http2::connection::serve_tcp(listener, handler)` owns the supplied listener,
 accepted streams, and connection tasks. Each spawned connection task receives
 its `net::Stream` as explicit context and installs the standard network duplex
-adapter `transport::network::net_stream` inside the task. The caller supplies
+adapter `transport::net::net_stream` inside the task. The caller supplies
 the `net::IO` handler that owns the listener and keeps it active around the
 service. Spawned tasks inherit that handler, so accepted-stream operations use
 the same provider. The public effect boundary is

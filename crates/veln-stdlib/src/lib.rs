@@ -57,7 +57,6 @@ mod tests {
                 "io_provider.veln",
                 "transport.veln",
                 "transport/net.veln",
-                "transport/network.veln",
                 "observe.veln",
                 "trace.veln",
                 "traced.veln",
