@@ -174,6 +174,57 @@ enum DependencyAnalysisSelection {
     Unanalyzed,
 }
 
+#[derive(Clone, Copy)]
+enum WorkspaceNavigationSlot {
+    Mutable,
+    ReadOnly,
+}
+
+struct NavigationInputs {
+    dependency_keys: Vec<RetainedPackageKey>,
+    documentation_revisions: Vec<DocumentationRevisionKey>,
+    dependencies: Vec<DirectDependencySnapshot>,
+    files: Vec<veln_source::SourceFile>,
+}
+
+impl NavigationInputs {
+    fn admitted(dependencies: AdmittedDependencies, files: Vec<veln_source::SourceFile>) -> Self {
+        Self {
+            dependency_keys: dependencies.keys,
+            documentation_revisions: dependencies.revision_keys,
+            dependencies: dependencies.snapshots,
+            files,
+        }
+    }
+
+    fn selected(
+        selection: DependencyAnalysisSelection,
+        files: Vec<veln_source::SourceFile>,
+    ) -> Result<Self, Vec<veln_source::SourceFile>> {
+        match selection {
+            DependencyAnalysisSelection::Admitted(dependencies) => Ok(Self {
+                dependency_keys: dependencies.keys,
+                documentation_revisions: dependencies.documentation_revisions,
+                dependencies: dependencies.snapshots,
+                files,
+            }),
+            DependencyAnalysisSelection::Rejected(Some(accepted)) => Ok(Self {
+                dependency_keys: accepted.dependencies.keys.clone(),
+                documentation_revisions: accepted.dependencies.documentation_revisions.clone(),
+                dependencies: accepted.dependencies.snapshots.clone(),
+                files: accepted.workspace_files,
+            }),
+            DependencyAnalysisSelection::Rejected(None) => Ok(Self {
+                dependency_keys: Vec::new(),
+                documentation_revisions: Vec::new(),
+                dependencies: Vec::new(),
+                files: Vec::new(),
+            }),
+            DependencyAnalysisSelection::Unanalyzed => Err(files),
+        }
+    }
+}
+
 #[cfg(test)]
 thread_local! {
     static DEPENDENCY_NAVIGATION_BUILDS: Cell<usize> = const { Cell::new(0) };
@@ -930,83 +981,56 @@ impl LanguageResources {
     ) -> Result<Arc<EffectiveProjectSnapshot>, ResourceCapacityError> {
         // The stable capture key includes both workspace files and dependency
         // contents, so a match also proves that their resources were admitted.
-        if let Some(cached) = &self.workspace_navigation
-            && cached.workspace_key == workspace_key
+        if let Some(snapshot) =
+            self.cached_navigation(WorkspaceNavigationSlot::Mutable, &workspace_key)
         {
-            return Ok(Arc::clone(&cached.snapshot));
+            return Ok(snapshot);
         }
 
         let selection = self.dependency_analysis_selection(&analysis_scope, captured_dependencies);
         let accepted_identity =
             self.accepted_navigation_identity(&analysis_scope, &selection, &files);
-        if let Some(mut cached) = self.cached_accepted_navigation(accepted_identity.as_ref()) {
-            cached.workspace_key = workspace_key;
-            let snapshot = Arc::clone(&cached.snapshot);
-            self.workspace_navigation = Some(cached);
+        if let Some(snapshot) = self.reuse_accepted_navigation(
+            WorkspaceNavigationSlot::Mutable,
+            &workspace_key,
+            accepted_identity.as_ref(),
+        ) {
             return Ok(snapshot);
         }
-        let (dependencies, files) = match selection {
-            DependencyAnalysisSelection::Admitted(dependencies) => (
-                AdmittedDependencies {
-                    keys: dependencies.keys,
-                    revision_keys: dependencies.documentation_revisions,
-                    snapshots: dependencies.snapshots,
-                },
-                files,
-            ),
-            DependencyAnalysisSelection::Rejected(Some(accepted)) => (
-                AdmittedDependencies {
-                    keys: accepted.dependencies.keys.clone(),
-                    revision_keys: accepted.dependencies.documentation_revisions.clone(),
-                    snapshots: accepted.dependencies.snapshots.clone(),
-                },
-                accepted.workspace_files,
-            ),
-            DependencyAnalysisSelection::Rejected(None) => (
-                AdmittedDependencies {
-                    keys: Vec::new(),
-                    revision_keys: Vec::new(),
-                    snapshots: Vec::new(),
-                },
-                Vec::new(),
-            ),
-            DependencyAnalysisSelection::Unanalyzed => {
-                (self.admit_dependencies(captured_dependencies)?, files)
+        let inputs = match NavigationInputs::selected(selection, files) {
+            Ok(inputs) => inputs,
+            Err(files) => {
+                NavigationInputs::admitted(self.admit_dependencies(captured_dependencies)?, files)
             }
         };
-        let dependency_keys = dependencies.keys;
-        let documentation_revisions = dependencies.revision_keys;
-        let snapshot = if dependencies.snapshots.is_empty() {
-            self.with_standard_library_navigation(files)
+        let snapshot = if inputs.dependencies.is_empty() {
+            self.with_standard_library_navigation(inputs.files)
         } else {
             let reuse = self
                 .dependency_navigation
                 .as_ref()
-                .is_some_and(|(keys, _)| *keys == dependency_keys);
+                .is_some_and(|(keys, _)| *keys == inputs.dependency_keys);
             if !reuse {
                 #[cfg(test)]
                 DEPENDENCY_NAVIGATION_BUILDS.set(DEPENDENCY_NAVIGATION_BUILDS.get() + 1);
                 let snapshot = self
                     .standard_library_navigation
-                    .with_direct_dependency_layer(dependencies.snapshots);
-                self.dependency_navigation = Some((dependency_keys.clone(), snapshot));
+                    .with_direct_dependency_layer(inputs.dependencies);
+                self.dependency_navigation = Some((inputs.dependency_keys, snapshot));
             }
             self.dependency_navigation
                 .as_ref()
                 .expect("dependency navigation was prepared")
                 .1
-                .with_workspace_overlays(files)
+                .with_workspace_overlays(inputs.files)
         };
-        #[cfg(test)]
-        WORKSPACE_NAVIGATION_BUILDS.set(WORKSPACE_NAVIGATION_BUILDS.get() + 1);
-        let snapshot = Arc::new(snapshot);
-        self.workspace_navigation = Some(WorkspaceNavigation {
+        Ok(self.publish_navigation(
+            WorkspaceNavigationSlot::Mutable,
             workspace_key,
             accepted_identity,
-            documentation_revisions,
-            snapshot: Arc::clone(&snapshot),
-        });
-        Ok(snapshot)
+            inputs.documentation_revisions,
+            snapshot,
+        ))
     }
 
     pub(crate) fn read_only_navigation_snapshot(
@@ -1016,58 +1040,108 @@ impl LanguageResources {
         analysis_scope: DependencyAnalysisScope,
         workspace_key: Value,
     ) -> Arc<EffectiveProjectSnapshot> {
-        if let Some(cached) = &self.read_only_workspace_navigation
-            && cached.workspace_key == workspace_key
+        if let Some(snapshot) =
+            self.cached_navigation(WorkspaceNavigationSlot::ReadOnly, &workspace_key)
         {
-            return Arc::clone(&cached.snapshot);
+            return snapshot;
         }
         let selection = self.dependency_analysis_selection(&analysis_scope, captured_dependencies);
         let accepted_identity =
             self.accepted_navigation_identity(&analysis_scope, &selection, &files);
-        if let Some(mut cached) = self.cached_accepted_navigation(accepted_identity.as_ref()) {
-            cached.workspace_key = workspace_key;
-            let snapshot = Arc::clone(&cached.snapshot);
-            self.read_only_workspace_navigation = Some(cached);
+        if let Some(snapshot) = self.reuse_accepted_navigation(
+            WorkspaceNavigationSlot::ReadOnly,
+            &workspace_key,
+            accepted_identity.as_ref(),
+        ) {
             return snapshot;
         }
-        let (dependencies, files, documentation_revisions) = match selection {
-            DependencyAnalysisSelection::Admitted(dependencies) => (
-                dependencies.snapshots,
-                files,
-                dependencies.documentation_revisions,
-            ),
-            DependencyAnalysisSelection::Rejected(Some(accepted)) => (
-                accepted.dependencies.snapshots.clone(),
-                accepted.workspace_files,
-                accepted.dependencies.documentation_revisions.clone(),
-            ),
-            DependencyAnalysisSelection::Rejected(None) => (Vec::new(), Vec::new(), Vec::new()),
-            DependencyAnalysisSelection::Unanalyzed => (
-                captured_dependencies
+        let inputs = match NavigationInputs::selected(selection, files) {
+            Ok(inputs) => inputs,
+            Err(files) => NavigationInputs {
+                dependency_keys: Vec::new(),
+                documentation_revisions: Vec::new(),
+                dependencies: captured_dependencies
                     .iter()
                     .filter_map(captured_dependency_navigation)
                     .collect::<Vec<_>>(),
                 files,
-                Vec::new(),
-            ),
+            },
         };
-        let snapshot = if dependencies.is_empty() {
-            self.with_standard_library_navigation(files)
+        let snapshot = if inputs.dependencies.is_empty() {
+            self.with_standard_library_navigation(inputs.files)
         } else {
             self.standard_library_navigation
-                .with_direct_dependency_layer(dependencies)
-                .with_workspace_overlays(files)
+                .with_direct_dependency_layer(inputs.dependencies)
+                .with_workspace_overlays(inputs.files)
         };
+        self.publish_navigation(
+            WorkspaceNavigationSlot::ReadOnly,
+            workspace_key,
+            accepted_identity,
+            inputs.documentation_revisions,
+            snapshot,
+        )
+    }
+
+    fn cached_navigation(
+        &self,
+        slot: WorkspaceNavigationSlot,
+        workspace_key: &Value,
+    ) -> Option<Arc<EffectiveProjectSnapshot>> {
+        self.navigation_cache(slot)
+            .as_ref()
+            .filter(|cached| &cached.workspace_key == workspace_key)
+            .map(|cached| Arc::clone(&cached.snapshot))
+    }
+
+    fn reuse_accepted_navigation(
+        &mut self,
+        slot: WorkspaceNavigationSlot,
+        workspace_key: &Value,
+        accepted_identity: Option<&Arc<()>>,
+    ) -> Option<Arc<EffectiveProjectSnapshot>> {
+        let mut cached = self.cached_accepted_navigation(accepted_identity)?;
+        cached.workspace_key = workspace_key.clone();
+        let snapshot = Arc::clone(&cached.snapshot);
+        *self.navigation_cache_mut(slot) = Some(cached);
+        Some(snapshot)
+    }
+
+    fn publish_navigation(
+        &mut self,
+        slot: WorkspaceNavigationSlot,
+        workspace_key: Value,
+        accepted_identity: Option<Arc<()>>,
+        documentation_revisions: Vec<DocumentationRevisionKey>,
+        snapshot: EffectiveProjectSnapshot,
+    ) -> Arc<EffectiveProjectSnapshot> {
         #[cfg(test)]
         WORKSPACE_NAVIGATION_BUILDS.set(WORKSPACE_NAVIGATION_BUILDS.get() + 1);
         let snapshot = Arc::new(snapshot);
-        self.read_only_workspace_navigation = Some(WorkspaceNavigation {
+        *self.navigation_cache_mut(slot) = Some(WorkspaceNavigation {
             workspace_key,
             accepted_identity,
             documentation_revisions,
             snapshot: Arc::clone(&snapshot),
         });
         snapshot
+    }
+
+    fn navigation_cache(&self, slot: WorkspaceNavigationSlot) -> &Option<WorkspaceNavigation> {
+        match slot {
+            WorkspaceNavigationSlot::Mutable => &self.workspace_navigation,
+            WorkspaceNavigationSlot::ReadOnly => &self.read_only_workspace_navigation,
+        }
+    }
+
+    fn navigation_cache_mut(
+        &mut self,
+        slot: WorkspaceNavigationSlot,
+    ) -> &mut Option<WorkspaceNavigation> {
+        match slot {
+            WorkspaceNavigationSlot::Mutable => &mut self.workspace_navigation,
+            WorkspaceNavigationSlot::ReadOnly => &mut self.read_only_workspace_navigation,
+        }
     }
 
     pub(crate) fn navigation_source_text(

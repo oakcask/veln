@@ -99,6 +99,58 @@ fn accepted_navigation_reuse_excludes_unanalyzed_workspace_overlays() {
 }
 
 #[test]
+fn rejected_navigation_reuses_one_accepted_snapshot_across_both_cache_slots() {
+    let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
+    let scope = DependencyAnalysisScope::Project("project".to_string());
+    let accepted_files = vec![SourceFile::new(
+        "main.veln",
+        "fn accepted() -> Int\n  dependency::value()\nend\n",
+    )];
+    let rejected_files = vec![SourceFile::new(
+        "main.veln",
+        "fn rejected() -> Int\n  changed::value()\nend\n",
+    )];
+    let accepted_dependencies = test_dependency("dependency", "accepted");
+    let rejected_dependencies = test_dependency("changed", "rejected");
+    resources
+        .admit_analyzed_dependencies(
+            scope.clone(),
+            accepted_files.clone(),
+            &accepted_dependencies,
+        )
+        .unwrap();
+    reset_workspace_navigation_builds();
+    let accepted = resources
+        .navigation_snapshot(
+            accepted_files,
+            &accepted_dependencies,
+            scope.clone(),
+            json!("accepted"),
+        )
+        .unwrap();
+
+    resources.reject_dependency_analysis(scope.clone(), &rejected_dependencies);
+    let read_only = resources.read_only_navigation_snapshot(
+        rejected_files.clone(),
+        &rejected_dependencies,
+        scope.clone(),
+        json!("rejected-read-only"),
+    );
+    let mutable = resources
+        .navigation_snapshot(
+            rejected_files,
+            &rejected_dependencies,
+            scope,
+            json!("rejected-mutable"),
+        )
+        .unwrap();
+
+    assert!(Arc::ptr_eq(&accepted, &read_only));
+    assert!(Arc::ptr_eq(&accepted, &mutable));
+    assert_eq!(workspace_navigation_builds(), 1);
+}
+
+#[test]
 fn successful_analysis_replaces_a_rejected_scope() {
     let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
     let scope = DependencyAnalysisScope::Project("first".to_string());
