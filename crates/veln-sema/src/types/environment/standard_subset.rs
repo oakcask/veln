@@ -4,6 +4,8 @@ impl TypeEnvironment {
     pub(in crate::types) fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {
         let selected = self.standard_subset_declarations(module_names);
         let functions_by_name = facts::function_name_index(&selected.functions);
+        let function_type_parameters_by_identity =
+            function_type_parameter_provenance_index(&selected.functions);
         let recoveries = self.standard_subset_recoveries(module_names);
         let access_targets = self.standard_subset_access_targets(module_names);
         let (module_values, module_values_by_identity) =
@@ -34,6 +36,7 @@ impl TypeEnvironment {
             public_module_value_identities,
             functions: selected.functions,
             functions_by_name,
+            function_type_parameters_by_identity,
             unpublished_functions: selected.unpublished_functions,
             function_recovery_signatures: recoveries.function_signatures,
             function_recoveries: recoveries.functions,

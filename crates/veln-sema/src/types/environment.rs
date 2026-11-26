@@ -477,6 +477,35 @@ fn source_function_publication_key(function: &Function) -> FunctionPublicationKe
 #[cfg(test)]
 thread_local! {
     static TYPE_PARAMETER_INDEX_ENTRIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static FUNCTION_TYPE_PARAMETER_PROVENANCE_WORK: std::cell::Cell<(usize, usize)> =
+        const { std::cell::Cell::new((0, 0)) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_function_type_parameter_provenance_work() {
+    FUNCTION_TYPE_PARAMETER_PROVENANCE_WORK.set((0, 0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_function_type_parameter_provenance_work() -> (usize, usize) {
+    FUNCTION_TYPE_PARAMETER_PROVENANCE_WORK.replace((0, 0))
+}
+
+fn function_type_parameter_provenance_index(
+    functions: &[FunctionSignature],
+) -> HashMap<String, (usize, usize)> {
+    let mut index = HashMap::new();
+    for (function_index, function) in functions.iter().enumerate() {
+        for (parameter_index, parameter) in function.type_parameters.iter().enumerate() {
+            #[cfg(test)]
+            FUNCTION_TYPE_PARAMETER_PROVENANCE_WORK
+                .update(|(entries, probes)| (entries + 1, probes));
+            index
+                .entry(parameter.identity.clone())
+                .or_insert((function_index, parameter_index));
+        }
+    }
+    index
 }
 
 pub(crate) struct TypeParameterIdentityContext<'a> {
@@ -689,6 +718,7 @@ pub(crate) struct TypeEnvironment {
     public_module_value_identities: HashSet<ModuleValueIdentity>,
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
+    function_type_parameters_by_identity: HashMap<String, (usize, usize)>,
     unpublished_functions: HashSet<FunctionPublicationKey>,
     function_recovery_signatures: Vec<FunctionSignature>,
     function_recoveries: BTreeMap<FunctionRecoveryKey, usize>,
@@ -1563,13 +1593,13 @@ impl TypeEnvironment {
         &FunctionSignature,
         &crate::types::signatures::FunctionTypeParameter,
     )> {
-        self.functions.iter().find_map(|function| {
-            function
-                .type_parameters
-                .iter()
-                .find(|parameter| parameter.identity == identity)
-                .map(|parameter| (function, parameter))
-        })
+        #[cfg(test)]
+        FUNCTION_TYPE_PARAMETER_PROVENANCE_WORK.update(|(entries, probes)| (entries, probes + 1));
+        let (function_index, parameter_index) =
+            *self.function_type_parameters_by_identity.get(identity)?;
+        let function = self.functions.get(function_index)?;
+        let parameter = function.type_parameters.get(parameter_index)?;
+        (parameter.identity == identity).then_some((function, parameter))
     }
 
     #[cfg(test)]

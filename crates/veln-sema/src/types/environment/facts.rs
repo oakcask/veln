@@ -240,6 +240,7 @@ fn initial_environment(
         public_module_value_identities: HashSet::new(),
         functions: callables.functions,
         functions_by_name: HashMap::new(),
+        function_type_parameters_by_identity: HashMap::new(),
         unpublished_functions: base
             .map(|base| base.unpublished_functions.clone())
             .unwrap_or_default(),
@@ -282,6 +283,8 @@ fn finish_function_facts(module: &SurfaceModule, environment: &mut TypeEnvironme
         });
     environment.functions.extend(aliases);
     environment.functions_by_name = function_name_index(&environment.functions);
+    environment.function_type_parameters_by_identity =
+        function_type_parameter_provenance_index(&environment.functions);
 }
 
 fn install_recovery_facts(module: &SurfaceModule, environment: &mut TypeEnvironment) {
