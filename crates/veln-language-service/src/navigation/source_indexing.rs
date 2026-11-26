@@ -221,7 +221,7 @@ fn parse_dependency_source(
     let source_file = SourceFile::new(source.path(), text);
     let parsed = parse(&source_file);
     let invalid_declaration_names = invalid_name_spans(&invalid_declaration_names(&parsed));
-    let tokens = lex(&source_file).tokens;
+    let tokens = parsed.tree.lossless_tokens().cloned().collect();
 
     ParsedDependencySource {
         source: source_file,

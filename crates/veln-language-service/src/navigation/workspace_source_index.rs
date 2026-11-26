@@ -75,7 +75,7 @@ struct WorkspaceSyntaxIndex {
 impl WorkspaceSyntaxIndex {
     fn new(navigation_isolated: bool, source: &SourceFile, parsed: &ParseOutput) -> Self {
         let invalid_names = invalid_declaration_names(parsed);
-        let tokens = lex(source).tokens;
+        let tokens = parsed.tree.lossless_tokens().cloned().collect::<Vec<_>>();
         let schema_operation_leaf_ranges = valid_schema_operation_leaf_spans(&parsed.tree)
             .into_iter()
             .map(|span| (span.start.offset, span.end.offset))
