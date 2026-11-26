@@ -137,11 +137,8 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         current_package: Option<&str>,
     ) -> Option<bool> {
-        let Some((use_decl, name)) =
-            self.quarantined_import_for_segments(segments, current_module, current_package)
-        else {
-            return None;
-        };
+        let (use_decl, name) =
+            self.quarantined_import_for_segments(segments, current_module, current_package)?;
         let module_name = Some(use_decl.name.as_str());
         let target_package = use_decl.resolved_target().package;
         Some(self.type_symbols.iter().any(|symbol| {

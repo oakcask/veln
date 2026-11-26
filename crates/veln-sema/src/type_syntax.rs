@@ -18,7 +18,7 @@ pub(crate) fn builtin_type_syntax_arity(name: &str) -> Option<usize> {
 }
 
 pub(crate) fn compiler_known_type_annotation_arity(name: &str) -> Option<usize> {
-    builtin_type_syntax_arity(name).or_else(|| match name {
+    builtin_type_syntax_arity(name).or(match name {
         "Byte"
         | "ByteChunk"
         | "ByteView"
