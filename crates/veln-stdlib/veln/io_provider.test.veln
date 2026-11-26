@@ -1675,7 +1675,7 @@ test cancelled_owner_exit_runs_restricted_cleanup() -> Result<(), String> effect
 	let worker = task::spawn_with<(), F3CancelRequest>(f3_cancellable, request)
 	let started: Option<()> = channel::recv(ready.rx)
 	task::cancel(worker)
-	let joined: Result<(), task::JoinError> = task::join(worker)
+	let joined: Result<(), JoinError> = task::join(worker)
 	if started == None
 		Err("cancelled owner task did not reach its gate")
 	else match joined
@@ -1699,7 +1699,7 @@ test cancellation_first_delivered_by_release_remains_primary() -> Result<(), Str
 	let worker = task::spawn_with<(), F3ReleaseCancelRequest>(f3_release_cancellable, request)
 	let release_started: Option<()> = channel::recv(entered.rx)
 	task::cancel(worker)
-	let joined: Result<(), task::JoinError> = task::join(worker)
+	let joined: Result<(), JoinError> = task::join(worker)
 	let first = f3_named_release_event_matches(events.rx, "release-checkpoint")
 	let second = f3_named_release_event_matches(events.rx, "remaining-release")
 	if release_started == None

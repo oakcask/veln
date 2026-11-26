@@ -157,8 +157,15 @@ owning package and module. A qualified annotation selects its import before it
 selects the final type. The selected module must expose a public type or type
 alias of the written arity. A missing or private final type reports
 `name.unresolved`; the presence of the import alone does not make that type
-annotation valid. Functions in the embedded standard package use the same
-resolution and visibility facts as application functions.
+annotation valid. The diagnostic points at the unresolved final type when the
+qualifier resolves, and at the unresolved qualifier otherwise.
+
+Functions in the embedded standard package use the same resolution and
+visibility facts as application functions. Until those APIs declare retained
+binders, the compiler recognizes the existing collection-helper and
+`io_provider` state-helper parameter names only in their specific standard
+package functions. The compatibility names do not become visible in another
+standard package function.
 
 A function type binder cannot shadow a visible built-in type, source type, or
 imported type alias. The checker reports `name.type_parameter_shadow` at the

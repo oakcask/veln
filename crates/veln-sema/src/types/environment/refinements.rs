@@ -175,6 +175,19 @@ impl TypeEnvironment {
                 .is_some_and(|(base, _)| has_visible_declaration(base))
     }
 
+    pub(crate) fn annotation_type_path_has_resolved_qualifier_in_owner(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        segments.len() > 1
+            && self
+                .resolve_symbol_module(&segments, current_module, current_package)
+                .is_some()
+    }
+
     pub(crate) fn variant_refinement_descriptor_identity_in_owner(
         &self,
         base: &str,

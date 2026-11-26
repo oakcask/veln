@@ -58,7 +58,7 @@ message = "unresolved type `api::Missing`"
 [diagnostics.span]
 file = "main.veln"
 line = 33
-column = 29
+column = 34
 
 [[diagnostics]]
 id = "name.unresolved"
@@ -69,7 +69,7 @@ message = "unresolved type `api::Private`"
 [diagnostics.span]
 file = "main.veln"
 line = 37
-column = 29
+column = 34
 
 [[diagnostics]]
 id = "name.unresolved"

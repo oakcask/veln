@@ -303,13 +303,21 @@ fn qualified_annotation_selection_checks_the_imported_leaf() {
     let unresolved = diagnostics
         .iter()
         .filter(|diagnostic| diagnostic.id == "name.unresolved")
-        .map(|diagnostic| diagnostic.message.as_str())
+        .map(|diagnostic| {
+            (
+                diagnostic.message.as_str(),
+                diagnostic
+                    .span
+                    .as_ref()
+                    .map(|span| (span.start.line, span.start.column)),
+            )
+        })
         .collect::<Vec<_>>();
     assert_eq!(
         unresolved,
         [
-            "unresolved type `api::Missing`",
-            "unresolved type `api::Private`"
+            ("unresolved type `api::Missing`", Some((5, 24))),
+            ("unresolved type `api::Private`", Some((8, 24)))
         ],
         "{diagnostics:#?}"
     );
@@ -367,6 +375,37 @@ fn standard_package_annotations_use_the_same_resolution_facts() {
         veln_diagnostics::diagnostic_to_json(unresolved[0]).to_json(),
         veln_diagnostics::diagnostic_to_json(&with_unrelated).to_json(),
         "an unrelated standard-package module must not change the diagnostic"
+    );
+}
+
+#[test]
+fn standard_signature_compatibility_is_limited_to_known_functions() {
+    let source = SourceFile::new(
+        "standard.veln",
+        concat!(
+            "fn vec_len(value: A) -> A\n",
+            "  value\n",
+            "end\n",
+            "fn unrelated(value: A) -> A\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let mut module = lower_standard_package_callables(&source);
+    for function in &mut module.functions {
+        function.module_name = Some("std::prelude".to_string());
+    }
+
+    let diagnostics = analyze_surface_module(&module);
+    let unresolved = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.unresolved")
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        unresolved,
+        ["unresolved type `A`", "unresolved type `A`"],
+        "{diagnostics:#?}"
     );
 }
 

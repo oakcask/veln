@@ -229,7 +229,15 @@ fn unresolved_function_type_diagnostic(
     {
         return None;
     }
-    let span = path.segment_spans.first()?.clone();
+    let span = if environment.annotation_type_path_has_resolved_qualifier_in_owner(
+        &name,
+        function.module_name.as_deref(),
+        function.package_name.as_deref(),
+    ) {
+        path.segment_spans.last()?.clone()
+    } else {
+        path.segment_spans.first()?.clone()
+    };
     Some(unresolved_type_diagnostic(name, span))
 }
 
@@ -241,15 +249,53 @@ fn is_compiler_known_standard_signature_type_parameter(
         return false;
     }
     let function_name = function.name.as_deref().unwrap_or_default();
-    match function.module_name.as_deref() {
-        Some("std::prelude") => {
-            matches!(name, "A" | "B" | "C" | "E" | "F" | "Item" | "K" | "V")
+    let allowed = match (function.module_name.as_deref(), function_name) {
+        (Some("std::prelude"), "vec_fold") => &["A", "B"][..],
+        (
+            Some("std::prelude"),
+            "vec_len" | "vec_is_empty" | "vec_push" | "vec_concat" | "vec_append" | "vec_filter"
+            | "vec_filter_step",
+        ) => &["A"],
+        (Some("std::prelude"), "vec_map" | "vec_map_step") => &["Item", "A"],
+        (Some("std::prelude"), "vec_try_map" | "vec_try_map_state" | "vec_try_map_step") => {
+            &["Item", "A", "E"]
         }
-        Some("std::io_provider") => {
-            matches!(function_name, "state" | "update") && matches!(name, "T" | "C" | "R")
-        }
-        _ => false,
-    }
+        (
+            Some("std::prelude"),
+            "vec_try_map_with" | "vec_try_map_with_state" | "vec_try_map_with_step",
+        ) => &["C", "Item", "A", "E"],
+        (
+            Some("std::prelude"),
+            "list_nil" | "list_cons" | "list_is_empty" | "list_reverse" | "list_reverse_step"
+            | "list_filter" | "list_filter_step",
+        ) => &["A"],
+        (Some("std::prelude"), "list_fold") => &["Item", "B"],
+        (Some("std::prelude"), "list_map" | "list_map_step") => &["Item", "A"],
+        (Some("std::prelude"), "list_try_map" | "list_try_map_step") => &["Item", "A", "E"],
+        (
+            Some("std::prelude"),
+            "dict_get" | "dict_contains" | "dict_insert" | "dict_remove" | "dict_filter",
+        ) => &["K", "V"],
+        (Some("std::prelude"), "dict_map" | "dict_fold") => &["K", "V", "A"],
+        (
+            Some("std::prelude"),
+            "dict_map_with" | "dict_map_with_step" | "dict_fold_with" | "dict_fold_with_step",
+        ) => &["C", "K", "V", "A"],
+        (Some("std::prelude"), "dict_filter_with" | "dict_filter_with_step") => &["C", "K", "V"],
+        (Some("std::prelude"), "dict_try_map") => &["K", "V", "A", "E"],
+        (
+            Some("std::prelude"),
+            "dict_try_map_with" | "dict_try_map_with_state" | "dict_try_map_with_step",
+        ) => &["C", "K", "V", "A", "E"],
+        (Some("std::prelude"), "option_map" | "option_and_then") => &["A", "B"],
+        (Some("std::prelude"), "option_unwrap_or") => &["A"],
+        (Some("std::prelude"), "result_map" | "result_and_then") => &["A", "E", "B"],
+        (Some("std::prelude"), "result_map_err") => &["A", "E", "F"],
+        (Some("std::io_provider"), "state") => &["T"],
+        (Some("std::io_provider"), "update") => &["T", "C", "R"],
+        _ => &[],
+    };
+    allowed.contains(&name)
 }
 
 fn is_function_type_parameter_name(name: &str, type_parameters: &HashSet<&str>) -> bool {
