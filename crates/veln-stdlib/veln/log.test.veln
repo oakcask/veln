@@ -1,12 +1,12 @@
 use log
-use observe_test_support_test
+use observe_test
 
 test debug_emits_one_typed_record_with_user_callsite() -> Result<(), String> effects [concurrency]
-	let records = observe_test_support_test::records(2)
-	let _ = handle log::debug(observe_test_support_test::o1_context(), "accepted", observe_test_support_test::o1_attributes()) with observe_test_support_test::recording(records.tx)
+	let records = observe_test::records(2)
+	let _ = handle log::debug(observe_test::o1_context(), "accepted", observe_test::o1_attributes()) with observe_test::recording(records.tx)
 	channel::close(records.tx)
 	match channel::recv(records.rx)
-		Some(record) => if observe_test_support_test::is_o1_debug(record, "log.test.veln", 6)
+		Some(record) => if observe_test::is_o1_debug(record, "log.test.veln", 6)
 			match channel::recv(records.rx)
 				None => Ok(())
 				Some(_) => Err("debug emitted more than one observation")
@@ -19,11 +19,11 @@ test debug_emits_one_typed_record_with_user_callsite() -> Result<(), String> eff
 end
 
 test info_emits_one_typed_record_with_user_callsite() -> Result<(), String> effects [concurrency]
-	let records = observe_test_support_test::records(2)
-	let _ = handle log::info(observe_test_support_test::o1_context(), "accepted", observe_test_support_test::o1_attributes()) with observe_test_support_test::recording(records.tx)
+	let records = observe_test::records(2)
+	let _ = handle log::info(observe_test::o1_context(), "accepted", observe_test::o1_attributes()) with observe_test::recording(records.tx)
 	channel::close(records.tx)
 	match channel::recv(records.rx)
-		Some(record) => if observe_test_support_test::is_o1_info(record, "log.test.veln", 23)
+		Some(record) => if observe_test::is_o1_info(record, "log.test.veln", 23)
 			match channel::recv(records.rx)
 				None => Ok(())
 				Some(_) => Err("info emitted more than one observation")
@@ -36,11 +36,11 @@ test info_emits_one_typed_record_with_user_callsite() -> Result<(), String> effe
 end
 
 test warning_emits_one_typed_record_with_user_callsite() -> Result<(), String> effects [concurrency]
-	let records = observe_test_support_test::records(2)
-	let _ = handle log::warning(observe_test_support_test::o1_context(), "accepted", observe_test_support_test::o1_attributes()) with observe_test_support_test::recording(records.tx)
+	let records = observe_test::records(2)
+	let _ = handle log::warning(observe_test::o1_context(), "accepted", observe_test::o1_attributes()) with observe_test::recording(records.tx)
 	channel::close(records.tx)
 	match channel::recv(records.rx)
-		Some(record) => if observe_test_support_test::is_o1_warning(record, "log.test.veln", 40)
+		Some(record) => if observe_test::is_o1_warning(record, "log.test.veln", 40)
 			match channel::recv(records.rx)
 				None => Ok(())
 				Some(_) => Err("warning emitted more than one observation")
@@ -53,11 +53,11 @@ test warning_emits_one_typed_record_with_user_callsite() -> Result<(), String> e
 end
 
 test error_emits_one_typed_record_with_user_callsite() -> Result<(), String> effects [concurrency]
-	let records = observe_test_support_test::records(2)
-	let _ = handle log::error(observe_test_support_test::o1_context(), "accepted", observe_test_support_test::o1_attributes()) with observe_test_support_test::recording(records.tx)
+	let records = observe_test::records(2)
+	let _ = handle log::error(observe_test::o1_context(), "accepted", observe_test::o1_attributes()) with observe_test::recording(records.tx)
 	channel::close(records.tx)
 	match channel::recv(records.rx)
-		Some(record) => if observe_test_support_test::is_o1_error(record, "log.test.veln", 57)
+		Some(record) => if observe_test::is_o1_error(record, "log.test.veln", 57)
 			match channel::recv(records.rx)
 				None => Ok(())
 				Some(_) => Err("error emitted more than one observation")

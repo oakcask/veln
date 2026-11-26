@@ -919,11 +919,11 @@ The `connection.test.veln` companion covers TCP service accept,
 stream I/O, stream-close, and listener-close failures on first and later
 accepted connections, cumulative accepted counts, cleanup precedence, and
 bounded iteration across thousands of completed connections with
-`connection_service_test_support_test.veln`.
+`connection_service_test.veln`.
 The same companion covers client connect, stream I/O, and cleanup network
 failures, completed-request counts, exact connection-preface, SETTINGS, and
 request writes in operation order, and cleanup precedence including after the
-first write fails. `connection_client_test_support_test.veln` supplies the
+first write fails. `connection_client_test.veln` supplies the
 client-side host-network script.
 The checked
 [`http2-client-service-effect-row`](../../examples/specification/check/http2-client-service-effect-row/)

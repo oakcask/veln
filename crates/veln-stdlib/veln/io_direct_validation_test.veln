@@ -2,7 +2,7 @@ use prelude
 use fs
 use io
 use io_provider
-use io_provider_test_support_test
+use io_provider_test
 
 type State
 	State(reads: List<io::ReadOutcome>, writes: List<io::WriteOutcome>, reads_at: List<io::ReadOutcome>, writes_at: List<io::WriteOutcome>, operations: List<String>)
@@ -167,26 +167,26 @@ pub fn execute_read(replies: List<io::ReadOutcome>, maximum: ByteCount) -> Resul
 	let owner = io_provider::owner()
 	let state = io_provider::state(initial(replies, list_nil(), list_nil(), list_nil()))
 	let calls = channel::bounded<String>(16)
-	handle handle handle handle handle handle handle handle read_body(owner, 920, state, maximum) with scripted_read(owner, 920, state) with scripted_write(owner, 920, state) with io_provider_test_support_test::seek(calls.tx) with scripted_read_at(owner, 920, state) with scripted_write_at(owner, 920, state) with io_provider_test_support_test::close(calls.tx) with io_provider_test_support_test::sync(calls.tx) with io_provider_test_support_test::mutate(calls.tx)
+	handle handle handle handle handle handle handle handle read_body(owner, 920, state, maximum) with scripted_read(owner, 920, state) with scripted_write(owner, 920, state) with io_provider_test::seek(calls.tx) with scripted_read_at(owner, 920, state) with scripted_write_at(owner, 920, state) with io_provider_test::close(calls.tx) with io_provider_test::sync(calls.tx) with io_provider_test::mutate(calls.tx)
 end
 
 pub fn execute_write(replies: List<io::WriteOutcome>, bytes: ByteChunk) -> Result<WriteObservation, String> effects [io_provider::Scope, concurrency]
 	let owner = io_provider::owner()
 	let state = io_provider::state(initial(list_nil(), replies, list_nil(), list_nil()))
 	let calls = channel::bounded<String>(16)
-	handle handle handle handle handle handle handle handle write_body(owner, 921, state, bytes) with scripted_read(owner, 921, state) with scripted_write(owner, 921, state) with io_provider_test_support_test::seek(calls.tx) with scripted_read_at(owner, 921, state) with scripted_write_at(owner, 921, state) with io_provider_test_support_test::close(calls.tx) with io_provider_test_support_test::sync(calls.tx) with io_provider_test_support_test::mutate(calls.tx)
+	handle handle handle handle handle handle handle handle write_body(owner, 921, state, bytes) with scripted_read(owner, 921, state) with scripted_write(owner, 921, state) with io_provider_test::seek(calls.tx) with scripted_read_at(owner, 921, state) with scripted_write_at(owner, 921, state) with io_provider_test::close(calls.tx) with io_provider_test::sync(calls.tx) with io_provider_test::mutate(calls.tx)
 end
 
 pub fn execute_read_at(replies: List<io::ReadOutcome>, maximum: ByteCount) -> Result<ReadObservation, String> effects [io_provider::Scope, concurrency]
 	let owner = io_provider::owner()
 	let state = io_provider::state(initial(list_nil(), list_nil(), replies, list_nil()))
 	let calls = channel::bounded<String>(16)
-	handle handle handle handle handle handle handle handle read_at_body(owner, 922, state, ByteOffset(7), maximum) with scripted_read(owner, 922, state) with scripted_write(owner, 922, state) with io_provider_test_support_test::seek(calls.tx) with scripted_read_at(owner, 922, state) with scripted_write_at(owner, 922, state) with io_provider_test_support_test::close(calls.tx) with io_provider_test_support_test::sync(calls.tx) with io_provider_test_support_test::mutate(calls.tx)
+	handle handle handle handle handle handle handle handle read_at_body(owner, 922, state, ByteOffset(7), maximum) with scripted_read(owner, 922, state) with scripted_write(owner, 922, state) with io_provider_test::seek(calls.tx) with scripted_read_at(owner, 922, state) with scripted_write_at(owner, 922, state) with io_provider_test::close(calls.tx) with io_provider_test::sync(calls.tx) with io_provider_test::mutate(calls.tx)
 end
 
 pub fn execute_write_at(replies: List<io::WriteOutcome>, bytes: ByteChunk) -> Result<WriteObservation, String> effects [io_provider::Scope, concurrency]
 	let owner = io_provider::owner()
 	let state = io_provider::state(initial(list_nil(), list_nil(), list_nil(), replies))
 	let calls = channel::bounded<String>(16)
-	handle handle handle handle handle handle handle handle write_at_body(owner, 923, state, ByteOffset(7), bytes) with scripted_read(owner, 923, state) with scripted_write(owner, 923, state) with io_provider_test_support_test::seek(calls.tx) with scripted_read_at(owner, 923, state) with scripted_write_at(owner, 923, state) with io_provider_test_support_test::close(calls.tx) with io_provider_test_support_test::sync(calls.tx) with io_provider_test_support_test::mutate(calls.tx)
+	handle handle handle handle handle handle handle handle write_at_body(owner, 923, state, ByteOffset(7), bytes) with scripted_read(owner, 923, state) with scripted_write(owner, 923, state) with io_provider_test::seek(calls.tx) with scripted_read_at(owner, 923, state) with scripted_write_at(owner, 923, state) with io_provider_test::close(calls.tx) with io_provider_test::sync(calls.tx) with io_provider_test::mutate(calls.tx)
 end
