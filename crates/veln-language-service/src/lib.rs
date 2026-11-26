@@ -89,8 +89,8 @@ impl EffectiveProjectSnapshot {
     }
 
     pub fn with_standard_library(mut self, standard_library: DirectDependencySnapshot) -> Self {
+        self.indexed_standard_library = Arc::clone(&standard_library.indexed_navigation);
         self.standard_library = Some(standard_library);
-        self.indexed_standard_library = Arc::new(OnceLock::new());
         self.navigation_index = OnceLock::new();
         self.signature_function_names = OnceLock::new();
         self
@@ -292,6 +292,8 @@ pub struct DirectDependencySnapshot {
     exported_sources: BTreeSet<String>,
     virtual_sources: VirtualSourceCatalog,
     standard_library: bool,
+    // The immutable package layer can be shared by independent project snapshots.
+    indexed_navigation: Arc<OnceLock<Arc<IndexedDependencies>>>,
 }
 
 impl DirectDependencySnapshot {
@@ -321,6 +323,7 @@ impl DirectDependencySnapshot {
             exported_sources,
             virtual_sources,
             standard_library: false,
+            indexed_navigation: Arc::new(OnceLock::new()),
         })
     }
 
