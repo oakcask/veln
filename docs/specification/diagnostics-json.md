@@ -75,6 +75,13 @@ declaration whose binder has the same spelling. The same cases also fix
 qualified function-annotation failures: a missing final type, or a private
 final type that is not available through exact test-companion access, reports
 `name.unresolved`, and `details.symbol` retains the complete written type path.
+A qualified path rooted at the declaration's own binder, such as `T::Leaf`,
+also reports `name.unresolved` for the complete path. Applying type arguments
+to that binder, as in `T<Int>`, instead reports `type.invalid_annotation` over
+the application with the zero-arity mismatch in its message. These outcomes
+apply in parameter, result, and local body annotations. The focused semantic
+coverage is in
+[`generic_function_semantic_binders.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_binders.rs).
 
 A cyclic dependency component formed by selected same-module or imported
 module-value references reports one `value.module_initializer_cycle` at the

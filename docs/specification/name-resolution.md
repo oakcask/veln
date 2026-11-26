@@ -63,9 +63,14 @@ spelling in another function selects a distinct parameter, and a use outside
 the owning declaration remains unresolved unless a visible type declaration
 provides that name. An inaccessible declaration in the same analysis cannot
 lend its binder to another declaration or suppress that unresolved result. A
-binder that would shadow a visible built-in type, source type, or imported type
-alias is rejected at the binder; a source declaration is reported as related
-context. The [type rules](types.md#usage-and-annotations)
+binder is not a module or named-type qualifier: `T::Leaf` remains one
+unresolved type path even inside the declaration that owns `T`. A binder also
+has arity zero, so `T<Int>` is an invalid type application rather than a
+resolution of the unqualified binder.
+
+A binder that would shadow a visible built-in type, source type, or imported
+type alias is rejected at the binder; a source declaration is reported as
+related context. The [type rules](types.md#usage-and-annotations)
 define the rigid identity and checking behavior, and the
 [diagnostic contract](diagnostics-json.md#diagnostic-families) defines the
 observable failure records.
