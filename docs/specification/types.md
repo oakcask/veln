@@ -142,8 +142,10 @@ omitted fact. If the checker still has `unknown`, it reports
 `type.private_inference_incomplete`. The JSON details identify whether the
 missing slot is a private parameter or private return, name private parameters,
 report the missing fact, and include the current inferred type. A function's
-effect clause must name every inferred effect; a pure declaration omits the
-clause. Explicit empty `effects []` declaration clauses are rejected.
+effect requirements follow the [effect rules](effects.md#effect-labels): a
+public function must name every non-empty inferred effect, while a private
+function may infer its effect set. A pure public declaration omits the clause.
+Explicit empty `effects []` declaration clauses are rejected.
 
 The optional result binding in `-> name: Type` names the return value for
 postconditions, but the type annotation remains `Type`.

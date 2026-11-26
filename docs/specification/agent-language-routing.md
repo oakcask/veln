@@ -147,6 +147,8 @@ Recorded topic listings must match checked published or archived catalog
 evidence and its snapshot digest. A stale snapshot scenario must replace the
 server that returned the URI with a distinct server that retains the current
 published snapshot before the read fails. Because scenario events record exact
-snapshot URIs, a checked catalog content change updates the current base digest,
-the derived archived snapshot digests, and every affected scenario URI
-together; that evidence refresh does not add a routing outcome.
+snapshot URIs, a checked catalog content change updates the current base digest
+and every scenario URI that names the current snapshot. An archived snapshot
+digest and its scenario URIs change only when applying that archive's checked
+overrides to the new base changes the archived catalog bytes. This evidence
+refresh does not add a routing outcome.
