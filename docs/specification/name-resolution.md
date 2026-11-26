@@ -161,8 +161,13 @@ import qualifier does not become part of the published identity.
 For a qualified type annotation, an exact written import path is selected
 before a same-spelled current-module path. The selected type therefore retains
 the imported package identity even when the import target and the importing
-module have the same module spelling. An unqualified type name continues to
-select the current module's declaration.
+module have the same module spelling. After import selection, the final segment
+must identify a visible type or type alias with the written arity in that
+module. A missing or private final segment reports `name.unresolved`; lookup
+does not accept the module qualifier by itself or fall through to a namesake in
+another module. An unqualified type name continues to select the current
+module's declaration. These rules also apply to parameter, result, and local
+annotations inside an ordinary function declaration.
 
 Every import retains both its written target package and the package that owns
 the importing source. An explicit `from` package determines target origin;

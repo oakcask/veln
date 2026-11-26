@@ -152,6 +152,14 @@ visible type declaration defines it. A binder with the same spelling in an
 inaccessible declaration or another analyzed source does not make the name
 visible and does not suppress the unresolved-name failure.
 
+Every other named type in a function annotation resolves from the function's
+owning package and module. A qualified annotation selects its import before it
+selects the final type. The selected module must expose a public type or type
+alias of the written arity. A missing or private final type reports
+`name.unresolved`; the presence of the import alone does not make that type
+annotation valid. Functions in the embedded standard package use the same
+resolution and visibility facts as application functions.
+
 A function type binder cannot shadow a visible built-in type, source type, or
 imported type alias. The checker reports `name.type_parameter_shadow` at the
 binder. When the visible type has a source declaration, the diagnostic includes
