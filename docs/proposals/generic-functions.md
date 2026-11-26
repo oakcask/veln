@@ -43,8 +43,10 @@ owns the observable diagnostic identifiers, ordering, and primary spans.
 The current [type specification](../specification/types.md#usage-and-annotations)
 owns declaration-local rigid binder identity, scope through signatures, body
 annotations, and executable contracts, unresolved-name isolation from
-inaccessible declarations, and visible-type shadow rejection. These outcomes
-do not yet establish an independently instantiable type scheme.
+inaccessible declarations, and owner-scoped visible-type shadow rejection.
+Explicit binders also take precedence over the embedded standard package's
+temporary compatibility names. These outcomes do not yet establish an
+independently instantiable type scheme.
 The
 [effect specification](../specification/effects.md#effect-labels) already
 supports one declared effect-row parameter and call-specific substitution.
@@ -254,7 +256,8 @@ syntactically distinct from comparisons without consulting symbol types.
 
 The current [type rules](../specification/types.md#usage-and-annotations) own
 ordinary binder declaration identity, declaration-local scope, and visible-type
-shadow rejection for public and private functions. They also require complete
+shadow rejection for public and private functions. Shadow lookup is scoped by
+the declaration's owning package and module. They also require complete
 signatures on binder-bearing declarations. The remaining Q1 work is typed-call
 resolution and scheme selection.
 

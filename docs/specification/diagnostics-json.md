@@ -67,8 +67,12 @@ When source context exists, `related` contains a
 `shadowed_type_declaration` entry with that declaration's span. If multiple
 unqualified imported aliases expose the same terminal type identity, changing
 their declaration or source-discovery order does not change the declaration
-selected for that related entry. The checked
-[`human`](../../examples/specification/check/generic-function-semantic-binders-human/)
+selected for that related entry. Only imports owned by the binder declaration's
+package and module participate; a same-spelled module in another package does
+not produce this diagnostic. When the binder spelling names both a
+compiler-known built-in and a visible source declaration, `shadowed_kind`
+remains `builtin_type` and the source declaration remains in `related`. The
+checked [`human`](../../examples/specification/check/generic-function-semantic-binders-human/)
 and
 [`JSON`](../../examples/specification/check/generic-function-semantic-binders-json/)
 cases fix the rendered and structured forms, including an unbound binder name

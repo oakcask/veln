@@ -192,14 +192,21 @@ Functions in the embedded standard package use the same resolution and
 visibility facts as application functions. Until those APIs declare retained
 binders, the compiler recognizes the existing collection-helper and
 `io_provider` state-helper parameter names only in their specific standard
-package functions. The compatibility names do not become visible in another
-standard package function.
+package functions. A function with ordinary binders uses its declared binder
+set instead of these compatibility names. An undeclared compatibility name in
+that function remains unresolved. The compatibility names do not become
+visible in another standard package function.
 
 A function type binder cannot shadow a visible built-in type, source type, or
 imported type alias. Multiple bare imported aliases are visible for this rule
 when they resolve to one terminal type identity. The checker reports
 `name.type_parameter_shadow` at the binder. When the visible type has a source
-declaration, the diagnostic includes that declaration as related context. The
+declaration, the diagnostic includes that declaration as related context. An
+import is visible only to declarations in its owning package and module; a
+same-spelled module in another package does not contribute a shadow target.
+When a binder shadows both a compiler-known built-in and a visible source
+declaration, the diagnostic retains the built-in classification and the source
+declaration's related context. The
 checked human and JSON evidence is in
 [`generic-function-semantic-binders-human`](../../examples/specification/check/generic-function-semantic-binders-human/)
 and
