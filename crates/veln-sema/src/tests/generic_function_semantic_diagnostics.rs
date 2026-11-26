@@ -18,6 +18,55 @@ fn annotation_path_classification_source(count: usize, annotation: &str) -> Stri
     source
 }
 
+fn package_module(path: &str, source_text: &str, package: &str, module: &str) -> SurfaceModule {
+    let source = SourceFile::new(path, source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut lowered = veln_ast::lower_surface_ast_with_package_module_identity(
+        &parsed.tree,
+        package.to_string(),
+        module.to_string(),
+        source.span(veln_source::TextRange::new(0, 0)),
+    );
+    for use_decl in &mut lowered.uses {
+        use_decl.module_name = Some(module.to_string());
+    }
+    for alias in &mut lowered.aliases {
+        alias.module_name = Some(module.to_string());
+    }
+    for effect in &mut lowered.effects {
+        effect.module_name = Some(module.to_string());
+    }
+    for handler in &mut lowered.handlers {
+        handler.module_name = Some(module.to_string());
+    }
+    for schema in &mut lowered.schemas {
+        schema.module_name = Some(module.to_string());
+    }
+    for type_decl in &mut lowered.types {
+        type_decl.module_name = Some(module.to_string());
+    }
+    for value in &mut lowered.module_values {
+        value.module_name = Some(module.to_string());
+    }
+    for function in &mut lowered.functions {
+        function.module_name = Some(module.to_string());
+    }
+    lowered
+}
+
+fn extend_surface_module(module: &mut SurfaceModule, other: SurfaceModule) {
+    module.uses.extend(other.uses);
+    module.aliases.extend(other.aliases);
+    module.effects.extend(other.effects);
+    module.handlers.extend(other.handlers);
+    module.schemas.extend(other.schemas);
+    module.types.extend(other.types);
+    module.module_values.extend(other.module_values);
+    module.functions.extend(other.functions);
+    module.invalid_names.extend(other.invalid_names);
+}
+
 #[test]
 fn annotation_path_classification_work_has_a_linear_bound() {
     fn work(count: usize, annotation: &str) -> ((usize, usize), Vec<Diagnostic>) {
@@ -401,55 +450,6 @@ fn binder_shadowing_keeps_distinct_imported_terminal_identities_ambiguous() {
 
 #[test]
 fn imported_type_lookup_does_not_cross_same_spelled_modules_in_other_packages() {
-    fn package_module(path: &str, source_text: &str, package: &str, module: &str) -> SurfaceModule {
-        let source = SourceFile::new(path, source_text);
-        let parsed = parse(&source);
-        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-        let mut lowered = veln_ast::lower_surface_ast_with_package_module_identity(
-            &parsed.tree,
-            package.to_string(),
-            module.to_string(),
-            source.span(veln_source::TextRange::new(0, 0)),
-        );
-        for use_decl in &mut lowered.uses {
-            use_decl.module_name = Some(module.to_string());
-        }
-        for alias in &mut lowered.aliases {
-            alias.module_name = Some(module.to_string());
-        }
-        for effect in &mut lowered.effects {
-            effect.module_name = Some(module.to_string());
-        }
-        for handler in &mut lowered.handlers {
-            handler.module_name = Some(module.to_string());
-        }
-        for schema in &mut lowered.schemas {
-            schema.module_name = Some(module.to_string());
-        }
-        for type_decl in &mut lowered.types {
-            type_decl.module_name = Some(module.to_string());
-        }
-        for value in &mut lowered.module_values {
-            value.module_name = Some(module.to_string());
-        }
-        for function in &mut lowered.functions {
-            function.module_name = Some(module.to_string());
-        }
-        lowered
-    }
-
-    fn extend(module: &mut SurfaceModule, other: SurfaceModule) {
-        module.uses.extend(other.uses);
-        module.aliases.extend(other.aliases);
-        module.effects.extend(other.effects);
-        module.handlers.extend(other.handlers);
-        module.schemas.extend(other.schemas);
-        module.types.extend(other.types);
-        module.module_values.extend(other.module_values);
-        module.functions.extend(other.functions);
-        module.invalid_names.extend(other.invalid_names);
-    }
-
     let mut project = package_module(
         "importing.veln",
         concat!(
@@ -462,7 +462,7 @@ fn imported_type_lookup_does_not_cross_same_spelled_modules_in_other_packages() 
         "app",
     );
     project.uses[0].name = "types".to_string();
-    extend(
+    extend_surface_module(
         &mut project,
         package_module(
             "missing.veln",
@@ -478,7 +478,7 @@ fn imported_type_lookup_does_not_cross_same_spelled_modules_in_other_packages() 
             "app",
         ),
     );
-    extend(
+    extend_surface_module(
         &mut project,
         package_module(
             "types.veln",
