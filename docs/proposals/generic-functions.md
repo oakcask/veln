@@ -43,7 +43,10 @@ owns the observable diagnostic identifiers, ordering, and primary spans.
 The current [type specification](../specification/types.md#usage-and-annotations)
 owns declaration-local rigid binder identity, scope through signatures, body
 annotations, and executable contracts, unresolved-name isolation from
-inaccessible declarations, and owner-scoped visible-type shadow rejection.
+inaccessible declarations, schema and ADT scope boundaries, qualifier-first
+named-type lookup, and owner-scoped visible-type shadow rejection. The current
+[diagnostic contract](../specification/diagnostics-json.md#diagnostic-families)
+owns the resulting unresolved-name and shadow-classification records.
 Explicit binders also take precedence over the embedded standard package's
 temporary compatibility names. These outcomes do not yet establish an
 independently instantiable type scheme.

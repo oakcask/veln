@@ -87,8 +87,22 @@ A qualified path rooted at the declaration's own binder, such as `T::Leaf`,
 also reports `name.unresolved` for the complete path. Applying type arguments
 to that binder, as in `T<Int>`, instead reports `type.invalid_annotation` over
 the application with the zero-arity mismatch in its message. These outcomes
-apply in parameter, result, and local body annotations. The focused semantic
-and scaling coverage is in
+apply in parameter, result, and local body annotations.
+
+Schema-reference validation resolves an owning function's rigid binders before
+it searches the schema namespace. The same spelling in an ADT payload remains
+unresolved because the ADT does not own that binder. A qualified type path must
+resolve its written qualifier before a compiler-known final type can be
+selected; an unrelated qualifier does not make a built-in type visible. When a
+binder shadows an opaque compiler-known type that also has a visible source
+declaration, the diagnostic keeps `builtin_type` in `shadowed_kind` and includes
+the source declaration in `related`. The checked
+[`generic semantic gap human`](../../examples/specification/check/generic-function-semantic-gap-human/)
+and
+[`generic semantic gap JSON`](../../examples/specification/check/generic-function-semantic-gap-json/)
+cases fix these rendered and structured outcomes.
+
+The focused semantic and scaling coverage is in
 [`generic_function_semantic_binders.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_binders.rs)
 and
 [`generic_function_semantic_diagnostics.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs).
@@ -1511,6 +1525,9 @@ and
 [`generic-function-semantic-gap-json`](../../examples/specification/check/generic-function-semantic-gap-json/)
 cases fix the missing generic-signature projections and the related alias
 source selected when multiple bare aliases expose one terminal type identity.
+They also fix binder precedence over the schema namespace, ADT payload scope,
+unresolved binder and unknown qualifiers, and opaque built-in shadow
+classification described above.
 
 Deferred-block restriction diagnostics use kind `type`,
 `phase: "type_check"`, `boundary: "deferred_block"`, and one of these stable
