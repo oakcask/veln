@@ -7,6 +7,27 @@ use std::path::{Path, PathBuf};
 use std::process::Output;
 
 #[cfg(unix)]
+fn temp_dir(name: &str) -> PathBuf {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system clock should be after epoch")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "veln-jvm-build-{name}-{}-{nanos}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&root).expect("test directory should be created");
+    root
+}
+
+#[test]
+fn run_build_script() {
+    if std::env::var_os("VELN_BUILD_SCRIPT_CHILD").is_some() {
+        super::main();
+    }
+}
+
+#[cfg(unix)]
 const SUCCESSFUL_JAVAC: &str = concat!(
     "#!/bin/sh\n",
     "printf '%s\\n' \"$*\" >> \"$VELN_FAKE_JAVAC_LOG\"\n",
@@ -43,18 +64,18 @@ fn check_jvm_backend(root: &Path, path_entries: impl IntoIterator<Item = PathBuf
         .into_iter()
         .chain(std::env::split_paths(&process_path));
     let selected_path = std::env::join_paths(path_entries).expect("test PATH should be valid");
-    Command::new(env!("CARGO"))
-        .arg("check")
-        .arg("--quiet")
-        .arg("--manifest-path")
-        .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml"))
-        .arg("--package")
-        .arg("veln-backend-jvm")
-        .env("CARGO_TARGET_DIR", root.join("target"))
+    // Execute the real build entrypoint in an isolated process without rebuilding
+    // Rust dependencies for every fake javac response.
+    Command::new(std::env::current_exe().expect("build-script test executable"))
+        .args(["--exact", "tests::run_build_script", "--nocapture"])
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .env("VELN_BUILD_SCRIPT_CHILD", "1")
+        .env("CARGO_MANIFEST_DIR", env!("CARGO_MANIFEST_DIR"))
+        .env("OUT_DIR", root.join("output"))
         .env("PATH", selected_path)
         .env("VELN_FAKE_JAVAC_LOG", root.join("javac-invocations"))
         .output()
-        .expect("cargo should run the JVM backend build script")
+        .expect("JVM backend build script should run")
 }
 
 #[cfg(unix)]

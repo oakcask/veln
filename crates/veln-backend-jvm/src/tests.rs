@@ -30,7 +30,6 @@ use veln_syntax::parse;
 static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 
 mod basic_backend;
-mod build_boundary;
 mod collections_and_tail_recursion;
 mod concurrency;
 mod deferred_cleanup;
