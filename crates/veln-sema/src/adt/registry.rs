@@ -110,6 +110,16 @@ struct ImportedDescriptorCandidates {
     consistent_exact_arity: HashMap<(ResolvedImportOwner, String, usize), Option<usize>>,
 }
 
+#[derive(Debug, Default)]
+struct ImportedDescriptorCandidateIndexes {
+    any_arity: HashMap<(ResolvedImportOwner, String), Option<usize>>,
+    exact_arity: HashMap<(ResolvedImportOwner, String, usize), Option<usize>>,
+    consistent_any_arity:
+        HashMap<(ResolvedImportOwner, String), ConsistentImportedDescriptorCandidate>,
+    consistent_exact_arity:
+        HashMap<(ResolvedImportOwner, String, usize), ConsistentImportedDescriptorCandidate>,
+}
+
 #[derive(Debug)]
 struct ConsistentImportedDescriptorCandidate {
     terminal_identity: Option<String>,

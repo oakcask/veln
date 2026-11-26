@@ -11,9 +11,9 @@ use crate::source_less_names::InvalidStandardSymbolCase;
 use super::aliases::{ResolvedTypeAliases, descriptor_for_alias_target, type_alias_descriptors};
 use super::{
     AdtDeclarationFacts, AdtRegistry, ConsistentImportedDescriptorCandidate, DescriptorKey,
-    ImportOwners, ImportedDescriptorCandidates, QualifiedImportModules, QualifiedRecoveryModules,
-    TypeAliasDeclarationIdentity, VariantDeclarationOrder, VariantDescriptorKey,
-    descriptor_identity,
+    ImportOwners, ImportedDescriptorCandidateIndexes, ImportedDescriptorCandidates,
+    QualifiedImportModules, QualifiedRecoveryModules, TypeAliasDeclarationIdentity,
+    VariantDeclarationOrder, VariantDescriptorKey, descriptor_identity,
 };
 use crate::adt::descriptors::AdtDescriptor;
 use crate::adt::lookup_validation::{
@@ -33,6 +33,15 @@ type ParameterVarianceKey = (String, usize);
 type TargetVariance = (String, Vec<crate::adt::variance::Variance>);
 type ParameterVarianceIndex =
     HashMap<String, HashMap<usize, Option<Vec<crate::adt::variance::Variance>>>>;
+
+fn extended_companion_targets(
+    base: &AdtRegistry,
+    module: &SurfaceModule,
+) -> BTreeMap<String, String> {
+    let mut targets = base.companion_access_targets.clone();
+    targets.extend(companion_access_targets(module));
+    targets
+}
 
 impl RegistryIndexes {
     fn from_descriptors(descriptors: &[AdtDescriptor]) -> Self {
@@ -217,13 +226,7 @@ impl AdtRegistry {
     }
 
     pub(crate) fn from_module_with_base(module: &SurfaceModule, base: &Self) -> Self {
-        if module.types.is_empty() && module.aliases.is_empty() && base.declarations.extension_ready
-        {
-            let mut companion_targets = base.companion_access_targets.clone();
-            companion_targets.extend(companion_access_targets(module));
-            let mut registry =
-                Self::with_declarations(base.declarations.clone(), companion_targets);
-            registry.finish_import_scope(base, module, base.descriptors.len());
+        if let Some(registry) = Self::reuse_declarations_for_type_free_module(module, base) {
             return registry;
         }
         let mut descriptors = base.descriptors.clone();
@@ -260,11 +263,9 @@ impl AdtRegistry {
         descriptors.extend(aliases);
         let source_descriptor_start = descriptors.len();
         descriptors.extend(source_descriptors);
-        let mut companion_targets = base.companion_access_targets.clone();
-        companion_targets.extend(companion_access_targets(module));
         let mut registry = Self::from_parts_with_annotation_types(
             descriptors,
-            companion_targets,
+            extended_companion_targets(base, module),
             annotation_types,
         );
         registry.declarations_mut().type_alias_exposure_segments = type_alias_exposure_segments;
@@ -280,6 +281,24 @@ impl AdtRegistry {
         registry
     }
 
+    fn reuse_declarations_for_type_free_module(
+        module: &SurfaceModule,
+        base: &Self,
+    ) -> Option<Self> {
+        if !module.types.is_empty()
+            || !module.aliases.is_empty()
+            || !base.declarations.extension_ready
+        {
+            return None;
+        }
+        let mut registry = Self::with_declarations(
+            base.declarations.clone(),
+            extended_companion_targets(base, module),
+        );
+        registry.finish_import_scope(base, module, base.descriptors.len());
+        Some(registry)
+    }
+
     fn finish_source_registry(
         &mut self,
         base: &Self,
@@ -291,14 +310,7 @@ impl AdtRegistry {
     ) {
         self.declarations_mut().type_alias_identities = type_alias_identities;
         self.declarations_mut().resolved_type_alias_declarations = resolved_type_alias_declarations;
-        self.declarations_mut().declaration_spans = base.declaration_spans.clone();
-        self.declarations_mut()
-            .declaration_spans
-            .extend(source_declaration_spans(module));
-        self.declarations_mut().variant_declaration_spans = base.variant_declaration_spans.clone();
-        self.declarations_mut()
-            .variant_declaration_spans
-            .extend(source_variant_declaration_spans(module));
+        self.extend_source_declaration_spans(base, module);
         self.declarations_mut().quarantined_type_identities =
             base.quarantined_type_identities.clone();
         self.finish_import_scope(base, module, local_descriptor_start);
@@ -320,6 +332,17 @@ impl AdtRegistry {
         );
         self.rebuild_parameter_variance_index();
         self.mark_declarations_reusable();
+    }
+
+    fn extend_source_declaration_spans(&mut self, base: &Self, module: &SurfaceModule) {
+        self.declarations_mut().declaration_spans = base.declaration_spans.clone();
+        self.declarations_mut()
+            .declaration_spans
+            .extend(source_declaration_spans(module));
+        self.declarations_mut().variant_declaration_spans = base.variant_declaration_spans.clone();
+        self.declarations_mut()
+            .variant_declaration_spans
+            .extend(source_variant_declaration_spans(module));
     }
 
     fn finish_import_scope(
@@ -939,26 +962,8 @@ fn normalized_qualified_path(path: &str) -> String {
 
 impl AdtRegistry {
     fn imported_descriptor_candidates(&self, uses: &[UseDecl]) -> ImportedDescriptorCandidates {
-        let mut owners_by_imported_module =
-            HashMap::<(Option<String>, String), HashSet<ResolvedImportOwner>>::new();
-        for use_decl in uses {
-            if !crate::name_recovery::use_decl_contributes_bare_exports(use_decl) {
-                continue;
-            }
-            crate::adt::lookup_validation::record_import_path_comparison();
-            owners_by_imported_module
-                .entry({
-                    let target = use_decl.resolved_target();
-                    (target.package, target.module)
-                })
-                .or_default()
-                .insert(use_decl.resolved_owner());
-        }
-
-        let mut any_arity = HashMap::new();
-        let mut exact_arity = HashMap::new();
-        let mut consistent_any_arity = HashMap::new();
-        let mut consistent_exact_arity = HashMap::new();
+        let owners_by_imported_module = imported_module_owners(uses);
+        let mut candidates = ImportedDescriptorCandidateIndexes::default();
         for (index, descriptor) in self.descriptors.iter().enumerate() {
             let Some(module_name) = descriptor.module_name.as_ref() else {
                 continue;
@@ -971,53 +976,75 @@ impl AdtRegistry {
             let Some(owners) = owners_by_imported_module.get(&target) else {
                 continue;
             };
-            for owner in owners {
-                crate::adt::lookup_validation::record_import_path_comparison();
-                record_imported_candidate(
-                    &mut any_arity,
-                    (owner.clone(), descriptor.type_name.clone()),
-                    index,
-                );
-                record_imported_candidate(
-                    &mut exact_arity,
-                    (
-                        owner.clone(),
-                        descriptor.type_name.clone(),
-                        descriptor.type_parameters.len(),
-                    ),
-                    index,
-                );
-                let terminal_identity = self
-                    .terminal_descriptor_for_alias(descriptor)
-                    .unwrap_or_else(|| self.canonical_descriptor_for(descriptor))
-                    .identity();
-                record_consistent_imported_candidate(
-                    &mut consistent_any_arity,
-                    (owner.clone(), descriptor.type_name.clone()),
-                    index,
-                    terminal_identity.clone(),
-                    &self.descriptors,
-                );
-                record_consistent_imported_candidate(
-                    &mut consistent_exact_arity,
-                    (
-                        owner.clone(),
-                        descriptor.type_name.clone(),
-                        descriptor.type_parameters.len(),
-                    ),
-                    index,
-                    terminal_identity,
-                    &self.descriptors,
-                );
-            }
+            self.record_imported_descriptor_candidates(index, descriptor, owners, &mut candidates);
         }
         ImportedDescriptorCandidates {
-            any_arity,
-            exact_arity,
-            consistent_any_arity: finish_consistent_imported_candidates(consistent_any_arity),
-            consistent_exact_arity: finish_consistent_imported_candidates(consistent_exact_arity),
+            any_arity: candidates.any_arity,
+            exact_arity: candidates.exact_arity,
+            consistent_any_arity: finish_consistent_imported_candidates(
+                candidates.consistent_any_arity,
+            ),
+            consistent_exact_arity: finish_consistent_imported_candidates(
+                candidates.consistent_exact_arity,
+            ),
         }
     }
+
+    fn record_imported_descriptor_candidates(
+        &self,
+        index: usize,
+        descriptor: &AdtDescriptor,
+        owners: &HashSet<ResolvedImportOwner>,
+        candidates: &mut ImportedDescriptorCandidateIndexes,
+    ) {
+        let terminal_identity = self
+            .terminal_descriptor_for_alias(descriptor)
+            .unwrap_or_else(|| self.canonical_descriptor_for(descriptor))
+            .identity();
+        for owner in owners {
+            crate::adt::lookup_validation::record_import_path_comparison();
+            let any_arity_key = (owner.clone(), descriptor.type_name.clone());
+            let exact_arity_key = (
+                owner.clone(),
+                descriptor.type_name.clone(),
+                descriptor.type_parameters.len(),
+            );
+            record_imported_candidate(&mut candidates.any_arity, any_arity_key.clone(), index);
+            record_imported_candidate(&mut candidates.exact_arity, exact_arity_key.clone(), index);
+            record_consistent_imported_candidate(
+                &mut candidates.consistent_any_arity,
+                any_arity_key,
+                index,
+                terminal_identity.clone(),
+                &self.descriptors,
+            );
+            record_consistent_imported_candidate(
+                &mut candidates.consistent_exact_arity,
+                exact_arity_key,
+                index,
+                terminal_identity.clone(),
+                &self.descriptors,
+            );
+        }
+    }
+}
+
+fn imported_module_owners(
+    uses: &[UseDecl],
+) -> HashMap<(Option<String>, String), HashSet<ResolvedImportOwner>> {
+    let mut owners = HashMap::new();
+    for use_decl in uses {
+        if !crate::name_recovery::use_decl_contributes_bare_exports(use_decl) {
+            continue;
+        }
+        crate::adt::lookup_validation::record_import_path_comparison();
+        let target = use_decl.resolved_target();
+        owners
+            .entry((target.package, target.module))
+            .or_insert_with(HashSet::new)
+            .insert(use_decl.resolved_owner());
+    }
+    owners
 }
 
 fn record_consistent_imported_candidate<K: std::hash::Hash + Eq>(
