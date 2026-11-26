@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 11
+equals = 12
 
 [[diagnostics]]
 id = "name.type_parameter_shadow"
@@ -105,6 +105,17 @@ line = 39
 column = 3
 
 [[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `T`, but found `T`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 43
+column = 10
+
+[[diagnostics]]
 id = "name.unresolved"
 severity = "error"
 kind = "name"
@@ -112,7 +123,7 @@ message = "unresolved type `api::Missing`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 46
+line = 51
 column = 34
 
 [[diagnostics]]
@@ -123,7 +134,7 @@ message = "unresolved type `api::Private`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 50
+line = 55
 column = 34
 
 [[diagnostics]]
@@ -202,11 +213,11 @@ path = "diagnostics.2.related.0.span.start.line"
 equals = 5
 
 [[json_assert]]
-path = "diagnostics.8.details.symbol"
+path = "diagnostics.9.details.symbol"
 equals = "api::Missing"
 
 [[json_assert]]
-path = "diagnostics.9.details.symbol"
+path = "diagnostics.10.details.symbol"
 equals = "api::Private"
 
 [[json_assert]]
@@ -219,4 +230,8 @@ equals = "operator_operand"
 
 [[json_assert]]
 path = "diagnostics.6.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.8.details.constraint"
 equals = "call_argument"

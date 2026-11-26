@@ -14,6 +14,7 @@ contains = [
   "main.veln:30:3: error[type.mismatch]: expected `Int`, but found `T`",
   "main.veln:34:8: error[type.mismatch]: expected `Int`, but found `T`",
   "main.veln:39:16: error[type.mismatch]: expected `T`, but found `Int`",
+  "main.veln:43:10: error[type.mismatch]: expected `T`, but found `T`",
   "error[name.unresolved]: unresolved type `api::Missing`",
   "error[name.unresolved]: unresolved type `api::Private`",
   "error[name.unresolved]: unresolved type `T`",

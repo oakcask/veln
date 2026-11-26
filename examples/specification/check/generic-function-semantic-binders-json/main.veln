@@ -39,6 +39,11 @@ fn concrete_caller() -> Int
   invalid_body(1)
 end
 
+fn passes_to_second<T>(value: T) -> ()
+  second(value)
+  ()
+end
+
 fn accepts_qualified(value: api::Present, alias: api::Alias) -> ()
   ()
 end
