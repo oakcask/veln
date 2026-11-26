@@ -200,74 +200,27 @@ impl AdtRegistry {
         args_len: Option<usize>,
         owner: &ResolvedImportOwner,
     ) -> Option<usize> {
-        let owner_targets = self.bare_import_targets_by_owner.get(owner)?;
-        let targets = if let Some(args_len) = args_len {
-            self.imported_descriptor_targets_by_type_arity
-                .get(&(name.to_string(), args_len))?
-        } else {
-            self.imported_descriptor_targets_by_type.get(name)?
-        };
         let cache_key = (owner.clone(), name.to_string(), args_len);
-        if let Some(cached) = self
-            .unique_imported_descriptor_cache
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .get(&cache_key)
-            .copied()
+        if let Some(cached) =
+            cached_imported_descriptor(&self.unique_imported_descriptor_cache, &cache_key)
         {
             return cached;
         }
-        let visible_targets = if owner_targets.len() <= targets.len() {
-            owner_targets
-                .iter()
-                .filter(|target| {
-                    crate::adt::lookup_validation::record_import_path_comparison();
-                    targets.contains(*target)
-                })
-                .collect::<Vec<_>>()
-        } else {
-            targets
-                .iter()
-                .filter(|target| {
-                    crate::adt::lookup_validation::record_import_path_comparison();
-                    owner_targets.contains(*target)
-                })
-                .collect::<Vec<_>>()
-        };
+        let visible_targets = self.visible_imported_descriptor_targets(name, args_len, owner)?;
         let mut selected = None;
-        let mut ambiguous = false;
-        for (package, module) in visible_targets {
+        for target in visible_targets {
             crate::adt::lookup_validation::record_import_path_comparison();
-            let candidate = if let Some(args_len) = args_len {
-                self.imported_descriptors_by_type_arity.get(&(
-                    package.clone(),
-                    module.clone(),
-                    name.to_string(),
-                    args_len,
-                ))
-            } else {
-                self.imported_descriptors_by_type.get(&(
-                    package.clone(),
-                    module.clone(),
-                    name.to_string(),
-                ))
-            };
-            let Some(candidate) = candidate else {
+            let Some(candidate) = self.indexed_imported_descriptor(name, args_len, target, false)
+            else {
                 continue;
             };
-            let candidate = (*candidate)?;
+            let candidate = candidate?;
             if selected.replace(candidate).is_some() {
-                ambiguous = true;
+                selected = None;
                 break;
             }
         }
-        if ambiguous {
-            selected = None;
-        }
-        self.unique_imported_descriptor_cache
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(cache_key, selected);
+        cache_imported_descriptor(&self.unique_imported_descriptor_cache, cache_key, selected);
         selected
     }
 
@@ -277,6 +230,45 @@ impl AdtRegistry {
         args_len: Option<usize>,
         owner: &ResolvedImportOwner,
     ) -> Option<usize> {
+        let cache_key = (owner.clone(), name.to_string(), args_len);
+        if let Some(cached) =
+            cached_imported_descriptor(&self.consistent_imported_descriptor_cache, &cache_key)
+        {
+            return cached;
+        }
+        let visible_targets = self.visible_imported_descriptor_targets(name, args_len, owner)?;
+        let mut selected = None;
+        let mut terminal_identity = None;
+        for target in visible_targets {
+            crate::adt::lookup_validation::record_import_path_comparison();
+            let Some(candidate) = self.indexed_imported_descriptor(name, args_len, target, true)
+            else {
+                continue;
+            };
+            let candidate = candidate?;
+            if !self.select_consistent_imported_descriptor(
+                candidate,
+                &mut selected,
+                &mut terminal_identity,
+            ) {
+                selected = None;
+                break;
+            }
+        }
+        cache_imported_descriptor(
+            &self.consistent_imported_descriptor_cache,
+            cache_key,
+            selected,
+        );
+        selected
+    }
+
+    fn visible_imported_descriptor_targets(
+        &self,
+        name: &str,
+        args_len: Option<usize>,
+        owner: &ResolvedImportOwner,
+    ) -> Option<Vec<&ImportedDescriptorTarget>> {
         let owner_targets = self.bare_import_targets_by_owner.get(owner)?;
         let targets = if let Some(args_len) = args_len {
             self.imported_descriptor_targets_by_type_arity
@@ -284,84 +276,75 @@ impl AdtRegistry {
         } else {
             self.imported_descriptor_targets_by_type.get(name)?
         };
-        let cache_key = (owner.clone(), name.to_string(), args_len);
-        if let Some(cached) = self
-            .consistent_imported_descriptor_cache
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .get(&cache_key)
-            .copied()
-        {
-            return cached;
-        }
-        let visible_targets = if owner_targets.len() <= targets.len() {
-            owner_targets
-                .iter()
-                .filter(|target| {
-                    crate::adt::lookup_validation::record_import_path_comparison();
-                    targets.contains(*target)
-                })
-                .collect::<Vec<_>>()
+        let (smaller, larger) = if owner_targets.len() <= targets.len() {
+            (owner_targets, targets)
         } else {
-            targets
+            (targets, owner_targets)
+        };
+        Some(
+            smaller
                 .iter()
                 .filter(|target| {
                     crate::adt::lookup_validation::record_import_path_comparison();
-                    owner_targets.contains(*target)
+                    larger.contains(*target)
                 })
-                .collect::<Vec<_>>()
-        };
-        let mut selected = None;
-        let mut terminal_identity = None;
-        let mut inconsistent = false;
-        for (package, module) in visible_targets {
-            crate::adt::lookup_validation::record_import_path_comparison();
-            let candidate = if let Some(args_len) = args_len {
-                self.consistent_imported_descriptors_by_type_arity.get(&(
-                    package.clone(),
-                    module.clone(),
-                    name.to_string(),
-                    args_len,
-                ))
-            } else {
-                self.consistent_imported_descriptors_by_type.get(&(
-                    package.clone(),
-                    module.clone(),
-                    name.to_string(),
-                ))
-            };
-            let Some(candidate) = candidate else {
-                continue;
-            };
-            let candidate = (*candidate)?;
-            let descriptor = self.descriptor_lookup_candidate(candidate);
-            let candidate_identity = self
-                .terminal_descriptor_for_alias(descriptor)
-                .unwrap_or_else(|| self.canonical_descriptor_for(descriptor))
-                .identity();
-            if terminal_identity
-                .as_ref()
-                .is_some_and(|identity| identity != &candidate_identity)
-            {
-                inconsistent = true;
-                break;
-            }
-            terminal_identity = Some(candidate_identity);
-            if selected.is_none_or(|selected| {
-                descriptor_stable_source_key(descriptor)
-                    < descriptor_stable_source_key(self.descriptor_lookup_candidate(selected))
-            }) {
-                selected = Some(candidate);
-            }
+                .collect(),
+        )
+    }
+
+    fn indexed_imported_descriptor(
+        &self,
+        name: &str,
+        args_len: Option<usize>,
+        target: &ImportedDescriptorTarget,
+        consistent: bool,
+    ) -> Option<Option<usize>> {
+        let (package, module) = target;
+        match (consistent, args_len) {
+            (false, None) => self
+                .imported_descriptors_by_type
+                .get(&(package.clone(), module.clone(), name.to_string()))
+                .copied(),
+            (false, Some(args_len)) => self
+                .imported_descriptors_by_type_arity
+                .get(&(package.clone(), module.clone(), name.to_string(), args_len))
+                .copied(),
+            (true, None) => self
+                .consistent_imported_descriptors_by_type
+                .get(&(package.clone(), module.clone(), name.to_string()))
+                .copied(),
+            (true, Some(args_len)) => self
+                .consistent_imported_descriptors_by_type_arity
+                .get(&(package.clone(), module.clone(), name.to_string(), args_len))
+                .copied(),
         }
-        if inconsistent {
-            selected = None;
+    }
+
+    fn select_consistent_imported_descriptor(
+        &self,
+        candidate: usize,
+        selected: &mut Option<usize>,
+        terminal_identity: &mut Option<String>,
+    ) -> bool {
+        let descriptor = self.descriptor_lookup_candidate(candidate);
+        let candidate_identity = self
+            .terminal_descriptor_for_alias(descriptor)
+            .unwrap_or_else(|| self.canonical_descriptor_for(descriptor))
+            .identity();
+        if terminal_identity
+            .as_ref()
+            .is_some_and(|identity| identity != &candidate_identity)
+        {
+            return false;
         }
-        self.consistent_imported_descriptor_cache
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(cache_key, selected);
-        selected
+        *terminal_identity = Some(candidate_identity);
+        if selected.is_none_or(|selected| {
+            descriptor_stable_source_key(descriptor)
+                < descriptor_stable_source_key(self.descriptor_lookup_candidate(selected))
+        }) {
+            *selected = Some(candidate);
+        }
+        true
     }
 
     fn descriptor_is_unqualified_import_in_owner(
@@ -407,4 +390,26 @@ fn descriptor_stable_source_key(descriptor: &AdtDescriptor) -> (Option<&str>, Op
         descriptor.module_name.as_deref(),
         descriptor.type_name.as_str(),
     )
+}
+
+fn cached_imported_descriptor(
+    cache: &ImportedDescriptorLookupCache,
+    key: &ImportedDescriptorLookupKey,
+) -> Option<Option<usize>> {
+    cache
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(key)
+        .copied()
+}
+
+fn cache_imported_descriptor(
+    cache: &ImportedDescriptorLookupCache,
+    key: ImportedDescriptorLookupKey,
+    descriptor: Option<usize>,
+) {
+    cache
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(key, descriptor);
 }
