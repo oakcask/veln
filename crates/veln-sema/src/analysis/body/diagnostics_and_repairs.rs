@@ -295,27 +295,14 @@ impl<'a> FunctionChecker<'a> {
         let nested_failure =
             assignability_failure_with_registry(expected, actual, &self.environment.adts)
                 .filter(|failure| !failure.path.is_empty());
-        let mut details = type_details(
-            expr.node_id.display("expr"),
-            expected.render(),
-            actual.render(),
-            expected_source.source.as_type_source(),
-            "inferred_expression",
+        let details = self.type_mismatch_details(
+            expr,
+            expected,
+            actual,
+            expected_source,
             constraint,
-            [
-                self.function.node_id.display("fn"),
-                expected_source.origin_node_id.display("expr"),
-                expr.node_id.display("expr"),
-            ],
+            nested_failure.as_ref(),
         );
-        if let Some(failure) = &nested_failure
-            && let JsonValue::Object(entries) = &mut details
-        {
-            entries.push((
-                "nested_incompatibility".to_string(),
-                nested_failure_json(failure, expected_source.declaration_span.as_ref()),
-            ));
-        }
         let mut diagnostic = Diagnostic::new(
             "type.mismatch",
             Severity::Error,
@@ -329,38 +316,7 @@ impl<'a> FunctionChecker<'a> {
             details,
         );
         if let Some(failure) = nested_failure {
-            let mut nested_related = JsonValue::object([
-                ("kind", JsonValue::string("nested_type_incompatibility")),
-                (
-                    "message",
-                    JsonValue::string(format!(
-                        "Nested type comparison failed at {} ({}).",
-                        nested_path_text(&failure.path),
-                        comparison_direction_text(failure.direction),
-                    )),
-                ),
-                (
-                    "path",
-                    JsonValue::array(failure.path.iter().map(path_segment_json)),
-                ),
-                (
-                    "comparison_direction",
-                    JsonValue::string(comparison_direction_id(failure.direction)),
-                ),
-            ]);
-            if let Some(declaration_span) = &expected_source.declaration_span
-                && let JsonValue::Object(entries) = &mut nested_related
-            {
-                entries.push(("span".to_string(), span_json(declaration_span)));
-            }
-            diagnostic.related.push(nested_related);
-            if let Some(origin_span) = &expected_source.origin_span {
-                diagnostic.related.push(JsonValue::object([
-                    ("kind", JsonValue::string("expected_type_origin")),
-                    ("message", JsonValue::string(expected_source.origin_message)),
-                    ("span", span_json(origin_span)),
-                ]));
-            }
+            append_nested_type_mismatch_context(&mut diagnostic, &failure, expected_source);
         }
         if constraint == "call_argument" {
             append_distinct_rigid_type_parameter_context(
@@ -371,6 +327,39 @@ impl<'a> FunctionChecker<'a> {
             );
         }
         self.diagnostics.push(diagnostic);
+    }
+
+    fn type_mismatch_details(
+        &self,
+        expr: &Expr,
+        expected: &Type,
+        actual: &Type,
+        expected_source: &ExpectedType,
+        constraint: &'static str,
+        nested_failure: Option<&AssignabilityFailure>,
+    ) -> JsonValue {
+        let mut details = type_details(
+            expr.node_id.display("expr"),
+            expected.render(),
+            actual.render(),
+            expected_source.source.as_type_source(),
+            "inferred_expression",
+            constraint,
+            [
+                self.function.node_id.display("fn"),
+                expected_source.origin_node_id.display("expr"),
+                expr.node_id.display("expr"),
+            ],
+        );
+        if let Some(failure) = nested_failure
+            && let JsonValue::Object(entries) = &mut details
+        {
+            entries.push((
+                "nested_incompatibility".to_string(),
+                nested_failure_json(failure, expected_source.declaration_span.as_ref()),
+            ));
+        }
+        details
     }
 
     pub(super) fn push_invalid_type_annotation(
@@ -984,6 +973,45 @@ impl<'a> FunctionChecker<'a> {
                 })
             })
             .collect()
+    }
+}
+
+fn append_nested_type_mismatch_context(
+    diagnostic: &mut Diagnostic,
+    failure: &AssignabilityFailure,
+    expected_source: &ExpectedType,
+) {
+    let mut nested_related = JsonValue::object([
+        ("kind", JsonValue::string("nested_type_incompatibility")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Nested type comparison failed at {} ({}).",
+                nested_path_text(&failure.path),
+                comparison_direction_text(failure.direction),
+            )),
+        ),
+        (
+            "path",
+            JsonValue::array(failure.path.iter().map(path_segment_json)),
+        ),
+        (
+            "comparison_direction",
+            JsonValue::string(comparison_direction_id(failure.direction)),
+        ),
+    ]);
+    if let Some(declaration_span) = &expected_source.declaration_span
+        && let JsonValue::Object(entries) = &mut nested_related
+    {
+        entries.push(("span".to_string(), span_json(declaration_span)));
+    }
+    diagnostic.related.push(nested_related);
+    if let Some(origin_span) = &expected_source.origin_span {
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("expected_type_origin")),
+            ("message", JsonValue::string(expected_source.origin_message)),
+            ("span", span_json(origin_span)),
+        ]));
     }
 }
 
