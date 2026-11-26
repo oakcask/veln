@@ -2,28 +2,28 @@ use prelude
 use fs
 use io
 use io_provider
-use io_provider_test_support_test
-use io_provider_state_test_support_test
-use io_provider_lifecycle_test_support_test
+use io_provider_test
+use io_provider_state_test
+use io_provider_lifecycle_test
 use path
-use filesystem_provider_test_support_test
-use io_copy_test_support_test
-use io_seek_cursor_test_support_test
+use filesystem_provider_test
+use io_copy_test
+use io_seek_cursor_test
 
 fn readonly_filesystem(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<fs::Filesystem, io::Error> effects [concurrency]
-	handle io_provider::filesystem(owner, slot) with io_provider_test_support_test::filesystem_read(calls)
+	handle io_provider::filesystem(owner, slot) with io_provider_test::filesystem_read(calls)
 end
 
 fn mutable_filesystem(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<fs::MutableFilesystem, io::Error> effects [concurrency]
-	handle handle io_provider::mutable_filesystem(owner, slot) with io_provider_test_support_test::filesystem_read(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle io_provider::mutable_filesystem(owner, slot) with io_provider_test::filesystem_read(calls) with io_provider_test::mutate(calls)
 end
 
 fn mutable_filesystem_without_mutate(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<fs::MutableFilesystem, io::Error> effects [concurrency]
-	handle io_provider::mutable_filesystem(owner, slot) with io_provider_test_support_test::filesystem_read(calls)
+	handle io_provider::mutable_filesystem(owner, slot) with io_provider_test::filesystem_read(calls)
 end
 
 fn mutable_filesystem_without_read(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<fs::MutableFilesystem, io::Error> effects [concurrency]
-	handle io_provider::mutable_filesystem(owner, slot) with io_provider_test_support_test::mutate(calls)
+	handle io_provider::mutable_filesystem(owner, slot) with io_provider_test::mutate(calls)
 end
 
 fn readonly_namespace_observations() -> Result<(), String> effects [io_provider::Scope, concurrency]
@@ -199,123 +199,123 @@ fn namespace_factory_rejection_boundaries() -> Result<(), String> effects [io_pr
 end
 
 fn complete_registration(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::close(calls)
+	handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test::read(calls) with io_provider_test::seek(calls) with io_provider_test::read_at(calls) with io_provider_test::close(calls)
 end
 
 fn without_read(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::close(calls)
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test::seek(calls) with io_provider_test::read_at(calls) with io_provider_test::close(calls)
 end
 
 fn without_seek(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::close(calls)
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test::read(calls) with io_provider_test::read_at(calls) with io_provider_test::close(calls)
 end
 
 fn without_read_at(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::close(calls)
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test::read(calls) with io_provider_test::seek(calls) with io_provider_test::close(calls)
 end
 
 fn without_close(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls)
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::ReadFile) with io_provider_test::read(calls) with io_provider_test::seek(calls) with io_provider_test::read_at(calls)
 end
 
 fn complete_append_registration(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls)
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with io_provider_test::write(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls)
 end
 
 fn append_without_write(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls)
+	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with io_provider_test::close(calls) with io_provider_test::sync(calls)
 end
 
 fn append_without_close(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::sync(calls)
+	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with io_provider_test::write(calls) with io_provider_test::sync(calls)
 end
 
 fn append_without_sync(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::close(calls)
+	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::AppendFile) with io_provider_test::write(calls) with io_provider_test::close(calls)
 end
 
 fn complete_write_registration(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test::write(calls) with io_provider_test::seek(calls) with io_provider_test::write_at(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls) with io_provider_test::mutate(calls)
 end
 
 fn write_without_write(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test::seek(calls) with io_provider_test::write_at(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls) with io_provider_test::mutate(calls)
 end
 
 fn write_without_seek(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test::write(calls) with io_provider_test::write_at(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls) with io_provider_test::mutate(calls)
 end
 
 fn write_without_write_at(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test::write(calls) with io_provider_test::seek(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls) with io_provider_test::mutate(calls)
 end
 
 fn write_without_close(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test::write(calls) with io_provider_test::seek(calls) with io_provider_test::write_at(calls) with io_provider_test::sync(calls) with io_provider_test::mutate(calls)
 end
 
 fn write_without_sync(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test::write(calls) with io_provider_test::seek(calls) with io_provider_test::write_at(calls) with io_provider_test::close(calls) with io_provider_test::mutate(calls)
 end
 
 fn write_without_mutate(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls)
+	handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::WriteFile) with io_provider_test::write(calls) with io_provider_test::seek(calls) with io_provider_test::write_at(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls)
 end
 
 fn complete_update_registration(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test::read(calls) with io_provider_test::write(calls) with io_provider_test::seek(calls) with io_provider_test::read_at(calls) with io_provider_test::write_at(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls) with io_provider_test::mutate(calls)
 end
 
 fn update_without_read(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test::write(calls) with io_provider_test::seek(calls) with io_provider_test::read_at(calls) with io_provider_test::write_at(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls) with io_provider_test::mutate(calls)
 end
 
 fn update_without_write(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test::read(calls) with io_provider_test::seek(calls) with io_provider_test::read_at(calls) with io_provider_test::write_at(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls) with io_provider_test::mutate(calls)
 end
 
 fn update_without_seek(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test::read(calls) with io_provider_test::write(calls) with io_provider_test::read_at(calls) with io_provider_test::write_at(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls) with io_provider_test::mutate(calls)
 end
 
 fn update_without_read_at(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test::read(calls) with io_provider_test::write(calls) with io_provider_test::seek(calls) with io_provider_test::write_at(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls) with io_provider_test::mutate(calls)
 end
 
 fn update_without_write_at(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test::read(calls) with io_provider_test::write(calls) with io_provider_test::seek(calls) with io_provider_test::read_at(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls) with io_provider_test::mutate(calls)
 end
 
 fn update_without_close(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test::read(calls) with io_provider_test::write(calls) with io_provider_test::seek(calls) with io_provider_test::read_at(calls) with io_provider_test::write_at(calls) with io_provider_test::sync(calls) with io_provider_test::mutate(calls)
 end
 
 fn update_without_sync(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test::read(calls) with io_provider_test::write(calls) with io_provider_test::seek(calls) with io_provider_test::read_at(calls) with io_provider_test::write_at(calls) with io_provider_test::close(calls) with io_provider_test::mutate(calls)
 end
 
 fn update_without_mutate(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls)
+	handle handle handle handle handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::UpdateFile) with io_provider_test::read(calls) with io_provider_test::write(calls) with io_provider_test::seek(calls) with io_provider_test::read_at(calls) with io_provider_test::write_at(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls)
 end
 
 fn complete_duplex_registration(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::close(calls)
+	handle handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with io_provider_test::read(calls) with io_provider_test::write(calls) with io_provider_test::close(calls)
 end
 
 fn duplex_without_read(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::close(calls)
+	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with io_provider_test::write(calls) with io_provider_test::close(calls)
 end
 
 fn duplex_without_write(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::close(calls)
+	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with io_provider_test::read(calls) with io_provider_test::close(calls)
 end
 
 fn duplex_without_close(owner: io_provider::Owner, slot: Int, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls)
+	handle handle io_provider::resource(owner, slot, io_provider::ViewFamily::Duplex) with io_provider_test::read(calls) with io_provider_test::write(calls)
 end
 
 fn complete_family_registration(owner: io_provider::Owner, slot: Int, family: io_provider::ViewFamily, calls: Sender<String>) -> Result<io_provider::Resource, io::Error> effects [concurrency]
-	handle handle handle handle handle handle handle handle io_provider::resource(owner, slot, family) with io_provider_test_support_test::read(calls) with io_provider_test_support_test::write(calls) with io_provider_test_support_test::seek(calls) with io_provider_test_support_test::read_at(calls) with io_provider_test_support_test::write_at(calls) with io_provider_test_support_test::close(calls) with io_provider_test_support_test::sync(calls) with io_provider_test_support_test::mutate(calls)
+	handle handle handle handle handle handle handle handle io_provider::resource(owner, slot, family) with io_provider_test::read(calls) with io_provider_test::write(calls) with io_provider_test::seek(calls) with io_provider_test::read_at(calls) with io_provider_test::write_at(calls) with io_provider_test::close(calls) with io_provider_test::sync(calls) with io_provider_test::mutate(calls)
 end
 
 fn is_unsupported(result: Result<io_provider::Resource, io::Error>) -> Bool
@@ -1020,9 +1020,9 @@ end
 test atomic_state_allocations_are_independent_and_publish_result_with_replacement() -> Result<(), String> effects [concurrency]
 	let first: io_provider::State<String> = io_provider::state("first")
 	let second: io_provider::State<String> = io_provider::state("first")
-	let prior: String = io_provider::update(first, "replacement", io_provider_state_test_support_test::replace_string)
-	let first_after: String = io_provider::update(first, (), io_provider_state_test_support_test::observe_string)
-	let second_after: String = io_provider::update(second, (), io_provider_state_test_support_test::observe_string)
+	let prior: String = io_provider::update(first, "replacement", io_provider_state_test::replace_string)
+	let first_after: String = io_provider::update(first, (), io_provider_state_test::observe_string)
+	let second_after: String = io_provider::update(second, (), io_provider_state_test::observe_string)
 	if prior == "first" and first_after == "replacement" and second_after == "first"
 		Ok(())
 	else
@@ -1031,11 +1031,11 @@ test atomic_state_allocations_are_independent_and_publish_result_with_replacemen
 end
 
 fn atomic_state_add_one(cell: io_provider::State<Int>) -> Int effects [concurrency]
-	io_provider::update(cell, 1, io_provider_state_test_support_test::add)
+	io_provider::update(cell, 1, io_provider_state_test::add)
 end
 
 fn atomic_state_fail(cell: io_provider::State<Int>) -> Int effects [concurrency]
-	io_provider::update(cell, (), io_provider_state_test_support_test::fail_int)
+	io_provider::update(cell, (), io_provider_state_test::fail_int)
 end
 
 test atomic_state_identity_is_shared_with_children_and_completed_updates_are_serialized() -> Result<(), String> effects [concurrency]
@@ -1044,7 +1044,7 @@ test atomic_state_identity_is_shared_with_children_and_completed_updates_are_ser
 	let second = task::spawn_with(atomic_state_add_one, cell)
 	let first_joined = task::join(first)
 	let second_joined = task::join(second)
-	let after: Int = io_provider::update(cell, (), io_provider_state_test_support_test::observe_int)
+	let after: Int = io_provider::update(cell, (), io_provider_state_test::observe_int)
 	match first_joined
 		Ok(first_before) => match second_joined
 			Ok(second_before) => if after == 2 and ((first_before == 0 and second_before == 1) or (first_before == 1 and second_before == 0))
@@ -1066,9 +1066,9 @@ test atomic_state_callback_failure_preserves_state_and_releases_admission() -> R
 		Err(_) => true
 		Ok(_) => false
 	end
-	let before_survivor: Int = io_provider::update(cell, (), io_provider_state_test_support_test::observe_int)
-	let survivor_result: Int = io_provider::update(cell, 1, io_provider_state_test_support_test::add)
-	let after_survivor: Int = io_provider::update(cell, (), io_provider_state_test_support_test::observe_int)
+	let before_survivor: Int = io_provider::update(cell, (), io_provider_state_test::observe_int)
+	let survivor_result: Int = io_provider::update(cell, 1, io_provider_state_test::add)
+	let after_survivor: Int = io_provider::update(cell, (), io_provider_state_test::observe_int)
 	if failure_observed and before_survivor == 7 and survivor_result == 7 and after_survivor == 8
 		Ok(())
 	else
@@ -1101,7 +1101,7 @@ fn namespace_facade_dispatch_setup() -> Result<(), String> effects [io_provider:
 	let captured = channel::bounded<String>(16)
 	let fallback = channel::bounded<String>(16)
 	match mutable_filesystem(owner, 181, captured.tx)
-		Ok(filesystem) => handle handle namespace_facade_dispatch_observations(filesystem, captured.rx, fallback.rx) with io_provider_test_support_test::filesystem_read(fallback.tx) with io_provider_test_support_test::mutate(fallback.tx)
+		Ok(filesystem) => handle handle namespace_facade_dispatch_observations(filesystem, captured.rx, fallback.rx) with io_provider_test::filesystem_read(fallback.tx) with io_provider_test::mutate(fallback.tx)
 		Err(_) => Err("filesystem namespace dispatch setup failed")
 	end
 end
@@ -1141,7 +1141,7 @@ fn capability_facade_dispatch_setup() -> Result<(), String> effects [io_provider
 		Err(_) => Err("projected capability dispatch registration failed")
 		Ok(resource) => match io_provider::update_file(resource)
 			Err(_) => Err("projected capability dispatch projection failed")
-			Ok(view) => handle handle handle handle handle handle handle handle capability_facade_dispatch_observations(view, captured.rx, fallback.rx) with io_provider_test_support_test::read(fallback.tx) with io_provider_test_support_test::write(fallback.tx) with io_provider_test_support_test::seek(fallback.tx) with io_provider_test_support_test::read_at(fallback.tx) with io_provider_test_support_test::write_at(fallback.tx) with io_provider_test_support_test::close(fallback.tx) with io_provider_test_support_test::sync(fallback.tx) with io_provider_test_support_test::mutate(fallback.tx)
+			Ok(view) => handle handle handle handle handle handle handle handle capability_facade_dispatch_observations(view, captured.rx, fallback.rx) with io_provider_test::read(fallback.tx) with io_provider_test::write(fallback.tx) with io_provider_test::seek(fallback.tx) with io_provider_test::read_at(fallback.tx) with io_provider_test::write_at(fallback.tx) with io_provider_test::close(fallback.tx) with io_provider_test::sync(fallback.tx) with io_provider_test::mutate(fallback.tx)
 		end
 	end
 end
@@ -1150,12 +1150,12 @@ test projected_capability_facades_dispatch_all_captured_operations() -> Result<(
 	handle capability_facade_dispatch_setup() with io_provider::scope()
 end
 
-fn f2_readonly_filesystem(owner: io_provider::Owner, slot: Int, cell: io_provider::State<filesystem_provider_test_support_test::FakeState>) -> Result<fs::Filesystem, io::Error> effects [concurrency]
-	handle io_provider::filesystem(owner, slot) with filesystem_provider_test_support_test::filesystem(owner, slot, cell)
+fn f2_readonly_filesystem(owner: io_provider::Owner, slot: Int, cell: io_provider::State<filesystem_provider_test::FakeState>) -> Result<fs::Filesystem, io::Error> effects [concurrency]
+	handle io_provider::filesystem(owner, slot) with filesystem_provider_test::filesystem(owner, slot, cell)
 end
 
-fn f2_mutable_filesystem(owner: io_provider::Owner, slot: Int, cell: io_provider::State<filesystem_provider_test_support_test::FakeState>) -> Result<fs::MutableFilesystem, io::Error> effects [concurrency]
-	handle handle io_provider::mutable_filesystem(owner, slot) with filesystem_provider_test_support_test::filesystem(owner, slot, cell) with filesystem_provider_test_support_test::partial_mutable_filesystem(owner, slot, slot + 200, cell)
+fn f2_mutable_filesystem(owner: io_provider::Owner, slot: Int, cell: io_provider::State<filesystem_provider_test::FakeState>) -> Result<fs::MutableFilesystem, io::Error> effects [concurrency]
+	handle handle io_provider::mutable_filesystem(owner, slot) with filesystem_provider_test::filesystem(owner, slot, cell) with filesystem_provider_test::partial_mutable_filesystem(owner, slot, slot + 200, cell)
 end
 
 fn f2_is_invalid_resource(error: io::Error) -> Bool
@@ -1179,9 +1179,9 @@ fn f2_foreign_reader_rejected(result: io::ReadOutcome) -> Bool
 	end
 end
 
-fn f2_snapshot_matches(snapshot: filesystem_provider_test_support_test::Snapshot, source: String, output: String, reads: Int, log: String) -> Bool
+fn f2_snapshot_matches(snapshot: filesystem_provider_test::Snapshot, source: String, output: String, reads: Int, log: String) -> Bool
 	match snapshot
-		filesystem_provider_test_support_test::Snapshot(source_bytes, output_bytes, actual_reads, actual_log, _) => match byte_chunk_to_visible_ascii_string(source_bytes)
+		filesystem_provider_test::Snapshot(source_bytes, output_bytes, actual_reads, actual_log, _) => match byte_chunk_to_visible_ascii_string(source_bytes)
 			Ok(source_text) => match byte_chunk_to_visible_ascii_string(output_bytes)
 				Ok(output_text) => source_text == source and output_text == output and actual_reads == reads and actual_log == log
 				Err(_) => false
@@ -1191,27 +1191,27 @@ fn f2_snapshot_matches(snapshot: filesystem_provider_test_support_test::Snapshot
 	end
 end
 
-fn f2_snapshot_write_inputs_match(snapshot: filesystem_provider_test_support_test::Snapshot, first: String, second: String) -> Bool
+fn f2_snapshot_write_inputs_match(snapshot: filesystem_provider_test::Snapshot, first: String, second: String) -> Bool
 	match snapshot
-		filesystem_provider_test_support_test::Snapshot(_, _, _, _, Cons(first_bytes, Cons(second_bytes, Nil))) => byte_chunk_to_visible_ascii_string(first_bytes)? == first and byte_chunk_to_visible_ascii_string(second_bytes)? == second
+		filesystem_provider_test::Snapshot(_, _, _, _, Cons(first_bytes, Cons(second_bytes, Nil))) => byte_chunk_to_visible_ascii_string(first_bytes)? == first and byte_chunk_to_visible_ascii_string(second_bytes)? == second
 		_ => false
 	end
 end
 
-fn f2_inner_provider_observations(outer_owner: io_provider::Owner, outer_filesystem: fs::Filesystem, outer_state: io_provider::State<filesystem_provider_test_support_test::FakeState>, expected_count: ByteCount) -> Result<(), String> effects [io_provider::Scope, fs::Mutate, io::Read, io::Write, concurrency]
+fn f2_inner_provider_observations(outer_owner: io_provider::Owner, outer_filesystem: fs::Filesystem, outer_state: io_provider::State<filesystem_provider_test::FakeState>, expected_count: ByteCount) -> Result<(), String> effects [io_provider::Scope, fs::Mutate, io::Read, io::Write, concurrency]
 	let inner_owner = io_provider::owner()
 	match byte_chunk_from_hex("696e6e6572736f75726365")
 		Err(_) => Err("could not construct inner provider bytes")
 		Ok(inner_bytes) => begin
-			let inner_state = filesystem_provider_test_support_test::state(inner_bytes)
+			let inner_state = filesystem_provider_test::state(inner_bytes)
 			match f2_mutable_filesystem(inner_owner, 2, inner_state)
 				Err(_) => Err("inner mutable filesystem allocation failed")
 				Ok(inner_mutable) => begin
-					let before_outer = filesystem_provider_test_support_test::snapshot(outer_state)
-					let before_inner = filesystem_provider_test_support_test::snapshot(inner_state)
-					let foreign_namespace = handle perform fs::Read::open_read(outer_filesystem, path::root()) with filesystem_provider_test_support_test::filesystem(inner_owner, 2, inner_state)
-					let after_foreign_outer = filesystem_provider_test_support_test::snapshot(outer_state)
-					let after_foreign_inner = filesystem_provider_test_support_test::snapshot(inner_state)
+					let before_outer = filesystem_provider_test::snapshot(outer_state)
+					let before_inner = filesystem_provider_test::snapshot(inner_state)
+					let foreign_namespace = handle perform fs::Read::open_read(outer_filesystem, path::root()) with filesystem_provider_test::filesystem(inner_owner, 2, inner_state)
+					let after_foreign_outer = filesystem_provider_test::snapshot(outer_state)
+					let after_foreign_inner = filesystem_provider_test::snapshot(inner_state)
 					if not f2_foreign_filesystem_rejected(foreign_namespace)
 						Err("foreign namespace token was not rejected as InvalidResource")
 					else if not f2_snapshot_matches(before_outer, "outerbytes", "", 0, "") or not f2_snapshot_matches(after_foreign_outer, "outerbytes", "", 0, "")
@@ -1219,15 +1219,15 @@ fn f2_inner_provider_observations(outer_owner: io_provider::Owner, outer_filesys
 					else if not f2_snapshot_matches(before_inner, "innersource", "", 0, "") or not f2_snapshot_matches(after_foreign_inner, "innersource", "", 0, "")
 						Err("foreign namespace token changed the inner fake provider state")
 					else begin
-						let outer_open = handle fs::open_read(outer_filesystem, path::root()) with filesystem_provider_test_support_test::filesystem(inner_owner, 2, inner_state)
+						let outer_open = handle fs::open_read(outer_filesystem, path::root()) with filesystem_provider_test::filesystem(inner_owner, 2, inner_state)
 						match outer_open
 							Err(_) => Err("nested handler shadowing redirected the outer filesystem token")
 							Ok(fs::ReadFile(outer_reader, _, _, _)) => begin
-								let before_capability_outer = filesystem_provider_test_support_test::snapshot(outer_state)
-								let before_capability_inner = filesystem_provider_test_support_test::snapshot(inner_state)
-								let foreign_capability = handle perform io::Read::read(outer_reader, expected_count) with filesystem_provider_test_support_test::reader(inner_owner, 102, inner_state)
-								let after_capability_outer = filesystem_provider_test_support_test::snapshot(outer_state)
-								let after_capability_inner = filesystem_provider_test_support_test::snapshot(inner_state)
+								let before_capability_outer = filesystem_provider_test::snapshot(outer_state)
+								let before_capability_inner = filesystem_provider_test::snapshot(inner_state)
+								let foreign_capability = handle perform io::Read::read(outer_reader, expected_count) with filesystem_provider_test::reader(inner_owner, 102, inner_state)
+								let after_capability_outer = filesystem_provider_test::snapshot(outer_state)
+								let after_capability_inner = filesystem_provider_test::snapshot(inner_state)
 								if not f2_foreign_reader_rejected(foreign_capability)
 									Err("foreign byte capability was not rejected as InvalidResource")
 								else if not f2_snapshot_matches(before_capability_outer, "outerbytes", "", 0, "open_read;") or not f2_snapshot_matches(after_capability_outer, "outerbytes", "", 0, "open_read;")
@@ -1237,10 +1237,10 @@ fn f2_inner_provider_observations(outer_owner: io_provider::Owner, outer_filesys
 								else begin
 									match fs::open_write(inner_mutable, path::root(), fs::WriteMode::WriteMode(fs::CreateMode::CreateIfMissing, true))
 										Err(_) => Err("inner writer allocation failed")
-										Ok(fs::WriteFile(inner_writer, _, _, _, _, _)) => match handle handle io::copy(outer_reader, inner_writer, expected_count) with filesystem_provider_test_support_test::reader(inner_owner, 102, inner_state) with filesystem_provider_test_support_test::writer(outer_owner, 201, outer_state)
+										Ok(fs::WriteFile(inner_writer, _, _, _, _, _)) => match handle handle io::copy(outer_reader, inner_writer, expected_count) with filesystem_provider_test::reader(inner_owner, 102, inner_state) with filesystem_provider_test::writer(outer_owner, 201, outer_state)
 											io::CopyOutcome::Copied(count) => begin
-												let outer_after = filesystem_provider_test_support_test::snapshot(outer_state)
-												let inner_after = filesystem_provider_test_support_test::snapshot(inner_state)
+												let outer_after = filesystem_provider_test::snapshot(outer_state)
+												let inner_after = filesystem_provider_test::snapshot(inner_state)
 												if byte_count_to_int(count) == byte_count_to_int(expected_count) and f2_snapshot_matches(outer_after, "outerbytes", "", 1, "open_read;read;end;") and f2_snapshot_matches(inner_after, "innersource", "outerbytes", 0, "open_write;partial-write;write;") and f2_snapshot_write_inputs_match(inner_after, "uterbytes", "outerbytes")
 													Ok(())
 												else
@@ -1267,7 +1267,7 @@ fn f2_outer_provider_observations() -> Result<(), String> effects [io_provider::
 	match byte_chunk_from_hex("6f757465726279746573")
 		Err(_) => Err("could not construct outer provider bytes")
 		Ok(outer_bytes) => begin
-			let outer_state = filesystem_provider_test_support_test::state(outer_bytes)
+			let outer_state = filesystem_provider_test::state(outer_bytes)
 			match f2_readonly_filesystem(outer_owner, 1, outer_state)
 				Err(_) => Err("outer filesystem allocation failed")
 				Ok(outer_filesystem) => match byte_count(10)
@@ -1290,11 +1290,11 @@ fn f2_open_is_invalid_input(result: Result<fs::ReadFile, io::Error>) -> Bool
 	end
 end
 
-fn f2_non_nearest_namespace_rejection(filesystem: fs::Filesystem, cell: io_provider::State<filesystem_provider_test_support_test::FakeState>) -> Result<(), String> effects [io_provider::Scope, fs::Read, concurrency]
+fn f2_non_nearest_namespace_rejection(filesystem: fs::Filesystem, cell: io_provider::State<filesystem_provider_test::FakeState>) -> Result<(), String> effects [io_provider::Scope, fs::Read, concurrency]
 	let _ = io_provider::owner()
-	let before = filesystem_provider_test_support_test::snapshot(cell)
+	let before = filesystem_provider_test::snapshot(cell)
 	let rejected = fs::open_read(filesystem, path::root())
-	let after = filesystem_provider_test_support_test::snapshot(cell)
+	let after = filesystem_provider_test::snapshot(cell)
 	if not f2_open_is_invalid_input(rejected)
 		Err("captured dispatch registered a namespace for a non-nearest owner")
 	else if not f2_snapshot_matches(before, "authority", "", 0, "") or not f2_snapshot_matches(after, "authority", "", 0, "")
@@ -1309,7 +1309,7 @@ fn f2_namespace_registration_authority_observations() -> Result<(), String> effe
 	match byte_chunk_from_hex("617574686f72697479")
 		Err(_) => Err("could not construct registration-authority bytes")
 		Ok(bytes) => begin
-			let cell = filesystem_provider_test_support_test::state(bytes)
+			let cell = filesystem_provider_test::state(bytes)
 			handle begin
 				match io_provider::filesystem(owner, 81)
 					Err(_) => Err("could not allocate registration-authority filesystem")
@@ -1318,7 +1318,7 @@ fn f2_namespace_registration_authority_observations() -> Result<(), String> effe
 						Ok(()) => match io_provider::filesystem(owner, 82)
 							Err(_) => Err("rejected non-nearest namespace attempt consumed its slot")
 							Ok(_) => begin
-								let final_snapshot = filesystem_provider_test_support_test::snapshot(cell)
+								let final_snapshot = filesystem_provider_test::snapshot(cell)
 								if f2_snapshot_matches(final_snapshot, "authority", "", 0, "")
 									Ok(())
 								else
@@ -1328,7 +1328,7 @@ fn f2_namespace_registration_authority_observations() -> Result<(), String> effe
 						end
 					end
 				end
-			end with filesystem_provider_test_support_test::namespace_registration_probe(owner, 82, cell)
+			end with filesystem_provider_test::namespace_registration_probe(owner, 82, cell)
 		end
 	end
 end
@@ -1347,18 +1347,18 @@ fn f2_read_matches(result: io::ReadOutcome, expected: String) -> Bool
 	end
 end
 
-fn f2_shared_inner_observations(first_owner: io_provider::Owner, first_filesystem: fs::Filesystem, first_state: io_provider::State<filesystem_provider_test_support_test::FakeState>, second_state: io_provider::State<filesystem_provider_test_support_test::FakeState>, providers: io_provider::State<filesystem_provider_test_support_test::SharedProviders>) -> Result<(), String> effects [io_provider::Scope, fs::Read, io::Read, concurrency]
+fn f2_shared_inner_observations(first_owner: io_provider::Owner, first_filesystem: fs::Filesystem, first_state: io_provider::State<filesystem_provider_test::FakeState>, second_state: io_provider::State<filesystem_provider_test::FakeState>, providers: io_provider::State<filesystem_provider_test::SharedProviders>) -> Result<(), String> effects [io_provider::Scope, fs::Read, io::Read, concurrency]
 	let second_owner = io_provider::owner()
-	let second = filesystem_provider_test_support_test::SharedProvider(second_owner, 59, 71, second_state)
-	let _ = filesystem_provider_test_support_test::register_second(providers, second)
+	let second = filesystem_provider_test::SharedProvider(second_owner, 59, 71, second_state)
+	let _ = filesystem_provider_test::register_second(providers, second)
 	match io_provider::filesystem(second_owner, 59)
 		Err(_) => Err("second owner could not reuse the shared namespace handler")
 		Ok(second_filesystem) => begin
-			let before_foreign_first = filesystem_provider_test_support_test::snapshot(first_state)
-			let before_foreign_second = filesystem_provider_test_support_test::snapshot(second_state)
+			let before_foreign_first = filesystem_provider_test::snapshot(first_state)
+			let before_foreign_second = filesystem_provider_test::snapshot(second_state)
 			let foreign_namespace = perform fs::Read::open_read(first_filesystem, path::root())
-			let after_foreign_first = filesystem_provider_test_support_test::snapshot(first_state)
-			let after_foreign_second = filesystem_provider_test_support_test::snapshot(second_state)
+			let after_foreign_first = filesystem_provider_test::snapshot(first_state)
+			let after_foreign_second = filesystem_provider_test::snapshot(second_state)
 			if not f2_foreign_filesystem_rejected(foreign_namespace)
 				Err("shared-frame foreign namespace token was not rejected")
 			else if not f2_snapshot_matches(before_foreign_first, "first", "", 0, "") or not f2_snapshot_matches(after_foreign_first, "first", "", 0, "")
@@ -1372,11 +1372,11 @@ fn f2_shared_inner_observations(first_owner: io_provider::Owner, first_filesyste
 					Ok(fs::ReadFile(second_reader, _, _, _)) => match byte_count(6)
 						Err(_) => Err("could not construct the shared-provider read bound")
 						Ok(maximum) => begin
-							let before_foreign_capability_first = filesystem_provider_test_support_test::snapshot(first_state)
-							let before_foreign_capability_second = filesystem_provider_test_support_test::snapshot(second_state)
+							let before_foreign_capability_first = filesystem_provider_test::snapshot(first_state)
+							let before_foreign_capability_second = filesystem_provider_test::snapshot(second_state)
 							let foreign_capability = perform io::Read::read(first_reader, maximum)
-							let after_foreign_capability_first = filesystem_provider_test_support_test::snapshot(first_state)
-							let after_foreign_capability_second = filesystem_provider_test_support_test::snapshot(second_state)
+							let after_foreign_capability_first = filesystem_provider_test::snapshot(first_state)
+							let after_foreign_capability_second = filesystem_provider_test::snapshot(second_state)
 							if not f2_foreign_reader_rejected(foreign_capability)
 								Err("shared-frame foreign byte capability was not rejected")
 							else if not f2_snapshot_matches(before_foreign_capability_first, "first", "", 0, "open_read;") or not f2_snapshot_matches(after_foreign_capability_first, "first", "", 0, "open_read;")
@@ -1386,8 +1386,8 @@ fn f2_shared_inner_observations(first_owner: io_provider::Owner, first_filesyste
 							else begin
 								let first_read = io::read(first_reader, maximum)
 								let second_read = io::read(second_reader, maximum)
-								let final_first = filesystem_provider_test_support_test::snapshot(first_state)
-								let final_second = filesystem_provider_test_support_test::snapshot(second_state)
+								let final_first = filesystem_provider_test::snapshot(first_state)
+								let final_second = filesystem_provider_test::snapshot(second_state)
 								if f2_read_matches(first_read, "first") and f2_read_matches(second_read, "second") and f2_snapshot_matches(final_first, "first", "", 1, "open_read;read;") and f2_snapshot_matches(final_second, "second", "", 1, "open_read;read;")
 									Ok(())
 								else
@@ -1405,7 +1405,7 @@ end
 
 end
 
-fn f2_shared_handler_observations(first_owner: io_provider::Owner, first_state: io_provider::State<filesystem_provider_test_support_test::FakeState>, second_state: io_provider::State<filesystem_provider_test_support_test::FakeState>, providers: io_provider::State<filesystem_provider_test_support_test::SharedProviders>) -> Result<(), String> effects [fs::Read, io::Read, concurrency]
+fn f2_shared_handler_observations(first_owner: io_provider::Owner, first_state: io_provider::State<filesystem_provider_test::FakeState>, second_state: io_provider::State<filesystem_provider_test::FakeState>, providers: io_provider::State<filesystem_provider_test::SharedProviders>) -> Result<(), String> effects [fs::Read, io::Read, concurrency]
 	match io_provider::filesystem(first_owner, 31)
 		Err(_) => Err("first owner could not register through the shared namespace handler")
 		Ok(first_filesystem) => handle f2_shared_inner_observations(first_owner, first_filesystem, first_state, second_state, providers) with io_provider::scope()
@@ -1419,11 +1419,11 @@ fn f2_shared_outer_observations() -> Result<(), String> effects [io_provider::Sc
 		Ok(first_bytes) => match byte_chunk_from_hex("7365636f6e64")
 			Err(_) => Err("could not construct second shared-provider bytes")
 			Ok(second_bytes) => begin
-				let first_state = filesystem_provider_test_support_test::state(first_bytes)
-				let second_state = filesystem_provider_test_support_test::state(second_bytes)
-				let first = filesystem_provider_test_support_test::SharedProvider(first_owner, 31, 43, first_state)
-				let providers = filesystem_provider_test_support_test::shared(first)
-				handle handle handle handle handle f2_shared_handler_observations(first_owner, first_state, second_state, providers) with filesystem_provider_test_support_test::shared_filesystem(providers) with filesystem_provider_test_support_test::shared_reader(providers) with filesystem_provider_test_support_test::shared_seeker() with filesystem_provider_test_support_test::shared_positional_reader() with filesystem_provider_test_support_test::shared_closer()
+				let first_state = filesystem_provider_test::state(first_bytes)
+				let second_state = filesystem_provider_test::state(second_bytes)
+				let first = filesystem_provider_test::SharedProvider(first_owner, 31, 43, first_state)
+				let providers = filesystem_provider_test::shared(first)
+				handle handle handle handle handle f2_shared_handler_observations(first_owner, first_state, second_state, providers) with filesystem_provider_test::shared_filesystem(providers) with filesystem_provider_test::shared_reader(providers) with filesystem_provider_test::shared_seeker() with filesystem_provider_test::shared_positional_reader() with filesystem_provider_test::shared_closer()
 			end
 		end
 	end
@@ -1433,9 +1433,9 @@ test shared_handler_frames_preserve_independent_provider_owners() -> Result<(), 
 	handle f2_shared_outer_observations() with io_provider::scope()
 end
 
-fn f3_write_count_matches(joined: Result<filesystem_provider_test_support_test::WriteReport, task::JoinError>, expected: Int) -> Bool
+fn f3_write_count_matches(joined: Result<filesystem_provider_test::WriteReport, task::JoinError>, expected: Int) -> Bool
 	match joined
-		Ok(filesystem_provider_test_support_test::WriteCompleted(count)) => count == expected
+		Ok(filesystem_provider_test::WriteCompleted(count)) => count == expected
 		_ => false
 	end
 end
@@ -1451,27 +1451,27 @@ fn f3_concurrent_writer_observations() -> Result<(), String> effects [io_provide
 				Ok(first_chunk) => match byte_chunk_from_hex("5249474854")
 					Err(_) => Err("could not construct second concurrent writer chunk")
 					Ok(second_chunk) => begin
-						let cell = filesystem_provider_test_support_test::seeded_state(source, seed)
-						match filesystem_provider_test_support_test::registered_writer(owner, 301, cell, "first")
+						let cell = filesystem_provider_test::seeded_state(source, seed)
+						match filesystem_provider_test::registered_writer(owner, 301, cell, "first")
 							Err(_) => Err("first concurrent writer registration failed")
-							Ok(first_writer) => match filesystem_provider_test_support_test::registered_writer(owner, 302, cell, "second")
+							Ok(first_writer) => match filesystem_provider_test::registered_writer(owner, 302, cell, "second")
 								Err(_) => Err("second concurrent writer registration failed")
 								Ok(second_writer) => begin
 									let ready = channel::bounded<()>(2)
 									let start = channel::bounded<()>(2)
-									let first_request = filesystem_provider_test_support_test::WriteRequest(first_writer, first_chunk, ready.tx, start.rx)
-									let second_request = filesystem_provider_test_support_test::WriteRequest(second_writer, second_chunk, ready.tx, start.rx)
-									let first = filesystem_provider_test_support_test::spawn_coordinated_write(first_request)
-									let second = filesystem_provider_test_support_test::spawn_coordinated_write(second_request)
+									let first_request = filesystem_provider_test::WriteRequest(first_writer, first_chunk, ready.tx, start.rx)
+									let second_request = filesystem_provider_test::WriteRequest(second_writer, second_chunk, ready.tx, start.rx)
+									let first = filesystem_provider_test::spawn_coordinated_write(first_request)
+									let second = filesystem_provider_test::spawn_coordinated_write(second_request)
 									let first_ready: Option<()> = channel::recv(ready.rx)
 									let second_ready: Option<()> = channel::recv(ready.rx)
 									let _ = channel::send(start.tx, ())
 									let _ = channel::send(start.tx, ())
 									let first_joined = task::join(first)
 									let second_joined = task::join(second)
-									let final_snapshot = filesystem_provider_test_support_test::snapshot(cell)
+									let final_snapshot = filesystem_provider_test::snapshot(cell)
 									match final_snapshot
-										filesystem_provider_test_support_test::Snapshot(final_source, final_output, reads, log, _) => match byte_chunk_to_visible_ascii_string(final_source)
+										filesystem_provider_test::Snapshot(final_source, final_output, reads, log, _) => match byte_chunk_to_visible_ascii_string(final_source)
 											Err(_) => Err("concurrent writer source bytes were not observable")
 											Ok(source_text) => match byte_chunk_to_visible_ascii_string(final_output)
 												Err(_) => Err("concurrent writer output bytes were not observable")
@@ -1513,8 +1513,8 @@ end
 
 fn f3_retained_resource(events: Sender<String>, state: io_provider::State<Int>, foreign_owner: io_provider::Owner) -> Result<io_provider::Resource, io::Error> effects [io_provider::Scope, concurrency]
 	let owner = io_provider::owner()
-	let plan = io_provider_lifecycle_test_support_test::ReleasePlan(owner, foreign_owner, 401, state, events, false)
-	io_provider_lifecycle_test_support_test::register(owner, plan)
+	let plan = io_provider_lifecycle_test::ReleasePlan(owner, foreign_owner, 401, state, events, false)
+	io_provider_lifecycle_test::register(owner, plan)
 end
 
 fn f3_invalid_resource_projection(result: Result<fs::ReadFile, io::Error>) -> Bool
@@ -1530,7 +1530,7 @@ test closed_owner_projection_rejects_without_provider_dispatch() -> Result<(), S
 	let state = io_provider::state(17)
 	match handle f3_retained_resource(events.tx, state, foreign_owner) with io_provider::scope()
 		Err(_) => Err("closed-owner projection setup failed")
-		Ok(resource) => if f3_invalid_resource_projection(io_provider::read_file(resource)) and f3_release_event_matches(events.rx) and io_provider_lifecycle_test_support_test::observe_state(state) == 17
+		Ok(resource) => if f3_invalid_resource_projection(io_provider::read_file(resource)) and f3_release_event_matches(events.rx) and io_provider_lifecycle_test::observe_state(state) == 17
 			Ok(())
 		else
 			Err("closed-owner projection invoked a provider or changed unrelated state")
@@ -1538,10 +1538,10 @@ test closed_owner_projection_rejects_without_provider_dispatch() -> Result<(), S
 	end
 end
 
-fn f3_closed_dispatch_task(events: Sender<String>, state: io_provider::State<Int>, foreign_owner: io_provider::Owner, maximum: ByteCount, ready: Sender<()>, start: Receiver<()>) -> Result<Task<io_provider_lifecycle_test_support_test::ClosedDispatchReport>, io::Error> effects [io_provider::Scope, concurrency]
+fn f3_closed_dispatch_task(events: Sender<String>, state: io_provider::State<Int>, foreign_owner: io_provider::Owner, maximum: ByteCount, ready: Sender<()>, start: Receiver<()>) -> Result<Task<io_provider_lifecycle_test::ClosedDispatchReport>, io::Error> effects [io_provider::Scope, concurrency]
 	let owner = io_provider::owner()
-	let plan = io_provider_lifecycle_test_support_test::ReleasePlan(owner, foreign_owner, 401, state, events, false)
-	io_provider_lifecycle_test_support_test::spawn_closed_dispatch(owner, plan, maximum, ready, start)
+	let plan = io_provider_lifecycle_test::ReleasePlan(owner, foreign_owner, 401, state, events, false)
+	io_provider_lifecycle_test::spawn_closed_dispatch(owner, plan, maximum, ready, start)
 end
 
 test closed_owner_facade_and_lexical_dispatch_reject_before_provider_call() -> Result<(), String> effects [concurrency]
@@ -1557,7 +1557,7 @@ test closed_owner_facade_and_lexical_dispatch_reject_before_provider_call() -> R
 			let started: Option<()> = channel::recv(ready.rx)
 			let _ = channel::send(start.tx, ())
 			match task::join(worker)
-				Ok(io_provider_lifecycle_test_support_test::ClosedDispatchReport(facade_rejected, lexical_rejected, state_unchanged)) => if started != None and facade_rejected and lexical_rejected and state_unchanged and f3_release_event_matches(events.rx) and io_provider_lifecycle_test_support_test::observe_state(state) == 17
+				Ok(io_provider_lifecycle_test::ClosedDispatchReport(facade_rejected, lexical_rejected, state_unchanged)) => if started != None and facade_rejected and lexical_rejected and state_unchanged and f3_release_event_matches(events.rx) and io_provider_lifecycle_test::observe_state(state) == 17
 					Ok(())
 				else
 					Err("closed-owner facade or lexical dispatch reached the provider or changed state")
@@ -1570,8 +1570,8 @@ end
 
 fn f3_owner_exit(events: Sender<String>, state: io_provider::State<Int>, foreign_owner: io_provider::Owner, fail_release: Bool, fail_body: Bool) -> Result<(), String> effects [io_provider::Scope, concurrency]
 	let owner = io_provider::owner()
-	let plan = io_provider_lifecycle_test_support_test::ReleasePlan(owner, foreign_owner, 401, state, events, fail_release)
-	match io_provider_lifecycle_test_support_test::register(owner, plan)
+	let plan = io_provider_lifecycle_test::ReleasePlan(owner, foreign_owner, 401, state, events, fail_release)
+	match io_provider_lifecycle_test::register(owner, plan)
 		Err(_) => Err("owner-lifecycle resource registration failed")
 		Ok(_) => if fail_body
 			Err("planned owner body failure")
@@ -1609,7 +1609,7 @@ test owner_exit_restricts_cleanup_access_and_preserves_state() -> Result<(), Str
 				Err("owner cleanup changed the propagated body failure")
 			else if not f3_release_event_matches(events.rx) or not f3_release_event_matches(events.rx)
 				Err("normal or failed owner exit did not enforce restricted release access")
-			else if io_provider_lifecycle_test_support_test::observe_state(state) != 17
+			else if io_provider_lifecycle_test::observe_state(state) != 17
 				Err("owner cleanup changed unrelated provider state")
 			else
 				Ok(())
@@ -1630,8 +1630,8 @@ fn f3_cancellable_body(request: F3CancelRequest) -> () effects [io_provider::Sco
 	let owner = io_provider::owner()
 	match request
 		F3CancelRequest(foreign_owner, state, events, ready, blocked) => begin
-			let plan = io_provider_lifecycle_test_support_test::ReleasePlan(owner, foreign_owner, 401, state, events, false)
-			let _ = io_provider_lifecycle_test_support_test::register(owner, plan)
+			let plan = io_provider_lifecycle_test::ReleasePlan(owner, foreign_owner, 401, state, events, false)
+			let _ = io_provider_lifecycle_test::register(owner, plan)
 			let _ = channel::send(ready, ())
 			let _: Option<()> = channel::recv(blocked)
 			()
@@ -1647,8 +1647,8 @@ fn f3_release_cancellable_body(request: F3ReleaseCancelRequest) -> () effects [i
 	let owner = io_provider::owner()
 	match request
 		F3ReleaseCancelRequest(foreign_owner, state, events, entered, blocked) => begin
-			let plan = io_provider_lifecycle_test_support_test::CancellationReleasePlan(owner, foreign_owner, state, events, entered, blocked)
-			let _ = io_provider_lifecycle_test_support_test::register_cancellation_resources(owner, plan)
+			let plan = io_provider_lifecycle_test::CancellationReleasePlan(owner, foreign_owner, state, events, entered, blocked)
+			let _ = io_provider_lifecycle_test::register_cancellation_resources(owner, plan)
 			()
 		end
 	end
@@ -1679,7 +1679,7 @@ test cancelled_owner_exit_runs_restricted_cleanup() -> Result<(), String> effect
 	if started == None
 		Err("cancelled owner task did not reach its gate")
 	else match joined
-		Err(error) => if task::join_error_is_cancelled(error) and f3_release_event_matches(events.rx) and io_provider_lifecycle_test_support_test::observe_state(state) == 17
+		Err(error) => if task::join_error_is_cancelled(error) and f3_release_event_matches(events.rx) and io_provider_lifecycle_test::observe_state(state) == 17
 			Ok(())
 		else
 			Err("cancelled owner exit did not preserve cancellation, release access, and unrelated state")
@@ -1708,7 +1708,7 @@ test cancellation_first_delivered_by_release_remains_primary() -> Result<(), Str
 		Err("cancelled owner release did not preserve its checkpoint boundary")
 	else if not second
 		Err("cancelled owner release did not preserve its remaining release attempt")
-	else if io_provider_lifecycle_test_support_test::observe_state(state) != 17
+	else if io_provider_lifecycle_test::observe_state(state) != 17
 		Err("release-delivered cancellation allowed post-scope continuation or changed unrelated state")
 	else match joined
 		Err(error) => if task::join_error_is_cancelled(error)
@@ -1725,20 +1725,20 @@ fn f4_copy_error(kind: io::ErrorKind, message: String) -> io::Error
 	io::Error::Error("scripted", kind, None, None, None, None, message)
 end
 
-fn f4_copy(script: io_copy_test_support_test::Script, chunk_size: ByteCount) -> Result<io_copy_test_support_test::Observation, String> effects [concurrency]
-	handle io_copy_test_support_test::execute(script, chunk_size) with io_provider::scope()
+fn f4_copy(script: io_copy_test::Script, chunk_size: ByteCount) -> Result<io_copy_test::Observation, String> effects [concurrency]
+	handle io_copy_test::execute(script, chunk_size) with io_provider::scope()
 end
 
-fn f4_snapshot_is_empty(snapshot: io_copy_test_support_test::Snapshot) -> Bool
+fn f4_snapshot_is_empty(snapshot: io_copy_test::Snapshot) -> Bool
 	match snapshot
-		io_copy_test_support_test::Snapshot(output, Nil, Nil, Cons(_, Nil), Nil) => byte_count_to_int(byte_chunk_count(output)) == 0
+		io_copy_test::Snapshot(output, Nil, Nil, Cons(_, Nil), Nil) => byte_count_to_int(byte_chunk_count(output)) == 0
 		_ => false
 	end
 end
 
-fn f4_snapshot_output(snapshot: io_copy_test_support_test::Snapshot, expected: String) -> Bool
+fn f4_snapshot_output(snapshot: io_copy_test::Snapshot, expected: String) -> Bool
 	match snapshot
-		io_copy_test_support_test::Snapshot(output, _, _, _, _) => match byte_chunk_to_visible_ascii_string(output)
+		io_copy_test::Snapshot(output, _, _, _, _) => match byte_chunk_to_visible_ascii_string(output)
 			Ok(actual) => actual == expected
 			Err(_) => false
 		end
@@ -1772,9 +1772,9 @@ fn f4_inputs_match_four(inputs: List<ByteChunk>, first: String, second: String, 
 end
 
 test copy_rejects_zero_chunk_without_provider_calls() -> Result<(), String> effects [concurrency]
-	let script = io_copy_test_support_test::Script(list_cons(io::ReadOutcome::End, list_nil()), list_nil())
+	let script = io_copy_test::Script(list_cons(io::ReadOutcome::End, list_nil()), list_nil())
 	match f4_copy(script, byte_count(0)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidInput, _, _, _, _, _)), snapshot) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and f4_snapshot_is_empty(snapshot)
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidInput, _, _, _, _, _)), snapshot) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and f4_snapshot_is_empty(snapshot)
 			Ok(())
 		else
 			Err("zero-sized copy changed progress or invoked a provider")
@@ -1784,9 +1784,9 @@ test copy_rejects_zero_chunk_without_provider_calls() -> Result<(), String> effe
 end
 
 test copy_rejects_negative_chunk_without_provider_calls() -> Result<(), String> effects [concurrency]
-	let script = io_copy_test_support_test::Script(list_cons(io::ReadOutcome::End, list_nil()), list_nil())
+	let script = io_copy_test::Script(list_cons(io::ReadOutcome::End, list_nil()), list_nil())
 	match f4_copy(script, ByteCount(-1))?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidInput, _, _, _, _, _)), snapshot) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and f4_snapshot_is_empty(snapshot)
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidInput, _, _, _, _, _)), snapshot) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and f4_snapshot_is_empty(snapshot)
 			Ok(())
 		else
 			Err("negative-sized copy changed progress or invoked a provider")
@@ -1797,9 +1797,9 @@ end
 
 test copy_stops_on_empty_successful_read() -> Result<(), String> effects [concurrency]
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk([])), list_cons(io::ReadOutcome::End, list_nil()))
-	let script = io_copy_test_support_test::Script(reads, list_nil())
+	let script = io_copy_test::Script(reads, list_nil())
 	match f4_copy(script, byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::NoProgress, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(maximum, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0 and maximum == 4
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::NoProgress, _, _, _, _, _)), io_copy_test::Snapshot(output, Cons(maximum, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0 and maximum == 4
 			Ok(())
 		else
 			Err("empty successful read did not stop after one provider call")
@@ -1811,9 +1811,9 @@ end
 test copy_retries_only_unwritten_suffixes_across_short_reads() -> Result<(), String> effects [concurrency]
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abc")?), list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("de")?), list_cons(io::ReadOutcome::End, list_nil())))
 	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::Written(byte_count(2)?), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil()))))
-	let script = io_copy_test_support_test::Script(reads, writes)
+	let script = io_copy_test::Script(reads, writes)
 	match f4_copy(script, byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::Copied(count), io_copy_test_support_test::Snapshot(output, Cons(4, Cons(4, Cons(4, Nil))), inputs, Nil, Nil)) => if byte_count_to_int(count) == 5 and byte_chunk_to_visible_ascii_string(output)? == "abcde" and f4_inputs_match_four(inputs, "e", "de", "bc", "abc")
+		io_copy_test::Observation(io::CopyOutcome::Copied(count), io_copy_test::Snapshot(output, Cons(4, Cons(4, Cons(4, Nil))), inputs, Nil, Nil)) => if byte_count_to_int(count) == 5 and byte_chunk_to_visible_ascii_string(output)? == "abcde" and f4_inputs_match_four(inputs, "e", "de", "bc", "abc")
 			Ok(())
 		else
 			Err("copy did not preserve short reads and exact unwritten suffixes")
@@ -1825,9 +1825,9 @@ end
 test copy_stops_on_zero_write_after_partial_success() -> Result<(), String> effects [concurrency]
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("ab")?), list_nil())
 	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil()))
-	let script = io_copy_test_support_test::Script(reads, writes)
+	let script = io_copy_test::Script(reads, writes)
 	match f4_copy(script, byte_count(2)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::NoProgress, _, _, _, _, _)), snapshot) => if byte_count_to_int(consumed) == 2 and byte_count_to_int(committed) == 1 and f4_snapshot_output(snapshot, "a")
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::NoProgress, _, _, _, _, _)), snapshot) => if byte_count_to_int(consumed) == 2 and byte_count_to_int(committed) == 1 and f4_snapshot_output(snapshot, "a")
 			Ok(())
 		else
 			Err("zero write did not preserve consumed and committed progress")
@@ -1839,9 +1839,9 @@ end
 test copy_accumulates_known_read_failure_without_writing_failure_bytes() -> Result<(), String> effects [concurrency]
 	let failure = f4_copy_error(io::ErrorKind::Other, "known read failure")
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("ab")?), list_cons(io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("x")?, io::Progress::Known(byte_count(1)?), failure), list_nil()))
-	let script = io_copy_test_support_test::Script(reads, list_nil())
+	let script = io_copy_test::Script(reads, list_nil())
 	match f4_copy(script, byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "known read failure")), snapshot) => if byte_count_to_int(consumed) == 3 and byte_count_to_int(committed) == 2 and f4_snapshot_output(snapshot, "ab")
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "known read failure")), snapshot) => if byte_count_to_int(consumed) == 3 and byte_count_to_int(committed) == 2 and f4_snapshot_output(snapshot, "ab")
 			Ok(())
 		else
 			Err("known read failure did not preserve progress or excluded bytes")
@@ -1853,9 +1853,9 @@ end
 test copy_propagates_unknown_read_failure_progress() -> Result<(), String> effects [concurrency]
 	let failure = f4_copy_error(io::ErrorKind::Other, "unknown read failure")
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("a")?), list_cons(io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("x")?, io::Progress::Unknown(byte_count(2)?), failure), list_nil()))
-	let script = io_copy_test_support_test::Script(reads, list_nil())
+	let script = io_copy_test::Script(reads, list_nil())
 	match f4_copy(script, byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "unknown read failure")), snapshot) => if byte_count_to_int(consumed) == 3 and byte_count_to_int(committed) == 1 and f4_snapshot_output(snapshot, "a")
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "unknown read failure")), snapshot) => if byte_count_to_int(consumed) == 3 and byte_count_to_int(committed) == 1 and f4_snapshot_output(snapshot, "a")
 			Ok(())
 		else
 			Err("unknown read failure did not preserve its accumulated lower bound")
@@ -1868,9 +1868,9 @@ test copy_keeps_consumed_and_known_committed_progress_distinct() -> Result<(), S
 	let failure = f4_copy_error(io::ErrorKind::Other, "known write failure")
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_nil())
 	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::WriteFailed(io::Progress::Known(byte_count(2)?), failure), list_nil()))
-	let script = io_copy_test_support_test::Script(reads, writes)
+	let script = io_copy_test::Script(reads, writes)
 	match f4_copy(script, byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "known write failure")), snapshot) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 3 and f4_snapshot_output(snapshot, "abc")
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Known(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "known write failure")), snapshot) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 3 and f4_snapshot_output(snapshot, "abc")
 			Ok(())
 		else
 			Err("known write failure conflated consumed and committed progress")
@@ -1883,9 +1883,9 @@ test copy_propagates_unknown_write_failure_progress() -> Result<(), String> effe
 	let failure = f4_copy_error(io::ErrorKind::Other, "unknown write failure")
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_nil())
 	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::WriteFailed(io::Progress::Unknown(byte_count(1)?), failure), list_nil()))
-	let script = io_copy_test_support_test::Script(reads, writes)
+	let script = io_copy_test::Script(reads, writes)
 	match f4_copy(script, byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "unknown write failure")), snapshot) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 2 and f4_snapshot_output(snapshot, "ab")
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "unknown write failure")), snapshot) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 2 and f4_snapshot_output(snapshot, "ab")
 			Ok(())
 		else
 			Err("unknown write failure did not preserve its accumulated lower bound")
@@ -1898,9 +1898,9 @@ test copy_accumulates_unknown_write_failure_across_read_chunks() -> Result<(), S
 	let failure = f4_copy_error(io::ErrorKind::Other, "later unknown write failure")
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("ab")?), list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("cde")?), list_nil()))
 	let writes = list_cons(io::WriteOutcome::Written(byte_count(2)?), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::WriteFailed(io::Progress::Unknown(byte_count(1)?), failure), list_nil())))
-	let script = io_copy_test_support_test::Script(reads, writes)
+	let script = io_copy_test::Script(reads, writes)
 	match f4_copy(script, byte_count(3)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "later unknown write failure")), snapshot) => if byte_count_to_int(consumed) == 5 and byte_count_to_int(committed) == 4 and f4_snapshot_output(snapshot, "abcd")
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("scripted", io::ErrorKind::Other, _, _, _, _, "later unknown write failure")), snapshot) => if byte_count_to_int(consumed) == 5 and byte_count_to_int(committed) == 4 and f4_snapshot_output(snapshot, "abcd")
 			Ok(())
 		else
 			Err("unknown write failure lost progress from an earlier read chunk")
@@ -1912,8 +1912,8 @@ end
 test copy_rejects_data_beyond_the_requested_maximum() -> Result<(), String> effects [concurrency]
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcde")?), list_cons(io::ReadOutcome::End, list_nil()))
 	let writes = list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil())
-	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0
+	match f4_copy(io_copy_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test::Snapshot(output, Cons(4, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0
 			Ok(())
 		else
 			Err("oversized read data fabricated progress or output")
@@ -1927,8 +1927,8 @@ test copy_rejects_failed_read_bytes_beyond_the_progress_lower_bound() -> Result<
 	let malformed = io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("ab")?, io::Progress::Known(byte_count(1)?), failure)
 	let reads = list_cons(malformed, list_cons(io::ReadOutcome::End, list_nil()))
 	let writes = list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil())
-	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0
+	match f4_copy(io_copy_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test::Snapshot(output, Cons(4, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0
 			Ok(())
 		else
 			Err("malformed failed-read bytes fabricated progress or output")
@@ -1942,8 +1942,8 @@ test copy_rejects_unknown_failed_read_bytes_beyond_the_progress_lower_bound() ->
 	let malformed = io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("ab")?, io::Progress::Unknown(byte_count(1)?), failure)
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("x")?), list_cons(malformed, list_cons(io::ReadOutcome::End, list_nil())))
 	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil())
-	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Cons(4, Nil)), Cons(input, Nil), Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(consumed) == 1 and byte_count_to_int(committed) == 1 and byte_chunk_to_visible_ascii_string(output)? == "x" and byte_chunk_to_visible_ascii_string(input)? == "x"
+	match f4_copy(io_copy_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test::Snapshot(output, Cons(4, Cons(4, Nil)), Cons(input, Nil), Cons(io::ReadOutcome::End, Nil), Nil)) => if byte_count_to_int(consumed) == 1 and byte_count_to_int(committed) == 1 and byte_chunk_to_visible_ascii_string(output)? == "x" and byte_chunk_to_visible_ascii_string(input)? == "x"
 			Ok(())
 		else
 			Err("malformed unknown failed-read bytes changed confirmed progress or output")
@@ -1957,8 +1957,8 @@ test copy_rejects_failed_read_progress_beyond_the_request() -> Result<(), String
 	let malformed = io::ReadOutcome::ReadFailed(byte_chunk_from_visible_ascii_string("a")?, io::Progress::Known(byte_count(5)?), failure)
 	let reads = list_cons(malformed, list_cons(io::ReadOutcome::End, list_nil()))
 	let writes = list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil())
-	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0
+	match f4_copy(io_copy_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test::Snapshot(output, Cons(4, Nil), Nil, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 0 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0
 			Ok(())
 		else
 			Err("oversized failed-read progress fabricated progress or output")
@@ -1970,9 +1970,9 @@ end
 test copy_rejects_write_counts_beyond_the_current_suffix() -> Result<(), String> effects [concurrency]
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_cons(io::ReadOutcome::End, list_nil()))
 	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::Written(byte_count(4)?), list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil())))
-	let script = io_copy_test_support_test::Script(reads, writes)
+	let script = io_copy_test::Script(reads, writes)
 	match f4_copy(script, byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), inputs, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 1 and byte_chunk_to_visible_ascii_string(output)? == "a" and f4_inputs_match_two(inputs, "bcd", "abcd")
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test::Snapshot(output, Cons(4, Nil), inputs, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 1 and byte_chunk_to_visible_ascii_string(output)? == "a" and f4_inputs_match_two(inputs, "bcd", "abcd")
 			Ok(())
 		else
 			Err("oversized write count fabricated provider progress")
@@ -1984,8 +1984,8 @@ end
 test copy_rejects_negative_write_counts() -> Result<(), String> effects [concurrency]
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_cons(io::ReadOutcome::End, list_nil()))
 	let writes = list_cons(io::WriteOutcome::Written(ByteCount(-1)), list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil()))
-	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), Cons(input, Nil), Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0 and byte_chunk_to_visible_ascii_string(input)? == "abcd"
+	match f4_copy(io_copy_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test::Snapshot(output, Cons(4, Nil), Cons(input, Nil), Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0 and byte_chunk_to_visible_ascii_string(input)? == "abcd"
 			Ok(())
 		else
 			Err("negative write count fabricated provider progress or output")
@@ -1998,9 +1998,9 @@ test copy_rejects_failed_write_progress_beyond_the_current_suffix() -> Result<()
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("abcd")?), list_cons(io::ReadOutcome::End, list_nil()))
 	let failure = f4_copy_error(io::ErrorKind::Other, "oversized write failure")
 	let writes = list_cons(io::WriteOutcome::Written(byte_count(1)?), list_cons(io::WriteOutcome::WriteFailed(io::Progress::Known(byte_count(4)?), failure), list_cons(io::WriteOutcome::Written(byte_count(0)?), list_nil())))
-	let script = io_copy_test_support_test::Script(reads, writes)
+	let script = io_copy_test::Script(reads, writes)
 	match f4_copy(script, byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), inputs, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 1 and byte_chunk_to_visible_ascii_string(output)? == "a" and f4_inputs_match_two(inputs, "bcd", "abcd")
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test::Snapshot(output, Cons(4, Nil), inputs, Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 1 and byte_chunk_to_visible_ascii_string(output)? == "a" and f4_inputs_match_two(inputs, "bcd", "abcd")
 			Ok(())
 		else
 			Err("oversized failed-write progress fabricated provider progress")
@@ -2014,8 +2014,8 @@ test copy_rejects_negative_failed_write_progress() -> Result<(), String> effects
 	let failure = f4_copy_error(io::ErrorKind::Other, "negative write failure")
 	let malformed = io::WriteOutcome::WriteFailed(io::Progress::Known(ByteCount(-1)), failure)
 	let writes = list_cons(malformed, list_cons(io::WriteOutcome::Written(byte_count(1)?), list_nil()))
-	match f4_copy(io_copy_test_support_test::Script(reads, writes), byte_count(4)?)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test_support_test::Snapshot(output, Cons(4, Nil), Cons(input, Nil), Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0 and byte_chunk_to_visible_ascii_string(input)? == "abcd"
+	match f4_copy(io_copy_test::Script(reads, writes), byte_count(4)?)?
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Known(consumed), io::Progress::Unknown(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), io_copy_test::Snapshot(output, Cons(4, Nil), Cons(input, Nil), Cons(io::ReadOutcome::End, Nil), Cons(_, Nil))) => if byte_count_to_int(consumed) == 4 and byte_count_to_int(committed) == 0 and byte_count_to_int(byte_chunk_count(output)) == 0 and byte_chunk_to_visible_ascii_string(input)? == "abcd"
 			Ok(())
 		else
 			Err("negative failed-write progress fabricated provider progress or output")
@@ -2028,9 +2028,9 @@ test copy_rejects_progress_accumulation_overflow() -> Result<(), String> effects
 	let maximum = byte_count(9223372036854775807)?
 	let failure = f4_copy_error(io::ErrorKind::Other, "overflowing read failure")
 	let reads = list_cons(io::ReadOutcome::Data(byte_chunk_from_visible_ascii_string("a")?), list_cons(io::ReadOutcome::ReadFailed(byte_chunk([]), io::Progress::Known(maximum), failure), list_nil()))
-	let script = io_copy_test_support_test::Script(reads, list_nil())
+	let script = io_copy_test::Script(reads, list_nil())
 	match f4_copy(script, maximum)?
-		io_copy_test_support_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), snapshot) => if byte_count_to_int(consumed) == 1 and byte_count_to_int(committed) == 1 and f4_snapshot_output(snapshot, "a")
+		io_copy_test::Observation(io::CopyOutcome::CopyFailed(io::Progress::Unknown(consumed), io::Progress::Known(committed), io::Error::Error("copy", io::ErrorKind::InvalidResource, _, _, _, _, _)), snapshot) => if byte_count_to_int(consumed) == 1 and byte_count_to_int(committed) == 1 and f4_snapshot_output(snapshot, "a")
 			Ok(())
 		else
 			Err("overflowing provider progress fabricated an accumulated count")
@@ -2067,23 +2067,23 @@ fn cursor_offset(result: Result<ByteOffset, io::Error>, expected: Int) -> Bool
 	end
 end
 
-fn cursor_known(cursor: io_seek_cursor_test_support_test::CursorObservation, expected: Int) -> Bool
+fn cursor_known(cursor: io_seek_cursor_test::CursorObservation, expected: Int) -> Bool
 	match cursor
-		io_seek_cursor_test_support_test::CursorObservation::Known(actual) => actual == expected
+		io_seek_cursor_test::CursorObservation::Known(actual) => actual == expected
 		_ => false
 	end
 end
 
-fn cursor_unknown(cursor: io_seek_cursor_test_support_test::CursorObservation) -> Bool
+fn cursor_unknown(cursor: io_seek_cursor_test::CursorObservation) -> Bool
 	match cursor
-		io_seek_cursor_test_support_test::CursorObservation::Unknown => true
+		io_seek_cursor_test::CursorObservation::Unknown => true
 		_ => false
 	end
 end
 
-fn cursor_snapshot_matches(snapshot: io_seek_cursor_test_support_test::Snapshot, bytes: String, first: Int, second: Int, operations: String, remaining: Int) -> Result<Bool, String>
+fn cursor_snapshot_matches(snapshot: io_seek_cursor_test::Snapshot, bytes: String, first: Int, second: Int, operations: String, remaining: Int) -> Result<Bool, String>
 	match snapshot
-		io_seek_cursor_test_support_test::Snapshot(actual_bytes, first_cursor, second_cursor, actual_operations, actual_remaining) => Ok(byte_chunk_to_visible_ascii_string(actual_bytes)? == bytes and cursor_known(first_cursor, first) and cursor_known(second_cursor, second) and actual_operations == operations and actual_remaining == remaining)
+		io_seek_cursor_test::Snapshot(actual_bytes, first_cursor, second_cursor, actual_operations, actual_remaining) => Ok(byte_chunk_to_visible_ascii_string(actual_bytes)? == bytes and cursor_known(first_cursor, first) and cursor_known(second_cursor, second) and actual_operations == operations and actual_remaining == remaining)
 	end
 end
 
@@ -2111,15 +2111,15 @@ fn cursor_bytes_equal(actual: ByteChunk, expected: ByteChunk) -> Result<Bool, St
 	end
 end
 
-fn cursor_binary_snapshot_matches(snapshot: io_seek_cursor_test_support_test::Snapshot, expected_hex: String, first: Int, second: Int, operations: String, remaining: Int) -> Result<Bool, String>
+fn cursor_binary_snapshot_matches(snapshot: io_seek_cursor_test::Snapshot, expected_hex: String, first: Int, second: Int, operations: String, remaining: Int) -> Result<Bool, String>
 	match snapshot
-		io_seek_cursor_test_support_test::Snapshot(actual_bytes, first_cursor, second_cursor, actual_operations, actual_remaining) => Ok(cursor_bytes_equal(actual_bytes, byte_chunk_from_hex(expected_hex)?)? and cursor_known(first_cursor, first) and cursor_known(second_cursor, second) and actual_operations == operations and actual_remaining == remaining)
+		io_seek_cursor_test::Snapshot(actual_bytes, first_cursor, second_cursor, actual_operations, actual_remaining) => Ok(cursor_bytes_equal(actual_bytes, byte_chunk_from_hex(expected_hex)?)? and cursor_known(first_cursor, first) and cursor_known(second_cursor, second) and actual_operations == operations and actual_remaining == remaining)
 	end
 end
 
-fn cursor_unknown_snapshot_matches(snapshot: io_seek_cursor_test_support_test::Snapshot, bytes: String, second: Int, operations: String, remaining: Int) -> Result<Bool, String>
+fn cursor_unknown_snapshot_matches(snapshot: io_seek_cursor_test::Snapshot, bytes: String, second: Int, operations: String, remaining: Int) -> Result<Bool, String>
 	match snapshot
-		io_seek_cursor_test_support_test::Snapshot(actual_bytes, first_cursor, second_cursor, actual_operations, actual_remaining) => Ok(byte_chunk_to_visible_ascii_string(actual_bytes)? == bytes and cursor_unknown(first_cursor) and cursor_known(second_cursor, second) and actual_operations == operations and actual_remaining == remaining)
+		io_seek_cursor_test::Snapshot(actual_bytes, first_cursor, second_cursor, actual_operations, actual_remaining) => Ok(byte_chunk_to_visible_ascii_string(actual_bytes)? == bytes and cursor_unknown(first_cursor) and cursor_known(second_cursor, second) and actual_operations == operations and actual_remaining == remaining)
 	end
 end
 
@@ -2165,16 +2165,16 @@ fn cursor_rejected_bounded_write(outcome: io::WriteOutcome) -> Bool
 	end
 end
 
-fn cursor_boundary_write_preserved(observation: io_seek_cursor_test_support_test::BoundaryWriteObservation, cursor: Int) -> Result<Bool, String>
+fn cursor_boundary_write_preserved(observation: io_seek_cursor_test::BoundaryWriteObservation, cursor: Int) -> Result<Bool, String>
 	match observation
-		io_seek_cursor_test_support_test::BoundaryWriteObservation(position, outcome, snapshot) => Ok(cursor_offset(position, cursor) and cursor_rejected_bounded_write(outcome) and cursor_snapshot_matches(snapshot, "abc", cursor, 0, "seek-start;write;", 1)?)
+		io_seek_cursor_test::BoundaryWriteObservation(position, outcome, snapshot) => Ok(cursor_offset(position, cursor) and cursor_rejected_bounded_write(outcome) and cursor_snapshot_matches(snapshot, "abc", cursor, 0, "seek-start;write;", 1)?)
 	end
 end
 
 test scoped_cursor_fake_covers_seek_origins_bounds_and_nonextending_seek() -> Result<(), String> effects [concurrency]
-	match handle io_seek_cursor_test_support_test::execute_origins() with io_provider::scope()
+	match handle io_seek_cursor_test::execute_origins() with io_provider::scope()
 		Err(message) => Err(message)
-		Ok(io_seek_cursor_test_support_test::OriginObservation(start, after_start, current, after_current, end_before, after_end_before, end_after, after_end_after, beyond_read, negative_start, after_negative_start, negative_current, after_negative_current, maximum_start, after_maximum_start, overflow_current, after_overflow_current)) => if not cursor_offset(start, 2) or not cursor_snapshot_matches(after_start, "abcdef", 2, 0, "seek-start;", 5)?
+		Ok(io_seek_cursor_test::OriginObservation(start, after_start, current, after_current, end_before, after_end_before, end_after, after_end_after, beyond_read, negative_start, after_negative_start, negative_current, after_negative_current, maximum_start, after_maximum_start, overflow_current, after_overflow_current)) => if not cursor_offset(start, 2) or not cursor_snapshot_matches(after_start, "abcdef", 2, 0, "seek-start;", 5)?
 			Err("scoped cursor fake start outcome differed")
 		else if not cursor_offset(current, 4) or not cursor_snapshot_matches(after_current, "abcdef", 4, 0, "seek-start;seek-current;", 4)?
 			Err("scoped cursor fake current outcome differed")
@@ -2201,9 +2201,9 @@ test scoped_cursor_fake_covers_seek_origins_bounds_and_nonextending_seek() -> Re
 end
 
 test scoped_cursor_fake_extends_sequential_writes_with_zero_gap_and_exact_failed_progress() -> Result<(), String> effects [concurrency]
-	match handle io_seek_cursor_test_support_test::execute_beyond_end() with io_provider::scope()
+	match handle io_seek_cursor_test::execute_beyond_end() with io_provider::scope()
 		Err(message) => Err(message)
-		Ok(io_seek_cursor_test_support_test::BeyondEndObservation(position, after_position, extended, after_extension, second_position, preserved_failure, after_preserved_failure, committed_failure, snapshot)) => if not cursor_offset(position, 6) or not cursor_binary_snapshot_matches(after_position, "616263", 6, 0, "seek-start;", 4)?
+		Ok(io_seek_cursor_test::BeyondEndObservation(position, after_position, extended, after_extension, second_position, preserved_failure, after_preserved_failure, committed_failure, snapshot)) => if not cursor_offset(position, 6) or not cursor_binary_snapshot_matches(after_position, "616263", 6, 0, "seek-start;", 4)?
 			Err("beyond-end seek changed bytes, cursor, order, or script state")
 		else if not cursor_written(extended, 2) or not cursor_binary_snapshot_matches(after_extension, "6162630000005859", 8, 0, "seek-start;write;", 3)?
 			Err("successful beyond-end write did not zero-fill and extend by its reported progress")
@@ -2218,10 +2218,10 @@ test scoped_cursor_fake_extends_sequential_writes_with_zero_gap_and_exact_failed
 end
 
 test scoped_cursor_fake_keeps_eof_and_crossing_writes_bounded() -> Result<(), String> effects [concurrency]
-	let at_end_success = handle io_seek_cursor_test_support_test::execute_at_end_success() with io_provider::scope()
-	let at_end_failure = handle io_seek_cursor_test_support_test::execute_at_end_failure() with io_provider::scope()
-	let crossing_success = handle io_seek_cursor_test_support_test::execute_crossing_end_success() with io_provider::scope()
-	let crossing_failure = handle io_seek_cursor_test_support_test::execute_crossing_end_failure() with io_provider::scope()
+	let at_end_success = handle io_seek_cursor_test::execute_at_end_success() with io_provider::scope()
+	let at_end_failure = handle io_seek_cursor_test::execute_at_end_failure() with io_provider::scope()
+	let crossing_success = handle io_seek_cursor_test::execute_crossing_end_success() with io_provider::scope()
+	let crossing_failure = handle io_seek_cursor_test::execute_crossing_end_failure() with io_provider::scope()
 	match at_end_success
 		Err(message) => Err(message)
 		Ok(at_end_success_observation) => match at_end_failure
@@ -2242,9 +2242,9 @@ test scoped_cursor_fake_keeps_eof_and_crossing_writes_bounded() -> Result<(), St
 end
 
 test scoped_cursor_fake_shares_alias_cursor_and_keeps_separate_opens_independent() -> Result<(), String> effects [concurrency]
-	match handle io_seek_cursor_test_support_test::execute_sequential() with io_provider::scope()
+	match handle io_seek_cursor_test::execute_sequential() with io_provider::scope()
 		Err(message) => Err(message)
-		Ok(io_seek_cursor_test_support_test::SequentialObservation(read, alias_seek, partial_write, failed_read, failed_write, separate_read, snapshot)) => if cursor_read_data(read, "ab")? and cursor_offset(alias_seek, 3) and cursor_written(partial_write, 2) and cursor_failed_read(failed_read, "f", 1)? and cursor_failed_write(failed_write, 1) and cursor_read_data(separate_read, "a")? and cursor_snapshot_matches(snapshot, "abcXYfQhij", 7, 1, "read;seek-current;write;read;write;read;", 0)?
+		Ok(io_seek_cursor_test::SequentialObservation(read, alias_seek, partial_write, failed_read, failed_write, separate_read, snapshot)) => if cursor_read_data(read, "ab")? and cursor_offset(alias_seek, 3) and cursor_written(partial_write, 2) and cursor_failed_read(failed_read, "f", 1)? and cursor_failed_write(failed_write, 1) and cursor_read_data(separate_read, "a")? and cursor_snapshot_matches(snapshot, "abcXYfQhij", 7, 1, "read;seek-current;write;read;write;read;", 0)?
 			Ok(())
 		else
 			Err("sequential cursor progress, alias sharing, independent opens, bytes, or order differed")
@@ -2253,9 +2253,9 @@ test scoped_cursor_fake_shares_alias_cursor_and_keeps_separate_opens_independent
 end
 
 test scoped_cursor_fake_positional_io_preserves_sequential_cursor_on_success_and_failure() -> Result<(), String> effects [concurrency]
-	match handle io_seek_cursor_test_support_test::execute_positional() with io_provider::scope()
+	match handle io_seek_cursor_test::execute_positional() with io_provider::scope()
 		Err(message) => Err(message)
-		Ok(io_seek_cursor_test_support_test::PositionalObservation(position, positioned, read, after_read, failed_read, after_failed_read, write, after_write, failed_write, snapshot)) => if cursor_offset(position, 2) and cursor_snapshot_matches(positioned, "abcdef", 2, 0, "seek-start;", 4)? and cursor_read_data(read, "ef")? and cursor_snapshot_matches(after_read, "abcdef", 2, 0, "seek-start;read_at;", 3)? and cursor_failed_read(failed_read, "b", 1)? and cursor_snapshot_matches(after_failed_read, "abcdef", 2, 0, "seek-start;read_at;read_at;", 2)? and cursor_written(write, 2) and cursor_snapshot_matches(after_write, "abcXYf", 2, 0, "seek-start;read_at;read_at;write_at;", 1)? and cursor_failed_write(failed_write, 1) and cursor_snapshot_matches(snapshot, "QbcXYf", 2, 0, "seek-start;read_at;read_at;write_at;write_at;", 0)?
+		Ok(io_seek_cursor_test::PositionalObservation(position, positioned, read, after_read, failed_read, after_failed_read, write, after_write, failed_write, snapshot)) => if cursor_offset(position, 2) and cursor_snapshot_matches(positioned, "abcdef", 2, 0, "seek-start;", 4)? and cursor_read_data(read, "ef")? and cursor_snapshot_matches(after_read, "abcdef", 2, 0, "seek-start;read_at;", 3)? and cursor_failed_read(failed_read, "b", 1)? and cursor_snapshot_matches(after_failed_read, "abcdef", 2, 0, "seek-start;read_at;read_at;", 2)? and cursor_written(write, 2) and cursor_snapshot_matches(after_write, "abcXYf", 2, 0, "seek-start;read_at;read_at;write_at;", 1)? and cursor_failed_write(failed_write, 1) and cursor_snapshot_matches(snapshot, "QbcXYf", 2, 0, "seek-start;read_at;read_at;write_at;write_at;", 0)?
 			Ok(())
 		else
 			Err("positional IO changed the sequential cursor or lost bytes, progress, or order")
@@ -2264,9 +2264,9 @@ test scoped_cursor_fake_positional_io_preserves_sequential_cursor_on_success_and
 end
 
 test scoped_cursor_fake_rejects_relative_unknown_cursor_until_absolute_recovery() -> Result<(), String> effects [concurrency]
-	match handle io_seek_cursor_test_support_test::execute_unknown() with io_provider::scope()
+	match handle io_seek_cursor_test::execute_unknown() with io_provider::scope()
 		Err(message) => Err(message)
-		Ok(io_seek_cursor_test_support_test::UnknownObservation(position, known_failure, preserved, unknown_failure, unknown, rejected_current, after_rejected_current, rejected_end, after_rejected_end, recovered, relative_after_recovery, snapshot)) => if not cursor_offset(position, 2)
+		Ok(io_seek_cursor_test::UnknownObservation(position, known_failure, preserved, unknown_failure, unknown, rejected_current, after_rejected_current, rejected_end, after_rejected_end, recovered, relative_after_recovery, snapshot)) => if not cursor_offset(position, 2)
 			Err("unknown cursor setup position differed")
 		else if not cursor_other_error(known_failure)
 			Err("known cursor failure outcome differed")

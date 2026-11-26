@@ -694,7 +694,7 @@ static capability and effect boundary.
   including the complete outcome and progress matrix:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with scripts and progress logs in
-  [`io_copy_test_support_test.veln`](../../crates/veln-stdlib/veln/io_copy_test_support_test.veln).
+  [`io_copy_test.veln`](../../crates/veln-stdlib/veln/io_copy_test.veln).
 - Complete read and write behavior, including supported caller-count bounds,
   zero-size validation, partial progress, provider failures, malformed replies,
   and overflow, plus direct empty-request bypass, closed-provider-owner
@@ -702,16 +702,16 @@ static capability and effect boundary.
   bounds, and single dispatch:
   [`io.test.veln`](../../crates/veln-stdlib/veln/io.test.veln), with scoped
   scripted providers in
-  [`io_complete_transfer_test_support_test.veln`](../../crates/veln-stdlib/veln/io_complete_transfer_test_support_test.veln)
+  [`io_complete_transfer_test.veln`](../../crates/veln-stdlib/veln/io_complete_transfer_test.veln)
   and
-  [`io_direct_validation_test_support_test.veln`](../../crates/veln-stdlib/veln/io_direct_validation_test_support_test.veln).
+  [`io_direct_validation_test.veln`](../../crates/veln-stdlib/veln/io_direct_validation_test.veln).
 - Scoped-fake per-open cursor identity, seek targets, sequential progress,
   zero-gap extension after a beyond-end seek, bounded EOF and crossing-EOF
   replacement rejection, failed-write commit state and operation order, and
   positional cursor preservation:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with state and scripted failures in
-  [`io_seek_cursor_test_support_test.veln`](../../crates/veln-stdlib/veln/io_seek_cursor_test_support_test.veln).
+  [`io_seek_cursor_test.veln`](../../crates/veln-stdlib/veln/io_seek_cursor_test.veln).
 - Bounded JVM rooted-host writable open, beyond-end seek and sequential
   extension, host-defined gap treatment, and prevalidated failed-seek cursor
   preservation:
@@ -769,18 +769,18 @@ static capability and effect boundary.
   interleaving completed chunks:
   [`io_provider.test.veln`](../../crates/veln-stdlib/veln/io_provider.test.veln),
   with pure state transitions in
-  [`io_provider_state_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_state_test_support_test.veln)
+  [`io_provider_state_test.veln`](../../crates/veln-stdlib/veln/io_provider_state_test.veln)
   and scoped registration fakes in
-  [`io_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_test_support_test.veln).
+  [`io_provider_test.veln`](../../crates/veln-stdlib/veln/io_provider_test.veln).
   The provider-dispatch state and handlers are separate test support in
-  [`filesystem_provider_test_support_test.veln`](../../crates/veln-stdlib/veln/filesystem_provider_test_support_test.veln).
+  [`filesystem_provider_test.veln`](../../crates/veln-stdlib/veln/filesystem_provider_test.veln).
   Closed-owner projection, facade and lexical dispatch rejection without
   provider calls, owner-exit ordering, exact-resource slot access,
   foreign-owner and cleanup-time registration rejection, cancellation cleanup,
   cancellation first delivered during release with all selected handlers
   attempted, post-scope non-continuation, and unrelated state preservation are
   checked in `io_provider.test.veln`, with separate scoped support in
-  [`io_provider_lifecycle_test_support_test.veln`](../../crates/veln-stdlib/veln/io_provider_lifecycle_test_support_test.veln).
+  [`io_provider_lifecycle_test.veln`](../../crates/veln-stdlib/veln/io_provider_lifecycle_test.veln).
 - Private JVM adapter linkage:
   [`java_helpers_and_mapping.rs`](../../crates/veln-backend-jvm/src/tests/java_helpers_and_mapping.rs).
 - JVM namespace-token captured-handler identity, post-close read-only

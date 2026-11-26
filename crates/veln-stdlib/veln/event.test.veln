@@ -1,11 +1,11 @@
 use event
 use observe
-use observe_test_support_test
+use observe_test
 
 test emit_preserves_name_typed_attributes_context_and_user_callsite_once() -> Result<(), String> effects [concurrency]
-	let records = observe_test_support_test::records(2)
-	let attributes = observe_test_support_test::o1_attributes()
-	let _ = handle event::emit(observe_test_support_test::o1_context(), "checkout.completed", attributes) with observe_test_support_test::recording(records.tx)
+	let records = observe_test::records(2)
+	let attributes = observe_test::o1_attributes()
+	let _ = handle event::emit(observe_test::o1_context(), "checkout.completed", attributes) with observe_test::recording(records.tx)
 	channel::close(records.tx)
 	match channel::recv(records.rx)
 		Some(observe::Event(observe::EventRecord("checkout.completed", Cons(observe::Attribute("enabled", observe::BoolValue(true)), Cons(observe::Attribute("attempt", observe::IntValue(3)), Cons(observe::Attribute("route", observe::StringValue("checkout")), Nil))), Some(observe::TraceContext("trace-1", "span-2", true)), source))) => if source.file == "event.test.veln" and source.start_line == 8
@@ -22,8 +22,8 @@ test emit_preserves_name_typed_attributes_context_and_user_callsite_once() -> Re
 end
 
 test emit_preserves_empty_attributes_and_absent_context() -> Result<(), String> effects [concurrency]
-	let records = observe_test_support_test::records(2)
-	let _ = handle event::emit(None, "cache.miss", list_nil()) with observe_test_support_test::recording(records.tx)
+	let records = observe_test::records(2)
+	let _ = handle event::emit(None, "cache.miss", list_nil()) with observe_test::recording(records.tx)
 	channel::close(records.tx)
 	match channel::recv(records.rx)
 		Some(observe::Event(observe::EventRecord("cache.miss", Nil, None, source))) => if source.file == "event.test.veln" and source.start_line == 26
@@ -40,8 +40,8 @@ test emit_preserves_empty_attributes_and_absent_context() -> Result<(), String> 
 end
 
 test callsite_wrapper_forwards_the_outer_source() -> Result<(), String> effects [concurrency]
-	let records = observe_test_support_test::records(2)
-	let _ = handle emit_wrapped() with observe_test_support_test::recording(records.tx)
+	let records = observe_test::records(2)
+	let _ = handle emit_wrapped() with observe_test::recording(records.tx)
 	channel::close(records.tx)
 	match channel::recv(records.rx)
 		Some(observe::Event(observe::EventRecord("wrapped", Nil, None, source))) => if source.file == "event.test.veln" and source.start_line == 44

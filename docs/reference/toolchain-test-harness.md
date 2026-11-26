@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The standard-library test placement policy, CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, binary-fixture schema-reference resolution, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture command timeout or process-tree termination behavior, fixture diagnostics, semantic case baseline, saved-navigation cross-adapter conformance contract or executable evidence, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
+update-when: The standard-library test placement or helper naming policy, CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, binary-fixture schema-reference resolution, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture command timeout or process-tree termination behavior, fixture diagnostics, semantic case baseline, saved-navigation cross-adapter conformance contract or executable evidence, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -31,6 +31,39 @@ Standard-library API behavior belongs in companion `.test.veln` files under
 boundary conditions, ordering, and preserved input state directly there.
 Using an API as fixture setup does not establish coverage of its contract.
 Run the standard-library behavior suite with `bash scripts/agent-stdlib-test`.
+
+### Standard-library test helper modules
+
+Use the following names under `crates/veln-stdlib/veln/`. Keep helpers local to
+their companion unless another test module needs to share them.
+
+| Role | Filename | Distribution |
+| --- | --- | --- |
+| API tests and their local helpers | `foo.test.veln` | Excluded |
+| Internal helpers shared by test modules | `foo_test.veln` | Excluded |
+| Library-provided test support for consumers | `foo_testing.veln` | Included |
+
+Name a shared helper after the module or capability it supports; add a purpose
+when needed, such as `io_copy_test.veln`. Place it beside the supported module.
+A cross-module capability helper such as `clock_test.veln` may live at the
+standard-library source root.
+
+An internal shared helper is an ordinary module and may declare `pub` items
+for other tests to import. It has no companion privilege to access private
+items of the supported module. A companion may contain private helper
+functions, types, and handlers, but cannot publish declarations for sharing.
+Keep scoped fake handlers in the separate support required by the effect-test
+policy in the root `AGENTS.md`.
+
+Production modules must not import internal test helpers. The bundle tests
+check this import boundary and the exclusion of `_test.veln` and `.test.veln`
+sources. `_testing.veln` is a regular distribution source; expose its public
+API to consumers through `[lib].exports` when intended. Reviewers verify the
+helper's intended audience and naming because filenames alone cannot establish
+whether code is test-only. Run `bash scripts/agent-test -p veln-stdlib` for the
+bundle checks.
+
+### Toolchain integration boundary
 
 The toolchain harness owns integration contracts. This placement rule applies
 to both `crates/veln-cli/tests/toolchain_cases/` and `examples/specification/`.

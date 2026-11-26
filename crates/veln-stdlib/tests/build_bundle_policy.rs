@@ -13,10 +13,15 @@ fn production_bundle_collector_excludes_test_filename_classes() {
     fs::write(root.join("main.veln"), "pub fn main() -> ()\n  ()\nend\n")
         .expect("production source should be written");
     fs::write(
-        root.join("main_test.veln"),
-        "test integration() -> ()\nend\n",
+        root.join("nested").join("main_testing.veln"),
+        "pub fn fixture() -> Int\n  1\nend\n",
     )
-    .expect("integration test source should be written");
+    .expect("consumer test support source should be written");
+    fs::write(
+        root.join("main_test.veln"),
+        "pub fn internal_fixture() -> Int\n  1\nend\n",
+    )
+    .expect("internal shared test helper should be written");
     fs::write(
         root.join("nested").join("main.test.veln"),
         "test companion() -> ()\nend\n",
@@ -28,12 +33,13 @@ fn production_bundle_collector_excludes_test_filename_classes() {
     let _ = fs::remove_dir_all(&root);
     paths.sort();
 
-    assert_eq!(paths, vec!["main.veln"]);
+    assert_eq!(paths, vec!["main.veln", "nested/main_testing.veln"]);
 }
 
 #[test]
 fn production_distribution_policy_excludes_each_test_suffix() {
     assert!(build_script::is_distribution_source("main.veln"));
+    assert!(build_script::is_distribution_source("main_testing.veln"));
     assert!(!build_script::is_distribution_source("main_test.veln"));
     assert!(!build_script::is_distribution_source("main.test.veln"));
 }

@@ -149,6 +149,24 @@ mod tests {
         assert!(!package.exports.contains(&"diagnostic.veln"));
     }
 
+    #[test]
+    fn distribution_modules_do_not_import_internal_test_helpers() {
+        for file in package_bundle().lowered_files {
+            let module = veln_ast::decode_surface_module(file.module)
+                .expect("bundled standard module should decode");
+            for import in module.uses {
+                let imported_module = import.name.rsplit("::").next().unwrap();
+                assert!(
+                    !imported_module.ends_with("_test")
+                        && !imported_module.ends_with("__test_companion"),
+                    "distribution source {} imports internal test module {}; remove this import so the distributed library does not depend on excluded test code",
+                    file.path,
+                    import.name
+                );
+            }
+        }
+    }
+
     fn collect_distribution_sources(root: &Path, relative: &Path, paths: &mut Vec<String>) {
         let directory = root.join(relative);
         for entry in fs::read_dir(directory).expect("standard package directory should be readable")

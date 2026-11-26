@@ -3,7 +3,7 @@ use net
 use host_effects
 use transport
 use transport::network
-use transport::net_resource_test_support_test
+use transport::net_resource_test
 
 fn trace_push(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> () effects [concurrency]
 	let observed: List<String> = option_unwrap_or(channel::recv(trace.rx), list_nil())
@@ -242,7 +242,7 @@ fn run_owned_read(mode: String) -> Result<{ result : Result<Option<ByteChunk>, n
 end
 
 fn run_owned_read_with_resources() -> Result<Option<ByteChunk>, net::NetError> effects [net::IO]
-	match transport::net_resource_test_support_test::stream("captured")
+	match transport::net_resource_test::stream("captured")
 		Ok(seed) => handle read_chunk() with transport::network::net_stream(seed)
 		Err(error) => Err(error)
 	end
@@ -284,8 +284,8 @@ fn run_direct_read(mode: String) -> Result<{ result : Result<Option<ByteChunk>, 
 end
 
 fn run_direct_read_with_resources(mode: String, expected: { tx : Sender<Option<net::Stream>>, rx : Receiver<Option<net::Stream>> }, phase: { tx : Sender<String>, rx : Receiver<String> }, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<{ result : Result<Option<ByteChunk>, net::NetError>, trace : List<String> }, String> effects [net::IO, concurrency]
-	let seed = transport::net_resource_test_support_test::stream_or_message("captured")?
-	let other = transport::net_resource_test_support_test::stream_or_message("other")?
+	let seed = transport::net_resource_test::stream_or_message("captured")?
+	let other = transport::net_resource_test::stream_or_message("other")?
 	let _ = channel::recv(phase.rx)
 	let _ = channel::send(phase.tx, "adapter")
 	let result = read_with_network_adapter(seed)
@@ -330,8 +330,8 @@ fn run_direct_write(mode: String, chunks: List<ByteChunk>) -> Result<{ result : 
 end
 
 fn run_direct_write_with_resources(mode: String, chunks: List<ByteChunk>, phase: { tx : Sender<String>, rx : Receiver<String> }, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<{ result : Result<(), net::NetError>, trace : List<String> }, String> effects [net::IO, concurrency]
-	let seed = transport::net_resource_test_support_test::stream_or_message("captured")?
-	let other = transport::net_resource_test_support_test::stream_or_message("other")?
+	let seed = transport::net_resource_test::stream_or_message("captured")?
+	let other = transport::net_resource_test::stream_or_message("other")?
 	let _ = channel::recv(phase.rx)
 	let _ = channel::send(phase.tx, "adapter")
 	let result = write_with_network_adapter(seed, chunks)

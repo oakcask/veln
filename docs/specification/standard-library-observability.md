@@ -801,7 +801,7 @@ process or machine termination can prevent it from running.
   [`traced.test.veln`](../../crates/veln-stdlib/veln/traced.test.veln).
 - JSON Lines API, ordering, limit, cardinality, and failure-health coverage:
   [`observe.test.veln`](../../crates/veln-stdlib/veln/observe.test.veln), with
-  scoped fakes in `observe_export_test_support_test.veln`.
+  scoped fakes in `observe_export_test.veln`.
   The checked record and exporter-health schemas, six captured encoder records,
   and one real diagnostic summary are owned by
   [`observability-schema.test.mjs`](../../workflow-scripts/observability-schema.test.mjs)
@@ -824,7 +824,7 @@ process or machine termination can prevent it from running.
   `observe.test.veln`,
   with scoped destination and barrier
   support in
-  [`observe_test_support_test.veln`](../../crates/veln-stdlib/veln/observe_test_support_test.veln).
+  [`observe_test.veln`](../../crates/veln-stdlib/veln/observe_test.veln).
   The
   [`observability-buffered-json-lines-host-boundary`](../../examples/specification/run/observability-buffered-json-lines-host-boundary/)
   case checks handler-driven ordered worker drain and the final summary through
