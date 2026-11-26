@@ -30,8 +30,11 @@ The current
 [source grammar](../specification/source-surface.md#function-declaration-binders)
 accepts and retains ordinary function type binders followed by an optional
 effect binder. It formats those declaration binders canonically and rejects
-unsupported declaration forms. The syntax does not yet establish a semantic
-type scheme or bind the names in signatures and bodies. The
+unsupported declaration forms. The linked source-surface specification and
+the current [diagnostic contract](../specification/diagnostics-json.md#diagnostic-families)
+also own the implemented malformed-list recovery contract. These parser
+outcomes do not yet establish a semantic type scheme or bind the names in
+signatures and bodies. The
 [effect specification](../specification/effects.md#effect-labels) already
 supports one declared effect-row parameter and call-specific substitution.
 
