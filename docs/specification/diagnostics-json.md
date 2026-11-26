@@ -72,9 +72,9 @@ cases fix the rendered and structured forms, including an unbound binder name
 outside its owning declaration remaining `name.unresolved`. The result is
 unchanged when another analyzed source contains an inaccessible generic
 declaration whose binder has the same spelling. The same cases also fix
-qualified function-annotation failures: a missing or private final type in a
-selected imported module reports `name.unresolved`, and `details.symbol`
-retains the complete written type path.
+qualified function-annotation failures: a missing final type, or a private
+final type that is not available through exact test-companion access, reports
+`name.unresolved`, and `details.symbol` retains the complete written type path.
 
 A cyclic dependency component formed by selected same-module or imported
 module-value references reports one `value.module_initializer_cycle` at the

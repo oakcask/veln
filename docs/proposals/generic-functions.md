@@ -27,7 +27,10 @@ that abstraction depend on concrete element types.
 The current [type specification](../specification/types.md) defines generic
 constructor inference, variance, variant refinements, and monomorphic local
 inference. Private function inference requires concrete types and can use
-same-module call-site facts. That inference is not universal quantification.
+same-module call-site facts. It may retain a private helper's own declared
+rigid parameters, but it does not publish a rigid parameter owned by a caller
+into that helper's monomorphic signature. That inference is not universal
+quantification.
 The current
 [source grammar](../specification/source-surface.md#function-declaration-binders)
 accepts and retains ordinary function type binders followed by an optional
@@ -575,7 +578,7 @@ support still needs the changes and acceptance coverage described here.
 | Concern | Existing starting point | Planned change |
 | --- | --- | --- |
 | Typed generic calls | Function syntax retains ordinary and effect binders with spans, declaration checking resolves ordinary binders by declaration identity, and named-call suffixes distinguish balanced type arguments from comparisons. | Connect typed calls to schemes under Q1 without changing the source grammar. |
-| Rigid definitions and independent instances | Semantic function signatures carry declaration-owned ordinary binders through annotations and rigid body checking; current private inference is monomorphic. | Represent independently instantiable schemes and create fresh substitutions at non-recursive uses. Keep recursive-group references rigid under Q9. |
+| Rigid definitions and independent instances | Semantic function signatures carry declaration-owned ordinary binders through annotations and rigid body checking; current private inference is monomorphic and rejects signature contributions containing another declaration's rigid parameter. | Represent independently instantiable schemes and create fresh substitutions at non-recursive uses. Keep recursive-group references rigid under Q9. |
 | Type and effect inference | Constructor inference already collects polarity-sensitive bounds, and effect calls already substitute one row. | Apply Q3–Q5 to generic call instances, retaining complete constraints and publishing type and row solutions together. Pending locals retain one monomorphic instance. |
 | Aliases and public interfaces | Name resolution identifies declarations and imports; function values already have monomorphic signatures. | Preserve the owning scheme for transparent aliases and exports, instantiate at monotype boundaries, and retain binder identity in versioned interfaces under Q7. |
 | JVM emission | Object method descriptors, primitive boxing, direct calls, and function-value calls already provide erased runtime boundaries. | Retain semantic substitutions through typed lowering, then emit one shared body per declaration as described in Q6. No runtime type witness or specialization mechanism is needed for the baseline. |

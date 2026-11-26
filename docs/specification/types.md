@@ -154,11 +154,13 @@ visible and does not suppress the unresolved-name failure.
 
 Every other named type in a function annotation resolves from the function's
 owning package and module. A qualified annotation selects its import before it
-selects the final type. The selected module must expose a public type or type
-alias of the written arity. A missing or private final type reports
-`name.unresolved`; the presence of the import alone does not make that type
-annotation valid. The diagnostic points at the unresolved final type when the
-qualifier resolves, and at the unresolved qualifier otherwise.
+selects the final type. The selected module must expose a type or type alias of
+the written arity that is visible from the owning declaration. An exact test
+companion may use an explicitly imported private type from its target module;
+other imported private types remain inaccessible. A missing or inaccessible
+final type reports `name.unresolved`; the presence of the import alone does not
+make that type annotation valid. The diagnostic points at the unresolved final
+type when the qualifier resolves, and at the unresolved qualifier otherwise.
 
 Functions in the embedded standard package use the same resolution and
 visibility facts as application functions. Until those APIs declare retained
@@ -311,10 +313,16 @@ edges do not supply inference facts for the recursive helper itself, so an
 omitted recursive slot still needs a non-recursive concrete fact or an
 annotation. Public functions, tests, exported aliases, and imported public
 functions do not receive inferred signatures. An inferred private signature
-cannot retain a rigid type parameter owned by a different declaration. Such a
-caller still checks against the concrete facts that other valid callers
-contribute, and changing caller declaration order does not change the inferred
-private signature.
+may retain the target helper's own rigid parameters, but it cannot retain a
+rigid type parameter owned by another declaration. This exclusion applies
+recursively through named type arguments, records, and fixed or variadic
+function types, including expected function-value and callback results. The
+foreign contribution does not constrain an omitted parameter or result. Its
+caller instead checks against concrete facts from other valid callers, and
+changing caller declaration order does not change the inferred private
+signature. The focused semantic tests are in
+`crates/veln-sema/src/tests/generic_function_semantic_binders.rs`.
+
 When the tail is a local with an explicit refinement annotation, an omitted
 private result retains the resolved refinement. This applies to local and
 imported ADTs; the inferred result uses the resolved ADT's canonical display
