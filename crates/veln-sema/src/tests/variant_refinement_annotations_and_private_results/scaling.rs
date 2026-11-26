@@ -792,8 +792,8 @@ fn wide_named_argument_visibility_work(count: usize, public: bool, variant: &str
 }
 
 fn assert_nested_named_argument_visibility_growth(public: bool, variant: &str) {
-    let work = [500, 750, 1_000]
-        .map(|count| wide_named_argument_visibility_work(count, public, variant));
+    let work =
+        [500, 750, 1_000].map(|count| wide_named_argument_visibility_work(count, public, variant));
     assert_eq!(
         work[1] - work[0],
         work[2] - work[1],
