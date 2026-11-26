@@ -315,6 +315,8 @@ successful resource reference for a fake handler.
 
 `transport::net::net_stream(stream)` handles the canonical
 `std::transport::DuplexStream` effect through the active `net::IO` handler.
+The standard package exports the adapter only as `transport::net`. Importing
+`transport::network` from `std` fails with `module.unexported_import`.
 After `use transport`, source may spell that same effect as
 `transport::DuplexStream`; the shorter spelling does not create another
 nominal identity. The caller retains ownership of `stream`.
@@ -360,6 +362,8 @@ conversion for an empty successful read, unchanged typed read and write
 failures, complete ordered writes, empty-list behavior, captured-resource
 identity, and the absence of address, connection, shutdown, or lifecycle
 operations during adapter I/O.
+The `standard-library-transport-network-removed` checked example verifies that
+the retired `transport::network` path is not externally importable.
 The JVM backend network tests compile their checked programs with the exported
 standard modules. Separate Veln test support checks value operations and
 foreign-resource rejection at `net::IO`. Owned-resource cases run through
