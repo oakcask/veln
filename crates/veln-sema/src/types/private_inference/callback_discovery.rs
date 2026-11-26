@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::TypeParameterIdentityContext;
 
 pub(crate) fn infer_private_prelude_callback_return_types(
     module: &SurfaceModule,
@@ -80,6 +81,10 @@ pub(crate) fn infer_private_prelude_callback_return_types(
             }
             if let Some(inferred) = returns_by_path.get(&key)
                 && inferred != &function.return_type
+                && !private_signature_contribution_has_foreign_type_parameter(
+                    inferred,
+                    &function.type_parameters,
+                )
             {
                 function.return_type = inferred.clone();
             }
@@ -101,17 +106,42 @@ pub(crate) fn collect_private_prelude_callback_return_constraints(
     #[cfg(test)]
     private_inference_counters::record_prelude_callback_scan();
 
+    let type_parameters = TypeParameterIdentityContext::for_function(function);
     let mut bindings = function_parameter_bindings(function);
-    let declared_return = function
-        .return_type
-        .as_deref()
-        .map(|return_type| parse_type_or_unknown(Some(return_type)));
+    if !function.type_binders.is_empty() {
+        for binding in bindings.iter_mut() {
+            binding.ty = canonicalize_private_annotation_type(
+                binding.ty.clone(),
+                uses,
+                function.module_name.as_deref(),
+                function.package_name.as_deref(),
+                adts,
+                Some(&type_parameters),
+            );
+        }
+    }
+    let declared_return = function.return_type.as_deref().map(|return_type| {
+        let ty = parse_type_or_unknown(Some(return_type));
+        if function.type_binders.is_empty() {
+            ty
+        } else {
+            canonicalize_private_annotation_type(
+                ty,
+                uses,
+                function.module_name.as_deref(),
+                function.package_name.as_deref(),
+                adts,
+                Some(&type_parameters),
+            )
+        }
+    });
     collect_private_prelude_callback_body_constraints(
         &function.body,
         declared_return.as_ref(),
         function.module_name.as_deref(),
         function.package_name.as_deref(),
         uses,
+        &type_parameters,
         function_by_path,
         omitted_private_returns,
         returns_by_path,
@@ -129,6 +159,7 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
     current_module: Option<&str>,
     current_package: Option<&str>,
     uses: &[UseDecl],
+    type_parameters: &TypeParameterIdentityContext<'_>,
     function_by_path: &BTreeMap<FunctionKey, &Function>,
     omitted_private_returns: &BTreeSet<FunctionKey>,
     returns_by_path: &mut BTreeMap<FunctionKey, Type>,
@@ -145,9 +176,21 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
                 expr,
                 ..
             } => {
-                let annotation_type = annotation
-                    .as_deref()
-                    .map(|annotation| parse_type_or_unknown(Some(annotation)));
+                let annotation_type = annotation.as_deref().map(|annotation| {
+                    let ty = parse_type_or_unknown(Some(annotation));
+                    if type_parameters.name_count() == 0 {
+                        ty
+                    } else {
+                        canonicalize_private_annotation_type(
+                            ty,
+                            uses,
+                            current_module,
+                            current_package,
+                            adts,
+                            Some(type_parameters),
+                        )
+                    }
+                });
                 collect_private_prelude_callback_expr_constraints(
                     expr,
                     annotation_type.as_ref(),
@@ -155,6 +198,7 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
                         current_module,
                         current_package,
                         uses,
+                        type_parameters,
                         bindings,
                         function_by_path,
                         omitted_private_returns,
@@ -188,6 +232,7 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
                         current_module,
                         current_package,
                         uses,
+                        type_parameters,
                         bindings,
                         function_by_path,
                         omitted_private_returns,
@@ -207,6 +252,7 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
                     current_module,
                     current_package,
                     uses,
+                    type_parameters,
                     function_by_path,
                     omitted_private_returns,
                     returns_by_path,
@@ -646,6 +692,7 @@ pub(crate) fn private_prelude_callback_call_references_slot(
             current_module: context.current_module,
             current_package: context.current_package,
             uses: context.uses,
+            type_parameters: None,
             bindings: context.bindings,
             signatures_by_path: None,
             returns_by_path: context.returns_by_path,

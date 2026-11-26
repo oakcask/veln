@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::TypeParameterIdentityContext;
 
 pub(crate) fn private_callback_return_constraint_can_update(
     segments: &[String],
@@ -33,6 +34,13 @@ pub(crate) fn private_callback_return_constraint_can_update(
     let Some(function) = context.function_by_path.get(&key) else {
         return false;
     };
+    let target_type_parameters = TypeParameterIdentityContext::function_parameters(function);
+    if private_signature_contribution_has_foreign_type_parameter(
+        return_type,
+        &target_type_parameters,
+    ) {
+        return false;
+    }
     if !private_tail_can_use_expected(function, return_type, context.uses, context.adts) {
         return false;
     }
@@ -43,6 +51,7 @@ pub(crate) struct PrivatePreludeCallbackConstraintContext<'a> {
     pub(crate) current_module: Option<&'a str>,
     pub(crate) current_package: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
+    pub(crate) type_parameters: &'a TypeParameterIdentityContext<'a>,
     pub(crate) bindings: &'a mut PrivateBindings,
     pub(crate) function_by_path: &'a BTreeMap<FunctionKey, &'a Function>,
     pub(crate) omitted_private_returns: &'a BTreeSet<FunctionKey>,
@@ -86,6 +95,7 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
                 context.current_module,
                 context.current_package,
                 context.uses,
+                context.type_parameters,
                 context.function_by_path,
                 context.omitted_private_returns,
                 context.returns_by_path,
@@ -264,6 +274,7 @@ pub(crate) fn collect_private_prelude_callback_call_constraints(
             current_module: context.current_module,
             current_package: context.current_package,
             uses: context.uses,
+            type_parameters: Some(context.type_parameters),
             bindings: context.bindings,
             signatures_by_path: None,
             returns_by_path: &*context.returns_by_path,
@@ -402,6 +413,13 @@ pub(crate) fn collect_private_callback_return_constraint_for_segments(
     let Some(function) = context.function_by_path.get(&key) else {
         return;
     };
+    let target_type_parameters = TypeParameterIdentityContext::function_parameters(function);
+    if private_signature_contribution_has_foreign_type_parameter(
+        return_type,
+        &target_type_parameters,
+    ) {
+        return;
+    }
     if !private_tail_can_use_expected(function, return_type, context.uses, context.adts) {
         return;
     }

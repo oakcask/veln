@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::TypeParameterIdentityContext;
 
 pub(crate) fn private_tail_can_use_expected(
     function: &Function,
@@ -149,12 +150,14 @@ pub(crate) fn infer_private_function_tail_type(
 
     let mut bindings = private_function_body_bindings(function, signatures_by_path);
     let mut failures = 0;
+    let type_parameters = TypeParameterIdentityContext::for_function(function);
     infer_private_body_type(
         &function.body,
         None,
         function.module_name.as_deref(),
         function.package_name.as_deref(),
         uses,
+        (!function.type_binders.is_empty()).then_some(&type_parameters),
         &mut bindings,
         Some(signatures_by_path),
         returns_by_path,
@@ -171,6 +174,7 @@ pub(super) fn infer_private_body_type(
     current_module: Option<&str>,
     current_package: Option<&str>,
     uses: &[UseDecl],
+    type_parameters: Option<&TypeParameterIdentityContext<'_>>,
     bindings: &mut PrivateBindings,
     signatures_by_path: Option<&FunctionSignatureMap>,
     returns_by_path: &BTreeMap<FunctionKey, Type>,
@@ -181,6 +185,7 @@ pub(super) fn infer_private_body_type(
         current_module,
         current_package,
         uses,
+        type_parameters,
         bindings,
         signatures_by_path,
         returns_by_path,
@@ -242,6 +247,7 @@ fn infer_private_let_line(
             context.current_module,
             context.current_package,
             context.adts,
+            context.type_parameters,
         )
     });
     let (ty, may_contribute) = match annotation_type {
@@ -285,14 +291,15 @@ fn infer_private_body_expr(
     )
 }
 
-fn canonicalize_private_annotation_type(
+pub(crate) fn canonicalize_private_annotation_type(
     ty: Type,
     uses: &[UseDecl],
     current_module: Option<&str>,
     current_package: Option<&str>,
     adts: &AdtRegistry,
+    type_parameters: Option<&TypeParameterIdentityContext<'_>>,
 ) -> Type {
-    crate::types::signature_collection::canonicalize_type_effects_in_owner(
+    crate::types::signature_collection::canonicalize_type_effects_with_context(
         ty,
         uses,
         &[],
@@ -301,6 +308,7 @@ fn canonicalize_private_annotation_type(
         &[],
         adts,
         &BTreeMap::new(),
+        type_parameters,
     )
 }
 

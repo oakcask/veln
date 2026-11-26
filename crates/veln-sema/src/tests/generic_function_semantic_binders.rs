@@ -94,7 +94,7 @@ fn body_annotations_reuse_one_declaration_type_parameter_context() {
 #[test]
 fn function_binders_are_retained_with_declaration_owned_rigid_identities() {
     let (module, diagnostics) = analyze(concat!(
-        "fn first<T>(value: T) -> output: T\n",
+        "pub fn first<T>(value: T) -> output: T\n",
         "ensure output == value\n",
         "  let local: T = value\n",
         "  begin\n",
@@ -113,6 +113,7 @@ fn function_binders_are_retained_with_declaration_owned_rigid_identities() {
     let second = environment.function("second").expect("second signature");
 
     assert_eq!(first.type_parameters.len(), 1);
+    assert_eq!(first.visibility, veln_ast::Visibility::Public);
     assert_eq!(first.type_parameters[0].name, "T");
     assert_eq!(first.type_parameters[0].ordinal, 0);
     assert_eq!(
@@ -124,10 +125,197 @@ fn function_binders_are_retained_with_declaration_owned_rigid_identities() {
         named_identity(&first.return_type)
     );
     assert_eq!(second.type_parameters.len(), 1);
+    assert_eq!(second.visibility, veln_ast::Visibility::Private);
     assert_ne!(
         first.type_parameters[0].identity,
         second.type_parameters[0].identity
     );
+}
+
+#[test]
+fn rigid_callers_do_not_publish_type_parameters_into_private_signatures() {
+    for (source, owner_call_line) in [
+        (
+            concat!(
+                "fn passthrough(value)\n",
+                "  value\n",
+                "end\n",
+                "fn owner<T>(value: T) -> T\n",
+                "  passthrough(value)\n",
+                "end\n",
+                "fn concrete() -> Int\n",
+                "  passthrough(1)\n",
+                "end\n",
+            ),
+            5,
+        ),
+        (
+            concat!(
+                "fn passthrough(value)\n",
+                "  value\n",
+                "end\n",
+                "fn concrete() -> Int\n",
+                "  passthrough(1)\n",
+                "end\n",
+                "fn owner<T>(value: T) -> T\n",
+                "  passthrough(value)\n",
+                "end\n",
+            ),
+            8,
+        ),
+    ] {
+        let (module, diagnostics) = analyze(source);
+        assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+        let mismatches = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .collect::<Vec<_>>();
+        assert_eq!(mismatches.len(), 2, "{diagnostics:#?}");
+        assert_eq!(
+            mismatches
+                .iter()
+                .map(|diagnostic| diagnostic.message.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "expected `Int`, but found `T`",
+                "expected `T`, but found `Int`",
+            ]
+        );
+        assert!(
+            mismatches.iter().all(|diagnostic| diagnostic
+                .span
+                .as_ref()
+                .map(|span| span.start.line)
+                == Some(owner_call_line)),
+            "{diagnostics:#?}"
+        );
+
+        let environment = TypeEnvironment::from_module(&module);
+        let passthrough = environment
+            .function("passthrough")
+            .expect("passthrough signature");
+        assert_eq!(passthrough.params, [Type::int()]);
+        assert_eq!(passthrough.return_type, Type::int());
+    }
+}
+
+#[test]
+fn private_inference_keeps_the_target_declarations_own_rigid_parameters() {
+    let (module, diagnostics) =
+        analyze(concat!("fn owner<T>(value) -> T\n", "  value\n", "end\n",));
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    let owner = environment.function("owner").expect("owner signature");
+    assert_eq!(
+        named_identity(&owner.params[0]),
+        owner.type_parameters[0].identity
+    );
+}
+
+#[test]
+fn rigid_function_value_context_does_not_publish_into_a_private_signature() {
+    let (module, diagnostics) = analyze(concat!(
+        "fn callback(value)\n",
+        "  value\n",
+        "end\n",
+        "fn owner<T>() -> fn(T) -> T\n",
+        "  callback\n",
+        "end\n",
+        "fn concrete() -> fn(Int) -> Int\n",
+        "  callback\n",
+        "end\n",
+        "fn collect(values: ...) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn rest_owner<T>() -> fn(...T) -> ()\n",
+        "  collect\n",
+        "end\n",
+        "fn rest_concrete() -> fn(...Int) -> ()\n",
+        "  collect\n",
+        "end\n",
+    ));
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.start.line == 5 || span.start.line == 14)
+        }),
+        "{diagnostics:#?}"
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    let callback = environment
+        .function("callback")
+        .expect("callback signature");
+    assert_eq!(callback.params, [Type::int()]);
+    assert_eq!(callback.return_type, Type::int());
+    let collect = environment.function("collect").expect("collect signature");
+    assert_eq!(collect.variadic, Some(Type::int()));
+}
+
+#[test]
+fn composite_local_expected_type_does_not_publish_a_foreign_rigid_parameter() {
+    let (module, diagnostics) = analyze(concat!(
+        "fn empty()\n",
+        "  []\n",
+        "end\n",
+        "fn owner<T>() -> ()\n",
+        "  let values: Vec<T> = empty()\n",
+        "  ()\n",
+        "end\n",
+        "fn concrete() -> Vec<Int>\n",
+        "  empty()\n",
+        "end\n",
+    ));
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.start.line == 5)
+        }),
+        "{diagnostics:#?}"
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    let empty = environment.function("empty").expect("empty signature");
+    assert_eq!(empty.return_type, Type::vec(Type::int()));
+}
+
+#[test]
+fn prelude_callback_inference_does_not_publish_a_foreign_rigid_result() {
+    let (module, diagnostics) = analyze(concat!(
+        "fn items(value: Int)\n",
+        "  []\n",
+        "end\n",
+        "fn owner<T>(values: Vec<Int>) -> Vec<Vec<T>>\n",
+        "  vec_map(values, items)\n",
+        "end\n",
+        "fn concrete(values: Vec<Int>) -> Vec<Vec<String>>\n",
+        "  vec_map(values, items)\n",
+        "end\n",
+    ));
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.start.line == 5)
+        }),
+        "{diagnostics:#?}"
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    let items = environment.function("items").expect("items signature");
+    assert_eq!(items.return_type, Type::vec(Type::string()));
 }
 
 #[test]

@@ -58,6 +58,12 @@ pub(crate) fn infer_private_function_body_return_types(
             if inferred_type_contains(&inferred, &signature.return_type) {
                 continue;
             }
+            if private_signature_contribution_has_foreign_type_parameter(
+                &inferred,
+                &signature.type_parameters,
+            ) {
+                continue;
+            }
             signature.return_type = inferred;
             changed = true;
         }

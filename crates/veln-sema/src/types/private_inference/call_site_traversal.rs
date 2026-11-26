@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::TypeParameterIdentityContext;
 
 pub(crate) struct PrivateCallSiteConstraintContext<'a> {
     pub(crate) uses: &'a [UseDecl],
@@ -15,6 +16,7 @@ pub(crate) struct PrivateCallSiteExprContext<'a, 'b> {
     pub(crate) current_module: Option<&'b str>,
     pub(crate) current_package: Option<&'b str>,
     pub(crate) caller_key: Option<&'b FunctionKey>,
+    pub(crate) type_parameters: &'b TypeParameterIdentityContext<'b>,
     pub(crate) bindings: &'b mut PrivateBindings,
     pub(crate) constraints: &'b mut PrivateCallSiteConstraintContext<'a>,
 }
@@ -35,17 +37,26 @@ pub(crate) fn collect_private_call_site_constraints(
             name.clone(),
         )
     });
+    let type_parameters = TypeParameterIdentityContext::for_function(function);
     let mut bindings = private_function_body_bindings(function, context.signatures_by_path);
-    let declared_return = function.return_type.as_deref().map_or_else(
-        || {
-            caller_key
-                .as_ref()
-                .and_then(|key| context.signatures_by_path.get(key))
-                .map(|signature| signature.return_type.clone())
-                .filter(|ty| !type_has_unknown(ty))
-        },
-        |return_type| Some(parse_type_or_unknown(Some(return_type))),
-    );
+    let declared_return = if function.type_binders.is_empty() {
+        function.return_type.as_deref().map_or_else(
+            || {
+                caller_key
+                    .as_ref()
+                    .and_then(|key| context.signatures_by_path.get(key))
+                    .map(|signature| signature.return_type.clone())
+                    .filter(|ty| !type_has_unknown(ty))
+            },
+            |return_type| Some(parse_type_or_unknown(Some(return_type))),
+        )
+    } else {
+        caller_key
+            .as_ref()
+            .and_then(|key| context.signatures_by_path.get(key))
+            .map(|signature| signature.return_type.clone())
+            .filter(|ty| !type_has_unknown(ty))
+    };
 
     collect_private_call_site_body_constraints(
         &function.body,
@@ -53,17 +64,20 @@ pub(crate) fn collect_private_call_site_constraints(
         current_module,
         current_package,
         caller_key.as_ref(),
+        &type_parameters,
         &mut bindings,
         context,
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn collect_private_call_site_body_constraints(
     body: &[BodyLine],
     tail_expected: Option<&Type>,
     current_module: Option<&str>,
     current_package: Option<&str>,
     caller_key: Option<&FunctionKey>,
+    type_parameters: &TypeParameterIdentityContext<'_>,
     bindings: &mut PrivateBindings,
     context: &mut PrivateCallSiteConstraintContext<'_>,
 ) {
@@ -75,9 +89,21 @@ fn collect_private_call_site_body_constraints(
                 expr,
                 ..
             } => {
-                let annotation_type = annotation
-                    .as_deref()
-                    .map(|annotation| parse_type_or_unknown(Some(annotation)));
+                let annotation_type = annotation.as_deref().map(|annotation| {
+                    let ty = parse_type_or_unknown(Some(annotation));
+                    if type_parameters.name_count() == 0 {
+                        ty
+                    } else {
+                        canonicalize_private_call_site_annotation(
+                            ty,
+                            current_module,
+                            current_package,
+                            context.uses,
+                            context.adts,
+                            type_parameters,
+                        )
+                    }
+                });
                 collect_private_call_site_expr_constraints(
                     expr,
                     annotation_type.as_ref(),
@@ -85,6 +111,7 @@ fn collect_private_call_site_body_constraints(
                         current_module,
                         current_package,
                         caller_key,
+                        type_parameters,
                         bindings,
                         constraints: context,
                     },
@@ -123,6 +150,7 @@ fn collect_private_call_site_body_constraints(
                         current_module,
                         current_package,
                         caller_key,
+                        type_parameters,
                         bindings,
                         constraints: context,
                     },
@@ -137,6 +165,7 @@ fn collect_private_call_site_body_constraints(
                     current_module,
                     current_package,
                     caller_key,
+                    type_parameters,
                     bindings,
                     context,
                 );
@@ -180,6 +209,7 @@ pub(crate) fn collect_private_call_site_expr_constraints(
                 context.current_module,
                 context.current_package,
                 context.caller_key,
+                context.type_parameters,
                 context.bindings,
                 context.constraints,
             );
@@ -198,6 +228,27 @@ pub(crate) fn collect_private_call_site_expr_constraints(
         | ExprKind::Unit
         | ExprKind::TypeApply { .. } => {}
     }
+}
+
+fn canonicalize_private_call_site_annotation(
+    ty: Type,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    uses: &[UseDecl],
+    adts: &AdtRegistry,
+    type_parameters: &TypeParameterIdentityContext<'_>,
+) -> Type {
+    crate::types::signature_collection::canonicalize_type_effects_with_context(
+        ty,
+        uses,
+        &[],
+        current_module,
+        current_package,
+        &[],
+        adts,
+        &BTreeMap::new(),
+        Some(type_parameters),
+    )
 }
 
 pub(crate) fn collect_private_call_site_collection_constraints(

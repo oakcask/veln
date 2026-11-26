@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::TypeParameterIdentityContext;
 
 pub(crate) fn private_expected_can_constrain(ty: &Type) -> bool {
     if !type_has_unknown(ty) {
@@ -324,6 +325,12 @@ pub(crate) fn update_private_signature_param(
     let Some(signature) = private_signature_mut(functions, key) else {
         return;
     };
+    if private_signature_contribution_has_foreign_type_parameter(
+        &inferred,
+        &signature.type_parameters,
+    ) {
+        return;
+    }
     let Some(current) = signature.params.get_mut(index) else {
         return;
     };
@@ -339,6 +346,12 @@ pub(crate) fn update_private_signature_variadic(
     let Some(signature) = private_signature_mut(functions, key) else {
         return;
     };
+    if private_signature_contribution_has_foreign_type_parameter(
+        &inferred,
+        &signature.type_parameters,
+    ) {
+        return;
+    }
     let Some(current) = signature.variadic.as_mut() else {
         return;
     };
@@ -354,6 +367,12 @@ pub(crate) fn update_private_signature_return(
     let Some(signature) = private_signature_mut(functions, key) else {
         return;
     };
+    if private_signature_contribution_has_foreign_type_parameter(
+        &inferred,
+        &signature.type_parameters,
+    ) {
+        return;
+    }
     update_unknown_private_signature_type(&mut signature.return_type, inferred, changed);
 }
 
@@ -367,6 +386,12 @@ fn update_private_signature_return_from_function_value(
     let Some(signature) = private_signature_mut(functions, key) else {
         return;
     };
+    if private_signature_contribution_has_foreign_type_parameter(
+        &inferred,
+        &signature.type_parameters,
+    ) {
+        return;
+    }
     if matches!(signature.return_type, Type::VariantRefinement { .. })
         && matches!(inferred, Type::Named { .. })
         && crate::type_relations::is_assignable_with_registry(
@@ -395,5 +420,40 @@ fn update_unknown_private_signature_type(current: &mut Type, inferred: Type, cha
     if type_has_unknown(current) {
         *current = inferred;
         *changed = true;
+    }
+}
+
+pub(crate) fn private_signature_contribution_has_foreign_type_parameter(
+    ty: &Type,
+    allowed: &[crate::types::signatures::FunctionTypeParameter],
+) -> bool {
+    match ty {
+        Type::Unknown => false,
+        Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
+            (TypeParameterIdentityContext::is_identity(identity)
+                && !allowed
+                    .iter()
+                    .any(|parameter| parameter.identity == identity.as_ref()))
+                || args.iter().any(|ty| {
+                    private_signature_contribution_has_foreign_type_parameter(ty, allowed)
+                })
+        }
+        Type::Record(fields) => fields
+            .iter()
+            .any(|(_, ty)| private_signature_contribution_has_foreign_type_parameter(ty, allowed)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params
+                .iter()
+                .any(|ty| private_signature_contribution_has_foreign_type_parameter(ty, allowed))
+                || variadic.as_deref().is_some_and(|ty| {
+                    private_signature_contribution_has_foreign_type_parameter(ty, allowed)
+                })
+                || private_signature_contribution_has_foreign_type_parameter(return_type, allowed)
+        }
     }
 }

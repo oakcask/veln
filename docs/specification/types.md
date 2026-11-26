@@ -310,7 +310,11 @@ call boundary without replacing the inferred helper signature. Direct recursive
 edges do not supply inference facts for the recursive helper itself, so an
 omitted recursive slot still needs a non-recursive concrete fact or an
 annotation. Public functions, tests, exported aliases, and imported public
-functions do not receive inferred signatures.
+functions do not receive inferred signatures. An inferred private signature
+cannot retain a rigid type parameter owned by a different declaration. Such a
+caller still checks against the concrete facts that other valid callers
+contribute, and changing caller declaration order does not change the inferred
+private signature.
 When the tail is a local with an explicit refinement annotation, an omitted
 private result retains the resolved refinement. This applies to local and
 imported ADTs; the inferred result uses the resolved ADT's canonical display

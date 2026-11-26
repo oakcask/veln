@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::TypeParameterIdentityContext;
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn infer_private_signature_expr_type(
@@ -129,6 +130,7 @@ fn infer_private_signature_expr_type_with_expected_kind(
         current_module,
         current_package,
         uses,
+        type_parameters: None,
         bindings,
         signatures_by_path,
         returns_by_path,
@@ -803,6 +805,7 @@ pub(crate) struct PrivateSignatureInferContext<'a, 'f> {
     pub(crate) current_module: Option<&'a str>,
     pub(crate) current_package: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
+    pub(crate) type_parameters: Option<&'a TypeParameterIdentityContext<'a>>,
     pub(crate) bindings: &'a mut PrivateBindings,
     pub(crate) signatures_by_path: Option<&'a FunctionSignatureMap>,
     pub(crate) returns_by_path: &'a BTreeMap<FunctionKey, Type>,
@@ -936,6 +939,7 @@ impl PrivateSignatureInferContext<'_, '_> {
             self.current_module,
             self.current_package,
             self.uses,
+            self.type_parameters,
             self.bindings,
             self.signatures_by_path,
             self.returns_by_path,
