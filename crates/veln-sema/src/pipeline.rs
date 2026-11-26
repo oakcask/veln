@@ -377,8 +377,12 @@ fn analyze_surface_module_with_environment(
         {
             continue;
         }
-        let (function_diagnostics, function_state_call_types) =
-            check_function_declaration_and_body(function, &environment, &mut variant_diagnostics);
+        let (function_diagnostics, function_state_call_types) = check_function_declaration_and_body(
+            module,
+            function,
+            &environment,
+            &mut variant_diagnostics,
+        );
         diagnostics.extend(function_diagnostics);
         retain_function_state_call_types(
             &mut state_call_types,

@@ -7,12 +7,12 @@ use crate::{
     NameClass, NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind,
     PredicateRemainder, PredicateTokenSpan, PrefixOp, PublicAlias, PublicAliasKind, RecordField,
     ResultBinding, SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause,
-    SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeAnnotationStructure, TypeDecl,
-    TypePathSegments, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin,
+    SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeAnnotationStructure, TypeBinder,
+    TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin,
     VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument, Visibility,
 };
 
-const MAGIC: &[u8; 9] = b"VLNAST25\n";
+const MAGIC: &[u8; 9] = b"VLNAST26\n";
 
 mod decoder;
 mod encoder;

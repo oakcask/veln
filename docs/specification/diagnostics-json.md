@@ -59,6 +59,18 @@ Unresolved names and call targets retain `name.unresolved`, and a constructor
 with the wrong payload arity retains `core.constructor_arity_mismatch`; these
 failures do not add `value.module_initializer_unsupported`.
 
+A function type binder that shadows a visible type reports
+`name.type_parameter_shadow` at the binder. Its details identify the
+`function_type_parameter` boundary, binder `name`, declaration-order `ordinal`,
+and whether the shadowed declaration is a built-in or another visible type.
+When source context exists, `related` contains a
+`shadowed_type_declaration` entry with that declaration's span. The checked
+[`human`](../../examples/specification/check/generic-function-semantic-binders-human/)
+and
+[`JSON`](../../examples/specification/check/generic-function-semantic-binders-json/)
+cases fix the rendered and structured forms, including an unbound binder name
+outside its owning declaration remaining `name.unresolved`.
+
 A cyclic dependency component formed by selected same-module or imported
 module-value references reports one `value.module_initializer_cycle` at the
 deterministic reference that closes the cycle. Its details contain

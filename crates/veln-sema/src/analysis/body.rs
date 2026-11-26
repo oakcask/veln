@@ -535,6 +535,11 @@ fn declaration_types_are_quarantined(
     environment: &TypeEnvironment,
     annotation_owner_prevalidated: bool,
 ) -> bool {
+    let type_parameters = function
+        .type_binders
+        .iter()
+        .map(|binder| binder.name.clone())
+        .collect::<Vec<_>>();
     if annotation_owner_prevalidated {
         let owner_paths_are_resolved = |paths: &[veln_ast::TypePathSegments]| {
             paths.iter().all(|path| {
@@ -559,7 +564,7 @@ fn declaration_types_are_quarantined(
         &function.return_type_paths,
         function.module_name.as_deref(),
         environment,
-        &[],
+        &type_parameters,
     ) || (function.kind == FunctionKind::Function
         && function.params.iter().any(|param| {
             annotation_has_unavailable_refinement_identity(
@@ -567,7 +572,7 @@ fn declaration_types_are_quarantined(
                 &param.ty_paths,
                 function.module_name.as_deref(),
                 environment,
-                &[],
+                &type_parameters,
             )
         }))
 }
@@ -583,6 +588,18 @@ fn resolution_uses_for_function(
 }
 
 impl<'a> FunctionChecker<'a> {
+    pub(super) fn canonicalize_annotation(&self, ty: Type) -> Type {
+        let type_parameters =
+            crate::types::TypeParameterIdentityContext::for_function(self.function);
+        self.environment
+            .canonicalize_type_annotation_in_owner_with_context(
+                ty,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+                &type_parameters,
+            )
+    }
+
     pub(super) fn for_source_declaration(
         function: &'a Function,
         environment: &'a TypeEnvironment,

@@ -1,0 +1,77 @@
+# This case covers JSON diagnostics and related context for generic function binder scope.
+command = ["check", "--json", "main.veln", "api.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[diagnostics]]
+id = "name.type_parameter_shadow"
+severity = "error"
+kind = "name"
+message = "function type parameter `Int` shadows a visible type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 17
+column = 20
+
+[[diagnostics]]
+id = "name.type_parameter_shadow"
+severity = "error"
+kind = "name"
+message = "function type parameter `Item` shadows a visible type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 21
+column = 19
+
+[[diagnostics]]
+id = "name.type_parameter_shadow"
+severity = "error"
+kind = "name"
+message = "function type parameter `Alias` shadows a visible type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 25
+column = 18
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved type `T`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 29
+column = 19
+
+[[json_assert]]
+path = "diagnostics.1.related.0.kind"
+equals = "shadowed_type_declaration"
+
+[[json_assert]]
+path = "diagnostics.1.related.0.span.start.line"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.2.related.0.span.file"
+equals = "api.veln"
+
+[[json_assert]]
+path = "diagnostics.2.related.0.span.start.line"
+equals = 5

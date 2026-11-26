@@ -161,6 +161,7 @@ pub(crate) fn function_alias_signatures_with_target_filter(
                 module_name: alias.module_name.clone(),
                 package_name: alias.package_name.clone(),
                 visibility: Visibility::Public,
+                type_parameters: target.type_parameters.clone(),
                 params: target.params.clone(),
                 variadic: target.variadic.clone(),
                 return_type: target.return_type.clone(),

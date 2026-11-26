@@ -361,8 +361,8 @@ thread_local! {
 }
 
 pub(crate) struct TypeParameterIdentityContext<'a> {
-    type_parameters: &'a [String],
-    positions: std::cell::OnceCell<HashMap<String, usize>>,
+    type_parameters: Option<&'a [String]>,
+    positions: std::cell::OnceCell<HashMap<String, (usize, String)>>,
     lookups: Option<std::cell::Cell<usize>>,
 }
 
@@ -377,7 +377,7 @@ impl<'a> TypeParameterIdentityContext<'a> {
 
     fn with_lookup_recording(type_parameters: &'a [String], record_lookups: bool) -> Self {
         Self {
-            type_parameters,
+            type_parameters: Some(type_parameters),
             positions: std::cell::OnceCell::new(),
             lookups: record_lookups.then(|| std::cell::Cell::new(0)),
         }
@@ -387,27 +387,94 @@ impl<'a> TypeParameterIdentityContext<'a> {
         if let Some(lookups) = &self.lookups {
             lookups.set(lookups.get() + 1);
         }
-        self.positions().get(name).copied()
+        self.positions().get(name).map(|(ordinal, _)| *ordinal)
     }
 
-    fn positions(&self) -> &HashMap<String, usize> {
+    fn positions(&self) -> &HashMap<String, (usize, String)> {
         // Most payload annotations never inspect a type-parameter identity.
         // Building the full index for each such field makes wide ADTs quadratic.
         self.positions.get_or_init(|| {
+            let type_parameters = self
+                .type_parameters
+                .expect("an uninitialized index needs retained type parameters");
             #[cfg(test)]
             TYPE_PARAMETER_INDEX_ENTRIES
-                .set(TYPE_PARAMETER_INDEX_ENTRIES.get() + self.type_parameters.len());
-            self.type_parameters
+                .set(TYPE_PARAMETER_INDEX_ENTRIES.get() + type_parameters.len());
+            type_parameters
                 .iter()
                 .enumerate()
-                .map(|(index, parameter)| (parameter.clone(), index))
+                .map(|(index, parameter)| {
+                    (
+                        parameter.clone(),
+                        (index, format!("type-parameter:{index}")),
+                    )
+                })
                 .collect()
         })
     }
 
     pub(crate) fn identity(&self, name: &str) -> Option<String> {
-        self.ordinal(name)
-            .map(|ordinal| format!("type-parameter:{ordinal}"))
+        if let Some(lookups) = &self.lookups {
+            lookups.set(lookups.get() + 1);
+        }
+        self.positions()
+            .get(name)
+            .map(|(_, identity)| identity.clone())
+    }
+
+    pub(crate) fn for_function(function: &'a veln_ast::Function) -> Self {
+        let span = function.span.resolved_or_generated();
+        let owner = format!(
+            "{}:{}:{}:{}:{}",
+            function.package_name.as_deref().unwrap_or("workspace"),
+            function.module_name.as_deref().unwrap_or(""),
+            span.file.as_str(),
+            span.start.offset,
+            span.end.offset,
+        );
+        Self {
+            type_parameters: None,
+            positions: std::cell::OnceCell::from(
+                function
+                    .type_binders
+                    .iter()
+                    .enumerate()
+                    .map(|(ordinal, parameter)| {
+                        (
+                            parameter.name.clone(),
+                            (ordinal, format!("type-parameter:{owner}:{ordinal}")),
+                        )
+                    })
+                    .collect(),
+            ),
+            lookups: None,
+        }
+    }
+
+    pub(crate) fn function_parameters(
+        function: &veln_ast::Function,
+    ) -> Vec<crate::types::signatures::FunctionTypeParameter> {
+        let span = function.span.resolved_or_generated();
+        let owner = format!(
+            "{}:{}:{}:{}:{}",
+            function.package_name.as_deref().unwrap_or("workspace"),
+            function.module_name.as_deref().unwrap_or(""),
+            span.file.as_str(),
+            span.start.offset,
+            span.end.offset,
+        );
+        function
+            .type_binders
+            .iter()
+            .enumerate()
+            .map(
+                |(ordinal, binder)| crate::types::signatures::FunctionTypeParameter {
+                    name: binder.name.clone(),
+                    ordinal,
+                    identity: format!("type-parameter:{owner}:{ordinal}"),
+                },
+            )
+            .collect()
     }
 
     pub(crate) fn is_identity(identity: &str) -> bool {

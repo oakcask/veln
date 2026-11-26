@@ -1,0 +1,5 @@
+type State
+  Ready
+end
+
+pub type Alias = State

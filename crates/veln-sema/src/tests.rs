@@ -15,6 +15,7 @@ mod contract_static_boolean_proofs;
 mod declarations_and_names;
 mod deferred_cleanup;
 mod effect_rows;
+mod generic_function_semantic_binders;
 mod identifier_casing;
 mod identifier_casing_selection_boundaries;
 mod import_package_identity;

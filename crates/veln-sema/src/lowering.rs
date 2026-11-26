@@ -407,6 +407,7 @@ fn lower_handler_clause_function(
             handler.name.as_deref().unwrap_or("missing"),
             &operation.name,
         )),
+        type_binders: Vec::new(),
         effect_binder: None,
         params: lower_handler_clause_params(handler, clause, operation),
         return_binding: None,

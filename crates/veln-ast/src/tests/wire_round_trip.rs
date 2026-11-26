@@ -36,12 +36,29 @@ fn surface_wire_preserves_interleaved_source_and_generated_origin_paths() {
 #[test]
 fn surface_wire_rejects_the_previous_layout_header() {
     let mut encoded = encode_surface_module(&lower_source("fn main() -> ()\n  ()\nend\n"));
-    assert_eq!(&encoded[..9], b"VLNAST25\n");
-    encoded.splice(..9, b"VLNAST24\n".iter().copied());
+    assert_eq!(&encoded[..9], b"VLNAST26\n");
+    encoded.splice(..9, b"VLNAST25\n".iter().copied());
 
     let error =
         decode_surface_module(&encoded).expect_err("previous wire layout should be rejected");
     assert_eq!(error, "invalid surface module wire header");
+}
+
+#[test]
+fn surface_wire_preserves_function_type_binders() {
+    let module = lower_source("fn identity<T, U>(first: T, second: U) -> T\n  first\nend\n");
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+    let binders = &decoded.functions[0].type_binders;
+    assert_eq!(
+        binders
+            .iter()
+            .map(|binder| binder.name.as_str())
+            .collect::<Vec<_>>(),
+        ["T", "U"]
+    );
+    assert_eq!(binders[0].span.start.column, 13);
+    assert_eq!(binders[1].span.start.column, 16);
 }
 
 #[test]

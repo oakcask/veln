@@ -479,6 +479,14 @@ impl AstBuilder {
                 SyntaxVisibility::Private => Visibility::Private,
             },
             name: function.name.clone(),
+            type_binders: function
+                .type_binders
+                .iter()
+                .map(|binder| crate::TypeBinder {
+                    name: binder.name.clone(),
+                    span: binder.span.clone(),
+                })
+                .collect(),
             effect_binder: function
                 .effect_binder
                 .as_ref()

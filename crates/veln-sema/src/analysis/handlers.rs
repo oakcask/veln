@@ -520,6 +520,7 @@ fn synthetic_clause_function(
         kind: FunctionKind::Function,
         visibility: Visibility::Private,
         name: Some(synthetic_clause_function_name(handler, clause)),
+        type_binders: Vec::new(),
         effect_binder: None,
         params: Vec::new(),
         return_binding: None,

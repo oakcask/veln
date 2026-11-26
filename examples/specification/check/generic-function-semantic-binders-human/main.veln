@@ -1,0 +1,31 @@
+use api
+
+type Item
+  Item
+end
+
+fn identity<T>(value: T) -> result: T
+ensure result == value
+  let local: T = value
+  local
+end
+
+fn second<T>(value: T) -> T
+  value
+end
+
+fn shadows_builtin<Int>(value: Int) -> Int
+  value
+end
+
+fn shadows_source<Item>(value: Item) -> Item
+  value
+end
+
+fn shadows_alias<Alias>(value: Alias) -> Alias
+  value
+end
+
+fn outside(value: T) -> ()
+  ()
+end

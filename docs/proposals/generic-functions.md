@@ -34,18 +34,13 @@ unsupported declaration forms. The linked source-surface specification owns
 malformed-list parsing and syntax-tree recovery. The current
 [diagnostic contract](../specification/diagnostics-json.md#diagnostic-families)
 owns the observable diagnostic identifiers, ordering, and primary spans.
-These parser outcomes do not yet establish a semantic type scheme or bind the
-names in signatures and bodies. The
+The current [type specification](../specification/types.md#usage-and-annotations)
+owns declaration-local rigid binder identity, scope through signatures, body
+annotations, and executable contracts, and visible-type shadow rejection.
+These outcomes do not yet establish an independently instantiable type scheme.
+The
 [effect specification](../specification/effects.md#effect-labels) already
 supports one declared effect-row parameter and call-specific substitution.
-
-At investigation base `fb433dd78`, `FunctionSignature` in
-`crates/veln-sema/src/types/signatures.rs` contains parameter, result, and
-effect information but no ordinary quantified type-parameter list. `Type` in
-`crates/veln-sema/src/semantic_model.rs` distinguishes unknown, named,
-refinement, record, and function types, without an explicit ordinary type
-variable or universal scheme variant. These observations identify the
-implementation changes; they do not prescribe the replacement representation.
 
 ## Proposed baseline
 
@@ -98,14 +93,12 @@ valid instances. The same condition applies to operations in contract clauses.
 No operation acquires a new implicit type-class constraint from this proposal.
 
 The current declaration syntax rejects duplicate binder names, including a
-name shared by an ordinary type binder and an effect binder. The remaining
-semantic work makes each retained ordinary binder visible in local type
-annotations and prevents it from escaping through an unbound public type. The
-remaining name-resolution work also rejects a binder that shadows a visible
-type name, including a built-in type or an imported type alias. Value and field
-names remain in their existing namespaces. Public generic functions retain
-explicit parameter, result, and effect boundaries; client calls cannot infer
-their exported abstraction.
+name shared by an ordinary type binder and an effect binder. The current type
+rules give retained ordinary binders declaration-owned identities, resolve
+them in local annotations and executable contracts, and reject visible-type
+shadowing. Value and field names remain in their existing namespaces. Public
+generic functions retain explicit parameter, result, and effect boundaries;
+client calls cannot yet infer their exported abstraction.
 
 ### Independent instantiation and contextual inference
 
@@ -227,8 +220,6 @@ evidence belongs to implementation and is not a prerequisite for Ready.
 | `identity<T>(value: T) -> T` used with `Int` and `String`, in either order | Both uses succeed independently and return the matching values. | Semantic type tests and a compiler-instantiation/backend case. |
 | `wrap<T>` constructs `Some(value)` | Rigid `T` flows through the constructor and inferred call result. | Semantic tests for generic ADT substitution. |
 | Generic definition returns `0` as arbitrary `T`, or uses integer `+` on `T` | Definition fails even when its only caller supplies `Int`, and when it has no callers. | Definition-check and human/JSON diagnostic cases. |
-| Two generic definitions both spell a parameter `T`; consistently rename one | Separate identities; equivalent checking after renaming. | Binder and capture-avoiding substitution tests. |
-| Binder shadowing a visible type, or binder use outside its declaration | Reject at the failed binder or type use. | Name-resolution and semantic fixtures. |
 | `identity<Int>(42)`, wrong explicit arity, or `identity<Int>("hello")` | Accept the first; reject the other two without changing the reusable scheme. | Source and call-check fixtures. |
 | `empty<T>() -> Vec<T>` with expected `Vec<Int>` or explicit `<Int>` | Resolve `T` and produce an empty vector of that type. | Contextual call and lowering tests. |
 | Result-only instance with no resolving context | A pending direct local initializer reports incompleteness at the binding if unused or unresolved; other unresolved calls report ambiguity at the call. | Diagnostic and later-completion cases under Q3. |
@@ -292,11 +283,10 @@ primary spans. The existing expression grammar also retains the name-path and
 balanced-angle suffix followed by `(` rule, so a qualified typed call remains
 syntactically distinct from comparisons without consulting symbol types.
 
-The remaining Q1 work gives each retained ordinary binder declaration identity
-and scope over its signature, body, and executable contracts. That scope must
-exclude other declarations. A binder must not shadow a visible built-in type,
-source type, or imported type alias. These semantic collision and scope rules
-apply equally to public and private functions.
+The current [type rules](../specification/types.md#usage-and-annotations) own
+ordinary binder declaration identity, declaration-local scope, and visible-type
+shadow rejection for public and private functions. The remaining Q1 work is
+typed-call resolution and scheme selection.
 
 When an unqualified or qualified `name<Type, ...>(arguments)` resolves to a
 scheme, explicit instantiation fixes every ordinary parameter in declaration
@@ -306,12 +296,8 @@ Standalone `identity<Int>` function values and type application to arbitrary
 expressions remain unsupported; an annotated function binding selects a
 monomorphic function value instead.
 
-| Remaining name-resolution boundary | Required observation |
+| Remaining typed-call boundary | Required observation |
 | --- | --- |
-| A retained binder used in its declaration's signature, body, or contract | Resolve to that declaration-owned rigid type parameter. |
-| The same binder spelling in another declaration | Resolve to a distinct identity. |
-| A binder spelling that shadows a visible type | Reject at the binder with the visible declaration as related context. |
-| A binder name used outside its declaration | Reject as an unresolved type name. |
 | A typed call whose callee resolves to a scheme | Check the complete explicit list against that scheme in declaration order. |
 | A typed call whose callee is monomorphic or whose explicit arity is wrong | Reject without changing any reusable scheme. |
 
@@ -581,7 +567,7 @@ support still needs the changes and acceptance coverage described here.
 
 | Concern | Existing starting point | Planned change |
 | --- | --- | --- |
-| Binder scope and calls | Function syntax retains ordinary and effect binders with spans, while named-call suffixes distinguish balanced type arguments from comparisons. | Resolve retained ordinary binders by declaration identity and connect typed calls to schemes under Q1 without changing the source grammar. |
+| Typed generic calls | Function syntax retains ordinary and effect binders with spans, declaration checking resolves ordinary binders by declaration identity, and named-call suffixes distinguish balanced type arguments from comparisons. | Connect typed calls to schemes under Q1 without changing the source grammar. |
 | Rigid definitions and independent instances | Semantic function signatures carry parameter, result, and effect information; current private inference is monomorphic. | Represent declaration-owned ordinary binders and schemes, check definitions rigidly, and create fresh substitutions at non-recursive uses. Keep recursive-group references rigid under Q9. |
 | Type and effect inference | Constructor inference already collects polarity-sensitive bounds, and effect calls already substitute one row. | Apply Q3–Q5 to generic call instances, retaining complete constraints and publishing type and row solutions together. Pending locals retain one monomorphic instance. |
 | Aliases and public interfaces | Name resolution identifies declarations and imports; function values already have monomorphic signatures. | Preserve the owning scheme for transparent aliases and exports, instantiate at monotype boundaries, and retain binder identity in versioned interfaces under Q7. |

@@ -125,12 +125,27 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         type_parameters: &TypeParameterIdentityContext<'_>,
     ) -> Type {
+        self.canonicalize_type_annotation_in_owner_with_context(
+            ty,
+            current_module,
+            None,
+            type_parameters,
+        )
+    }
+
+    pub(crate) fn canonicalize_type_annotation_in_owner_with_context(
+        &self,
+        ty: Type,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        type_parameters: &TypeParameterIdentityContext<'_>,
+    ) -> Type {
         crate::types::signature_collection::canonicalize_type_effects_with_context(
             ty,
             &self.uses,
             &self.quarantined_uses,
             current_module,
-            None,
+            current_package,
             &self.effects,
             &self.adts,
             &self.companion_effect_access_targets,

@@ -1,6 +1,7 @@
 use veln_ast::{ModuleValueDecl, NodeId, SchemaField, Visibility};
 use veln_source::SourceSpan;
 
+use super::TypeParameterIdentityContext;
 use crate::semantic_model::{Type, TypeArgs};
 
 #[derive(Clone)]
@@ -146,12 +147,20 @@ pub(crate) struct UnsupportedSchemaEncodeField {
 }
 
 #[derive(Clone)]
+pub(crate) struct FunctionTypeParameter {
+    pub(crate) name: String,
+    pub(crate) ordinal: usize,
+    pub(crate) identity: String,
+}
+
+#[derive(Clone)]
 pub(crate) struct FunctionSignature {
     pub(crate) name: String,
     pub(crate) target_name: String,
     pub(crate) module_name: Option<String>,
     pub(crate) package_name: Option<String>,
     pub(crate) visibility: Visibility,
+    pub(crate) type_parameters: Vec<FunctionTypeParameter>,
     pub(crate) params: TypeArgs,
     pub(crate) variadic: Option<Type>,
     pub(crate) return_type: Type,
@@ -203,6 +212,16 @@ impl<'a> FunctionLookup<'a> {
 
 impl FunctionSignature {
     pub(crate) fn ty(&self) -> Type {
+        debug_assert!(
+            self.type_parameters
+                .iter()
+                .enumerate()
+                .all(|(ordinal, parameter)| {
+                    parameter.ordinal == ordinal
+                        && !parameter.name.is_empty()
+                        && TypeParameterIdentityContext::is_identity(&parameter.identity)
+                })
+        );
         match &self.variadic {
             Some(variadic) => Type::variadic_function(
                 self.params.clone(),

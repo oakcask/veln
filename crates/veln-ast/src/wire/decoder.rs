@@ -562,6 +562,7 @@ impl<'a> Reader<'a> {
             kind: self.function_kind()?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
+            type_binders: self.vec(Self::type_binder)?,
             effect_binder: self.option(Self::effect_binder)?,
             params: self.vec(Self::param)?,
             return_binding: self.option(Self::result_binding)?,
@@ -574,6 +575,13 @@ impl<'a> Reader<'a> {
             callsite: self.option(Self::span)?,
             contracts: self.vec(Self::contract)?,
             body: self.vec(Self::body_line)?.into(),
+            span: self.span()?,
+        })
+    }
+
+    fn type_binder(&mut self) -> Result<TypeBinder, String> {
+        Ok(TypeBinder {
+            name: self.string()?,
             span: self.span()?,
         })
     }

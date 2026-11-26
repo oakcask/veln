@@ -290,6 +290,11 @@ fn collect_function_annotations(
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     for function in &module.functions {
+        let type_parameters = function
+            .type_binders
+            .iter()
+            .map(|binder| binder.name.clone())
+            .collect::<Vec<_>>();
         crate::pipeline::record_variant_refinement_annotation_work(1);
         for param in &function.params {
             crate::pipeline::record_variant_refinement_annotation_work(1);
@@ -298,7 +303,7 @@ fn collect_function_annotations(
                 &param.ty_paths,
                 function.module_name.as_deref(),
                 environment,
-                &[],
+                &type_parameters,
                 ParseDiagnosticLocation::type_annotation("function_parameters"),
                 diagnostics,
             );
@@ -308,7 +313,7 @@ fn collect_function_annotations(
             &function.return_type_paths,
             function.module_name.as_deref(),
             environment,
-            &[],
+            &type_parameters,
             ParseDiagnosticLocation::type_annotation(match function.kind {
                 FunctionKind::Function => "function_return",
                 FunctionKind::Test => "test_return",
@@ -321,6 +326,7 @@ fn collect_function_annotations(
                 line,
                 function.module_name.as_deref(),
                 environment,
+                &type_parameters,
                 diagnostics,
             );
         }
@@ -372,6 +378,7 @@ fn collect_handler_annotations(
                 handler.module_name.as_deref(),
                 environment,
                 "handler_operation_clause",
+                &[],
                 diagnostics,
             );
         }
@@ -2613,6 +2620,7 @@ fn collect_body_line(
     line: &BodyLine,
     current_module: Option<&str>,
     environment: &TypeEnvironment,
+    type_parameters: &[String],
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     match &line.kind {
@@ -2626,7 +2634,7 @@ fn collect_body_line(
                 &annotation_structure.paths,
                 current_module,
                 environment,
-                &[],
+                type_parameters,
                 ParseDiagnosticLocation::type_annotation("let_statement"),
                 diagnostics,
             );
@@ -2635,6 +2643,7 @@ fn collect_body_line(
                 current_module,
                 environment,
                 "let_statement",
+                type_parameters,
                 diagnostics,
             );
         }
@@ -2644,12 +2653,19 @@ fn collect_body_line(
                 current_module,
                 environment,
                 "expression_line",
+                type_parameters,
                 diagnostics,
             );
         }
         BodyLineKind::Defer { body, .. } => {
             for line in body {
-                collect_body_line(line, current_module, environment, diagnostics);
+                collect_body_line(
+                    line,
+                    current_module,
+                    environment,
+                    type_parameters,
+                    diagnostics,
+                );
             }
         }
     }
@@ -2660,6 +2676,7 @@ fn collect_expr(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     parser_context: &'static str,
+    type_parameters: &[String],
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     if let ExprKind::TypeApply {
@@ -2674,7 +2691,7 @@ fn collect_expr(
                 paths,
                 current_module,
                 environment,
-                &[],
+                type_parameters,
                 expr.node_id.display("expr"),
                 [expr.node_id.display("expr")],
                 ParseDiagnosticLocation::type_argument(parser_context),
@@ -2684,7 +2701,13 @@ fn collect_expr(
     }
     if let ExprKind::Begin { body, .. } = &expr.kind {
         for line in body {
-            collect_body_line(line, current_module, environment, diagnostics);
+            collect_body_line(
+                line,
+                current_module,
+                environment,
+                type_parameters,
+                diagnostics,
+            );
         }
     } else {
         expr.for_each_child(&mut |child| {
@@ -2693,6 +2716,7 @@ fn collect_expr(
                 current_module,
                 environment,
                 parser_context,
+                type_parameters,
                 diagnostics,
             )
         });

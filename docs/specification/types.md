@@ -142,6 +142,22 @@ report the missing fact, and include the current inferred type.
 The optional result binding in `-> name: Type` names the return value for
 postconditions, but the type annotation remains `Type`.
 
+An ordinary function type binder introduces one rigid type parameter owned by
+that declaration. The parameter is identified by its declaration and ordinal,
+not by its spelling. Its name resolves in the declaration's parameter and
+return annotations, local body annotations, and executable contracts. The same
+spelling in another function denotes a different rigid parameter. Outside the
+owning declaration, that spelling is an unresolved type name unless another
+visible type declaration defines it.
+
+A function type binder cannot shadow a visible built-in type, source type, or
+imported type alias. The checker reports `name.type_parameter_shadow` at the
+binder. When the visible type has a source declaration, the diagnostic includes
+that declaration as related context. The checked human and JSON evidence is in
+[`generic-function-semantic-binders-human`](../../examples/specification/check/generic-function-semantic-binders-human/)
+and
+[`generic-function-semantic-binders-json`](../../examples/specification/check/generic-function-semantic-binders-json/).
+
 Test declarations must use an empty parameter list and annotate the return type
 as `()` or `Result<(), E>`. Their effect clause must cover directly inferred
 effects; pure tests omit the clause and explicit empty lists are rejected.
@@ -1029,10 +1045,10 @@ diagnostic cases, and the
 
 ## Compatibility and limits
 
-The parser retains ordinary type binders written on a fixed-arity function
-declaration, but the type checker does not yet bind those names or construct a
-generic function scheme. A retained binder therefore does not make its name a
-valid signature or body type, and calls do not instantiate it. The
+The type checker retains ordinary type binders written on a fixed-arity
+function declaration and resolves them as declaration-owned rigid parameters.
+This retention does not yet construct an independently instantiable generic
+function scheme. Calls do not infer or accept ordinary type arguments. The
 [source-surface specification](source-surface.md#function-declaration-binders)
 owns the implemented declaration syntax and its parser limits.
 
