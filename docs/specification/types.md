@@ -154,11 +154,13 @@ An ordinary function type binder introduces one rigid type parameter owned by
 that declaration. The parameter is identified by its declaration and ordinal,
 not by its spelling. Its name resolves in the declaration's parameter and
 return annotations, local body annotations, and executable contracts. The same
-spelling in another function denotes a different rigid parameter. Outside the
-owning declaration, that spelling is an unresolved type name unless another
-visible type declaration defines it. A binder with the same spelling in an
-inaccessible declaration or another analyzed source does not make the name
-visible and does not suppress the unresolved-name failure.
+spelling in another function denotes a different rigid parameter. A transparent
+function alias retains the underlying declaration's parameter identities; it
+does not make a caller's same-spelled rigid parameter compatible with them.
+Outside the owning declaration, that spelling is an unresolved type name unless
+another visible type declaration defines it. A binder with the same spelling
+in an inaccessible declaration or another analyzed source does not make the
+name visible and does not suppress the unresolved-name failure.
 
 The checker validates a generic declaration once with those rigid parameters.
 Returning a value of `T` as `T` succeeds. A concrete-only operation such as

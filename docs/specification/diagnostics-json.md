@@ -111,8 +111,11 @@ related entry has kind `expected_rigid_type_parameter`, identifies the expected
 parameter's owning function, and spans the callee binder. Its second entry has
 kind `actual_rigid_type_parameter`, identifies the actual parameter's owning
 function, and spans the caller binder. This order is deterministic, and neither
-entry exposes the internal rigid identity. The checked generic-binder human and
-JSON cases fix both messages and exact binder spans.
+entry exposes the internal rigid identity. When the callee is selected through
+a transparent function alias, the expected entry still identifies and spans
+the original function's binder. The checked generic-binder human and JSON cases
+fix both messages and exact binder spans. The focused semantic coverage also
+checks the alias boundary.
 
 The focused semantic and scaling coverage is in
 [`generic_function_semantic_binders.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_binders.rs)

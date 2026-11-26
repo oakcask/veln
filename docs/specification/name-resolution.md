@@ -105,6 +105,16 @@ candidate inspected during owner/provider intersection, including rejected
 candidates, plus the indexed probes. For either workload, the larger adjacent
 size must not exceed twice the smaller value plus eight operations.
 
+Rigid-parameter provenance lookup has a separate deterministic scaling check.
+The workload defines `N` pairs of generic functions for `N = 16` and `32`.
+Each pair produces one mismatch between two same-spelled parameters owned by
+different declarations. The metric counts binder entries processed while
+building the provenance index and identity probes used to produce the related
+diagnostic context. Doubling `N` must not make the entry count exceed twice
+the smaller count, and each mismatch performs exactly two identity probes.
+The check counts operations instead of elapsed time, so runner timing noise
+does not affect the bound.
+
 ### Explicit import aliases
 
 `use a::b as local` binds `local` in the importing module's import namespace.
@@ -1099,6 +1109,10 @@ not become fallback targets.
   `unique_imported_descriptor_lookup_work_is_linear_across_providers_and_annotations`,
   and
   `consistent_imported_descriptor_lookup_work_is_linear_across_providers_and_annotations`
+  in
+  `crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs`.
+- Rigid-parameter provenance lookup scaling:
+  `distinct_rigid_provenance_work_is_bounded_by_binders_and_identity_probes`
   in
   `crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs`.
 - Same-terminal bare-import annotation selection:

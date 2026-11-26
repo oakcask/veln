@@ -491,7 +491,8 @@ The current
 owns the implemented binder-shadow identifier, primary span, details, and
 related visible declaration. It also owns the expected-then-actual binder
 provenance for a call argument that crosses two declaration-owned rigid
-parameters. Choose identifiers for the remaining rows during
+parameters, including when a transparent alias selects the expected
+declaration. Choose identifiers for the remaining rows during
 their implementation using the repository's existing registry. Human and JSON
 cases must establish those failure facts and spans; human output must include
 the related binder context. Fixing names or serialized field layouts without
