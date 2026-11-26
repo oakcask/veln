@@ -87,8 +87,10 @@ also reports `name.unresolved` for the complete path. Applying type arguments
 to that binder, as in `T<Int>`, instead reports `type.invalid_annotation` over
 the application with the zero-arity mismatch in its message. These outcomes
 apply in parameter, result, and local body annotations. The focused semantic
-coverage is in
-[`generic_function_semantic_binders.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_binders.rs).
+and scaling coverage is in
+[`generic_function_semantic_binders.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_binders.rs)
+and
+[`generic_function_semantic_diagnostics.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs).
 
 A cyclic dependency component formed by selected same-module or imported
 module-value references reports one `value.module_initializer_cycle` at the
