@@ -1433,7 +1433,7 @@ test shared_handler_frames_preserve_independent_provider_owners() -> Result<(), 
 	handle f2_shared_outer_observations() with io_provider::scope()
 end
 
-fn f3_write_count_matches(joined: Result<filesystem_provider_test::WriteReport, task::JoinError>, expected: Int) -> Bool
+fn f3_write_count_matches(joined: Result<filesystem_provider_test::WriteReport, JoinError>, expected: Int) -> Bool
 	match joined
 		Ok(filesystem_provider_test::WriteCompleted(count)) => count == expected
 		_ => false
