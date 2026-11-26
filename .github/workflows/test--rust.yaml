@@ -17,6 +17,7 @@ on:
       - rust-toolchain.toml
       - scripts/agent-run
       - scripts/ci-run
+      - workflow-scripts/run-nextest.sh
       - crates/**/Cargo.toml
       - crates/**/*.rs
       - crates/veln-backend-jvm/src/runtime/*.java.inc
@@ -41,6 +42,7 @@ on:
       - rust-toolchain.toml
       - scripts/agent-run
       - scripts/ci-run
+      - workflow-scripts/run-nextest.sh
       - crates/**/Cargo.toml
       - crates/**/*.rs
       - crates/veln-backend-jvm/src/runtime/*.java.inc
@@ -121,10 +123,27 @@ jobs:
           suite: ${{ matrix.suite }}
           filterset: ${{ matrix.filterset }}
 
+  repository-test:
+    name: repository tools
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Run repository tool tests
+        uses: ./.github/actions/nextest
+        with:
+          nextest-version: ${{ env.NEXTEST_VERSION }}
+          llvm-cov-version: ${{ env.LLVM_COV_VERSION }}
+          report-coverage: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          shard: "1"
+          shard-count: "1"
+          suite: repository
+          filterset: all()
+
   coverage:
     name: merge Rust test coverage
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: test
+    needs: [test, repository-test]
     # Ubuntu 26 does not currently publish the LCOV package used to merge shard reports.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
