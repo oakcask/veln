@@ -35,6 +35,17 @@ Two receivers are an API boundary, not a runtime limit. The single-receiver
 `channelRecv` currently uses a separate monitor-based path. Reusing the
 list implementation must not silently replace that path with polling.
 
+This proposal's shape should be reviewed under the
+[stdlib API design policy](../reference/standard-library-api-design.md).
+It does not depend on ordinary generic source functions to express its public
+cardinality distinction: compiler-known channel calls already infer element
+types. Source implementations may depend on generic functions when introduced.
+Coordinate token creation and cancellation with
+[capability separation](cancellation-capabilities.md); wait entry points consume
+only observation tokens. Timer-only outcome consolidation is a separate
+[proposal](cancellable-wait-outcomes.md), because reaching a timer target is not
+the same event as a channel receive timing out.
+
 ## Recommended API
 
 Use `recv` for one receiver and `select` for a non-empty list. A singleton

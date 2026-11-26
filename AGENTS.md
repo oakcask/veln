@@ -1,5 +1,8 @@
 * This project is experimental; maintaining backward compatibility is not required.
 * Do not write machine-specific absolute filesystem paths in repository files.
+* When designing, changing, or reviewing a public standard-library API, including
+  prelude names, package exports, and compiler-known host calls, use
+  `$stdlib-api-design` and follow `docs/reference/standard-library-api-design.md`.
 * Test standard-library API behavior in `crates/veln-stdlib/veln/` companion
   tests. Toolchain cases must target an independently identified CLI, compiler,
   backend, or host-integration contract, not substitute for stdlib coverage.

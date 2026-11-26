@@ -16,6 +16,19 @@ also states it.
 
 ## Ready
 
+- [Retire Sample-specific Prelude APIs](stdlib-sample-api-retirement.md): remove
+  fixed-schema sample decoders from public source and compiler-known lookup.
+- [Preserve Callback Results Through Tracing](tracing-result-polymorphism.md):
+  generalize tracing wrappers after ordinary generic-function support; preserve
+  callback values, typed errors, effects, and cleanup behavior.
+- [Separate Cancellation Authority From Observation](cancellation-capabilities.md):
+  use `CancelOwner` for cancellation and observation-only `CancelToken` for waits.
+- [Return Cancellable Wait Outcomes Directly](cancellable-wait-outcomes.md):
+  consolidate timer wait reporting and distinguish interruption from cancellation.
+- [Preserve Progress in Network Write-all Results](network-write-progress.md):
+  retain cumulative committed bytes and invalid-provider uncertainty on failure.
+- [One Canonical Network Transport Adapter](transport-adapter-canonicalization.md):
+  retain `transport::net` and remove the duplicate public `transport::network` path.
 - [Multiple-handler Expressions](multiple-handler-syntax.md): add an ordered
   handler list and block body to `handle`, with outermost-first nesting,
   scoped context evaluation, and existing cleanup and provider behavior.
@@ -42,6 +55,9 @@ also states it.
 
 ## Design In Progress
 
+- [Typed HTTP/2 Decision Projections](http2-typed-decisions.md): expose typed
+  decision payloads instead of status-string/getter sequences; requires a
+  complete view and retirement map for the affected decision families.
 - [Single-receiver and Receiver-list Channel Waits](channel-wait-api.md):
   replace two-receiver selection with matching single-receiver and list wait
   families; result, selection-policy, public-type, and deterministic-wait
