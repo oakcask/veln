@@ -168,6 +168,10 @@ path = "diagnostics.0.details.boundary"
 equals = "function_type_parameter"
 
 [[json_assert]]
+path = "diagnostics.0.details.phase"
+equals = "name_resolution"
+
+[[json_assert]]
 path = "diagnostics.0.details.name"
 equals = "Int"
 

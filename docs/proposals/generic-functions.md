@@ -475,10 +475,9 @@ candidate matching cannot offer `Int` as arbitrary `T`. A local of that same
 rigid `T` is an eligible candidate. JSON identifies binder provenance without
 using machine addresses or exposing transient solver identifiers as identities.
 
-| Failed fact | Primary diagnostic location | Related context |
+| Remaining diagnostic work | Primary diagnostic location | Related context to add |
 | --- | --- | --- |
-| Invalid body result or operation on rigid `T` | Failed expression or operand | Binder declaration and required type. |
-| Binder shadowing a visible type | Conflicting binder token | Visible type declaration. |
+| Missing binder provenance for an invalid body result or operation on rigid `T` | Existing failed expression or operand | Binder declaration and required type. |
 | Wrong explicit type arity | Type argument list | Declared binder list and required count. |
 | Incompatible argument or fixed substitution | Failed argument or explicit type argument | Relevant parameter/binder and conflicting bound. |
 | Unresolved immediate instance | Call expression | Unresolved binder and annotation/explicit-argument hint. |

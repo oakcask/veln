@@ -493,7 +493,9 @@ module names its module. An explicitly aliased import supplies no bare type
 candidate. Imports declared in other modules neither supply a candidate nor
 make the current lookup ambiguous. This module-local import boundary applies
 both when lookup checks an exact generic arity and when recovery accepts any
-arity.
+arity. If several eligible bare imports expose the same leaf, lookup succeeds
+only when every candidate's alias chain terminates at the same canonical type
+identity. Candidates with different terminal identities remain ambiguous.
 
 Each public type-alias declaration resolves its own target, including when
 another declaration in the same module has the same alias name. The later
@@ -1084,6 +1086,15 @@ not become fallback targets.
   in
   `crates/veln-sema/src/tests/generic_function_semantic_binders.rs` and
   `imported_descriptor_index_construction_and_retention_are_linear_across_both_axes`
+  in
+  `crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs`.
+- Same-terminal bare-import annotation selection:
+  `annotation_consistent_imported_alias_selection_preserves_behavior` in
+  `crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs` and
+  `examples/specification/check/generic-function-semantic-gap-human/`.
+- Owner-scoped function annotation visibility across package-distinct
+  same-spelled modules:
+  `qualified_private_named_type_requires_matching_package_and_module_owner`
   in
   `crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs`.
 - Explicit-import-alias behavior evidence:

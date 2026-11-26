@@ -61,8 +61,9 @@ failures do not add `value.module_initializer_unsupported`.
 
 A function type binder that shadows a visible type reports
 `name.type_parameter_shadow` at the binder. Its details identify the
-`function_type_parameter` boundary, binder `name`, declaration-order `ordinal`,
-and whether the shadowed declaration is a built-in or another visible type.
+`name_resolution` phase, `function_type_parameter` boundary, binder `name`,
+zero-based declaration-order `ordinal`, and `shadowed_kind` as either
+`builtin_type` or `visible_type`.
 When source context exists, `related` contains a
 `shadowed_type_declaration` entry with that declaration's span. If multiple
 unqualified imported aliases expose the same terminal type identity, changing
