@@ -22,6 +22,7 @@ on:
       - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.sha256
       - workflow-scripts/fixtures/veln-language/**
       - workflow-scripts/**/*.mjs
+      - workflow-scripts/run-nextest.sh
   pull_request:
     paths:
       - .agents/skills/veln-language/**
@@ -41,6 +42,7 @@ on:
       - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.sha256
       - workflow-scripts/fixtures/veln-language/**
       - workflow-scripts/**/*.mjs
+      - workflow-scripts/run-nextest.sh
 
 permissions:
   contents: read
