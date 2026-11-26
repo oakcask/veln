@@ -791,17 +791,29 @@ fn wide_named_argument_visibility_work(count: usize, public: bool, variant: &str
         + visibility_work
 }
 
+fn assert_nested_named_argument_visibility_growth(public: bool, variant: &str) {
+    let work =
+        [500, 750, 1_000].map(|count| wide_named_argument_visibility_work(count, public, variant));
+    assert_eq!(
+        work[1] - work[0],
+        work[2] - work[1],
+        "public={public} variant={variant} work={work:?}"
+    );
+}
+
 #[test]
 fn nested_named_argument_visibility_indexing_has_affine_wide_growth() {
-    for (public, variant) in [(true, "Hidden"), (true, "Ready"), (false, "Hidden")] {
-        let work = [500, 750, 1_000]
-            .map(|count| wide_named_argument_visibility_work(count, public, variant));
-        assert_eq!(
-            work[1] - work[0],
-            work[2] - work[1],
-            "public={public} variant={variant} work={work:?}"
-        );
-    }
+    assert_nested_named_argument_visibility_growth(true, "Hidden");
+}
+
+#[test]
+fn public_nested_named_argument_visibility_indexing_has_affine_wide_growth() {
+    assert_nested_named_argument_visibility_growth(true, "Ready");
+}
+
+#[test]
+fn private_nested_named_argument_visibility_indexing_has_affine_wide_growth() {
+    assert_nested_named_argument_visibility_growth(false, "Hidden");
 }
 
 #[derive(Clone, Copy, Debug)]
