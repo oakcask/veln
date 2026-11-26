@@ -1,5 +1,5 @@
 # This case covers JSON diagnostics and related context for generic function binder scope.
-command = ["check", "--json", "main.veln", "api.veln"]
+command = ["check", "--json", "main.veln", "api.veln", "unbound.veln"]
 exit = 1
 
 [stdout]
@@ -56,8 +56,8 @@ kind = "name"
 message = "unresolved type `T`"
 
 [diagnostics.span]
-file = "main.veln"
-line = 29
+file = "unbound.veln"
+line = 1
 column = 19
 
 [[json_assert]]

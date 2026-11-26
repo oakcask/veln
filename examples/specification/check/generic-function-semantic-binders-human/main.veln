@@ -25,7 +25,3 @@ end
 fn shadows_alias<Alias>(value: Alias) -> Alias
   value
 end
-
-fn outside(value: T) -> ()
-  ()
-end

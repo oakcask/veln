@@ -61,6 +61,7 @@ fn infers_non_constructor_calls_from_local_function_signatures() {
             "pub fn main() -> Result<Int, AppError>\n",
             "  parse(\"1\")\n",
             "end\n",
+            "pub type AppError\n  pub AppError\nend\n",
         ),
     );
     let diagnostics = analyze_surface_module(&module);

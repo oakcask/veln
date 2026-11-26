@@ -18,6 +18,79 @@ fn named_identity(ty: &Type) -> &str {
     identity
 }
 
+fn wide_generic_annotation_source(
+    binder_count: usize,
+    annotation_count: usize,
+    annotation: &str,
+) -> String {
+    let binders = (0..binder_count)
+        .map(|index| format!("T{index}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let mut source = format!("fn wide<{binders}>(value: T0) -> T0\n");
+    for index in 0..annotation_count {
+        source.push_str(&format!("  let value{index}: {annotation} = value\n"));
+    }
+    source.push_str("  value\nend\n");
+    source
+}
+
+#[test]
+fn body_annotations_reuse_one_declaration_type_parameter_context() {
+    fn context_work(
+        binder_count: usize,
+        annotation_count: usize,
+        annotation: &str,
+    ) -> ((usize, usize), Vec<Diagnostic>) {
+        let source = SourceFile::new(
+            "main.veln",
+            wide_generic_annotation_source(binder_count, annotation_count, annotation),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::types::reset_type_parameter_context_work();
+        let diagnostics = analyze_surface_module(&module);
+        (
+            crate::types::take_type_parameter_context_work(),
+            diagnostics,
+        )
+    }
+
+    let (one_annotation, one_diagnostics) = context_work(64, 1, "T0");
+    let (many_annotations, many_diagnostics) = context_work(64, 128, "T0");
+    assert!(one_diagnostics.is_empty(), "{one_diagnostics:#?}");
+    assert!(many_diagnostics.is_empty(), "{many_diagnostics:#?}");
+    assert!(
+        one_annotation.0 > 0,
+        "the metric must observe context builds"
+    );
+    assert!(
+        one_annotation.1 >= 64,
+        "the metric must observe declaration binder indexing"
+    );
+    assert_eq!(
+        many_annotations.1, one_annotation.1,
+        "additional annotations must not re-index declaration binders"
+    );
+
+    let (invalid_annotations, invalid_diagnostics) = context_work(64, 128, "Int<Int>::Some");
+    assert!(
+        invalid_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.invalid_annotation"),
+        "expected invalid annotation diagnostics, found ids: {:?}",
+        invalid_diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        invalid_annotations.1, one_annotation.1,
+        "failed validation must not re-index declaration binders"
+    );
+}
+
 #[test]
 fn function_binders_are_retained_with_declaration_owned_rigid_identities() {
     let (module, diagnostics) = analyze(concat!(
@@ -78,6 +151,50 @@ fn binder_scope_ends_at_the_owning_declaration() {
     assert_eq!(
         unresolved[0].span.as_ref().map(|span| span.start.line),
         Some(4)
+    );
+}
+
+#[test]
+fn isolated_unbound_annotation_is_unresolved() {
+    let (_, diagnostics) = analyze("fn outside(value: T) -> ()\n  ()\nend\n");
+
+    let unresolved = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved type `T`"
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(unresolved.len(), 1, "{diagnostics:#?}");
+    let span = unresolved[0].span.as_ref().expect("unresolved span");
+    assert_eq!((span.start.line, span.start.column), (1, 19));
+}
+
+#[test]
+fn unimported_binder_spelling_does_not_change_unbound_annotation_diagnostic() {
+    fn diagnostics(include_unimported_owner: bool) -> Vec<Diagnostic> {
+        let mut sources = vec![(
+            "app",
+            SourceFile::new("app.veln", "fn outside(value: T) -> ()\n  ()\nend\n"),
+        )];
+        if include_unimported_owner {
+            sources.push((
+                "owner",
+                SourceFile::new("owner.veln", "fn owner<T>(value: T) -> T\n  value\nend\n"),
+            ));
+        }
+        analyze_surface_module(&merged_modules_with_identities(sources))
+            .into_iter()
+            .filter(|diagnostic| diagnostic.id == "name.unresolved")
+            .collect()
+    }
+
+    let isolated = diagnostics(false);
+    let with_unimported_owner = diagnostics(true);
+    assert_eq!(isolated.len(), 1, "{isolated:#?}");
+    assert_eq!(
+        veln_diagnostics::diagnostic_to_json(&isolated[0]).to_json(),
+        veln_diagnostics::diagnostic_to_json(&with_unimported_owner[0]).to_json(),
+        "an inaccessible declaration must not change another module's diagnostic"
     );
 }
 

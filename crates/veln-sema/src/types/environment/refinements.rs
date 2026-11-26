@@ -26,7 +26,8 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         current_package: Option<&str>,
     ) -> bool {
-        crate::type_syntax::builtin_type_syntax_arity(name).is_some_and(|arity| arity == args_len)
+        crate::type_syntax::compiler_known_type_annotation_arity(name)
+            .is_some_and(|arity| arity == args_len)
             || self
                 .annotation_type_descriptor_in_owner(
                     name,
@@ -47,6 +48,63 @@ impl TypeEnvironment {
                 })
                 .is_some()
             })
+    }
+
+    pub(crate) fn annotation_type_path_has_visible_declaration_in_owner(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        if crate::type_syntax::compiler_known_type_annotation_arity(name).is_some()
+            || crate::schema::primitives::exact_width_schema_primitive(name).is_some()
+            || crate::schema::primitives::lowercase_schema_primitive(name).is_some()
+            || recover_type_case(name).is_some_and(|recovered| {
+                crate::type_syntax::compiler_known_type_annotation_arity(&recovered).is_some()
+            })
+        {
+            return true;
+        }
+        let has_visible_declaration = |candidate: &str| {
+            let candidate_segments = candidate
+                .split("::")
+                .map(str::to_string)
+                .collect::<Vec<_>>();
+            self.adts
+                .unique_descriptor_for_type_path_any_arity_in_owner(
+                    candidate,
+                    current_module,
+                    current_package,
+                    &self.uses,
+                )
+                .is_some()
+                || recover_type_case(candidate).is_some_and(|recovered| {
+                    self.adts
+                        .unique_descriptor_for_type_path_any_arity_in_owner(
+                            &recovered,
+                            current_module,
+                            current_package,
+                            &self.uses,
+                        )
+                        .is_some()
+                })
+                || self
+                    .adts
+                    .descriptor_for_type_path_any_arity(
+                        candidate,
+                        current_module,
+                        &self.quarantined_uses,
+                    )
+                    .is_some()
+                || self.quarantined_import_type_path_has_visible_leaf(
+                    &candidate_segments,
+                    current_module,
+                )
+        };
+        has_visible_declaration(name)
+            || name
+                .rsplit_once("::")
+                .is_some_and(|(base, _)| has_visible_declaration(base))
     }
 
     pub(crate) fn variant_refinement_descriptor_identity_in_owner(

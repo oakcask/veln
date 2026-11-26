@@ -107,7 +107,7 @@ pub(crate) use variant_refinement_bases::{
 };
 pub(crate) use variant_refinement_bases::{
     VariantRefinementBaseDiagnostic, annotation_has_invalid_refinement,
-    annotation_has_unavailable_refinement_identity, check_variant_refinement_bases,
+    annotation_has_unavailable_refinement_identity_with_context, check_variant_refinement_bases,
     independent_annotation_errors, variant_refinement_is_fully_resolved,
 };
 pub(crate) use variant_refinement_visibility::{

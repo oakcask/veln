@@ -1,5 +1,5 @@
 # This case covers human diagnostics for declaration-local generic function binders.
-command = ["check", "main.veln", "api.veln"]
+command = ["check", "main.veln", "api.veln", "unbound.veln"]
 exit = 1
 
 [stdout]

@@ -469,19 +469,13 @@ impl<'a> FunctionChecker<'a> {
         origin_message: &'static str,
     ) -> Option<ExpectedType> {
         let (refinements, paths) = structure;
-        let type_parameters = self
-            .function
-            .type_binders
-            .iter()
-            .map(|binder| binder.name.clone())
-            .collect::<Vec<_>>();
         let invalid_refinement = !self.annotation_owner_prevalidated
-            && super::super::annotation_has_unavailable_refinement_identity(
+            && super::super::annotation_has_unavailable_refinement_identity_with_context(
                 refinements,
                 paths,
                 self.function.module_name.as_deref(),
                 self.environment,
-                &type_parameters,
+                &self.type_parameter_context,
             );
         if invalid_refinement {
             for (failed_annotation, error, failure_span) in

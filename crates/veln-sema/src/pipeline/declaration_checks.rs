@@ -90,7 +90,6 @@ fn append_boundary_diagnostics(
 }
 
 pub(super) fn check_function_declaration_and_body(
-    declaration_binder_names: &HashSet<&str>,
     function: &veln_ast::Function,
     environment: &TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
@@ -101,11 +100,7 @@ pub(super) fn check_function_declaration_and_body(
         function,
         environment,
     ));
-    diagnostics.extend(check_unresolved_function_type_names(
-        declaration_binder_names,
-        function,
-        environment,
-    ));
+    diagnostics.extend(check_unresolved_function_type_names(function, environment));
     diagnostics.extend(check_declared_effect_labels(function, environment));
     let mut visibility_diagnostics = Vec::new();
     if function.visibility == Visibility::Public {
@@ -126,11 +121,10 @@ pub(super) fn check_function_declaration_and_body(
 }
 
 fn check_unresolved_function_type_names(
-    declaration_binder_names: &HashSet<&str>,
     function: &veln_ast::Function,
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
-    if declaration_binder_names.is_empty() {
+    if function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME) {
         return Vec::new();
     }
     let type_parameters = function
@@ -139,39 +133,66 @@ fn check_unresolved_function_type_names(
         .map(|binder| binder.name.as_str())
         .collect::<std::collections::HashSet<_>>();
     let mut paths = Vec::new();
+    let mut refinement_spans = Vec::new();
     paths.extend(function.return_type_paths.iter());
+    refinement_spans.extend(
+        function
+            .return_type_refinements
+            .iter()
+            .map(|refinement| &refinement.span),
+    );
     for param in &function.params {
         paths.extend(param.ty_paths.iter());
+        refinement_spans.extend(
+            param
+                .ty_refinements
+                .iter()
+                .map(|refinement| &refinement.span),
+        );
     }
-    collect_body_annotation_paths(&function.body, &mut paths);
+    collect_body_annotation_paths(&function.body, &mut paths, &mut refinement_spans);
 
     paths
         .into_iter()
+        .filter(|path| !path_is_within_refinement(path, &refinement_spans))
         .filter_map(|path| {
-            unresolved_function_type_diagnostic(
-                path,
-                declaration_binder_names,
-                &type_parameters,
-                function,
-                environment,
-            )
+            unresolved_function_type_diagnostic(path, &type_parameters, function, environment)
         })
         .collect()
 }
 
+fn path_is_within_refinement(
+    path: &veln_ast::TypePathSegments,
+    refinement_spans: &[&veln_source::SourceSpan],
+) -> bool {
+    refinement_spans.iter().any(|span| {
+        span.file == path.application_span.file
+            && span.start.offset <= path.application_span.start.offset
+            && path.application_span.end.offset <= span.end.offset
+    })
+}
+
 fn unresolved_function_type_diagnostic(
     path: &veln_ast::TypePathSegments,
-    declaration_binder_names: &HashSet<&str>,
     type_parameters: &HashSet<&str>,
     function: &veln_ast::Function,
     environment: &TypeEnvironment,
 ) -> Option<Diagnostic> {
     let name = path.segments.join("::");
-    if !declaration_binder_names.contains(name.as_str())
-        || is_function_type_parameter_use(&name, path.type_argument_count, type_parameters)
+    if path.segments.last().is_some_and(|segment| {
+        segment
+            .chars()
+            .next()
+            .is_some_and(|initial| initial.is_ascii_lowercase())
+    }) || is_function_type_parameter_name(&name, type_parameters)
         || environment.annotation_type_path_is_resolved_in_owner(
             &name,
             path.type_argument_count,
+            function.module_name.as_deref(),
+            function.package_name.as_deref(),
+        )
+        || environment.annotation_type_path_has_visible_declaration_in_owner(
+            &name,
             function.module_name.as_deref(),
             function.package_name.as_deref(),
         )
@@ -182,12 +203,9 @@ fn unresolved_function_type_diagnostic(
     Some(unresolved_type_diagnostic(name, span))
 }
 
-fn is_function_type_parameter_use(
-    name: &str,
-    type_argument_count: usize,
-    type_parameters: &HashSet<&str>,
-) -> bool {
-    !name.contains("::") && type_argument_count == 0 && type_parameters.contains(name)
+fn is_function_type_parameter_name(name: &str, type_parameters: &HashSet<&str>) -> bool {
+    let base = name.split_once("::").map_or(name, |(base, _)| base);
+    type_parameters.contains(base)
 }
 
 fn unresolved_type_diagnostic(name: String, span: veln_source::SourceSpan) -> Diagnostic {
@@ -211,6 +229,7 @@ fn unresolved_type_diagnostic(name: String, span: veln_source::SourceSpan) -> Di
 fn collect_body_annotation_paths<'a>(
     body: &'a [veln_ast::BodyLine],
     paths: &mut Vec<&'a veln_ast::TypePathSegments>,
+    refinement_spans: &mut Vec<&'a veln_source::SourceSpan>,
 ) {
     for line in body {
         match &line.kind {
@@ -220,13 +239,19 @@ fn collect_body_annotation_paths<'a>(
                 ..
             } => {
                 paths.extend(annotation_structure.paths.iter());
-                collect_expr_annotation_paths(expr, paths);
+                refinement_spans.extend(
+                    annotation_structure
+                        .variant_refinements
+                        .iter()
+                        .map(|refinement| &refinement.span),
+                );
+                collect_expr_annotation_paths(expr, paths, refinement_spans);
             }
             veln_ast::BodyLineKind::Expr { expr } => {
-                collect_expr_annotation_paths(expr, paths);
+                collect_expr_annotation_paths(expr, paths, refinement_spans);
             }
             veln_ast::BodyLineKind::Defer { body, .. } => {
-                collect_body_annotation_paths(body, paths);
+                collect_body_annotation_paths(body, paths, refinement_spans);
             }
         }
     }
@@ -235,11 +260,14 @@ fn collect_body_annotation_paths<'a>(
 fn collect_expr_annotation_paths<'a>(
     expr: &'a veln_ast::Expr,
     paths: &mut Vec<&'a veln_ast::TypePathSegments>,
+    refinement_spans: &mut Vec<&'a veln_source::SourceSpan>,
 ) {
     if let veln_ast::ExprKind::Begin { body, .. } = &expr.kind {
-        collect_body_annotation_paths(body, paths);
+        collect_body_annotation_paths(body, paths, refinement_spans);
     } else {
-        expr.for_each_child(&mut |child| collect_expr_annotation_paths(child, paths));
+        expr.for_each_child(&mut |child| {
+            collect_expr_annotation_paths(child, paths, refinement_spans)
+        });
     }
 }
 
@@ -263,7 +291,7 @@ fn function_type_parameter_shadow_diagnostic(
     function: &veln_ast::Function,
     environment: &TypeEnvironment,
 ) -> Option<Diagnostic> {
-    let builtin = crate::type_syntax::builtin_type_syntax_arity(&binder.name).is_some();
+    let builtin = crate::type_syntax::compiler_known_type_annotation_arity(&binder.name).is_some();
     let descriptor = if builtin {
         None
     } else {

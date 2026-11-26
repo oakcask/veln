@@ -2,7 +2,13 @@ use super::*;
 
 #[test]
 fn reports_hole_with_declared_return_expected_type() {
-    let source = SourceFile::new("main.veln", "fn todo() -> Result<(), AppError>\n  _\nend\n");
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn todo() -> Result<(), AppError>\n  _\nend\n",
+            "pub type AppError\n  pub AppError\nend\n",
+        ),
+    );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
 

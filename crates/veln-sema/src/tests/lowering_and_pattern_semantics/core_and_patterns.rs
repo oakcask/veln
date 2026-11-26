@@ -13,6 +13,7 @@ fn lowers_runnable_checked_program_to_core_and_typed_ir() {
             "  stdio::println(\"ok\")\n",
             "  Ok(())\n",
             "end\n",
+            "pub type AppError\n  pub AppError\nend\n",
         ),
     );
     let parsed = parse(&source);
@@ -75,6 +76,7 @@ fn constructor_arity_diagnostics_keep_constructor_source_spans() {
             "fn make_option() -> Option<Int>\n",
             "  Some(1, 2)\n",
             "end\n",
+            "pub type AppError\n  pub AppError\nend\n",
         ),
     );
     let parsed = parse(&source);
@@ -533,7 +535,10 @@ fn uppercase_qualified_constructor_pattern_reports_descriptor_mismatch_control()
 fn holes_build_blocked_core_but_not_executable_ir() {
     let source = SourceFile::new(
         "main.veln",
-        "pub fn main() -> Result<(), AppError>\n  _\nend\n",
+        concat!(
+            "pub fn main() -> Result<(), AppError>\n  _\nend\n",
+            "pub type AppError\n  pub AppError\nend\n",
+        ),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);

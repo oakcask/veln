@@ -96,7 +96,10 @@ fn omitted_tail_expression_lowers_to_unit_return() {
 fn ok_constructor_accepts_declared_result_return() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result<(), AppError>\n  Ok(())\nend\n",
+        concat!(
+            "fn main() -> Result<(), AppError>\n  Ok(())\nend\n",
+            "pub type AppError\n  pub AppError\nend\n",
+        ),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -110,7 +113,10 @@ fn ok_constructor_accepts_declared_result_return() {
 fn result_constructor_checks_expected_value_type() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result<(), AppError>\n  Ok(\"no\")\nend\n",
+        concat!(
+            "fn main() -> Result<(), AppError>\n  Ok(\"no\")\nend\n",
+            "pub type AppError\n  pub AppError\nend\n",
+        ),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -135,7 +141,10 @@ fn result_constructor_checks_expected_value_type() {
 fn descriptor_routed_err_constructor_checks_expected_error_type() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result<Int, AppError>\n  Err(1)\nend\n",
+        concat!(
+            "fn main() -> Result<Int, AppError>\n  Err(1)\nend\n",
+            "pub type AppError\n  pub AppError\nend\n",
+        ),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -201,7 +210,10 @@ fn descriptor_routed_qualified_option_constructor_checks_expected_item_type() {
 fn descriptor_routed_qualified_result_constructor_checks_expected_error_type() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result<Int, AppError>\n  Result::Err(1)\nend\n",
+        concat!(
+            "fn main() -> Result<Int, AppError>\n  Result::Err(1)\nend\n",
+            "pub type AppError\n  pub AppError\nend\n",
+        ),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -225,7 +237,10 @@ fn descriptor_routed_qualified_result_constructor_checks_expected_error_type() {
 fn descriptor_routed_qualified_result_constructor_checks_expected_value_type() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result<Int, AppError>\n  Result::Ok(\"no\")\nend\n",
+        concat!(
+            "fn main() -> Result<Int, AppError>\n  Result::Ok(\"no\")\nend\n",
+            "pub type AppError\n  pub AppError\nend\n",
+        ),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -308,7 +323,10 @@ fn descriptor_routed_qualified_list_constructor_checks_expected_tail_type() {
 fn descriptor_routed_result_arity_diagnostic_keeps_call_span() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result<Int, AppError>\n  Ok()\nend\n",
+        concat!(
+            "fn main() -> Result<Int, AppError>\n  Ok()\nend\n",
+            "pub type AppError\n  pub AppError\nend\n",
+        ),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);

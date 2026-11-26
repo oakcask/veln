@@ -366,6 +366,29 @@ pub(crate) struct TypeParameterIdentityContext<'a> {
     lookups: Option<std::cell::Cell<usize>>,
 }
 
+#[cfg(test)]
+thread_local! {
+    static TYPE_PARAMETER_CONTEXT_WORK: std::cell::Cell<(usize, usize)> =
+        const { std::cell::Cell::new((0, 0)) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_type_parameter_context_work() {
+    TYPE_PARAMETER_CONTEXT_WORK.set((0, 0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_type_parameter_context_work() -> (usize, usize) {
+    TYPE_PARAMETER_CONTEXT_WORK.replace((0, 0))
+}
+
+fn record_type_parameter_context(name_count: usize) {
+    #[cfg(test)]
+    TYPE_PARAMETER_CONTEXT_WORK.update(|(contexts, names)| (contexts + 1, names + name_count));
+    #[cfg(not(test))]
+    let _ = name_count;
+}
+
 impl<'a> TypeParameterIdentityContext<'a> {
     pub(crate) fn new(type_parameters: &'a [String]) -> Self {
         Self::with_lookup_recording(type_parameters, false)
@@ -376,6 +399,7 @@ impl<'a> TypeParameterIdentityContext<'a> {
     }
 
     fn with_lookup_recording(type_parameters: &'a [String], record_lookups: bool) -> Self {
+        record_type_parameter_context(type_parameters.len());
         Self {
             type_parameters: Some(type_parameters),
             positions: std::cell::OnceCell::new(),
@@ -423,6 +447,7 @@ impl<'a> TypeParameterIdentityContext<'a> {
     }
 
     pub(crate) fn for_function(function: &'a veln_ast::Function) -> Self {
+        record_type_parameter_context(function.type_binders.len());
         let span = function.span.resolved_or_generated();
         let owner = format!(
             "{}:{}:{}:{}:{}",
