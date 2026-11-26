@@ -60,12 +60,12 @@ column = 18
 id = "name.type_parameter_shadow"
 severity = "error"
 kind = "name"
-message = "function type parameter `NetListener` shadows a visible type"
+message = "function type parameter `StreamAdapterAction` shadows a visible type"
 
 [diagnostics.span]
 file = "main.veln"
 line = 39
-column = 18
+column = 22
 
 [[diagnostics]]
 id = "name.unresolved"

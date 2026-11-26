@@ -598,6 +598,7 @@ impl<'a> TypeParameterIdentityContext<'a> {
                     name: binder.name.clone(),
                     ordinal,
                     identity: function_type_parameter_identity(function, ordinal),
+                    span: binder.span.clone(),
                 },
             )
             .collect()
@@ -1553,6 +1554,22 @@ impl TypeEnvironment {
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
         self.functions_named(name).next()
+    }
+
+    pub(crate) fn function_type_parameter(
+        &self,
+        identity: &str,
+    ) -> Option<(
+        &FunctionSignature,
+        &crate::types::signatures::FunctionTypeParameter,
+    )> {
+        self.functions.iter().find_map(|function| {
+            function
+                .type_parameters
+                .iter()
+                .find(|parameter| parameter.identity == identity)
+                .map(|parameter| (function, parameter))
+        })
     }
 
     #[cfg(test)]

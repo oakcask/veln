@@ -482,14 +482,16 @@ using machine addresses or exposing transient solver identifiers as identities.
 | --- | --- | --- |
 | Missing binder provenance for an invalid body result or operation on rigid `T` | Existing failed expression or operand | Binder declaration and required type. |
 | Wrong explicit type arity | Type argument list | Declared binder list and required count. |
-| Incompatible argument or fixed substitution | Failed argument or explicit type argument | Relevant parameter/binder and conflicting bound. |
+| Incompatible instantiated argument or fixed scheme substitution | Failed argument or explicit type argument | Relevant parameter/binder and conflicting bound. |
 | Unresolved immediate instance | Call expression | Unresolved binder and annotation/explicit-argument hint. |
 | Unresolved pending local | Omitted local binding | Initializing call and unresolved binder. |
 
 The current
 [diagnostic contract](../specification/diagnostics-json.md#diagnostic-families)
 owns the implemented binder-shadow identifier, primary span, details, and
-related visible declaration. Choose identifiers for the remaining rows during
+related visible declaration. It also owns the expected-then-actual binder
+provenance for a call argument that crosses two declaration-owned rigid
+parameters. Choose identifiers for the remaining rows during
 their implementation using the repository's existing registry. Human and JSON
 cases must establish those failure facts and spans; human output must include
 the related binder context. Fixing names or serialized field layouts without

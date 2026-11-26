@@ -684,7 +684,7 @@ fn function_type_parameter_shadow_diagnostic(
     environment: &TypeEnvironment,
 ) -> Option<Diagnostic> {
     let builtin = crate::type_syntax::compiler_known_type_annotation_arity(&binder.name).is_some()
-        || crate::adt::is_opaque_builtin_type(&binder.name);
+        || crate::source_less_lookup::is_builtin_adt_type(&binder.name);
     let descriptor = environment
         .adts
         .unique_descriptor_for_type_path_any_arity_in_owner(

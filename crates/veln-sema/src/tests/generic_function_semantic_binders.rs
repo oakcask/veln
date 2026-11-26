@@ -119,6 +119,13 @@ fn function_binders_are_retained_with_declaration_owned_rigid_identities() {
     assert_eq!(first.type_parameters[0].name, "T");
     assert_eq!(first.type_parameters[0].ordinal, 0);
     assert_eq!(
+        (
+            first.type_parameters[0].span.start.line,
+            first.type_parameters[0].span.start.column,
+        ),
+        (1, 14)
+    );
+    assert_eq!(
         first.type_parameters[0].identity,
         named_identity(&first.params[0])
     );
@@ -128,6 +135,13 @@ fn function_binders_are_retained_with_declaration_owned_rigid_identities() {
     );
     assert_eq!(second.type_parameters.len(), 1);
     assert_eq!(second.visibility, veln_ast::Visibility::Private);
+    assert_eq!(
+        (
+            second.type_parameters[0].span.start.line,
+            second.type_parameters[0].span.start.column,
+        ),
+        (9, 11)
+    );
     assert_ne!(
         first.type_parameters[0].identity,
         second.type_parameters[0].identity

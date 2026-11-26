@@ -362,6 +362,14 @@ impl<'a> FunctionChecker<'a> {
                 ]));
             }
         }
+        if constraint == "call_argument" {
+            append_distinct_rigid_type_parameter_context(
+                &mut diagnostic,
+                expected,
+                actual,
+                self.environment,
+            );
+        }
         self.diagnostics.push(diagnostic);
     }
 
@@ -977,6 +985,63 @@ impl<'a> FunctionChecker<'a> {
             })
             .collect()
     }
+}
+
+fn append_distinct_rigid_type_parameter_context(
+    diagnostic: &mut Diagnostic,
+    expected: &Type,
+    actual: &Type,
+    environment: &TypeEnvironment,
+) {
+    let Some(expected_identity) = rigid_type_parameter_identity(expected) else {
+        return;
+    };
+    let Some(actual_identity) = rigid_type_parameter_identity(actual) else {
+        return;
+    };
+    if expected_identity == actual_identity {
+        return;
+    }
+    let Some((expected_owner, expected_parameter)) =
+        environment.function_type_parameter(expected_identity)
+    else {
+        return;
+    };
+    let Some((actual_owner, actual_parameter)) =
+        environment.function_type_parameter(actual_identity)
+    else {
+        return;
+    };
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("expected_rigid_type_parameter")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Expected type parameter `{}` is declared by function `{}` here.",
+                expected_parameter.name, expected_owner.name
+            )),
+        ),
+        ("span", span_json(&expected_parameter.span)),
+    ]));
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("actual_rigid_type_parameter")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Actual type parameter `{}` is declared by function `{}` here.",
+                actual_parameter.name, actual_owner.name
+            )),
+        ),
+        ("span", span_json(&actual_parameter.span)),
+    ]));
+}
+
+fn rigid_type_parameter_identity(ty: &Type) -> Option<&str> {
+    let Type::Named { identity, args, .. } = ty else {
+        return None;
+    };
+    (args.is_empty() && crate::types::TypeParameterIdentityContext::is_identity(identity))
+        .then_some(identity)
 }
 
 fn removed_legacy_network_call(symbol: &str) -> bool {

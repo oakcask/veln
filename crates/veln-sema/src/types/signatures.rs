@@ -151,6 +151,7 @@ pub(crate) struct FunctionTypeParameter {
     pub(crate) name: String,
     pub(crate) ordinal: usize,
     pub(crate) identity: String,
+    pub(crate) span: SourceSpan,
 }
 
 #[derive(Clone)]

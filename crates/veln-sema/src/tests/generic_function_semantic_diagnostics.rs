@@ -588,6 +588,108 @@ fn opaque_compiler_owned_binder_shadow_keeps_builtin_classification_and_source_c
 }
 
 #[test]
+fn descriptor_registered_binder_shadow_keeps_builtin_classification_and_source_context() {
+    for (source, related_line) in [
+        (
+            concat!(
+                "fn shadow<StreamAdapterAction>(value: StreamAdapterAction) -> StreamAdapterAction\n",
+                "  value\n",
+                "end\n",
+            ),
+            None,
+        ),
+        (
+            concat!(
+                "type StreamAdapterAction\n",
+                "  LocalAction\n",
+                "end\n",
+                "fn shadow<StreamAdapterAction>(value: StreamAdapterAction) -> StreamAdapterAction\n",
+                "  value\n",
+                "end\n",
+            ),
+            Some(1),
+        ),
+    ] {
+        let (_, diagnostics) = analyze(source);
+        let shadow = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "name.type_parameter_shadow")
+            .expect("descriptor-registered compiler-owned shadow diagnostic");
+        assert_eq!(
+            shadow
+                .span
+                .as_ref()
+                .map(|span| (span.start.line, span.start.column)),
+            Some((related_line.map_or(1, |_| 4), 11)),
+            "{shadow:#?}"
+        );
+        assert!(
+            shadow
+                .details
+                .to_json()
+                .contains("\"shadowed_kind\":\"builtin_type\""),
+            "{shadow:#?}"
+        );
+        match related_line {
+            Some(line) => assert!(shadow.related.iter().any(|related| {
+                let json = related.to_json();
+                json.contains("\"kind\":\"shadowed_type_declaration\"")
+                    && json.contains(&format!("\"line\":{line}"))
+            })),
+            None => assert!(shadow.related.is_empty(), "{shadow:#?}"),
+        }
+    }
+}
+
+#[test]
+fn distinct_rigid_call_argument_mismatch_identifies_both_binder_owners() {
+    let (_, diagnostics) = analyze(concat!(
+        "fn second<T>(value: T) -> T\n",
+        "  value\n",
+        "end\n",
+        "fn passes_to_second<T>(value: T) -> ()\n",
+        "  second(value)\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let mismatch = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "type.mismatch" && diagnostic.message == "expected `T`, but found `T`"
+        })
+        .expect("distinct rigid argument mismatch");
+    assert_eq!(
+        mismatch
+            .span
+            .as_ref()
+            .map(|span| (span.start.line, span.start.column)),
+        Some((5, 10))
+    );
+    assert_eq!(mismatch.related.len(), 2, "{mismatch:#?}");
+    let expected = mismatch.related[0].to_json();
+    assert!(
+        expected.contains("\"kind\":\"expected_rigid_type_parameter\"")
+            && expected.contains(
+                "\"message\":\"Expected type parameter `T` is declared by function `second` here.\""
+            )
+            && expected.contains("\"line\":1")
+            && expected.contains("\"column\":11"),
+        "{mismatch:#?}"
+    );
+    let actual = mismatch.related[1].to_json();
+    assert!(
+        actual.contains("\"kind\":\"actual_rigid_type_parameter\"")
+            && actual.contains(
+                "\"message\":\"Actual type parameter `T` is declared by function `passes_to_second` here.\""
+            )
+            && actual.contains("\"line\":4")
+            && actual.contains("\"column\":21"),
+        "{mismatch:#?}"
+    );
+}
+
+#[test]
 fn binder_cannot_shadow_an_imported_type_alias() {
     let module = merged_modules_with_identities(vec![
         (

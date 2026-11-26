@@ -94,13 +94,25 @@ it searches the schema namespace. The same spelling in an ADT payload remains
 unresolved because the ADT does not own that binder. A qualified type path must
 resolve its written qualifier before a compiler-known final type can be
 selected; an unrelated qualifier does not make a built-in type visible. When a
-binder shadows an opaque compiler-known type that also has a visible source
+binder shadows a compiler-owned descriptor that also has a visible source
 declaration, the diagnostic keeps `builtin_type` in `shadowed_kind` and includes
-the source declaration in `related`. The checked
+the source declaration in `related`. This classification applies to the
+complete compiler descriptor registry, including descriptors that are not
+opaque. The checked
 [`generic semantic gap human`](../../examples/specification/check/generic-function-semantic-gap-human/)
 and
 [`generic semantic gap JSON`](../../examples/specification/check/generic-function-semantic-gap-json/)
 cases fix these rendered and structured outcomes.
+
+A call argument whose type is a rigid parameter cannot satisfy a different
+declaration's same-spelled rigid parameter. The resulting `type.mismatch` stays
+at the failed argument and renders the source spelling on both sides. Its first
+related entry has kind `expected_rigid_type_parameter`, identifies the expected
+parameter's owning function, and spans the callee binder. Its second entry has
+kind `actual_rigid_type_parameter`, identifies the actual parameter's owning
+function, and spans the caller binder. This order is deterministic, and neither
+entry exposes the internal rigid identity. The checked generic-binder human and
+JSON cases fix both messages and exact binder spans.
 
 The focused semantic and scaling coverage is in
 [`generic_function_semantic_binders.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_binders.rs)

@@ -10,6 +10,16 @@ use recovery_helpers::{
 };
 
 impl AdtRegistry {
+    pub(crate) fn has_compiler_owned_descriptor(&self, name: &str) -> bool {
+        self.descriptors_by_type_name
+            .get(name)
+            .is_some_and(|indices| {
+                indices
+                    .iter()
+                    .any(|index| *index < self.local_descriptor_start)
+            })
+    }
+
     pub(crate) fn descriptor_for_type_path_including_quarantined(
         &self,
         name: &str,

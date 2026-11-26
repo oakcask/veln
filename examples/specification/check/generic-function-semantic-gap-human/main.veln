@@ -32,11 +32,11 @@ type Leak
   Foreign(value: ForeignT)
 end
 
-type NetListener
-  Listener
+type StreamAdapterAction
+  LocalAction
 end
 
-fn opaque_shadow<NetListener>(value: NetListener) -> NetListener
+fn descriptor_shadow<StreamAdapterAction>(value: StreamAdapterAction) -> StreamAdapterAction
   value
 end
 

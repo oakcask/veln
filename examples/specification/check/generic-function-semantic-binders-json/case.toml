@@ -278,3 +278,59 @@ equals = "call_argument"
 [[json_assert]]
 path = "diagnostics.8.details.constraint"
 equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.8.related.0.kind"
+equals = "expected_rigid_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.8.related.0.message"
+equals = "Expected type parameter `T` is declared by function `second` here."
+
+[[json_assert]]
+path = "diagnostics.8.related.0.span.file"
+equals = "main.veln"
+
+[[json_assert]]
+path = "diagnostics.8.related.0.span.start.line"
+equals = 13
+
+[[json_assert]]
+path = "diagnostics.8.related.0.span.start.column"
+equals = 11
+
+[[json_assert]]
+path = "diagnostics.8.related.0.span.end.line"
+equals = 13
+
+[[json_assert]]
+path = "diagnostics.8.related.0.span.end.column"
+equals = 12
+
+[[json_assert]]
+path = "diagnostics.8.related.1.kind"
+equals = "actual_rigid_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.8.related.1.message"
+equals = "Actual type parameter `T` is declared by function `passes_to_second` here."
+
+[[json_assert]]
+path = "diagnostics.8.related.1.span.file"
+equals = "main.veln"
+
+[[json_assert]]
+path = "diagnostics.8.related.1.span.start.line"
+equals = 42
+
+[[json_assert]]
+path = "diagnostics.8.related.1.span.start.column"
+equals = 21
+
+[[json_assert]]
+path = "diagnostics.8.related.1.span.end.line"
+equals = 42
+
+[[json_assert]]
+path = "diagnostics.8.related.1.span.end.column"
+equals = 22
