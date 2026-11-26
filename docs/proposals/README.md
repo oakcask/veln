@@ -42,6 +42,10 @@ also states it.
 
 ## Design In Progress
 
+- [Single-receiver and Receiver-list Channel Waits](channel-wait-api.md):
+  replace two-receiver selection with matching single-receiver and list wait
+  families; result, selection-policy, public-type, and deterministic-wait
+  feasibility decisions remain before Ready promotion.
 - [Literal-expression Constant Folding](constant-folding.md): fold closed
   `Int` and `Bool` executable expressions while preserving diagnostics and
   runtime failures; requires full-range constant materialization and residual
