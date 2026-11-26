@@ -278,6 +278,7 @@ fn indexed_dependency_source(
         handler_operation_clause_references: Vec::new(),
         handler_operation_clause_body_ranges: navigation.handler_operation_clause_body_ranges,
         handler_clause_bindings_by_name: navigation.handler_clause_bindings_by_name,
+        recovered_clause_bindings: OnceLock::new(),
         schema_operation_leaf_ranges: navigation.schema_operation_leaf_ranges,
         schema_composition_leaf_spans: navigation.schema_composition_leaf_spans,
         effect_reference_ranges: BTreeSet::new(),

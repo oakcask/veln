@@ -646,6 +646,7 @@ impl SymbolIndex {
         tokens: &[Token],
         token_index: usize,
         name: &str,
+        prepared_scopes: Option<&[FunctionScope]>,
     ) -> Option<Symbol> {
         if let Some(symbol) = self.constructor_for_bare_call(file, name) {
             return Some(Symbol::Constructor(symbol));
@@ -658,7 +659,10 @@ impl SymbolIndex {
         }) {
             return Some(Symbol::Function(symbol.clone()));
         }
-        if local_binding_shadows_call_target(tokens, token_index, name)
+        if prepared_scopes.map_or_else(
+            || local_binding_shadows_call_target(tokens, token_index, name),
+            |scopes| local_binding_shadows_call_target_in_scopes(scopes, tokens, token_index, name),
+        )
             || self.has_visible_non_prelude_imported_function(file, name)
             || self.has_visible_non_prelude_imported_constructor(file, name)
         {

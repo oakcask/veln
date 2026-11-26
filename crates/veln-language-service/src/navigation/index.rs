@@ -183,7 +183,7 @@ impl SymbolIndex {
             return None;
         };
         self.files.iter().find_map(|file| {
-            handler_operation_clause_bindings(file, &file.tokens)
+            handler_operation_clause_bindings(file)
                 .into_iter()
                 .find(|binding| {
                     same_span(

@@ -976,6 +976,7 @@ struct IndexedFile {
     handler_operation_clause_references: Vec<HandlerOperationClauseReference>,
     handler_operation_clause_body_ranges: Vec<(usize, usize)>,
     handler_clause_bindings_by_name: BTreeMap<String, Vec<ClauseBinding>>,
+    recovered_clause_bindings: OnceLock<RecoveredClauseBindings>,
     schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
     schema_composition_leaf_spans: Vec<SourceSpan>,
     effect_reference_ranges: BTreeSet<(usize, usize)>,

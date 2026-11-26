@@ -414,7 +414,7 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<SelectedNavigationSymbol> {
         is_bare_function_value_token(tokens, token_index)
-            .then(|| self.symbol_for_bare_call(file, tokens, token_index, name))
+            .then(|| self.symbol_for_bare_call(file, tokens, token_index, name, None))
             .flatten()
             .filter(|symbol| {
                 matches!(symbol, Symbol::Function(function) if function.standard_prelude)
@@ -447,7 +447,7 @@ impl SymbolIndex {
     ) -> Option<SelectedNavigationSymbol> {
         self.local_binding_symbol_for_selection(file, tokens, token_index, name, prepared_scopes)
             .map(|symbol| SelectedNavigationSymbol::bare(Symbol::Local(symbol)))
-            .or_else(|| self.symbol_for_bare_call(file, tokens, token_index, name)
+            .or_else(|| self.symbol_for_bare_call(file, tokens, token_index, name, prepared_scopes)
             .map(SelectedNavigationSymbol::bare)
             .or_else(|| {
                 (!self.bare_call_recovery_blocked(file, tokens, token_index, name, prepared_scopes))
@@ -661,6 +661,11 @@ impl SymbolIndex {
         name: &str,
         selection: &SourceSpan,
     ) -> Option<RecoverySymbol> {
+        if !file.recovery_symbols.iter().any(|symbol| {
+            symbol.name == name && same_span(&symbol.declaration, selection)
+        }) {
+            return None;
+        }
         let roles = recovery_roles_for_declaration_token(tokens, token_index)?;
         let selected = dedup_recovery_symbols(
             file.recovery_symbols
