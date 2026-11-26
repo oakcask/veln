@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::hash::Hash;
 
 use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
@@ -370,6 +370,12 @@ fn analyze_surface_module_with_environment(
     let (module_diagnostics, module_value_publication, mut state_call_types) =
         check_module_declarations(module, &mut environment, &mut variant_diagnostics);
     diagnostics.extend(module_diagnostics);
+    let declaration_binder_names = module
+        .functions
+        .iter()
+        .flat_map(|function| function.type_binders.iter())
+        .map(|binder| binder.name.as_str())
+        .collect::<HashSet<_>>();
 
     for function in &module.functions {
         if !validate_standard_bodies
@@ -378,7 +384,7 @@ fn analyze_surface_module_with_environment(
             continue;
         }
         let (function_diagnostics, function_state_call_types) = check_function_declaration_and_body(
-            module,
+            &declaration_binder_names,
             function,
             &environment,
             &mut variant_diagnostics,

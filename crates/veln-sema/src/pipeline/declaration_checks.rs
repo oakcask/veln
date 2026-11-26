@@ -90,7 +90,7 @@ fn append_boundary_diagnostics(
 }
 
 pub(super) fn check_function_declaration_and_body(
-    module: &SurfaceModule,
+    declaration_binder_names: &HashSet<&str>,
     function: &veln_ast::Function,
     environment: &TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
@@ -102,7 +102,7 @@ pub(super) fn check_function_declaration_and_body(
         environment,
     ));
     diagnostics.extend(check_unresolved_function_type_names(
-        module,
+        declaration_binder_names,
         function,
         environment,
     ));
@@ -126,16 +126,10 @@ pub(super) fn check_function_declaration_and_body(
 }
 
 fn check_unresolved_function_type_names(
-    module: &SurfaceModule,
+    declaration_binder_names: &HashSet<&str>,
     function: &veln_ast::Function,
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
-    let declaration_binder_names = module
-        .functions
-        .iter()
-        .flat_map(|function| function.type_binders.iter())
-        .map(|binder| binder.name.as_str())
-        .collect::<std::collections::HashSet<_>>();
     if declaration_binder_names.is_empty() {
         return Vec::new();
     }

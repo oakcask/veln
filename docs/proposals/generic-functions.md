@@ -68,7 +68,8 @@ explicit extension boundaries.
 ### Declaration and body checking
 
 The current declaration syntax reuses the ADT type-parameter spelling. The
-example bodies illustrate the planned semantic checking:
+example bodies illustrate the implemented rigid definition checking; call
+instantiation remains planned:
 
 ```veln
 pub fn identity<T>(value: T) -> T
@@ -512,11 +513,14 @@ using machine addresses or exposing transient solver identifiers as identities.
 | Unresolved immediate instance | Call expression | Unresolved binder and annotation/explicit-argument hint. |
 | Unresolved pending local | Omitted local binding | Initializing call and unresolved binder. |
 
-Choose diagnostic identifiers during implementation using the repository's
-existing registry. Human and JSON cases must establish these failure facts
-and spans; human output must include the related binder context. Fixing names
-or serialized field layouts without their implementation would not establish
-that contract.
+The current
+[diagnostic contract](../specification/diagnostics-json.md#diagnostic-families)
+owns the implemented binder-shadow identifier, primary span, details, and
+related visible declaration. Choose identifiers for the remaining rows during
+their implementation using the repository's existing registry. Human and JSON
+cases must establish those failure facts and spans; human output must include
+the related binder context. Fixing names or serialized field layouts without
+their implementation would not establish that contract.
 
 ### Q8: Callable forms and executable contracts
 
