@@ -580,7 +580,7 @@ impl<'a> TypeParameterIdentityContext<'a> {
                             (ordinal, function_type_parameter_identity(function, ordinal)),
                         )
                     })
-                    .collect(),
+                    .collect::<HashMap<_, _>>(),
             ),
             lookups: None,
         }
