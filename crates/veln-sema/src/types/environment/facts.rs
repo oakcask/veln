@@ -219,6 +219,7 @@ fn initial_environment(
 ) -> TypeEnvironment {
     let uses = symbols.uses;
     let adts = declarations.adts;
+    let type_symbol_index = named_type_symbol_index(&symbols.type_symbols);
     TypeEnvironment {
         resolution_use_index: Arc::default(),
         module_values: base
@@ -250,6 +251,7 @@ fn initial_environment(
         handlers: callables.handlers,
         schema_symbols: symbols.schema_symbols,
         type_symbols: symbols.type_symbols,
+        type_symbol_index,
         uses,
         quarantined_uses: symbols.quarantined_uses,
         invalid_names: module.invalid_names.clone(),

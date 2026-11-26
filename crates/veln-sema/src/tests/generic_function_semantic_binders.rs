@@ -1,6 +1,8 @@
 use super::*;
 use crate::semantic_model::Type;
+use crate::type_relations::is_assignable;
 use crate::types::TypeEnvironment;
+use std::collections::HashSet;
 
 fn analyze(source_text: &str) -> (SurfaceModule, Vec<Diagnostic>) {
     let source = SourceFile::new("main.veln", source_text);
@@ -129,6 +131,117 @@ fn function_binders_are_retained_with_declaration_owned_rigid_identities() {
     assert_ne!(
         first.type_parameters[0].identity,
         second.type_parameters[0].identity
+    );
+}
+
+#[test]
+fn rigid_parameter_owner_keys_preserve_option_and_component_boundaries() {
+    fn identities(package_name: Option<&str>, module_name: Option<&str>) -> (String, String) {
+        let source = SourceFile::new("owner.veln", "fn owner<T>(value: T) -> T\n  value\nend\n");
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let mut module = lower_surface_ast(&parsed.tree);
+        let function = &mut module.functions[0];
+        function.package_name = package_name.map(str::to_string);
+        function.module_name = module_name.map(str::to_string);
+
+        let signature = crate::types::TypeParameterIdentityContext::function_parameters(function);
+        let annotations = crate::types::TypeParameterIdentityContext::for_function(function);
+        (
+            signature[0].identity.clone(),
+            annotations
+                .identity("T")
+                .expect("annotation binder identity"),
+        )
+    }
+
+    for (left_owner, right_owner) in [
+        (
+            (None, Some("subject")),
+            (Some("workspace"), Some("subject")),
+        ),
+        (
+            (Some("pkg:api"), Some("part")),
+            (Some("pkg"), Some("api:part")),
+        ),
+    ] {
+        let left = identities(left_owner.0, left_owner.1);
+        let right = identities(right_owner.0, right_owner.1);
+        assert_eq!(left.0, left.1);
+        assert_eq!(right.0, right.1);
+        assert_ne!(left.0, right.0);
+
+        let left_type = Type::resolved_named("T", left.0, Vec::new());
+        let right_type = Type::resolved_named("T", right.0, Vec::new());
+        assert!(!is_assignable(&left_type, &right_type));
+        assert!(!is_assignable(&right_type, &left_type));
+    }
+}
+
+#[test]
+fn annotation_named_symbol_lookup_work_is_linear_in_symbols_and_occurrences() {
+    fn measurement(size: usize) -> ((usize, usize), Vec<Diagnostic>) {
+        let mut source = String::new();
+        for index in 0..size {
+            source.push_str(&format!("pub type Visible{index} = Int\n"));
+        }
+        source.push_str("fn inspect(value: Int) -> ()\n");
+        for index in 0..size {
+            source.push_str(&format!(
+                "  let resolved{index}: Visible{} = value\n",
+                size - 1
+            ));
+            source.push_str(&format!("  let missing{index}: Missing = value\n"));
+        }
+        source.push_str("  ()\nend\n");
+
+        let source = SourceFile::new("lookup.veln", source);
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::types::reset_annotation_named_symbol_index_work();
+        let diagnostics = analyze_surface_module(&module);
+        (
+            crate::types::take_annotation_named_symbol_index_work(),
+            diagnostics,
+        )
+    }
+
+    let mut totals = Vec::new();
+    for size in [32, 64, 128] {
+        let ((index_entries, lookups), diagnostics) = measurement(size);
+        let missing = diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.id == "name.unresolved"
+                    && diagnostic.message == "unresolved type `Missing`"
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(missing.len(), size, "{diagnostics:#?}");
+        assert_eq!(
+            missing
+                .iter()
+                .filter_map(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.line))
+                .collect::<HashSet<_>>()
+                .len(),
+            size,
+            "each missing occurrence must retain its own span"
+        );
+        assert!(index_entries >= size, "index build was not measured");
+        assert!(
+            lookups >= size * 2,
+            "resolved and missing lookups were not measured"
+        );
+        let total = index_entries + lookups;
+        assert!(
+            total <= size * 8 + 32,
+            "size={size} index_entries={index_entries} lookups={lookups}"
+        );
+        totals.push(total);
+    }
+    assert!(
+        totals[2] <= totals[1] * 2 + 32,
+        "doubling visible symbols and occurrences must remain linear: {totals:?}"
     );
 }
 

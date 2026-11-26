@@ -45,16 +45,12 @@ impl TypeEnvironment {
                     &self.uses,
                 )
             || !name.contains("::")
-                && self.type_symbols.iter().any(|symbol| {
-                    symbol.name == name
-                        && symbol.module_name.as_deref() == current_module
-                        && symbol.package_name.as_deref() == current_package
-                        && self.symbol_is_visible(
-                            symbol,
-                            symbol.module_name.as_deref(),
-                            current_module,
-                        )
-                })
+                && self.annotation_named_symbol_is_visible(
+                    name.to_string(),
+                    current_module.map(str::to_string),
+                    current_package.map(str::to_string),
+                    current_module,
+                )
             || name.rsplit_once("::").is_some_and(|(base, variant)| {
                 self.visible_annotation_type_descriptor_in_owner(
                     base,
@@ -176,16 +172,28 @@ impl TypeEnvironment {
     ) -> bool {
         self.resolve_symbol_module(segments, current_module, current_package)
             .is_some_and(|(name, module_name, package_name)| {
-                self.type_symbols.iter().any(|symbol| {
-                    symbol.name == name
-                        && symbol.module_name == module_name
-                        && symbol.package_name == package_name
-                        && self.symbol_is_visible(
-                            symbol,
-                            symbol.module_name.as_deref(),
-                            current_module,
-                        )
-                })
+                self.annotation_named_symbol_is_visible(
+                    name,
+                    module_name,
+                    package_name,
+                    current_module,
+                )
+            })
+    }
+
+    fn annotation_named_symbol_is_visible(
+        &self,
+        name: String,
+        module_name: Option<String>,
+        package_name: Option<String>,
+        current_module: Option<&str>,
+    ) -> bool {
+        record_annotation_named_symbol_index_lookup();
+        self.type_symbol_index
+            .get(&(package_name, module_name.clone(), name))
+            .is_some_and(|visibility| {
+                visibility.present
+                    && (module_name.as_deref() == current_module || visibility.public)
             })
     }
 

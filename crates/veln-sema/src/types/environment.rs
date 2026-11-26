@@ -37,6 +37,14 @@ thread_local! {
     };
 }
 
+type NamedTypeSymbolKey = (Option<String>, Option<String>, String);
+
+#[derive(Clone, Copy, Debug, Default)]
+struct NamedTypeSymbolVisibility {
+    present: bool,
+    public: bool,
+}
+
 #[derive(Clone, Debug)]
 enum QualifiedModuleValueImportSelection {
     Unique(Box<UseDecl>),
@@ -333,6 +341,50 @@ fn record_qualified_module_value_visibility_work() {
     });
 }
 
+#[cfg(test)]
+thread_local! {
+    static ANNOTATION_NAMED_SYMBOL_INDEX_WORK: std::cell::Cell<(usize, usize)> = const { std::cell::Cell::new((0, 0)) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_annotation_named_symbol_index_work() {
+    ANNOTATION_NAMED_SYMBOL_INDEX_WORK.set((0, 0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_annotation_named_symbol_index_work() -> (usize, usize) {
+    ANNOTATION_NAMED_SYMBOL_INDEX_WORK.replace((0, 0))
+}
+
+fn record_annotation_named_symbol_index_entry() {
+    #[cfg(test)]
+    ANNOTATION_NAMED_SYMBOL_INDEX_WORK.update(|(entries, lookups)| (entries + 1, lookups));
+}
+
+fn record_annotation_named_symbol_index_lookup() {
+    #[cfg(test)]
+    ANNOTATION_NAMED_SYMBOL_INDEX_WORK.update(|(entries, lookups)| (entries, lookups + 1));
+}
+
+fn named_type_symbol_index(
+    symbols: &[NamedSymbol],
+) -> HashMap<NamedTypeSymbolKey, NamedTypeSymbolVisibility> {
+    let mut index = HashMap::new();
+    for symbol in symbols {
+        record_annotation_named_symbol_index_entry();
+        let visibility = index
+            .entry((
+                symbol.package_name.clone(),
+                symbol.module_name.clone(),
+                symbol.name.clone(),
+            ))
+            .or_insert_with(NamedTypeSymbolVisibility::default);
+        visibility.present = true;
+        visibility.public |= symbol.visibility() == Visibility::Public;
+    }
+    index
+}
+
 fn function_publication_key(function: &FunctionSignature) -> FunctionPublicationKey {
     (
         function.package_name.clone(),
@@ -448,15 +500,6 @@ impl<'a> TypeParameterIdentityContext<'a> {
 
     pub(crate) fn for_function(function: &'a veln_ast::Function) -> Self {
         record_type_parameter_context(function.type_binders.len());
-        let span = function.span.resolved_or_generated();
-        let owner = format!(
-            "{}:{}:{}:{}:{}",
-            function.package_name.as_deref().unwrap_or("workspace"),
-            function.module_name.as_deref().unwrap_or(""),
-            span.file.as_str(),
-            span.start.offset,
-            span.end.offset,
-        );
         Self {
             type_parameters: None,
             positions: std::cell::OnceCell::from(
@@ -467,7 +510,7 @@ impl<'a> TypeParameterIdentityContext<'a> {
                     .map(|(ordinal, parameter)| {
                         (
                             parameter.name.clone(),
-                            (ordinal, format!("type-parameter:{owner}:{ordinal}")),
+                            (ordinal, function_type_parameter_identity(function, ordinal)),
                         )
                     })
                     .collect(),
@@ -479,15 +522,6 @@ impl<'a> TypeParameterIdentityContext<'a> {
     pub(crate) fn function_parameters(
         function: &veln_ast::Function,
     ) -> Vec<crate::types::signatures::FunctionTypeParameter> {
-        let span = function.span.resolved_or_generated();
-        let owner = format!(
-            "{}:{}:{}:{}:{}",
-            function.package_name.as_deref().unwrap_or("workspace"),
-            function.module_name.as_deref().unwrap_or(""),
-            span.file.as_str(),
-            span.start.offset,
-            span.end.offset,
-        );
         function
             .type_binders
             .iter()
@@ -496,7 +530,7 @@ impl<'a> TypeParameterIdentityContext<'a> {
                 |(ordinal, binder)| crate::types::signatures::FunctionTypeParameter {
                     name: binder.name.clone(),
                     ordinal,
-                    identity: format!("type-parameter:{owner}:{ordinal}"),
+                    identity: function_type_parameter_identity(function, ordinal),
                 },
             )
             .collect()
@@ -523,6 +557,33 @@ impl<'a> TypeParameterIdentityContext<'a> {
     pub(crate) fn take_index_entries() -> usize {
         TYPE_PARAMETER_INDEX_ENTRIES.replace(0)
     }
+}
+
+fn function_type_parameter_identity(function: &veln_ast::Function, ordinal: usize) -> String {
+    fn push_optional_component(output: &mut String, component: Option<&str>) {
+        match component {
+            Some(component) => {
+                output.push('s');
+                output.push_str(&component.len().to_string());
+                output.push(':');
+                output.push_str(component);
+            }
+            None => output.push('n'),
+        }
+    }
+
+    let span = function.span.resolved_or_generated();
+    let mut identity = String::from("type-parameter:");
+    push_optional_component(&mut identity, function.package_name.as_deref());
+    push_optional_component(&mut identity, function.module_name.as_deref());
+    push_optional_component(&mut identity, Some(span.file.as_str()));
+    identity.push('o');
+    identity.push_str(&span.start.offset.to_string());
+    identity.push(':');
+    identity.push_str(&span.end.offset.to_string());
+    identity.push(':');
+    identity.push_str(&ordinal.to_string());
+    identity
 }
 
 mod effect_handlers;
@@ -569,6 +630,7 @@ pub(crate) struct TypeEnvironment {
     handlers: Vec<HandlerSignature>,
     schema_symbols: SchemaSymbolTable,
     type_symbols: Vec<NamedSymbol>,
+    type_symbol_index: HashMap<NamedTypeSymbolKey, NamedTypeSymbolVisibility>,
     pub(crate) uses: Arc<[UseDecl]>,
     resolution_use_index: Arc<std::sync::OnceLock<ResolutionUseIndex>>,
     quarantined_uses: Vec<UseDecl>,

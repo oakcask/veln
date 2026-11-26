@@ -36,6 +36,10 @@ impl TypeEnvironment {
         let public_module_value_identities = facts::public_module_value_identities(&module_values);
         let exact_module_value_imports = facts::exact_module_value_import_paths(&uses);
         let qualified_module_value_imports = facts::qualified_module_value_import_index(&uses);
+        let type_symbols = selected_standard_facts(&self.type_symbols, module_names, |symbol| {
+            symbol.module_name.as_deref()
+        });
+        let type_symbol_index = named_type_symbol_index(&type_symbols);
         Self {
             resolution_use_index: Arc::default(),
             module_values,
@@ -64,9 +68,8 @@ impl TypeEnvironment {
                 signature.module_name.as_deref()
             }),
             schema_symbols: self.schema_symbols.standard_subset(module_names),
-            type_symbols: selected_standard_facts(&self.type_symbols, module_names, |symbol| {
-                symbol.module_name.as_deref()
-            }),
+            type_symbols,
+            type_symbol_index,
             uses,
             quarantined_uses: selected_standard_facts(
                 &self.quarantined_uses,
