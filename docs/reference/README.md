@@ -20,6 +20,9 @@ material.
 
 - Documentation structure, metadata, presentation, and specification writing:
   [documentation-authoring.md](documentation-authoring.md).
+- Standard-library public API scope, cardinality, generic dependencies, outcomes,
+  capabilities, progress, and canonical ownership:
+  [standard-library-api-design.md](standard-library-api-design.md).
 - Standard-library ADT type names, variant names, and constructor qualification:
   [standard-library-adt-naming.md](standard-library-adt-naming.md).
 - Implemented behavior: [specification/topic-map.md](../specification/topic-map.md).
