@@ -1,4 +1,6 @@
 # Type annotations accept non-built-in named type paths with angle-bracket type arguments.
+use domain
+
 pub fn carry(value: domain::Envelope<String, Result<Int, AppError>>) -> domain::Envelope<String, Result<Int, AppError>>
 	value
 end
@@ -9,4 +11,8 @@ end
 
 fn compare_near_generic_annotation(value: Vec<Int>) -> Bool
 	1 < 2
+end
+
+pub type AppError
+	pub AppError
 end

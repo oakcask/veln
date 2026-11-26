@@ -87,6 +87,9 @@ fn check_json_uses_doctest_error_type_fence_attribute() {
             "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
+            "pub type AppError\n",
+            "  pub AppError\n",
+            "end\n",
         ),
     );
 
@@ -115,6 +118,9 @@ fn check_json_infers_doctest_error_type_from_public_result() {
             "## ```\n",
             "pub fn parse(raw: String) -> Result<Int, AppError>\n",
             "  Ok(1)\n",
+            "end\n",
+            "pub type AppError\n",
+            "  pub AppError\n",
             "end\n",
         ),
     );

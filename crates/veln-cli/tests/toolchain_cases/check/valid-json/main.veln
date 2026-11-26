@@ -1,3 +1,7 @@
 pub fn main() -> Result<(), AppError> effects [stdio]
   Ok(())
 end
+
+pub type AppError
+  pub AppError
+end

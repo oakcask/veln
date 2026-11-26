@@ -18,6 +18,9 @@ fn check_json_reports_checked_core_call_arity_blockers() {
             "pub fn main() -> Int\n",
             "  add(1)\n",
             "end\n",
+            "pub type AppError\n",
+            "  pub AppError\n",
+            "end\n",
         ),
     );
 

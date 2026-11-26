@@ -24,3 +24,7 @@ fn if_missing(options: { primary : String, nested : { fallback : String } }) -> 
 		_ => options.primary
 	end
 end
+
+pub type AppError
+	pub AppError
+end

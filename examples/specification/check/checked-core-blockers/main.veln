@@ -14,3 +14,7 @@ end
 pub fn main() -> Int
 	add(1)
 end
+
+pub type AppError
+	pub AppError
+end

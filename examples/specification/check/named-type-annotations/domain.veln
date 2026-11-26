@@ -1,0 +1,3 @@
+pub type Envelope<A, B>
+	pub Envelope(A, B)
+end

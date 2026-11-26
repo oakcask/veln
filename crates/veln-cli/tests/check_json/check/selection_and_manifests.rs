@@ -5,7 +5,7 @@ fn check_json_accepts_valid_input() {
     let project = TestProject::new("valid");
     project.write(
         "main.veln",
-        "pub fn main() -> Result<(), AppError> effects [stdio]\n  Ok(())\nend\n",
+        "pub fn main() -> Result<(), AppError> effects [stdio]\n  Ok(())\nend\npub type AppError\n  pub AppError\nend\n",
     );
 
     let output = project.check_json(&["main.veln"]);

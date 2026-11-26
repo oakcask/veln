@@ -191,6 +191,11 @@ fn unresolved_function_type_diagnostic(
             function.module_name.as_deref(),
             function.package_name.as_deref(),
         )
+        || environment.annotation_type_path_has_visible_import_at_source(
+            &name,
+            function.package_name.as_deref(),
+            &path.application_span.file,
+        )
         || environment.annotation_type_path_has_visible_declaration_in_owner(
             &name,
             function.module_name.as_deref(),

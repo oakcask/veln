@@ -66,7 +66,7 @@ fn check_json_reports_hole_with_return_expected_type() {
     let project = TestProject::new("hole-return");
     project.write(
         "main.veln",
-        "pub fn main() -> Result<(), AppError>\n  _\nend\n",
+        "pub fn main() -> Result<(), AppError>\n  _\nend\npub type AppError\n  pub AppError\nend\n",
     );
 
     let output = project.check_json(&["main.veln"]);

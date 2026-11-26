@@ -50,6 +50,26 @@ impl TypeEnvironment {
             })
     }
 
+    pub(crate) fn annotation_type_path_has_visible_import_at_source(
+        &self,
+        name: &str,
+        current_package: Option<&str>,
+        source: &veln_source::SourcePath,
+    ) -> bool {
+        let Some((module_path, type_name)) = name.rsplit_once("::") else {
+            return false;
+        };
+        let mut matching_uses = self.uses.iter().filter(|use_decl| {
+            use_decl.span.file == *source
+                && use_decl.importing_package.as_deref() == current_package
+                && (use_decl.alias == module_path || use_decl.matches_exact_path(module_path))
+        });
+        if matching_uses.next().is_none() {
+            return false;
+        }
+        matching_uses.next().is_none() && !type_name.is_empty()
+    }
+
     pub(crate) fn annotation_type_path_has_visible_declaration_in_owner(
         &self,
         name: &str,
@@ -70,14 +90,41 @@ impl TypeEnvironment {
                 .split("::")
                 .map(str::to_string)
                 .collect::<Vec<_>>();
-            self.adts
-                .unique_descriptor_for_type_path_any_arity_in_owner(
-                    candidate,
+            let visible_named_symbol = self
+                .resolve_symbol_module(&candidate_segments, current_module, current_package)
+                .is_some_and(|(name, module_name, package_name)| {
+                    self.type_symbols.iter().any(|symbol| {
+                        symbol.name == name
+                            && symbol.module_name == module_name
+                            && symbol.package_name == package_name
+                            && self.symbol_is_visible(
+                                symbol,
+                                symbol.module_name.as_deref(),
+                                current_module,
+                            )
+                    })
+                });
+            self.schema_symbols
+                .schema_target_path(
+                    &candidate_segments,
                     current_module,
                     current_package,
                     &self.uses,
+                    true,
+                    &self.companion_schema_access_targets,
+                    &mut Vec::new(),
                 )
                 .is_some()
+                || visible_named_symbol
+                || self
+                    .adts
+                    .unique_descriptor_for_type_path_any_arity_in_owner(
+                        candidate,
+                        current_module,
+                        current_package,
+                        &self.uses,
+                    )
+                    .is_some()
                 || recover_type_case(candidate).is_some_and(|recovered| {
                     self.adts
                         .unique_descriptor_for_type_path_any_arity_in_owner(

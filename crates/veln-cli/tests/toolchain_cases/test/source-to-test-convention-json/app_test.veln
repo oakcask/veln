@@ -4,3 +4,7 @@ test paired() -> Result<(), AppError>
   app::helper()
   _
 end
+
+pub type AppError
+  pub AppError
+end

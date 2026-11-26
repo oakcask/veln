@@ -170,6 +170,70 @@ fn isolated_unbound_annotation_is_unresolved() {
 }
 
 #[test]
+fn visible_schema_body_annotations_are_not_reported_as_unresolved_types() {
+    let (_, diagnostics) = analyze(concat!(
+        "schema Packet\n",
+        "  value: UInt8\n",
+        "end\n",
+        "fn annotate() -> ()\n",
+        "  let packet: Packet = ()\n",
+        "  begin\n",
+        "    let nested: Packet = packet\n",
+        "    ()\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.unresolved" || diagnostic.message != "unresolved type `Packet`"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn qualified_imported_types_and_aliases_that_match_prelude_names_remain_visible() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "main",
+            SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use source_vec\n",
+                    "fn accept(values: source_vec::Vec<Int>, table: source_vec::Table<String, Int>) -> source_vec::Dict<String, Int>\n",
+                    "  table\n",
+                    "end\n",
+                ),
+            ),
+        ),
+        (
+            "source_vec",
+            SourceFile::new(
+                "source_vec.veln",
+                concat!(
+                    "pub type Vec<A>\n",
+                    "  pub Wrapped(A)\n",
+                    "end\n",
+                    "pub type Dict<K, V>\n",
+                    "  pub Entry(K, V)\n",
+                    "end\n",
+                    "pub type Table = Dict\n",
+                ),
+            ),
+        ),
+    ]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn unimported_binder_spelling_does_not_change_unbound_annotation_diagnostic() {
     fn diagnostics(include_unimported_owner: bool) -> Vec<Diagnostic> {
         let mut sources = vec![(

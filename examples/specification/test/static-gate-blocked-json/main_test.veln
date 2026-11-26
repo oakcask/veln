@@ -2,3 +2,7 @@
 test blocked() -> Result<(), AppError>
 	_
 end
+
+pub type AppError
+	pub AppError
+end
