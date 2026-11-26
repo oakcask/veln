@@ -443,15 +443,15 @@ without generating an expanding family of methods. No generation cutoff acts
 as a typing rule. Defer monomorphization and hybrid specialization until a
 separate performance case justifies their complexity.
 
-The implementation approach is to check generic bodies once with rigid
-parameters, retain scheme and call-substitution information through typed
-lowering, and emit the existing Object call boundary without runtime type
-arguments. Aliases and imported references select the owning declaration's
-shared body; callbacks use the existing function-value call boundary. This
-explains how the baseline can be implemented. Ready does not require a separate
-JVM prototype. The representation matrix, shared-body checks, and effect
-preservation cases above remain acceptance requirements for implementation;
-the existing ABI does not establish that they already pass.
+Generic bodies are already checked once with rigid parameters. The remaining
+implementation must retain scheme and call-substitution information through
+typed lowering, then emit the existing Object call boundary without runtime
+type arguments. Aliases and imported references must select the owning
+declaration's shared body; callbacks must use the existing function-value call
+boundary. Ready does not require a separate JVM prototype. The representation
+matrix, shared-body checks, and effect-preservation cases above remain
+acceptance requirements for this remaining work; the existing ABI does not
+establish that they already pass.
 
 ### Q7: Artifacts, tooling, and diagnostics
 
