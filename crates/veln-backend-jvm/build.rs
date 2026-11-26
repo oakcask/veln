@@ -13,6 +13,10 @@ mod java_version;
 
 use java_version::{JavaTool, REQUIRED_JAVA_MAJOR, parse_java_major, require_java_major};
 
+#[cfg(test)]
+#[path = "src/tests/build_boundary.rs"]
+mod tests;
+
 const RUNTIME_FRAGMENTS: &[&str] = &[
     "values.java.inc",
     "concurrency.java.inc",

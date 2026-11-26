@@ -4,6 +4,10 @@ edition.workspace = true
 version.workspace = true
 publish = false
 
+[[test]]
+name = "build_boundary"
+path = "test-support/build_script.rs"
+
 [dependencies]
 veln-ast.workspace = true
 veln-ir.workspace = true
@@ -13,6 +17,7 @@ veln-literals.workspace = true
 unicode-normalization.workspace = true
 
 [dev-dependencies]
+unicode-normalization.workspace = true
 veln-analysis.workspace = true
 veln-core.workspace = true
 veln-project.workspace = true
