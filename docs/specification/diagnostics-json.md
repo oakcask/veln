@@ -64,7 +64,10 @@ A function type binder that shadows a visible type reports
 `function_type_parameter` boundary, binder `name`, declaration-order `ordinal`,
 and whether the shadowed declaration is a built-in or another visible type.
 When source context exists, `related` contains a
-`shadowed_type_declaration` entry with that declaration's span. The checked
+`shadowed_type_declaration` entry with that declaration's span. If multiple
+unqualified imported aliases expose the same terminal type identity, changing
+their declaration or source-discovery order does not change the declaration
+selected for that related entry. The checked
 [`human`](../../examples/specification/check/generic-function-semantic-binders-human/)
 and
 [`JSON`](../../examples/specification/check/generic-function-semantic-binders-json/)

@@ -70,7 +70,11 @@ resolution of the unqualified binder.
 
 A binder that would shadow a visible built-in type, source type, or imported
 type alias is rejected at the binder; a source declaration is reported as
-related context. The [type rules](types.md#usage-and-annotations)
+related context. Multiple unqualified imported aliases with the binder's
+spelling count as one visible type when every alias chain terminates at the
+same canonical type identity. Aliases that terminate at different identities
+remain ambiguous and do not supply an arbitrary shadow target. The
+[type rules](types.md#usage-and-annotations)
 define the rigid identity and checking behavior, and the
 [diagnostic contract](diagnostics-json.md#diagnostic-families) defines the
 observable failure records.
