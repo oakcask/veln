@@ -3,6 +3,8 @@ slow-timeout = { period = "3s" }
 
 [profile.ci]
 fail-fast = false
+# Bound contention between analysis working sets and child-process harnesses.
+test-threads = 2
 
 [[profile.ci.overrides]]
 # Saved-adapter conformance runs LSP and MCP child processes concurrently.
