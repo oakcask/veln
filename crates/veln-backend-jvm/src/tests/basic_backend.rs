@@ -576,24 +576,50 @@ fn bytecode_backend_executes_an_initializer_above_one_constant_pool_on_bounded_s
     );
 }
 
+#[derive(Clone, Copy)]
+enum ModuleValueFixture {
+    Literals,
+    DependencyChain,
+}
+
+fn large_module_value_ir(count: usize, fixture: ModuleValueFixture) -> TypedProgram {
+    let last = count - 1;
+    let mut ir = lower_to_ir(&format!(
+        "let value_0: Int = 41\nlet value_{last}: Int = value_0\n\
+         pub fn main() -> () effects [stdio]\n\
+           stdio::println(int_to_string(value_{last}))\nend\n"
+    ));
+    let template = ir.module_values[0].clone();
+    // Exercise backend class limits and initialization depth with the complete
+    // IR workload, without repeating frontend scaling in these backend tests.
+    ir.module_values = (0..count)
+        .map(|index| {
+            let mut value = template.clone();
+            value.identity.name = format!("value_{index}");
+            value.initializer.kind = match fixture {
+                ModuleValueFixture::Literals => IrExprKind::IntLiteral(index.to_string()),
+                ModuleValueFixture::DependencyChain if index == 0 => {
+                    IrExprKind::IntLiteral("41".to_string())
+                }
+                ModuleValueFixture::DependencyChain => {
+                    let mut dependency = template.identity.clone();
+                    dependency.name = format!("value_{}", index - 1);
+                    IrExprKind::ModuleValue(dependency)
+                }
+            };
+            value
+        })
+        .collect();
+    ir
+}
+
 #[test]
 fn bytecode_backend_executes_deep_module_value_dependencies_with_a_bounded_jvm_stack() {
     const DECLARATION_COUNT: usize = 4_000;
 
-    let mut source = String::from("let value_0: Int = 41\n");
-    for index in 1..DECLARATION_COUNT {
-        source.push_str(&format!("let value_{index}: Int = value_{}\n", index - 1));
-    }
-    source.push_str(&format!(
-        concat!(
-            "pub fn main() -> () effects [stdio]\n",
-            "  stdio::println(int_to_string(value_{}))\n",
-            "end\n",
-        ),
-        DECLARATION_COUNT - 1
-    ));
+    let ir = large_module_value_ir(DECLARATION_COUNT, ModuleValueFixture::DependencyChain);
+    assert_eq!(ir.module_values.len(), DECLARATION_COUNT);
 
-    let ir = lower_to_ir(&source);
     let program = generate_classfiles_with_entry(&ir, "main");
     let storage_classes = program
         .classes
@@ -625,17 +651,9 @@ fn bytecode_backend_executes_deep_module_value_dependencies_with_a_bounded_jvm_s
 fn bytecode_backend_loads_module_values_above_one_class_constant_pool_capacity() {
     const DECLARATION_COUNT: usize = 11_000;
 
-    let mut source = String::new();
-    for index in 0..DECLARATION_COUNT {
-        source.push_str(&format!("let value_{index}: Int = {index}\n"));
-    }
-    source.push_str(concat!(
-        "pub fn main() -> () effects [stdio]\n",
-        "  stdio::println(int_to_string(value_10999))\n",
-        "end\n",
-    ));
+    let ir = large_module_value_ir(DECLARATION_COUNT, ModuleValueFixture::Literals);
+    assert_eq!(ir.module_values.len(), DECLARATION_COUNT);
 
-    let ir = lower_to_ir(&source);
     let program = generate_classfiles_with_entry(&ir, "main");
     let storage_classes = program
         .classes
