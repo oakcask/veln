@@ -607,7 +607,7 @@ fn package_constructor_targets(
                     return None;
                 }
                 let name = variant.name.as_ref()?;
-                let span = constructor_variant_name_span(file, file.tokens.as_slice(), variant, name);
+                let span = constructor_variant_name_span(file, file.tokens.as_ref(), variant, name);
                 if is_invalid_declaration_name(file, &span) {
                     return None;
                 }
@@ -653,7 +653,7 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
 }
 
 fn constructor_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<ConstructorSymbol> {
-    let tokens = file.tokens.as_slice();
+    let tokens = file.tokens.as_ref();
     syntax
         .items
         .iter()

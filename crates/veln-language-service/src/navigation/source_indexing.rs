@@ -257,7 +257,7 @@ fn indexed_dependency_source(
     let variant_refinement_source_index = navigation.variant_refinement_source_index;
     let file = IndexedFile {
         source,
-        tokens,
+        tokens: tokens.into(),
         module: identity.module,
         companion_target_module: None,
         uses: import_indexes.uses,

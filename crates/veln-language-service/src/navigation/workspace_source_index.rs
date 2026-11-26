@@ -164,7 +164,7 @@ fn indexed_workspace_file(
         .collect();
     IndexedFile {
         source,
-        tokens: syntax.tokens,
+        tokens: syntax.tokens.into(),
         module: identity.source.module,
         companion_target_module: identity.companion_target_module,
         uses: Arc::new(imports.modules.local_modules),

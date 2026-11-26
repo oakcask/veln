@@ -1591,6 +1591,50 @@ mod tests {
     }
 
     #[test]
+    fn workspace_layers_share_dependency_tokens_until_the_capture_changes() {
+        let dependency = crate::tests::dependency_snapshot(
+            "example/pkg",
+            &[("math.veln", "pub fn answer() -> Int\n  1\nend\n")],
+            ["math.veln"],
+        );
+        let snapshot =
+            EffectiveProjectSnapshot::with_direct_dependencies(Vec::new(), vec![dependency]);
+        let first = snapshot.navigation_index();
+        let overlay = snapshot.with_workspace_overlays([SourceFile::new(
+            "main.veln",
+            "fn main() -> Int\n  1\nend\n",
+        )]);
+        let second = overlay.navigation_index();
+        let first_package = first
+            .files
+            .iter()
+            .find(|file| matches!(file.origin, IndexedOrigin::Package { .. }))
+            .unwrap();
+        let second_package = second
+            .files
+            .iter()
+            .find(|file| matches!(file.origin, IndexedOrigin::Package { .. }))
+            .unwrap();
+        assert!(Arc::ptr_eq(&first_package.tokens, &second_package.tokens));
+
+        let replacement = crate::tests::dependency_snapshot(
+            "example/pkg",
+            &[("math.veln", "pub fn answer() -> Int\n  2\nend\n")],
+            ["math.veln"],
+        );
+        let changed = overlay.with_direct_dependency_layer(vec![replacement]);
+        let third = changed.navigation_index();
+        let third_package = third
+            .files
+            .iter()
+            .find(|file| matches!(file.origin, IndexedOrigin::Package { .. }))
+            .unwrap();
+        assert!(!Arc::ptr_eq(&first_package.tokens, &third_package.tokens));
+        assert!(first_package.tokens.iter().any(|token| token.text == "1"));
+        assert!(third_package.tokens.iter().any(|token| token.text == "2"));
+    }
+
+    #[test]
     fn workspace_index_parses_each_source_once() {
         let snapshot = EffectiveProjectSnapshot::new(vec![
             SourceFile::new("main.veln", "fn main() -> Int\n  helper()\nend\n"),
