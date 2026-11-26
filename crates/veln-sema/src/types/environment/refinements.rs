@@ -108,82 +108,120 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         current_package: Option<&str>,
     ) -> bool {
-        if crate::type_syntax::compiler_known_type_annotation_arity(name).is_some()
+        if Self::annotation_type_path_is_compiler_known(name) {
+            return true;
+        }
+        self.annotation_type_path_has_visible_candidate_in_owner(
+            name,
+            current_module,
+            current_package,
+        ) || name.rsplit_once("::").is_some_and(|(base, _)| {
+            self.annotation_type_path_has_visible_candidate_in_owner(
+                base,
+                current_module,
+                current_package,
+            )
+        })
+    }
+
+    fn annotation_type_path_is_compiler_known(name: &str) -> bool {
+        crate::type_syntax::compiler_known_type_annotation_arity(name).is_some()
             || crate::schema::primitives::exact_width_schema_primitive(name).is_some()
             || crate::schema::primitives::lowercase_schema_primitive(name).is_some()
             || recover_type_case(name).is_some_and(|recovered| {
                 crate::type_syntax::compiler_known_type_annotation_arity(&recovered).is_some()
             })
-        {
-            return true;
-        }
-        let has_visible_declaration = |candidate: &str| {
-            let candidate_segments = candidate
-                .split("::")
-                .map(str::to_string)
-                .collect::<Vec<_>>();
-            let visible_named_symbol = self
-                .resolve_symbol_module(&candidate_segments, current_module, current_package)
-                .is_some_and(|(name, module_name, package_name)| {
-                    self.type_symbols.iter().any(|symbol| {
-                        symbol.name == name
-                            && symbol.module_name == module_name
-                            && symbol.package_name == package_name
-                            && self.symbol_is_visible(
-                                symbol,
-                                symbol.module_name.as_deref(),
-                                current_module,
-                            )
-                    })
-                });
-            self.schema_symbols
-                .schema_target_path(
-                    &candidate_segments,
-                    current_module,
-                    current_package,
-                    &self.uses,
-                    true,
-                    &self.companion_schema_access_targets,
-                    &mut Vec::new(),
-                )
-                .is_some()
-                || visible_named_symbol
-                || self
-                    .adts
+    }
+
+    fn annotation_type_path_has_visible_candidate_in_owner(
+        &self,
+        candidate: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        let segments = candidate
+            .split("::")
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        self.annotation_type_path_has_visible_named_symbol_in_owner(
+            &segments,
+            current_module,
+            current_package,
+        ) || self
+            .schema_symbols
+            .schema_target_path(
+                &segments,
+                current_module,
+                current_package,
+                &self.uses,
+                true,
+                &self.companion_schema_access_targets,
+                &mut Vec::new(),
+            )
+            .is_some()
+            || self.annotation_type_path_has_visible_adt_in_owner(
+                candidate,
+                &segments,
+                current_module,
+                current_package,
+            )
+    }
+
+    fn annotation_type_path_has_visible_named_symbol_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        self.resolve_symbol_module(segments, current_module, current_package)
+            .is_some_and(|(name, module_name, package_name)| {
+                self.type_symbols.iter().any(|symbol| {
+                    symbol.name == name
+                        && symbol.module_name == module_name
+                        && symbol.package_name == package_name
+                        && self.symbol_is_visible(
+                            symbol,
+                            symbol.module_name.as_deref(),
+                            current_module,
+                        )
+                })
+            })
+    }
+
+    fn annotation_type_path_has_visible_adt_in_owner(
+        &self,
+        candidate: &str,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        self.adts
+            .unique_descriptor_for_type_path_any_arity_in_owner(
+                candidate,
+                current_module,
+                current_package,
+                &self.uses,
+            )
+            .is_some()
+            || recover_type_case(candidate).is_some_and(|recovered| {
+                self.adts
                     .unique_descriptor_for_type_path_any_arity_in_owner(
-                        candidate,
+                        &recovered,
                         current_module,
                         current_package,
                         &self.uses,
                     )
                     .is_some()
-                || recover_type_case(candidate).is_some_and(|recovered| {
-                    self.adts
-                        .unique_descriptor_for_type_path_any_arity_in_owner(
-                            &recovered,
-                            current_module,
-                            current_package,
-                            &self.uses,
-                        )
-                        .is_some()
-                })
-                || self
-                    .adts
-                    .descriptor_for_type_path_any_arity(
-                        candidate,
-                        current_module,
-                        &self.quarantined_uses,
-                    )
-                    .is_some()
-                || self.quarantined_import_type_path_has_visible_leaf(
-                    &candidate_segments,
+            })
+            || self
+                .adts
+                .descriptor_for_type_path_any_arity(
+                    candidate,
                     current_module,
+                    &self.quarantined_uses,
                 )
-        };
-        has_visible_declaration(name)
-            || name
-                .rsplit_once("::")
-                .is_some_and(|(base, _)| has_visible_declaration(base))
+                .is_some()
+            || self.quarantined_import_type_path_has_visible_leaf(segments, current_module)
     }
 
     pub(crate) fn annotation_type_path_has_resolved_qualifier_in_owner(

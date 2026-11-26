@@ -31,6 +31,18 @@ mod items;
 
 use invalid_names::collect_invalid_names;
 
+struct LoweredFunctionHeader {
+    node_id: NodeId,
+    module_name: Option<String>,
+    package_name: Option<String>,
+    kind: FunctionKind,
+    visibility: Visibility,
+    name: Option<String>,
+    type_binders: Vec<crate::TypeBinder>,
+    effect_binder: Option<crate::EffectBinder>,
+    params: Vec<Param>,
+}
+
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
     let mut builder = AstBuilder { next_node_id: 1 };
     let module = tree
@@ -466,7 +478,53 @@ impl AstBuilder {
         module_name: Option<String>,
         package_name: Option<String>,
     ) -> Function {
+        let header = self.lower_function_header(function, module_name, package_name);
         Function {
+            node_id: header.node_id,
+            module_name: header.module_name,
+            package_name: header.package_name,
+            kind: header.kind,
+            visibility: header.visibility,
+            name: header.name,
+            type_binders: header.type_binders,
+            effect_binder: header.effect_binder,
+            params: header.params,
+            return_binding: function
+                .return_binding
+                .as_ref()
+                .map(|binding| ResultBinding {
+                    node_id: self.alloc(),
+                    name: binding.name.clone(),
+                    span: binding.span.clone(),
+                }),
+            return_type: function.return_type.clone(),
+            return_type_span: function.return_type_span.clone(),
+            return_type_paths: function.return_type_paths.clone(),
+            return_type_refinements: function.return_type_refinements.clone(),
+            effects: function.effects.clone(),
+            effect_spans: function.effect_spans.clone(),
+            callsite: function.callsite.clone(),
+            contracts: function
+                .contracts
+                .iter()
+                .map(|contract| self.lower_contract(contract))
+                .collect(),
+            body: function
+                .body
+                .iter()
+                .map(|line| self.lower_body_line(line))
+                .collect(),
+            span: function.span.clone(),
+        }
+    }
+
+    fn lower_function_header(
+        &mut self,
+        function: &SyntaxFunction,
+        module_name: Option<String>,
+        package_name: Option<String>,
+    ) -> LoweredFunctionHeader {
+        LoweredFunctionHeader {
             node_id: self.alloc(),
             module_name,
             package_name,
@@ -495,32 +553,6 @@ impl AstBuilder {
                     span: binder.span.clone(),
                 }),
             params: self.lower_params(&function.params),
-            return_binding: function
-                .return_binding
-                .as_ref()
-                .map(|binding| ResultBinding {
-                    node_id: self.alloc(),
-                    name: binding.name.clone(),
-                    span: binding.span.clone(),
-                }),
-            return_type: function.return_type.clone(),
-            return_type_span: function.return_type_span.clone(),
-            return_type_paths: function.return_type_paths.clone(),
-            return_type_refinements: function.return_type_refinements.clone(),
-            effects: function.effects.clone(),
-            effect_spans: function.effect_spans.clone(),
-            callsite: function.callsite.clone(),
-            contracts: function
-                .contracts
-                .iter()
-                .map(|contract| self.lower_contract(contract))
-                .collect(),
-            body: function
-                .body
-                .iter()
-                .map(|line| self.lower_body_line(line))
-                .collect(),
-            span: function.span.clone(),
         }
     }
 

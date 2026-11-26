@@ -228,51 +228,88 @@ fn unresolved_function_type_diagnostic(
     environment: &TypeEnvironment,
 ) -> Option<Diagnostic> {
     let name = path.segments.join("::");
-    let unqualified_function_type_parameter =
+    if let Some(diagnostic) = function_type_parameter_application_diagnostic(
+        path,
+        &name,
+        type_parameters,
+        type_parameter_context,
+        function,
+        environment,
+    ) {
+        return Some(diagnostic);
+    }
+    if function_type_path_is_known(path, &name, type_parameters, function, environment) {
+        return None;
+    }
+    let span = unresolved_function_type_span(path, &name, function, environment)?;
+    Some(unresolved_type_diagnostic(name, span))
+}
+
+fn function_type_parameter_application_diagnostic(
+    path: &veln_ast::TypePathSegments,
+    name: &str,
+    type_parameters: &HashSet<&str>,
+    type_parameter_context: &TypeParameterIdentityContext<'_>,
+    function: &veln_ast::Function,
+    environment: &TypeEnvironment,
+) -> Option<Diagnostic> {
+    let unqualified =
         path.segments.len() == 1 && type_parameters.contains(path.segments[0].as_str());
-    if unqualified_function_type_parameter
-        && let Some(error) = environment.type_path_arity_error_with_context(
-            &name,
+    if !unqualified {
+        return None;
+    }
+    environment
+        .type_path_arity_error_with_context(
+            name,
             path.type_argument_count,
             function.module_name.as_deref(),
             type_parameter_context,
         )
-    {
-        return Some(invalid_function_type_parameter_application_diagnostic(
-            path, function, error,
-        ));
-    }
-    if path.segments.last().is_some_and(|segment| {
+        .map(|error| invalid_function_type_parameter_application_diagnostic(path, function, error))
+}
+
+fn function_type_path_is_known(
+    path: &veln_ast::TypePathSegments,
+    name: &str,
+    type_parameters: &HashSet<&str>,
+    function: &veln_ast::Function,
+    environment: &TypeEnvironment,
+) -> bool {
+    path.segments.last().is_some_and(|segment| {
         segment
             .chars()
             .next()
             .is_some_and(|initial| initial.is_ascii_lowercase())
     }) || is_function_type_parameter_path(path, type_parameters)
-        || is_compiler_known_standard_signature_type_parameter(&name, function)
+        || is_compiler_known_standard_signature_type_parameter(name, function)
         || environment.annotation_type_path_is_resolved_in_owner(
-            &name,
+            name,
             path.type_argument_count,
             function.module_name.as_deref(),
             function.package_name.as_deref(),
         )
         || environment.annotation_type_path_has_visible_declaration_in_owner(
-            &name,
+            name,
             function.module_name.as_deref(),
             function.package_name.as_deref(),
         )
-    {
-        return None;
-    }
-    let span = if environment.annotation_type_path_has_resolved_qualifier_in_owner(
-        &name,
+}
+
+fn unresolved_function_type_span(
+    path: &veln_ast::TypePathSegments,
+    name: &str,
+    function: &veln_ast::Function,
+    environment: &TypeEnvironment,
+) -> Option<veln_source::SourceSpan> {
+    if environment.annotation_type_path_has_resolved_qualifier_in_owner(
+        name,
         function.module_name.as_deref(),
         function.package_name.as_deref(),
     ) {
-        path.segment_spans.last()?.clone()
+        path.segment_spans.last().cloned()
     } else {
-        path.segment_spans.first()?.clone()
-    };
-    Some(unresolved_type_diagnostic(name, span))
+        path.segment_spans.first().cloned()
+    }
 }
 
 fn invalid_function_type_parameter_application_diagnostic(

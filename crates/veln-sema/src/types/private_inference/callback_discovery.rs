@@ -49,22 +49,44 @@ pub(crate) fn infer_private_prelude_callback_return_types(
         return;
     }
 
+    apply_private_prelude_callback_constraints(
+        module,
+        functions,
+        adts,
+        &uses,
+        &function_by_path,
+        &initial_omitted_private_returns,
+        &contributors,
+        &mut returns_by_path,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn apply_private_prelude_callback_constraints(
+    module: &SurfaceModule,
+    functions: &mut [FunctionSignature],
+    adts: &AdtRegistry,
+    uses: &[UseDecl],
+    function_by_path: &FunctionAstMap<'_>,
+    omitted_private_returns: &BTreeSet<FunctionKey>,
+    contributors: &BTreeSet<FunctionKey>,
+    returns_by_path: &mut FunctionReturnMap,
+) {
     // Select one monomorphic return constraint per callback. Later incompatible
     // uses are ordinary type mismatches rather than fixed-point updates.
     let mut selected_callback_returns = BTreeSet::new();
     let mut changed = true;
     while changed {
         changed = false;
-        let omitted_private_returns = initial_omitted_private_returns.clone();
         for function in module.functions.iter().filter(|function| {
             function_key(function).is_some_and(|key| contributors.contains(&key))
         }) {
             collect_private_prelude_callback_return_constraints(
                 function,
-                &uses,
-                &function_by_path,
-                &omitted_private_returns,
-                &mut returns_by_path,
+                uses,
+                function_by_path,
+                omitted_private_returns,
+                returns_by_path,
                 &mut selected_callback_returns,
                 adts,
                 &mut changed,
@@ -337,31 +359,37 @@ pub(crate) fn private_prelude_callback_function_can_constrain(
         .return_type
         .as_deref()
         .map(|return_type| parse_type_or_unknown(Some(return_type)));
-    private_prelude_callback_body_references_slot(
-        &function.body,
-        declared_return.as_ref(),
-        function.module_name.as_deref(),
-        function.package_name.as_deref(),
+    let context = PrivatePreludeCallbackDiscoveryContext {
+        current_module: function.module_name.as_deref(),
+        current_package: function.package_name.as_deref(),
         uses,
         omitted_private_returns,
         returns_by_path,
         function_by_path,
         adts,
+    };
+    private_prelude_callback_body_references_slot(
+        &function.body,
+        declared_return.as_ref(),
+        &context,
         &mut bindings,
     )
 }
 
-#[allow(clippy::too_many_arguments)]
+struct PrivatePreludeCallbackDiscoveryContext<'a, 'function> {
+    current_module: Option<&'a str>,
+    current_package: Option<&'a str>,
+    uses: &'a [UseDecl],
+    omitted_private_returns: &'a BTreeSet<FunctionKey>,
+    returns_by_path: &'a FunctionReturnMap,
+    function_by_path: &'a FunctionAstMap<'function>,
+    adts: &'a AdtRegistry,
+}
+
 fn private_prelude_callback_body_references_slot(
     body: &[BodyLine],
     tail_expected: Option<&Type>,
-    current_module: Option<&str>,
-    current_package: Option<&str>,
-    uses: &[UseDecl],
-    omitted_private_returns: &BTreeSet<FunctionKey>,
-    returns_by_path: &FunctionReturnMap,
-    function_by_path: &FunctionAstMap<'_>,
-    adts: &AdtRegistry,
+    context: &PrivatePreludeCallbackDiscoveryContext<'_, '_>,
     bindings: &mut PrivateBindings,
 ) -> bool {
     for (index, line) in body.iter().enumerate() {
@@ -376,14 +404,14 @@ fn private_prelude_callback_body_references_slot(
                     .as_deref()
                     .map(|annotation| parse_type_or_unknown(Some(annotation)));
                 let mut reference_context = PrivatePreludeCallbackReferenceContext {
-                    current_module,
-                    current_package,
-                    uses,
+                    current_module: context.current_module,
+                    current_package: context.current_package,
+                    uses: context.uses,
                     bindings,
-                    omitted_private_returns,
-                    returns_by_path,
-                    function_by_path,
-                    adts,
+                    omitted_private_returns: context.omitted_private_returns,
+                    returns_by_path: context.returns_by_path,
+                    function_by_path: context.function_by_path,
+                    adts: context.adts,
                 };
                 if private_prelude_callback_expr_references_slot(
                     expr,
@@ -397,12 +425,12 @@ fn private_prelude_callback_body_references_slot(
                     expr,
                     annotation_type,
                     &PrivateCallbackBindingContext {
-                        current_module,
-                        current_package,
-                        uses,
-                        function_by_path,
-                        returns_by_path,
-                        adts,
+                        current_module: context.current_module,
+                        current_package: context.current_package,
+                        uses: context.uses,
+                        function_by_path: context.function_by_path,
+                        returns_by_path: context.returns_by_path,
+                        adts: context.adts,
                     },
                     bindings,
                 );
@@ -410,14 +438,14 @@ fn private_prelude_callback_body_references_slot(
             BodyLineKind::Expr { expr } => {
                 let expected = (index + 1 == body.len()).then_some(tail_expected).flatten();
                 let mut reference_context = PrivatePreludeCallbackReferenceContext {
-                    current_module,
-                    current_package,
-                    uses,
+                    current_module: context.current_module,
+                    current_package: context.current_package,
+                    uses: context.uses,
                     bindings,
-                    omitted_private_returns,
-                    returns_by_path,
-                    function_by_path,
-                    adts,
+                    omitted_private_returns: context.omitted_private_returns,
+                    returns_by_path: context.returns_by_path,
+                    function_by_path: context.function_by_path,
+                    adts: context.adts,
                 };
                 if private_prelude_callback_expr_references_slot(
                     expr,
@@ -433,13 +461,7 @@ fn private_prelude_callback_body_references_slot(
                 let references_slot = private_prelude_callback_body_references_slot(
                     body,
                     Some(&Type::unit()),
-                    current_module,
-                    current_package,
-                    uses,
-                    omitted_private_returns,
-                    returns_by_path,
-                    function_by_path,
-                    adts,
+                    context,
                     bindings,
                 );
                 bindings.truncate(binding_count);
@@ -450,48 +472,6 @@ fn private_prelude_callback_body_references_slot(
         }
     }
     false
-}
-
-struct PrivateCallbackBindingContext<'a, 'function> {
-    current_module: Option<&'a str>,
-    current_package: Option<&'a str>,
-    uses: &'a [UseDecl],
-    function_by_path: &'a FunctionAstMap<'function>,
-    returns_by_path: &'a FunctionReturnMap,
-    adts: &'a AdtRegistry,
-}
-
-fn collect_private_callback_let_bindings(
-    pattern: &Pattern,
-    expression: &Expr,
-    annotation_type: Option<Type>,
-    context: &PrivateCallbackBindingContext<'_, '_>,
-    bindings: &mut PrivateBindings,
-) {
-    let initializer_private_function = annotation_type
-        .is_none()
-        .then(|| {
-            private_same_module_call_target(
-                expression,
-                context.current_module,
-                context.current_package,
-                context.function_by_path,
-            )
-        })
-        .flatten();
-    let ty = annotation_type.unwrap_or_else(|| {
-        infer_private_signature_expr_type(
-            expression,
-            None,
-            context.current_module,
-            context.current_package,
-            context.uses,
-            bindings,
-            context.returns_by_path,
-            context.adts,
-        )
-    });
-    collect_let_pattern_bindings(pattern, &ty, initializer_private_function, bindings);
 }
 
 pub(crate) fn private_prelude_callback_expr_references_slot(
@@ -536,16 +516,19 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
         ExprKind::Begin { body, .. } => {
             let binding_count = context.bindings.len();
             record_scoped_binding_count(context.bindings);
+            let discovery_context = PrivatePreludeCallbackDiscoveryContext {
+                current_module: context.current_module,
+                current_package: context.current_package,
+                uses: context.uses,
+                omitted_private_returns: context.omitted_private_returns,
+                returns_by_path: context.returns_by_path,
+                function_by_path: context.function_by_path,
+                adts: context.adts,
+            };
             let references_slot = private_prelude_callback_body_references_slot(
                 body,
                 expected,
-                context.current_module,
-                context.current_package,
-                context.uses,
-                context.omitted_private_returns,
-                context.returns_by_path,
-                context.function_by_path,
-                context.adts,
+                &discovery_context,
                 context.bindings,
             );
             context.bindings.truncate(binding_count);
@@ -560,35 +543,6 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit
         | ExprKind::TypeApply { .. } => false,
-    }
-}
-
-pub(crate) fn private_prelude_callback_collection_references_slot(
-    expr: &Expr,
-    expected: Option<&Type>,
-    context: &mut PrivatePreludeCallbackReferenceContext<'_>,
-) -> bool {
-    match &expr.kind {
-        ExprKind::List(items) => items.iter().any(|item| {
-            let item_expected = expected.and_then(Type::vec_part);
-            private_prelude_callback_expr_references_slot(item, item_expected, context)
-        }),
-        ExprKind::Dict(entries) => entries.iter().any(|entry| {
-            let (key_expected, value_expected) = expected
-                .and_then(Type::dict_parts)
-                .map_or((None, None), |(key, value)| (Some(key), Some(value)));
-            private_prelude_callback_expr_references_slot(&entry.key, key_expected, context)
-                || private_prelude_callback_expr_references_slot(
-                    &entry.value,
-                    value_expected,
-                    context,
-                )
-        }),
-        ExprKind::Record(fields) => fields.iter().any(|field| {
-            let field_expected = expected.and_then(|expected| expected.record_field(&field.name));
-            private_prelude_callback_expr_references_slot(&field.expr, field_expected, context)
-        }),
-        _ => false,
     }
 }
 

@@ -21,6 +21,15 @@ pub(crate) struct PrivateCallSiteExprContext<'a, 'b> {
     pub(crate) constraints: &'b mut PrivateCallSiteConstraintContext<'a>,
 }
 
+pub(crate) struct PrivateCallbackBindingContext<'a, 'function> {
+    pub(crate) current_module: Option<&'a str>,
+    pub(crate) current_package: Option<&'a str>,
+    pub(crate) uses: &'a [UseDecl],
+    pub(crate) function_by_path: &'a FunctionAstMap<'function>,
+    pub(crate) returns_by_path: &'a FunctionReturnMap,
+    pub(crate) adts: &'a AdtRegistry,
+}
+
 pub(crate) fn collect_private_call_site_constraints(
     function: &Function,
     context: &mut PrivateCallSiteConstraintContext<'_>,
@@ -39,24 +48,11 @@ pub(crate) fn collect_private_call_site_constraints(
     });
     let type_parameters = TypeParameterIdentityContext::for_function(function);
     let mut bindings = private_function_body_bindings(function, context.signatures_by_path);
-    let declared_return = if function.type_binders.is_empty() {
-        function.return_type.as_deref().map_or_else(
-            || {
-                caller_key
-                    .as_ref()
-                    .and_then(|key| context.signatures_by_path.get(key))
-                    .map(|signature| signature.return_type.clone())
-                    .filter(|ty| !type_has_unknown(ty))
-            },
-            |return_type| Some(parse_type_or_unknown(Some(return_type))),
-        )
-    } else {
-        caller_key
-            .as_ref()
-            .and_then(|key| context.signatures_by_path.get(key))
-            .map(|signature| signature.return_type.clone())
-            .filter(|ty| !type_has_unknown(ty))
-    };
+    let declared_return = private_call_site_declared_return(
+        function,
+        caller_key.as_ref(),
+        context.signatures_by_path,
+    );
 
     collect_private_call_site_body_constraints(
         &function.body,
@@ -68,6 +64,22 @@ pub(crate) fn collect_private_call_site_constraints(
         &mut bindings,
         context,
     );
+}
+
+fn private_call_site_declared_return(
+    function: &Function,
+    caller_key: Option<&FunctionKey>,
+    signatures_by_path: &FunctionSignatureMap,
+) -> Option<Type> {
+    if function.type_binders.is_empty()
+        && let Some(return_type) = function.return_type.as_deref()
+    {
+        return Some(parse_type_or_unknown(Some(return_type)));
+    }
+    caller_key
+        .and_then(|key| signatures_by_path.get(key))
+        .map(|signature| signature.return_type.clone())
+        .filter(|ty| !type_has_unknown(ty))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -116,30 +128,20 @@ fn collect_private_call_site_body_constraints(
                         constraints: context,
                     },
                 );
-                let initializer_private_function = annotation_type
-                    .is_none()
-                    .then(|| {
-                        private_same_module_call_target(
-                            expr,
-                            current_module,
-                            current_package,
-                            context.function_by_path,
-                        )
-                    })
-                    .flatten();
-                let ty = annotation_type.unwrap_or_else(|| {
-                    infer_private_signature_expr_type(
-                        expr,
-                        None,
+                collect_private_callback_let_bindings(
+                    pattern,
+                    expr,
+                    annotation_type,
+                    &PrivateCallbackBindingContext {
                         current_module,
                         current_package,
-                        context.uses,
-                        bindings,
-                        context.returns_by_path,
-                        context.adts,
-                    )
-                });
-                collect_let_pattern_bindings(pattern, &ty, initializer_private_function, bindings);
+                        uses: context.uses,
+                        function_by_path: context.function_by_path,
+                        returns_by_path: context.returns_by_path,
+                        adts: context.adts,
+                    },
+                    bindings,
+                );
             }
             BodyLineKind::Expr { expr } => {
                 let expected = (index + 1 == body.len()).then_some(tail_expected).flatten();
@@ -173,6 +175,39 @@ fn collect_private_call_site_body_constraints(
             }
         }
     }
+}
+
+pub(crate) fn collect_private_callback_let_bindings(
+    pattern: &Pattern,
+    expression: &Expr,
+    annotation_type: Option<Type>,
+    context: &PrivateCallbackBindingContext<'_, '_>,
+    bindings: &mut PrivateBindings,
+) {
+    let initializer_private_function = annotation_type
+        .is_none()
+        .then(|| {
+            private_same_module_call_target(
+                expression,
+                context.current_module,
+                context.current_package,
+                context.function_by_path,
+            )
+        })
+        .flatten();
+    let ty = annotation_type.unwrap_or_else(|| {
+        infer_private_signature_expr_type(
+            expression,
+            None,
+            context.current_module,
+            context.current_package,
+            context.uses,
+            bindings,
+            context.returns_by_path,
+            context.adts,
+        )
+    });
+    collect_let_pattern_bindings(pattern, &ty, initializer_private_function, bindings);
 }
 
 pub(crate) fn collect_private_call_site_expr_constraints(
@@ -280,6 +315,35 @@ pub(crate) fn collect_private_call_site_collection_constraints(
             }
         }
         _ => {}
+    }
+}
+
+pub(crate) fn private_prelude_callback_collection_references_slot(
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &mut PrivatePreludeCallbackReferenceContext<'_>,
+) -> bool {
+    match &expr.kind {
+        ExprKind::List(items) => items.iter().any(|item| {
+            let item_expected = expected.and_then(Type::vec_part);
+            private_prelude_callback_expr_references_slot(item, item_expected, context)
+        }),
+        ExprKind::Dict(entries) => entries.iter().any(|entry| {
+            let (key_expected, value_expected) = expected
+                .and_then(Type::dict_parts)
+                .map_or((None, None), |(key, value)| (Some(key), Some(value)));
+            private_prelude_callback_expr_references_slot(&entry.key, key_expected, context)
+                || private_prelude_callback_expr_references_slot(
+                    &entry.value,
+                    value_expected,
+                    context,
+                )
+        }),
+        ExprKind::Record(fields) => fields.iter().any(|field| {
+            let field_expected = expected.and_then(|expected| expected.record_field(&field.name));
+            private_prelude_callback_expr_references_slot(&field.expr, field_expected, context)
+        }),
+        _ => false,
     }
 }
 
