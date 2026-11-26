@@ -101,15 +101,20 @@ fn wide_generic_constructor_inference_work_grows_linearly_in_parameters_and_payl
         let module = lower_surface_ast(&parsed.tree);
         crate::aggregate_type_join::reset_work();
         crate::adt::reset_type_parameter_lookups();
+        crate::types::TypeParameterIdentityContext::reset_index_entries();
         let started = std::time::Instant::now();
-        let diagnostics = analyze_surface_module(&module);
+        let environment = TypeEnvironment::from_module(&module);
+        let environment_elapsed = started.elapsed();
+        let diagnostics = crate::pipeline::analyze_surface_module_with_environment_for_test(
+            &module,
+            &environment,
+        );
         eprintln!(
-            "{width}-parameter generic constructor analysis: {:?}",
+            "{width}-parameter generic constructor: environment={environment_elapsed:?}, total={:?}",
             started.elapsed()
         );
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
         let type_parameter_lookups = crate::adt::take_type_parameter_lookups();
-        let environment = TypeEnvironment::from_module(&module);
         for function in ["inferred", "declared"] {
             let signature = environment
                 .function(function)
@@ -123,15 +128,16 @@ fn wide_generic_constructor_inference_work_grows_linearly_in_parameters_and_payl
         (
             crate::aggregate_type_join::take_work(),
             type_parameter_lookups,
+            crate::types::TypeParameterIdentityContext::take_index_entries(),
         )
     });
     eprintln!(
-        "generic constructor work at doubled widths (transactional inference, parameter lookup): {work:?}"
+        "generic constructor work at doubled widths (transactional inference, parameter lookup, indexed parameter names): {work:?}"
     );
     assert!(
         work.iter()
             .zip([100, 200, 400, 800])
-            .all(|((inference_work, _), width)| *inference_work >= width * 10),
+            .all(|((inference_work, _, _), width)| *inference_work >= width * 10),
         "the metric must include constraint collection, validation, and commit work in ordinary and private inference: {work:?}"
     );
     assert!(
@@ -139,6 +145,12 @@ fn wide_generic_constructor_inference_work_grows_linearly_in_parameters_and_payl
             && work[2].0 <= work[1].0 * 2 + 64
             && work[3].0 <= work[2].0 * 2 + 64,
         "doubling generic constructor width must add only linear inference work: {work:?}"
+    );
+    assert!(
+        work.iter()
+            .zip([100, 200, 400, 800])
+            .all(|(work, width)| work.2 <= width * 8),
+        "annotation checks must not index every parameter again for each payload: {work:?}"
     );
     assert!(
         work[0].1 > 0
