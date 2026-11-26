@@ -38,6 +38,7 @@ Implemented checker namespaces are:
 - handler declarations
 - effect operation declarations
 - source type declarations and public type aliases
+- ordinary function type parameters within their owning declaration
 - source ADT constructor declarations
 - value declarations, including functions, parameters, and local `let` bindings
 - record fields inside one record literal
@@ -54,6 +55,18 @@ both a visible ordinary type and a visible schema use the same spelling because
 that position admits both namespaces. Namespace selection is therefore fixed
 by the syntactic role, while same-namespace duplicates remain errors and
 unrelated namespaces may share a spelling.
+
+An ordinary function type parameter enters the type namespace only for its
+owning declaration. Its unqualified name resolves in that function's parameter
+and result annotations, local annotations, and executable contracts. The same
+spelling in another function selects a distinct parameter, and a use outside
+the owning declaration remains unresolved unless a visible type declaration
+provides that name. A binder that would shadow a visible built-in type, source
+type, or imported type alias is rejected at the binder; a source declaration is
+reported as related context. The [type rules](types.md#usage-and-annotations)
+define the rigid identity and checking behavior, and the
+[diagnostic contract](diagnostics-json.md#diagnostic-families) defines the
+observable failure records.
 
 ### Explicit import aliases
 

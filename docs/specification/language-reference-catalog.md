@@ -51,8 +51,10 @@ The `declarations-aliases` topic projects `TypeDecl` with zero or more
 with no constructors. It also projects typed module `let` declarations and
 function declaration binder lists. Ordinary function type binders precede an
 optional final effect-row binder. The topic states that parsing retains binder
-names and spans and that formatting emits the canonical list, while generic
-name binding, schemes, and call instantiation remain unimplemented. It also
+names and spans, lowering and the AST wire form preserve them, formatting emits
+the canonical list, and semantic analysis gives them declaration-owned rigid
+scope while rejecting visible-type shadowing. Independently instantiable
+generic schemes and call instantiation remain unimplemented. It also
 states typed module-value finite-data initializer checking, same-module and
 imported lookup, package-aware visibility, dependency-cycle validation across
 package sources, checked-core and typed-IR identity preservation, and runtime

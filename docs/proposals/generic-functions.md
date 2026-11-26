@@ -11,7 +11,9 @@ function aliases, and check function bodies against their declared abstraction.
 This proposal is a Ready implementation target. Q1–Q9 have first-delivery
 decisions or explicit exclusions and an identified
 [implementation approach](#implementation-approach). The semantic, tooling,
-artifact, and backend outcomes below remain planned. The current
+artifact, and backend outcomes below remain planned except for the implemented
+declaration-owned binder scope and rigid definition checking described by the
+current type rules. The current
 [source-surface specification](../specification/source-surface.md#function-declaration-binders)
 owns declaration parsing and formatting behavior.
 
@@ -219,7 +221,6 @@ evidence belongs to implementation and is not a prerequisite for Ready.
 | --- | --- | --- |
 | `identity<T>(value: T) -> T` used with `Int` and `String`, in either order | Both uses succeed independently and return the matching values. | Semantic type tests and a compiler-instantiation/backend case. |
 | `wrap<T>` constructs `Some(value)` | Rigid `T` flows through the constructor and inferred call result. | Semantic tests for generic ADT substitution. |
-| Generic definition returns `0` as arbitrary `T`, or uses integer `+` on `T` | Definition fails even when its only caller supplies `Int`, and when it has no callers. | Definition-check and human/JSON diagnostic cases. |
 | `identity<Int>(42)`, wrong explicit arity, or `identity<Int>("hello")` | Accept the first; reject the other two without changing the reusable scheme. | Source and call-check fixtures. |
 | `empty<T>() -> Vec<T>` with expected `Vec<Int>` or explicit `<Int>` | Resolve `T` and produce an empty vector of that type. | Contextual call and lowering tests. |
 | Result-only instance with no resolving context | A pending direct local initializer reports incompleteness at the binding if unused or unresolved; other unresolved calls report ambiguity at the call. | Diagnostic and later-completion cases under Q3. |
@@ -479,13 +480,13 @@ the existing ABI does not establish that they already pass.
 
 ### Q7: Artifacts, tooling, and diagnostics
 
-The syntax tree already retains ordered type binders, the optional row binder,
-and source spans. Semantic schemes must identify each binder by owning
-declaration identity, kind (ordinary type or effect row), and ordinal. Printed
-names are presentation, not identity. Instantiations and recovery unknowns are
-distinct from rigid binders. Core and typed IR retain schemes on declarations
-and each accepted call's substitution until the erasure boundary; JVM emission
-follows Q6.
+The syntax tree and lowered AST already retain ordered type binders, the
+optional row binder, and source spans. Semantic function declarations identify
+each ordinary binder by owning declaration identity and ordinal. Printed names
+are presentation, not identity. The remaining scheme representation must also
+distinguish ordinary binders, effect-row binders, instantiations, and recovery
+unknowns. Core and typed IR retain schemes on declarations and each accepted
+call's substitution until the erasure boundary; JVM emission follows Q6.
 
 Package/interface artifacts retain ordered binders, signature structure,
 effects, and referenced nominal declaration identities. Re-exporting a function
@@ -519,21 +520,21 @@ that contract.
 
 ### Q8: Callable forms and executable contracts
 
-The source parser already restricts ordinary type binders to ordinary
-fixed-arity functions and rejects generic `test`, variadic, and `callsite`
-declarations. Semantic analysis must not silently drop a retained quantifier or
-expose a partially generic signature. Existing nongeneric and row-only forms
-retain their current rules. A fixed-arity generic function may still accept a
-compatible monomorphic callback, subject to existing callback compatibility.
+The source parser restricts ordinary type binders to ordinary fixed-arity
+functions and rejects generic `test`, variadic, and `callsite` declarations.
+The current [type](../specification/types.md#usage-and-annotations) and
+[contract](../specification/contracts.md#predicate-usage-and-validation)
+specifications own rigid binder scope through function signatures, bodies, and
+executable contracts. Existing nongeneric and row-only forms retain their
+current rules.
 
-Check every executable precondition and postcondition under the same rigid
-binders as the body. Calls in contracts instantiate independent helpers;
-contracts cannot specialize `T` from callers. A contract passing a `T` to an
-`Int`-only operation is invalid even when all callers use `Int`. A contract
-using an operation already valid for that rigid type follows the existing
-contract execution and effect rules. No new equality, ordering, schema, or
-proof capability is granted merely by writing a binder. Generic static proof
-abstraction and contract-bearing callable types remain separate proposals.
+The remaining scheme implementation must not expose a partially generic
+signature. Calls in contracts instantiate independent helpers; contracts
+cannot specialize an enclosing `T` from callers. A fixed-arity generic
+function may accept a compatible monomorphic callback, subject to existing
+callback compatibility. No new equality, ordering, schema, or proof capability
+is granted merely by writing a binder. Generic static proof abstraction and
+contract-bearing callable types remain separate proposals.
 
 ### Q9: Larger polymorphism
 
@@ -568,7 +569,7 @@ support still needs the changes and acceptance coverage described here.
 | Concern | Existing starting point | Planned change |
 | --- | --- | --- |
 | Typed generic calls | Function syntax retains ordinary and effect binders with spans, declaration checking resolves ordinary binders by declaration identity, and named-call suffixes distinguish balanced type arguments from comparisons. | Connect typed calls to schemes under Q1 without changing the source grammar. |
-| Rigid definitions and independent instances | Semantic function signatures carry parameter, result, and effect information; current private inference is monomorphic. | Represent declaration-owned ordinary binders and schemes, check definitions rigidly, and create fresh substitutions at non-recursive uses. Keep recursive-group references rigid under Q9. |
+| Rigid definitions and independent instances | Semantic function signatures carry declaration-owned ordinary binders through annotations and rigid body checking; current private inference is monomorphic. | Represent independently instantiable schemes and create fresh substitutions at non-recursive uses. Keep recursive-group references rigid under Q9. |
 | Type and effect inference | Constructor inference already collects polarity-sensitive bounds, and effect calls already substitute one row. | Apply Q3–Q5 to generic call instances, retaining complete constraints and publishing type and row solutions together. Pending locals retain one monomorphic instance. |
 | Aliases and public interfaces | Name resolution identifies declarations and imports; function values already have monomorphic signatures. | Preserve the owning scheme for transparent aliases and exports, instantiate at monotype boundaries, and retain binder identity in versioned interfaces under Q7. |
 | JVM emission | Object method descriptors, primitive boxing, direct calls, and function-value calls already provide erased runtime boundaries. | Retain semantic substitutions through typed lowering, then emit one shared body per declaration as described in Q6. No runtime type witness or specialization mechanism is needed for the baseline. |

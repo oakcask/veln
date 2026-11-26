@@ -29,6 +29,13 @@ fn accepted(value: Int, ready: Bool) -> ()
 end
 ```
 
+For an ordinary generic function, predicate validation resolves parameter and
+named-result annotations with the same declaration-owned rigid type parameters
+as the function body. A contract cannot specialize one of those parameters
+from a caller or use an operation that is invalid for the rigid type. The
+[type specification](types.md#usage-and-annotations) defines binder scope and
+rigid checking; contract grammar, purity, and runtime timing are unchanged.
+
 Pure calls returning numbers may occur inside comparisons, and pure calls
 returning records may feed field access. A numeric expression alone is not a
 predicate: `require value + 1` is a non-boolean diagnostic. Text inside a
