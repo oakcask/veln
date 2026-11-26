@@ -223,6 +223,7 @@ evidence belongs to implementation and is not a prerequisite for Ready.
 | --- | --- | --- |
 | `identity<T>(value: T) -> T` used with `Int` and `String`, in either order | Both uses succeed independently and return the matching values. | Semantic type tests and a compiler-instantiation/backend case. |
 | `wrap<T>` constructs `Some(value)` | Rigid `T` flows through the constructor and inferred call result. | Semantic tests for generic ADT substitution. |
+| A generic definition applies integer `+` or another concrete-only operation to arbitrary `T`, including in an executable contract, with or without concrete callers | Reject the definition without specializing its rigid parameter from observed calls. | Definition-check tests plus human and JSON diagnostic cases. |
 | `identity<Int>(42)`, wrong explicit arity, or `identity<Int>("hello")` | Accept the first; reject the other two without changing the reusable scheme. | Source and call-check fixtures. |
 | `empty<T>() -> Vec<T>` with expected `Vec<Int>` or explicit `<Int>` | Resolve `T` and produce an empty vector of that type. | Contextual call and lowering tests. |
 | Result-only instance with no resolving context | A pending direct local initializer reports incompleteness at the binding if unused or unresolved; other unresolved calls report ambiguity at the call. | Diagnostic and later-completion cases under Q3. |
