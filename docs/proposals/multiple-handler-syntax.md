@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The proposed multiple-handler expression syntax, handler ordering, context evaluation, scope preservation, or implementation acceptance gates change.
+update-when: The proposed multiple-handler expression syntax, canonical formatting and automatic migration, handler ordering, context evaluation, scope preservation, or implementation acceptance gates change.
 ---
 
 # Multiple-handler Expressions
@@ -92,10 +92,97 @@ There is no new comma-separated inline form. For example,
 and the final `end` make list boundaries explicit inside calls, records, and
 other expressions that already use commas.
 
-The formatter preserves the single-handler form. It emits each list entry
-on its own indented line, omits the optional final comma, and aligns `with`
-and the final `end` with `handle` for a block body. It preserves entry order
-and attached comments. Formatting twice produces the same source.
+## Canonical formatting and automatic migration
+
+`veln fmt` automatically rewrites eligible existing nested handles into the
+canonical form below. This is part of ordinary formatting, with no migration
+flag or semantic-analysis requirement. Existing spellings remain accepted
+input. The current [format command](../specification/command-fmt.md) owns the
+parse-before-write gate; this proposal retains that gate and its write policy.
+
+The canonical handler sequence follows nesting from outermost to innermost.
+A directly handled expression that is itself a handle contributes its entries
+after the enclosing entries. This applies to both old single-handler syntax
+and new list syntax, including mixtures. Parentheses that only group that
+direct body do not prevent flattening. Entries are never sorted, deduplicated,
+or selected by effect identity.
+
+| Input shape after eligible flattening | Canonical output |
+| --- | --- |
+| One handler and a body that formats on one line | `handle Expr with Handler(arguments)`, without a closing `end`. A one-entry list converges to this spelling. |
+| Multiple handlers and a body that formats on one line | Expression-body list form: `handle Expr with`, then one indented entry per line, then `end`. |
+| A body that is exactly `begin Body end` | Block-body list form, even with one handler. Replace that one `begin` boundary with the equivalent handled block body; preserve its bindings and cleanup region. |
+| An existing handled block body | Retain block-body list form, including a block with only one expression. Its body boundary remains explicit. |
+| Any other multiline expression body | Block-body list form containing that expression as its body. Preserve the expression's own delimiters and cleanup regions. |
+| Comments that require a list header or entry line | Retain list form even for one handler. Preserve those comment attachments. |
+
+The expression-body form remains on one header line regardless of its length;
+this proposal adds no line-width heuristic. Multiline handler arguments use
+the existing argument layout. Every list entry starts one tab deeper than
+`handle`, commas separate entries, and the last entry has no trailing comma.
+For block-body form, `with` and the final `end` align with `handle`; body lines
+use one additional tab. An explicit body boundary is retained even when its
+body is empty or contains only one expression; formatting does not remove a
+cleanup region merely because the current statements appear simple.
+
+For example, both parenthesized and unparenthesized versions of this old chain:
+
+```veln
+handle (handle body() with inner(b())) with outer(a())
+```
+
+format as:
+
+```veln
+handle body() with
+	outer(a()),
+	inner(b())
+end
+```
+
+Likewise, this input:
+
+```veln
+handle begin
+	let input = read_input()
+	process(input)
+end with input_handler()
+```
+
+formats as:
+
+```veln
+handle
+	let input = read_input()
+	process(input)
+with
+	input_handler()
+end
+```
+
+Flattening follows only the direct handled-expression chain. It does not
+cross a `begin` body, statement, `defer`, function call, branch, or postfix
+operator. In particular, `handle (handle body() with inner())? with outer()`
+keeps the inner handle inside the `?` operand. A `begin` containing only an
+inner handle still marks a body boundary: converting the enclosing `begin`
+to block-body syntax does not merge that inner handle into the outer list.
+An explicit `begin` nested inside another expression retains its own region.
+
+Comments attached to handler applications move with their corresponding
+entries. Body comments remain in the body. A comment attached to a delimiter
+or grouping boundary that would disappear prevents that flattening or syntax
+conversion unless its attachment can be preserved in the resulting syntax.
+When a rewrite cannot preserve comment attachment, format that region with
+its nesting intact; continue canonicalizing eligible regions elsewhere.
+This is a defined boundary of canonicalization, not permission to discard
+comments or guess a new attachment.
+
+Formatting must preserve the ordered nesting contract, including argument
+evaluation count and scope, body result, effect inference, and cleanup timing.
+Formatting the output again must produce identical bytes. For comment-free
+eligible inputs with the same direct nesting and body, legacy nesting and
+list spelling must produce identical canonical output. The eight-prefix
+motivating example must be rewritten automatically to the list shown above.
 
 ## Ordered nesting contract
 
@@ -188,14 +275,17 @@ two paths with the same defect do not count as sufficient evidence.
 | --- | --- | --- |
 | Source forms | Accept both new forms, one and multiple entries, final comma, nested blocks, and use as a call argument or record field. Keep existing single-handler parsing. | Executable source grammar and accepted fixtures; syntax parser tests. |
 | Invalid syntax | Reject every invalid form in the source table without consuming the next enclosing item during recovery. | Rejected grammar fixtures and parser recovery tests. |
-| Formatting | Preserve order and comments; produce the stated layout and an idempotent second format. | Formatter tests and a checked CLI formatting case. |
+| Canonical convergence | Legacy nesting, parenthesized direct nesting, mixed single/list nesting, and an already flat list produce the same outermost-first output. A one-entry list with a simple body becomes the short single-handler form; `handle begin` becomes the handled block form. | Formatter golden tests and checked CLI before/after formatting cases, including the eight-prefix motivating input. |
+| Formatting stability | Preserve entry order, duplicate effects, argument expressions, and comments; remove the final comma. A second format produces identical bytes. | Formatter tests and checked CLI idempotence cases. |
+| Migration boundaries | Preserve nesting across `?`, `begin` body statements, deferred cleanup, calls, and branches. Preserve delimiter comments or retain the affected nesting. Parse failure in any selected file leaves all files unchanged. | Formatter boundary tests and checked multi-file CLI cases. |
+| Migration semantics | Old source and its actual formatter output have the same argument trace, shadowing, retained effects, result, and failure/cleanup trace. Include the partial-entry failure and provider-capture scenarios below. | Backend and semantic checks using formatter-produced source against explicit expected observations. |
 | Independent effects | Two handlers remove their respective body effects and preserve the body result type and value. | Semantic tests and a compiler/backend integration example. |
 | Shadowing | With two handlers for `Ask`, returning `1` and `2`, the body observes `2`; code after the list observes its preceding handler. | Scoped Veln fake support and backend dispatch checks. |
 | Context scope and evaluation | Record outer arguments, inner arguments, and body in that order, exactly once. An inner argument performing `Ask` observes the outer entry, not itself or a later entry. | Semantic effect assertions and backend trace assertions. |
 | Dependency direction | An outer `Ask` handler discharges `Ask` retained by an inner handler. Reversing the entries retains `Ask`; a public boundary must declare it. An outer argument's `Ask` remains outside that entry. | Semantic tests and checked diagnostic examples with entry spans and human related notes. |
 | Partial entry and exit | Fail a later argument; fail and propagate from the body; verify later work is absent, body cleanup sees active handlers, and surrounding handlers are restored. Include cleanup-failure precedence. | Backend effect-injection and deferred-cleanup tests. |
 | Tasks and provider capture | A child inherits both entries; a provider-bound resource keeps the creating provider after scope exit; cancellation restores enclosing frames. | Backend effect-injection and provider-boundary tests. |
-| Motivating migration | Replace the eight-prefix expressions in the direct-validation helper with lists in reversed clause order. Keep existing operation, outcome, and snapshot assertions passing. | Existing stdlib companion tests for the direct IO facade. |
+| Motivating migration | Running the formatter replaces the eight-prefix expressions in the direct-validation helper with lists in reversed clause order. Keep existing operation, outcome, and snapshot assertions passing. | Formatter before/after evidence and existing stdlib companion tests for the direct IO facade. |
 
 New CLI examples under `examples/specification/` target syntax, formatting,
 compiler diagnostics, or backend integration. They do not replace stdlib API
@@ -214,7 +304,8 @@ statement, handler bundles, or IO API redesign are part of this delivery.
 Before completion, run the relevant syntax, semantic, backend effect-boundary,
 effect-injection, stdlib, and checked-example suites through the repository's
 guarded runners. Promote implemented syntax and behavior to the source-surface,
-effects, and execution specifications with executable evidence, then remove
+effects, execution, and format-command specifications with executable evidence,
+then remove
 this proposal and its catalog entry. This documentation-only proposal does
 not update current specifications or executable cases because the new forms
 are not implemented yet.
