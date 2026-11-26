@@ -1108,6 +1108,7 @@ fn first_rejected_dependency_revision_cannot_escape_cached_navigation() {
 
 #[test]
 fn rejected_dependency_with_changed_source_identity_retains_accepted_navigation() {
+    crate::language_resources::reset_workspace_navigation_builds();
     let workspace = TempWorkspace::new("changed-rejected-dependency-identity");
     write_documented_workspace(&workspace);
     let mut server = initialized_server_with_embedded_resources(&workspace);
@@ -1119,6 +1120,8 @@ fn rejected_dependency_with_changed_source_identity_retains_accepted_navigation(
         server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
     let accepted_signature =
         server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":15}));
+
+    assert_eq!(crate::language_resources::workspace_navigation_builds(), 1);
 
     write_rejected_effect_dependency_workspace(
         &workspace,
@@ -1137,6 +1140,7 @@ fn rejected_dependency_with_changed_source_identity_retains_accepted_navigation(
         server.signature_help_tool(&json!({"source":"main.veln","line":4,"column":15})),
         accepted_signature
     );
+    assert_eq!(crate::language_resources::workspace_navigation_builds(), 1);
     assert_rejected_dependency_text_is_unpublished(&mut server, "rejected replacement text");
 }
 

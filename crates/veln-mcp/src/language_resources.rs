@@ -55,8 +55,17 @@ impl InitialPackageDocumentation {
 #[derive(Clone)]
 struct WorkspaceNavigation {
     workspace_key: Value,
+    accepted_identity: Option<Arc<()>>,
     documentation_revisions: Vec<DocumentationRevisionKey>,
     snapshot: Arc<EffectiveProjectSnapshot>,
+}
+
+impl WorkspaceNavigation {
+    fn matches_accepted(&self, identity: &Arc<()>) -> bool {
+        self.accepted_identity
+            .as_ref()
+            .is_some_and(|cached| Arc::ptr_eq(cached, identity))
+    }
 }
 
 #[derive(Clone)]
@@ -71,6 +80,8 @@ struct AnalyzedDependencies {
 struct AcceptedAnalysis {
     dependencies: Arc<AnalyzedDependencies>,
     workspace_files: Vec<veln_source::SourceFile>,
+    // A token belongs to one immutable accepted workspace and dependency view.
+    navigation_identity: Arc<()>,
 }
 
 #[derive(Clone, Default)]
@@ -216,7 +227,7 @@ pub(crate) struct LanguageResources {
     standard_library_navigation: EffectiveProjectSnapshot,
     dependency_navigation: Option<(Vec<RetainedPackageKey>, EffectiveProjectSnapshot)>,
     workspace_navigation: Option<WorkspaceNavigation>,
-    read_only_workspace_navigation: Option<(Value, Arc<EffectiveProjectSnapshot>)>,
+    read_only_workspace_navigation: Option<WorkspaceNavigation>,
     analysis_scopes: BTreeMap<DependencyAnalysisScope, AnalysisScopeState>,
     analyzed_dependency_scope_order: VecDeque<DependencyAnalysisScope>,
     analysis_scope_history_saturated: bool,
@@ -594,6 +605,7 @@ impl LanguageResources {
                 accepted: Some(AcceptedAnalysis {
                     dependencies: analyzed,
                     workspace_files,
+                    navigation_identity: Arc::new(()),
                 }),
                 rejected: false,
                 capture_key: None,
@@ -731,10 +743,25 @@ impl LanguageResources {
             .insert(dependency_revision_key(dependencies));
         self.analyzed_dependency_scope_order
             .retain(|retained| retained != &scope);
-        self.analyzed_dependency_scope_order.push_back(scope);
+        self.analyzed_dependency_scope_order
+            .push_back(scope.clone());
         self.evict_analyzed_dependency_scopes();
-        self.workspace_navigation = None;
-        self.read_only_workspace_navigation = None;
+        let retained_identity = self
+            .analysis_scopes
+            .get(&scope)
+            .and_then(|state| state.accepted.as_ref())
+            .map(|accepted| Arc::clone(&accepted.navigation_identity));
+        self.workspace_navigation = self.workspace_navigation.take().filter(|cached| {
+            retained_identity
+                .as_ref()
+                .is_some_and(|identity| cached.matches_accepted(identity))
+        });
+        self.read_only_workspace_navigation =
+            self.read_only_workspace_navigation.take().filter(|cached| {
+                retained_identity
+                    .as_ref()
+                    .is_some_and(|identity| cached.matches_accepted(identity))
+            });
     }
 
     fn ensure_dependency_capacity(
@@ -909,36 +936,44 @@ impl LanguageResources {
             return Ok(Arc::clone(&cached.snapshot));
         }
 
-        let (dependencies, files) =
-            match self.dependency_analysis_selection(&analysis_scope, captured_dependencies) {
-                DependencyAnalysisSelection::Admitted(dependencies) => (
-                    AdmittedDependencies {
-                        keys: dependencies.keys,
-                        revision_keys: dependencies.documentation_revisions,
-                        snapshots: dependencies.snapshots,
-                    },
-                    files,
-                ),
-                DependencyAnalysisSelection::Rejected(Some(accepted)) => (
-                    AdmittedDependencies {
-                        keys: accepted.dependencies.keys.clone(),
-                        revision_keys: accepted.dependencies.documentation_revisions.clone(),
-                        snapshots: accepted.dependencies.snapshots.clone(),
-                    },
-                    accepted.workspace_files,
-                ),
-                DependencyAnalysisSelection::Rejected(None) => (
-                    AdmittedDependencies {
-                        keys: Vec::new(),
-                        revision_keys: Vec::new(),
-                        snapshots: Vec::new(),
-                    },
-                    Vec::new(),
-                ),
-                DependencyAnalysisSelection::Unanalyzed => {
-                    (self.admit_dependencies(captured_dependencies)?, files)
-                }
-            };
+        let selection = self.dependency_analysis_selection(&analysis_scope, captured_dependencies);
+        let accepted_identity =
+            self.accepted_navigation_identity(&analysis_scope, &selection, &files);
+        if let Some(mut cached) = self.cached_accepted_navigation(accepted_identity.as_ref()) {
+            cached.workspace_key = workspace_key;
+            let snapshot = Arc::clone(&cached.snapshot);
+            self.workspace_navigation = Some(cached);
+            return Ok(snapshot);
+        }
+        let (dependencies, files) = match selection {
+            DependencyAnalysisSelection::Admitted(dependencies) => (
+                AdmittedDependencies {
+                    keys: dependencies.keys,
+                    revision_keys: dependencies.documentation_revisions,
+                    snapshots: dependencies.snapshots,
+                },
+                files,
+            ),
+            DependencyAnalysisSelection::Rejected(Some(accepted)) => (
+                AdmittedDependencies {
+                    keys: accepted.dependencies.keys.clone(),
+                    revision_keys: accepted.dependencies.documentation_revisions.clone(),
+                    snapshots: accepted.dependencies.snapshots.clone(),
+                },
+                accepted.workspace_files,
+            ),
+            DependencyAnalysisSelection::Rejected(None) => (
+                AdmittedDependencies {
+                    keys: Vec::new(),
+                    revision_keys: Vec::new(),
+                    snapshots: Vec::new(),
+                },
+                Vec::new(),
+            ),
+            DependencyAnalysisSelection::Unanalyzed => {
+                (self.admit_dependencies(captured_dependencies)?, files)
+            }
+        };
         let dependency_keys = dependencies.keys;
         let documentation_revisions = dependencies.revision_keys;
         let snapshot = if dependencies.snapshots.is_empty() {
@@ -967,6 +1002,7 @@ impl LanguageResources {
         let snapshot = Arc::new(snapshot);
         self.workspace_navigation = Some(WorkspaceNavigation {
             workspace_key,
+            accepted_identity,
             documentation_revisions,
             snapshot: Arc::clone(&snapshot),
         });
@@ -980,27 +1016,39 @@ impl LanguageResources {
         analysis_scope: DependencyAnalysisScope,
         workspace_key: Value,
     ) -> Arc<EffectiveProjectSnapshot> {
-        if let Some((cached_workspace_key, snapshot)) = &self.read_only_workspace_navigation
-            && cached_workspace_key == &workspace_key
+        if let Some(cached) = &self.read_only_workspace_navigation
+            && cached.workspace_key == workspace_key
         {
-            return Arc::clone(snapshot);
+            return Arc::clone(&cached.snapshot);
         }
-
-        let (dependencies, files) = match self
-            .dependency_analysis_selection(&analysis_scope, captured_dependencies)
-        {
-            DependencyAnalysisSelection::Admitted(dependencies) => (dependencies.snapshots, files),
+        let selection = self.dependency_analysis_selection(&analysis_scope, captured_dependencies);
+        let accepted_identity =
+            self.accepted_navigation_identity(&analysis_scope, &selection, &files);
+        if let Some(mut cached) = self.cached_accepted_navigation(accepted_identity.as_ref()) {
+            cached.workspace_key = workspace_key;
+            let snapshot = Arc::clone(&cached.snapshot);
+            self.read_only_workspace_navigation = Some(cached);
+            return snapshot;
+        }
+        let (dependencies, files, documentation_revisions) = match selection {
+            DependencyAnalysisSelection::Admitted(dependencies) => (
+                dependencies.snapshots,
+                files,
+                dependencies.documentation_revisions,
+            ),
             DependencyAnalysisSelection::Rejected(Some(accepted)) => (
                 accepted.dependencies.snapshots.clone(),
                 accepted.workspace_files,
+                accepted.dependencies.documentation_revisions.clone(),
             ),
-            DependencyAnalysisSelection::Rejected(None) => (Vec::new(), Vec::new()),
+            DependencyAnalysisSelection::Rejected(None) => (Vec::new(), Vec::new(), Vec::new()),
             DependencyAnalysisSelection::Unanalyzed => (
                 captured_dependencies
                     .iter()
                     .filter_map(captured_dependency_navigation)
                     .collect::<Vec<_>>(),
                 files,
+                Vec::new(),
             ),
         };
         let snapshot = if dependencies.is_empty() {
@@ -1013,7 +1061,12 @@ impl LanguageResources {
         #[cfg(test)]
         WORKSPACE_NAVIGATION_BUILDS.set(WORKSPACE_NAVIGATION_BUILDS.get() + 1);
         let snapshot = Arc::new(snapshot);
-        self.read_only_workspace_navigation = Some((workspace_key, Arc::clone(&snapshot)));
+        self.read_only_workspace_navigation = Some(WorkspaceNavigation {
+            workspace_key,
+            accepted_identity,
+            documentation_revisions,
+            snapshot: Arc::clone(&snapshot),
+        });
         snapshot
     }
 
@@ -1072,6 +1125,38 @@ impl LanguageResources {
                     .filter_map(|(_, revision)| self.package_docs.get(revision)),
             )
             .find_map(|documentation| documentation.declaration_uri_for_location(location))
+    }
+
+    fn accepted_navigation_identity(
+        &self,
+        scope: &DependencyAnalysisScope,
+        selection: &DependencyAnalysisSelection,
+        files: &[veln_source::SourceFile],
+    ) -> Option<Arc<()>> {
+        match selection {
+            DependencyAnalysisSelection::Rejected(Some(accepted)) => {
+                Some(Arc::clone(&accepted.navigation_identity))
+            }
+            DependencyAnalysisSelection::Admitted(_) => self
+                .analysis_scopes
+                .get(scope)
+                .and_then(|state| state.accepted.as_ref())
+                .filter(|accepted| same_workspace_files(&accepted.workspace_files, files))
+                .map(|accepted| Arc::clone(&accepted.navigation_identity)),
+            _ => None,
+        }
+    }
+
+    fn cached_accepted_navigation(
+        &self,
+        identity: Option<&Arc<()>>,
+    ) -> Option<WorkspaceNavigation> {
+        let identity = identity?;
+        self.workspace_navigation
+            .iter()
+            .chain(self.read_only_workspace_navigation.iter())
+            .find(|cached| cached.matches_accepted(identity))
+            .cloned()
     }
 
     fn dependency_analysis_selection(
