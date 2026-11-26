@@ -311,6 +311,40 @@
     }
 
     #[test]
+    fn independent_projects_share_only_the_same_standard_library_capture() {
+        let standard_library = standard_library_snapshot(
+            &[("prelude.veln", "pub fn standard() -> Int\n  1\nend\n")],
+            ["prelude.veln"],
+        );
+        let workspace = vec![source("main.veln", concat!(
+            "use prelude from \"std\"\n\n",
+            "pub fn main() -> Int\n",
+            "  prelude::standard()\n",
+            "end\n",
+        ))];
+        let left = EffectiveProjectSnapshot::new(workspace.clone())
+            .with_standard_library(standard_library.clone());
+        let right = EffectiveProjectSnapshot::new(workspace.clone())
+            .with_standard_library(standard_library);
+        reset_dependency_source_parses();
+        reset_dependency_path_classifications();
+        assert!(query_snapshot(&left, "main.veln", 4, 13).is_some());
+        assert!(query_snapshot(&right, "main.veln", 4, 13).is_some());
+        assert_eq!(dependency_source_parses(), 1);
+        assert_eq!(dependency_path_classifications(), 1);
+
+        let replacement = standard_library_snapshot(
+            &[("prelude.veln", "pub fn replacement() -> Int\n  2\nend\n")],
+            ["prelude.veln"],
+        );
+        let replaced = EffectiveProjectSnapshot::new(workspace).with_standard_library(replacement);
+        assert!(query_snapshot(&replaced, "main.veln", 4, 13).is_none());
+        assert_eq!(dependency_source_parses(), 2);
+        assert_eq!(dependency_path_classifications(), 2);
+        assert!(query_snapshot(&left, "main.veln", 4, 13).is_some());
+    }
+
+    #[test]
     fn direct_dependency_layers_reuse_prepared_standard_library_sources() {
         let standard_library = standard_library_snapshot(
             &[("prelude.veln", "pub fn standard() -> Int\n  1\nend\n")],
